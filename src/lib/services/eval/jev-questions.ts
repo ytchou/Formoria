@@ -208,9 +208,9 @@ function l1Name(slug: string): string {
   return c ? `${c.nameZh}（${c.name}）` : slug
 }
 
-/** Level key = grade, inserted 0..3, so Jev's zero-indexed score equals the grade. */
-function relevanceCriteria(): Record<string, string> {
-  return Object.fromEntries(RELEVANCE_GRADE_LEVELS.map((level, grade) => [String(grade), level]))
+/** Level index = grade 0..3, so Jev's zero-indexed score equals the grade. */
+function relevanceCriteria(): string[] {
+  return [...RELEVANCE_GRADE_LEVELS]
 }
 
 // ---------------------------------------------------------------------------
@@ -428,13 +428,17 @@ const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
   questions() {
     const isNonBrand: NoulQuestion = {
       type: 'noul',
-      instructions:
+      instructions: [
         'A submission to Formoria, a directory of Taiwanese product brands. From the name, optional description and website, and search-result snippets: is this entity definitionally NOT a product brand?',
-      criteria: [
-        'Yes only when it is clearly one of: a proxy buyer or personal shopper; a curated or multi-brand shop with no product line of its own; a marketplace, platform or retail channel; a media, blog or review site; a distributor or importer of foreign brands; an event, market or fair; an individual creator with no productised physical goods.',
-        'No when: a curated shop also has its own product line; an illustrator or character IP has at least one self-designed physical product; a named founder sells physical products under a brand name.',
-        'Uncertainty is never a yes: sparse, ambiguous or possibly-different-entity snippets mean no. Do not judge whether the brand is Taiwanese or how good it is.',
+        'Do not judge whether the brand is Taiwanese or how good it is.',
       ].join(' '),
+      criteria: {
+        true: 'It is clearly one of: a proxy buyer or personal shopper; a curated or multi-brand shop with no product line of its own; a marketplace, platform or retail channel; a media, blog or review site; a distributor or importer of foreign brands; an event, market or fair; an individual creator with no productised physical goods.',
+        false: [
+          'A curated shop also has its own product line; an illustrator or character IP has at least one self-designed physical product; a named founder sells physical products under a brand name.',
+          'Uncertainty is never a yes: sparse, ambiguous or possibly-different-entity snippets mean no.',
+        ].join(' '),
+      },
     }
     return { isNonBrand }
   },
@@ -490,10 +494,10 @@ const siteIdentity: JevCandidate<GoldenChatInput, SiteIdentityState, SiteIdentit
       type: 'noul',
       instructions:
         "Does this candidate page belong to the brand — a page the brand itself operates — rather than a third-party page that mentions, sells or aggregates it? Judge by the semantic fit between the page content and the brand's name and product type, not by string similarity to the domain.",
-      criteria: [
-        'No for: an e-commerce platform, retailer or marketplace product page; news, media, blog or review pages; directory listings, brand lists, price-comparison or search-aggregation pages; parked, expired or for-sale domains; a same-name company with a different product type.',
-        'For a scraped source page, yes only when the page shows it is content operated by the brand itself.',
-      ].join(' '),
+      criteria: {
+        true: 'The page is operated by the brand itself. For a scraped source page, the page shows it is content operated by the brand itself.',
+        false: 'An e-commerce platform, retailer or marketplace product page; news, media, blog or review pages; directory listings, brand lists, price-comparison or search-aggregation pages; parked, expired or for-sale domains; a same-name company with a different product type.',
+      },
     }
     return { owned }
   },
@@ -623,8 +627,10 @@ const intentParse: TwoStepJevCandidate<IntentParseInput, IntentParseState, Inten
       const question: NoulQuestion = {
         type: 'noul',
         instructions: `Does the query ask for products made of ${m.nameZh} (${m.nameEn})?`,
-        criteria:
-          'Yes only when the query names this material or clearly implies it. A product kind, occasion or technique alone is not a material.',
+        criteria: {
+          true: 'The query names this material or clearly implies it.',
+          false: 'The material is absent, or only a product kind, occasion or technique is mentioned. A product kind, occasion or technique alone is not a material.',
+        },
       }
       questions[m.slug] = question
     }

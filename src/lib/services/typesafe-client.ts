@@ -13,11 +13,14 @@ import { classifyHttpResponse, IN_PROCESS, withRetry } from "@/lib/retry";
 const TYPESAFE_API_URL = "https://api.typesafe.ai/v1/systemone";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-/** A yes/no question. The answer is a probability in `noul`. */
+/**
+ * A yes/no question. The answer is a probability in `noul`. `criteria`, when
+ * set, describes what a yes and a no mean; omit it unless the boundary is subtle.
+ */
 export type NoulQuestion = {
   type: "noul";
   instructions: string;
-  criteria?: string;
+  criteria?: { true: string; false: string };
 };
 
 /** Pick one option. `criteria` maps each option key to its description. */
@@ -28,13 +31,13 @@ export type ChoiceQuestion = {
 };
 
 /**
- * An ordered 2–10 level scale, zero-indexed in insertion order. `criteria` maps
- * each level key to its description.
+ * An ordered 2–10 level scale, low to high. `criteria` lists the level
+ * descriptions; a level's number is its array index, starting at 0.
  */
 export type ScoreQuestion = {
   type: "score";
   instructions: string;
-  criteria: Record<string, string>;
+  criteria: string[];
 };
 
 export type JevQuestion = NoulQuestion | ChoiceQuestion | ScoreQuestion;

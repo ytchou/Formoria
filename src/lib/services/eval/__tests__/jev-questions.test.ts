@@ -4,6 +4,7 @@ import {
   L2_SUBCATEGORIES,
   MATERIALS,
 } from '@/lib/taxonomy/ontology'
+import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import type { JevAnswer, JevQuestion, JevState } from '@/lib/services/typesafe-client'
 import { JEV_CANDIDATES, type DecideFn } from '../jev-questions'
 
@@ -48,6 +49,24 @@ function fakeDecide(
 }
 
 describe('JEV_CANDIDATES', () => {
+  it('every noul criteria is absent or a { true, false } object with non-empty strings', () => {
+    let nouls = 0
+    for (const cand of Object.values(JEV_CANDIDATES)) {
+      const questions = (cand.questions as (state: unknown) => Record<string, JevQuestion>)(undefined)
+      for (const q of Object.values(questions)) {
+        if (q.type !== 'noul') continue
+        nouls++
+        if (q.criteria === undefined) continue
+        expect(typeof q.criteria).toBe('object')
+        expect(Object.keys(q.criteria).sort()).toEqual(['false', 'true'])
+        expect(q.criteria.true.trim().length).toBeGreaterThan(0)
+        expect(q.criteria.false.trim().length).toBeGreaterThan(0)
+      }
+    }
+    // detect + siteIdentity + one per material
+    expect(nouls).toBe(2 + MATERIALS.length)
+  })
+
   it('detect: buildState picks brand fields; toOutput maps noul p>=0.5 to isNonBrand and band via bandFromProbability', () => {
     const c = JEV_CANDIDATES.detect
     const state = c.buildState(DETECT_INPUT)
@@ -265,12 +284,16 @@ describe('JEV_CANDIDATES', () => {
       query: '送給剛搬新家的朋友',
       product: { name_zh: '手作陶瓷香氛蠟燭', category_zh: '居家生活', description_zh: 'x'.repeat(600) },
     })
-    const q = cand.questions(state).grade as { type: string; criteria: Record<string, string> }
+    const q = cand.questions(state).grade as { type: string; criteria: unknown }
     expect(q.type).toBe('score')
-    expect(Object.keys(q.criteria)).toEqual(['0', '1', '2', '3'])
-    expect(q.criteria['0']).toMatch(/Irrelevant/)
-    expect(q.criteria['3']).toMatch(/Exact match/)
-    for (const desc of Object.values(q.criteria)) expect(desc.length).toBeGreaterThan(10)
+    // The API takes score criteria as an array; a level's number is its index.
+    expect(Array.isArray(q.criteria)).toBe(true)
+    const levels = q.criteria as string[]
+    expect(levels).toHaveLength(4)
+    RELEVANCE_GRADE_LEVELS.forEach((level, grade) => expect(levels[grade]).toBe(level))
+    expect(levels[0]).toMatch(/Irrelevant/)
+    expect(levels[3]).toMatch(/Exact match/)
+    for (const desc of levels) expect(desc.length).toBeGreaterThan(10)
 
     const probabilities = { '0': 0.05, '1': 0.15, '2': 0.5, '3': 0.3 }
     expect(cand.toOutput({ grade: { score: 2.05, probabilities } })).toEqual({

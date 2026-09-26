@@ -23,8 +23,10 @@ const questions: Record<string, JevQuestion> = {
     type: "noul",
     instructions:
       "A submission to Formoria, a directory of Taiwanese product brands. Is this entity definitionally NOT a product brand?",
-    criteria:
-      "Yes only when it is clearly a proxy buyer, a multi-brand shop, a marketplace, a media site, a distributor or an event.",
+    criteria: {
+      true: "It is clearly a proxy buyer, a multi-brand shop, a marketplace, a media site, a distributor or an event.",
+      false: "It sells physical products under its own brand name.",
+    },
   },
 };
 
