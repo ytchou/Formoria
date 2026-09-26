@@ -20,6 +20,7 @@ import {
   cmdDatasetValidate,
   writeGoldenItems,
   type GoldenWriteApi,
+  type GoldenWriteBody,
 } from '../llm-eval'
 import { assertCensusTarget } from '../../enrichment/eval/production-guard'
 import { PRODUCTION_PROJECT_REF } from '@/lib/supabase/project-target'
@@ -1082,7 +1083,7 @@ describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
     id,
     input: 'user text',
     expectedOutput: null,
-    status: 'ARCHIVED',
+    status: 'ACTIVE',
     metadata: {
       source: 'harvest',
       brandSlug: 'brand-a',
@@ -1094,39 +1095,112 @@ describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
   const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status })
   const noSleep = async () => {}
 
-  function fakeApi(existing: Set<string>, overrides: Partial<GoldenWriteApi> = {}) {
+  /** `existing` maps an id to the item Langfuse returns for it; absent ids 404. */
+  function fakeApi(existing: Record<string, unknown> = {}, overrides: Partial<GoldenWriteApi> = {}) {
     const created: string[] = []
+    const bodies: GoldenWriteBody[] = []
     const api: GoldenWriteApi = {
       getDataset: vi.fn(async () => ({})),
       createDataset: vi.fn(async () => ({})),
       getItem: vi.fn(async (id: string) => {
-        if (!existing.has(id)) throw httpError(404)
-        return { id, status: 'ARCHIVED' }
+        if (!(id in existing)) throw httpError(404)
+        return existing[id]
       }),
       createItem: vi.fn(async (body) => {
         created.push(body.id)
+        bodies.push(body)
         return { id: body.id }
       }),
       ...overrides,
     }
-    return { api, created }
+    return { api, created, bodies }
   }
 
-  it('skips an item that already exists as ARCHIVED (per-id lookup, not the list)', async () => {
-    const { api, created } = fakeApi(new Set(['kept']))
+  const rejected = {
+    id: 'kept',
+    status: 'ARCHIVED',
+    metadata: { humanApproval: { status: 'rejected', reviewedVia: { queueId: 'q', scoreId: 's' } } },
+  }
+
+  it('skips an item that already exists as rejected (per-id lookup, not the list)', async () => {
+    const { api, created } = fakeApi({ kept: rejected })
     const result = await writeGoldenItems([item('kept'), item('new')], { api, sleep: noSleep, minIntervalMs: 0 })
-    expect(result).toEqual({ written: 1, existing: 1, failed: [] })
+    expect(result).toEqual({ written: 1, reactivated: 0, existing: 1, failed: [] })
     expect(created).toEqual(['new'])
   })
 
+  it('skips existing reviewed and ACTIVE items without re-writing them', async () => {
+    const { api, created } = fakeApi({
+      reviewed: {
+        id: 'reviewed',
+        status: 'ACTIVE',
+        metadata: { humanApproval: { status: 'approved', reviewedVia: { queueId: 'q', scoreId: 's' } } },
+      },
+      'archived-reviewed': {
+        id: 'archived-reviewed',
+        status: 'ARCHIVED',
+        metadata: { humanApproval: { status: 'pending', reviewedVia: { queueId: 'q', scoreId: 's' } } },
+      },
+      'active-pending': {
+        id: 'active-pending',
+        status: 'ACTIVE',
+        metadata: { humanApproval: { status: 'pending' } },
+      },
+      'archived-bare': { id: 'archived-bare', status: 'ARCHIVED' },
+    })
+    const result = await writeGoldenItems(
+      [item('reviewed'), item('archived-reviewed'), item('active-pending'), item('archived-bare')],
+      { api, sleep: noSleep, minIntervalMs: 0 },
+    )
+    expect(result).toEqual({ written: 0, reactivated: 0, existing: 4, failed: [] })
+    expect(created).toEqual([])
+  })
+
+  it('reactivates an ARCHIVED pending item as ACTIVE, keeping its stored input, expectedOutput and metadata', async () => {
+    const stored = {
+      id: 'legacy',
+      datasetId: 'ds-1',
+      status: 'ARCHIVED',
+      input: 'stored user text',
+      expectedOutput: { decisions: [{ candidateUrl: 'https://shop.com/a' }] },
+      metadata: {
+        source: 'capture',
+        prelabel: { author: 'system', status: 'draft' },
+        humanApproval: { status: 'pending' },
+      },
+    }
+    const { api, bodies } = fakeApi({ legacy: stored })
+    const result = await writeGoldenItems([item('legacy')], { api, sleep: noSleep, minIntervalMs: 0 })
+    expect(result).toEqual({ written: 0, reactivated: 1, existing: 0, failed: [] })
+    expect(bodies).toEqual([
+      {
+        datasetName: 'acquisition-plan-golden',
+        id: 'legacy',
+        input: 'stored user text',
+        expectedOutput: stored.expectedOutput,
+        status: 'ACTIVE',
+        metadata: stored.metadata,
+      },
+    ])
+  })
+
+  it('reports an unconfirmed reactivation as failed', async () => {
+    const { api } = fakeApi(
+      { legacy: { id: 'legacy', status: 'ARCHIVED', input: 'x', metadata: { humanApproval: { status: 'pending' } } } },
+      { createItem: vi.fn(async () => ({})) },
+    )
+    const result = await writeGoldenItems([item('legacy')], { api, sleep: noSleep, minIntervalMs: 0, retries: 2 })
+    expect(result).toEqual({ written: 0, reactivated: 0, existing: 0, failed: ['legacy'] })
+  })
+
   it('creates the dataset only on a genuine 404', async () => {
-    const { api } = fakeApi(new Set(), { getDataset: vi.fn(async () => Promise.reject(httpError(404))) })
+    const { api } = fakeApi({}, { getDataset: vi.fn(async () => Promise.reject(httpError(404))) })
     await writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 })
     expect(api.createDataset).toHaveBeenCalledTimes(1)
   })
 
   it('aborts without writing when the dataset read fails for any other reason', async () => {
-    const { api, created } = fakeApi(new Set(), {
+    const { api, created } = fakeApi({}, {
       getDataset: vi.fn(async () => Promise.reject(httpError(500))),
     })
     await expect(
@@ -1137,7 +1211,7 @@ describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
   })
 
   it('aborts when an item lookup fails with a non-404 error', async () => {
-    const { api, created } = fakeApi(new Set(), {
+    const { api, created } = fakeApi({}, {
       getItem: vi.fn(async () => Promise.reject(httpError(500))),
     })
     await expect(
@@ -1148,7 +1222,7 @@ describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
 
   it('retries a create that resolved without an id (the SDK swallows 429) and counts only confirmed writes', async () => {
     let calls = 0
-    const { api } = fakeApi(new Set(), {
+    const { api } = fakeApi({}, {
       createItem: vi.fn(async (body) => {
         calls += 1
         if (body.id === 'flaky' && calls === 1) return 'Rate limit exceeded'
@@ -1163,13 +1237,13 @@ describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
       minIntervalMs: 0,
       retries: 3,
     })
-    expect(result).toEqual({ written: 1, existing: 0, failed: ['dead'] })
+    expect(result).toEqual({ written: 1, reactivated: 0, existing: 0, failed: ['dead'] })
     expect(sleep).toHaveBeenCalled()
   })
 
   it('retries a lookup that hit 429', async () => {
     let calls = 0
-    const { api, created } = fakeApi(new Set(), {
+    const { api, created } = fakeApi({}, {
       getItem: vi.fn(async () => {
         calls += 1
         throw httpError(calls === 1 ? 429 : 404)
@@ -1181,7 +1255,7 @@ describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
   })
 
   it('paces calls at least minIntervalMs apart', async () => {
-    const { api } = fakeApi(new Set())
+    const { api } = fakeApi()
     const waits: number[] = []
     let clock = 0
     await writeGoldenItems([item('a'), item('b')], {

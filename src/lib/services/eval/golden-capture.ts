@@ -204,7 +204,7 @@ export type GoldenItemBody = {
   id: string
   input: string
   expectedOutput: { context: unknown } | null
-  status: 'ARCHIVED'
+  status: 'ACTIVE'
   metadata: {
     source: GoldenSource
     brandSlug: string
@@ -229,9 +229,11 @@ function goldenItemId(prompt: GoldenPrompt, brandSlug: string, user: string): st
  * whose context cannot be derived, keeps one item per (prompt, brand, user
  * message), and keeps only the first plan turn per (job, brand). Every
  * plan-loop turn repeats the same first user message, so rows with no job
- * collapse through the user message. Items are written ARCHIVED with a
- * pending `humanApproval`, the same state `prelabelItem` keeps, so none
- * reaches a run before review.
+ * collapse through the user message. Items are written ACTIVE with a
+ * pending `humanApproval`, the same state `prelabelItem` keeps: the dataset
+ * listing omits ARCHIVED items (ARCHIVED means rejected), and a run admits
+ * only items carrying `humanApproval.reviewedVia`, so none reaches a run
+ * before review.
  */
 function toGoldenItems(records: readonly GoldenCallRecord[]): GoldenItemBody[] {
   const ordered = [...records].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -259,7 +261,7 @@ function toGoldenItems(records: readonly GoldenCallRecord[]): GoldenItemBody[] {
       // The critique's label is drafted by `dataset prelabel`; rule-only sets
       // already know everything their scorers need.
       expectedOutput: record.prompt === 'acquisition-critique' ? null : { context },
-      status: 'ARCHIVED',
+      status: 'ACTIVE',
       metadata: {
         source: record.source,
         brandSlug: record.brandSlug,
