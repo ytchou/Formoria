@@ -33,6 +33,8 @@ type EvalSinkRecord = {
   ok: boolean;
   status: number | null;
   error: string | null;
+  finishReason: string | null;
+  responseFormat: string | null;
 };
 
 /** Pulls the audit envelope written by llm-audit.ts back apart. */
@@ -41,6 +43,7 @@ function readEnvelope(rawResponse: unknown): {
   ok: boolean;
   status: number | null;
   error: string | null;
+  finishReason: string | null;
 } {
   if (!rawResponse || typeof rawResponse !== "object") {
     return {
@@ -48,6 +51,7 @@ function readEnvelope(rawResponse: unknown): {
       ok: false,
       status: null,
       error: "unreadable audit envelope",
+      finishReason: null,
     };
   }
   const envelope = rawResponse as {
@@ -55,8 +59,12 @@ function readEnvelope(rawResponse: unknown): {
     status?: unknown;
     error?: unknown;
     usage?: EvalSinkRecord["usage"];
-    response?: { usage?: EvalSinkRecord["usage"] };
+    response?: {
+      usage?: EvalSinkRecord["usage"];
+      choices?: Array<{ finish_reason?: unknown }>;
+    };
   };
+  const finishReason = envelope.response?.choices?.[0]?.finish_reason;
   return {
     // `usage` is hoisted to the envelope by llm-audit, but only on success; the
     // raw response still carries it, so fall back rather than reporting zero
@@ -65,7 +73,19 @@ function readEnvelope(rawResponse: unknown): {
     ok: envelope.ok === true,
     status: typeof envelope.status === "number" ? envelope.status : null,
     error: typeof envelope.error === "string" ? envelope.error : null,
+    finishReason: typeof finishReason === "string" ? finishReason : null,
   };
+}
+
+/**
+ * Request mode tag (`json_schema` | `json_object` | `none`) from an audit
+ * event's `meta`. Lives here, not in llm-audit.ts, because llm-audit already
+ * reaches this module through `_shared/ai-results`; the reverse import would cycle.
+ */
+export function readResponseFormat(meta: unknown): string | null {
+  const format = (meta as { responseFormat?: unknown } | null | undefined)
+    ?.responseFormat;
+  return typeof format === "string" ? format : null;
 }
 
 export function writeEvalSinkRecord(input: {
@@ -75,6 +95,7 @@ export function writeEvalSinkRecord(input: {
   model: string;
   latencyMs: number;
   rawResponse: unknown;
+  input?: unknown;
 }): void {
   const envelope = readEnvelope(input.rawResponse);
   const record: EvalSinkRecord = {
@@ -84,6 +105,9 @@ export function writeEvalSinkRecord(input: {
     model: input.model,
     latencyMs: Math.round(input.latencyMs),
     ...envelope,
+    responseFormat: readResponseFormat(
+      (input.input as { meta?: unknown } | null | undefined)?.meta,
+    ),
   };
   appendFileSync(input.path, `${JSON.stringify(record)}\n`);
 }

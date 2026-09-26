@@ -82,11 +82,15 @@ import {
   type SearchResult,
 } from './tools'
 import {
+  abnormalCompletion,
+  abnormalDetail,
+  abnormalErrorCode,
   contentText,
   extractJson,
   withNodeSpan,
   withSchema,
   withSignal,
+  type AbnormalCompletionKind,
   type AgentModel,
   type AgentModelResponse,
 } from '../agents/runtime'
@@ -239,6 +243,8 @@ type RunContext = {
   pageTitles: Map<string, string>
   submittedPlan: AcquisitionPlanType | null
   badSubmits: number
+  /** A plan-loop reply that asking again cannot fix (DEV-1866); ends the plan stage. */
+  abnormalPlan: { kind: AbnormalCompletionKind; detail: string } | null
   planModelCalls: number
   providerThrew: boolean
   wallClockStart: number
@@ -282,6 +288,7 @@ function createRunContext(
     pageTitles: new Map(),
     submittedPlan: null,
     badSubmits: 0,
+    abnormalPlan: null,
     planModelCalls: 0,
     providerThrew: false,
     wallClockStart,
@@ -582,6 +589,8 @@ function buildPlanLoopGraph(
     .addNode('model', async (state) => {
       const response = await ctx.invokeModel(model, state.messages, planSignal, definitions)
       ctx.planModelCalls += 1
+      const kind = abnormalCompletion(response)
+      if (kind) ctx.abnormalPlan = { kind, detail: abnormalDetail(kind, response) }
       return { messages: [toAssistantMessage(response)] }
     })
     // Sequential on purpose: every tool spends from one shared budget, so two
@@ -614,6 +623,9 @@ function buildPlanLoopGraph(
     })
     .addEdge(START, 'model')
     .addConditionalEdges('model', (state): 'tools' | typeof END => {
+      // A refused, cut-off, or filtered reply is not a plan in prose: stop here
+      // and let planNode report it instead of parsing it.
+      if (ctx.abnormalPlan) return END
       if (ctx.submittedPlan) return END
       const last = lastAssistant(state.messages)
       if (toolCallsOf(last).length > 0) return 'tools'
@@ -713,6 +725,14 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
     )
   }
 
+  // A refused, cut-off, or filtered loop reply would get the same answer from
+  // the single call on the same input, so the stage ends here (DEV-1866).
+  if (ctx.abnormalPlan) {
+    const { kind, detail } = ctx.abnormalPlan
+    ctx.record('plan', kind, detail, start)
+    return { agentOutcome: 'fallback', error: abnormalErrorCode(kind) }
+  }
+
   // 2. Single-call fallback — one tool-less free-text call, parsed with
   //    `extractJson` and adopted by `adoptPlanFromText`, tried at most once.
   //    PLAN_FALLBACK_NOTE overrides the system trailer's submit_plan request
@@ -727,6 +747,11 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
       { role: 'user', content: PLAN_FALLBACK_NOTE },
     ])
     ctx.planModelCalls += 1
+    const kind = abnormalCompletion(response)
+    if (kind) {
+      ctx.record('plan', kind, abnormalDetail(kind, response), start)
+      return { agentOutcome: 'fallback', error: abnormalErrorCode(kind) }
+    }
     const adopted = adoptPlanFromText(ctx, contentText(response))
     ctx.record(
       'plan',
@@ -1068,6 +1093,14 @@ async function critiqueNode(
     return { verdict: { verdict: 'sufficient', reason: 'critique error, accepting results' } }
   }
 
+  // A refused, cut-off, or filtered verdict is accepted like an unparseable
+  // one, but the decision names the real cause (DEV-1866).
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) {
+    ctx.record('critique', abnormal, abnormalDetail(abnormal, response), start)
+    return { verdict: PARSE_FAILED_VERDICT }
+  }
+
   let verdict: CritiqueVerdict
   try {
     verdict = parseCritiqueVerdict(contentText(response)) ?? PARSE_FAILED_VERDICT
@@ -1090,8 +1123,9 @@ const PARSE_FAILED_VERDICT: CritiqueVerdict = {
 
 /**
  * A missing situational key reads as `null`. Strict json_schema always sends
- * both, but the client falls back to json_object when a model rejects
- * json_schema, and a verdict that merely omits an unused key is still a verdict.
+ * both, but the client falls back to json_object (appending the schema text as
+ * a system message) when a model does not support json_schema, and a verdict
+ * that merely omits an unused key is still a verdict.
  */
 function parseCritiqueVerdict(text: string): CritiqueVerdict | null {
   const raw: unknown = JSON.parse(extractJson(text))

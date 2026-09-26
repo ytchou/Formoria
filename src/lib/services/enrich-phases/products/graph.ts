@@ -85,6 +85,9 @@ import {
 } from './budget'
 import { BudgetExhausted } from '../acquisition/budget'
 import {
+  abnormalCompletion,
+  abnormalDetail,
+  abnormalErrorCode,
   contentText,
   extractJson,
   withNodeSpan,
@@ -567,6 +570,16 @@ async function proposeNode(
   const response = await ctx.invokeModel(messages, PRODUCTS_SCHEMA)
   ctx.budget.used.turns += 1
 
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) {
+    ctx.record('propose', abnormal, abnormalDetail(abnormal, response), start)
+    return {
+      proposeAttempts: attempts,
+      agentOutcome: 'fallback',
+      error: abnormalErrorCode(abnormal),
+    }
+  }
+
   let parsed: ProductsModelResult
   try {
     parsed = JSON.parse(extractJson(contentText(response))) as ProductsModelResult
@@ -914,6 +927,12 @@ async function repairNode(
     return {}
   }
   ctx.budget.used.turns += 1
+
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) {
+    ctx.record('repair', abnormal, abnormalDetail(abnormal, response), start)
+    return { dropped: state.dropped + state.repairable.length }
+  }
 
   let parsed: ProductsModelResult
   try {

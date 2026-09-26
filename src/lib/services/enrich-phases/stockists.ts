@@ -64,7 +64,7 @@ type StockistsModelResult = {
   stockists: LlmStockistEntry[];
 };
 
-const stockistsShape = z.object({
+export const stockistsShape = z.object({
   stockists: z.array(
     z.object({
       name: z.string(),

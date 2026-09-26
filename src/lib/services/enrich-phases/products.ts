@@ -87,7 +87,13 @@ import { bindBrandKey } from "./scraper/render/render-budget";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import type { CandidateImage } from "./candidate-pool";
 import { rankForProduct, type RankableImage } from "./image-ranking";
-import { createAgentModel, type AgentModel } from "./agents/runtime";
+import {
+  abnormalCompletion,
+  abnormalErrorCode,
+  createAgentModel,
+  type AbnormalCompletionKind,
+  type AgentModel,
+} from "./agents/runtime";
 import type { OpenAIJsonSchema } from "@/lib/services/openai-client";
 import {
   buildPhaseResult,
@@ -135,8 +141,9 @@ const L1_SLUGS = new Set<string>(
 /**
  * `strict: true` requires every property in `required`, so the nullable fields
  * are typed as unions rather than omitted. `openai-client` falls back to
- * `json_object` mode when a model rejects `json_schema`, and the prompt states
- * the same object contract in prose for exactly that path.
+ * `json_object` mode when a model does not support `json_schema`, appending
+ * the schema text as a system message, and the prompt states the same object
+ * contract in prose for exactly that path.
  *
  * The top level is an OBJECT with one `products` key: a bare top-level array is
  * an illegal reply under `json_object` and returned an empty object on every
@@ -748,6 +755,8 @@ type ProductsRunOutcome = {
   evaluations: Map<string, ProductCandidateEvaluation>;
   originDecisions: Map<string, CandidateOriginDecision>;
   candidateIdsByUrl: Map<string, string>;
+  /** Set when the reply was refused, length-cut or content-filtered. */
+  abnormal?: AbnormalCompletionKind;
 };
 
 type PublishProposalsOptions = {
@@ -1692,6 +1701,24 @@ export async function runProductsPhase({
               candidateIdsByUrl,
             };
           }
+          // NO ANSWER, NO OPINION: a refused, length-cut or content-filtered
+          // reply is not an answer. A feedback retry would waste a second call
+          // on the same prompt, and parsing it would publish an empty list that
+          // wipes the previous run's proposals. Stop here instead.
+          const abnormal = abnormalCompletion(response);
+          if (abnormal) {
+            return {
+              proposals: [],
+              dropped: 0,
+              dropReasons: {},
+              rawCount: 0,
+              calls: { attempted: 1, providerFailed: 0 },
+              evaluations: new Map(),
+              originDecisions: new Map(),
+              candidateIdsByUrl,
+              abnormal,
+            };
+          }
           let callCount = 1;
           let validatedContent = parseAndValidate(
             response.content ?? "",
@@ -1811,6 +1838,9 @@ export async function runProductsPhase({
       Object.assign(ctx.summary, {
         productsFromModel: result.rawCount,
         ...(parseError ? { productsParseError: true } : {}),
+        ...(result.abnormal
+          ? { productsAbnormal: abnormalErrorCode(result.abnormal) }
+          : {}),
         productsProposed: publishedProposals.length,
         productsDropped: result.dropped,
         productsDropReasons: result.dropReasons,
@@ -1845,6 +1875,29 @@ export async function runProductsPhase({
           // NO ANSWER, NO OPINION: an empty patch leaves the previous run's
           // proposals alone. Clearing them on a transient provider error would
           // destroy good proposals over a 429. See `skipped`.
+          patch: {},
+          proposals: [],
+        };
+      }
+
+      if (result.abnormal) {
+        return {
+          phaseResult: {
+            ...buildPhaseResult(
+              "products",
+              "skipped",
+              [],
+              durationMs,
+              undefined,
+              `${abnormalErrorCode(result.abnormal)}: model gave no usable answer, previous proposals kept${agentNote}`,
+            ),
+            ...(agentFallback ? { agentOutcome: agentFallback.outcome } : {}),
+            ...(catalog.zeroReason
+              ? { catalogZeroReason: catalog.zeroReason }
+              : {}),
+            productsProposed: 0,
+          },
+          // NO ANSWER, NO OPINION: same rule as the provider failure above.
           patch: {},
           proposals: [],
         };

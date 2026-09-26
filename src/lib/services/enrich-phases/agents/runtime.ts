@@ -38,6 +38,10 @@ export type AgentModelResponse = {
   content: string | null
   toolCalls?: ChatToolCall[]
   usage?: ChatUsage
+  /** The provider's `finish_reason`; `'length'` means the reply was truncated. */
+  finishReason?: string
+  /** Set when the model declined to answer; `content` is then null. */
+  refusal?: string
 }
 
 /**
@@ -83,8 +87,12 @@ function messageOf(errorBody: unknown): string {
  * row through the audited client, on success and on failure alike.
  *
  * A tool-less turn that passes `schema` is sent as strict `json_schema`, so the
- * API enforces the shape; the client falls back to `json_object` when a model
- * rejects it, which is why callers keep parsing through `extractJson`.
+ * API enforces the shape; when the model does not support `json_schema` the
+ * client falls back to `json_object` and appends the schema text as a system
+ * message, which is why callers keep parsing through `extractJson`.
+ *
+ * `finishReason` and `refusal` are passed through so a graph can stop on a
+ * refused or truncated reply instead of treating it as a parse failure.
  *
  * `schema` is dropped for a turn that passes tools — OpenAI refuses a forced
  * JSON response alongside tool definitions, and the client throws if both are
@@ -120,6 +128,8 @@ export async function createAgentModel(
         content: result.content,
         ...(result.toolCalls ? { toolCalls: result.toolCalls } : {}),
         ...(result.data?.usage ? { usage: result.data.usage } : {}),
+        ...(result.finishReason ? { finishReason: result.finishReason } : {}),
+        ...(result.refusal ? { refusal: result.refusal } : {}),
       }
     },
   }
@@ -170,6 +180,53 @@ export function withSignal(
 /** The text content of a model response. */
 export function contentText(response: AgentModelResponse): string {
   return response.content ?? ''
+}
+
+// ---------------------------------------------------------------------------
+// Abnormal completions
+// ---------------------------------------------------------------------------
+
+/**
+ * A reply that asking again cannot fix (DEV-1866). A refusal, a reply cut at
+ * the token limit, or one blocked by the content filter would fail
+ * `JSON.parse` and spend the reparse turn on the same input, so each stops the
+ * turn instead. The parameter is structural so both `AgentModelResponse` and
+ * the raw `OpenAIChatResult` fit.
+ */
+export type AbnormalCompletionKind = 'refused' | 'truncated' | 'filtered'
+
+type CompletionSignals = { finishReason?: string | null; refusal?: string | null }
+
+export function abnormalCompletion(response: CompletionSignals): AbnormalCompletionKind | null {
+  if (response.refusal) return 'refused'
+  if (response.finishReason === 'length') return 'truncated'
+  if (response.finishReason === 'content_filter') return 'filtered'
+  return null
+}
+
+/** Decision detail for an abnormal completion: the refusal text, or the finish reason. */
+export function abnormalDetail(kind: AbnormalCompletionKind, response: CompletionSignals): string {
+  return kind === 'refused'
+    ? `refusal=${(response.refusal ?? '').slice(0, 200)}`
+    : `finish_reason=${response.finishReason ?? 'none'}`
+}
+
+export function abnormalErrorCode(
+  kind: AbnormalCompletionKind,
+): 'model_refused' | 'model_truncated' | 'model_filtered' {
+  return `model_${kind}`
+}
+
+/** Thrown where a node cannot return a fallback state and must unwind instead. */
+export class AbnormalCompletionError extends Error {
+  readonly kind: AbnormalCompletionKind
+  readonly detail: string
+  constructor(kind: AbnormalCompletionKind, detail: string) {
+    super(`model reply ${kind}: ${detail}`)
+    this.name = 'AbnormalCompletionError'
+    this.kind = kind
+    this.detail = detail
+  }
 }
 
 // ---------------------------------------------------------------------------

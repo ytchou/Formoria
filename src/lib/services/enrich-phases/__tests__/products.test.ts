@@ -139,10 +139,14 @@ function singleCallEvaluation(url: string): RawProposal {
   };
 }
 
-function modelReturnsRawContent(content: string) {
+function modelReturnsRawContent(
+  content: string,
+  signals: { finishReason?: string; refusal?: string } = {},
+) {
   const chat = vi.fn().mockResolvedValue({
     response: { ok: true },
     content,
+    ...signals,
   });
   createClient.mockReturnValue({ chat });
   return chat;
@@ -1352,6 +1356,48 @@ describe("validateProductProposals", () => {
       );
       expect(rawCount).toBe(proposals.length + dropped);
     }
+  });
+});
+
+describe("single-call abnormal completion", () => {
+  it.each([
+    ["model_truncated", { finishReason: "length" }],
+    ["model_filtered", { finishReason: "content_filter" }],
+    ["model_refused", { refusal: "I cannot" }],
+  ] as const)(
+    "single_call_%s_skips_retry_and_keeps_previous_proposals",
+    async (code, signals) => {
+      const chat = modelReturnsRawContent('{"products": [', signals);
+
+      const result = await runProductsPhase({
+        brand: BRAND,
+        phases: PHASES,
+        scrapedData: SCRAPED,
+        target: { type: "submission", id: SUBMISSION_ID },
+      });
+
+      expect(chat).toHaveBeenCalledTimes(1);
+      expect(result.phaseResult.status).toBe("skipped");
+      expect(result.patch).toEqual({});
+      expect(result.proposals).toHaveLength(0);
+      expect(result.phaseResult.detail).toContain(code);
+    },
+  );
+
+  it("single_call_invalid_json_with_stop_still_retries_once", async () => {
+    const chat = modelReturnsRawContent("this is not valid JSON {{{{", {
+      finishReason: "stop",
+    });
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(result.phaseResult.status).toBe("succeeded");
   });
 });
 

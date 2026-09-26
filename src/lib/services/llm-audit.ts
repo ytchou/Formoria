@@ -3,6 +3,7 @@ import { auditedCall, getAuditContext, type ChatAuditEvent } from "@/lib/audit";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertAiCallResult } from "./_shared/ai-results";
+import { readResponseFormat } from "./eval/llm-usage-sink";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import { createOpenAIClient } from "./openai-client";
 import { priceUsage } from "./llm-pricing";
@@ -53,6 +54,7 @@ export function emitLangfuseGeneration(
     const trace = getAuditContext().langfuseTrace;
     if (trace) {
       const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
+      const responseFormat = readResponseFormat(event.meta);
       langfuseTrace.generation({
         name: `${event.provider}/chat_completions`,
         model: event.model,
@@ -74,6 +76,7 @@ export function emitLangfuseGeneration(
           ok: event.ok,
           status: event.status,
           latencyMs: event.latencyMs,
+          ...(responseFormat !== null ? { responseFormat } : {}),
         },
       });
     }
