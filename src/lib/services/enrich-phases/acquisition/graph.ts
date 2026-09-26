@@ -429,6 +429,30 @@ function titleOf(html: string): string | null {
   return title ? title.slice(0, 120) : null
 }
 
+/** Adopts the probe results and sizes the run budget from them. */
+function applyProbeResults(ctx: RunContext, probeResults: ProbeResult[]): void {
+  const pack: EvidencePack = { knownUrls: ctx.input.knownUrls, probeResults }
+  ctx.probeResults = probeResults
+  ctx.budget.allowed = ctx.options.budgetOverride
+    ? { ...ctx.options.budgetOverride }
+    : budgetFor(pack, { scale: ctx.scale })
+  ctx.budget.used = {
+    probes: probeResults.length,
+    renders: 0,
+    search: 0,
+    turns: 0,
+    wallClockMs: 0,
+  }
+
+  // The remaining wall clock is now known; tighten the deadline from the ceiling.
+  // A zero allowance means "no deadline of its own" (same guard as
+  // `wallClockExhausted`), so the ceiling signal set at construction stands.
+  const remaining = ctx.budget.allowed.wallClockMs - (Date.now() - ctx.wallClockStart)
+  if (ctx.budget.allowed.wallClockMs > 0) {
+    ctx.signal = withSignal(ctx.options.signal, AbortSignal.timeout(Math.max(1, remaining)))
+  }
+}
+
 async function gatherNode(ctx: RunContext): Promise<AcquisitionUpdate> {
   const start = Date.now()
   const probeResults: ProbeResult[] = []
@@ -452,26 +476,7 @@ async function gatherNode(ctx: RunContext): Promise<AcquisitionUpdate> {
     }
   }
 
-  const pack: EvidencePack = { knownUrls: ctx.input.knownUrls, probeResults }
-  ctx.probeResults = probeResults
-  ctx.budget.allowed = ctx.options.budgetOverride
-    ? { ...ctx.options.budgetOverride }
-    : budgetFor(pack, { scale: ctx.scale })
-  ctx.budget.used = {
-    probes: probeResults.length,
-    renders: 0,
-    search: 0,
-    turns: 0,
-    wallClockMs: 0,
-  }
-
-  // The remaining wall clock is now known; tighten the deadline from the ceiling.
-  // A zero allowance means "no deadline of its own" (same guard as
-  // `wallClockExhausted`), so the ceiling signal set at construction stands.
-  const remaining = ctx.budget.allowed.wallClockMs - (Date.now() - ctx.wallClockStart)
-  if (ctx.budget.allowed.wallClockMs > 0) {
-    ctx.signal = withSignal(ctx.options.signal, AbortSignal.timeout(Math.max(1, remaining)))
-  }
+  applyProbeResults(ctx, probeResults)
 
   ctx.record(
     'gather',
@@ -1598,5 +1603,30 @@ export async function runAcquisition(
     const message = error instanceof Error ? error.message : String(error)
     ctx.record('graph', 'threw', message.slice(0, 160), ctx.wallClockStart)
     return outputFrom(ctx.lastState, ctx, { agentOutcome: lastOutcome as AcquisitionOutput['agentOutcome'], error: `threw: ${message.slice(0, 180)}` })
+  }
+}
+
+/**
+ * Runs only the plan stage on probe results the caller already holds, so an
+ * eval can replay an `acquisition-plan` item without re-probing. The budget is
+ * sized from those probes exactly as `gather` would size it. Unlike
+ * `runAcquisition`, an aborted signal propagates as a throw.
+ */
+export async function runPlanStage(
+  input: AcquisitionInput & { probeResults: ProbeResult[] },
+  deps: AcquisitionDeps,
+  options: RunOptions = {},
+): Promise<{ plan: AcquisitionPlanType | null; decisions: Decision[]; error?: string }> {
+  const { probeResults, ...acquisitionInput } = input
+  const ctx = createRunContext(acquisitionInput, deps, options)
+  applyProbeResults(ctx, probeResults)
+  const update = await planNode(ctx)
+  // planNode's update is typed with LangGraph reducer wrappers; its error is always a plain string.
+  const error = typeof update.error === 'string' ? update.error : undefined
+  return {
+    // planNode returns `plan` only as ctx.submittedPlan, and only when it has no error.
+    plan: error ? null : (ctx.submittedPlan ?? null),
+    decisions: ctx.decisions,
+    ...(error ? { error } : {}),
   }
 }

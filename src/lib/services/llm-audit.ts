@@ -35,6 +35,47 @@ type ClientOptions = {
   model?: string;
 };
 
+/** One model call's untruncated prompt text, handed to an offline capture seam. */
+export type CapturedCall = {
+  phase: string;
+  /** Null when the client was not built from an LLM profile. */
+  profileKey: LlmProfileKey | null;
+  system: string;
+  user: string;
+  promptName: string | null;
+};
+
+let captureSeam: ((call: CapturedCall) => void) | null = null;
+
+/**
+ * Install (or clear with `null`) a seam that observes every audited chat call
+ * before truncation. Used by offline eval recording; production never sets it.
+ */
+export function setChatCaptureSeam(
+  fn: ((call: CapturedCall) => void) | null,
+): void {
+  captureSeam = fn;
+}
+
+function capture(
+  context: LlmAuditContext,
+  profileKey: LlmProfileKey | null,
+  event: ChatAuditEvent,
+): void {
+  if (!captureSeam) return;
+  try {
+    captureSeam({
+      phase: context.phase,
+      profileKey,
+      system: event.request.system,
+      user: event.request.user,
+      promptName: context.prompt?.name ?? null,
+    });
+  } catch {
+    // Capture is an offline observer; it must never fail the call.
+  }
+}
+
 function truncate(value: string): string {
   return value.length <= MAX_PROMPT_LENGTH
     ? value
@@ -139,6 +180,14 @@ export function createAuditedOpenAIClient(
   context: LlmAuditContext,
   options: ClientOptions = {},
 ) {
+  return createAuditedClient(context, options, null);
+}
+
+function createAuditedClient(
+  context: LlmAuditContext,
+  options: ClientOptions,
+  profileKey: LlmProfileKey | null,
+) {
   return {
     async chat(
       input: Parameters<ReturnType<typeof createOpenAIClient>["chat"]>[0],
@@ -161,6 +210,7 @@ export function createAuditedOpenAIClient(
           const client = createOpenAIClient({
             ...options,
             onChatComplete: async (event) => {
+              capture(context, profileKey, event);
               let costUsd: number | null = null;
               if (event.usage) {
                 try {
@@ -200,10 +250,11 @@ export function createProfiledOpenAIClient(
   context: LlmAuditContext,
   options: ClientOptions = {},
 ) {
-  return createAuditedOpenAIClient(context, {
-    ...options,
-    model: options.model ?? resolveProfileModel(profileKey),
-  });
+  return createAuditedClient(
+    context,
+    { ...options, model: options.model ?? resolveProfileModel(profileKey) },
+    profileKey,
+  );
 }
 
 type ProfileChatParams = {
