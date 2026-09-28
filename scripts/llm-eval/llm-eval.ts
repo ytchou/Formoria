@@ -70,6 +70,7 @@ export type ParsedCommand =
       arms: ArmSpec[]
       envFile?: string
       allowUnreviewed: boolean
+      split?: DatasetSplit[]
     }
   | { command: 'prompt-push'; name: string; file?: string; label?: string; allowVariableChange: boolean }
   | { command: 'prompt-pull'; add: string[]; check: boolean; allowVariableChange: boolean }
@@ -85,6 +86,21 @@ export type ParsedCommand =
       allowUnreviewed: boolean
     }
   | { command: 'pairwise-report'; runName: string }
+
+/** Golden-set splits (DEV-1896). Holdout stays untouched until tuned cutoffs are committed. */
+export const DATASET_SPLITS = ['train', 'val', 'holdout'] as const
+export type DatasetSplit = (typeof DATASET_SPLITS)[number]
+
+function parseSplit(value: string): DatasetSplit[] {
+  const parts = splitList(value)
+  if (parts.length === 0) throw new Error(`--split needs at least one of ${DATASET_SPLITS.join(', ')}`)
+  for (const part of parts) {
+    if (!(DATASET_SPLITS as readonly string[]).includes(part)) {
+      throw new Error(`Unknown --split value: ${part} (expected ${DATASET_SPLITS.join(', ')})`)
+    }
+  }
+  return parts as DatasetSplit[]
+}
 
 export function parseArm(spec: string): ArmSpec {
   const colon = spec.indexOf(':')
@@ -172,6 +188,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       datasets: { type: 'string' },
       confirm: { type: 'boolean', default: false },
       draft: { type: 'boolean', default: false },
+      split: { type: 'string' },
     },
   })
 
@@ -272,6 +289,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       arms,
       envFile: values['env-file'],
       allowUnreviewed: values['allow-unreviewed'] ?? false,
+      split: values.split !== undefined ? parseSplit(values.split) : undefined,
     }
   }
 
@@ -361,7 +379,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>] [--target production --confirm]\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
-      '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
+      '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed] [--split train,val,holdout]\n' +
       '  llm-eval prompt push <name> [--file <path>] [--label production] [--allow-variable-change]\n' +
       '  llm-eval prompt pull [--add <name>]... [--check] [--allow-variable-change]\n' +
       '  llm-eval prompt promote <name> <version> [--allow-variable-change]\n' +
@@ -716,12 +734,22 @@ type RunDatasetItem = {
 export type RunDeps = {
   /** Injectable for tests; defaults to the Langfuse client's getDataset. */
   getDataset?: (name: string) => Promise<{ items: RunDatasetItem[] }>
+  /** Injectable for tests; when set, the script experiment deps are not built. */
+  runExperiment?: (
+    input: Omit<Parameters<typeof runExperiment>[0], 'deps'>,
+  ) => ReturnType<typeof runExperiment>
+}
+
+export type RunOptions = {
+  /** Keep only items whose metadata.split is listed; undefined keeps all items. */
+  split?: DatasetSplit[]
 }
 
 export async function cmdRun(
   dataset: string,
   armSpecs: ArmSpec[],
   allowUnreviewed: boolean,
+  options: RunOptions = {},
   runDeps: RunDeps = {},
 ): Promise<void> {
   const adapter = adapterFor(dataset)
@@ -762,7 +790,18 @@ export async function cmdRun(
     console.log(`[run] ${skipped} unreviewed item(s) skipped; pass --allow-unreviewed to include them`)
   }
 
-  const items = admitted
+  const { split } = options
+  const selected = split
+    ? admitted.filter((i) => {
+        const itemSplit = (i.metadata as { split?: unknown } | undefined)?.split
+        return typeof itemSplit === 'string' && (split as readonly string[]).includes(itemSplit)
+      })
+    : admitted
+  if (split) {
+    console.log(`[run] kept ${selected.length} of ${admitted.length} items for split=${split.join(',')}`)
+  }
+
+  const items = selected
     .map((i) => ({
       id: i.id,
       input: i.input,
@@ -787,19 +826,17 @@ export async function cmdRun(
     return { name: spec.model, type: 'model' as const, value: spec.model }
   })
 
-  const { createScriptExperimentDeps } = await import(
-    '@/lib/services/eval/script-experiment-deps'
-  )
-  const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
-
-  const result = await runExperiment({
-    dataset,
-    arms,
-    adapter,
-    items,
-    allowUnreviewed,
-    deps,
-  })
+  const experimentInput = { dataset, arms, adapter, items, allowUnreviewed }
+  let result: Awaited<ReturnType<typeof runExperiment>>
+  if (runDeps.runExperiment) {
+    result = await runDeps.runExperiment(experimentInput)
+  } else {
+    const { createScriptExperimentDeps } = await import(
+      '@/lib/services/eval/script-experiment-deps'
+    )
+    const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
+    result = await runExperiment({ ...experimentInput, deps })
+  }
 
   console.log(result.markdown)
   if (result.provisional) {
@@ -2315,7 +2352,7 @@ async function main() {
       await cmdDatasetReviewPush(parsed.dataset, parsed.approvedBy)
       break
     case 'run':
-      await cmdRun(parsed.dataset, parsed.arms, parsed.allowUnreviewed)
+      await cmdRun(parsed.dataset, parsed.arms, parsed.allowUnreviewed, { split: parsed.split })
       break
     case 'prompt-push':
       await cmdPromptPush(parsed.name, parsed.file, parsed.label)

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { arbitrateBrandName, type NameArbiterItem } from "../name-arbiter";
+import {
+  arbitrateBrandName,
+  buildNameArbiterUserContent,
+  parseNameArbiterItemLine,
+  type NameArbiterItem,
+} from "../name-arbiter";
 
 const promptMeta = { name: "name-arbiter", version: 2, source: "langfuse" as const };
 vi.mock("@/lib/langfuse/prompt", () => ({
@@ -179,5 +184,83 @@ describe("arbitrateBrandName", () => {
 
     const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("name-arbiter");
+  });
+});
+
+describe("parseNameArbiterItemLine", () => {
+  const itemLine = (item: NameArbiterItem) =>
+    buildNameArbiterUserContent([item]).split("\n")[1] ?? "";
+
+  it("round-trips buildNameArbiterUserContent", () => {
+    const item: NameArbiterItem = {
+      slug: "mountain-tea-co",
+      storedName: "山茶 Mountain Tea｜官方網站",
+      candidates: [
+        { source: "stored", value: "山茶 Mountain Tea｜官方網站" },
+        { source: "cleaned", value: "山茶 Mountain Tea" },
+        { source: "detected", value: "山茶" },
+        {
+          source: "official_website",
+          value: "山茶 Mountain Tea",
+          evidence: [
+            {
+              source: "official_website",
+              url: "https://mountaintea.example.tw/",
+              observedName: "山茶 Mountain Tea",
+            },
+            {
+              source: "official_social",
+              url: "https://instagram.com/mountaintea",
+              observedName: 'Mountain "Tea", 山茶',
+            },
+          ],
+        },
+      ],
+      snippets: ["山茶是台灣茶品牌", "Mountain Tea 官方網站", "山茶門市資訊"],
+    };
+    const line = itemLine(item);
+
+    const parsed = parseNameArbiterItemLine(line);
+
+    expect(parsed).toEqual({
+      slug: item.slug,
+      storedName: item.storedName,
+      candidates: item.candidates,
+      snippets: item.snippets,
+    });
+    if (!parsed) throw new Error("expected a parsed item");
+    expect(itemLine(parsed)).toBe(line);
+  });
+
+  it("parses 無 candidate list as empty candidates", () => {
+    const line = itemLine({ slug: "quiet-brand", storedName: "安靜品牌", candidates: [] });
+
+    expect(line).toContain("候選：無");
+    expect(parseNameArbiterItemLine(line)).toEqual({
+      slug: "quiet-brand",
+      storedName: "安靜品牌",
+      candidates: [],
+      snippets: [],
+    });
+  });
+
+  it('keeps a " / " inside a name whole', () => {
+    const line = itemLine({
+      slug: "slash-brand",
+      storedName: "木作 / Woodwork",
+      candidates: [{ source: "cleaned", value: "木作 / Woodwork" }],
+      snippets: ["木作 / Woodwork 工作室"],
+    });
+
+    const parsed = parseNameArbiterItemLine(line);
+
+    expect(parsed?.storedName).toBe("木作 / Woodwork");
+    expect(parsed?.candidates).toEqual([{ source: "cleaned", value: "木作 / Woodwork" }]);
+    expect(parsed?.snippets).toEqual(["木作 / Woodwork 工作室"]);
+  });
+
+  it("returns null for a non-item line", () => {
+    expect(parseNameArbiterItemLine("請裁決以下品牌的正式名稱：")).toBeNull();
+    expect(parseNameArbiterItemLine("1. [cut-brand] 儲存名稱：截斷品牌")).toBeNull();
   });
 });

@@ -134,6 +134,102 @@ export function buildNameArbiterUserContent(items: NameArbiterItem[]): string {
   return `請裁決以下品牌的正式名稱：\n${list}`;
 }
 
+export type ParsedNameArbiterItem = {
+  slug: string;
+  storedName: string;
+  candidates: NameCandidate[];
+  snippets: string[];
+};
+
+const CANDIDATE_SOURCES = [
+  "stored",
+  "cleaned",
+  "detected",
+  "scraped",
+  "official_website",
+  "official_social",
+] as const satisfies readonly NameCandidateSource[];
+const SOURCE_ALT = CANDIDATE_SOURCES.join("|");
+const ITEM_LINE_RE = /^\d+\. \[([^\]]*)\] 儲存名稱：([\s\S]*)$/;
+// A field opens only at " / " followed by a known label, so " / " inside a
+// name stays whole (same rule as jev-questions' parseNameArbiterLine).
+const FIELD_SPLIT_RE = / \/ (?=候選：|搜尋摘要：)/;
+const CANDIDATE_SPLIT_RE = new RegExp(`；(?=(?:${SOURCE_ALT})：)`);
+const CANDIDATE_RE = new RegExp(`^(${SOURCE_ALT})：(.*)$`, "s");
+const EVIDENCE_RE =
+  /(official_website|official_social) (\S+) observed=("(?:[^"\\]|\\.)*")(?:, |$)/y;
+
+function parseEvidence(text: string): BrandNameEvidence[] | null {
+  const entries: BrandNameEvidence[] = [];
+  EVIDENCE_RE.lastIndex = 0;
+  while (EVIDENCE_RE.lastIndex < text.length) {
+    const match = EVIDENCE_RE.exec(text);
+    if (!match) return null;
+    let observedName: string;
+    try {
+      observedName = JSON.parse(match[3] ?? '""') as string;
+    } catch {
+      return null;
+    }
+    entries.push({
+      source: match[1] as BrandNameEvidence["source"],
+      url: match[2] ?? "",
+      observedName,
+    });
+  }
+  return entries.length ? entries : null;
+}
+
+function parseCandidate(entry: string): NameCandidate | null {
+  const match = CANDIDATE_RE.exec(entry);
+  if (!match) return null;
+  const source = match[1] as NameCandidateSource;
+  const rest = match[2] ?? "";
+  if (rest.endsWith("）")) {
+    // The value itself may hold a "（"; take the first opening whose tail parses as evidence.
+    for (let at = rest.indexOf("（official_"); at >= 0; at = rest.indexOf("（official_", at + 1)) {
+      const evidence = parseEvidence(rest.slice(at + 1, -1));
+      if (evidence) return { source, value: rest.slice(0, at), evidence };
+    }
+  }
+  return { source, value: rest };
+}
+
+/**
+ * Inverse of formatNameArbiterItem: parses one production user-message item line.
+ * Returns null for any line the formatter could not have produced (header lines,
+ * truncated lines with no 候選 field). Snippets are split on "；", so a snippet
+ * that itself contains "；" comes back as two — the formatted line is ambiguous there.
+ */
+export function parseNameArbiterItemLine(line: string): ParsedNameArbiterItem | null {
+  const head = ITEM_LINE_RE.exec(line);
+  if (!head) return null;
+  const [storedName, ...rest] = (head[2] ?? "").split(FIELD_SPLIT_RE);
+  let candidateField: string | undefined;
+  let snippetField: string | undefined;
+  for (const segment of rest) {
+    if (segment.startsWith("候選：")) candidateField = segment.slice("候選：".length);
+    else if (segment.startsWith("搜尋摘要：")) snippetField = segment.slice("搜尋摘要：".length);
+  }
+  if (candidateField === undefined) return null;
+
+  const candidates: NameCandidate[] = [];
+  if (candidateField !== "無") {
+    for (const entry of candidateField.split(CANDIDATE_SPLIT_RE)) {
+      const candidate = parseCandidate(entry);
+      if (!candidate) return null;
+      candidates.push(candidate);
+    }
+  }
+
+  return {
+    slug: head[1] ?? "",
+    storedName: storedName ?? "",
+    candidates,
+    snippets: snippetField ? snippetField.split("；") : [],
+  };
+}
+
 function parseNameVerdict(value: unknown): NameVerdict | null {
   const result = nameVerdictItemShape.safeParse(value);
   if (!result.success) return null;

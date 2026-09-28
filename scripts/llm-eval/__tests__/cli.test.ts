@@ -899,7 +899,7 @@ describe('cmdRun', () => {
     })
     const prevExitCode = process.exitCode
     try {
-      await cmdRun('detect-confidence-golden', [{ kind: 'jev', version: 'jev-1.13.0' }], false, { getDataset })
+      await cmdRun('detect-confidence-golden', [{ kind: 'jev', version: 'jev-1.13.0' }], false, {}, { getDataset })
       expect(getDataset).toHaveBeenCalledWith('detect-confidence-golden')
       expect(process.exitCode).toBe(1)
       expect(errors.join('\n')).toMatch(/detect-confidence-golden.*0 ACTIVE items/)
@@ -907,6 +907,68 @@ describe('cmdRun', () => {
       process.exitCode = prevExitCode
       errSpy.mockRestore()
     }
+  })
+
+  // DEV-1896: --split keeps the holdout out of tuning runs.
+  const reviewed = { reviewedVia: 'fixture-review', at: '2026-09-28' }
+  const splitItems = [
+    { id: 'item-train', status: 'ACTIVE', input: {}, expectedOutput: null, metadata: { split: 'train', humanApproval: reviewed } },
+    { id: 'item-val', status: 'ACTIVE', input: {}, expectedOutput: null, metadata: { split: 'val', humanApproval: reviewed } },
+    { id: 'item-holdout', status: 'ACTIVE', input: {}, expectedOutput: null, metadata: { split: 'holdout', humanApproval: reviewed } },
+    { id: 'item-none', status: 'ACTIVE', input: {}, expectedOutput: null, metadata: { humanApproval: reviewed } },
+  ]
+
+  async function runWithSplit(split: ('train' | 'val' | 'holdout')[] | undefined): Promise<string[]> {
+    const getDataset = vi.fn().mockResolvedValue({ items: splitItems })
+    const runExperiment = vi.fn(async (input: { items: { id: string }[] }) => ({
+      summary: { succeeded: input.items.length, total: input.items.length },
+      armResults: [],
+      markdown: '',
+      exitCode: 0,
+    }))
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const prevExitCode = process.exitCode
+    try {
+      await cmdRun(
+        'detect-confidence-golden',
+        [{ kind: 'jev', version: 'jev-1.13.0' }],
+        false,
+        { split },
+        { getDataset, runExperiment: runExperiment as never },
+      )
+      expect(runExperiment).toHaveBeenCalledTimes(1)
+      return runExperiment.mock.calls[0]![0].items.map((i) => i.id)
+    } finally {
+      process.exitCode = prevExitCode
+      logSpy.mockRestore()
+    }
+  }
+
+  it('cmdRun with split keeps only items whose metadata.split is listed', async () => {
+    expect(await runWithSplit(['train', 'val'])).toEqual(['item-train', 'item-val'])
+  })
+
+  it('cmdRun without --split keeps all items', async () => {
+    expect(await runWithSplit(undefined)).toEqual(['item-train', 'item-val', 'item-holdout', 'item-none'])
+  })
+})
+
+describe('parseCliArgs — run --split (DEV-1896)', () => {
+  const base = ['run', '--dataset', 'name-arbiter-confidence-golden', '--arm', 'jev:jev-1.13.0']
+
+  it("parses --split train,val into ['train','val']", () => {
+    expect(parseCliArgs([...base, '--split', 'train,val'])).toMatchObject({
+      command: 'run',
+      split: ['train', 'val'],
+    })
+  })
+
+  it('leaves split undefined when --split is absent', () => {
+    expect(parseCliArgs(base)).toMatchObject({ command: 'run', split: undefined })
+  })
+
+  it('rejects an unknown split value', () => {
+    expect(() => parseCliArgs([...base, '--split', 'train,test'])).toThrow(/Unknown --split value: test/)
   })
 })
 
