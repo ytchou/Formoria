@@ -1,5 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 
+import { argmaxGrade } from '@/lib/services/eval/jev-questions'
+
 import {
   HAND_LABEL_SHEET_PATH,
   JUDGED_PAIRS_PATH,
@@ -18,7 +20,10 @@ export async function cmdAgreement(
 ): Promise<void> {
   if (values.help) {
     console.log(
-      'Usage: pnpm search:eval agreement [--human labels/hand-label-sheet.csv] [--judged labels/judged-pairs.json]',
+      'Usage: pnpm search:eval agreement [--human labels/hand-label-sheet.csv] [--judged labels/judged-pairs.json] [--grade-mode stored|argmax]',
+    )
+    console.log(
+      '  --grade-mode argmax: re-grade each pair as its most probable level (needs stored Jev probabilities)',
     )
     console.log(
       '  Computes Cohen\'s kappa between LLM grades and hand-labeled pairs',
@@ -28,6 +33,12 @@ export async function cmdAgreement(
 
   const humanPath = String(values.human ?? HAND_LABEL_SHEET_PATH)
   const judgedPath = String(values.judged ?? JUDGED_PAIRS_PATH)
+  const gradeMode = String(values['grade-mode'] ?? 'stored')
+  if (gradeMode !== 'stored' && gradeMode !== 'argmax') {
+    console.error(`[agreement] Unknown --grade-mode "${gradeMode}". Use stored or argmax.`)
+    process.exitCode = 1
+    return
+  }
 
   if (!existsSync(humanPath)) {
     console.error(`[agreement] File not found: ${humanPath}`)
@@ -49,7 +60,8 @@ export async function cmdAgreement(
   const llmGrades = new Map<string, number>()
   for (const pair of judgedPairs) {
     const key = `${pair.queryId}|${pair.brandSlug}|${pair.productKey}`
-    llmGrades.set(key, pair.grade)
+    const grade = gradeMode === 'argmax' ? argmaxGrade(pair.probabilities) : pair.grade
+    if (grade !== null) llmGrades.set(key, grade)
   }
 
   // Join on composite key - only rows with human_grade
