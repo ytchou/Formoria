@@ -177,6 +177,20 @@ function subcategoriesOf(l1: string) {
   return L2_SUBCATEGORIES.filter((s) => s.category === l1)
 }
 
+/**
+ * Each L1 described by its own subcategory names. On intent-parse-golden this beat
+ * the `CATEGORY_LIST` examples (category 0.885 -> 0.929, DEV-1887). Not used for the
+ * brand `classification` question, where it lost (0.917 -> 0.750) to its candle rule.
+ */
+function l1MemberCriteria(): Record<string, string> {
+  return Object.fromEntries(
+    L1_CATEGORIES.map((c) => [
+      c.slug,
+      `${c.nameZh}（${c.name}）：${subcategoriesOf(c.slug).map((s) => s.nameZh).join('、')}`,
+    ]),
+  )
+}
+
 /** Same gloss as `SUBCATEGORY_VOCAB_BLOCK`: zh name, English name, aliases. */
 function l2Criteria(l1: string): Record<string, string> {
   return Object.fromEntries(
@@ -492,7 +506,7 @@ const productCategory: TwoStepJevCandidate<GoldenChatInput, BrandTextState, Prod
       type: 'choice',
       instructions:
         'Which product category does this Taiwanese product belong to? Judge by what the product is, using only its name and description.',
-      criteria: l1Criteria(),
+      criteria: l1MemberCriteria(),
     }
     return { l1 }
   },
@@ -547,7 +561,7 @@ const intentParse: TwoStepJevCandidate<IntentParseInput, IntentParseState, Inten
         type: 'choice',
         instructions:
           "A shopper typed this situation query into a directory of Taiwanese products. Which product category is the query asking for?",
-        criteria: l1Criteria(),
+        criteria: l1MemberCriteria(),
       },
     }
     for (const m of MATERIALS) {

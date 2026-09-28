@@ -191,6 +191,23 @@ describe('JEV_CANDIDATES', () => {
     expect(out.probability).toBeCloseTo(0.2)
   })
 
+  it('productCategory and intentParse describe each L1 by its own subcategory names (DEV-1887)', async () => {
+    const product = JEV_CANDIDATES.productCategory
+    const intent = JEV_CANDIDATES.intentParse
+    const l1Questions = [
+      product.questions(product.buildState('產品名稱：茶杯\n描述：陶瓷')).l1,
+      intent.questions(intent.buildState({ query: '茶杯' })).category,
+    ]
+    for (const q of l1Questions) {
+      const criteria = (q as { criteria: Record<string, string> }).criteria
+      expect(Object.keys(criteria)).toEqual(L1_CATEGORIES.map((cat) => cat.slug))
+      for (const cat of L1_CATEGORIES) {
+        const members = L2_SUBCATEGORIES.filter((s) => s.category === cat.slug).map((s) => s.nameZh)
+        expect(criteria[cat.slug]).toBe(`${cat.nameZh}（${cat.name}）：${members.join('、')}`)
+      }
+    }
+  })
+
   it('intentParse: 12 material nouls keyed by MATERIALS slugs; toOutput coarsens subcategory to null when L2 confidence < 0.9; materials include p>=0.5 only', async () => {
     const cand = JEV_CANDIDATES.intentParse
     const state = cand.buildState({ query: '送給喜歡泡茶的朋友' })
