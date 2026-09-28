@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   detectProbes,
-  detectResults,
+  detectResultLines,
+  hasHeadText,
   matchOwnership,
 } from "../detect-evidence";
-import { MAX_PROBE_URLS } from "../../category-classifier";
+import { MAX_PROBE_URLS } from "@/lib/prompts/detect-message";
 import type { BrandSearchEntry } from "../scraper/types";
 
 describe("matchOwnership", () => {
@@ -52,6 +53,55 @@ describe("matchOwnership", () => {
       expected: null,
     },
     {
+      name: "shared_host_query_owned_same_id_is_site",
+      link: "https://www.facebook.com/profile.php?id=100&ref=share",
+      owned: ["https://www.facebook.com/profile.php?id=100"],
+      handle: null,
+      expected: "site",
+    },
+    {
+      name: "shared_host_query_owned_other_id_is_null",
+      link: "https://www.facebook.com/profile.php?id=999",
+      owned: ["https://www.facebook.com/profile.php?id=100"],
+      handle: null,
+      expected: null,
+    },
+    {
+      name: "shared_host_query_owned_missing_id_is_null",
+      link: "https://www.facebook.com/profile.php",
+      owned: ["https://www.facebook.com/profile.php?id=100"],
+      handle: null,
+      expected: null,
+    },
+    {
+      name: "shared_host_owned_tracking_params_ignored",
+      link: "https://www.facebook.com/profile.php?id=100",
+      owned: ["https://www.facebook.com/profile.php?id=100&utm_source=ig"],
+      handle: null,
+      expected: "site",
+    },
+    {
+      name: "shared_host_brand_subdomain_is_site",
+      link: "https://brand.pixnet.net/blog/post/1",
+      owned: ["https://brand.pixnet.net"],
+      handle: null,
+      expected: "site",
+    },
+    {
+      name: "shared_host_other_subdomain_is_null",
+      link: "https://another.pixnet.net/blog/post/1",
+      owned: ["https://brand.pixnet.net"],
+      handle: null,
+      expected: null,
+    },
+    {
+      name: "shared_host_apex_owned_never_matches_subdomains",
+      link: "https://another.pixnet.net/blog/post/1",
+      owned: ["https://www.pixnet.net/"],
+      handle: null,
+      expected: null,
+    },
+    {
       name: "ig_handle_match",
       link: "https://www.instagram.com/brandx/",
       owned: [],
@@ -90,12 +140,12 @@ describe("matchOwnership", () => {
   });
 });
 
-describe("detectResults", () => {
-  it("results_dedupe_and_skip_empty_titles", () => {
+describe("detectResultLines", () => {
+  it("results_dedupe_and_skip_empty_entries", () => {
     const entries: BrandSearchEntry[] = [
       { title: "Brand X", link: "https://brand.tw/?utm_source=a", snippet: "first" },
       { title: "Brand X dup", link: "https://brand.tw/?utm_source=b&utm_medium=c", snippet: "second" },
-      { title: "   ", link: "https://empty.tw/" },
+      { title: "   ", link: "https://empty.tw/", snippet: "  " },
       { title: "IG", link: "https://www.instagram.com/brandx/" },
       ...Array.from({ length: 12 }, (_, i) => ({
         title: `Other ${i}`,
@@ -103,7 +153,7 @@ describe("detectResults", () => {
       })),
     ];
 
-    const lines = detectResults(entries, ["https://brand.tw"], "brandx");
+    const lines = detectResultLines(entries, ["https://brand.tw"], "brandx");
 
     expect(lines).toHaveLength(10);
     expect(lines[0]).toEqual({
@@ -119,7 +169,7 @@ describe("detectResults", () => {
   });
 
   it("keeps distinct non-tracking query strings apart", () => {
-    const lines = detectResults(
+    const lines = detectResultLines(
       [
         { title: "A", link: "https://shop.tw/p?id=1" },
         { title: "B", link: "https://shop.tw/p?id=2" },
@@ -128,6 +178,17 @@ describe("detectResults", () => {
       null,
     );
     expect(lines.map((line) => line.title)).toEqual(["A", "B"]);
+  });
+
+  it("keeps a snippet-only entry with an empty title", () => {
+    const lines = detectResultLines(
+      [{ title: "", link: "https://www.news.tw/a", snippet: "Brand X opens" }],
+      [],
+      null,
+    );
+    expect(lines).toEqual([
+      { title: "", snippet: "Brand X opens", host: "news.tw", match: null },
+    ]);
   });
 });
 
@@ -164,6 +225,25 @@ describe("detectProbes", () => {
     expect(failed?.[1]).toEqual({ url: "https://gone.tw/", status: 404 });
   });
 
+  it("drops a reachable probe with no head text", () => {
+    // An SPA shell answers 200 with an empty <title>: that is not an
+    // unreachable site, and it carries no evidence either.
+    expect(
+      detectProbes([
+        { url: "https://spa.tw/", status: 200 },
+        { url: "https://moved.tw/", status: 301, title: "  " },
+      ]),
+    ).toBeUndefined();
+
+    expect(
+      detectProbes([
+        { url: "https://spa.tw/", status: 200 },
+        { url: "https://gone.tw/", status: 500 },
+        { url: "https://timeout.tw/" },
+      ])?.map((probe) => probe.url),
+    ).toEqual(["https://gone.tw/", "https://timeout.tw/"]);
+  });
+
   it("probes_carry_status_and_followers", () => {
     expect(
       detectProbes([
@@ -186,5 +266,13 @@ describe("detectProbes", () => {
         instagramFollowers: 1234,
       },
     ]);
+  });
+});
+
+describe("hasHeadText", () => {
+  it("needs a non-blank title or description", () => {
+    expect(hasHeadText({ title: "A" })).toBe(true);
+    expect(hasHeadText({ description: "d" })).toBe(true);
+    expect(hasHeadText({ title: " ", description: "" })).toBe(false);
   });
 });

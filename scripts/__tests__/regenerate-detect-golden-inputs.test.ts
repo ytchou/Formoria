@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   applyGuard,
   buildDetectItem,
+  buildRestorePlan,
+  dropExistingIds,
+  landedMismatches,
+  pacedItemApi,
+  parseExport,
   evidenceMetadata,
   isAnchorLeak,
   parseRegenerateArgs,
@@ -139,6 +144,7 @@ describe('parseRegenerateArgs', () => {
     expect(parseRegenerateArgs([])).toEqual({
       apply: false,
       preExport: null,
+      restore: null,
       addDenied: false,
       assignSplits: false,
       diffs: 10,
@@ -148,6 +154,150 @@ describe('parseRegenerateArgs', () => {
       assignSplits: true,
       diffs: 3,
     })
+  })
+})
+
+describe('parseRegenerateArgs --restore', () => {
+  it('parses --restore as a dry run, --apply writes without --pre-export', () => {
+    expect(parseRegenerateArgs(['--restore', 'rebuild/pre-export.json'])).toMatchObject({
+      restore: 'rebuild/pre-export.json',
+      apply: false,
+    })
+    expect(parseRegenerateArgs(['--restore', 'rebuild/pre-export.json', '--apply'])).toMatchObject({
+      restore: 'rebuild/pre-export.json',
+      apply: true,
+      preExport: null,
+    })
+  })
+
+  it('rejects --restore combined with a rebuild flag', () => {
+    expect(() => parseRegenerateArgs(['--restore', 'x.json', '--add-denied'])).toThrow(/--restore/)
+    expect(() => parseRegenerateArgs(['--restore', 'x.json', '--assign-splits'])).toThrow(/--restore/)
+    expect(() => parseRegenerateArgs(['--restore', 'x.json', '--pre-export', 'y.json'])).toThrow(/--restore/)
+  })
+})
+
+const body = (id: string, user: string, status: 'ACTIVE' | 'ARCHIVED' = 'ACTIVE') => ({
+  datasetName: 'detect-confidence-golden',
+  id,
+  input: { user, promptName: 'detect' },
+  expectedOutput: { isNonBrand: false, confidence: 'high' },
+  metadata: { split: 'train', humanApproval: { status: 'pending' } },
+  status,
+})
+
+describe('landedMismatches', () => {
+  it('passes when every id landed with the written fields, whatever the key order', () => {
+    const expected = [body('a', 'new a')]
+    const stored = new Map<string, unknown>([
+      [
+        'a',
+        {
+          id: 'a',
+          status: 'ACTIVE',
+          metadata: { humanApproval: { status: 'pending' }, split: 'train' },
+          expectedOutput: { confidence: 'high', isNonBrand: false },
+          input: { promptName: 'detect', user: 'new a' },
+          createdAt: '2026-09-28',
+        },
+      ],
+    ])
+    expect(landedMismatches(expected, stored)).toEqual([])
+  })
+
+  it('reports a missing id, a stale input and a wrong status', () => {
+    const expected = [body('a', 'new a'), body('b', 'new b'), body('c', 'c', 'ARCHIVED')]
+    const stored = new Map<string, unknown>([
+      ['b', { ...body('b', 'old b') }],
+      ['c', { ...body('c', 'c', 'ACTIVE') }],
+    ])
+    expect(landedMismatches(expected, stored)).toEqual([
+      { id: 'a', reason: 'not found' },
+      { id: 'b', reason: 'input differs' },
+      { id: 'c', reason: 'status ACTIVE, expected ARCHIVED' },
+    ])
+  })
+})
+
+describe('dropExistingIds', () => {
+  it('skips a denied item whose uuid5 id already exists in any status', () => {
+    const upserts = [{ id: 'new' }, { id: 'archived' }]
+    expect(dropExistingIds(upserts, new Set(['archived']))).toEqual({ kept: [{ id: 'new' }], skipped: ['archived'] })
+  })
+})
+
+describe('buildRestorePlan', () => {
+  const exported = [
+    { id: 'a', status: 'ACTIVE', input: { user: 'old a' }, expectedOutput: { isNonBrand: true }, metadata: { split: 'val' } },
+    { id: 'b', input: { user: 'old b' }, expectedOutput: null, metadata: {} },
+  ]
+
+  it('upserts every exported item and archives admin-denied items the export lacks', () => {
+    const current = [
+      { id: 'a', status: 'ACTIVE', input: { user: 'new a' }, expectedOutput: null, metadata: {} },
+      { id: 'd1', status: 'ACTIVE', input: { user: 'denied' }, expectedOutput: null, metadata: { stratum: 'admin-denied' } },
+      { id: 'x', status: 'ACTIVE', input: { user: 'other' }, expectedOutput: null, metadata: { stratum: 'nonbrand' } },
+    ]
+    const plan = buildRestorePlan('detect-confidence-golden', parseExport(exported), current)
+    expect(plan.restores).toEqual([
+      { datasetName: 'detect-confidence-golden', id: 'a', status: 'ACTIVE', input: { user: 'old a' }, expectedOutput: { isNonBrand: true }, metadata: { split: 'val' } },
+      { datasetName: 'detect-confidence-golden', id: 'b', status: 'ACTIVE', input: { user: 'old b' }, expectedOutput: null, metadata: {} },
+    ])
+    expect(plan.archives).toEqual([
+      { datasetName: 'detect-confidence-golden', id: 'd1', status: 'ARCHIVED', input: { user: 'denied' }, expectedOutput: null, metadata: { stratum: 'admin-denied' } },
+    ])
+  })
+
+  it('parseExport rejects a file that is not an item export', () => {
+    expect(() => parseExport({ items: [] })).toThrow(/array/)
+    expect(() => parseExport([{ input: {} }])).toThrow(/id/)
+    expect(() => parseExport([{ id: 'a', status: 'DELETED', input: {} }])).toThrow(/status/)
+  })
+})
+
+describe('pacedItemApi', () => {
+  const noSleep = () => vi.fn(async (_ms: number) => {})
+
+  it('write retries a create that resolves without the id (the SDK swallows a 429)', async () => {
+    const sleep = noSleep()
+    const createItem = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: 'a' })
+    const api = pacedItemApi({ createItem, getItem: vi.fn() }, { sleep })
+    expect(await api.write(body('a', 'x'))).toBe(true)
+    expect(createItem).toHaveBeenCalledTimes(2)
+  })
+
+  it('write reports false when Langfuse never confirms the id', async () => {
+    const api = pacedItemApi({ createItem: vi.fn().mockResolvedValue(undefined), getItem: vi.fn() }, { sleep: noSleep() })
+    expect(await api.write(body('a', 'x'))).toBe(false)
+  })
+
+  it('paces consecutive calls', async () => {
+    const sleep = noSleep()
+    const api = pacedItemApi({ createItem: vi.fn(async (b: { id: string }) => ({ id: b.id })), getItem: vi.fn() }, { sleep })
+    await api.write(body('a', 'x'))
+    await api.write(body('b', 'x'))
+    expect(sleep).toHaveBeenCalledTimes(1)
+    expect(sleep).toHaveBeenCalledWith(700)
+  })
+
+  it('lookup: 404 is absent, an ARCHIVED item is present, a 429 is retried, other errors throw', async () => {
+    const archived = { id: 'b', status: 'ARCHIVED' }
+    const getItem = vi.fn(async (id: string) => {
+      if (id === 'a') throw { status: 404 }
+      if (id === 'b') return archived
+      throw { status: 500 }
+    })
+    const api = pacedItemApi({ createItem: vi.fn(), getItem }, { sleep: noSleep() })
+    expect(await api.lookup('a')).toEqual({ present: false })
+    expect(await api.lookup('b')).toEqual({ present: true, stored: archived })
+    await expect(api.lookup('c')).rejects.toMatchObject({ status: 500 })
+
+    const limited = vi.fn().mockRejectedValueOnce({ status: 429 }).mockResolvedValueOnce(archived)
+    const retrying = pacedItemApi({ createItem: vi.fn(), getItem: limited }, { sleep: noSleep() })
+    expect(await retrying.lookup('b')).toEqual({ present: true, stored: archived })
   })
 })
 

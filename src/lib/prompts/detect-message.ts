@@ -27,3 +27,12 @@ export const DETECT_MESSAGE_LABELS = {
   /** Probe suffix before the Instagram follower count. */
   igFollowers: "IG 追蹤者",
 } as const;
+
+/**
+ * At most four probed URLs reach the prompt. Also the orchestrator's probe
+ * budget: probing more would pay for evidence no model ever reads.
+ */
+export const MAX_PROBE_URLS = 4;
+
+/** At most ten search-result lines reach the prompt. */
+export const MAX_RESULT_LINES = 10;

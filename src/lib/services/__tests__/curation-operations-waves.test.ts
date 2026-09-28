@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { runEnrich, serpNameQuery } from "../curation-operations";
+import { ownedUrlsFor, runEnrich, serpNameQuery } from "../curation-operations";
 import { toAcquireCarry } from "../enrich-blocks/phase-outputs";
 import type { AcquirePhaseOutput } from "../enrich-phases/acquire";
 import type { DetectResult } from "../category-classifier";
@@ -774,6 +774,25 @@ describe("wave collapse — single per-brand loop", () => {
     expect(serpNameQuery("X", "handle_ok")).toBe("X handle_ok 台灣");
     expect(serpNameQuery("X", null)).toBe("X 台灣");
     expect(serpNameQuery("X", "___")).toBe("X 台灣");
+  });
+
+  it("owned_urls_lead_with_schemed_website_url", () => {
+    expect(
+      ownedUrlsFor({
+        website_url: "www.brand.tw",
+        social_instagram: "https://www.instagram.com/brandx/",
+      }),
+    ).toEqual(["https://www.brand.tw", "https://www.instagram.com/brandx/"]);
+  });
+
+  it("owned_urls_collapse_scheme_slash_and_www_variants", () => {
+    expect(
+      ownedUrlsFor({
+        website_url: "https://brand.tw",
+        purchase_website: "https://brand.tw/",
+        social_instagram: "http://www.brand.tw",
+      }),
+    ).toEqual(["https://brand.tw"]);
   });
 
   it("non-brand rejection still works in the single loop", async () => {

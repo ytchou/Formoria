@@ -1,9 +1,9 @@
 import { isPrivateUrl } from "@/lib/url";
-// Runtime import is safe: category-classifier only type-imports this module.
-import { MAX_PROBE_URLS } from "../category-classifier";
+import { MAX_PROBE_URLS, MAX_RESULT_LINES } from "@/lib/prompts/detect-message";
+import { canonicalizeThreadsUrl, pageKeyHost } from "../link-enrichment";
 import type { ProbeEvidence } from "./gather";
 import { isNonBrandSiteHost } from "./scraper/input-detector";
-import { extractInstagramHandle } from "./scraper/parse/extractors";
+import { extractInstagramHandle, hostMatches } from "./scraper/parse/extractors";
 import { stripTrackingParams } from "./scraper/search";
 import type { BrandSearchEntry } from "./scraper/types";
 
@@ -14,22 +14,12 @@ import type { BrandSearchEntry } from "./scraper/types";
  */
 
 export type DetectResultLine = {
+  /** Empty when the SERP entry had only a snippet; the renderer then leads with the snippet. */
   title: string;
   snippet?: string;
   host: string;
   match: "site" | "instagram" | null;
 };
-
-export type DetectProbe = {
-  url: string;
-  title?: string;
-  description?: string;
-  platform?: string;
-  status?: number;
-  instagramFollowers?: number;
-};
-
-const MAX_RESULT_LINES = 10;
 
 function parseUrl(value: string): URL | null {
   try {
@@ -45,20 +35,32 @@ function parseUrl(value: string): URL | null {
   }
 }
 
-function bareHost(url: URL): string {
-  return url.hostname.toLowerCase().replace(/^www\./, "");
-}
-
-function hostCovers(linkHost: string, ownedHost: string): boolean {
-  return linkHost === ownedHost || linkHost.endsWith(`.${ownedHost}`);
-}
-
 function normalisedPath(url: URL): string {
   return url.pathname.toLowerCase().replace(/\/+$/, "");
 }
 
-function isInstagramHost(host: string): boolean {
-  return hostCovers(host, "instagram.com");
+/**
+ * Whether a bare owned host on a shared platform is the platform itself
+ * (`pixnet.net`, `shopee.tw`) rather than a brand's own subdomain on it
+ * (`brand.pixnet.net`): the platform apex is the host whose parent domain is
+ * not itself a shared platform.
+ */
+function isPlatformApex(bareOwnedHost: string): boolean {
+  const parent = bareOwnedHost.slice(bareOwnedHost.indexOf(".") + 1);
+  return !isNonBrandSiteHost(`https://${parent}/`);
+}
+
+/**
+ * Every non-tracking query param on the owned URL must appear on the link
+ * with the same value: on a shared host the query can be the identity
+ * (`facebook.com/profile.php?id=100`).
+ */
+function queryMatches(linkUrl: URL, ownedHref: string): boolean {
+  const ownedParams = new URL(resultKey(ownedHref)).searchParams;
+  for (const [name, value] of ownedParams) {
+    if (linkUrl.searchParams.get(name) !== value) return false;
+  }
+  return true;
 }
 
 /**
@@ -67,8 +69,10 @@ function isInstagramHost(host: string): boolean {
  *
  * On a shared platform host (pinkoi, shopee, facebook, ...) a host match says
  * nothing about the brand, so the link must also sit under the owned URL's
- * path. An owned URL with an empty path on such a host never matches — it
- * would claim every store on the platform.
+ * path and carry its non-tracking query params. An owned URL with an empty
+ * path on the platform itself never matches — it would claim every store on
+ * the platform — but one on a brand subdomain (brand.pixnet.net) matches by
+ * host.
  */
 export function matchOwnership(
   link: string,
@@ -77,9 +81,9 @@ export function matchOwnership(
 ): "site" | "instagram" | null {
   const linkUrl = parseUrl(link);
   if (!linkUrl) return null;
-  const linkHost = bareHost(linkUrl);
+  const linkHref = linkUrl.toString();
 
-  if (isInstagramHost(linkHost)) {
+  if (hostMatches(linkHref, "instagram.com")) {
     const wanted = igHandle?.trim().replace(/^@/, "").toLowerCase();
     if (!wanted) return null;
     // Query and hash dropped: the profile regex rejects `?hl=en`-style SERP links.
@@ -87,20 +91,29 @@ export function matchOwnership(
     return handle?.toLowerCase() === wanted ? "instagram" : null;
   }
 
-  const shared = isNonBrandSiteHost(linkUrl.toString());
+  const shared = isNonBrandSiteHost(linkHref);
   const linkPath = normalisedPath(linkUrl);
+  // pageKeyHost canonicalises threads.net to threads.com; the link must match it.
+  const canonicalLink = canonicalizeThreadsUrl(linkHref);
 
   for (const owned of ownedUrls) {
     const ownedUrl = parseUrl(owned);
     if (!ownedUrl) continue;
-    if (!hostCovers(linkHost, bareHost(ownedUrl))) continue;
+    const ownedHref = ownedUrl.toString();
+    const ownedHost = pageKeyHost(ownedHref);
+    if (!ownedHost || !hostMatches(canonicalLink, ownedHost)) continue;
     if (!shared) return "site";
 
     const ownedPath = normalisedPath(ownedUrl);
-    if (!ownedPath) continue;
-    if (linkPath === ownedPath || linkPath.startsWith(`${ownedPath}/`)) {
+    if (!ownedPath) {
+      // The platform root would claim every store on it; a brand's own
+      // subdomain (brand.pixnet.net) is scoped by the host match alone.
+      if (isPlatformApex(ownedHost)) continue;
       return "site";
     }
+    const underOwnedPath =
+      linkPath === ownedPath || linkPath.startsWith(`${ownedPath}/`);
+    if (underOwnedPath && queryMatches(linkUrl, ownedHref)) return "site";
   }
 
   return null;
@@ -110,6 +123,8 @@ export function matchOwnership(
  * Dedupe key for a SERP link. `stripTrackingParams` is gather's key (it drops
  * `srsltid`); `utm_*` is dropped as well so campaign-tagged copies of one page
  * collapse. Other query params stay — `?id=1` and `?id=2` are different pages.
+ * `utm_*` stays local rather than moving into the shared `stripTrackingParams`:
+ * that helper also keys the links gather stores, which would change too.
  */
 function resultKey(link: string): string {
   const stripped = stripTrackingParams(link);
@@ -124,7 +139,7 @@ function resultKey(link: string): string {
   }
 }
 
-export function detectResults(
+export function detectResultLines(
   entries: readonly BrandSearchEntry[],
   ownedUrls: readonly string[],
   igHandle: string | null | undefined,
@@ -134,8 +149,9 @@ export function detectResults(
 
   for (const entry of entries) {
     if (lines.length >= MAX_RESULT_LINES) break;
-    const title = entry.title?.trim();
-    if (!title) continue;
+    const title = entry.title?.trim() ?? "";
+    const snippet = entry.snippet?.trim();
+    if (!title && !snippet) continue;
     const url = parseUrl(entry.link);
     if (!url) continue;
 
@@ -143,11 +159,10 @@ export function detectResults(
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const snippet = entry.snippet?.trim();
     lines.push({
       title,
       ...(snippet ? { snippet } : {}),
-      host: bareHost(url),
+      host: pageKeyHost(url.toString()),
       match: matchOwnership(entry.link, ownedUrls, igHandle),
     });
   }
@@ -155,36 +170,41 @@ export function detectResults(
   return lines;
 }
 
-function hasHead(probe: ProbeEvidence): boolean {
+/** Whether a probe read any `<head>` text (a non-blank title or description). */
+export function hasHeadText(
+  probe: Pick<ProbeEvidence, "title" | "description">,
+): boolean {
   return Boolean(probe.title?.trim() || probe.description?.trim());
 }
 
 /**
- * Probe evidence for the detect prompt. A failed probe (a 404, a timeout) is
- * kept: "the submitted site is dead" is evidence too. Private URLs are
- * dropped, probes that read a `<head>` come first, and the list is capped.
+ * Whether a probe carries evidence: head text, or a failure (no response, or
+ * HTTP 400+). A 2xx/3xx with no head text (an SPA shell) is neither.
+ */
+export function isUsableProbe(probe: ProbeEvidence): boolean {
+  return (
+    hasHeadText(probe) || probe.status === undefined || probe.status >= 400
+  );
+}
+
+/**
+ * Probe evidence for the detect prompt — the owner of the probe policy. A
+ * failed probe (a 404, a timeout) is kept: "the submitted site is dead" is
+ * evidence too. Private URLs and head-less reachable probes are dropped,
+ * probes that read a `<head>` come first, and the list is capped.
  */
 export function detectProbes(
   evidence: readonly ProbeEvidence[] | undefined,
-): DetectProbe[] | undefined {
+): ProbeEvidence[] | undefined {
   if (!evidence?.length) return undefined;
 
-  const publicProbes = evidence.filter((probe) => !isPrivateUrl(probe.url));
-  const ordered = [
-    ...publicProbes.filter(hasHead),
-    ...publicProbes.filter((probe) => !hasHead(probe)),
-  ];
-
-  const probes = ordered.slice(0, MAX_PROBE_URLS).map((probe) => ({
-    url: probe.url,
-    ...(probe.title ? { title: probe.title } : {}),
-    ...(probe.description ? { description: probe.description } : {}),
-    ...(probe.platform ? { platform: probe.platform } : {}),
-    ...(probe.status !== undefined ? { status: probe.status } : {}),
-    ...(probe.instagramFollowers !== undefined
-      ? { instagramFollowers: probe.instagramFollowers }
-      : {}),
-  }));
+  const usable = evidence.filter(
+    (probe) => !isPrivateUrl(probe.url) && isUsableProbe(probe),
+  );
+  const probes = [
+    ...usable.filter(hasHeadText),
+    ...usable.filter((probe) => !hasHeadText(probe)),
+  ].slice(0, MAX_PROBE_URLS);
 
   return probes.length > 0 ? probes : undefined;
 }

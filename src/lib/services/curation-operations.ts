@@ -28,7 +28,7 @@ import type { BlockContext, BlockRunResult } from "./enrich-blocks/registry";
 import { runBlocks } from "./enrich-blocks/runner";
 import { restoreAcquireCheckpoint } from "./enrich-blocks/hydration";
 import { createSupabasePhaseOutputStore, toAcquireCarry, isUsablePhaseOutput, mergeSelectedPhaseOutputs } from "./enrich-blocks/phase-outputs";
-import { normalizeToRootUrl } from "@/lib/url";
+import { normalizeToRootUrl, sanitizeHref } from "@/lib/url";
 import {
   ONLINE_STORES,
   type OnlineStoreColumn,
@@ -39,6 +39,7 @@ import {
   hasLinkValue,
   LINK_FIELDS,
   linkColumnFor,
+  pageKey,
 } from "./link-enrichment";
 import {
   collectHubUrls,
@@ -887,6 +888,36 @@ export function serpNameQuery(name: string, handle: string | null): string {
   return handle && isUsableHandle(handle)
     ? `${name} ${handle} 台灣`
     : `${name} 台灣`;
+}
+
+/**
+ * A brand's own URLs, shared by the probe list and detect's search-result
+ * ownership tags. The submitted `website_url` leads (D15): it is the one URL
+ * the brand itself named, so the probe cap must never push it out. A
+ * schemeless `website_url` gets `https://` (fetch throws on it otherwise), and
+ * scheme, `www.` and trailing-slash variants of one page collapse to the first,
+ * so duplicates cannot eat MAX_PROBE_URLS slots.
+ */
+export function ownedUrlsFor(
+  brand: { website_url?: string | null } & Partial<
+    Pick<BrandFlatLinkColumns, LinkColumn>
+  >,
+): string[] {
+  const seen = new Set<string>();
+  const owned: string[] = [];
+  for (const url of [
+    sanitizeHref(brand.website_url) ?? "",
+    ...collectKnownUrls(brand),
+  ]) {
+    if (!url) continue;
+    // pageKey ignores the query, so two same-path owned URLs differing only
+    // by query collapse; no link column holds two such URLs for one brand.
+    const key = pageKey(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    owned.push(url);
+  }
+  return owned;
 }
 
 /** Reads only the link columns, so any brand-shaped row can be passed. */
@@ -2248,12 +2279,7 @@ export async function runEnrich(
                   const probeUrls: string[] = [];
                   const seenProbeUrls = new Set<string>();
                   for (const brand of chunk) {
-                    // The submitted website_url leads (D15): it is the one URL the
-                    // brand itself named, so the cap must never push it out.
-                    const ownedUrls = uniqueUrls([
-                      brand.website_url ?? "",
-                      ...collectKnownUrls(brand),
-                    ]);
+                    const ownedUrls = ownedUrlsFor(brand);
                     ownedUrlsByBrandId.set(brand.id, ownedUrls);
                     const urls = ownedUrls.slice(0, MAX_PROBE_URLS);
                     if (urls.length === 0) continue;

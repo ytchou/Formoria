@@ -282,13 +282,22 @@ const detect: JevCandidate<DetectInput, DetectState, DetectOutput> = {
   buildState(input) {
     const rules = detectRules(input)
     // The submission slug is dropped: it carries no evidence about the entity.
-    const fields = parseLabelledLines(userText(input), [...Object.values(DETECT_LABELS), JEV_INPUT_LABELS.brandSlug])
+    // The pre-DEV-1894 snippet label is listed so an old-format line never
+    // continues the website field; its snippets count as search results.
+    const fields = parseLabelledLines(userText(input), [
+      ...Object.values(DETECT_LABELS),
+      JEV_INPUT_LABELS.brandSlug,
+      JEV_INPUT_LABELS.searchSnippets,
+    ])
+    const searchResults = [fields[DETECT_LABELS.searchResult], fields[JEV_INPUT_LABELS.searchSnippets]]
+      .map(valueOrNull)
+      .filter((value): value is string => value !== null)
     return {
       name: valueOrNull(fields[DETECT_LABELS.name]),
       description: valueOrNull(fields[DETECT_LABELS.description]),
       website: valueOrNull(fields[DETECT_LABELS.website]),
       submittedWebsite: valueOrNull(fields[DETECT_LABELS.submittedWebsite]),
-      searchResults: valueOrNull(fields[DETECT_LABELS.searchResult]),
+      searchResults: searchResults.length > 0 ? searchResults.join('\n') : null,
       probes: valueOrNull(fields[DETECT_LABELS.probe]),
       rules,
     }

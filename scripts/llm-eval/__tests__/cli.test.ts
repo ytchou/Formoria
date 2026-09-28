@@ -17,6 +17,7 @@ import {
   isAdmittedProductsItem,
   LANGFUSE_SNAPSHOT_PATH,
   cmdRun,
+  checkRunArms,
   seedIntentDataset,
   readSituationQueries,
   INTENT_PARSE_DATASET,
@@ -895,6 +896,59 @@ describe('jev arms', () => {
         'jev:jev-1.13.0',
       ]),
     ).toThrow(/pairwise.*jev|jev.*pairwise/i)
+  })
+})
+
+describe('checkRunArms (DEV-1894 prompt pins on jev arms)', () => {
+  const jev = { kind: 'jev' as const, version: 'jev-1.13.0' }
+
+  it('accepts a pinned jev arm where the jev candidate reads the prompt rules', () => {
+    expect(() =>
+      checkRunArms('detect-confidence-golden', adapterFor('detect-confidence-golden'), [
+        { kind: 'prompt', version: 4 },
+        { ...jev, promptVersion: 4 },
+      ]),
+    ).not.toThrow()
+  })
+
+  it.each(['name-arbiter-confidence-golden', 'intent-parse-golden', 'descriptions'])(
+    'rejects jev:<ver>@N on %s, whose jev candidate reads no prompt rules',
+    (dataset) => {
+      expect(() => checkRunArms(dataset, adapterFor(dataset), [{ ...jev, promptVersion: 2 }])).toThrow(
+        /jev-1\.13\.0@2.*does not read prompt rules/,
+      )
+    },
+  )
+
+  it('rejects an unpinned jev arm next to a prompt arm when the jev candidate reads the prompt rules', () => {
+    expect(() =>
+      checkRunArms('detect-confidence-golden', adapterFor('detect-confidence-golden'), [
+        { kind: 'prompt', version: 4 },
+        jev,
+      ]),
+    ).toThrow(/pin the jev arm.*jev:jev-1\.13\.0@4/)
+  })
+
+  it('an unpinned jev arm alone, or beside a model arm, still runs', () => {
+    const adapter = adapterFor('detect-confidence-golden')
+    expect(() => checkRunArms('detect-confidence-golden', adapter, [jev])).not.toThrow()
+    expect(() =>
+      checkRunArms('detect-confidence-golden', adapter, [{ kind: 'model', model: 'gpt-5.6-luna' }, jev]),
+    ).not.toThrow()
+    expect(() =>
+      checkRunArms('name-arbiter-confidence-golden', adapterFor('name-arbiter-confidence-golden'), [
+        { kind: 'prompt', version: 3 },
+        jev,
+      ]),
+    ).not.toThrow()
+  })
+
+  it('cmdRun refuses before reading the dataset', async () => {
+    const getDataset = vi.fn()
+    await expect(
+      cmdRun('name-arbiter-confidence-golden', [{ ...jev, promptVersion: 2 }], false, { getDataset }),
+    ).rejects.toThrow(/does not read prompt rules/)
+    expect(getDataset).not.toHaveBeenCalled()
   })
 })
 

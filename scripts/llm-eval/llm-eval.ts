@@ -727,6 +727,32 @@ export type RunDeps = {
   getDataset?: (name: string) => Promise<{ items: RunDatasetItem[] }>
 }
 
+/**
+ * Refuses arm sets that would compare a jev arm and the incumbent on different
+ * rules (DEV-1894 D13). A `jev:<ver>@N` pin is only meaningful where the jev
+ * candidate reads the adapter's prompt as its rules; elsewhere it is inert.
+ * Where it does read them, a prompt arm beside an unpinned jev arm would give
+ * Jev the production-labelled version instead of the version under test.
+ */
+export function checkRunArms(dataset: string, adapter: PhaseAdapter, armSpecs: ArmSpec[]): void {
+  const readsRules = adapter.promptName !== null && adapter.decideUsesPrompt === true
+  const jevArms = armSpecs.filter((spec): spec is Extract<ArmSpec, { kind: 'jev' }> => spec.kind === 'jev')
+  for (const spec of jevArms) {
+    if (spec.promptVersion !== undefined && !readsRules) {
+      throw new Error(
+        `[run] arm jev:${spec.version}@${spec.promptVersion}: the ${dataset} jev candidate does not read prompt rules, so a prompt pin would be inert; drop the @${spec.promptVersion}`,
+      )
+    }
+  }
+  const promptArm = armSpecs.find((spec): spec is Extract<ArmSpec, { kind: 'prompt' }> => spec.kind === 'prompt')
+  const unpinned = jevArms.find((spec) => spec.promptVersion === undefined)
+  if (readsRules && promptArm && unpinned) {
+    throw new Error(
+      `[run] ${dataset}: arm jev:${unpinned.version} is unpinned beside prompt:${promptArm.version}, so Jev would run on different rules than the incumbent; pin the jev arm, e.g. jev:${unpinned.version}@${promptArm.version}`,
+    )
+  }
+}
+
 export async function cmdRun(
   dataset: string,
   armSpecs: ArmSpec[],
@@ -734,6 +760,7 @@ export async function cmdRun(
   runDeps: RunDeps = {},
 ): Promise<void> {
   const adapter = adapterFor(dataset)
+  checkRunArms(dataset, adapter, armSpecs)
 
   let rawItems: RunDatasetItem[]
   if (runDeps.getDataset) {

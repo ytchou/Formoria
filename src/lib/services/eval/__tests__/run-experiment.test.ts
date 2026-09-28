@@ -1240,17 +1240,101 @@ describe('runExperiment — jev arms', () => {
       return { ok: true, output: { isNonBrand: false, confidence: 'high' } }
     })
     process.env.LANGFUSE_PROMPT_VERSIONS = 'names:2'
+    const deps = makeJevDeps()
+    deps.fetchPrompt.mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 4, source: 'langfuse' } })
 
     await runExperiment({
       dataset: 'test-golden',
       arms: [{ ...jevArm, name: 'jev-1.13.0@4', promptVersions: 'detect:4' }],
       adapter: makeAdapter({ decide, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
       items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
-      deps: makeJevDeps(),
+      deps,
     })
 
     expect(envCaptures).toEqual(['detect:4', 'detect:4'])
     expect(process.env.LANGFUSE_PROMPT_VERSIONS).toBe('names:2')
+  })
+
+  it('pinned jev arm resolves the prompt once per arm and hands it to decide', async () => {
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'high' } })
+    const deps = makeJevDeps()
+    const pinned = { text: 'RULES v4', prompt: { name: 'detect', version: 4, source: 'langfuse' as const } }
+    deps.fetchPrompt.mockImplementation(async () => {
+      // The fetch sees the arm's pin, so fetchLangfusePromptWithMeta resolves that version.
+      expect(process.env.LANGFUSE_PROMPT_VERSIONS).toBe('detect:4')
+      return pinned
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ ...jevArm, name: 'jev-1.13.0@4', promptVersions: 'detect:4' }],
+      adapter: makeAdapter({ decide, decideUsesPrompt: true, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' }), makeItem({ id: 'c' })],
+      deps,
+    })
+
+    expect(deps.fetchPrompt).toHaveBeenCalledTimes(1)
+    expect(decide).toHaveBeenCalledTimes(3)
+    for (const call of decide.mock.calls) expect(call[1]).toMatchObject({ prompt: pinned })
+    const arm = result.armResults[0]!
+    expect(arm.promptMeta).toEqual(pinned.prompt)
+    expect(arm.items.every((i) => i.ok && i.promptMeta?.version === 4)).toBe(true)
+    const written = JSON.parse(deps.writeFile.mock.calls[0]![1] as string)
+    expect(written.arms[0].promptMeta).toEqual(pinned.prompt)
+  })
+
+  it('unpinned jev arm on a prompt-rules adapter records the prompt it ran on', async () => {
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'high' } })
+    const deps = makeJevDeps()
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide, decideUsesPrompt: true, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' })],
+      deps,
+    })
+
+    expect(decide.mock.calls[0]![1]).toMatchObject({ prompt: { text: 'prompt' } })
+    expect(result.armResults[0]!.promptMeta).toEqual({ name: 'detect', version: 1, source: 'langfuse' })
+  })
+
+  it('jev arm on an adapter whose decide ignores the prompt gets no prompt', async () => {
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'high' } })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' })],
+      deps: makeJevDeps(),
+    })
+
+    expect(decide.mock.calls[0]![1]).not.toHaveProperty('prompt')
+    expect(result.armResults[0]!.promptMeta).toBeUndefined()
+  })
+
+  it.each([
+    ['a snapshot source', { name: 'detect', version: 4, source: 'snapshot' as const }],
+    ['a different version', { name: 'detect', version: 3, source: 'langfuse' as const }],
+  ])('pinned jev arm fails loudly when the pin resolves to %s', async (_label, prompt) => {
+    const decide = vi.fn()
+    const deps = makeJevDeps()
+    deps.fetchPrompt.mockResolvedValue({ text: 'RULES', prompt })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ ...jevArm, name: 'jev-1.13.0@4', promptVersions: 'detect:4' }],
+      adapter: makeAdapter({ decide, decideUsesPrompt: true, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps,
+    })
+
+    expect(decide).not.toHaveBeenCalled()
+    const arm = result.armResults[0]!
+    expect(arm.items.every((i) => !i.ok && /pin detect:4/.test(i.error ?? ''))).toBe(true)
+    expect(arm.promptMeta).toEqual(prompt)
+    expect(result.exitCode).toBe(1)
   })
 
   it('duplicate arm names get #2 suffix and separate results', async () => {

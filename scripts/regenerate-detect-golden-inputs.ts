@@ -2,14 +2,14 @@
  * @formoria-script
  * purpose: Re-render detect-confidence-golden inputs through the production detect renderer, optionally adding admin-denied submissions and seeded splits (DEV-1894)
  * class: operator
- * invoke: npx tsx scripts/regenerate-detect-golden-inputs.ts [--target production] [--add-denied] [--assign-splits] [--diffs <n>] [--apply --pre-export <path>]
+ * invoke: npx tsx scripts/regenerate-detect-golden-inputs.ts [--target production] [--add-denied] [--assign-splits] [--diffs <n>] [--apply --pre-export <path>] | --restore <pre-export path> [--apply]
  * target: staging-default
  * safety: dry-run-default
  * owner: engineering
- * notes: Writes to Langfuse dataset items only, and only on --apply (which requires --pre-export, the rollback file). Database and Serper/probe calls are read-only; both zero-write seams are installed and assertNoNewAuditRows runs before any write.
+ * notes: Writes to Langfuse dataset items only, and only on --apply (which requires --pre-export, the rollback file). Writes are paced under the Langfuse rate limit and every written id is read back; a mismatch exits 1. --restore <path> is the dataset rollback: it re-writes every exported item by id and archives the admin-denied items the export lacks. Database and Serper/probe calls are read-only; both zero-write seams are installed and assertNoNewAuditRows runs before any write.
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 import { loadScriptTarget } from './shared/target'
 import { splitByQuery } from './enrichment/eval/search-eval/label-shared'
@@ -18,18 +18,19 @@ import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
 import { DETECT_MESSAGE_LABELS as L } from '@/lib/prompts/detect-message'
 import { renderDetectUserMessage, MAX_PROBE_URLS, type DetectItem } from '@/lib/services/category-classifier'
 import {
-  collectKnownUrls,
+  ownedUrlsFor,
   serpNameQuery,
   submissionToEnrichBrand,
   uniqueUrls,
 } from '@/lib/services/curation-operations'
-import { detectProbes, detectResults } from '@/lib/services/enrich-phases/detect-evidence'
+import { detectProbes, detectResultLines } from '@/lib/services/enrich-phases/detect-evidence'
 import type { ProbeEvidence } from '@/lib/services/enrich-phases/gather'
 import { extractInstagramHandle } from '@/lib/services/enrich-phases/scraper/parse/extractors'
 import { parseBrandSearchEntries } from '@/lib/services/enrich-phases/scraper/search'
 import { getDisplayBrandName } from '@/lib/services/enrich-phases/types'
 import { parseLabelledLines } from '@/lib/services/eval/jev-questions'
 import { JEV_INPUT_LABELS } from '@/lib/prompts/jev'
+import { withRetry, type RetryPolicy } from '@/lib/retry'
 
 const DATASET = 'detect-confidence-golden'
 const SPLIT_SEED = 20260928
@@ -62,6 +63,8 @@ export type SubmissionRow = Parameters<typeof submissionToEnrichBrand>[0]
 export type RegenerateArgs = {
   apply: boolean
   preExport: string | null
+  /** Rollback mode: the pre-export file to restore the dataset from. */
+  restore: string | null
   addDenied: boolean
   assignSplits: boolean
   diffs: number
@@ -77,7 +80,11 @@ export function parseRegenerateArgs(argv: readonly string[]): RegenerateArgs {
   }
   const apply = argv.includes('--apply')
   const preExport = valueOf('--pre-export')
-  if (apply && !preExport) {
+  const restore = valueOf('--restore')
+  if (restore) {
+    const conflicting = ['--add-denied', '--assign-splits', '--pre-export'].filter((flag) => argv.includes(flag))
+    if (conflicting.length > 0) throw new Error(`--restore cannot be combined with ${conflicting.join(', ')}`)
+  } else if (apply && !preExport) {
     throw new Error('--apply requires --pre-export <path>: the current items are exported there first, as the rollback source')
   }
   const diffsRaw = valueOf('--diffs')
@@ -86,6 +93,7 @@ export function parseRegenerateArgs(argv: readonly string[]): RegenerateArgs {
   return {
     apply,
     preExport,
+    restore,
     addDenied: argv.includes('--add-denied'),
     assignSplits: argv.includes('--assign-splits'),
     diffs,
@@ -165,7 +173,7 @@ export function sourceFromSubmission(row: SubmissionRow): DetectSource {
     igHandle: extractInstagramHandle(brand.social_instagram),
     // Production also adds link-expansion adoptions made earlier in the same run;
     // a replay sees only what the submission row already carries.
-    ownedUrls: uniqueUrls([brand.website_url ?? '', ...collectKnownUrls(brand)]),
+    ownedUrls: ownedUrlsFor(brand),
   }
 }
 
@@ -202,7 +210,7 @@ export function buildDetectItem({
     description: source.description,
     website: source.website,
     submittedWebsite: source.submittedWebsite,
-    results: detectResults(parseBrandSearchEntries(rawResponse), source.ownedUrls, source.igHandle),
+    results: detectResultLines(parseBrandSearchEntries(rawResponse), source.ownedUrls, source.igHandle),
     ...(probes ? { probes } : {}),
   }
   return { item, rendered: renderDetectUserMessage(item) }
@@ -273,6 +281,249 @@ type DatasetItem = {
   input: unknown
   expectedOutput: unknown
   metadata: unknown
+}
+
+/** One dataset-item upsert as Langfuse receives it. */
+export type ItemBody = {
+  datasetName: string
+  id: string
+  input: unknown
+  expectedOutput: unknown
+  metadata: unknown
+  status: 'ACTIVE' | 'ARCHIVED'
+}
+
+/** The Langfuse calls the writer makes; injectable for tests. */
+export type DatasetItemApi = {
+  /** Resolves with the stored item. The SDK resolves on a 429 too, without the item. */
+  createItem: (body: ItemBody) => Promise<unknown>
+  /** `GET /dataset-items/<id>`: sees ARCHIVED items, which the dataset listing hides. Rejects with `{status: 404}` when absent. */
+  getItem: (id: string) => Promise<unknown>
+}
+
+/** Same pacing as `llm-eval.ts#seedIntentDataset`: 700ms is ~86 calls/min, under Langfuse's 100/min. */
+const LANGFUSE_PACE_MS = 700
+/** 1 attempt + 3 retries, waiting ~2s/4s/8s (as `seedIntentDataset`). */
+const LANGFUSE_RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, capMs: 8_000 }
+
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+function httpStatusOf(error: unknown): number | undefined {
+  const status = (error as { status?: unknown } | null)?.status
+  return typeof status === 'number' ? status : undefined
+}
+
+/**
+ * Paced, retried Langfuse item calls (the `seedIntentDataset` pattern): every
+ * call waits `LANGFUSE_PACE_MS` after the previous one. A write counts only when
+ * Langfuse returns the item with its id, because the SDK resolves on a 429
+ * without throwing. Ceiling: one serial caller at the default rate limit.
+ */
+export function pacedItemApi(api: DatasetItemApi, { sleep = realSleep }: { sleep?: (ms: number) => Promise<void> } = {}) {
+  let calls = 0
+  const pace = async () => {
+    if (calls++ > 0) await sleep(LANGFUSE_PACE_MS)
+  }
+  const retryUnconfirmed = { retryable: true, reason: 'rate_limit' } as const
+  const done = { retryable: false, reason: 'terminal' } as const
+
+  async function write(body: ItemBody): Promise<boolean> {
+    return withRetry(
+      LANGFUSE_RETRY_POLICY,
+      async () => {
+        await pace()
+        try {
+          const result = (await api.createItem(body)) as { id?: unknown } | null | undefined
+          return result?.id === body.id
+        } catch {
+          return false
+        }
+      },
+      { classify: (ok) => (ok ? done : retryUnconfirmed), service: 'langfuse-detect-golden', sleep },
+    )
+  }
+
+  /** Only a 404 means absent; a 429 is retried and any other failure throws. */
+  async function lookup(id: string): Promise<{ present: true; stored: unknown } | { present: false }> {
+    const result = await withRetry(
+      LANGFUSE_RETRY_POLICY,
+      async () => {
+        await pace()
+        try {
+          return { settled: true as const, value: { present: true as const, stored: await api.getItem(id) } }
+        } catch (error) {
+          if (httpStatusOf(error) === 404) return { settled: true as const, value: { present: false as const } }
+          if (httpStatusOf(error) === 429) return { settled: false as const }
+          throw error
+        }
+      },
+      { classify: (r) => (r.settled ? done : retryUnconfirmed), service: 'langfuse-detect-golden', sleep },
+    )
+    if (!result.settled) throw new Error(`looking up dataset item ${id}: still rate-limited after retries`)
+    return result.value
+  }
+
+  return { write, lookup }
+}
+
+/** JSON with sorted keys, so a Postgres jsonb round-trip compares equal. */
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(value ?? null, (_key, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  )
+}
+
+/**
+ * The written items that did not land as written: absent, or stored with a
+ * different status, input, expectedOutput or metadata. `stored` maps each id
+ * to what Langfuse returns for it (absent ids are missing from the map).
+ */
+export function landedMismatches(
+  expected: readonly ItemBody[],
+  stored: ReadonlyMap<string, unknown>,
+): Array<{ id: string; reason: string }> {
+  const mismatches: Array<{ id: string; reason: string }> = []
+  for (const body of expected) {
+    const item = stored.get(body.id) as Partial<ItemBody> | undefined
+    if (!item) {
+      mismatches.push({ id: body.id, reason: 'not found' })
+      continue
+    }
+    const field = (['input', 'expectedOutput', 'metadata'] as const).find(
+      (key) => canonicalJson(item[key]) !== canonicalJson(body[key]),
+    )
+    if (item.status !== body.status) mismatches.push({ id: body.id, reason: `status ${item.status}, expected ${body.status}` })
+    else if (field) mismatches.push({ id: body.id, reason: `${field} differs` })
+  }
+  return mismatches
+}
+
+/** Splits upserts into those whose id Langfuse does not hold yet and the ids it does (any status). */
+export function dropExistingIds<T extends { id: string }>(
+  upserts: readonly T[],
+  presentIds: ReadonlySet<string>,
+): { kept: T[]; skipped: string[] } {
+  return {
+    kept: upserts.filter((upsert) => !presentIds.has(upsert.id)),
+    skipped: upserts.filter((upsert) => presentIds.has(upsert.id)).map((upsert) => upsert.id),
+  }
+}
+
+/**
+ * Writes every body through the paced path, then reads each id back (per id,
+ * so ARCHIVED items are seen too) and compares. Returns the ids that did not
+ * land as written.
+ */
+async function writeAndVerify(
+  paced: ReturnType<typeof pacedItemApi>,
+  bodies: readonly ItemBody[],
+): Promise<Array<{ id: string; reason: string }>> {
+  let unconfirmed = 0
+  for (const body of bodies) {
+    if (!(await paced.write(body))) unconfirmed++
+  }
+  if (unconfirmed > 0) console.warn(`${unconfirmed} write(s) unconfirmed after retries; the read-back decides`)
+  // Read-back is the truth: an unconfirmed write may still have landed.
+  // Ceiling: one paced read per item (~200 items, ~2.5 min).
+  const stored = new Map<string, unknown>()
+  for (const body of bodies) {
+    const found = await paced.lookup(body.id)
+    if (found.present) stored.set(body.id, found.stored)
+  }
+  return landedMismatches(bodies, stored)
+}
+
+function langfuseItemApi(langfuse: NonNullable<ReturnType<typeof getLangfuse>>): DatasetItemApi {
+  return {
+    createItem: (body) => langfuse.createDatasetItem(body),
+    getItem: (id) => langfuse.api.datasetItemsGet(id),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Restore (dataset rollback)
+// ---------------------------------------------------------------------------
+
+export type ExportedItem = {
+  id: string
+  status: 'ACTIVE' | 'ARCHIVED'
+  input: unknown
+  expectedOutput: unknown
+  metadata: unknown
+}
+
+/** Validates a `--pre-export` file: an array of `{id, status?, input, expectedOutput, metadata}`. */
+export function parseExport(raw: unknown): ExportedItem[] {
+  if (!Array.isArray(raw)) throw new Error('pre-export file must be a JSON array of dataset items')
+  return raw.map((entry: unknown, index) => {
+    const item = (entry ?? {}) as Record<string, unknown>
+    if (typeof item.id !== 'string' || !item.id) throw new Error(`pre-export item ${index} has no id`)
+    const status = item.status ?? 'ACTIVE'
+    if (status !== 'ACTIVE' && status !== 'ARCHIVED') throw new Error(`pre-export item ${item.id} has status ${String(status)}`)
+    return {
+      id: item.id,
+      status,
+      input: item.input ?? null,
+      expectedOutput: item.expectedOutput ?? null,
+      metadata: item.metadata ?? null,
+    }
+  })
+}
+
+/**
+ * Every exported item is re-written by id as exported; every current
+ * admin-denied item the export lacks (one this script added) is archived.
+ * `current` is the dataset listing, which already hides ARCHIVED items.
+ */
+export function buildRestorePlan(
+  datasetName: string,
+  exported: readonly ExportedItem[],
+  current: ReadonlyArray<{ id: string; input: unknown; expectedOutput: unknown; metadata: unknown }>,
+): { restores: ItemBody[]; archives: ItemBody[] } {
+  const exportedIds = new Set(exported.map((item) => item.id))
+  return {
+    restores: exported.map((item) => ({ datasetName, ...item })),
+    archives: current
+      .filter(
+        (item) =>
+          !exportedIds.has(item.id) &&
+          (item.metadata as { stratum?: unknown } | null | undefined)?.stratum === 'admin-denied',
+      )
+      .map((item) => ({
+        datasetName,
+        id: item.id,
+        status: 'ARCHIVED' as const,
+        input: item.input,
+        expectedOutput: item.expectedOutput,
+        metadata: item.metadata,
+      })),
+  }
+}
+
+async function runRestore(langfuse: NonNullable<ReturnType<typeof getLangfuse>>, args: RegenerateArgs): Promise<void> {
+  const exported = parseExport(JSON.parse(readFileSync(args.restore!, 'utf8')))
+  const dataset = await langfuse.getDataset(DATASET)
+  const plan = buildRestorePlan(DATASET, exported, dataset.items as DatasetItem[])
+  console.log(`restore from ${args.restore}: ${plan.restores.length} exported item(s) to re-write, ${plan.archives.length} admin-denied item(s) to archive`)
+  for (const body of plan.archives) console.log(`  archive ${body.id}`)
+  if (!args.apply) {
+    console.log('\ndry run: nothing written; pass --apply to restore')
+    return
+  }
+  const mismatches = await writeAndVerify(pacedItemApi(langfuseItemApi(langfuse)), [...plan.restores, ...plan.archives])
+  reportLanded(mismatches, plan.restores.length + plan.archives.length)
+}
+
+function reportLanded(mismatches: Array<{ id: string; reason: string }>, total: number): void {
+  if (mismatches.length === 0) {
+    console.log(`verified: all ${total} item(s) landed as written in ${DATASET}`)
+    return
+  }
+  console.error(`\nNOT LANDED: ${mismatches.length}/${total} item(s) in ${DATASET} differ from what was written`)
+  for (const { id, reason } of mismatches) console.error(`  ${id}: ${reason}`)
+  process.exitCode = 1
 }
 
 type Upsert = {
@@ -360,15 +611,20 @@ type Plan = {
   probeDrift: number
   rerendered: number
   deniedAdded: number
-  deniedSkipped: { existing: number; anchorLeak: string[] }
+  /** `existingById`: the uuid5 id is already in Langfuse (any status, ARCHIVED included). */
+  deniedSkipped: { existing: number; existingById: number; anchorLeak: string[] }
   submissionIds: string[]
 }
+
+const deniedItemId = (submissionId: string) => uuid5(`detect-golden:denied:${submissionId}`)
 
 async function buildPlan(
   client: SupabaseClient,
   items: DatasetItem[],
   args: RegenerateArgs,
   runDate: string,
+  /** True when Langfuse holds the id in any status (a per-id read, not the listing). */
+  isPresent: (id: string) => Promise<boolean>,
 ): Promise<Plan> {
   const plan: Plan = {
     upserts: [],
@@ -379,7 +635,7 @@ async function buildPlan(
     probeDrift: 0,
     rerendered: 0,
     deniedAdded: 0,
-    deniedSkipped: { existing: 0, anchorLeak: [] },
+    deniedSkipped: { existing: 0, existingById: 0, anchorLeak: [] },
     submissionIds: [],
   }
 
@@ -444,6 +700,19 @@ async function buildPlan(
       plan.deniedSkipped.anchorLeak.push(`${row.id} (${name})`)
       return false
     })
+    // A denied item's uuid5 id may already exist ARCHIVED (rejected in review);
+    // the listing hides it, and re-writing it would re-activate it. Checked
+    // before any search or probe, so a skipped item costs no Serper credit.
+    const present = new Set<string>()
+    for (const row of denied) {
+      if (await isPresent(deniedItemId(row.id))) present.add(deniedItemId(row.id))
+    }
+    const { kept, skipped } = dropExistingIds(
+      denied.map((row) => ({ id: deniedItemId(row.id), row })),
+      present,
+    )
+    denied = kept.map(({ row }) => row)
+    plan.deniedSkipped.existingById = skipped.length
   }
 
   plan.submissionIds = [...new Set([...itemSubmissionIds, ...denied.map((row) => row.id)])]
@@ -504,7 +773,7 @@ async function buildPlan(
   const deniedUpserts: Upsert[] = []
   for (const row of denied) {
     plan.attempted++
-    const id = uuid5(`detect-golden:denied:${row.id}`)
+    const id = deniedItemId(row.id)
     try {
       const source = sourceFromSubmission(row)
       const evidence = await gatherEvidence(source, storedSerp.get(row.id), runDate)
@@ -571,7 +840,7 @@ function report(plan: Plan, args: RegenerateArgs): void {
   const live = plan.upserts.filter((upsert) => upsert.metadata.serpSource === 'live').length
   console.log(`  SERP: ${plan.upserts.length - live} stored, ${live} live`)
   if (args.addDenied) {
-    console.log(`  admin-denied added ${plan.deniedAdded}, skipped ${plan.deniedSkipped.existing} already present, ${plan.deniedSkipped.anchorLeak.length} anchor leak`)
+    console.log(`  admin-denied added ${plan.deniedAdded}, skipped ${plan.deniedSkipped.existing} already present, ${plan.deniedSkipped.existingById} id already in Langfuse (any status), ${plan.deniedSkipped.anchorLeak.length} anchor leak`)
     for (const leak of plan.deniedSkipped.anchorLeak) console.log(`    anchor leak: ${leak}`)
   }
   for (const failure of plan.failures) console.log(`  FAILED ${failure.id}: ${failure.reason}`)
@@ -582,6 +851,11 @@ async function main() {
   const args = parseRegenerateArgs(argv)
   const langfuse = getLangfuse()
   if (!langfuse) throw new Error('Langfuse not configured')
+  if (args.restore) {
+    await runRestore(langfuse, args)
+    await flushLangfuse()
+    return
+  }
 
   const { createServiceClient } = await import('@/lib/supabase/service')
   const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
@@ -589,6 +863,7 @@ async function main() {
 
   const dataset = await langfuse.getDataset(DATASET)
   const items = dataset.items as DatasetItem[]
+  const paced = pacedItemApi(langfuseItemApi(langfuse))
   const runDate = new Date().toISOString().slice(0, 10)
   const correlationId = randomUUID()
   const since = new Date()
@@ -600,7 +875,7 @@ async function main() {
   let plan: Plan
   try {
     plan = await runWithAuditContext({ correlationId }, () =>
-      buildPlan(createServiceClient(), items, args, runDate),
+      buildPlan(createServiceClient(), items, args, runDate, async (id) => (await paced.lookup(id)).present),
     )
     report(plan, args)
     // Runs before any write: the Langfuse writes below touch no audited table,
@@ -640,17 +915,17 @@ async function main() {
   )
   console.log(`\nexported ${items.length} current item(s) to ${args.preExport}`)
 
-  for (const upsert of plan.upserts) {
-    await langfuse.createDatasetItem({
-      datasetName: DATASET,
-      id: upsert.id,
-      input: upsert.input,
-      expectedOutput: upsert.expectedOutput,
-      status: 'ACTIVE',
-      metadata: upsert.metadata,
-    })
-  }
-  console.log(`applied: ${plan.upserts.length} item(s) written to ${DATASET}`)
+  const bodies: ItemBody[] = plan.upserts.map((upsert) => ({
+    datasetName: DATASET,
+    id: upsert.id,
+    input: upsert.input,
+    expectedOutput: upsert.expectedOutput,
+    status: 'ACTIVE',
+    metadata: upsert.metadata,
+  }))
+  const mismatches = await writeAndVerify(paced, bodies)
+  console.log(`applied: ${bodies.length - mismatches.length}/${bodies.length} item(s) written to ${DATASET}`)
+  reportLanded(mismatches, bodies.length)
   await flushLangfuse()
 }
 

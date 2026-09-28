@@ -350,9 +350,54 @@ describe("renderDetectUserMessage", () => {
 
     expect(resultLines).toHaveLength(10);
     expect(probeLines).toHaveLength(MAX_PROBE_URLS);
+    // The 160-character cap bounds the head text; the platform and follower
+    // suffix is appended after it (none here).
     for (const line of probeLines) {
       expect(line.slice("探測：".length).length).toBeLessThanOrEqual(160);
     }
+  });
+
+  it("render_long_ig_head_keeps_follower_count", () => {
+    const message = renderDetectUserMessage({
+      ...base,
+      probes: [
+        {
+          url: "https://www.instagram.com/mybrand/",
+          title: "t".repeat(300),
+          platform: "instagram",
+          instagramFollowers: 1234567,
+        },
+      ],
+    });
+    const probeLine = message
+      .split("\n")
+      .find((l) => l.startsWith("探測："));
+
+    expect(probeLine).toBe(
+      `探測：${"t".repeat(160)} (instagram)，IG 追蹤者 1,234,567`,
+    );
+  });
+
+  it("render_title_less_result_uses_snippet", () => {
+    const message = renderDetectUserMessage({
+      ...base,
+      results: [{ title: "", snippet: "Brand X opens", host: "news.tw", match: "site" }],
+    });
+
+    expect(message.split("\n")).toContain("搜尋結果：Brand X opens（news.tw，官網）");
+  });
+
+  it("render_reachable_headless_probe_is_not_unreachable", () => {
+    const message = renderDetectUserMessage({
+      ...base,
+      probes: [
+        { url: "https://spa.mybrand.com/", status: 200 },
+        { url: "https://gone.mybrand.com/", status: 404 },
+      ],
+    });
+
+    expect(message).not.toContain("HTTP 200");
+    expect(message.split("\n")).toContain("探測：gone.mybrand.com — 無法連線（HTTP 404）");
   });
 
   it("render_unreachable_without_status", () => {
@@ -361,7 +406,8 @@ describe("renderDetectUserMessage", () => {
       probes: [{ url: "https://www.mybrand.com/" }],
     });
 
-    expect(message.split("\n")).toContain("探測：www.mybrand.com — 無法連線");
+    // Probe hosts use the same bare-host form as result hosts.
+    expect(message.split("\n")).toContain("探測：mybrand.com — 無法連線");
     expect(message).not.toContain("HTTP");
   });
 });

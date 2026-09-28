@@ -15,7 +15,7 @@ import {
   mapWithConcurrency,
 } from "../_shared/concurrency";
 import type { ProbeEvidence } from "./gather";
-import { detectProbes, detectResults as toDetectResults } from "./detect-evidence";
+import { detectProbes, detectResultLines } from "./detect-evidence";
 import { extractInstagramHandle } from "./scraper/parse/extractors";
 import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
@@ -124,14 +124,14 @@ export async function runDetectPhase(
    * key rule every other per-brand map in the chunk follows, because `clean` and
    * `detect` can both rewrite a name and a name key would be a silent miss.
    */
-  probeEvidence?: Map<string, readonly ProbeEvidence[]>,
+  probeEvidence: Map<string, readonly ProbeEvidence[]>,
   /**
    * Each brand's own URLs (submitted `website_url` plus link columns), keyed by
    * TARGET ID like `probeEvidence`. Search results on one of them are tagged
    * as the brand's own site. Built by the orchestrator, which already has them
    * for the probe list.
    */
-  ownedUrlsByBrandId?: Map<string, readonly string[]>,
+  ownedUrlsByBrandId: Map<string, readonly string[]>,
 ): Promise<{
   phaseResult: PhaseResult;
   detectResults: Map<string, DetectResult>;
@@ -170,10 +170,10 @@ export async function runDetectPhase(
   const { result, durationMs } = await timePhase(async () => {
     const detectItems: DetectItem[] = ctx.chunk.map((brand, index) => {
       const name = ctx.chunkBrandNames[index];
-      const probes = detectProbes(probeEvidence?.get(brand.id));
-      const results = toDetectResults(
+      const probes = detectProbes(probeEvidence.get(brand.id));
+      const results = detectResultLines(
         searchResults.get(name)?.entries ?? [],
-        ownedUrlsByBrandId?.get(brand.id) ?? [],
+        ownedUrlsByBrandId.get(brand.id) ?? [],
         extractInstagramHandle(brand.social_instagram),
       );
       return {

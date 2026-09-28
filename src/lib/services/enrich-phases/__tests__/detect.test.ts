@@ -80,6 +80,8 @@ describe("runDetectPhase", () => {
     const result = await runDetectPhase(
       ctx({ phases: ["links"] as EnrichPhase[] }),
       new Map(),
+      new Map(),
+      new Map(),
     );
 
     expect(result.phaseResult.status).toBe("skipped");
@@ -98,6 +100,8 @@ describe("runDetectPhase", () => {
         chunkBrandNames: ["Test Brand", "Second Brand"],
       }),
       new Map(),
+      new Map(),
+      new Map(),
     );
 
     expect(result.phaseResult.status).toBe("failed");
@@ -108,7 +112,7 @@ describe("runDetectPhase", () => {
   it("keeps an empty result from a healthy provider on the succeeded path", async () => {
     mocks.detectBrand.mockResolvedValue(healthyEmpty);
 
-    const result = await runDetectPhase(ctx(), new Map());
+    const result = await runDetectPhase(ctx(), new Map(), new Map(), new Map());
 
     expect(result.phaseResult.status).toBe("succeeded");
     expect(result.phaseResult.providerFailure).toBeUndefined();
@@ -139,6 +143,8 @@ describe("runDetectPhase", () => {
           },
         ],
       ]),
+      new Map(),
+      new Map(),
     );
 
     expect(mocks.detectBrand).toHaveBeenCalledTimes(2);
@@ -171,6 +177,8 @@ describe("runDetectPhase", () => {
         chunk: [brand, secondBrand],
         chunkBrandNames: ["Test Brand", "Second Brand"],
       }),
+      new Map(),
+      new Map(),
       new Map(),
     );
 
@@ -206,6 +214,7 @@ describe("runDetectPhase", () => {
           ],
         ],
       ]),
+      new Map(),
     );
 
     // `status` is kept (DEV-1894): the renderer shows it on a failed probe.
@@ -229,6 +238,7 @@ describe("runDetectPhase", () => {
       // A dead submitted site is evidence too: the probe read no <head>, but
       // its 404 says the page is gone.
       new Map([["brand-1", [{ url: "https://test.example", status: 404 }]]]),
+      new Map(),
     );
 
     expect(firstItem().probes).toEqual([
@@ -262,7 +272,7 @@ describe("runDetectPhase", () => {
           },
         ],
       ]),
-      undefined,
+      new Map(),
       new Map([["brand-1", ["https://test.example"]]]),
     );
 
@@ -278,6 +288,8 @@ describe("runDetectPhase", () => {
       ctx({
         chunk: [{ ...brand, website_url: "https://submitted.example" }],
       }),
+      new Map(),
+      new Map(),
       new Map(),
     );
 
@@ -299,6 +311,7 @@ describe("runDetectPhase", () => {
           })),
         ],
       ]),
+      new Map(),
     );
 
     expect(firstItem().probes).toHaveLength(4);

@@ -17,11 +17,21 @@ import {
   type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import { DETECT_MESSAGE_LABELS as L } from "@/lib/prompts/detect-message";
-// Type-only: detect-evidence runtime-imports MAX_PROBE_URLS from this module.
-import type { DetectResultLine } from "./enrich-phases/detect-evidence";
+import {
+  DETECT_MESSAGE_LABELS as L,
+  MAX_PROBE_URLS,
+  MAX_RESULT_LINES,
+} from "@/lib/prompts/detect-message";
+import { pageKeyHost } from "./link-enrichment";
+import {
+  hasHeadText,
+  isUsableProbe,
+  type DetectResultLine,
+} from "./enrich-phases/detect-evidence";
+import type { ProbeEvidence } from "./enrich-phases/gather";
 
-export type { DetectResultLine };
+// Re-exported: the orchestrator and tests read the probe cap from here.
+export { MAX_PROBE_URLS };
 
 export type DetectItem = {
   slug: string;
@@ -40,18 +50,11 @@ export type DetectItem = {
    * (`enrich-phases/gather.ts`). Search results describe what the web says
    * about the brand; a probe is the brand's own page saying what it is, which
    * is the cheapest evidence available for the non-brand call and the only one
-   * a search-less brand has. A probe without head text renders as unreachable,
-   * with its HTTP status when one came back. Capped and rendered by
-   * `renderDetectUserMessage`.
+   * a search-less brand has. A failed probe without head text renders as
+   * unreachable, with its HTTP status when one came back. Filtered, ordered and
+   * capped by `detectProbes` (`enrich-phases/detect-evidence.ts`).
    */
-  probes?: Array<{
-    url: string;
-    title?: string;
-    description?: string;
-    platform?: string;
-    status?: number;
-    instagramFollowers?: number;
-  }>;
+  probes?: ProbeEvidence[];
   target?: EnrichmentTarget;
 };
 export type DetectResult = {
@@ -287,31 +290,20 @@ function parseSingleTriageResponse(
   return mapDetectEntry(result.data, slug);
 }
 
-/** At most four probed URLs reach the prompt, at most 160 characters each. */
-export const MAX_PROBE_URLS = 4;
+/** Each probe line's head text is capped at 160 characters. */
 const PROBE_LINE_CHARS = 160;
-const MAX_RESULT_LINES = 10;
 
-type DetectProbe = NonNullable<DetectItem["probes"]>[number];
-
-function headText(probe: DetectProbe): string {
+function headText(probe: ProbeEvidence): string {
   return [probe.title, probe.description]
     .filter((part): part is string => Boolean(part?.trim()))
     .join(" — ");
 }
 
-function probeHost(url: string): string {
-  try {
-    return new URL(url).hostname || url;
-  } catch {
-    return url;
-  }
-}
-
 function resultLine(result: DetectResultLine): string {
-  const head = result.snippet?.trim()
-    ? `${result.title} — ${result.snippet}`
-    : result.title;
+  const title = result.title.trim();
+  const snippet = result.snippet?.trim();
+  // A title-less result leads with its snippet, with no leading " — ".
+  const head = title && snippet ? `${title} — ${snippet}` : title || snippet || "";
   const tag =
     result.match === "site"
       ? `，${L.tagSite}`
@@ -321,21 +313,20 @@ function resultLine(result: DetectResultLine): string {
   return `${L.searchResult}：${head}（${result.host}${tag}）`;
 }
 
-function probeLine(probe: DetectProbe): string {
-  const head = headText(probe);
-  let value: string;
-  if (head) {
-    value = probe.platform ? `${head} (${probe.platform})` : head;
-    if (probe.instagramFollowers !== undefined) {
-      const followers = probe.instagramFollowers.toLocaleString("en-US");
-      value += `，${L.igFollowers} ${followers}`;
-    }
-  } else {
+function probeLine(probe: ProbeEvidence): string {
+  if (!hasHeadText(probe)) {
     const status =
       probe.status !== undefined ? `（HTTP ${probe.status}）` : "";
-    value = `${probeHost(probe.url)} — ${L.unreachable}${status}`;
+    return `${L.probe}：${pageKeyHost(probe.url)} — ${L.unreachable}${status}`;
   }
-  return `${L.probe}：${value.slice(0, PROBE_LINE_CHARS)}`;
+  // Cap the head text first so the platform and follower suffix survive it.
+  let value = headText(probe).slice(0, PROBE_LINE_CHARS);
+  if (probe.platform) value += ` (${probe.platform})`;
+  if (probe.instagramFollowers !== undefined) {
+    const followers = probe.instagramFollowers.toLocaleString("en-US");
+    value += `，${L.igFollowers} ${followers}`;
+  }
+  return `${L.probe}：${value}`;
 }
 
 /**
@@ -343,11 +334,15 @@ function probeLine(probe: DetectProbe): string {
  * production call and the golden-set regenerate script both render through it,
  * so the model sees byte-identical messages in both.
  *
- * Head-text probes come before unreachable ones, then the cap applies.
+ * `detectProbes` owns the probe policy. The renderer re-applies it (same
+ * predicates, same cap) because eval fixtures (`jev-questions.test.ts`,
+ * `scripts/jev/smoke.ts`) hand it probes that never passed through there;
+ * on `detectProbes` output it is a no-op.
  */
 export function renderDetectUserMessage(item: DetectItem): string {
-  const probes = [...(item.probes ?? [])]
-    .sort((a, b) => Number(!headText(a)) - Number(!headText(b)))
+  const probes = (item.probes ?? [])
+    .filter(isUsableProbe)
+    .sort((a, b) => Number(!hasHeadText(a)) - Number(!hasHeadText(b)))
     .slice(0, MAX_PROBE_URLS);
 
   return [

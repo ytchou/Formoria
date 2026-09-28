@@ -138,6 +138,22 @@ describe('JEV_CANDIDATES', () => {
     })
   })
 
+  it('build_state_maps_old_snippet_label: a pre-DEV-1894 message keeps website clean', () => {
+    // The pre-DEV-1894 renderer: one 搜尋摘要 line of ；-joined snippets, no 搜尋結果.
+    const oldUser = [
+      '品牌 slug：submission-456c87e9',
+      '品牌名稱：Design Council Busan',
+      '描述：無',
+      '網站：https://dcb.or.kr',
+      '搜尋摘要：Busan designated World Design Capital；SUMIDA MODERN',
+      '探測：DCB — Design Council Busan',
+    ].join('\n')
+    const state = JEV_CANDIDATES.detect.buildState({ user: oldUser, promptName: 'detect', rules: DETECT_RULES })
+    expect(state.website).toBe('https://dcb.or.kr')
+    expect(state.searchResults).toBe('Busan designated World Design Capital；SUMIDA MODERN')
+    expect(state.probes).toBe('DCB — Design Council Busan')
+  })
+
   it('missing_rules_throws: the candidate never runs on hand-written rules', () => {
     expect(() => JEV_CANDIDATES.detect.buildState({ user: DETECT_USER, promptName: 'detect' })).toThrow(/rules/)
     expect(() => JEV_CANDIDATES.detect.buildState(DETECT_USER)).toThrow(/rules/)
