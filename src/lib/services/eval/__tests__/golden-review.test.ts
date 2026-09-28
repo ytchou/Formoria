@@ -611,6 +611,29 @@ describe('applyVerdicts', () => {
     expect(getTrace).not.toHaveBeenCalled()
     expect(createDatasetItem.mock.calls[0]![0].id).toBe('item-2')
   })
+
+  it('skips a score whose metadata names another dataset without reading its trace', async () => {
+    const getTrace = vi.fn()
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        listScores: vi.fn().mockResolvedValue([
+          { ...approveScore('s-9', 't-9'), metadata: { datasetName: 'intent-parse-golden', itemId: 'x' } },
+          { ...approveScore('s-1', 't-1'), metadata: { datasetName: 'detect-confidence-golden', itemId: 'item-1' } },
+        ]),
+        getTrace,
+        createDatasetItem,
+      }),
+    })
+
+    expect(getTrace).not.toHaveBeenCalled()
+    expect(createDatasetItem).toHaveBeenCalledTimes(1)
+    expect(createDatasetItem.mock.calls[0]![0].id).toBe('item-1')
+  })
 })
 
 // ---------------------------------------------------------------------------

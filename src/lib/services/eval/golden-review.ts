@@ -38,6 +38,7 @@ type VerdictScore = {
   traceId: string
   comment?: string | null
   queueId?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 export type EnqueueDeps = {
@@ -264,6 +265,13 @@ export async function applyVerdicts({
     const stableItemId = stableTraceToItem.get(score.traceId)
     if (stableItemId) {
       traceToItem.set(score.traceId, stableItemId)
+      continue
+    }
+    // A score that names its dataset (panel writeback does) needs no trace read.
+    const scoreDataset = score.metadata?.datasetName
+    if (typeof scoreDataset === 'string') {
+      const scoreItemId = score.metadata?.itemId
+      if (scoreDataset === dataset && typeof scoreItemId === 'string') traceToItem.set(score.traceId, scoreItemId)
       continue
     }
     const trace = await getTraceFn(score.traceId)
