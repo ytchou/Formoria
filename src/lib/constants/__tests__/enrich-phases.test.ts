@@ -149,12 +149,8 @@ describe("audited phase coverage", () => {
 
   it("finds the known phase writers, so the scan cannot silently match nothing", () => {
     const literals = collectPhaseLiterals();
-    for (const phase of [
-      "facts",
-      "descriptions",
-      "stockists",
-      "classification",
-    ]) {
+    // `classification` is historical only since DEV-1886 — no writer remains.
+    for (const phase of ["facts", "descriptions", "stockists"]) {
       expect(literals.has(phase), `scan found no writer for ${phase}`).toBe(
         true,
       );

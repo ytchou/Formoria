@@ -1,6 +1,6 @@
 /**
  * @formoria-script
- * purpose: Smoke-test the five DEV-1824 TypeSafe Jev eval candidates against the live Jev API on inline zh-TW fixtures
+ * purpose: Smoke-test the four DEV-1824 TypeSafe Jev eval candidates against the live Jev API on inline zh-TW fixtures
  * class: operator
  * invoke: pnpm jev:smoke [--target staging|production]
  * target: staging-default
@@ -49,17 +49,6 @@ async function main(): Promise<void> {
             `${L.searchSnippets}：山茶工作室 凍頂烏龍 手工烘焙；南投鹿谷 茶農 第三代`,
           ].join('\n'),
           promptName: 'detect',
-        }),
-    },
-    {
-      name: 'classification',
-      run: () =>
-        runJevCandidate(JEV_CANDIDATES.classification, decide, {
-          user: [
-            `${L.brandName}：山茶工作室`,
-            `${L.description}：來自南投鹿谷的小農茶品牌，自產自焙凍頂烏龍茶`,
-          ].join('\n'),
-          promptName: 'category-classify',
         }),
     },
     {

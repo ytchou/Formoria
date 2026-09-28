@@ -67,16 +67,6 @@ export type LlmProfile = {
 };
 
 const CLASSIFY_TIMEOUT_MS = 30_000;
-const BATCH_CLASSIFY_TIMEOUT_MS = 60_000;
-
-/**
- * How many brands go into one batched LLM call. Shared by every batch helper —
- * the detect batch, the classification batch and the name arbiter — because the
- * per-call token budgets in LLM_PROFILES are all sized against this number.
- * Was three inlined `20` literals; changing one without the others silently
- * overflows the matching profile's maxTokens.
- */
-export const LLM_BATCH_CHUNK_SIZE = 20;
 
 /**
  * Every phase is extraction or closed-set classification against a fixed rubric,
@@ -144,49 +134,13 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: CLASSIFY_TIMEOUT_MS,
   },
-  /** Batched triage — up to 20 brands per call. */
-  detectBatch: {
-    model: "text",
-    maxTokens: 4000,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
-  },
-  /** Single-brand name arbitration — the per-item fallback after a batch content failure. */
+  /** Single-brand name arbitration. */
   names: {
     model: "text",
     maxTokens: 400,
     temperature: 0.1,
     reasoningEffort: "none",
     timeoutMs: CLASSIFY_TIMEOUT_MS,
-  },
-  /** Batched name arbitration — up to LLM_BATCH_CHUNK_SIZE brands per call. */
-  namesBatch: {
-    model: "text",
-    maxTokens: 2500,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
-  },
-  /**
-   * Single-brand category classification. 300, not 100: maxTokens is
-   * max_completion_tokens on gpt-5, so any preamble the model emits before the
-   * JSON eats the same budget and truncates the answer.
-   */
-  classification: {
-    model: "text",
-    maxTokens: 300,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: CLASSIFY_TIMEOUT_MS,
-  },
-  /** Batched category classification — up to 20 brands per call. */
-  classificationBatch: {
-    model: "text",
-    maxTokens: 1500,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
   },
   /**
    * Image classification. No `maxTokens` here: the budget is 250 per image in

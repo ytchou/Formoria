@@ -34,12 +34,7 @@ vi.mock("@/lib/langfuse/prompt", async (importOriginal) => {
 import { toStrictJsonSchema } from "../_shared/zod-schema";
 import { nameArbitrationShape } from "../name-arbiter";
 import { factsShape, researchFoundingFacts } from "../brand-facts";
-import {
-  classifyBatchShape,
-  classifySingleShape,
-  detectBatchShape,
-  detectSingleShape,
-} from "../category-classifier";
+import { detectSingleShape } from "../category-classifier";
 import { descriptionShape } from "../description-rewrite";
 import { parseQueryIntent } from "../query-intent-parse";
 import { rerankProducts } from "../product-rerank";
@@ -330,18 +325,6 @@ const WIRE_SCHEMAS: Array<[string, () => Promise<JsonSchema>]> = [
   [
     "category-classifier DETECT_SCHEMA",
     async () => toStrictJsonSchema(detectSingleShape),
-  ],
-  [
-    "category-classifier DETECT_BATCH_SCHEMA",
-    async () => toStrictJsonSchema(detectBatchShape),
-  ],
-  [
-    "category-classifier CLASSIFY_SCHEMA",
-    async () => toStrictJsonSchema(classifySingleShape),
-  ],
-  [
-    "category-classifier CLASSIFY_BATCH_SCHEMA",
-    async () => toStrictJsonSchema(classifyBatchShape),
   ],
   [
     "description-rewrite DESCRIPTION_SCHEMA",

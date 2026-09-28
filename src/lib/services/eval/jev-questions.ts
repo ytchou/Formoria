@@ -1,5 +1,5 @@
 /**
- * Jev question sets for the five DEV-1824 eval candidates. Each candidate turns
+ * Jev question sets for the DEV-1824 eval candidates. Each candidate turns
  * one eval input into a Jev `state` plus typed questions, and turns Jev answers
  * back into the output shape the existing scorers read, plus a `probability`
  * for the calibration sweep. Eval-only: no production call site imports this.
@@ -13,8 +13,6 @@
  *   `<label>：<value>` line each for brandSlug, brandName, description, website and
  *   searchSnippets (snippets joined by a full-width semicolon), then up to four
  *   `probe` lines. A missing description or website is written as `missingValue`.
- * - `category-confidence-golden` (12 ACTIVE): `input = { user, promptName: 'category-classify' }`,
- *   `user` = brandName and description lines.
  * - `situation-search-v2.json` (156 queries): `{ id, query, category, queryType, split,
  *   expected: [{ brandSlug, productKey, grade }] }`. `intent-parse-golden` items are
  *   seeded from it as `input = { query }`.
@@ -25,12 +23,12 @@
  * - Distillation `eval.jsonl` user message (productCategory): productName and
  *   description lines (`scripts/distillation/export-training-data.ts`).
  *
- * Both Langfuse golden inputs are flat prompt strings, not JSON, so the
- * state builders parse the labelled fields back out of `user`.
+ * The detect golden input and the distillation message are flat prompt
+ * strings, not JSON, so their state builders parse the labelled fields back out.
  */
 
 import { JEV_INPUT_LABELS } from '@/lib/prompts/jev'
-import { CATEGORY_LIST, RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
+import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import {
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
@@ -113,7 +111,6 @@ type DetectState = {
 type DetectOutput = { isNonBrand: boolean; confidence: ConfidenceBand; probability: number }
 
 type BrandTextState = { name: string | null; description: string | null }
-type ClassificationOutput = { category: string; confidence: ConfidenceBand; probability: number }
 
 type ProductCategoryOutput = {
   category: string
@@ -156,25 +153,21 @@ type RelevanceJudgeOutput = {
 // Option descriptions — derived from the taxonomy, never hand-typed slugs
 // ---------------------------------------------------------------------------
 
-/** `CATEGORY_LIST` is `- <slug>: <examples>` per line; reuse its examples as descriptions. */
-const L1_EXAMPLES = new Map(
-  CATEGORY_LIST.split('\n').flatMap((line) => {
-    const match = /^- ([^:]+): (.+)$/.exec(line)
-    return match ? [[match[1]!, match[2]!] as const] : []
-  }),
-)
+function subcategoriesOf(l1: string) {
+  return L2_SUBCATEGORIES.filter((s) => s.category === l1)
+}
 
-function l1Criteria(): Record<string, string> {
+/**
+ * Each L1 described by its own subcategory names. On intent-parse-golden this beat
+ * the `CATEGORY_LIST` examples (category 0.885 -> 0.929, DEV-1887).
+ */
+function l1MemberCriteria(): Record<string, string> {
   return Object.fromEntries(
     L1_CATEGORIES.map((c) => [
       c.slug,
-      `${c.nameZh}（${c.name}）：${L1_EXAMPLES.get(c.slug) ?? c.nameZh}`,
+      `${c.nameZh}（${c.name}）：${subcategoriesOf(c.slug).map((s) => s.nameZh).join('、')}`,
     ]),
   )
-}
-
-function subcategoriesOf(l1: string) {
-  return L2_SUBCATEGORIES.filter((s) => s.category === l1)
 }
 
 /** Same gloss as `SUBCATEGORY_VOCAB_BLOCK`: zh name, English name, aliases. */
@@ -367,7 +360,7 @@ const DETECT_LABELS = {
 } as const
 
 const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
-  profileKey: 'detectBatch',
+  profileKey: 'detect',
   buildState(input) {
     // The submission slug is dropped: it carries no evidence about the entity.
     const fields = parseLabelledLines(userText(input), [...Object.values(DETECT_LABELS), JEV_INPUT_LABELS.brandSlug])
@@ -403,34 +396,97 @@ const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
 }
 
 // ---------------------------------------------------------------------------
-// classification (brand L1)
+// names (brand-name arbitration: a choice over the supplied candidate names)
 // ---------------------------------------------------------------------------
 
-const BRAND_TEXT_LABELS = { name: JEV_INPUT_LABELS.brandName, description: JEV_INPUT_LABELS.description } as const
+const NAME_LABELS = {
+  stored: JEV_INPUT_LABELS.storedName,
+  candidates: JEV_INPUT_LABELS.nameCandidates,
+  snippets: JEV_INPUT_LABELS.searchSnippets,
+} as const
 
-const classification: JevCandidate<GoldenChatInput, BrandTextState, ClassificationOutput> = {
-  profileKey: 'classificationBatch',
+type NamesState = {
+  storedName: string
+  /** One line per distinct candidate: `<name> <- <sources>`. */
+  candidates: string
+  searchSnippets: string | null
+}
+type NamesOutput = { chosen: string | null; confidence: ConfidenceBand; probability: number }
+
+/**
+ * `name-arbiter.ts#buildNameArbiterUserContent` renders one brand as
+ * `N. [slug] <stored>：X / <candidates>：src：v；src：v / <snippets>：a；b`.
+ * Fields split on ` / ` followed by a known label, so a ` / ` inside a name stays
+ * whole. A candidate's first-party evidence is a trailing `（official_… url …）`.
+ */
+function parseNameArbiterLine(text: string): { stored: string; candidates: Map<string, string[]>; snippets: string | null } {
+  const line = text.split('\n').find((l) => /^\d+\. \[[^\]]*\] /.test(l))
+  if (!line) throw new Error('jev-questions: no name-arbiter item line in the input')
+  const body = line.replace(/^\d+\. \[[^\]]*\] /, '')
+  const labels = Object.values(NAME_LABELS)
+  const fields: Record<string, string> = {}
+  let current: string | null = null
+  for (const segment of body.split(' / ')) {
+    const label = labels.find((l) => segment.startsWith(`${l}：`))
+    if (label) {
+      current = label
+      fields[label] = segment.slice(label.length + 1)
+    } else if (current) {
+      fields[current] += ` / ${segment}`
+    }
+  }
+  const stored = (fields[NAME_LABELS.stored] ?? '').trim()
+  const candidates = new Map<string, string[]>()
+  const add = (value: string, source: string) => {
+    const v = value.trim()
+    if (!v) return
+    candidates.set(v, [...(candidates.get(v) ?? []), source])
+  }
+  add(stored, 'stored')
+  const list = valueOrNull(fields[NAME_LABELS.candidates])
+  for (const entry of list ? list.split('；') : []) {
+    const match = /^([a-z_]+)：(.*)$/.exec(entry.trim())
+    if (!match) continue
+    const evidenceAt = match[2]!.lastIndexOf('（official_')
+    const value = evidenceAt >= 0 && match[2]!.endsWith('）') ? match[2]!.slice(0, evidenceAt) : match[2]!
+    const evidence = evidenceAt >= 0 ? match[2]!.slice(evidenceAt + 1, -1) : null
+    add(value, evidence ? `${match[1]} (${evidence})` : match[1]!)
+  }
+  return { stored, candidates, snippets: valueOrNull(fields[NAME_LABELS.snippets]) }
+}
+
+const names: JevCandidate<GoldenChatInput, NamesState, NamesOutput> = {
+  profileKey: 'names',
   buildState(input) {
-    const fields = parseLabelledLines(userText(input), Object.values(BRAND_TEXT_LABELS))
+    const { stored, candidates, snippets } = parseNameArbiterLine(userText(input))
     return {
-      name: valueOrNull(fields[BRAND_TEXT_LABELS.name]),
-      description: valueOrNull(fields[BRAND_TEXT_LABELS.description]),
+      storedName: stored,
+      candidates: [...candidates].map(([value, sources]) => `${value} <- ${sources.join(', ')}`).join('\n'),
+      searchSnippets: snippets,
     }
   },
-  questions() {
-    const category: ChoiceQuestion = {
+  questions(state) {
+    const name: ChoiceQuestion = {
       type: 'choice',
       instructions: [
-        "Classify this Taiwanese brand by its core product line, using only its name and description (no outside knowledge). If it spans several categories, pick the primary product line's category.",
-        'Scented candles are beauty, not home. Leather wallets are bags-accessories, not fashion. Ceramic teapots are home, not food-drink.',
+        "Formoria lists Taiwanese brands. Which candidate is this brand's formal name, as the brand itself uses it?",
+        'Judge by meaning, not string shape: a trailing maker suffix (studio, workshop) is part of the name; a trailing tagline, SEO copy, page-title chrome or product-category description is not.',
+        'Keep both halves of a bilingual name only when a candidate already has both; never prefer a candidate that drops an identity half, and differing capitalisation alone keeps the capitalisation the brand uses.',
+        'A candidate that may be a different entity (a parent company, a legal name, another brand sharing a word) is not the name; when unsure, keep the stored name.',
       ].join(' '),
-      criteria: l1Criteria(),
+      criteria: Object.fromEntries(
+        state.candidates.split('\n').map((l) => {
+          const at = l.lastIndexOf(' <- ')
+          return [l.slice(0, at), `Proposed by: ${l.slice(at + 4)}`]
+        }),
+      ),
     }
-    return { category }
+    return { name }
   },
   toOutput(answers) {
-    const { key, p } = requireChoice(answers, 'category', L1_SLUGS)
-    return { category: key, confidence: bandFromProbability(p), probability: p }
+    const pick = pickChoice(answers.name)
+    const p = pick?.p ?? 0
+    return { chosen: pick?.key ?? null, confidence: bandFromProbability(p), probability: p }
   },
 }
 
@@ -492,7 +548,7 @@ const productCategory: TwoStepJevCandidate<GoldenChatInput, BrandTextState, Prod
       type: 'choice',
       instructions:
         'Which product category does this Taiwanese product belong to? Judge by what the product is, using only its name and description.',
-      criteria: l1Criteria(),
+      criteria: l1MemberCriteria(),
     }
     return { l1 }
   },
@@ -547,7 +603,7 @@ const intentParse: TwoStepJevCandidate<IntentParseInput, IntentParseState, Inten
         type: 'choice',
         instructions:
           "A shopper typed this situation query into a directory of Taiwanese products. Which product category is the query asking for?",
-        criteria: l1Criteria(),
+        criteria: l1MemberCriteria(),
       },
     }
     for (const m of MATERIALS) {
@@ -636,7 +692,7 @@ const relevanceJudge: JevCandidate<RelevanceJudgeInput, RelevanceJudgeState, Rel
 
 export const JEV_CANDIDATES = {
   detect,
-  classification,
+  names,
   productCategory,
   intentParse,
   relevanceJudge,

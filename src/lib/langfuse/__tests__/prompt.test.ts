@@ -154,12 +154,12 @@ describe("langfuse/prompt", () => {
     const mockPromptClient2 = {
       prompt: "another-different-text",
       compile: vi.fn(),
-      name: "category-classify",
+      name: "name-arbiter",
       version: 5,
       isFallback: false,
     };
     mockClient.getPrompt.mockResolvedValue(mockPromptClient2);
-    await fetchLangfusePromptWithMeta("category-classify");
+    await fetchLangfusePromptWithMeta("name-arbiter");
     driftWarnings = warnSpy.mock.calls.filter(
       (args) =>
         typeof args[0] === "string" && args[0].includes("[langfuse] prompt"),

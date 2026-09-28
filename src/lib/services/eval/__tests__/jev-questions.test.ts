@@ -44,6 +44,8 @@ describe('JEV_CANDIDATES', () => {
   it('every noul criteria is absent or a { true, false } object with non-empty strings', () => {
     let nouls = 0
     for (const cand of Object.values(JEV_CANDIDATES)) {
+      // names builds its one choice from the parsed state and asks no noul.
+      if (cand === JEV_CANDIDATES.names) continue
       const questions = (cand.questions as (state: unknown) => Record<string, JevQuestion>)(undefined)
       for (const q of Object.values(questions)) {
         if (q.type !== 'noul') continue
@@ -61,6 +63,7 @@ describe('JEV_CANDIDATES', () => {
 
   it('detect: buildState picks brand fields; toOutput maps noul p>=0.5 to isNonBrand and band via bandFromProbability', () => {
     const c = JEV_CANDIDATES.detect
+    expect(c.profileKey).toBe('detect')
     const state = c.buildState(DETECT_INPUT)
     expect(state).toEqual({
       name: 'Design Council Busan',
@@ -110,28 +113,6 @@ describe('JEV_CANDIDATES', () => {
       searchSnippets: '山焙茶室｜鹿谷凍頂烏龍茶',
       probes: '山焙茶室 — 炭焙烏龍禮盒 (instagram)\nhttps://www.facebook.com/shanbei.tea',
     })
-  })
-
-  it('classification: options are exactly the 12 L1 slugs with descriptions from L1_CATEGORIES', () => {
-    const c = JEV_CANDIDATES.classification
-    const state = c.buildState({ user: '品牌名稱：尾八\n描述：手繪招牌與插畫紙品', promptName: 'category-classify' })
-    expect(state).toEqual({ name: '尾八', description: '手繪招牌與插畫紙品' })
-    const q = c.questions(state).category
-    expect(q?.type).toBe('choice')
-    const criteria = (q as { criteria: Record<string, string> }).criteria
-    expect(Object.keys(criteria)).toEqual(L1_CATEGORIES.map((cat) => cat.slug))
-    for (const cat of L1_CATEGORIES) {
-      const desc = criteria[cat.slug]!
-      expect(desc.trim().length).toBeGreaterThan(0)
-      expect(desc).not.toBe(cat.name)
-      expect(desc).not.toBe(cat.nameZh)
-      expect(desc).not.toBe(cat.slug)
-    }
-    const home = L1_CATEGORIES[4].slug
-    const out = c.toOutput(
-      { category: { choice: home, probabilities: { [home]: 0.92, [L1_CATEGORIES[6].slug]: 0.08 } } },
-    )
-    expect(out).toEqual({ category: home, confidence: 'high', probability: 0.92 })
   })
 
   it('productCategory: beam K=3 builds 1 L1 choice + 3 L2 choices, and toOutput picks the max joint probability with an L2 that belongs to its L1', async () => {
@@ -191,6 +172,23 @@ describe('JEV_CANDIDATES', () => {
     expect(out.probability).toBeCloseTo(0.2)
   })
 
+  it('productCategory and intentParse describe each L1 by its own subcategory names (DEV-1887)', async () => {
+    const product = JEV_CANDIDATES.productCategory
+    const intent = JEV_CANDIDATES.intentParse
+    const l1Questions = [
+      product.questions(product.buildState('產品名稱：茶杯\n描述：陶瓷')).l1,
+      intent.questions(intent.buildState({ query: '茶杯' })).category,
+    ]
+    for (const q of l1Questions) {
+      const criteria = (q as { criteria: Record<string, string> }).criteria
+      expect(Object.keys(criteria)).toEqual(L1_CATEGORIES.map((cat) => cat.slug))
+      for (const cat of L1_CATEGORIES) {
+        const members = L2_SUBCATEGORIES.filter((s) => s.category === cat.slug).map((s) => s.nameZh)
+        expect(criteria[cat.slug]).toBe(`${cat.nameZh}（${cat.name}）：${members.join('、')}`)
+      }
+    }
+  })
+
   it('intentParse: 12 material nouls keyed by MATERIALS slugs; toOutput coarsens subcategory to null when L2 confidence < 0.9; materials include p>=0.5 only', async () => {
     const cand = JEV_CANDIDATES.intentParse
     const state = cand.buildState({ query: '送給喜歡泡茶的朋友' })
@@ -235,6 +233,31 @@ describe('JEV_CANDIDATES', () => {
     expect(sub.type).toBe('choice')
     expect(Object.keys(sub.criteria)).toEqual(subsOf(home))
     expect(result.output).toEqual({ category: home, subcategory: homeSub, materials: [m0, m1], probability: 0.8 })
+  })
+
+  it('names: one choice over the distinct candidate names, stored first; evidence and snippets parsed; toOutput returns the chosen name (DEV-1888)', () => {
+    const cand = JEV_CANDIDATES.names
+    const input = {
+      user: [
+        '請裁決以下品牌的正式名稱：',
+        '1. [lid] 儲存名稱：LID Shoes / 候選：stored：LID Shoes；cleaned：LID Shoes；official_website：劉一刀手工鞋 LID Shoes（official_website https://www.lidshoes.com observed="劉一刀 手工鞋"） / 搜尋摘要：LID Shoes 手工鞋；A / B 評測',
+      ].join('\n'),
+      promptName: 'name-arbiter',
+    }
+    const state = cand.buildState(input)
+    expect(state.storedName).toBe('LID Shoes')
+    expect(state.searchSnippets).toBe('LID Shoes 手工鞋；A / B 評測')
+    const q = cand.questions(state).name as { type: string; criteria: Record<string, string> }
+    expect(q.type).toBe('choice')
+    expect(Object.keys(q.criteria)).toEqual(['LID Shoes', '劉一刀手工鞋 LID Shoes'])
+    expect(q.criteria['LID Shoes']).toContain('stored, cleaned')
+    expect(q.criteria['劉一刀手工鞋 LID Shoes']).toContain('https://www.lidshoes.com')
+
+    const out = cand.toOutput({
+      name: { choice: '劉一刀手工鞋 LID Shoes', probabilities: { '劉一刀手工鞋 LID Shoes': 0.93, 'LID Shoes': 0.07 } },
+    })
+    expect(out).toEqual({ chosen: '劉一刀手工鞋 LID Shoes', confidence: 'high', probability: 0.93 })
+    expect(() => cand.buildState({ user: 'no item line' })).toThrow()
   })
 
   it('relevanceJudge: 4-level score (zero-indexed 0..3) with described levels; toOutput returns an integer grade = round(score), probabilities from the answer, votes = [grade]', () => {

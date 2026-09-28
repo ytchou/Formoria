@@ -187,14 +187,6 @@ describe("confidence prompt rubric anchors", () => {
       ],
     },
     {
-      name: "category-classify",
-      ids: [
-        "category-high-handmade-soap",
-        "category-medium-tea-fragrance",
-        "category-low-lifestyle-objects",
-      ],
-    },
-    {
       name: "name-arbiter",
       ids: ["name-high-unigaze", "name-medium-aromase", "name-low-trista"],
     },

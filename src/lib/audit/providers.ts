@@ -120,13 +120,16 @@ const PROVIDERS = {
     "unsubscribeNewsletterByEmail",
   ],
   enrich: [
-    "arbitrateBrandNames",
+    "arbitrateBrandName",
     "arbitrateSiteIdentity",
-    "classifyCategoryBatch",
-    "detectBrandsBatch",
+    "detectBrand",
     "persistEnrichmentResults",
     "persistSubmissionEnrichmentResults",
     "rewriteBrandDescription",
+    // Batched helpers retired by DEV-1886, kept for historical audit rows:
+    "arbitrateBrandNames",
+    "classifyCategoryBatch",
+    "detectBrandsBatch",
     // Retired phase runners kept for historical audit rows:
     "runBrandImagePhase",
     "runClassifyImagesPhase",

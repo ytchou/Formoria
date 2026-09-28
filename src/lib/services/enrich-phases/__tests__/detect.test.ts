@@ -4,21 +4,21 @@ import {
   runDetectPhase,
 } from "../detect";
 import type {
-  DetectBatchItem,
+  DetectItem,
 } from "../../category-classifier";
 
 /**
- * The two batch helpers are mocked (rather than spied) because vitest cannot
+ * The single-brand helper is mocked (rather than spied) because vitest cannot
  * redefine a live ESM export binding. `importOriginal` keeps every parser in
- * the module real — only the two network-calling entry points are replaced.
+ * the module real — only the network-calling entry point is replaced.
  */
 const mocks = vi.hoisted(() => ({
-  detectBrandsBatch: vi.fn(),
+  detectBrand: vi.fn(),
 }));
 
 vi.mock("../../category-classifier", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../category-classifier")>()),
-  detectBrandsBatch: mocks.detectBrandsBatch,
+  detectBrand: mocks.detectBrand,
 }));
 import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from "../types";
 import type { DetectResult } from "../../category-classifier";
@@ -41,6 +41,20 @@ const brandDetect: DetectResult = {
   categorySlug: "skincare",
   confidence: "high",
 };
+
+const secondBrand: EnrichBrand = {
+  ...brand,
+  id: "brand-2",
+  slug: "second-brand",
+  name: "Second Brand",
+};
+
+const healthyEmpty = { value: null, calls: { attempted: 1, providerFailed: 0 } };
+const providerDown = { value: null, calls: { attempted: 1, providerFailed: 1 } };
+
+function firstItem(): DetectItem {
+  return mocks.detectBrand.mock.calls[0][0] as DetectItem;
+}
 
 function ctx(overrides: Partial<BatchPhaseContext> = {}): BatchPhaseContext {
   return {
@@ -76,27 +90,78 @@ describe("runDetectPhase", () => {
     // An empty result map used to read as "no non-brands found" and the phase
     // reported `succeeded` — the root cause of the 407 falsely-green targets on
     // 2026-08-02.
-    mocks.detectBrandsBatch.mockResolvedValue({
-      results: new Map(),
-      calls: { attempted: 2, providerFailed: 2 },
-    });
+    mocks.detectBrand.mockResolvedValue(providerDown);
 
-    const result = await runDetectPhase(ctx(), new Map());
+    const result = await runDetectPhase(
+      ctx({
+        chunk: [brand, secondBrand],
+        chunkBrandNames: ["Test Brand", "Second Brand"],
+      }),
+      new Map(),
+    );
 
     expect(result.phaseResult.status).toBe("failed");
     expect(result.phaseResult.providerFailure).toBe(true);
+    expect(result.phaseResult.error).toContain("all 2 detect call(s)");
   });
 
   it("keeps an empty result from a healthy provider on the succeeded path", async () => {
-    mocks.detectBrandsBatch.mockResolvedValue({
-      results: new Map(),
-      calls: { attempted: 1, providerFailed: 0 },
-    });
+    mocks.detectBrand.mockResolvedValue(healthyEmpty);
 
     const result = await runDetectPhase(ctx(), new Map());
 
     expect(result.phaseResult.status).toBe("succeeded");
     expect(result.phaseResult.providerFailure).toBeUndefined();
+  });
+
+  it("makes one detect call per brand, each with its own brand", async () => {
+    mocks.detectBrand.mockResolvedValue(healthyEmpty);
+
+    await runDetectPhase(
+      ctx({
+        chunk: [brand, secondBrand],
+        chunkBrandNames: ["Test Brand", "Second Brand"],
+        jobId: "job-1",
+      }),
+      new Map([["Second Brand", { urls: [], snippets: ["second snippet"] }]]),
+    );
+
+    expect(mocks.detectBrand).toHaveBeenCalledTimes(2);
+    const items = mocks.detectBrand.mock.calls.map(
+      ([item, jobId]) => [(item as DetectItem).slug, jobId] as const,
+    );
+    expect(items).toEqual([
+      ["test-brand", "job-1"],
+      ["second-brand", "job-1"],
+    ]);
+    const second = mocks.detectBrand.mock.calls[1][0] as DetectItem;
+    expect(second.snippets).toEqual(["second snippet"]);
+    expect(second.target).toEqual({ type: "brand", id: "brand-2" });
+  });
+
+  it("keeps the other brands' results when one brand's call fails", async () => {
+    mocks.detectBrand.mockImplementation(async (item: DetectItem) =>
+      item.slug === "test-brand"
+        ? providerDown
+        : {
+            value: { ...brandDetect, slug: item.slug },
+            calls: { attempted: 1, providerFailed: 0 },
+          },
+    );
+
+    const result = await runDetectPhase(
+      ctx({
+        chunk: [brand, secondBrand],
+        chunkBrandNames: ["Test Brand", "Second Brand"],
+      }),
+      new Map(),
+    );
+
+    // One of two calls died at the provider: not every call, so the phase
+    // succeeds and the healthy brand keeps its verdict.
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.detectResults.has("test-brand")).toBe(false);
+    expect(result.detectResults.get("second-brand")?.slug).toBe("second-brand");
   });
 
   /**
@@ -105,10 +170,7 @@ describe("runDetectPhase", () => {
    * TARGET ID, like every other per-brand map handed to a batch phase.
    */
   it("probe_evidence_reaches_detect_prompt", async () => {
-    mocks.detectBrandsBatch.mockResolvedValue({
-      results: new Map(),
-      calls: { attempted: 1, providerFailed: 0 },
-    });
+    mocks.detectBrand.mockResolvedValue(healthyEmpty);
 
     await runDetectPhase(
       ctx(),
@@ -129,9 +191,8 @@ describe("runDetectPhase", () => {
       ]),
     );
 
-    const items = mocks.detectBrandsBatch.mock.calls[0][0] as DetectBatchItem[];
     // `status` is dropped: it steers the probe, it does not describe the brand.
-    expect(items[0].probes).toEqual([
+    expect(firstItem().probes).toEqual([
       {
         url: "https://test.example",
         title: "Test Brand Official Site",
@@ -142,10 +203,7 @@ describe("runDetectPhase", () => {
   });
 
   it("probe_evidence_without_head_text_is_dropped", async () => {
-    mocks.detectBrandsBatch.mockResolvedValue({
-      results: new Map(),
-      calls: { attempted: 1, providerFailed: 0 },
-    });
+    mocks.detectBrand.mockResolvedValue(healthyEmpty);
 
     await runDetectPhase(
       ctx(),
@@ -155,15 +213,11 @@ describe("runDetectPhase", () => {
       new Map([["brand-1", [{ url: "https://test.example", platform: "instagram" }]]]),
     );
 
-    const items = mocks.detectBrandsBatch.mock.calls[0][0] as DetectBatchItem[];
-    expect(items[0].probes).toBeUndefined();
+    expect(firstItem().probes).toBeUndefined();
   });
 
   it("caps probe evidence at four urls per brand", async () => {
-    mocks.detectBrandsBatch.mockResolvedValue({
-      results: new Map(),
-      calls: { attempted: 1, providerFailed: 0 },
-    });
+    mocks.detectBrand.mockResolvedValue(healthyEmpty);
 
     await runDetectPhase(
       ctx(),
@@ -179,8 +233,7 @@ describe("runDetectPhase", () => {
       ]),
     );
 
-    const items = mocks.detectBrandsBatch.mock.calls[0][0] as DetectBatchItem[];
-    expect(items[0].probes).toHaveLength(4);
+    expect(firstItem().probes).toHaveLength(4);
   });
 });
 

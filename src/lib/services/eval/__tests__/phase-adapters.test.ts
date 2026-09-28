@@ -11,7 +11,6 @@ import { REPAIR_SCHEMA } from '../../enrich-phases/products/graph'
 
 const GOLDEN_DATASET_NAMES = [
   'detect-confidence-golden',
-  'category-confidence-golden',
   'name-arbiter-confidence-golden',
   'products-agent-ranking-golden',
   'intent-parse-golden',
@@ -21,7 +20,7 @@ const GOLDEN_DATASET_NAMES = [
 const PROMPTLESS_DATASETS: ReadonlySet<string> = new Set(['intent-parse-golden'])
 
 describe('phase-adapters registry', () => {
-  it('resolves each of the five golden dataset names plus descriptions', () => {
+  it('resolves each of the four golden dataset names plus descriptions', () => {
     for (const name of GOLDEN_DATASET_NAMES) {
       const adapter = adapterFor(name)
       expect(adapter).toBeDefined()
@@ -85,22 +84,24 @@ describe('phase-adapters registry', () => {
 
   it('parseOutput turns a content string into a validated object', () => {
     const adapter = adapterFor('detect-confidence-golden')
-    const valid = JSON.stringify({
-      results: [{
-        reasoning: 'test',
-        isNonBrand: false,
-        nonBrandReason: null,
-        brand_name: 'Test',
-        slug_generated: 'test',
-        confidence: 'high',
-        slug: 'test',
-      }],
-    })
-    const result = adapter.parseOutput(valid)
+    expect(adapter.profileKey).toBe('detect')
+    const single = {
+      reasoning: 'test',
+      isNonBrand: false,
+      nonBrandReason: null,
+      brand_name: 'Test',
+      slug_generated: 'test',
+      confidence: 'high',
+    }
+    const result = adapter.parseOutput(JSON.stringify(single))
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.data).toBeDefined()
+      // Single-item shape (DEV-1886): the scorers read the object itself.
+      expect(adapter.unwrap(result.data)).toEqual(single)
     }
+
+    // the retired batch envelope no longer parses
+    expect(adapter.parseOutput(JSON.stringify({ results: [single] })).ok).toBe(false)
 
     // malformed content
     const malformed = adapter.parseOutput('not json')
@@ -112,23 +113,6 @@ describe('phase-adapters registry', () => {
     // valid JSON but wrong shape
     const wrongShape = adapter.parseOutput(JSON.stringify({ wrong: true }))
     expect(wrongShape.ok).toBe(false)
-  })
-
-  it('category adapter unwraps {results:[…]} to the first result and scores against expected', () => {
-    const adapter = adapterFor('category-confidence-golden')
-    const batchOutput = {
-      results: [
-        { slug: 'test', reasoning: 'test', category: 'beauty', confidence: 'high' },
-      ],
-    }
-    const unwrapped = adapter.unwrap(batchOutput)
-    expect(unwrapped).toEqual(batchOutput.results[0])
-
-    // scorers include the right names
-    const scorerNames = adapter.scorers.map((s) => s.name)
-    expect(scorerNames).toContain('categoryAgreement')
-    expect(scorerNames).toContain('confidenceBandAgreement')
-    expect(scorerNames).toContain('writeEligibleAgreement')
   })
 
   it('detect adapter maps isNonBrand/confidence/slugGenerated/brandName', () => {
@@ -166,6 +150,7 @@ describe('phase-adapters registry', () => {
 
   it('name-arbiter adapter exposes its exported shape', () => {
     const nameAdapter = adapterFor('name-arbiter-confidence-golden')
+    expect(nameAdapter.profileKey).toBe('names')
     expect(nameAdapter.outputSchema).toBeDefined()
     // The requestSchema should match what the module exports
     expect(nameAdapter.requestSchema.schema).toEqual(
@@ -241,16 +226,9 @@ describe('Jev decide wiring', () => {
       answers: { isNonBrand: { noul: 0.95 } },
       expectedOutput: { isNonBrand: true, confidence: 'high' },
     },
-    {
-      dataset: 'category-confidence-golden',
-      primary: 'categoryAgreement',
-      input: { user: 'brand line', promptName: 'category-classify' },
-      answers: { category: { choice: 'beauty', probabilities: { beauty: 0.95 } } },
-      expectedOutput: { category: 'beauty', confidence: 'high' },
-    },
   ] as const
 
-  it('detect/category adapters expose decide mapping to the scorer output shape', async () => {
+  it('detect adapter exposes decide mapping to the scorer output shape', async () => {
     for (const c of cases) {
       const decide = fakeDecide(c.answers)
       const adapter = adapterFor(c.dataset, { decide })
@@ -270,7 +248,7 @@ describe('Jev decide wiring', () => {
     }
   })
 
-  it('the default registry wires decide on the two confidence adapters', () => {
+  it('the default registry wires decide on the detect adapter', () => {
     for (const c of cases) {
       expect(typeof adapterFor(c.dataset).decide).toBe('function')
     }
