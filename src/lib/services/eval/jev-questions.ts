@@ -174,7 +174,7 @@ function valueOrNull(value: string | undefined): string | null {
  * a multi-line description stays whole; every label the templates emit must be
  * in `labels`, or its lines leak into the field before them.
  */
-function parseLabelledLines(text: string, labels: readonly string[]): Record<string, string> {
+export function parseLabelledLines(text: string, labels: readonly string[]): Record<string, string> {
   const fields: Record<string, string> = {}
   let current: string | null = null
   for (const line of text.split('\n')) {
