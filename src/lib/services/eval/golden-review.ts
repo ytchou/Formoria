@@ -39,6 +39,7 @@ type VerdictScore = {
   comment?: string | null
   queueId?: string | null
   metadata?: Record<string, unknown> | null
+  timestamp?: string | null
 }
 
 export type EnqueueDeps = {
@@ -282,14 +283,18 @@ export async function applyVerdicts({
     }
   }
 
-  // Build itemId → verdict map
+  // Build itemId → verdict map. An item reviewed before DEV-1881 has scores on
+  // both a legacy and a stable trace; the newest timestamp wins, whatever order
+  // the listing returns them in.
+  const scoreTime = (score: VerdictScore) => (score.timestamp ? Date.parse(score.timestamp) : 0) || 0
   const itemVerdicts = new Map<
     string,
     { score: VerdictScore; verdict: Verdict }
   >()
   for (const score of scores) {
     const itemId = traceToItem.get(score.traceId)
-    if (itemId) {
+    const current = itemId ? itemVerdicts.get(itemId) : undefined
+    if (itemId && (!current || scoreTime(score) >= scoreTime(current.score))) {
       itemVerdicts.set(itemId, {
         score,
         verdict: verdictFromValue(score.value),

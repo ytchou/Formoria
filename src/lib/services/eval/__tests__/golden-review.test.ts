@@ -489,6 +489,42 @@ describe('applyVerdicts', () => {
     })
   })
 
+  it('applies the newest verdict when an item has scores on two traces', async () => {
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        // Listed newest-first, so a last-seen-wins map would keep the old approve.
+        listScores: vi.fn().mockResolvedValue([
+          {
+            id: 'score-stable',
+            name: 'golden_verdict',
+            value: 0,
+            traceId: 'trace-stable',
+            timestamp: '2026-09-28T10:00:00.000Z',
+          },
+          {
+            id: 'score-legacy',
+            name: 'golden_verdict',
+            value: 1,
+            traceId: 'trace-legacy',
+            timestamp: '2026-09-01T10:00:00.000Z',
+          },
+        ]),
+        createDatasetItem,
+      }),
+    })
+
+    expect(createDatasetItem).toHaveBeenCalledTimes(1)
+    const body = createDatasetItem.mock.calls[0]![0] as Record<string, unknown>
+    expect(body.status).toBe('ARCHIVED')
+    const ha = (body.metadata as Record<string, unknown>).humanApproval as Record<string, unknown>
+    expect(ha.status).toBe('rejected')
+  })
+
   it('sets status ACTIVE on approve and on edit', async () => {
     const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
