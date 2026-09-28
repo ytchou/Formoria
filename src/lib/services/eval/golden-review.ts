@@ -38,6 +38,7 @@ type VerdictScore = {
   traceId: string
   comment?: string | null
   queueId?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 export type EnqueueDeps = {
@@ -56,6 +57,7 @@ export type ApplyVerdictsDeps = {
   getTrace: (traceId: string) => Promise<{ metadata?: Record<string, unknown> }>
   createDatasetItem: (body: Record<string, unknown>) => Promise<unknown>
   adapterFor: (name: string) => { expectedSchema: ZodObject<ZodRawShape> }
+  sleep: (ms: number) => Promise<void>
 }
 
 // ---------------------------------------------------------------------------
@@ -216,10 +218,9 @@ export async function applyVerdicts({
       return listQueueScores(params) as unknown as Promise<VerdictScore[]>
     })
 
-  // Langfuse limits GET /traces to 15 requests per fixed one-minute window, and
-  // every golden_verdict score in the project needs one lookup. A 429 waits out
-  // the window and retries. Ceiling: ~15 verdicts a minute; upgrade by carrying
-  // itemId in score metadata so push needs no trace reads.
+  // Langfuse limits GET /traces to 15 requests per fixed one-minute window. Only
+  // scores on legacy (pre-DEV-1881, random-id) traces need this lookup; a 429
+  // waits out the window and retries. Ceiling: ~15 legacy verdicts a minute.
   const getTraceFn =
     deps?.getTrace ??
     (async (traceId: string) => {
@@ -249,13 +250,30 @@ export async function applyVerdicts({
     deps?.adapterFor ??
     ((name: string) => defaultAdapterFor(name) as unknown as { expectedSchema: ZodObject<ZodRawShape> })
 
+  const sleep = deps?.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+
   const adapter = adapterForFn(dataset)
   const { items } = await getDatasetFn(dataset)
   const scores = await listScoresFn({ name: 'golden_verdict' })
 
-  // Build traceId → itemId map (verdict lookup by trace metadata, not position)
+  // Build traceId → itemId map. Traces enqueued since DEV-1881 carry a stable id
+  // derived from the item, so they resolve without a trace read; older traces
+  // fall back to reading the trace metadata.
+  const stableTraceToItem = new Map(items.map((item) => [reviewTraceId(dataset, item.id), item.id]))
   const traceToItem = new Map<string, string>()
   for (const score of scores) {
+    const stableItemId = stableTraceToItem.get(score.traceId)
+    if (stableItemId) {
+      traceToItem.set(score.traceId, stableItemId)
+      continue
+    }
+    // A score that names its dataset (panel writeback does) needs no trace read.
+    const scoreDataset = score.metadata?.datasetName
+    if (typeof scoreDataset === 'string') {
+      const scoreItemId = score.metadata?.itemId
+      if (scoreDataset === dataset && typeof scoreItemId === 'string') traceToItem.set(score.traceId, scoreItemId)
+      continue
+    }
     const trace = await getTraceFn(score.traceId)
     const meta = trace.metadata as Record<string, unknown> | undefined
     const itemId = meta?.itemId as string | undefined
@@ -390,9 +408,33 @@ export async function applyVerdicts({
     throw new Error(`Validation failed:\n${errors.join('\n')}`)
   }
 
-  // Phase 2: Write all items
-  for (const write of writes) {
-    await createDatasetItemFn(write.body)
+  // Phase 2: Write all items, paced like enqueue. The SDK resolves (not rejects)
+  // on 429, so a write counts only when the returned item carries its id.
+  const unconfirmed: string[] = []
+  for (const [index, write] of writes.entries()) {
+    if (index > 0) await sleep(ENQUEUE_PACE_MS)
+    const ok = await withRetry(
+      ENQUEUE_RETRY_POLICY,
+      async () => {
+        try {
+          const result = (await createDatasetItemFn(write.body)) as { id?: unknown } | null | undefined
+          return result?.id === write.itemId
+        } catch {
+          return false
+        }
+      },
+      {
+        classify: (done) => (done ? { retryable: false, reason: 'terminal' } : { retryable: true, reason: 'rate_limit' }),
+        service: 'langfuse-review-push',
+        sleep,
+      },
+    )
+    if (!ok) unconfirmed.push(write.itemId)
+  }
+  if (unconfirmed.length > 0) {
+    throw new Error(
+      `[push] ${writes.length - unconfirmed.length}/${writes.length} written; not confirmed after retries: ${unconfirmed.join(', ')}. Rerun to retry; writes are upserts.`,
+    )
   }
 
   // Count pending (ACTIVE items with no verdict)

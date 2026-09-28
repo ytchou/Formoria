@@ -292,14 +292,15 @@ describe('applyVerdicts', () => {
           itemId: 'item-1',
         },
       }),
-      createDatasetItem: vi.fn().mockResolvedValue({}),
+      createDatasetItem: vi.fn(async (b: Record<string, unknown>) => ({ id: b.id })),
       adapterFor: vi.fn().mockReturnValue({ expectedSchema }),
+      sleep: vi.fn().mockResolvedValue(undefined),
       ...overrides,
     }
   }
 
   it('maps approve → ACTIVE with reviewedVia', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -338,7 +339,7 @@ describe('applyVerdicts', () => {
 
   it('maps edit → merged expectedOutput validated by adapter.expectedSchema', async () => {
     // --- Part 1: valid edit merges fields ---
-    const createOk = vi.fn().mockResolvedValue({})
+    const createOk = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -376,7 +377,7 @@ describe('applyVerdicts', () => {
     expect(ha.status).toBe('approved')
 
     // --- Part 2: invalid JSON aborts the whole push ---
-    const createBad = vi.fn().mockResolvedValue({})
+    const createBad = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await expect(
       applyVerdicts({
@@ -409,7 +410,7 @@ describe('applyVerdicts', () => {
   })
 
   it('maps reject → status ARCHIVED', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -445,7 +446,7 @@ describe('applyVerdicts', () => {
   })
 
   it('items with no verdict are left untouched and reported pending', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     const result = await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -489,7 +490,7 @@ describe('applyVerdicts', () => {
   })
 
   it('sets status ACTIVE on approve and on edit', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -539,6 +540,99 @@ describe('applyVerdicts', () => {
       unknown
     >
     expect(editBody.status).toBe('ACTIVE')
+  })
+
+  const approveScore = (id: string, traceId: string) => ({
+    id, name: 'golden_verdict', value: 1, traceId, queueId: 'q-1',
+  })
+
+  it('retries a write the SDK resolved without the item id, then throws naming it', async () => {
+    // The Langfuse SDK resolves (not rejects) on 429, so only the returned id proves the write landed.
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => (b.id === 'item-2' ? {} : { id: b.id }))
+    const sleep = vi.fn().mockResolvedValue(undefined)
+
+    await expect(
+      applyVerdicts({
+        dataset: 'detect-confidence-golden',
+        queueName: 'golden-review',
+        approvedBy: 'patrick',
+        deps: baseDeps({
+          listScores: vi.fn().mockResolvedValue([approveScore('s-1', 't-1'), approveScore('s-2', 't-2')]),
+          getTrace: vi.fn(async (traceId: string) => ({
+            metadata: { itemId: traceId === 't-1' ? 'item-1' : 'item-2' },
+          })),
+          createDatasetItem,
+          sleep,
+        }),
+      }),
+    ).rejects.toThrow(/1\/2 written.*item-2/)
+
+    // item-1 once; item-2 on every retry attempt.
+    expect(createDatasetItem.mock.calls.filter(([b]) => b.id === 'item-2')).toHaveLength(4)
+    expect(createDatasetItem.mock.calls.filter(([b]) => b.id === 'item-1')).toHaveLength(1)
+  })
+
+  it('paces writes with the injected sleep', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined)
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        listScores: vi.fn().mockResolvedValue([approveScore('s-1', 't-1'), approveScore('s-2', 't-2')]),
+        getTrace: vi.fn(async (traceId: string) => ({
+          metadata: { itemId: traceId === 't-1' ? 'item-1' : 'item-2' },
+        })),
+        sleep,
+      }),
+    })
+
+    expect(sleep).toHaveBeenCalledWith(700)
+  })
+
+  it('resolves a score on the deterministic review trace id without reading the trace', async () => {
+    const { createHash } = await import('node:crypto')
+    const traceId = createHash('sha256').update('golden-review:detect-confidence-golden:item-2').digest('hex').slice(0, 32)
+    const getTrace = vi.fn()
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        listScores: vi.fn().mockResolvedValue([approveScore('s-2', traceId)]),
+        getTrace,
+        createDatasetItem,
+      }),
+    })
+
+    expect(getTrace).not.toHaveBeenCalled()
+    expect(createDatasetItem.mock.calls[0]![0].id).toBe('item-2')
+  })
+
+  it('skips a score whose metadata names another dataset without reading its trace', async () => {
+    const getTrace = vi.fn()
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        listScores: vi.fn().mockResolvedValue([
+          { ...approveScore('s-9', 't-9'), metadata: { datasetName: 'intent-parse-golden', itemId: 'x' } },
+          { ...approveScore('s-1', 't-1'), metadata: { datasetName: 'detect-confidence-golden', itemId: 'item-1' } },
+        ]),
+        getTrace,
+        createDatasetItem,
+      }),
+    })
+
+    expect(getTrace).not.toHaveBeenCalled()
+    expect(createDatasetItem).toHaveBeenCalledTimes(1)
+    expect(createDatasetItem.mock.calls[0]![0].id).toBe('item-1')
   })
 })
 

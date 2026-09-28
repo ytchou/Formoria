@@ -6,7 +6,7 @@ import {
 } from '@/lib/taxonomy/ontology'
 import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import type { JevAnswer, JevQuestion, JevState } from '@/lib/services/typesafe-client'
-import { JEV_CANDIDATES, type DecideFn } from '../jev-questions'
+import { JEV_CANDIDATES, argmaxGrade, type DecideFn } from '../jev-questions'
 
 // Fixtures mirror the stored golden inputs recorded in jev-questions.ts's header.
 const DETECT_INPUT = {
@@ -306,5 +306,20 @@ describe('JEV_CANDIDATES', () => {
     expect(cand.toOutput({ grade: { score: 2.6 } }).votes).toEqual([3])
     // no score → no vote, like an all-malformed OpenAI judge run
     expect(cand.toOutput({})).toEqual({ grade: null, votes: [], unanimous: false, split: false })
+  })
+})
+
+describe('argmaxGrade', () => {
+  it('returns the most probable level', () => {
+    expect(argmaxGrade({ '0': 0.1, '1': 0.2, '2': 0.6, '3': 0.1 })).toBe(2)
+  })
+
+  it('breaks a tie toward the lower (stricter) level', () => {
+    expect(argmaxGrade({ '0': 0.45, '1': 0.45, '2': 0.1, '3': 0 })).toBe(0)
+  })
+
+  it('returns null without probabilities or with non-level keys only', () => {
+    expect(argmaxGrade(undefined)).toBeNull()
+    expect(argmaxGrade({ high: 1 })).toBeNull()
   })
 })

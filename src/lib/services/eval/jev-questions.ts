@@ -208,6 +208,21 @@ function l1Name(slug: string): string {
   return c ? `${c.nameZh}（${c.name}）` : slug
 }
 
+/**
+ * The most probable relevance level from a score answer's per-level probabilities.
+ * `score` is a probability-weighted value, which drifts toward the middle levels;
+ * argmax reads the single most likely grade. A tie goes to the lower, stricter level.
+ */
+export function argmaxGrade(probabilities: Record<string, number> | undefined): number | null {
+  let best: { grade: number; p: number } | null = null
+  for (const [key, p] of Object.entries(probabilities ?? {})) {
+    const grade = Number(key)
+    if (!Number.isInteger(grade) || grade < 0 || grade >= RELEVANCE_GRADE_LEVELS.length) continue
+    if (!best || p > best.p || (p === best.p && grade < best.grade)) best = { grade, p }
+  }
+  return best ? best.grade : null
+}
+
 /** Level index = grade 0..3, so Jev's zero-indexed score equals the grade. */
 function relevanceCriteria(): string[] {
   return [...RELEVANCE_GRADE_LEVELS]

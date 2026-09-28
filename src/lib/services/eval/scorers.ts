@@ -472,8 +472,11 @@ export type CalibrationPoint = { p: number; correct: boolean }
 export type ConfidenceBand = 'high' | 'medium' | 'low'
 
 /**
- * Provisional band cutoffs for Jev probabilities: high >= 0.90, medium >= 0.70,
- * else low. PROVISIONAL — DEV-1869 owns the calibrated values and replaces these.
+ * Band cutoffs for Jev probabilities: high >= 0.90, medium >= 0.70, else low.
+ * Kept by DEV-1869 (2026-09-28) on ~500 pooled Jev decisions (detect, category,
+ * site-identity, intent, per-product L1): p >= 0.90 was 94–97% correct on every
+ * set, 0.70–0.90 was 50–84%, and below 0.70 was 29–68%. Revisit when a set
+ * grows past ~100 items or Jev's model version changes.
  */
 export const JEV_BAND_CUTOFFS = { high: 0.9, medium: 0.7 } as const
 
