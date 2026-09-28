@@ -273,8 +273,8 @@ function parseExisting(item: ExistingItem): Omit<PoolItem, 'hardTags' | 'pinned'
 
 /**
  * Existing dataset items come first and keep their ids; harvested items follow,
- * latest row first. An item is a duplicate when its slug or its normalized
- * stored name was already taken.
+ * latest row first. A harvested item is a duplicate when its slug or its
+ * normalized stored name was already taken; existing items are always kept.
  */
 export function buildPool({
   existing,
@@ -304,7 +304,10 @@ export function buildPool({
 
   for (const candidate of [...existing.map(parseExisting), ...latestFirst]) {
     const name = normalizeForMatch(candidate.storedName)
-    if ((candidate.slug && slugs.has(candidate.slug)) || (name && names.has(name))) {
+    // Existing items are never dropped: some are hand-built variants that share a
+    // stored name on purpose (e.g. three ADELA cases with different candidates).
+    const taken = (candidate.slug && slugs.has(candidate.slug)) || (name && names.has(name))
+    if (taken && !('existing' in candidate && candidate.existing)) {
       duplicates++
       continue
     }

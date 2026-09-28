@@ -163,12 +163,18 @@ describe('harvest-name-arbiter-golden', () => {
       existing: [
         existingItem('name-golden-existing', 'existing-slug', 'Existing Brand', [cleaned('Existing')]),
         existingItem('name-golden-foo', 'foo', 'Foo Brand', [cleaned('Foo')]),
+        existingItem('name-golden-foo-variant', 'foo-variant', 'Foo Brand', [cleaned('Foo Shop')]),
       ],
       harvested: items,
       leakStrings: leaks,
     })
 
-    expect(pool.map((item) => item.id)).toEqual(['name-golden-existing', 'name-golden-foo', 'names-submission-late'])
+    expect(pool.map((item) => item.id)).toEqual([
+      'name-golden-existing',
+      'name-golden-foo',
+      'name-golden-foo-variant',
+      'names-submission-late',
+    ])
     expect(pool.find((item) => item.id === 'names-submission-late')?.sourceRowId).toBe('row-new')
     expect(duplicates).toBe(3)
     expect(blindItems(pool)).toEqual(pool.map((item) => ({ id: item.id, user: item.user })))

@@ -6,7 +6,7 @@
  * it would become. `shippedNameSweep` tunes the Jev names band cutoffs offline
  * against that shipped name.
  *
- * Pure. Must not import `jev-questions`: this module is imported by the eval
+ * Pure. Must not import the Jev question builders: this module is imported by the eval
  * adapters and the llm-eval CLI, and the `jev-eval-only` allowlist stays as is.
  */
 import { resolveArbitratedName } from "@/lib/services/enrich-phases/names";
