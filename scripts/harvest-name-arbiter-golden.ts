@@ -12,7 +12,8 @@
  *   then curl -s "https://xkcayngbttpxyibgzern.supabase.co/rest/v1/brand_ai_results?phase=eq.names&select=id,created_at,input&order=created_at.desc" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" > prod-names-rows.json
  *   Staging: the same curl against the staging ref with the service key from .env.staging.
  *   Dry run prints the tag x split table, the skipped-line count and the pool size. --apply requires --existing, upserts new items ACTIVE and pending,
- *   and merges only split and hardTags into existing items. Every write is paced, confirmed by returned id, then re-read per id (the SDK swallows 429s).
+ *   and merges only split and hardTags into existing items. A new id Langfuse already holds in any status (the listing omits ARCHIVED) is skipped.
+ *   A reviewed item newly pinned to train gets only its split moved. Every write is paced, confirmed by returned id, then re-read per id (the SDK swallows 429s).
  */
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -22,9 +23,11 @@ import { config as dotenvConfig } from 'dotenv'
 
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
 import { snapshotPrompt } from '@/lib/langfuse/prompt'
-import { withRetry, type RetryPolicy } from '@/lib/retry'
-import { normalizeCandidates } from '@/lib/services/enrich-phases/names'
+import { normalizeCandidates, normalizeCandidateValue } from '@/lib/services/enrich-phases/names'
+import { MAX_PROMPT_LENGTH, PROMPT_TRUNCATION_MARK } from '@/lib/services/llm-audit'
 import { buildNameArbiterUserContent, parseNameArbiterItemLine } from '@/lib/services/name-arbiter'
+
+import { httpStatusOf, pacedLangfuseWriter, realSleep } from './shared/langfuse-paced-write'
 
 export const DATASET = 'name-arbiter-confidence-golden'
 const PROMPT_NAME = 'name-arbiter'
@@ -49,13 +52,7 @@ export const PINNED_SLUGS: ReadonlySet<string> = new Set(['unigaze', 'trista', '
  */
 const CHROME_LINE_MARKER = 'page-title framing'
 
-/** Same pacing and retry budget as `seedIntentDataset` in scripts/llm-eval/llm-eval.ts. */
-const PACE_MS = 700
-const RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, capMs: 8_000 }
-const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
-
 const HEADER_LINE = buildNameArbiterUserContent([]).split('\n')[0]!
-const TRUNCATION_MARK = '…'
 
 export type HarvestRow = { id: string | number; created_at: string; input: { user?: unknown } | null }
 
@@ -103,11 +100,14 @@ export type HarvestStats = {
 // ---------------------------------------------------------------------------
 
 /**
- * Item lines of one stored user message. Stored messages are cut at 2,000
- * chars and end with "…"; the cut line is dropped, never repaired.
+ * Item lines of one stored user message. llm-audit cuts stored text at
+ * MAX_PROMPT_LENGTH chars and appends PROMPT_TRUNCATION_MARK; only a message of
+ * exactly that shape is truncated, and its cut line is dropped, never repaired.
+ * A shorter message that merely ends in the mark (a snippet ending in "…") is complete.
  */
 export function extractItemLines(user: string): { lines: string[]; truncated: boolean } {
-  const truncated = user.endsWith(TRUNCATION_MARK)
+  const truncated =
+    user.length === MAX_PROMPT_LENGTH + PROMPT_TRUNCATION_MARK.length && user.endsWith(PROMPT_TRUNCATION_MARK)
   const lines = user.split('\n')
   if (lines[0] === HEADER_LINE) lines.shift()
   if (truncated) lines.pop()
@@ -202,13 +202,9 @@ export function hardTagsFor(values: string[]): HardTag[] {
   return HARD_TAGS.filter((tag) => tags.has(tag))
 }
 
+/** The production candidate normalizer, case-folded for matching. */
 function normalizeForMatch(value: string): string {
-  return value
-    .normalize('NFC')
-    .trim()
-    .replace(/\s+/gu, ' ')
-    .replace(/(?<=\p{Script=Han})\s+(?=\p{Script=Han})/gu, '')
-    .toLowerCase()
+  return normalizeCandidateValue(value).toLowerCase()
 }
 
 /**
@@ -331,11 +327,14 @@ function seededKey(seed: string, id: string): string {
 }
 
 /**
- * Pinned items go to train. Items that already carry a split keep it, so a
- * re-run never moves an item between splits. The rest are grouped by their tag
- * set, ordered by a seeded hash within each group, and dealt 3/1/1 through the
- * concatenated list, so every tag set lands 60/20/20 and the result does not
- * depend on input order.
+ * Pinned items go to train. Unpinned items that already carry a split keep it,
+ * so a re-run never moves an item between splits. The rest are grouped by their
+ * tag set, ordered by a seeded hash within each group, and dealt round-robin
+ * through the 3/1/1 pattern over the concatenated stratum-ordered list. The
+ * position starts at the count of unpinned items that already have a split, so
+ * an incremental harvest continues the pattern instead of restarting at train.
+ * Each stratum lands within +-1 item per split of 60/20/20 (a small stratum can
+ * get no train item), and the result does not depend on input order.
  */
 export function assignSplits(pool: PoolItem[], seed: string): PoolItem[] {
   const strata = new Map<string, PoolItem[]>()
@@ -346,7 +345,7 @@ export function assignSplits(pool: PoolItem[], seed: string): PoolItem[] {
   }
 
   const assigned = new Map<string, Split>()
-  let position = 0
+  let position = pool.filter((item) => !item.pinned && item.split).length
   for (const key of [...strata.keys()].sort()) {
     const ordered = strata
       .get(key)!
@@ -423,14 +422,18 @@ function sameTags(a: unknown, b: HardTag[]): boolean {
   return Array.isArray(a) && a.length === b.length && a.every((tag, index) => tag === b[index])
 }
 
+type WritePlan = { body: WriteBody | null; reviewed: boolean; repinnedFrom?: Split }
+
 /**
  * The write for one pool item, or null when nothing should be written:
- * - a reviewed item that already has a split is never touched, so a re-run
- *   cannot move a labelled item between splits;
+ * - a reviewed item that already has a split is not re-split, so a re-run
+ *   cannot move a labelled item between scored splits. The one exception is a
+ *   pinned item (prompt leak or D1 slug) stored outside train: only its
+ *   `metadata.split` becomes train, so no scored split holds a prompt example;
  * - an existing item whose split and tags already match is unchanged.
  * Existing items keep input, expectedOutput, status and every other metadata key.
  */
-function writeBodyFor(item: PoolItem): { body: WriteBody | null; reviewed: boolean } {
+function writeBodyFor(item: PoolItem): WritePlan {
   const split = item.split
   if (!split) throw new Error(`[harvest] ${item.id} has no split; run assignSplits first`)
 
@@ -456,7 +459,22 @@ function writeBodyFor(item: PoolItem): { body: WriteBody | null; reviewed: boole
   }
 
   const metadata = { ...((existing.metadata as Record<string, unknown> | null | undefined) ?? {}) }
-  if (isReviewed(existing) && existingSplit(existing)) return { body: null, reviewed: true }
+  const stored = existingSplit(existing)
+  if (isReviewed(existing) && stored) {
+    if (!item.pinned || stored === 'train') return { body: null, reviewed: true }
+    return {
+      reviewed: false,
+      repinnedFrom: stored,
+      body: {
+        datasetName: DATASET,
+        id: existing.id,
+        input: existing.input,
+        expectedOutput: existing.expectedOutput ?? null,
+        status: existing.status,
+        metadata: { ...metadata, split: 'train' },
+      },
+    }
+  }
   if (metadata.split === split && sameTags(metadata.hardTags, item.hardTags)) return { body: null, reviewed: false }
   return {
     reviewed: false,
@@ -476,68 +494,97 @@ function matchesWrite(stored: unknown, body: WriteBody): boolean {
   return record?.id === body.id && record.status === body.status && record.metadata?.split === body.metadata.split
 }
 
+function storedStatus(stored: unknown): string {
+  const status = (stored as { status?: unknown } | null | undefined)?.status
+  return typeof status === 'string' ? status : 'unknown'
+}
+
+export type ApplyResult = {
+  written: number
+  unchanged: number
+  skippedReviewed: number
+  skippedExists: number
+  repinned: number
+}
+
 /**
- * Upserts the pool one item at a time, `PACE_MS` apart (~85/min, under the
- * 100/min Langfuse limit). A create counts only when it resolves with the
- * item's id; then every written id is re-read, because the SDK resolves a 429
- * as if it had succeeded. Ceiling: two paced calls per item, ~40 items a
- * minute; batch through the ingestion API if the pool grows past a few hundred.
+ * Upserts the pool one item at a time through the shared paced writer
+ * (scripts/shared/langfuse-paced-write.ts: ~85/min, under the 100/min Langfuse
+ * limit). Before a new id is created it is read by id, because the dataset
+ * listing omits ARCHIVED (rejected) items; an id Langfuse holds in any status is
+ * skipped, never reset to pending. A create counts only when it resolves with
+ * the item's id; then every written id is re-read, because the SDK resolves a
+ * 429 as if it had succeeded. Ceiling: three paced calls per new item, ~28 new
+ * items a minute; batch through the ingestion API if the pool grows past a few hundred.
  */
 export async function applyPool(
   pool: PoolItem[],
   writer: HarvestWriter,
-  { sleep = realSleep }: { sleep?: (ms: number) => Promise<void> } = {},
-): Promise<{ written: number; unchanged: number; skippedReviewed: number }> {
-  let calls = 0
-  const paced = async <T>(operation: () => Promise<T>): Promise<T> => {
-    if (calls++ > 0) await sleep(PACE_MS)
-    return operation()
-  }
-  const confirm = (service: string, attempt: () => Promise<boolean>) =>
-    withRetry(RETRY_POLICY, () => paced(async () => {
-      try {
-        return await attempt()
-      } catch {
-        return false
-      }
-    }), {
-      classify: (ok) => (ok ? { retryable: false, reason: 'terminal' } : { retryable: true, reason: 'rate_limit' }),
-      service,
-      sleep,
-    })
+  { sleep = realSleep, log = console.log }: { sleep?: (ms: number) => Promise<void>; log?: (msg: string) => void } = {},
+): Promise<ApplyResult> {
+  const { withRetry, orThrow, confirmedWrite } = pacedLangfuseWriter<WriteBody>({
+    createItem: (body) => writer.createDatasetItem(body),
+    sleep,
+  })
 
   let unchanged = 0
   let skippedReviewed = 0
+  let repinned = 0
   const bodies: WriteBody[] = []
+  const newIds = new Set<string>()
   for (const item of pool) {
-    const { body, reviewed } = writeBodyFor(item)
-    if (body) bodies.push(body)
-    else if (reviewed) skippedReviewed++
+    const { body, reviewed, repinnedFrom } = writeBodyFor(item)
+    if (body) {
+      bodies.push(body)
+      if (!item.existing) newIds.add(body.id)
+      if (repinnedFrom) {
+        repinned++
+        log(`[harvest] ${body.id} pinned: split ${repinnedFrom} -> train (reviewed; labels untouched)`)
+      }
+    } else if (reviewed) skippedReviewed++
     else unchanged++
   }
 
+  let skippedExists = 0
+  const written: WriteBody[] = []
   const failed: string[] = []
   for (const body of bodies) {
-    const ok = await confirm('langfuse-harvest-names', async () => {
-      const result = (await writer.createDatasetItem(body)) as { id?: unknown } | null | undefined
-      return result?.id === body.id
-    })
-    if (!ok) failed.push(body.id)
+    if (newIds.has(body.id)) {
+      const lookup = orThrow(
+        await withRetry(async () => {
+          try {
+            const stored = await writer.getDatasetItem(body.id)
+            return { present: stored != null, stored }
+          } catch (error) {
+            if (httpStatusOf(error) === 404) return { present: false, stored: null }
+            throw error
+          }
+        }),
+        `looking up item "${body.id}"`,
+      )
+      if (lookup.present) {
+        skippedExists++
+        log(`[harvest] ${body.id} skipped (exists, ${storedStatus(lookup.stored)})`)
+        continue
+      }
+    }
+    written.push(body)
+    if (!(await confirmedWrite(body))) failed.push(body.id)
   }
   if (failed.length > 0) {
-    throw new Error(`[harvest] ${bodies.length - failed.length}/${bodies.length} upserts confirmed; unconfirmed: ${failed.join(', ')}`)
+    throw new Error(`[harvest] ${written.length - failed.length}/${written.length} upserts confirmed; unconfirmed: ${failed.join(', ')}`)
   }
 
   const unverified: string[] = []
-  for (const body of bodies) {
-    const ok = await confirm('langfuse-harvest-names-verify', async () => matchesWrite(await writer.getDatasetItem(body.id), body))
-    if (!ok) unverified.push(body.id)
+  for (const body of written) {
+    const ok = await withRetry(async () => (matchesWrite(await writer.getDatasetItem(body.id), body) ? true : undefined))
+    if (ok !== true) unverified.push(body.id)
   }
   if (unverified.length > 0) {
-    throw new Error(`[harvest] ${unverified.length}/${bodies.length} items did not read back with their split: ${unverified.join(', ')}`)
+    throw new Error(`[harvest] ${unverified.length}/${written.length} items did not read back with their split: ${unverified.join(', ')}`)
   }
 
-  return { written: bodies.length, unchanged, skippedReviewed }
+  return { written: written.length, unchanged, skippedReviewed, skippedExists, repinned }
 }
 
 // ---------------------------------------------------------------------------
@@ -602,7 +649,11 @@ async function main() {
     createDatasetItem: (body) => client.createDatasetItem(body as any),
     getDatasetItem: (id) => client.api.datasetItemsGet(id),
   })
-  console.log(`\napplied: ${result.written} written and verified, ${result.unchanged} unchanged, ${result.skippedReviewed} reviewed items skipped`)
+  console.log(
+    `\napplied: ${result.written} written and verified (${result.repinned} reviewed items pinned to train), ` +
+      `${result.unchanged} unchanged, ${result.skippedReviewed} reviewed items skipped, ` +
+      `${result.skippedExists} new ids skipped (already in Langfuse)`,
+  )
   await flushLangfuse()
 }
 

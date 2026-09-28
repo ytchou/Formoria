@@ -14,7 +14,7 @@ import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
 import { normalizeCandidates } from '@/lib/services/enrich-phases/names'
 import {
   buildNameArbiterUserContent,
-  parseNameArbiterItemLine,
+  parseSingleNameArbiterUser,
   type ParsedNameArbiterItem,
 } from '@/lib/services/name-arbiter'
 
@@ -29,7 +29,7 @@ export function parseGoldenUser(user: string): ParsedNameArbiterItem {
   if (header !== '請裁決以下品牌的正式名稱：' || !line || rest.length > 0) {
     throw new Error(`Unexpected golden user text: ${user.slice(0, 80)}`)
   }
-  const parsed = parseNameArbiterItemLine(line)
+  const parsed = parseSingleNameArbiterUser(user)
   if (!parsed) throw new Error(`Unparseable golden line: ${line}`)
   return parsed
 }

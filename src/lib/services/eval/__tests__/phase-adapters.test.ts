@@ -185,6 +185,8 @@ describe('phase-adapters registry', () => {
     expect(shipped.fn(verdict('low'), expected)).toBe(0)
     // No input message: n/a rather than a wrong score.
     expect(shipped.fn(verdict('high'), adapter.expectedOf({ expectedOutput: item.expectedOutput }))).toBeNull()
+    // An unparseable input message: n/a rather than an aborted run.
+    expect(shipped.fn(verdict('high'), { ...(expected as Record<string, unknown>), user: 'no item here' })).toBeNull()
   })
 
   it('name-arbiter adapter exposes its exported shape', () => {

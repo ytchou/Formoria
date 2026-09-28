@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { snapshotPrompt } from '@/lib/langfuse/prompt'
 import { normalizeCandidates } from '@/lib/services/enrich-phases/names'
+import { MAX_PROMPT_LENGTH, PROMPT_TRUNCATION_MARK } from '@/lib/services/llm-audit'
 import { buildNameArbiterUserContent, type NameCandidate } from '@/lib/services/name-arbiter'
 import {
   applyPool,
@@ -33,9 +34,8 @@ function user(lines: string[]): string {
   return [HEADER, ...lines].join('\n')
 }
 
-function row(id: string, createdAt: string, lines: string[], truncated = false): HarvestRow {
-  const text = user(lines)
-  return { id, created_at: createdAt, input: { user: truncated ? `${text}…` : text } }
+function row(id: string, createdAt: string, lines: string[]): HarvestRow {
+  return { id, created_at: createdAt, input: { user: user(lines) } }
 }
 
 function existingItem(id: string, slug: string, storedName: string, candidates: NameCandidate[], metadata: Record<string, unknown> = {}): ExistingItem {
@@ -64,8 +64,31 @@ describe('harvest-name-arbiter-golden', () => {
 
     expect(extractItemLines(user(lines))).toEqual({ lines, truncated: false })
 
-    const cut = `${user(lines).slice(0, -8)}…`
-    expect(extractItemLines(cut)).toEqual({ lines: lines.slice(0, 2), truncated: true })
+    // llm-audit cuts at MAX_PROMPT_LENGTH and appends the mark; only that exact shape is truncated.
+    const many = Array.from({ length: 60 }, (_, i) => line(`submission-${i}`, `Brand Number ${i}`, [cleaned(`Number ${i}`)], i + 1))
+    const full = user(many)
+    expect(full.length).toBeGreaterThan(MAX_PROMPT_LENGTH)
+    const cut = `${full.slice(0, MAX_PROMPT_LENGTH)}${PROMPT_TRUNCATION_MARK}`
+    const intact = many.filter((l) => full.indexOf(l) + l.length < MAX_PROMPT_LENGTH)
+    expect(intact.length).toBeGreaterThan(0)
+    expect(intact.length).toBeLessThan(many.length)
+    expect(extractItemLines(cut)).toEqual({ lines: intact, truncated: true })
+  })
+
+  it('keeps the last line of a short complete message whose last snippet ends in the truncation mark', () => {
+    const first = line('submission-a', 'Alpha Studio', [cleaned('Alpha')], 1)
+    const last = buildNameArbiterUserContent([
+      {
+        slug: 'submission-b',
+        storedName: 'Beta Works',
+        candidates: normalizeCandidates('Beta Works', [cleaned('Beta')]),
+        snippets: ['Beta Works makes wooden toys', `Handmade in Tainan${PROMPT_TRUNCATION_MARK}`],
+      },
+    ]).split('\n')[1]!.replace(/^1\./, '2.')
+    const complete = user([first, last])
+    expect(complete.endsWith(PROMPT_TRUNCATION_MARK)).toBe(true)
+
+    expect(extractItemLines(complete)).toEqual({ lines: [first, last], truncated: false })
   })
 
   it('re-renders each line through normalizeCandidates + buildNameArbiterUserContent and skips lines that do not round-trip', () => {
@@ -148,6 +171,24 @@ describe('harvest-name-arbiter-golden', () => {
     const splitsOf = (items: PoolItem[]) => Object.fromEntries(items.map((item) => [item.id, item.split]))
     expect(splitsOf(assignSplits([...base].reverse(), 'seed-a'))).toEqual(splitsOf(first))
     expect(splitsOf(assignSplits(base, 'seed-b'))).not.toEqual(splitsOf(first))
+  })
+
+  it('continues the 3/1/1 pattern after the items that already have a split', () => {
+    // Three split items fill positions 0-2 (train, train, train); the next two positions are val and holdout.
+    const pool: PoolItem[] = [
+      { ...poolItem('names-old-0', []), split: 'train' },
+      { ...poolItem('names-old-1', []), split: 'val' },
+      { ...poolItem('names-old-2', []), split: 'holdout' },
+      { ...poolItem('names-pinned', []), pinned: true, split: 'train' },
+      poolItem('names-new-0', []),
+      poolItem('names-new-1', []),
+    ]
+
+    const split = assignSplits(pool, 'seed-a')
+    const byId = new Map(split.map((item) => [item.id, item.split]))
+
+    expect(['names-old-0', 'names-old-1', 'names-old-2'].map((id) => byId.get(id))).toEqual(['train', 'val', 'holdout'])
+    expect([byId.get('names-new-0'), byId.get('names-new-1')].sort()).toEqual(['holdout', 'val'])
   })
 
   it('dedupes by slug and by normalized stored name, keeping existing dataset ids', () => {
@@ -239,7 +280,75 @@ describe('harvest-name-arbiter-golden', () => {
     expect(sleeps.length).toBeGreaterThan(0)
 
     const lying: HarvestWriter = { createDatasetItem: async (body) => ({ id: body.id }), getDatasetItem: async () => null }
-    await expect(applyPool(pool, lying, { sleep: async () => {} })).rejects.toThrow(/names-submission-new/)
+    await expect(applyPool(pool, lying, { sleep: async () => {}, log: () => {} })).rejects.toThrow(/names-submission-new/)
+  })
+
+  it('apply moves a reviewed holdout item that becomes pinned to train, leaving its labels untouched', async () => {
+    const reviewedVia = { queueId: null, scoreId: 'score-2' }
+    const metadata = { split: 'holdout', hardTags: [], humanApproval: { status: 'approved', reviewedVia } }
+    // A later prompt version quotes this item's stored name.
+    const quoted = existingItem('name-golden-quoted', 'quoted-brand', '藺草工坊 Quoted', [cleaned('Quoted')], metadata)
+    const pool = assignSplits(buildPool({ existing: [quoted], harvested: [], leakStrings: leaks }).pool, 'seed-a')
+    expect(pool[0]).toMatchObject({ pinned: true, split: 'train' })
+
+    const store = new Map<string, Record<string, unknown>>()
+    const writer: HarvestWriter = {
+      createDatasetItem: async (body) => {
+        store.set(body.id as string, body)
+        return { id: body.id }
+      },
+      getDatasetItem: async (id) => store.get(id) ?? null,
+    }
+    const logs: string[] = []
+    const result = await applyPool(pool, writer, { sleep: async () => {}, log: (msg) => logs.push(msg) })
+
+    expect(result).toMatchObject({ written: 1, repinned: 1, skippedReviewed: 0 })
+    expect(store.get('name-golden-quoted')).toEqual({
+      datasetName: 'name-arbiter-confidence-golden',
+      id: 'name-golden-quoted',
+      input: quoted.input,
+      expectedOutput: quoted.expectedOutput,
+      status: 'ACTIVE',
+      metadata: { ...metadata, split: 'train' },
+    })
+    expect(logs.join('\n')).toMatch(/name-golden-quoted.*holdout.*train/)
+  })
+
+  it('apply never rewrites a new id that Langfuse already holds, in any status', async () => {
+    const { items } = harvestRows([
+      row('row-3', '2026-09-01T00:00:00Z', [
+        line('submission-rejected', 'Rejected Brand', [cleaned('Rejected')], 1),
+        line('submission-fresh', 'Fresh Brand', [cleaned('Fresh')], 2),
+      ]),
+    ])
+    const pool = assignSplits(buildPool({ existing: [], harvested: items, leakStrings: leaks }).pool, 'seed-a')
+
+    // The dataset listing omitted this item because it is ARCHIVED (rejected by the panel).
+    const archived = {
+      id: 'names-submission-rejected',
+      status: 'ARCHIVED',
+      input: { user: 'stored', promptName: 'name-arbiter' },
+      expectedOutput: null,
+      metadata: { split: 'val', humanApproval: { status: 'rejected' } },
+    }
+    const store = new Map<string, Record<string, unknown>>([[archived.id, archived]])
+    const created: string[] = []
+    const writer: HarvestWriter = {
+      createDatasetItem: async (body) => {
+        created.push(body.id as string)
+        store.set(body.id as string, body)
+        return { id: body.id }
+      },
+      // The public API rejects an absent id with a 404.
+      getDatasetItem: async (id) => (store.has(id) ? store.get(id) : Promise.reject({ status: 404 })),
+    }
+    const logs: string[] = []
+    const result = await applyPool(pool, writer, { sleep: async () => {}, log: (msg) => logs.push(msg) })
+
+    expect(created).toEqual(['names-submission-fresh'])
+    expect(store.get(archived.id)).toBe(archived)
+    expect(result).toMatchObject({ written: 1, skippedExists: 1 })
+    expect(logs.join('\n')).toContain('names-submission-rejected skipped (exists, ARCHIVED)')
   })
 })
 

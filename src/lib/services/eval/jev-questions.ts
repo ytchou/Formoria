@@ -30,7 +30,7 @@
  * The detect golden input and the distillation message are flat prompt
  * strings, not JSON, so their state builders parse the labelled fields back out.
  * The names golden input is the arbiter's own user message, parsed with the
- * shared production inverse `parseNameArbiterItemLine` (DEV-1896).
+ * shared production inverse via `parseSingleNameArbiterUser` (DEV-1896).
  *
  * names instructions are luna's name-arbiter snapshot rule text (rules plus
  * golden anchors), so the comparison runs on matched instructions (DEV-1896).
@@ -68,7 +68,8 @@ import {
   type TwoStepJevCandidate,
 } from '@/lib/services/jev-candidate'
 import { intentParseJev } from '@/lib/services/intent-parse-jev'
-import { parseNameArbiterItemLine } from '@/lib/services/name-arbiter'
+import { parseSingleNameArbiterUser } from '@/lib/services/name-arbiter'
+import { bandAt } from './names-shipped'
 import { bandFromProbability, type ConfidenceBand } from './scorers'
 
 export type { DecideFn, JevAnswers, JevCandidate, TwoStepJevCandidate } from '@/lib/services/jev-candidate'
@@ -294,10 +295,9 @@ export const NAMES_HIGH_MIN = 0.55
 /** Band a names pick at p >= this (and below `NAMES_HIGH_MIN`) as medium; tuned with `NAMES_HIGH_MIN` (DEV-1896, same sweep). */
 export const NAMES_MEDIUM_MIN = 0.5
 
+/** Same banding the offline cutoff sweep uses, so the tuned cutoffs mean the same thing here. */
 function namesBand(p: number): ConfidenceBand {
-  if (p >= NAMES_HIGH_MIN) return 'high'
-  if (p >= NAMES_MEDIUM_MIN) return 'medium'
-  return 'low'
+  return bandAt(p, NAMES_HIGH_MIN, NAMES_MEDIUM_MIN)
 }
 
 function headingLine(lines: readonly string[], heading: string): number {
@@ -330,15 +330,14 @@ function nameArbiterInstructions(): string {
 }
 
 /**
- * Parses the first item line of a name-arbiter user message with the shared
+ * Parses the single item line of a name-arbiter user message with the shared
  * production inverse, and groups candidates by value: stored first, then each
  * candidate with its sources (first-party evidence rendered as
  * `source (official_… url observed="…")`).
  */
 function parseNamesInput(text: string): { stored: string; candidates: Map<string, string[]>; snippets: string | null } {
-  const line = text.split('\n').find((l) => /^\d+\. \[[^\]]*\] /.test(l))
-  const parsed = line ? parseNameArbiterItemLine(line) : null
-  if (!parsed) throw new Error('jev-questions: no name-arbiter item line in the input')
+  const parsed = parseSingleNameArbiterUser(text)
+  if (!parsed) throw new Error('jev-questions: input does not hold exactly one name-arbiter item line')
   const stored = parsed.storedName.trim()
   const candidates = new Map<string, string[]>()
   const add = (value: string, source: string) => {

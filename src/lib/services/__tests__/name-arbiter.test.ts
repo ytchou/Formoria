@@ -3,6 +3,7 @@ import {
   arbitrateBrandName,
   buildNameArbiterUserContent,
   parseNameArbiterItemLine,
+  parseSingleNameArbiterUser,
   type NameArbiterItem,
 } from "../name-arbiter";
 
@@ -262,5 +263,65 @@ describe("parseNameArbiterItemLine", () => {
   it("returns null for a non-item line", () => {
     expect(parseNameArbiterItemLine("請裁決以下品牌的正式名稱：")).toBeNull();
     expect(parseNameArbiterItemLine("1. [cut-brand] 儲存名稱：截斷品牌")).toBeNull();
+  });
+  it("returns null when a snippet repeats a field label at a field boundary", () => {
+    const line = itemLine({
+      slug: "echo-brand",
+      storedName: "回聲",
+      candidates: [{ source: "cleaned", value: "回聲" }],
+      snippets: ["回聲工作室 / 候選：x"],
+    });
+
+    expect(line).toContain(" / 候選：x");
+    expect(parseNameArbiterItemLine(line)).toBeNull();
+  });
+
+  it("round-trips an evidence URL that holds a space", () => {
+    const item: NameArbiterItem = {
+      slug: "space-url",
+      storedName: "空白",
+      candidates: [
+        { source: "stored", value: "空白" },
+        {
+          source: "official_website",
+          value: "空白 Space",
+          evidence: [
+            { source: "official_website", url: "https://a.example.com/b c", observedName: "空白 Space" },
+            { source: "official_social", url: "https://instagram.com/space", observedName: "Space" },
+          ],
+        },
+      ],
+    };
+    const line = itemLine(item);
+
+    const parsed = parseNameArbiterItemLine(line);
+
+    expect(parsed?.candidates).toEqual(item.candidates);
+    if (!parsed) throw new Error("expected a parsed item");
+    expect(itemLine(parsed)).toBe(line);
+  });
+});
+
+describe("parseSingleNameArbiterUser", () => {
+  const one: NameArbiterItem = {
+    slug: "one-brand",
+    storedName: "一號",
+    candidates: [{ source: "cleaned", value: "一號" }],
+  };
+  const two: NameArbiterItem = { ...one, slug: "two-brand" };
+
+  it("parses a message with exactly one item line", () => {
+    expect(parseSingleNameArbiterUser(buildNameArbiterUserContent([one]))).toEqual({
+      slug: "one-brand",
+      storedName: "一號",
+      candidates: [{ source: "cleaned", value: "一號" }],
+      snippets: [],
+    });
+  });
+
+  it("returns null for zero or two item lines", () => {
+    expect(parseSingleNameArbiterUser("請裁決以下品牌的正式名稱：")).toBeNull();
+    expect(parseSingleNameArbiterUser("no item here")).toBeNull();
+    expect(parseSingleNameArbiterUser(buildNameArbiterUserContent([one, two]))).toBeNull();
   });
 });

@@ -339,6 +339,8 @@ const registry: Record<string, PhaseAdapter> = {
           chosen: typeof out.chosen === 'string' ? out.chosen : null,
           confidence: out.confidence as 'high' | 'medium' | 'low',
         })
+        // An unparseable input is n/a, not an aborted run.
+        if (shipped === null) return null
         return (exp.acceptedNames as string[]).includes(shipped) ? 1 : 0
       }},
     ],

@@ -298,6 +298,11 @@ describe('JEV_CANDIDATES', () => {
     })
     expect(out).toEqual({ chosen: '劉一刀手工鞋 LID Shoes', confidence: 'high', probability: 0.93 })
     expect(() => cand.buildState({ user: 'no item line' })).toThrow()
+    // Two item lines: refused, not first-match.
+    const [header, itemLine] = input.user.split('\n')
+    expect(() => cand.buildState({ user: [header, itemLine, itemLine!.replace('1. [lid]', '2. [lid2]')].join('\n') })).toThrow(
+      /exactly one name-arbiter item line/,
+    )
   })
 
   it('names instructions are name-arbiter v6 minus rubric and response format (DEV-1896)', () => {

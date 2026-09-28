@@ -11,11 +11,10 @@
  */
 import { resolveArbitratedName } from "@/lib/services/enrich-phases/names";
 import {
-  parseNameArbiterItemLine,
+  parseSingleNameArbiterUser,
   type ParsedNameArbiterItem,
 } from "@/lib/services/name-arbiter";
-
-type ConfidenceBand = "high" | "medium" | "low";
+import type { ConfidenceBand } from "./scorers";
 
 export type ShippedNameVerdict = {
   /** Null when the arm made no pick (a Jev names answer can be empty). */
@@ -23,22 +22,7 @@ export type ShippedNameVerdict = {
   confidence: ConfidenceBand;
 };
 
-/**
- * The name production would write for this verdict. `user` is the rendered
- * single-item name-arbiter user message; its candidates are already normalized
- * (the golden inputs are rendered by the production formatter).
- */
-export function shippedName(user: string, verdict: ShippedNameVerdict): string {
-  const parsed = user
-    .split("\n")
-    .map((line) => parseNameArbiterItemLine(line))
-    .filter((item): item is ParsedNameArbiterItem => item !== null);
-  if (parsed.length !== 1) {
-    throw new Error(
-      `shippedName expects exactly one name-arbiter item line, found ${parsed.length}`,
-    );
-  }
-  const item = parsed[0]!;
+function shippedNameOf(item: ParsedNameArbiterItem, verdict: ShippedNameVerdict): string {
   return resolveArbitratedName(
     verdict.chosen === null
       ? undefined
@@ -48,6 +32,17 @@ export function shippedName(user: string, verdict: ShippedNameVerdict): string {
   );
 }
 
+/**
+ * The name production would write for this verdict. `user` is the rendered
+ * single-item name-arbiter user message; its candidates are already normalized
+ * (the golden inputs are rendered by the production formatter). Null when `user`
+ * does not hold exactly one parseable item line.
+ */
+export function shippedName(user: string, verdict: ShippedNameVerdict): string | null {
+  const item = parseSingleNameArbiterUser(user);
+  return item ? shippedNameOf(item, verdict) : null;
+}
+
 export type ShippedSweepPoint = {
   user: string;
   chosen: string | null;
@@ -55,7 +50,7 @@ export type ShippedSweepPoint = {
   acceptedNames: string[];
 };
 
-export type ShippedSweepRow = {
+type ShippedSweepRow = {
   high: number;
   medium: number;
   agreed: number;
@@ -66,22 +61,25 @@ export type ShippedSweepRow = {
 export type ShippedSweepResult = {
   rows: ShippedSweepRow[];
   best: { high: number; medium: number; agreement: number };
+  /** Points skipped because their `user` does not parse as one item line. */
+  skipped: number;
 };
 
 /** D10 grid: 0.50..0.95 in 0.05 steps, built from integers to avoid float drift. */
-export const NAMES_CUTOFF_GRID: readonly number[] = Array.from(
+const NAMES_CUTOFF_GRID: readonly number[] = Array.from(
   { length: 10 },
   (_, i) => (50 + i * 5) / 100,
 );
 
-function bandAt(probability: number, high: number, medium: number): ConfidenceBand {
+export function bandAt(probability: number, high: number, medium: number): ConfidenceBand {
   if (probability >= high) return "high";
   if (probability >= medium) return "medium";
   return "low";
 }
 
 /**
- * Shipped-name agreement for every (medium < high) cutoff pair of `grid`.
+ * Shipped-name agreement for every (medium < high) cutoff pair of `grid`, over
+ * the points whose `user` parses (the rest are counted in `skipped`).
  * `best` maximises agreement; a tie goes to the higher high cutoff, then the
  * higher medium cutoff (compared on integer counts, so ties are exact).
  */
@@ -89,7 +87,14 @@ export function shippedNameSweep(
   points: readonly ShippedSweepPoint[],
   grid: readonly number[] = NAMES_CUTOFF_GRID,
 ): ShippedSweepResult {
-  if (points.length === 0) throw new Error("shippedNameSweep needs at least one point");
+  const parsed = points.flatMap((point) => {
+    const item = parseSingleNameArbiterUser(point.user);
+    return item ? [{ point, item }] : [];
+  });
+  const skipped = points.length - parsed.length;
+  if (parsed.length === 0) {
+    throw new Error(`shippedNameSweep needs at least one parseable point (${skipped} skipped)`);
+  }
   const cutoffs = [...grid].sort((a, b) => b - a);
   const rows: ShippedSweepRow[] = [];
   let best: ShippedSweepRow | undefined;
@@ -97,15 +102,15 @@ export function shippedNameSweep(
   for (const high of cutoffs) {
     for (const medium of cutoffs) {
       if (medium >= high) continue;
-      const agreed = points.filter((point) =>
+      const agreed = parsed.filter(({ point, item }) =>
         point.acceptedNames.includes(
-          shippedName(point.user, {
+          shippedNameOf(item, {
             chosen: point.chosen,
             confidence: bandAt(point.probability, high, medium),
           }),
         ),
       ).length;
-      const row = { high, medium, agreed, total: points.length, agreement: agreed / points.length };
+      const row = { high, medium, agreed, total: parsed.length, agreement: agreed / parsed.length };
       rows.push(row);
       // Iteration runs high-then-medium descending, so strict > keeps the tie-break.
       if (!best || row.agreed > best.agreed) best = row;
@@ -113,5 +118,5 @@ export function shippedNameSweep(
   }
 
   if (!best) throw new Error("shippedNameSweep grid has no medium < high pair");
-  return { rows, best: { high: best.high, medium: best.medium, agreement: best.agreement } };
+  return { rows, best: { high: best.high, medium: best.medium, agreement: best.agreement }, skipped };
 }

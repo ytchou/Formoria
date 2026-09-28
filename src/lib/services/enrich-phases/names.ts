@@ -90,7 +90,7 @@ export function normalizeCandidates(
   return [...byValue.values()];
 }
 
-function normalizeCandidateValue(value: string): string {
+export function normalizeCandidateValue(value: string): string {
   return value
     .normalize("NFC")
     .trim()

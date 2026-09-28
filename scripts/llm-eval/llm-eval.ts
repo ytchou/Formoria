@@ -16,6 +16,13 @@ import { config as dotenvConfig } from 'dotenv'
 
 import { assertCensusTarget } from '../enrichment/eval/production-guard'
 import { loadScriptTarget } from '../shared/target'
+import {
+  LANGFUSE_PACE_MS,
+  LANGFUSE_RETRY_POLICY,
+  httpStatusOf,
+  pacedLangfuseWriter,
+  realSleep,
+} from '../shared/langfuse-paced-write'
 
 // @/ imports — available after loadScriptTarget() sets up env
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
@@ -33,7 +40,7 @@ import {
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
 import { JEV_MODEL } from '@/lib/constants/llm-models'
-import { withRetry, type RetryPolicy } from '@/lib/retry'
+import { withRetry } from '@/lib/retry'
 import {
   promptForDataset,
   type GoldenItemBody,
@@ -743,6 +750,12 @@ type RunDatasetItem = {
   metadata?: unknown
 }
 
+/** True when the item's `metadata.split` is one of `split`; an item with no split is in none. */
+function inSplit(item: { metadata?: unknown }, split: readonly string[]): boolean {
+  const itemSplit = (item.metadata as { split?: unknown } | null | undefined)?.split
+  return typeof itemSplit === 'string' && split.includes(itemSplit)
+}
+
 export type RunDeps = {
   /** Injectable for tests; defaults to the Langfuse client's getDataset. */
   getDataset?: (name: string) => Promise<{ items: RunDatasetItem[] }>
@@ -808,12 +821,7 @@ export async function cmdRun(
   }
 
   const { split } = options
-  const selected = split
-    ? admitted.filter((i) => {
-        const itemSplit = (i.metadata as { split?: unknown } | undefined)?.split
-        return typeof itemSplit === 'string' && (split as readonly string[]).includes(itemSplit)
-      })
-    : admitted
+  const selected = split ? admitted.filter((i) => inSplit(i, split)) : admitted
   if (split) {
     console.log(`[run] kept ${selected.length} of ${admitted.length} items for split=${split.join(',')}`)
   }
@@ -912,8 +920,7 @@ export async function cmdSweepNames(
     const output = runItem.output as { chosen?: unknown; probability?: unknown } | undefined
     if (typeof output?.probability !== 'number') return []
     const item = byId.get(runItem.itemId)
-    const itemSplit = (item?.metadata as { split?: unknown } | undefined)?.split
-    if (!item || typeof itemSplit !== 'string' || !(split as readonly string[]).includes(itemSplit)) return []
+    if (!item || !inSplit(item, split)) return []
     const user = (item.input as { user?: unknown } | undefined)?.user
     const acceptedNames = (item.expectedOutput as { acceptedNames?: unknown } | undefined)?.acceptedNames
     if (typeof user !== 'string' || !Array.isArray(acceptedNames)) return []
@@ -928,9 +935,9 @@ export async function cmdSweepNames(
     throw new Error(`run file ${runFile} has no scorable ${jevArm.name} items for split=${split.join(',')}`)
   }
 
-  const { rows, best } = shippedNameSweep(points)
+  const { rows, best, skipped } = shippedNameSweep(points)
   const lines = [
-    `Shipped-name agreement, ${jevArm.name}, split=${split.join(',')}, n=${points.length}`,
+    `Shipped-name agreement, ${jevArm.name}, split=${split.join(',')}, n=${points.length - skipped}`,
     '',
     '| NAMES_HIGH_MIN | NAMES_MEDIUM_MIN | agreed | agreement |',
     '|---|---|---|---|',
@@ -940,6 +947,7 @@ export async function cmdSweepNames(
     '',
     `Best: NAMES_HIGH_MIN=${best.high.toFixed(2)} NAMES_MEDIUM_MIN=${best.medium.toFixed(2)} ` +
       `(agreement ${best.agreement.toFixed(3)}; ties go to the higher cutoff)`,
+    ...(skipped > 0 ? [`skipped ${skipped} unparseable items`] : []),
   ]
   log(lines.join('\n'))
 }
@@ -1306,17 +1314,6 @@ export function readSituationQueries(path: string = SITUATION_SEARCH_SOURCE): Si
 export type SeedIntentOptions = { sleep?: (ms: number) => Promise<void> }
 
 /**
- * Fixed pacing under Langfuse's 100 writes/min: 700ms per item is ~86/min, so a
- * 156-item seed takes ~2 minutes. Ceiling: one serial writer at the default rate
- * limit; read the limit from 429 headers if the dataset grows past ~1k items.
- */
-const SEED_PACE_MS = 700
-/** 1 attempt + 3 retries, waiting ~2s/4s/8s (withRetry adds up to 100% jitter, capped at 8s). */
-const SEED_RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, capMs: 8_000 }
-
-const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
-
-/**
  * Seeds one unlabelled item per situation query. Items are written ACTIVE with
  * a null `expectedOutput` and a pending `humanApproval`, the same state
  * `golden-review.ts#prelabelItem` keeps: the dataset listing omits ARCHIVED
@@ -1382,7 +1379,7 @@ export async function seedIntentDataset(
       kept++
       continue
     }
-    if (written++ > 0) await sleep(SEED_PACE_MS)
+    if (written++ > 0) await sleep(LANGFUSE_PACE_MS)
     const body = {
       datasetName: INTENT_PARSE_DATASET,
       id,
@@ -1392,7 +1389,7 @@ export async function seedIntentDataset(
       metadata: { split: q.split, humanApproval: { status: 'pending' } },
     }
     const ok = await withRetry(
-      SEED_RETRY_POLICY,
+      LANGFUSE_RETRY_POLICY,
       async () => {
         try {
           const result = (await client.createDatasetItem(body)) as { id?: unknown } | null | undefined
@@ -1546,11 +1543,6 @@ function langfuseGoldenWriteApi(): GoldenWriteApi {
   }
 }
 
-function httpStatusOf(error: unknown): number | undefined {
-  const status = (error as { status?: unknown } | null)?.status
-  return typeof status === 'number' ? status : undefined
-}
-
 export type GoldenWriteOptions = {
   api?: GoldenWriteApi
   sleep?: (ms: number) => Promise<void>
@@ -1564,47 +1556,11 @@ export type GoldenWriteOptions = {
  * The paced, 429-retrying Langfuse call path shared by `writeGoldenItems` and
  * `dataset prelabel --draft`. See `writeGoldenItems` for the pacing budget.
  */
-function goldenWritePacer({
-  api = langfuseGoldenWriteApi(),
-  sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
-  now = Date.now,
-  minIntervalMs = 700,
-  retries = 4,
-  backoffMs = 10_000,
-}: GoldenWriteOptions) {
-  let lastCall: number | null = null
-  const paced = async <T>(call: () => Promise<T>): Promise<T> => {
-    if (lastCall !== null) {
-      const wait = lastCall + minIntervalMs - now()
-      if (wait > 0) await sleep(wait)
-    }
-    lastCall = now()
-    return call()
-  }
-  /** Retries a 429; `undefined` from `call` also means "retry". Other errors propagate. */
-  const withRetry = async <T>(call: () => Promise<T | undefined>): Promise<T | undefined> => {
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const result = await paced(call)
-        if (result !== undefined) return result
-      } catch (error) {
-        if (httpStatusOf(error) !== 429) throw error
-      }
-      if (attempt >= retries) return undefined
-      await sleep(backoffMs * 2 ** (attempt - 1))
-    }
-  }
-  const orThrow = <T>(value: T | undefined, what: string): T => {
-    if (value === undefined) throw new Error(`[golden] ${what}: still rate-limited after ${retries} attempts`)
-    return value
-  }
-
-  /** Creates `body` through the paced, retried path; true only when Langfuse confirms the id. */
-  const confirmedWrite = async (body: GoldenWriteBody): Promise<boolean> =>
-    (await withRetry(async () => {
-      const response = (await api.createItem(body)) as { id?: unknown } | null
-      return response?.id === body.id ? true : undefined
-    })) === true
+function goldenWritePacer({ api = langfuseGoldenWriteApi(), ...pacing }: GoldenWriteOptions) {
+  const { withRetry, orThrow, confirmedWrite } = pacedLangfuseWriter<GoldenWriteBody>({
+    createItem: (body) => api.createItem(body),
+    ...pacing,
+  })
   return { api, withRetry, orThrow, confirmedWrite }
 }
 

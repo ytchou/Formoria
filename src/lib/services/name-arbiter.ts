@@ -141,23 +141,27 @@ export type ParsedNameArbiterItem = {
   snippets: string[];
 };
 
-const CANDIDATE_SOURCES = [
-  "stored",
-  "cleaned",
-  "detected",
-  "scraped",
-  "official_website",
-  "official_social",
-] as const satisfies readonly NameCandidateSource[];
-const SOURCE_ALT = CANDIDATE_SOURCES.join("|");
+// A Record keyed by the union, so adding a NameCandidateSource member without
+// listing it here fails to compile instead of silently merging "；<new>：" into
+// the previous candidate's value.
+const CANDIDATE_SOURCES = {
+  stored: true,
+  cleaned: true,
+  detected: true,
+  scraped: true,
+  official_website: true,
+  official_social: true,
+} as const satisfies Record<NameCandidateSource, true>;
+const SOURCE_ALT = Object.keys(CANDIDATE_SOURCES).join("|");
 const ITEM_HEAD_RE = /^\d+\. \[([^\]]*)\] 儲存名稱：([\s\S]*)$/;
 // A field opens only at " / " followed by a known label, so " / " inside a
 // name stays whole.
 const FIELD_SPLIT_RE = / \/ (?=候選：|搜尋摘要：)/;
 const CANDIDATE_SPLIT_RE = new RegExp(`；(?=(?:${SOURCE_ALT})：)`);
 const CANDIDATE_RE = new RegExp(`^(${SOURCE_ALT})：(.*)$`, "s");
+// The URL is matched lazily up to ` observed="`, so a URL holding a space still parses.
 const EVIDENCE_RE =
-  /(official_website|official_social) (\S+) observed=("(?:[^"\\]|\\.)*")(?:, |$)/y;
+  /(official_website|official_social) (.+?) observed=("(?:[^"\\]|\\.)*")(?:, |$)/y;
 
 function parseEvidence(text: string): BrandNameEvidence[] | null {
   const entries: BrandNameEvidence[] = [];
@@ -198,7 +202,8 @@ function parseCandidate(entry: string): NameCandidate | null {
 /**
  * Inverse of formatNameArbiterItem: parses one production user-message item line.
  * Returns null for any line the formatter could not have produced (header lines,
- * truncated lines with no 候選 field). Snippets are split on "；", so a snippet
+ * truncated lines with no 候選 field) and for a line where a field label occurs
+ * twice (ambiguous). Snippets are split on "；", so a snippet
  * that itself contains "；" comes back as two — the formatted line is ambiguous there.
  */
 export function parseNameArbiterItemLine(line: string): ParsedNameArbiterItem | null {
@@ -208,8 +213,15 @@ export function parseNameArbiterItemLine(line: string): ParsedNameArbiterItem | 
   let candidateField: string | undefined;
   let snippetField: string | undefined;
   for (const segment of rest) {
-    if (segment.startsWith("候選：")) candidateField = segment.slice("候選：".length);
-    else if (segment.startsWith("搜尋摘要：")) snippetField = segment.slice("搜尋摘要：".length);
+    // A label seen twice means a snippet or value holds " / <label>"; the line is
+    // ambiguous, so refuse it rather than let the last match win.
+    if (segment.startsWith("候選：")) {
+      if (candidateField !== undefined) return null;
+      candidateField = segment.slice("候選：".length);
+    } else if (segment.startsWith("搜尋摘要：")) {
+      if (snippetField !== undefined) return null;
+      snippetField = segment.slice("搜尋摘要：".length);
+    }
   }
   if (candidateField === undefined) return null;
 
@@ -228,6 +240,18 @@ export function parseNameArbiterItemLine(line: string): ParsedNameArbiterItem | 
     candidates,
     snippets: snippetField ? snippetField.split("；") : [],
   };
+}
+
+/**
+ * Parses a rendered single-item name-arbiter user message: the item when exactly
+ * one line parses as an item line, else null (zero or several items).
+ */
+export function parseSingleNameArbiterUser(user: string): ParsedNameArbiterItem | null {
+  const parsed = user
+    .split("\n")
+    .map((line) => parseNameArbiterItemLine(line))
+    .filter((item): item is ParsedNameArbiterItem => item !== null);
+  return parsed.length === 1 ? (parsed[0] ?? null) : null;
 }
 
 function parseNameVerdict(value: unknown): NameVerdict | null {

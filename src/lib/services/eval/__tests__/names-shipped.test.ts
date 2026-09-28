@@ -63,10 +63,13 @@ describe('shippedName', () => {
     expect(shippedName(renameUser, { chosen: null, confidence: 'low' })).toBe('ADELA')
   })
 
-  it('throws when the user message holds no item line', () => {
-    expect(() => shippedName('no item here', { chosen: 'x', confidence: 'high' })).toThrow(
-      /exactly one name-arbiter item line/,
-    )
+  it('returns null when the user message does not hold exactly one item line', () => {
+    expect(shippedName('no item here', { chosen: 'x', confidence: 'high' })).toBeNull()
+    const twoItems = buildNameArbiterUserContent([
+      { slug: 'a', storedName: 'A', candidates: [{ source: 'cleaned', value: 'A' }] },
+      { slug: 'b', storedName: 'B', candidates: [{ source: 'cleaned', value: 'B' }] },
+    ])
+    expect(shippedName(twoItems, { chosen: 'A', confidence: 'high' })).toBeNull()
   })
 })
 
@@ -84,7 +87,8 @@ describe('shippedNameSweep', () => {
   ]
 
   it('picks the max-agreement cutoffs, ties to the higher cutoff', () => {
-    const { rows, best } = shippedNameSweep(points)
+    const { rows, best, skipped } = shippedNameSweep(points)
+    expect(skipped).toBe(0)
 
     // high in 0.65..0.80 and medium in 0.50..0.55 all reach 4/4; the tie goes
     // to the highest high cutoff, then the highest medium cutoff.
@@ -93,5 +97,19 @@ describe('shippedNameSweep', () => {
     expect(rows.every((row) => row.medium < row.high)).toBe(true)
     expect(rows).toHaveLength(45)
     expect(rows.find((row) => row.high === 0.95 && row.medium === 0.9)?.agreement).toBe(0.5)
+  })
+
+  it('skips and counts points whose user does not parse', () => {
+    const bad: ShippedSweepPoint = { user: 'no item here', chosen: 'x', probability: 0.9, acceptedNames: ['x'] }
+    const { rows, best, skipped } = shippedNameSweep([...points, bad, bad])
+
+    expect(skipped).toBe(2)
+    expect(best).toEqual({ high: 0.8, medium: 0.55, agreement: 1 })
+    expect(rows.every((row) => row.total === points.length)).toBe(true)
+  })
+
+  it('throws when no point parses', () => {
+    const bad: ShippedSweepPoint = { user: 'no item here', chosen: 'x', probability: 0.9, acceptedNames: ['x'] }
+    expect(() => shippedNameSweep([bad])).toThrow(/parseable point/)
   })
 })
