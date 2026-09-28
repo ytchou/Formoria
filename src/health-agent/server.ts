@@ -172,7 +172,7 @@ async function main(): Promise<never> {
           getCloneToken: () => getInstallationToken('clone'),
         },
         {
-          deadlineMs: 600_000,
+          deadlineMs: 900_000,
           pollIntervalMs: 5_000,
         },
       )

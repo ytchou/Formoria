@@ -7,7 +7,7 @@ describe('health-agent Railway configuration', () => {
 
     expect(server).toContain("getInstallationToken('clone')")
     expect(server).not.toContain('process.env.GITHUB_TOKEN')
-    expect(server).toContain('deadlineMs: 600_000')
+    expect(server).toContain('deadlineMs: 900_000')
     expect(server).toContain('pollIntervalMs: 5_000')
   })
 

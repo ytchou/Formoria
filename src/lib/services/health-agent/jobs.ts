@@ -31,7 +31,11 @@ export type HealthJobDefinition = {
 // ---------------------------------------------------------------------------
 
 const REPO_CONTEXT_TIMEOUT_MS = 30_000
-const VITEST_TIMEOUT_MS = 300_000
+// The full suite takes ~250s on a 4-vCPU box and keeps growing; 300s left too
+// little headroom and the worker killed it mid-report (truncated JSON). Keep
+// install (180s) + vitest + knip under the client deadline in
+// src/health-agent/server.ts. Upgrade path: shard the suite across commands.
+const VITEST_TIMEOUT_MS = 480_000
 const KNIP_TIMEOUT_MS = 120_000
 const KNIP_FIX_TIMEOUT_MS = 120_000
 const MDX_LINKS_TIMEOUT_MS = 60_000
