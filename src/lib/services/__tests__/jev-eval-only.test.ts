@@ -1,8 +1,12 @@
 /**
- * DEV-1824 D2: TypeSafe Jev stays eval-only. No page, component or runtime
- * service may import the Jev client, its audited wrapper, or the Jev question
- * bank, and no production LLM profile may route to a Jev model. Remove this
- * guard only in the ticket that deliberately switches a phase onto Jev.
+ * DEV-1824 D2: TypeSafe Jev stays eval-only, except for the phases a ticket
+ * deliberately switched onto Jev. No page, component or other runtime service
+ * may import the Jev client, its audited wrapper, or the Jev question bank, and
+ * no production LLM profile may route to a Jev model.
+ *
+ * Switched so far: live search intent parse (DEV-1889), listed in
+ * `JEV_PRODUCTION_IMPORTERS`. Add a file there only in the ticket that switches
+ * its phase.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
@@ -51,12 +55,23 @@ const ALLOWED_EVAL_IMPORTERS: ReadonlySet<string> = new Set([
   "src/lib/services/eval/search-relevance-judge.ts",
 ]);
 
-/** Legitimate Jev importers: the listed eval modules, the Jev modules themselves, tests. */
+/**
+ * Production modules of a phase switched onto Jev. They may import the Jev
+ * client and its audited wrapper, never the eval question bank.
+ */
+const JEV_PRODUCTION_IMPORTERS: ReadonlySet<string> = new Set([
+  "src/lib/services/query-intent-parse.ts",
+  "src/lib/services/intent-parse-jev.ts",
+  "src/lib/services/jev-candidate.ts",
+]);
+
+/** Legitimate Jev importers: the listed eval and production modules, the Jev modules themselves, tests. */
 function isAllowedLibImporter(file: string): boolean {
   const rel = relative(ROOT, file).split(sep).join("/");
   const name = rel.slice(rel.lastIndexOf("/") + 1);
   return (
     ALLOWED_EVAL_IMPORTERS.has(rel) ||
+    JEV_PRODUCTION_IMPORTERS.has(rel) ||
     name.startsWith("typesafe-") ||
     rel.includes("/__tests__/") ||
     /\.test\.[cm]?[jt]sx?$/.test(name)
@@ -83,6 +98,14 @@ describe("Jev stays eval-only (DEV-1824 D2)", () => {
     expect(scanned).toContain("src/lib/services/eval/scorers.ts");
     expect(scanned).toContain("src/lib/services/eval/llm-usage-sink.ts");
     expect(violations(files)).toEqual([]);
+  });
+
+  it("the Jev production modules never import from eval/ (DEV-1889)", () => {
+    const EVAL_IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)['"][^'"]*\/eval\//;
+    for (const rel of JEV_PRODUCTION_IMPORTERS) {
+      const source = readFileSync(join(ROOT, rel), "utf8");
+      expect(EVAL_IMPORT.test(source), rel).toBe(false);
+    }
   });
 
   it("the matcher flags Jev imports and ignores unrelated ones", () => {

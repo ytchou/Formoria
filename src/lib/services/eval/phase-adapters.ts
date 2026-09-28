@@ -114,6 +114,8 @@ export interface PhaseAdapter {
     ok: boolean
     output: unknown
     error?: string
+    /** Raw Jev answers, written to the run file for offline threshold tuning. */
+    answers?: Record<string, unknown>
   }>
   summarize?: (results: ArmResult[]) => string
   reviewView?: (item: ExperimentItem) => unknown
@@ -159,8 +161,8 @@ function jevDecide<I, S extends JevState, O>(
 ): NonNullable<PhaseAdapter['decide']> {
   return async (item) => {
     try {
-      const { output } = await runJevCandidate(candidate, decide, item.input as I)
-      return { ok: true, output }
+      const { output, answers } = await runJevCandidate(candidate, decide, item.input as I)
+      return { ok: true, output, answers }
     } catch (e) {
       return { ok: false, output: null, error: describeError(e) }
     }

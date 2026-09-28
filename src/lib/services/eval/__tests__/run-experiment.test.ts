@@ -1204,6 +1204,23 @@ describe('runExperiment — jev arms', () => {
     expect(result.exitCode).toBe(0)
   })
 
+  it('jev arm writes the raw Jev answers to the run file, so thresholds can be re-tuned offline', async () => {
+    const answers = { isNonBrand: { type: 'noul', noul: 0.42 } }
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'low' }, answers })
+    const deps = makeJevDeps()
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' })],
+      deps,
+    })
+
+    const written = JSON.parse(deps.writeFile.mock.calls[0]![1] as string)
+    expect(written.items[0].answers).toEqual(answers)
+  })
+
   it('jev arm without adapter.decide throws a named error', async () => {
     await expect(
       runExperiment({

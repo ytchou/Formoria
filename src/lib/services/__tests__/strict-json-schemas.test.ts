@@ -36,7 +36,7 @@ import { nameArbitrationShape } from "../name-arbiter";
 import { factsShape, researchFoundingFacts } from "../brand-facts";
 import { detectSingleShape } from "../category-classifier";
 import { descriptionShape } from "../description-rewrite";
-import { parseQueryIntent } from "../query-intent-parse";
+import { adapterFor } from "../eval/phase-adapters";
 import { rerankProducts } from "../product-rerank";
 import { judgeRelevance } from "../eval/search-relevance-judge";
 import {
@@ -184,12 +184,23 @@ function only(schemas: WireSchema[], name: string): JsonSchema {
 // Loaders — each resolves to the schema body sent on the wire
 // ---------------------------------------------------------------------------
 
+/**
+ * Live intent parse runs on Jev (DEV-1889); the json_schema is still sent by
+ * the eval's gpt-4o-mini comparison arm, so capture it from that call.
+ */
 async function captureIntentParse(): Promise<JsonSchema> {
-  const { chat, schemas } = capturingChat({ ok: false, content: null });
-  await parseQueryIntent("送給媽媽的生日禮物", {
-    client: { chat },
-    cache: { get: async () => null, set: async () => {} },
+  const schemas: WireSchema[] = [];
+  const adapter = adapterFor("intent-parse-golden", {
+    callModel: async (input) => {
+      schemas.push(input.schema);
+      return { ok: false, content: "" };
+    },
   });
+  await adapter.task!(
+    { id: "item-1", input: { query: "送給媽媽的生日禮物" }, expectedOutput: null, humanApproval: {} },
+    { name: "gpt-4o-mini", type: "model", value: "gpt-4o-mini" },
+    { itemRunId: "run-1" },
+  );
   return firstSent(schemas);
 }
 

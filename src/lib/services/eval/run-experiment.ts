@@ -38,6 +38,8 @@ export type ItemResult = {
   output?: unknown
   expected?: unknown
   promptMeta?: PromptMeta['prompt']
+  /** Jev arms only: every raw answer (probabilities included), for offline threshold tuning. */
+  answers?: Record<string, unknown>
 }
 
 type ArmSummary = {
@@ -145,6 +147,7 @@ type RunItemsParams = {
     output: unknown
     error?: string
     promptMeta?: PromptMeta['prompt']
+    answers?: Record<string, unknown>
   }>
   adapter: PhaseAdapter
   concurrency: number
@@ -195,7 +198,13 @@ export async function runItems({
         const itemRunId = randomUUID()
 
         let lastError: string | undefined
-        let taskResult: { ok: boolean; output: unknown; error?: string; promptMeta?: PromptMeta['prompt'] } | null = null
+        let taskResult: {
+          ok: boolean
+          output: unknown
+          error?: string
+          promptMeta?: PromptMeta['prompt']
+          answers?: Record<string, unknown>
+        } | null = null
 
         // Create a Langfuse trace for this item so emitLangfuseGeneration can link to it
         const langfuseTrace = createItemTrace?.(item.id, itemRunId) ?? undefined
@@ -251,6 +260,7 @@ export async function runItems({
             output: taskResult.output,
             expected,
             ...(taskResult.promptMeta !== undefined ? { promptMeta: taskResult.promptMeta } : {}),
+            ...(taskResult.answers !== undefined ? { answers: taskResult.answers } : {}),
           }
         }
 
@@ -558,6 +568,7 @@ export async function runExperiment({
             costUsd: ir.costUsd,
             latencyMs: ir.latencyMs,
             ...(reducedOutput ? { output: reducedOutput } : {}),
+            ...(ir.answers ? { answers: ir.answers } : {}),
           }
         }),
       ),

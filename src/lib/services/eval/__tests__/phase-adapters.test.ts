@@ -304,7 +304,7 @@ describe('intent-parse-golden adapter', () => {
   it('decide runs the intentParse Jev candidate on {query}', async () => {
     const decide = fakeDecide({
       category: { choice: 'home', probabilities: { home: 0.92 } },
-      wood: { noul: 0.8 },
+      wood: { noul: 0.9 },
     })
     const adapter = adapterFor('intent-parse-golden', { decide })
     const result = await adapter.decide!(goldenItem({ query: 'a query' }, null), { itemRunId: 'run-1' })

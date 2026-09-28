@@ -189,7 +189,7 @@ describe('JEV_CANDIDATES', () => {
     }
   })
 
-  it('intentParse: 12 material nouls keyed by MATERIALS slugs; toOutput coarsens subcategory to null when L2 confidence < 0.9; materials include p>=0.5 only', async () => {
+  it('intentParse: 12 material nouls keyed by MATERIALS slugs; toOutput coarsens subcategory to null when L2 confidence < 0.9; materials include p>=0.85 only (DEV-1889)', async () => {
     const cand = JEV_CANDIDATES.intentParse
     const state = cand.buildState({ query: '送給喜歡泡茶的朋友' })
     expect(state).toEqual({ query: '送給喜歡泡茶的朋友' })
@@ -207,9 +207,9 @@ describe('JEV_CANDIDATES', () => {
     const [m0, m1, m2] = [MATERIALS[0].slug, MATERIALS[1].slug, MATERIALS[2].slug]
     const stepOne: Record<string, JevAnswer> = {
       category: { choice: home, probabilities: { [home]: 0.8 } },
-      [m0]: { noul: 0.7 },
-      [m1]: { noul: 0.5 },
-      [m2]: { noul: 0.49 },
+      [m0]: { noul: 0.9 },
+      [m1]: { noul: 0.85 },
+      [m2]: { noul: 0.84 },
     }
     const coarse = cand.toOutput(
       { ...stepOne, subcategory: { choice: homeSub, probabilities: { [homeSub]: 0.89 } } },
@@ -233,6 +233,31 @@ describe('JEV_CANDIDATES', () => {
     expect(sub.type).toBe('choice')
     expect(Object.keys(sub.criteria)).toEqual(subsOf(home))
     expect(result.output).toEqual({ category: home, subcategory: homeSub, materials: [m0, m1], probability: 0.8 })
+  })
+
+  it('intentParse: P(L1) < 0.6 returns a null category and skips the step-2 call; 0.6 keeps it (DEV-1889)', async () => {
+    const cand = JEV_CANDIDATES.intentParse
+    const home = L1_CATEGORIES[4].slug
+    const homeSub = subsOf(home)[0]!
+    const vague = { category: { choice: home, probabilities: { [home]: 0.59 } } }
+    expect(cand.toOutput({ ...vague, subcategory: { choice: homeSub, probabilities: { [homeSub]: 0.99 } } })).toEqual({
+      category: null,
+      subcategory: null,
+      materials: [],
+      probability: 0.59,
+    })
+
+    const low = fakeDecide(() => vague)
+    const lowResult = await cand.run(low.decide, { query: 'q' })
+    expect(low.calls).toHaveLength(1)
+    expect(lowResult.output.category).toBeNull()
+
+    const atMin = fakeDecide((questions): Record<string, JevAnswer> =>
+      questions.subcategory ? {} : { category: { choice: home, probabilities: { [home]: 0.6 } } },
+    )
+    const minResult = await cand.run(atMin.decide, { query: 'q' })
+    expect(atMin.calls).toHaveLength(2)
+    expect(minResult.output).toMatchObject({ category: home, subcategory: null, probability: 0.6 })
   })
 
   it('names: one choice over the distinct candidate names, stored first; evidence and snippets parsed; toOutput returns the chosen name (DEV-1888)', () => {
