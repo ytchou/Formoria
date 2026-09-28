@@ -396,6 +396,101 @@ const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
 }
 
 // ---------------------------------------------------------------------------
+// names (brand-name arbitration: a choice over the supplied candidate names)
+// ---------------------------------------------------------------------------
+
+const NAME_LABELS = {
+  stored: JEV_INPUT_LABELS.storedName,
+  candidates: JEV_INPUT_LABELS.nameCandidates,
+  snippets: JEV_INPUT_LABELS.searchSnippets,
+} as const
+
+type NamesState = {
+  storedName: string
+  /** One line per distinct candidate: `<name> <- <sources>`. */
+  candidates: string
+  searchSnippets: string | null
+}
+type NamesOutput = { chosen: string | null; confidence: ConfidenceBand; probability: number }
+
+/**
+ * `name-arbiter.ts#buildNameArbiterUserContent` renders one brand as
+ * `N. [slug] <stored>：X / <candidates>：src：v；src：v / <snippets>：a；b`.
+ * Fields split on ` / ` followed by a known label, so a ` / ` inside a name stays
+ * whole. A candidate's first-party evidence is a trailing `（official_… url …）`.
+ */
+function parseNameArbiterLine(text: string): { stored: string; candidates: Map<string, string[]>; snippets: string | null } {
+  const line = text.split('\n').find((l) => /^\d+\. \[[^\]]*\] /.test(l))
+  if (!line) throw new Error('jev-questions: no name-arbiter item line in the input')
+  const body = line.replace(/^\d+\. \[[^\]]*\] /, '')
+  const labels = Object.values(NAME_LABELS)
+  const fields: Record<string, string> = {}
+  let current: string | null = null
+  for (const segment of body.split(' / ')) {
+    const label = labels.find((l) => segment.startsWith(`${l}：`))
+    if (label) {
+      current = label
+      fields[label] = segment.slice(label.length + 1)
+    } else if (current) {
+      fields[current] += ` / ${segment}`
+    }
+  }
+  const stored = (fields[NAME_LABELS.stored] ?? '').trim()
+  const candidates = new Map<string, string[]>()
+  const add = (value: string, source: string) => {
+    const v = value.trim()
+    if (!v) return
+    candidates.set(v, [...(candidates.get(v) ?? []), source])
+  }
+  add(stored, 'stored')
+  const list = valueOrNull(fields[NAME_LABELS.candidates])
+  for (const entry of list ? list.split('；') : []) {
+    const match = /^([a-z_]+)：(.*)$/.exec(entry.trim())
+    if (!match) continue
+    const evidenceAt = match[2]!.lastIndexOf('（official_')
+    const value = evidenceAt >= 0 && match[2]!.endsWith('）') ? match[2]!.slice(0, evidenceAt) : match[2]!
+    const evidence = evidenceAt >= 0 ? match[2]!.slice(evidenceAt + 1, -1) : null
+    add(value, evidence ? `${match[1]} (${evidence})` : match[1]!)
+  }
+  return { stored, candidates, snippets: valueOrNull(fields[NAME_LABELS.snippets]) }
+}
+
+const names: JevCandidate<GoldenChatInput, NamesState, NamesOutput> = {
+  profileKey: 'names',
+  buildState(input) {
+    const { stored, candidates, snippets } = parseNameArbiterLine(userText(input))
+    return {
+      storedName: stored,
+      candidates: [...candidates].map(([value, sources]) => `${value} <- ${sources.join(', ')}`).join('\n'),
+      searchSnippets: snippets,
+    }
+  },
+  questions(state) {
+    const name: ChoiceQuestion = {
+      type: 'choice',
+      instructions: [
+        "Formoria lists Taiwanese brands. Which candidate is this brand's formal name, as the brand itself uses it?",
+        'Judge by meaning, not string shape: a trailing maker suffix (studio, workshop) is part of the name; a trailing tagline, SEO copy, page-title chrome or product-category description is not.',
+        'Keep both halves of a bilingual name only when a candidate already has both; never prefer a candidate that drops an identity half, and differing capitalisation alone keeps the capitalisation the brand uses.',
+        'A candidate that may be a different entity (a parent company, a legal name, another brand sharing a word) is not the name; when unsure, keep the stored name.',
+      ].join(' '),
+      criteria: Object.fromEntries(
+        state.candidates.split('\n').map((l) => {
+          const at = l.lastIndexOf(' <- ')
+          return [l.slice(0, at), `Proposed by: ${l.slice(at + 4)}`]
+        }),
+      ),
+    }
+    return { name }
+  },
+  toOutput(answers) {
+    const pick = pickChoice(answers.name)
+    const p = pick?.p ?? 0
+    return { chosen: pick?.key ?? null, confidence: bandFromProbability(p), probability: p }
+  },
+}
+
+// ---------------------------------------------------------------------------
 // productCategory (product L1 -> L2, beam K=3)
 // ---------------------------------------------------------------------------
 
@@ -597,6 +692,7 @@ const relevanceJudge: JevCandidate<RelevanceJudgeInput, RelevanceJudgeState, Rel
 
 export const JEV_CANDIDATES = {
   detect,
+  names,
   productCategory,
   intentParse,
   relevanceJudge,

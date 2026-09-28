@@ -44,6 +44,8 @@ describe('JEV_CANDIDATES', () => {
   it('every noul criteria is absent or a { true, false } object with non-empty strings', () => {
     let nouls = 0
     for (const cand of Object.values(JEV_CANDIDATES)) {
+      // names builds its one choice from the parsed state and asks no noul.
+      if (cand === JEV_CANDIDATES.names) continue
       const questions = (cand.questions as (state: unknown) => Record<string, JevQuestion>)(undefined)
       for (const q of Object.values(questions)) {
         if (q.type !== 'noul') continue
@@ -231,6 +233,31 @@ describe('JEV_CANDIDATES', () => {
     expect(sub.type).toBe('choice')
     expect(Object.keys(sub.criteria)).toEqual(subsOf(home))
     expect(result.output).toEqual({ category: home, subcategory: homeSub, materials: [m0, m1], probability: 0.8 })
+  })
+
+  it('names: one choice over the distinct candidate names, stored first; evidence and snippets parsed; toOutput returns the chosen name (DEV-1888)', () => {
+    const cand = JEV_CANDIDATES.names
+    const input = {
+      user: [
+        '請裁決以下品牌的正式名稱：',
+        '1. [lid] 儲存名稱：LID Shoes / 候選：stored：LID Shoes；cleaned：LID Shoes；official_website：劉一刀手工鞋 LID Shoes（official_website https://www.lidshoes.com observed="劉一刀 手工鞋"） / 搜尋摘要：LID Shoes 手工鞋；A / B 評測',
+      ].join('\n'),
+      promptName: 'name-arbiter',
+    }
+    const state = cand.buildState(input)
+    expect(state.storedName).toBe('LID Shoes')
+    expect(state.searchSnippets).toBe('LID Shoes 手工鞋；A / B 評測')
+    const q = cand.questions(state).name as { type: string; criteria: Record<string, string> }
+    expect(q.type).toBe('choice')
+    expect(Object.keys(q.criteria)).toEqual(['LID Shoes', '劉一刀手工鞋 LID Shoes'])
+    expect(q.criteria['LID Shoes']).toContain('stored, cleaned')
+    expect(q.criteria['劉一刀手工鞋 LID Shoes']).toContain('https://www.lidshoes.com')
+
+    const out = cand.toOutput({
+      name: { choice: '劉一刀手工鞋 LID Shoes', probabilities: { '劉一刀手工鞋 LID Shoes': 0.93, 'LID Shoes': 0.07 } },
+    })
+    expect(out).toEqual({ chosen: '劉一刀手工鞋 LID Shoes', confidence: 'high', probability: 0.93 })
+    expect(() => cand.buildState({ user: 'no item line' })).toThrow()
   })
 
   it('relevanceJudge: 4-level score (zero-indexed 0..3) with described levels; toOutput returns an integer grade = round(score), probabilities from the answer, votes = [grade]', () => {

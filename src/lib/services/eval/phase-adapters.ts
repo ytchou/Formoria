@@ -536,6 +536,8 @@ function transportHooks(
   switch (datasetName) {
     case 'detect-confidence-golden':
       return { decide: jevDecide(JEV_CANDIDATES.detect, decide) }
+    case 'name-arbiter-confidence-golden':
+      return { decide: jevDecide(JEV_CANDIDATES.names, decide) }
     case 'intent-parse-golden':
       return {
         task: intentParseTask(deps.callModel ?? defaultIntentCallModel),
