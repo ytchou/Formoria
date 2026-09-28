@@ -6,6 +6,9 @@ import {
   hrefWithoutQuery,
   parseInferredFields,
   buildDiscoverSyncQuery,
+  discoverClearAllKeys,
+  firstValue,
+  hasInferParam,
   sortOptionsFor,
   QUALIFYING_MATERIAL_SLUGS,
 } from "../discover-search-params";
@@ -148,6 +151,14 @@ describe("hrefWithoutQuery", () => {
     expect(href).toBe("/discover?category=home&sort=newest");
   });
 
+  it("removing an inferred category also removes the sub scoped to it", () => {
+    const href = hrefWithoutQuery(
+      "/discover",
+      new URLSearchParams("q=tea&category=home&sub=cups&inferred=category"),
+    );
+    expect(href).toBe("/discover");
+  });
+
   it("drops infer", () => {
     const href = hrefWithoutQuery(
       "/discover",
@@ -160,15 +171,45 @@ describe("hrefWithoutQuery", () => {
 describe("parseInferredFields", () => {
   it("returns only known fields (category|sub|material)", () => {
     expect(
-      parseInferredFields(
-        new URLSearchParams("inferred=material,bogus,category,,sub,material"),
-      ),
+      parseInferredFields("material,bogus,category,,sub,material"),
     ).toEqual(["category", "sub", "material"]);
-    expect(parseInferredFields({ inferred: ["sub", "price"] })).toEqual([
-      "sub",
+    expect(parseInferredFields(["sub", "price"])).toEqual(["sub"]);
+    expect(parseInferredFields("")).toEqual([]);
+    expect(parseInferredFields(undefined)).toEqual([]);
+  });
+});
+
+describe("firstValue", () => {
+  it("reads the first entry of an array-valued param", () => {
+    expect(firstValue(["a", "b"])).toBe("a");
+    expect(firstValue("a")).toBe("a");
+    expect(firstValue(undefined)).toBeUndefined();
+    expect(firstValue([])).toBeUndefined();
+  });
+});
+
+describe("hasInferParam", () => {
+  it("is true whenever infer is present, whatever its value", () => {
+    expect(hasInferParam({ infer: "1" })).toBe(true);
+    expect(hasInferParam({ infer: ["1", "1"] })).toBe(true);
+    expect(hasInferParam({ infer: "" })).toBe(true);
+    expect(hasInferParam({ q: "tea" })).toBe(false);
+  });
+});
+
+describe("discoverClearAllKeys", () => {
+  it("search mode clears category, inferred and q as well", () => {
+    expect(discoverClearAllKeys(new URLSearchParams("q=tea"))).toEqual([
+      "category",
+      "inferred",
+      "q",
     ]);
-    expect(parseInferredFields(new URLSearchParams(""))).toEqual([]);
-    expect(parseInferredFields({})).toEqual([]);
+  });
+
+  it("a whitespace-only q is browse mode, so category stays", () => {
+    expect(
+      discoverClearAllKeys(new URLSearchParams("q=%20&category=home")),
+    ).toEqual([]);
   });
 });
 
@@ -203,6 +244,16 @@ describe("buildDiscoverSyncQuery", () => {
         ["material"],
       ),
     ).toBe("?q=tea&material=metal&inferred=material&page=2");
+  });
+
+  it("an array-valued infer is still a fresh submit: page and infer are dropped", () => {
+    expect(
+      buildDiscoverSyncQuery(
+        { q: "tea", infer: ["1", "1"], page: "3" },
+        { category: null, subcategories: [], materials: [] },
+        [],
+      ),
+    ).toBe("?q=tea");
   });
 
   it("omits inferred when no field was inferred", () => {

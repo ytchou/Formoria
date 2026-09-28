@@ -13,7 +13,10 @@ import {
   ProductFilterDrawer,
 } from "@/components/products/product-filter-sidebar";
 import { ProductSortSelect } from "@/components/products/product-sort-select";
-import { ProductActiveFilters } from "@/components/products/product-active-filters";
+import {
+  ProductActiveFilters,
+  type ActiveFilter,
+} from "@/components/products/product-active-filters";
 import { DiscoverUrlSync } from "@/components/products/discover-url-sync";
 import { Pagination } from "@/components/brands/pagination";
 import { buildAlternates } from "@/lib/seo/alternates";
@@ -42,7 +45,11 @@ import {
   parseDiscoverQuery,
   discoverMetadataFor,
   buildDiscoverSyncQuery,
+  firstValue,
+  hasInferParam,
   parseInferredFields,
+  INFER_PARAM,
+  INFERRED_PARAM,
   type DiscoverSort,
   type InferredField,
 } from "@/lib/products/discover-search-params";
@@ -144,9 +151,10 @@ export default async function DiscoverPage({
   // Intent parse gate: once per search-form submit (`infer=1`), only for
   // CJK-rich queries from authenticated users. Later loads of the same search
   // read the inferred filters back from the URL instead of re-parsing.
+  const inferTrigger = firstValue(rawParams[INFER_PARAM]) === "1";
   let enableIntentParse = false;
   if (
-    rawParams.infer === "1" &&
+    inferTrigger &&
     searchQuery &&
     shouldAttemptIntentParse(searchQuery)
   ) {
@@ -267,7 +275,7 @@ export default async function DiscoverPage({
   // Fields marked inferred: those this request filled in, plus those an
   // earlier synced URL already marked (reloads and paging skip the parse).
   const inferredFields: InferredField[] = [
-    ...parseInferredFields(rawParams),
+    ...parseInferredFields(rawParams[INFERRED_PARAM]),
     ...(appliedInference.category ? (["category"] as const) : []),
     ...(appliedInference.subcategory ? (["sub"] as const) : []),
     ...(appliedInference.materials.length ? (["material"] as const) : []),
@@ -314,17 +322,16 @@ export default async function DiscoverPage({
     isSearchMode && effectiveCategory
       ? VISIBLE_L1_CATEGORIES.find((c) => c.slug === effectiveCategory)
       : undefined;
-  const activeFilters: {
-    type: "category" | "subcategory" | "material";
-    slug: string;
-    label: string;
-  }[] = [
+  // `inferred` comes from the server-side list, so the 自動判斷 badge is in
+  // the first HTML rather than waiting for the client URL sync.
+  const activeFilters: ActiveFilter[] = [
     ...(activeCategoryNode
       ? [
           {
             type: "category" as const,
             slug: activeCategoryNode.slug,
             label: categoryLabel(activeCategoryNode, locale),
+            inferred: inferredFields.includes("category"),
           },
         ]
       : []),
@@ -334,6 +341,7 @@ export default async function DiscoverPage({
         type: "subcategory" as const,
         slug,
         label: node ? subcategoryLabel(node, locale) : slug,
+        inferred: inferredFields.includes("sub"),
       };
     }),
     ...effectiveMaterials.map((slug) => {
@@ -346,6 +354,7 @@ export default async function DiscoverPage({
             ? mat.nameZh
             : mat.nameEn
           : slug,
+        inferred: inferredFields.includes("material"),
       };
     }),
   ];
@@ -361,8 +370,8 @@ export default async function DiscoverPage({
         </header>
 
         {/* Writes the effective filters into the address bar; also strips the
-            one-time infer flag. */}
-        {(isSearchMode || rawParams.infer !== undefined) && (
+            one-time infer flag (any value, not only the parse trigger). */}
+        {(isSearchMode || hasInferParam(rawParams)) && (
           <DiscoverUrlSync
             search={buildDiscoverSyncQuery(
               rawParams,

@@ -14,13 +14,30 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('next/script', () => ({ default: () => null }))
 
-import { consumePageviewSkip, skipNextPageview } from '@/lib/analytics/pageview-skip'
+import { shouldSkipPageview, skipPageviewFor } from '@/lib/analytics/pageview-skip'
+import { DiscoverUrlSync } from '@/components/products/discover-url-sync'
 
 import { PublicGoogleAnalytics } from './public-google-analytics'
 
 const GA_ID = 'G-TESTID0000'
 
 type GtagCall = unknown[]
+
+// No real page path is empty, so this clears any pending skip.
+function clearPendingSkip() {
+  shouldSkipPageview('')
+}
+
+// Simulates a hard document load: the browser URL and the router's search params agree.
+function loadDocument(search: string) {
+  mockSearch = search
+  window.history.replaceState({}, '', `${mockPathname}${search ? `?${search}` : ''}`)
+}
+
+// Simulates the router reporting the URL after a history.replaceState.
+function syncRouterToLocation() {
+  mockSearch = window.location.search.replace(/^\?/, '')
+}
 
 function pageViews(gtag: ReturnType<typeof vi.fn>): Record<string, unknown>[] {
   return (gtag.mock.calls as GtagCall[])
@@ -36,12 +53,13 @@ describe('PublicGoogleAnalytics', () => {
     mockSearch = ''
     gtag = vi.fn()
     window.gtag = gtag as unknown as typeof window.gtag
-    // Module-level flag: make sure no skip leaks between tests.
-    consumePageviewSkip()
+    window.history.replaceState({}, '', '/discover')
+    // Module-level state: make sure no skip leaks between tests.
+    clearPendingSkip()
   })
 
   afterEach(() => {
-    consumePageviewSkip()
+    clearPendingSkip()
   })
 
   it('strips q, search, infer and inferred from page_location and page_path', () => {
@@ -63,38 +81,147 @@ describe('PublicGoogleAnalytics', () => {
     expect(pageLocation).toBe(`${window.location.origin}/discover?category=food&sub=snacks&material=wood`)
   })
 
-  it('consumes a pending skip and does not send page_view for that URL change', () => {
-    mockSearch = 'q=tea'
-    const { rerender } = render(<PublicGoogleAnalytics gaId={GA_ID} />)
-    expect(pageViews(gtag)).toHaveLength(1)
-
-    skipNextPageview()
-    mockSearch = 'q=tea&category=food'
-    rerender(<PublicGoogleAnalytics gaId={GA_ID} />)
-
-    expect(pageViews(gtag)).toHaveLength(1)
-    // The skip was consumed by the effect.
-    expect(consumePageviewSkip()).toBe(false)
-  })
-
-  it('sends page_view normally when no skip is pending, including after a consumed skip', () => {
+  it('skips the page_view for a registered rewrite target and remembers it', () => {
     mockSearch = 'category=food'
     const { rerender } = render(<PublicGoogleAnalytics gaId={GA_ID} />)
     expect(pageViews(gtag)).toHaveLength(1)
 
-    mockSearch = 'category=home'
+    skipPageviewFor('/discover?category=food', '/discover?category=food&sub=snacks')
+    mockSearch = 'category=food&sub=snacks'
     rerender(<PublicGoogleAnalytics gaId={GA_ID} />)
-    expect(pageViews(gtag)).toHaveLength(2)
+    expect(pageViews(gtag)).toHaveLength(1)
+    // The skip was consumed.
+    expect(shouldSkipPageview('/discover?category=food&sub=snacks')).toBe(false)
 
-    skipNextPageview()
-    mockSearch = 'category=home&sub=kitchen'
+    // Re-reporting the skipped path (e.g. a stripped param changes) is deduped.
+    mockSearch = 'category=food&sub=snacks&q=tea'
     rerender(<PublicGoogleAnalytics gaId={GA_ID} />)
-    expect(pageViews(gtag)).toHaveLength(2)
+    expect(pageViews(gtag)).toHaveLength(1)
+  })
 
+  it('does not let a stale skip swallow a later unrelated navigation', () => {
+    mockSearch = 'category=food'
+    const { rerender } = render(<PublicGoogleAnalytics gaId={GA_ID} />)
+    expect(pageViews(gtag)).toHaveLength(1)
+
+    skipPageviewFor('/discover?category=food', '/discover?category=food&sub=snacks')
     mockSearch = 'category=beauty'
+    rerender(<PublicGoogleAnalytics gaId={GA_ID} />)
+    expect(pageViews(gtag)).toHaveLength(2)
+
+    // The unmatched skip was discarded, so its former target now counts too.
+    mockSearch = 'category=food&sub=snacks'
     rerender(<PublicGoogleAnalytics gaId={GA_ID} />)
     const views = pageViews(gtag)
     expect(views).toHaveLength(3)
-    expect(views[2]?.page_path).toBe('/discover?category=beauty')
+    expect(views[2]?.page_path).toBe('/discover?category=food&sub=snacks')
+  })
+
+  it('always sends the first page_view of a document, even if a skip targets it', () => {
+    skipPageviewFor('/discover', '/discover?category=home')
+    mockSearch = 'category=home'
+    render(<PublicGoogleAnalytics gaId={GA_ID} />)
+
+    expect(pageViews(gtag)).toHaveLength(1)
+    expect(shouldSkipPageview('/discover?category=home')).toBe(false)
+  })
+})
+
+// DiscoverUrlSync renders inside the page (children), before GA in the root document,
+// so its effect runs first. These tests mount them as siblings in that order.
+describe('DiscoverUrlSync + PublicGoogleAnalytics', () => {
+  let gtag: ReturnType<typeof vi.fn>
+
+  function tree(search: string) {
+    return (
+      <>
+        <DiscoverUrlSync search={search} />
+        <PublicGoogleAnalytics gaId={GA_ID} />
+      </>
+    )
+  }
+
+  function expectScrubbed(view: Record<string, unknown> | undefined) {
+    expect(view).toBeDefined()
+    for (const value of [view?.page_location as string, view?.page_path as string]) {
+      expect(value).not.toMatch(/[?&](q|infer|inferred)=/)
+    }
+  }
+
+  beforeEach(() => {
+    mockPathname = '/discover'
+    mockSearch = ''
+    gtag = vi.fn()
+    window.gtag = gtag as unknown as typeof window.gtag
+    window.history.replaceState({}, '', '/discover')
+    clearPendingSkip()
+  })
+
+  afterEach(() => {
+    clearPendingSkip()
+  })
+
+  it('(a) hard-loaded submit with no inferred filters logs exactly one page_view', () => {
+    loadDocument('infer=1&q=tea')
+    const { rerender } = render(tree('?q=tea'))
+    expect(window.location.search).toBe('?q=tea')
+
+    syncRouterToLocation()
+    rerender(tree('?q=tea'))
+
+    const views = pageViews(gtag)
+    expect(views).toHaveLength(1)
+    expectScrubbed(views[0])
+    expect(views[0]?.page_path).toBe('/discover')
+  })
+
+  it('(b) hard-loaded submit with inferred filters logs exactly one page_view', () => {
+    const target = '?q=tea&category=home&inferred=category'
+    loadDocument('infer=1&q=tea')
+    const { rerender } = render(tree(target))
+    expect(window.location.search).toBe(target)
+    expect(pageViews(gtag)).toHaveLength(1)
+
+    syncRouterToLocation()
+    rerender(tree(target))
+
+    const views = pageViews(gtag)
+    expect(views).toHaveLength(1)
+    expectScrubbed(views[0])
+  })
+
+  it('(c) soft navigation reordered by the sync logs exactly one page_view', () => {
+    loadDocument('q=x')
+    const { rerender } = render(tree('?q=x'))
+    expect(pageViews(gtag)).toHaveLength(1)
+
+    // Sidebar link: routes.discover({ category, q }) serialises category first.
+    window.history.pushState({}, '', '/discover?category=c&q=x')
+    mockSearch = 'category=c&q=x'
+    rerender(tree('?q=x&category=c'))
+    expect(window.location.search).toBe('?q=x&category=c')
+
+    syncRouterToLocation()
+    rerender(tree('?q=x&category=c'))
+
+    const views = pageViews(gtag)
+    expect(views).toHaveLength(2)
+    expect(views[1]?.page_path).toBe('/discover?category=c')
+  })
+
+  it('(c) soft navigation whose kept params are reordered logs exactly one page_view', () => {
+    loadDocument('q=x')
+    const { rerender } = render(tree('?q=x'))
+    expect(pageViews(gtag)).toHaveLength(1)
+
+    window.history.pushState({}, '', '/discover?sub=s&category=c&q=x')
+    mockSearch = 'sub=s&category=c&q=x'
+    rerender(tree('?q=x&category=c&sub=s'))
+    expect(window.location.search).toBe('?q=x&category=c&sub=s')
+
+    syncRouterToLocation()
+    rerender(tree('?q=x&category=c&sub=s'))
+
+    expect(pageViews(gtag)).toHaveLength(2)
   })
 })

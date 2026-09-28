@@ -254,6 +254,29 @@ describe("ProductFilterSidebar", () => {
     });
   });
 
+  it("drawer clear-all with a whitespace-only q keeps category", () => {
+    searchParams.current = new URLSearchParams(
+      "q=%20&category=home&sub=candles&material=wood",
+    );
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <ProductFilterDrawer
+          locale="en"
+          activeCategory="home"
+          allLabel="All"
+          totalCount={10}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    const target = replace.mock.calls.at(-1)?.[0] as string;
+    expect(new URL(target, "http://localhost").searchParams.get("category")).toBe(
+      "home",
+    );
+  });
+
   it("drawer renders with trigger button", () => {
     searchParams.current = new URLSearchParams();
     render(

@@ -1,5 +1,17 @@
-import { INFERRED_FIELDS } from "@/lib/products/discover-search-params";
 import { parseCommaParam } from "@/lib/seo/directory-filters";
+
+/**
+ * /discover filter fields the search can fill in from the visitor's query.
+ * The `inferred` param lists which of them were inferred rather than chosen,
+ * so their chips can say so; `infer` is the one-time trigger for the parse.
+ * Defined here (and re-exported by `lib/products/discover-search-params`)
+ * because `updateDirectoryUrl` maintains the `inferred` list and
+ * discover-search-params builds on `updateDirectoryUrl` — one direction only.
+ */
+export const INFERRED_FIELDS = ["category", "sub", "material"] as const;
+export type InferredField = (typeof INFERRED_FIELDS)[number];
+export const INFER_PARAM = "infer";
+export const INFERRED_PARAM = "inferred";
 
 /**
  * Query keys that carry a REFINEMENT of the result set rather than a position
@@ -22,9 +34,18 @@ export const DIRECTORY_SORT_KEY = "sort";
 type DirectoryFilterKey =
   (typeof DIRECTORY_REFINEMENT_KEYS)[number] | "category" | "sub";
 
+/**
+ * Every key an update may set or clear: the filters, plus /discover's search
+ * query and its `inferred` marker (cleared, never set, by clear-all).
+ */
+export type DirectoryClearKey =
+  | DirectoryFilterKey
+  | "q"
+  | typeof INFERRED_PARAM;
+
 type SearchParamsLike = { toString(): string };
-type DirectoryFilterUpdates = Partial<
-  Record<DirectoryFilterKey, string | null>
+export type DirectoryFilterUpdates = Partial<
+  Record<DirectoryClearKey, string | null>
 >;
 
 export function updateDirectoryUrl(
@@ -55,7 +76,7 @@ export function updateDirectoryUrl(
 
   // A filter the visitor edits is no longer inferred (/discover's `inferred`
   // list); a category change takes the inferred sub with it.
-  const inferred = params.get("inferred");
+  const inferred = params.get(INFERRED_PARAM);
   if (inferred !== null) {
     const touched = new Set<string>(Object.keys(updates));
     if (changesCategory) touched.add("sub");
@@ -64,10 +85,10 @@ export function updateDirectoryUrl(
         !touched.has(field) &&
         (INFERRED_FIELDS as readonly string[]).includes(field),
     );
-    if (remaining.length) params.set("inferred", remaining.join(","));
-    else params.delete("inferred");
+    if (remaining.length) params.set(INFERRED_PARAM, remaining.join(","));
+    else params.delete(INFERRED_PARAM);
   }
-  params.delete("infer");
+  params.delete(INFER_PARAM);
 
   params.delete("page");
   const query = params.toString();

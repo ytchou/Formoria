@@ -104,4 +104,18 @@ describe("updateDirectoryUrl — inferred filters", () => {
       "/brands?category=jewelry&sort=name",
     );
   });
+
+  it("clears q and inferred as keys, cascading category to sub", () => {
+    const params = new URLSearchParams(
+      "q=tea&category=home&sub=cups&material=metal&inferred=category&sort=newest",
+    );
+
+    expect(
+      updateDirectoryUrl("/discover", params, {
+        q: null,
+        inferred: null,
+        category: null,
+      }),
+    ).toBe("/discover?material=metal&sort=newest");
+  });
 });

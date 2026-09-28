@@ -85,6 +85,7 @@
       "showResults": "Show {count, plural, one {# product} other {# products}}",
       "clearAll": "Clear all",
       "removeFilter": "Remove {label}: {value}",
+      "removeFilterInferred": "Remove {label}: {value} ({badge})",
       "sortNewest": "Newest",
       "sortAlphabetical": "Sort by name",
       "sortRelevance": "Relevance",

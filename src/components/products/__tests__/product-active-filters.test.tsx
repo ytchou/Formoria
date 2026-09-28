@@ -139,14 +139,16 @@ describe("ProductActiveFilters", () => {
   });
 
   it("inferred chips carry the 自動判斷 badge; manual chips do not", () => {
+    // The URL carries no `inferred` param: the badge comes from the server-set
+    // flag, so it is present on the first render before any URL sync.
     searchParams.current = new URLSearchParams(
-      "q=x&sub=candles&material=metal&inferred=material",
+      "q=x&sub=candles&material=metal&infer=1",
     );
     render(
       <ProductActiveFilters
         activeFilters={[
           { type: "subcategory", slug: "candles", label: "Candles" },
-          { type: "material", slug: "metal", label: "Metal" },
+          { type: "material", slug: "metal", label: "Metal", inferred: true },
         ]}
         query="x"
       />,
@@ -159,9 +161,29 @@ describe("ProductActiveFilters", () => {
       .getAllByRole("link")
       .find((link) => link.textContent?.includes("Candles"))!;
     expect(metal.textContent).toContain("inferred");
-    expect(metal.getAttribute("aria-label")).toContain("（inferred）");
+    expect(metal.getAttribute("aria-label")).toBe(
+      `removeFilterInferred(${JSON.stringify({ label: "material", value: "Metal", badge: "inferred" })})`,
+    );
     expect(candles.textContent).not.toContain("inferred");
     expect(candles.getAttribute("aria-label")).not.toContain("inferred");
+  });
+
+  it("a manual chip has no badge even when the URL lists its field as inferred", () => {
+    searchParams.current = new URLSearchParams(
+      "q=x&material=metal&inferred=material",
+    );
+    render(
+      <ProductActiveFilters
+        activeFilters={[{ type: "material", slug: "metal", label: "Metal" }]}
+        query="x"
+      />,
+    );
+
+    const metal = screen
+      .getAllByRole("link")
+      .find((link) => link.textContent?.includes("Metal"))!;
+    expect(metal.querySelector('[data-slot="badge"]')).toBeNull();
+    expect(metal.getAttribute("aria-label")).not.toContain("inferred");
   });
 
   it("clear-all in search mode drops q, category, sub, material and inferred", () => {
@@ -184,6 +206,24 @@ describe("ProductActiveFilters", () => {
       expect(params.get(key)).toBeNull();
     }
     expect(params.get("sort")).toBe("newest");
+  });
+
+  it("clear-all with a whitespace-only q keeps category", () => {
+    searchParams.current = new URLSearchParams(
+      "q=%20&category=home&sub=candles&material=wood",
+    );
+    render(
+      <ProductActiveFilters
+        activeFilters={[
+          { type: "subcategory", slug: "candles", label: "Candles" },
+          { type: "material", slug: "wood", label: "Wood" },
+        ]}
+        query={null}
+      />,
+    );
+
+    const href = screen.getByText("clearAll").closest("a")!.getAttribute("href")!;
+    expect(new URLSearchParams(href.split("?")[1]).get("category")).toBe("home");
   });
 
   it("clear-all in browse mode keeps category", () => {

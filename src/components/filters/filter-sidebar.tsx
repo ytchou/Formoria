@@ -10,7 +10,11 @@ import { cn } from "@/lib/utils";
 import { FilterSection } from "./filter-section";
 import { FilterCheckboxGroup } from "./filter-checkbox-group";
 import { FilterDrawerShell } from "./filter-drawer-shell";
-import { updateDirectoryUrl } from "@/lib/directory-filter-url";
+import {
+  updateDirectoryUrl,
+  type DirectoryClearKey,
+  type DirectoryFilterUpdates,
+} from "@/lib/directory-filter-url";
 
 type SubcategoryOption = {
   slug: string;
@@ -215,7 +219,7 @@ export type FilterDrawerProps = FilterSidebarProps & {
   showResultsLabel: string;
   clearAllLabel: string;
   /** Query keys clear-all removes in addition to `sub` and `material`. */
-  clearAllExtraKeys?: string[];
+  clearAllExtraKeys?: DirectoryClearKey[];
 };
 
 export function FilterDrawer({
@@ -231,15 +235,12 @@ export function FilterDrawer({
   const [, startTransition] = useTransition();
 
   function clearAll() {
+    const updates: DirectoryFilterUpdates = { sub: null, material: null };
+    for (const key of clearAllExtraKeys) updates[key] = null;
     startTransition(() => {
-      router.replace(
-        updateDirectoryUrl(pathname, searchParams, {
-          ...Object.fromEntries(clearAllExtraKeys.map((key) => [key, null])),
-          sub: null,
-          material: null,
-        }),
-        { scroll: false },
-      );
+      router.replace(updateDirectoryUrl(pathname, searchParams, updates), {
+        scroll: false,
+      });
     });
   }
 

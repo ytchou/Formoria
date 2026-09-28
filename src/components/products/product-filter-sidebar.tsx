@@ -5,6 +5,10 @@ import { useTranslations } from "next-intl";
 import { FilterSidebar, FilterDrawer } from "@/components/filters";
 import { routes } from "@/lib/routes";
 import {
+  discoverClearAllKeys,
+  parseDiscoverQuery,
+} from "@/lib/products/discover-search-params";
+import {
   trackProductSubcategoryFilterApplied,
   trackProductMaterialFilterApplied,
 } from "@/lib/analytics";
@@ -37,11 +41,14 @@ export type ProductFilterSidebarProps = {
  * `q`, so changing the category refines the search instead of ending it.
  */
 function useProductCategoryHref() {
-  const q = useSearchParams().get("q");
+  const searchParams = useSearchParams();
+  const { query } = parseDiscoverQuery({
+    q: searchParams.get("q") ?? undefined,
+  });
   return {
-    q,
+    searchParams,
     categoryHref: (slug: string | null) =>
-      routes.discover({ category: slug ?? undefined, q }),
+      routes.discover({ category: slug ?? undefined, q: query }),
   };
 }
 
@@ -66,7 +73,7 @@ export function ProductFilterSidebar(props: ProductFilterSidebarProps) {
 
 export function ProductFilterDrawer(props: ProductFilterSidebarProps) {
   const t = useTranslations("products.filters");
-  const { q, categoryHref } = useProductCategoryHref();
+  const { searchParams, categoryHref } = useProductCategoryHref();
 
   return (
     <FilterDrawer
@@ -77,7 +84,7 @@ export function ProductFilterDrawer(props: ProductFilterSidebarProps) {
         subcategory: t("subcategory"),
         material: t("material"),
       }}
-      clearAllExtraKeys={q ? ["category", "inferred", "q"] : undefined}
+      clearAllExtraKeys={discoverClearAllKeys(searchParams)}
       triggerLabel={t("trigger")}
       showResultsLabel={t("showResults", { count: props.totalCount })}
       clearAllLabel={t("clearAll")}

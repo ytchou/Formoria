@@ -3,7 +3,10 @@
  */
 import type { ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
+
+import zhMessages from "../../../../messages/zh-TW.json";
 
 vi.mock("next/link", () => ({
   default: ({
@@ -33,26 +36,6 @@ vi.mock("@/i18n/navigation", () => ({
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(currentSearch),
-}));
-
-// The Sheet portal is out of scope here; expose the clear-all callback directly.
-vi.mock("../filter-drawer-shell", () => ({
-  FilterDrawerShell: ({
-    clearAllLabel,
-    onClearAll,
-    children,
-  }: {
-    clearAllLabel: string;
-    onClearAll: () => void;
-    children: ReactNode;
-  }) => (
-    <div>
-      <button type="button" onClick={onClearAll}>
-        {clearAllLabel}
-      </button>
-      {children}
-    </div>
-  ),
 }));
 
 const { FilterSection } = await import("../filter-section");
@@ -159,12 +142,12 @@ describe("FilterToken", () => {
     expect(svg).not.toBeNull();
   });
 
-  it("test_filter_token_renders_badge_and_includes_it_in_accessible_name", () => {
+  it("the badge renders visually hidden from AT while the caller's label names the chip", () => {
     render(
       <FilterToken
         href="/discover"
         label="材質"
-        removeLabel="移除 材質: 金屬"
+        removeLabel="移除 材質: 金屬（自動判斷）"
         value="金屬"
         variant="chip"
         badge="自動判斷"
@@ -177,6 +160,25 @@ describe("FilterToken", () => {
     expect(badge).not.toBeNull();
     expect(badge).toHaveTextContent("自動判斷");
     expect(badge).toHaveAttribute("aria-hidden");
+  });
+
+  it("the accessible name is exactly the caller's label, with no appended badge text", () => {
+    render(
+      <FilterToken
+        href="/discover"
+        label="Material"
+        removeLabel="Remove Material: Metal (Auto-detected)"
+        value="Metal"
+        variant="chip"
+        badge="Auto-detected"
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", {
+        name: "Remove Material: Metal (Auto-detected)",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("test_filter_token_without_badge_renders_no_badge", () => {
@@ -213,12 +215,25 @@ describe("FilterDrawer clearAll", () => {
     return new URL(target, "http://localhost").searchParams;
   }
 
-  it("test_filter_drawer_clear_all_deletes_extra_keys", () => {
+  function renderDrawer(extra: { clearAllExtraKeys?: ["category"] } = {}) {
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+        <FilterDrawer {...drawerProps} {...extra} />
+      </NextIntlClientProvider>,
+    );
+  }
+
+  function clearAllFromOpenDrawer() {
+    fireEvent.click(screen.getByRole("button", { name: /^篩選/ }));
+    fireEvent.click(screen.getByRole("button", { name: "清除全部" }));
+  }
+
+  it("clear-all removes category in search mode", () => {
     routerReplace.mockClear();
     currentSearch = "search=gift&category=home&sub=cups&material=metal";
-    render(<FilterDrawer {...drawerProps} clearAllExtraKeys={["category"]} />);
+    renderDrawer({ clearAllExtraKeys: ["category"] });
 
-    fireEvent.click(screen.getByRole("button", { name: "清除全部" }));
+    clearAllFromOpenDrawer();
 
     const params = lastReplaceParams();
     expect(params.has("category")).toBe(false);
@@ -227,12 +242,12 @@ describe("FilterDrawer clearAll", () => {
     expect(params.get("search")).toBe("gift");
   });
 
-  it("test_filter_drawer_clear_all_without_extra_keys_keeps_category", () => {
+  it("clear-all keeps category when no extra keys are given", () => {
     routerReplace.mockClear();
     currentSearch = "category=home&sub=cups&material=metal";
-    render(<FilterDrawer {...drawerProps} />);
+    renderDrawer();
 
-    fireEvent.click(screen.getByRole("button", { name: "清除全部" }));
+    clearAllFromOpenDrawer();
 
     const params = lastReplaceParams();
     expect(params.get("category")).toBe("home");

@@ -4,25 +4,25 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { FilterToken } from "@/components/filters";
-import { updateDirectoryUrl } from "@/lib/directory-filter-url";
+import {
+  updateDirectoryUrl,
+  type DirectoryFilterUpdates,
+} from "@/lib/directory-filter-url";
 import { parseCommaParam } from "@/lib/seo/directory-filters";
 import {
+  discoverClearAllKeys,
   hrefWithoutQuery,
-  parseInferredFields,
-  type InferredField,
 } from "@/lib/products/discover-search-params";
 
-type ActiveFilter = {
+export type ActiveFilter = {
   type: "category" | "subcategory" | "material";
   slug: string;
   label: string;
-};
-
-/** The URL field each chip type edits, as named in the `inferred` param. */
-const FIELD_BY_TYPE: Record<ActiveFilter["type"], InferredField> = {
-  category: "category",
-  subcategory: "sub",
-  material: "material",
+  /**
+   * Filled in by the search rather than chosen by the visitor. Set by the
+   * server so the 自動判斷 badge is in the first HTML, before any URL sync.
+   */
+  inferred?: boolean;
 };
 
 type ProductActiveFiltersProps = {
@@ -41,8 +41,6 @@ export function ProductActiveFilters({
 
   const hasQuery = Boolean(query?.trim());
   if (activeFilters.length === 0 && !hasQuery) return null;
-
-  const inferredFields = new Set(parseInferredFields(searchParams));
 
   function removeHref(filter: ActiveFilter): string {
     // Also clears `sub`, which is scoped to the category.
@@ -66,21 +64,17 @@ export function ProductActiveFilters({
     });
   }
 
-  // Clear all: drop sub and material; in search mode also category (with any
-  // inferred marker) and q, so the visitor is back to an unfiltered page.
-  const clearAllBase = updateDirectoryUrl(pathname, searchParams, {
-    ...(hasQuery ? { category: null } : {}),
-    sub: null,
-    material: null,
-  });
-  const clearAllHref = hasQuery
-    ? hrefWithoutQuery(
-        pathname,
-        new URLSearchParams(
-          clearAllBase.includes("?") ? clearAllBase.split("?")[1]! : "",
-        ),
-      )
-    : clearAllBase;
+  // Clear all: drop sub and material; in search mode also category, the
+  // inferred marker and q, so the visitor is back to an unfiltered page.
+  const clearAllUpdates: DirectoryFilterUpdates = { sub: null, material: null };
+  for (const key of discoverClearAllKeys(searchParams)) {
+    clearAllUpdates[key] = null;
+  }
+  const clearAllHref = updateDirectoryUrl(
+    pathname,
+    searchParams,
+    clearAllUpdates,
+  );
 
   const queryDismissHref = hasQuery
     ? hrefWithoutQuery(pathname, searchParams)
@@ -105,19 +99,24 @@ export function ProductActiveFilters({
       )}
       {activeFilters.map((filter) => {
         const label = t(filter.type);
+        const badge = filter.inferred ? t("inferred") : undefined;
         return (
           <FilterToken
             key={`${filter.type}-${filter.slug}`}
             href={removeHref(filter)}
             label={label}
-            removeLabel={t("removeFilter", { label, value: filter.label })}
+            removeLabel={
+              badge
+                ? t("removeFilterInferred", {
+                    label,
+                    value: filter.label,
+                    badge,
+                  })
+                : t("removeFilter", { label, value: filter.label })
+            }
             value={filter.label}
             variant="chip"
-            badge={
-              inferredFields.has(FIELD_BY_TYPE[filter.type])
-                ? t("inferred")
-                : undefined
-            }
+            badge={badge}
           />
         );
       })}

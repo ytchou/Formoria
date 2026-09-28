@@ -9,10 +9,11 @@ import { cn } from '@/lib/utils'
 type FilterTokenProps = {
   href: string
   label: string
+  /** The link's full accessible name; when `badge` is set it must already name the badge. */
   removeLabel: string
   value: string
   variant: 'row' | 'chip'
-  /** Visual qualifier after the value (e.g. 自動判斷); also appended to the accessible name. */
+  /** Visual qualifier after the value (e.g. 自動判斷), hidden from assistive tech. */
   badge?: string
 }
 
@@ -26,7 +27,7 @@ export function FilterToken({
 }: FilterTokenProps) {
   return (
     <Link
-      aria-label={badge ? `${removeLabel}（${badge}）` : removeLabel}
+      aria-label={removeLabel}
       className={cn(
         buttonVariants({
           variant: 'secondary',
