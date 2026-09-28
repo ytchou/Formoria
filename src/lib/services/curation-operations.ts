@@ -2132,11 +2132,19 @@ export async function runEnrich(
                       serpCallStatuses.push(nameResult?.callStatus);
                       serpUrls = nameResult?.urls ?? [];
                       const nameStatus = nameResult?.callStatus;
-                      sources.serpName =
+                      const nameAnswered =
                         nameResult &&
-                        (nameStatus === "succeeded" || nameStatus === "empty")
-                          ? applySerpUrls(serpUrls)
-                          : "unknown";
+                        (nameStatus === "succeeded" || nameStatus === "empty");
+                      sources.serpName = nameAnswered
+                        ? applySerpUrls(serpUrls)
+                        : "unknown";
+                      // Detect and the per-brand phases read `searchResults`, which
+                      // was loaded from the cache before this search ran. Without
+                      // this, a first run judged the brand with no SERP evidence
+                      // (DEV-1893). A failed search keeps any stale cached row.
+                      if (nameResult && nameAnswered) {
+                        searchResults.set(brandName, nameResult);
+                      }
                     }
 
                     // ---- SERP-discovered hub expansion ----
@@ -2258,7 +2266,7 @@ export async function runEnrich(
                   }
                 }
 
-                // ---- Detect batch (reads probes + cached SERP) ----
+                // ---- Detect batch (reads probes + SERP: cached, or gather's same-run search) ----
                 if (hasDetectPhases) await emitBatchPhaseProgress("detect", chunk);
                 const detectPhaseResult = await runDetectPhase(
                   batchContext,

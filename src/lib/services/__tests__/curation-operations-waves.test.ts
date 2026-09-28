@@ -697,6 +697,32 @@ describe("wave collapse — single per-brand loop", () => {
     expect(probeUrls).toContain("https://www.instagram.com/probebrand");
   });
 
+  it("gather_serp_snippets_feed_detect — a first run's live search reaches detect", async () => {
+    // No cached SERP row: gather searches live, and detect must see that
+    // result's snippets rather than the empty pre-gather cache (DEV-1893).
+    const target = submission({ id: "sub-serp", brand_name: "Serp Brand" });
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
+    stubSerpCalls({
+      name: { urls: ["https://serpbrand.tw"], snippets: ["Serp Brand — 台灣手作陶器"] },
+    });
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    );
+
+    expect(mocks.detectBrand).toHaveBeenCalledTimes(1);
+    expect(mocks.detectBrand.mock.calls[0]?.[0].snippets).toEqual([
+      "Serp Brand — 台灣手作陶器",
+    ]);
+  });
+
   it("non-brand rejection still works in the single loop", async () => {
     const rejected = submission({
       id: "sub-nonbrand",
