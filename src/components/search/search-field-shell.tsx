@@ -13,8 +13,16 @@ type SearchFieldShellProps = {
   clearLabel: string;
 };
 
-export function SearchFieldShell({ value, onChange, onClear, inputProps, busy = false, clearLabel }: SearchFieldShellProps) {
-  return <div className="relative">
+export function SearchFieldShell({
+  value,
+  onChange,
+  onClear,
+  inputProps,
+  busy = false,
+  clearLabel,
+}: SearchFieldShellProps) {
+  return (
+    <div className="relative">
       {/* Search icon */}
       {busy ? (
         <Loader2
@@ -39,7 +47,12 @@ export function SearchFieldShell({ value, onChange, onClear, inputProps, busy = 
         </svg>
       )}
 
-      <Input {...inputProps} value={value} onChange={onChange} className={cn('w-full pl-9 pr-8', inputProps?.className)} />
+      <Input
+        {...inputProps}
+        value={value}
+        onChange={onChange}
+        className={cn("w-full pl-9 pr-8", inputProps?.className)}
+      />
 
       {/* Clear button */}
       {value && (
@@ -60,10 +73,14 @@ export function SearchFieldShell({ value, onChange, onClear, inputProps, busy = 
             stroke="currentColor"
             aria-hidden="true"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6 18 18 6M6 6l12 12"
+            />
           </svg>
         </Button>
       )}
-
-  </div>;
+    </div>
+  );
 }

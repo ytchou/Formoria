@@ -8,7 +8,8 @@ const trackSearchExecuted = vi.fn()
 const trackSearchNoResults = vi.fn()
 const trackProductSearchExecuted = vi.fn()
 const trackProductSearchResultsViewed = vi.fn()
-vi.mock('@/lib/analytics', () => ({
+vi.mock('@/lib/analytics', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/analytics')>(),
   trackSearchExecuted: (...args: unknown[]) => trackSearchExecuted(...args),
   trackSearchNoResults: (...args: unknown[]) => trackSearchNoResults(...args),
   trackProductSearchExecuted: (...args: unknown[]) => trackProductSearchExecuted(...args),

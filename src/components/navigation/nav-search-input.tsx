@@ -3,17 +3,18 @@
 import { usePathname } from '@/i18n/navigation'
 import { Suspense } from 'react'
 import { useTranslations } from 'next-intl'
-import { SearchInput } from '@/components/brands/search-input'
+import { ProductSearchBoxCompact } from '@/components/products/product-situation-search-form'
 import { routes } from '@/lib/routes'
 
 function NavSearchInputInner() {
   const pathname = usePathname()
   const t = useTranslations('nav')
-  const isBrandsPage = pathname === routes.brands()
+  if (pathname === routes.brands() || pathname === routes.discover()) return null
 
   return (
-    <SearchInput
-      redirectTo={isBrandsPage ? undefined : routes.brands()}
+    <ProductSearchBoxCompact
+      src="nav"
+      label={t("searchAria")}
       placeholder={t('searchPlaceholder')}
       className="max-w-xl"
     />

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseDiscoverQuery,
+  parseDiscoverSource,
   discoverMetadataFor,
   hrefWithoutQuery,
   parseInferredFields,
@@ -312,4 +313,13 @@ describe("sortOptionsFor", () => {
     expect(noQuery[0]).toBe("newest");
     expect(noQuery).toContain("alphabetical");
   });
+});
+
+// Prevent submitted attribution leaking into shared URLs or accepting arbitrary sources.
+it("reads nav/hero attribution and removes one-time src/infer parameters", () => {
+  expect(parseDiscoverSource({ src: "nav" })).toBe("nav");
+  expect(parseDiscoverSource({ src: "hero" })).toBe("hero");
+  expect(parseDiscoverSource({ src: "email" })).toBe("discover_page");
+  expect(parseDiscoverSource({})).toBe("discover_page");
+  expect(buildDiscoverSyncQuery({ q: "春池", src: "hero", infer: "1" }, { category: null, subcategories: [], materials: [] }, [])).toBe("?q=%E6%98%A5%E6%B1%A0");
 });

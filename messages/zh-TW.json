@@ -12,9 +12,10 @@
     "loading": "載入中…"
   },
   "nav": {
+    "searchAria": "全站商品搜尋",
     "faq": "常見問題",
     "submitBrand": "推薦品牌",
-    "searchPlaceholder": "搜尋品牌…",
+    "searchPlaceholder": "搜尋商品、品牌或需求…",
     "openMenu": "開啟選單",
     "navigation": "導覽選單",
     "signIn": "登入",
@@ -70,6 +71,7 @@
     "exploreMore": "探索更多"
   },
   "products": {
+    "brandRow": { "heading": "相關品牌" },
     "metaTitle": "商品目錄 — Formoria",
     "metaDescription": "探索 Formoria 精選商品，從生活器物到風格選品，為你的日常找到更適合的選擇。",
     "heading": "精選商品",
@@ -91,13 +93,13 @@
       "sortRelevance": "相關度",
       "resultCount": "{count} 件商品",
       "sortLabel": "排序",
-      "query": "情境",
+      "query": "搜尋",
       "category": "分類",
       "inferred": "自動判斷"
     },
     "search": {
-      "label": "搜尋情境",
-      "placeholder": "例：搬新家、送禮、露營",
+      "label": "搜尋商品",
+      "placeholder": "搜尋商品、品牌或需求…",
       "submit": "搜尋",
       "resultsHeading": "符合「{query}」的商品",
       "count": "{count} 件",
@@ -135,8 +137,8 @@
     "hero": {
       "headline": "生活可以更像自己一點。",
       "subheadline": "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
-      "searchLabel": "搜尋台灣品牌與產品",
-      "searchPlaceholder": "找特定的品牌或產品",
+      "searchLabel": "搜尋台灣商品",
+      "searchPlaceholder": "例：送長輩的茶具、帆布包、春池",
       "browseCta": "從風格開始",
       "eyebrow": "台灣品牌探索與選物",
       "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",

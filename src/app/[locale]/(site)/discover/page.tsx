@@ -1,3 +1,7 @@
+import { matchBrandsForQuery } from "@/lib/services/brands";
+import type { BrandNameMatch } from "@/lib/brands/brand-name-match";
+import { DiscoverBrandRow } from "@/components/products/discover-brand-row";
+import { parseDiscoverSource } from "@/lib/products/discover-search-params";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -166,7 +170,8 @@ export default async function DiscoverPage({
   // Parallel fetch: products + facet counts
   let products: CatalogProduct[] = [];
   let totalCount = 0;
-  let searchSource: string | undefined;
+  const searchSource = parseDiscoverSource(rawParams);
+  let relatedBrands: BrandNameMatch[] = [];
   let degraded = false;
   let searchId: string | undefined;
   let intentParsed: 'skipped' | 'ok' | 'failed' = 'skipped';
@@ -199,7 +204,7 @@ export default async function DiscoverPage({
   };
   try {
     if (isSearchMode) {
-      const [searchResult, facetResult] = await Promise.all([
+      const [searchResult, facetResult, brandMatches] = await Promise.all([
         searchProductsBySituation({
           query: searchQuery,
           locale: locale as "zh-TW" | "en",
@@ -212,10 +217,14 @@ export default async function DiscoverPage({
           enableIntentParse,
         }),
         getProductFacetCounts(category),
+        page === 1 ? matchBrandsForQuery(searchQuery).catch(error => {
+          captureReadFailure("discover.brands")(error);
+          return [];
+        }) : Promise.resolve([]),
       ]);
       products = searchResult.products;
       totalCount = searchResult.totalCount;
-      searchSource = searchResult.searchSource;
+      relatedBrands = brandMatches;
       degraded = searchResult.degraded;
       searchId = searchResult.searchId;
       intentParsed = searchResult.intentParsed;
@@ -371,7 +380,7 @@ export default async function DiscoverPage({
 
         {/* Writes the effective filters into the address bar; also strips the
             one-time infer flag (any value, not only the parse trigger). */}
-        {(isSearchMode || hasInferParam(rawParams)) && (
+        {(isSearchMode || hasInferParam(rawParams) || rawParams.src !== undefined) && (
           <DiscoverUrlSync
             search={buildDiscoverSyncQuery(
               rawParams,
@@ -491,6 +500,10 @@ export default async function DiscoverPage({
                 rrfProductKeys={rrfProductKeys}
                 armBySlot={armBySlot}
               />
+            )}
+
+            {isSearchMode && searchId && page === 1 && (
+              <DiscoverBrandRow brands={relatedBrands} heading={t("brandRow.heading")} query={searchQuery} searchId={searchId} />
             )}
 
             {products.length === 0 ? (
