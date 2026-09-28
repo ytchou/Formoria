@@ -7,7 +7,7 @@ import {
   MATERIAL_VOCAB_BLOCK,
   TAIWAN_USAGE_RULES,
 } from '@/lib/prompts'
-import { detectBatchShape, classifyBatchShape } from '@/lib/services/category-classifier'
+import { detectSingleShape } from '@/lib/services/category-classifier'
 import { nameArbitrationShape } from '@/lib/services/name-arbiter'
 import { descriptionShape } from '@/lib/services/description-rewrite'
 import { isHighConfidenceWrite } from '@/lib/services/enrich-phases/detect'
@@ -33,7 +33,6 @@ import { runPlanStage } from '@/lib/services/enrich-phases/acquisition/graph'
 import { fetchHtmlWithMetadata } from '@/lib/services/enrich-phases/scraper/fetch-guards'
 import { fetchLangfusePromptWithMeta, parsePromptVersionPins } from '@/lib/langfuse/prompt'
 import {
-  categoryAgreement,
   confidenceBandAgreement,
   writeEligibleAgreement,
   decisionAgreement,
@@ -220,13 +219,6 @@ const detectExpectedSchema = z.object({
   brandName: z.string().nullable().optional(),
 })
 
-const categoryExpectedSchema = z.object({
-  category: z.string(),
-  subcategory: z.string().nullable().optional(),
-  confidence: z.string(),
-  writeEligible: z.boolean().optional(),
-})
-
 // Golden items list every defensible name; a verdict matching any of them agrees.
 const nameExpectedSchema = z.object({
   acceptedNames: z.array(z.string()).min(1),
@@ -268,11 +260,11 @@ type BatchResult = { results: unknown[] }
 const registry: Record<string, PhaseAdapter> = {
   'detect-confidence-golden': {
     promptName: 'detect',
-    profileKey: 'detectBatch',
-    outputSchema: detectBatchShape,
-    requestSchema: makeRequestSchema('detect_batch', detectBatchShape),
-    parseOutput: makeParseOutput(detectBatchShape),
-    unwrap: (output) => (output as BatchResult).results?.[0] ?? undefined,
+    profileKey: 'detect',
+    outputSchema: detectSingleShape,
+    requestSchema: makeRequestSchema('detect_single', detectSingleShape),
+    parseOutput: makeParseOutput(detectSingleShape),
+    unwrap: (output) => output,
     expectedOf: (item) => {
       const eo = item.expectedOutput as Record<string, unknown>
       return {
@@ -306,50 +298,9 @@ const registry: Record<string, PhaseAdapter> = {
     mode: 'scored',
   },
 
-  'category-confidence-golden': {
-    promptName: 'category-classify',
-    variables: { category_list: CATEGORY_LIST },
-    profileKey: 'classificationBatch',
-    outputSchema: classifyBatchShape,
-    requestSchema: makeRequestSchema('classify_batch', classifyBatchShape),
-    parseOutput: makeParseOutput(classifyBatchShape),
-    unwrap: (output) => (output as BatchResult).results?.[0] ?? undefined,
-    expectedOf: (item) => {
-      const eo = item.expectedOutput as Record<string, unknown>
-      return {
-        category: eo.category,
-        subcategory: eo.subcategory ?? null,
-        confidence: eo.confidence,
-        writeEligible: eo.writeEligible,
-      }
-    },
-    expectedSchema: categoryExpectedSchema,
-    scorers: [
-      { name: 'categoryAgreement', fn: (o, e) => {
-        const out = o as { category: string; subcategory?: string | null }
-        const exp = e as { category: string; subcategory?: string | null }
-        return categoryAgreement(out, exp)
-      }},
-      { name: 'confidenceBandAgreement', fn: (o, e) => {
-        const out = o as Record<string, unknown>
-        const exp = e as Record<string, unknown>
-        return confidenceBandAgreement(out.confidence as string, exp.confidence as string)
-      }},
-      { name: 'writeEligibleAgreement', fn: (o, e) => {
-        const exp = e as Record<string, unknown>
-        return writeEligibleAgreement(
-          o,
-          { writeEligible: (exp.confidence as string) === 'high' },
-          (out) => (out as { confidence: string }).confidence === 'high',
-        )
-      }},
-    ],
-    mode: 'scored',
-  },
-
   'name-arbiter-confidence-golden': {
     promptName: 'name-arbiter',
-    profileKey: 'namesBatch',
+    profileKey: 'names',
     outputSchema: nameArbitrationShape,
     requestSchema: makeRequestSchema('name_arbitration', nameArbitrationShape),
     parseOutput: makeParseOutput(nameArbitrationShape),
@@ -585,8 +536,6 @@ function transportHooks(
   switch (datasetName) {
     case 'detect-confidence-golden':
       return { decide: jevDecide(JEV_CANDIDATES.detect, decide) }
-    case 'category-confidence-golden':
-      return { decide: jevDecide(JEV_CANDIDATES.classification, decide) }
     case 'intent-parse-golden':
       return {
         task: intentParseTask(deps.callModel ?? defaultIntentCallModel),

@@ -61,6 +61,7 @@ describe('JEV_CANDIDATES', () => {
 
   it('detect: buildState picks brand fields; toOutput maps noul p>=0.5 to isNonBrand and band via bandFromProbability', () => {
     const c = JEV_CANDIDATES.detect
+    expect(c.profileKey).toBe('detect')
     const state = c.buildState(DETECT_INPUT)
     expect(state).toEqual({
       name: 'Design Council Busan',
@@ -110,28 +111,6 @@ describe('JEV_CANDIDATES', () => {
       searchSnippets: '山焙茶室｜鹿谷凍頂烏龍茶',
       probes: '山焙茶室 — 炭焙烏龍禮盒 (instagram)\nhttps://www.facebook.com/shanbei.tea',
     })
-  })
-
-  it('classification: options are exactly the 12 L1 slugs with descriptions from L1_CATEGORIES', () => {
-    const c = JEV_CANDIDATES.classification
-    const state = c.buildState({ user: '品牌名稱：尾八\n描述：手繪招牌與插畫紙品', promptName: 'category-classify' })
-    expect(state).toEqual({ name: '尾八', description: '手繪招牌與插畫紙品' })
-    const q = c.questions(state).category
-    expect(q?.type).toBe('choice')
-    const criteria = (q as { criteria: Record<string, string> }).criteria
-    expect(Object.keys(criteria)).toEqual(L1_CATEGORIES.map((cat) => cat.slug))
-    for (const cat of L1_CATEGORIES) {
-      const desc = criteria[cat.slug]!
-      expect(desc.trim().length).toBeGreaterThan(0)
-      expect(desc).not.toBe(cat.name)
-      expect(desc).not.toBe(cat.nameZh)
-      expect(desc).not.toBe(cat.slug)
-    }
-    const home = L1_CATEGORIES[4].slug
-    const out = c.toOutput(
-      { category: { choice: home, probabilities: { [home]: 0.92, [L1_CATEGORIES[6].slug]: 0.08 } } },
-    )
-    expect(out).toEqual({ category: home, confidence: 'high', probability: 0.92 })
   })
 
   it('productCategory: beam K=3 builds 1 L1 choice + 3 L2 choices, and toOutput picks the max joint probability with an L2 that belongs to its L1', async () => {

@@ -29,7 +29,7 @@ function makeUnreviewedItem(id = 'unreviewed-1'): ExperimentItem {
 function makeAdapter(overrides: Partial<PhaseAdapter> = {}): PhaseAdapter {
   return {
     promptName: 'detect',
-    profileKey: 'detectBatch',
+    profileKey: 'detect',
     outputSchema: { safeParse: () => ({ success: true }) } as never,
     requestSchema: { name: 'detect', schema: {} },
     parseOutput: (content: string) => {

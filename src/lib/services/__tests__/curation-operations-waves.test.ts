@@ -18,7 +18,7 @@ import type { DetectResult } from "../category-classifier";
  */
 
 const mocks = vi.hoisted(() => ({
-  detectBrandsBatch: vi.fn(),
+  detectBrand: vi.fn(),
   batchSearchBrandImages: vi.fn(),
   scrapeBrandUrls: vi.fn(),
   getLatestSearchResults: vi.fn(),
@@ -55,7 +55,7 @@ vi.mock("@/lib/langfuse/client", () => ({
 
 vi.mock("../category-classifier", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../category-classifier")>()),
-  detectBrandsBatch: mocks.detectBrandsBatch,
+  detectBrand: mocks.detectBrand,
 }));
 
 vi.mock("../enrich-phases/scraper/search", async (importOriginal) => ({
@@ -347,21 +347,25 @@ function scrapeResult(data: Record<string, unknown> = {}) {
   };
 }
 
-function detectBatch(
+/** Answers each per-brand `detectBrand` call from `results`, keyed by slug. */
+function detectAnswers(
   results: Map<string, DetectResult>,
   calls: { attempted: number; providerFailed: number } = {
     attempted: 1,
     providerFailed: 0,
   },
 ) {
-  return { results, calls };
+  return async (item: { slug: string }) => ({
+    value: results.get(item.slug) ?? null,
+    calls,
+  });
 }
 
-function detectBatchProviderFailure() {
-  return {
-    results: new Map<string, DetectResult>(),
+function detectProviderFailure() {
+  return async () => ({
+    value: null,
     calls: { attempted: 1, providerFailed: 1 },
-  };
+  });
 }
 
 type SerpStub = {
@@ -577,7 +581,7 @@ describe("wave collapse — single per-brand loop", () => {
       brand_name: "Flow Brand",
       social_instagram: "https://www.instagram.com/flowbrand",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
 
     mocks.runEditorialAgent.mockResolvedValueOnce({
       agentOutcome: "generated",
@@ -621,7 +625,7 @@ describe("wave collapse — single per-brand loop", () => {
       brand_name: "No Discover",
       social_instagram: "https://www.instagram.com/nodiscover",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
 
     await runEnrich(
       {
@@ -643,7 +647,7 @@ describe("wave collapse — single per-brand loop", () => {
       brand_name: "No Site Identity",
       social_instagram: "https://www.instagram.com/nosi",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
 
     await runEnrich(
       {
@@ -668,7 +672,7 @@ describe("wave collapse — single per-brand loop", () => {
       brand_name: "Probe Brand",
       social_instagram: "https://www.instagram.com/probebrand",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
     mocks.probeStatic.mockResolvedValue([
       {
         url: "https://www.instagram.com/probebrand",
@@ -699,8 +703,8 @@ describe("wave collapse — single per-brand loop", () => {
       brand_name: "Reseller Shop",
       social_instagram: "https://www.instagram.com/reseller",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(
-      detectBatch(
+    mocks.detectBrand.mockImplementation(
+      detectAnswers(
         new Map([
           [
             `submission-${rejected.id}`,
@@ -747,7 +751,7 @@ describe("Gate C and the LLM circuit breaker", () => {
       brand_name: "Gate A Brand",
       social_instagram: "https://www.instagram.com/gatea",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
     mocks.runAcquirePhase.mockResolvedValue(
       acquireOutput({
         phaseResult: {
@@ -789,7 +793,7 @@ describe("Gate C and the LLM circuit breaker", () => {
       brand_name: "Quota Blocked",
       social_instagram: "https://www.instagram.com/quotablocked",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatchProviderFailure());
+    mocks.detectBrand.mockImplementation(detectProviderFailure());
     // Acquire returns a skipped result so Gate A does not fire and Gate C
     // (the LLM gate) can see detect as the only attempted LLM phase.
     mocks.runAcquirePhase.mockResolvedValue(
@@ -832,7 +836,7 @@ describe("Gate C and the LLM circuit breaker", () => {
         social_instagram: `https://www.instagram.com/brand${index}`,
       }),
     );
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatchProviderFailure());
+    mocks.detectBrand.mockImplementation(detectProviderFailure());
     // Same setup as the single-brand Gate C test: acquire skipped so the LLM
     // breaker counts detect's providerFailure via Gate C, not Gate A.
     mocks.runAcquirePhase.mockResolvedValue(
@@ -864,7 +868,7 @@ describe("Gate C and the LLM circuit breaker", () => {
       brand_name: "Nothing To Say",
       social_instagram: "https://www.instagram.com/nothingtosay",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
     // Acquire returns a skipped result with healthy data — no provider failure.
     mocks.runAcquirePhase.mockResolvedValue(
       acquireOutput({
@@ -903,7 +907,7 @@ describe("satisfaction skipping", () => {
   beforeEach(() => {
     defaultBeforeEach();
     process.env.OPENAI_API_KEY = "test-stub";
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
   });
   afterEach(() => {
     if (ORIGINAL_KEY === undefined) delete process.env.OPENAI_API_KEY;
@@ -1072,7 +1076,7 @@ describe("Langfuse trace lifecycle", () => {
 describe("acquisition plan catalog threading", () => {
   beforeEach(() => {
     defaultBeforeEach();
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
   });
 
   it("products_receives_catalog_hints_from_acquire_result", async () => {
@@ -1085,8 +1089,8 @@ describe("acquisition plan catalog threading", () => {
       social_instagram: "https://www.instagram.com/catalogbrand",
       purchase_website: "https://catalog.example.com",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(
-      detectBatch(
+    mocks.detectBrand.mockImplementation(
+      detectAnswers(
         new Map([
           [
             `submission-${target.id}`,
@@ -1148,7 +1152,7 @@ describe("editorial agent integration", () => {
   beforeEach(() => {
     defaultBeforeEach();
     process.env.OPENAI_API_KEY = "test-stub";
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
   });
 
   afterEach(() => {
@@ -1300,7 +1304,7 @@ describe("two loops with a batched names call between", () => {
   beforeEach(() => {
     defaultBeforeEach();
     process.env.OPENAI_API_KEY = "test-stub";
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
     mocks.runAcquirePhase.mockImplementation(async () => acquireOutput());
     mocks.runNamesPhase.mockImplementation(async () => namesOutput());
     mocks.runEditorialAgent.mockImplementation(async () => editorialOutput());
@@ -1327,9 +1331,9 @@ describe("two loops with a batched names call between", () => {
       }),
     ];
 
-    mocks.detectBrandsBatch.mockImplementation(async () => {
+    mocks.detectBrand.mockImplementation(async (item: { slug: string }) => {
       order.push("detect");
-      return detectBatch(new Map());
+      return detectAnswers(new Map())(item);
     });
     mocks.runAcquirePhase.mockImplementation(async () => {
       order.push("acquire");
@@ -1361,7 +1365,10 @@ describe("two loops with a batched names call between", () => {
       fakeSupabase(targets),
     );
 
-    expect(order.filter((step) => step === "detect")).toHaveLength(1);
+    // One detect call per brand (DEV-1886), all inside the chunk barrier:
+    // every detect finished before the first acquire started.
+    expect(order.filter((step) => step === "detect")).toHaveLength(2);
+    expect(order.lastIndexOf("detect")).toBeLessThan(order.indexOf("acquire"));
     expect(order.filter((step) => step === "acquire")).toHaveLength(2);
     // ONE arbiter call for the whole chunk, carrying both brands.
     expect(order.filter((step) => step === "names:2")).toHaveLength(1);
@@ -1388,8 +1395,8 @@ describe("two loops with a batched names call between", () => {
       brand_name: "Real Brand",
       social_instagram: "https://www.instagram.com/realbrand",
     });
-    mocks.detectBrandsBatch.mockResolvedValue(
-      detectBatch(
+    mocks.detectBrand.mockImplementation(
+      detectAnswers(
         new Map([
           [
             `submission-${rejected.id}`,
@@ -1644,7 +1651,7 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
   beforeEach(() => {
     defaultBeforeEach();
     process.env.OPENAI_API_KEY = "test-stub";
-    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()));
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
     mocks.runAcquirePhase.mockImplementation(async () => acquireOutput());
     mocks.runNamesPhase.mockImplementation(async () => namesOutput());
     mocks.runEditorialAgent.mockImplementation(async () => editorialOutput());

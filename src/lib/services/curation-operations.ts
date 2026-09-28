@@ -2,7 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { auditedCall, getAuditContext, runWithAuditContext } from "@/lib/audit";
 import { getLangfuse } from "@/lib/langfuse/client";
 import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
-import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./_shared/concurrency";
+import {
+  ENRICH_BRAND_CONCURRENCY,
+  ENRICH_CHUNK_SIZE,
+  mapWithConcurrency,
+} from "./_shared/concurrency";
 import {
   CLEARED_FIELDS_KEY,
   mergeBrandFieldStates,
@@ -240,9 +244,6 @@ export function isLlmCircuitBreakerError(error: unknown): boolean {
 }
 
 const SCRAPE_DELAY_MS = 1000;
-// Composite fan-out: one unit runs the whole phase chain (Serper + OpenAI +
-// Postgres + sharp), so this is not the same knob as ENRICH_CHUNK_SIZE.
-const ENRICH_BRAND_CONCURRENCY = 3;
 // Postgres write amplification for progress rows; shares its value with
 // ENRICH_CHUNK_SIZE by coincidence only.
 const TARGET_PROGRESS_BATCH_SIZE = 20;

@@ -75,8 +75,7 @@ export function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
  * When the model does not support `json_schema`, the client falls back to
  * `json_object` mode and appends the schema text as a system message; the
  * model may then return shape 2. A single bare object is NOT treated as
- * a one-entry batch — doing so would mask genuinely unusable responses and
- * prevent the per-brand fallback from firing.
+ * a one-entry batch — doing so would mask genuinely unusable responses.
  */
 export function parseBatchEntries(
   content: string,

@@ -1,12 +1,20 @@
 import type { PhaseResult } from "@/lib/types/curation";
 import { auditedCall } from "@/lib/audit";
 import {
-  detectBrandsBatch,
+  detectBrand,
   MAX_PROBE_URLS,
-  type DetectBatchItem,
+  type DetectItem,
   type DetectResult,
 } from "../category-classifier";
-import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
+import {
+  addLlmCalls,
+  isLlmProviderFailure,
+  noLlmCalls,
+} from "../_shared/llm-call-outcome";
+import {
+  ENRICH_BRAND_CONCURRENCY,
+  mapWithConcurrency,
+} from "../_shared/concurrency";
 import type { ProbeEvidence } from "./gather";
 import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
@@ -116,7 +124,7 @@ function buildDetectPatch(
  */
 function usableProbes(
   evidence: readonly ProbeEvidence[] | undefined,
-): DetectBatchItem["probes"] {
+): DetectItem["probes"] {
   if (!evidence?.length) return undefined;
 
   const usable = evidence
@@ -177,7 +185,7 @@ export async function runDetectPhase(
     { provider: "enrich", operation: "runDetectPhase", kind: "service" },
     async () => {
   const { result, durationMs } = await timePhase(async () => {
-    const detectItems: DetectBatchItem[] = ctx.chunk.map((brand, index) => {
+    const detectItems: DetectItem[] = ctx.chunk.map((brand, index) => {
       const probes = usableProbes(probeEvidence?.get(brand.id));
       return {
         slug: brand.slug,
@@ -189,8 +197,21 @@ export async function runDetectPhase(
         target: { type: ctx.targetType ?? "brand", id: brand.id },
       };
     });
-    const outcome = await detectBrandsBatch(detectItems, ctx.jobId);
-    const detectResults = outcome.results;
+    // One call per brand (DEV-1886). Each call owns its own outcome, so one
+    // brand's failure leaves the others' results intact; the chunk barrier
+    // around this phase still holds wave B until every brand is judged.
+    const outcomes = await mapWithConcurrency(
+      detectItems,
+      ENRICH_BRAND_CONCURRENCY,
+      (item) => detectBrand(item, ctx.jobId),
+    );
+    const detectResults = new Map<string, DetectResult>();
+    let calls = noLlmCalls();
+    outcomes.forEach((outcome, index) => {
+      calls = addLlmCalls(calls, outcome.calls);
+      const slug = detectItems[index]?.slug;
+      if (outcome.value && slug) detectResults.set(slug, outcome.value);
+    });
     const nonBrandCount = [...detectResults.values()].filter(
       (detectResult) => detectResult.isNonBrand,
     ).length;
@@ -198,7 +219,7 @@ export async function runDetectPhase(
       `  [DETECT] OK — ${detectResults.size} results, ${nonBrandCount} non-brands`,
     );
 
-    return { detectResults, nonBrandCount, calls: outcome.calls };
+    return { detectResults, nonBrandCount, calls };
   });
 
   // Every detect call died at the provider: the empty result map says nothing

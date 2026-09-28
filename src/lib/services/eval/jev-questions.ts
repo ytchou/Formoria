@@ -1,5 +1,5 @@
 /**
- * Jev question sets for the five DEV-1824 eval candidates. Each candidate turns
+ * Jev question sets for the DEV-1824 eval candidates. Each candidate turns
  * one eval input into a Jev `state` plus typed questions, and turns Jev answers
  * back into the output shape the existing scorers read, plus a `probability`
  * for the calibration sweep. Eval-only: no production call site imports this.
@@ -13,8 +13,6 @@
  *   `<label>：<value>` line each for brandSlug, brandName, description, website and
  *   searchSnippets (snippets joined by a full-width semicolon), then up to four
  *   `probe` lines. A missing description or website is written as `missingValue`.
- * - `category-confidence-golden` (12 ACTIVE): `input = { user, promptName: 'category-classify' }`,
- *   `user` = brandName and description lines.
  * - `situation-search-v2.json` (156 queries): `{ id, query, category, queryType, split,
  *   expected: [{ brandSlug, productKey, grade }] }`. `intent-parse-golden` items are
  *   seeded from it as `input = { query }`.
@@ -25,12 +23,12 @@
  * - Distillation `eval.jsonl` user message (productCategory): productName and
  *   description lines (`scripts/distillation/export-training-data.ts`).
  *
- * Both Langfuse golden inputs are flat prompt strings, not JSON, so the
- * state builders parse the labelled fields back out of `user`.
+ * The detect golden input and the distillation message are flat prompt
+ * strings, not JSON, so their state builders parse the labelled fields back out.
  */
 
 import { JEV_INPUT_LABELS } from '@/lib/prompts/jev'
-import { CATEGORY_LIST, RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
+import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import {
   L1_CATEGORIES,
   L2_SUBCATEGORIES,
@@ -113,7 +111,6 @@ type DetectState = {
 type DetectOutput = { isNonBrand: boolean; confidence: ConfidenceBand; probability: number }
 
 type BrandTextState = { name: string | null; description: string | null }
-type ClassificationOutput = { category: string; confidence: ConfidenceBand; probability: number }
 
 type ProductCategoryOutput = {
   category: string
@@ -156,31 +153,13 @@ type RelevanceJudgeOutput = {
 // Option descriptions — derived from the taxonomy, never hand-typed slugs
 // ---------------------------------------------------------------------------
 
-/** `CATEGORY_LIST` is `- <slug>: <examples>` per line; reuse its examples as descriptions. */
-const L1_EXAMPLES = new Map(
-  CATEGORY_LIST.split('\n').flatMap((line) => {
-    const match = /^- ([^:]+): (.+)$/.exec(line)
-    return match ? [[match[1]!, match[2]!] as const] : []
-  }),
-)
-
-function l1Criteria(): Record<string, string> {
-  return Object.fromEntries(
-    L1_CATEGORIES.map((c) => [
-      c.slug,
-      `${c.nameZh}（${c.name}）：${L1_EXAMPLES.get(c.slug) ?? c.nameZh}`,
-    ]),
-  )
-}
-
 function subcategoriesOf(l1: string) {
   return L2_SUBCATEGORIES.filter((s) => s.category === l1)
 }
 
 /**
  * Each L1 described by its own subcategory names. On intent-parse-golden this beat
- * the `CATEGORY_LIST` examples (category 0.885 -> 0.929, DEV-1887). Not used for the
- * brand `classification` question, where it lost (0.917 -> 0.750) to its candle rule.
+ * the `CATEGORY_LIST` examples (category 0.885 -> 0.929, DEV-1887).
  */
 function l1MemberCriteria(): Record<string, string> {
   return Object.fromEntries(
@@ -381,7 +360,7 @@ const DETECT_LABELS = {
 } as const
 
 const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
-  profileKey: 'detectBatch',
+  profileKey: 'detect',
   buildState(input) {
     // The submission slug is dropped: it carries no evidence about the entity.
     const fields = parseLabelledLines(userText(input), [...Object.values(DETECT_LABELS), JEV_INPUT_LABELS.brandSlug])
@@ -413,38 +392,6 @@ const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
   toOutput(answers) {
     const { yes, probability } = noulVerdict(answers, 'isNonBrand')
     return { isNonBrand: yes, confidence: bandFromProbability(probability), probability }
-  },
-}
-
-// ---------------------------------------------------------------------------
-// classification (brand L1)
-// ---------------------------------------------------------------------------
-
-const BRAND_TEXT_LABELS = { name: JEV_INPUT_LABELS.brandName, description: JEV_INPUT_LABELS.description } as const
-
-const classification: JevCandidate<GoldenChatInput, BrandTextState, ClassificationOutput> = {
-  profileKey: 'classificationBatch',
-  buildState(input) {
-    const fields = parseLabelledLines(userText(input), Object.values(BRAND_TEXT_LABELS))
-    return {
-      name: valueOrNull(fields[BRAND_TEXT_LABELS.name]),
-      description: valueOrNull(fields[BRAND_TEXT_LABELS.description]),
-    }
-  },
-  questions() {
-    const category: ChoiceQuestion = {
-      type: 'choice',
-      instructions: [
-        "Classify this Taiwanese brand by its core product line, using only its name and description (no outside knowledge). If it spans several categories, pick the primary product line's category.",
-        'Scented candles are beauty, not home. Leather wallets are bags-accessories, not fashion. Ceramic teapots are home, not food-drink.',
-      ].join(' '),
-      criteria: l1Criteria(),
-    }
-    return { category }
-  },
-  toOutput(answers) {
-    const { key, p } = requireChoice(answers, 'category', L1_SLUGS)
-    return { category: key, confidence: bandFromProbability(p), probability: p }
   },
 }
 
@@ -650,7 +597,6 @@ const relevanceJudge: JevCandidate<RelevanceJudgeInput, RelevanceJudgeState, Rel
 
 export const JEV_CANDIDATES = {
   detect,
-  classification,
   productCategory,
   intentParse,
   relevanceJudge,
