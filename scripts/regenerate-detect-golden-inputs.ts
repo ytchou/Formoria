@@ -658,7 +658,7 @@ async function buildPlan(
   const itemSubmissionIds = items.map(submissionIdOf).filter((id): id is string => Boolean(id))
   const submissions = await loadSubmissions(client, itemSubmissionIds)
 
-  let denied: Array<SubmissionRow & { denial_reason: string | null; created_at: string }> = []
+  let denied: Array<SubmissionRow & { denial_reason: string | null; submitted_at: string }> = []
   if (args.addDenied) {
     // D9: admin-denied submissions as extra non-brand candidates. `duplicate`
     // denials are excluded: they are real brands already covered elsewhere.
@@ -680,7 +680,7 @@ async function buildPlan(
         .eq('status', 'rejected')
         .not('denial_reason', 'is', null)
         .neq('denial_reason', 'duplicate')
-        .order('created_at', { ascending: true })
+        .order('submitted_at', { ascending: true })
         .order('id', { ascending: true })
         .range(from, from + PAGE - 1)
       if (error) throw new Error(`denied brand_submissions read failed: ${error.message}`)
@@ -788,7 +788,7 @@ async function buildPlan(
             submissionId: row.id,
             status: row.status,
             denialReason: row.denial_reason,
-            sourceCreatedAt: row.created_at,
+            sourceCreatedAt: row.submitted_at,
           },
           stratum: 'admin-denied',
           evidenceDates: evidence.evidenceDates,
