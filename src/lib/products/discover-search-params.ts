@@ -6,12 +6,24 @@
  */
 
 import { routes } from "@/lib/routes";
+import { parseCommaParam } from "@/lib/seo/directory-filters";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export type DiscoverSort = "relevance" | "newest" | "alphabetical";
+
+type RawSearchParams = Record<string, string | string[] | undefined>;
+
+/**
+ * Filter fields the search can fill in from the visitor's query. The
+ * `inferred` URL param lists which of them were inferred rather than chosen,
+ * so their chips can say so. `infer=1` is the one-time trigger for the parse.
+ */
+export const INFERRED_FIELDS = ["category", "sub", "material"] as const;
+
+export type InferredField = (typeof INFERRED_FIELDS)[number];
 
 export type ParsedDiscoverQuery = {
   /** Trimmed search string, or null when the visitor is browsing. */
@@ -119,17 +131,114 @@ export function discoverMetadataFor(opts: {
 
 /**
  * Build a URL that drops `q` (and `page`) while keeping all other params.
- * Used by the query filter token's dismiss link.
+ * Used by the query filter token's dismiss link. Filters that were inferred
+ * from `q` leave with it; filters the visitor chose stay.
  */
 export function hrefWithoutQuery(
   pathname: string,
   searchParams: URLSearchParams,
 ): string {
   const next = new URLSearchParams(searchParams.toString());
+  for (const field of parseInferredFields(next)) next.delete(field);
   next.delete("q");
   next.delete("page");
+  next.delete("inferred");
+  next.delete("infer");
   const qs = next.toString();
   return qs ? `${pathname}?${qs}` : pathname;
+}
+
+// ---------------------------------------------------------------------------
+// parseInferredFields
+// ---------------------------------------------------------------------------
+
+/**
+ * Read the `inferred` param into known fields, in `INFERRED_FIELDS` order.
+ * Unknown and duplicate entries are ignored.
+ */
+export function parseInferredFields(
+  params: { get(name: string): string | null } | RawSearchParams,
+): InferredField[] {
+  const raw =
+    typeof params.get === "function"
+      ? (params as { get(name: string): string | null }).get("inferred") ??
+        undefined
+      : (params as RawSearchParams).inferred;
+  const listed = new Set(parseCommaParam(raw));
+  return INFERRED_FIELDS.filter((field) => listed.has(field));
+}
+
+// ---------------------------------------------------------------------------
+// buildDiscoverSyncQuery
+// ---------------------------------------------------------------------------
+
+/** Params this builder owns; everything else passes through unchanged. */
+const SYNC_OWNED_KEYS = new Set([
+  "q",
+  "category",
+  "sub",
+  "material",
+  "inferred",
+  "infer",
+  "sort",
+  "page",
+]);
+
+/**
+ * The query string the /discover URL should carry once the effective filters
+ * (URL filters plus applied inference) are known. Returns `?…`, or `""` when
+ * nothing remains.
+ *
+ * Keys are written in a fixed order, so the output for a URL that already
+ * matches is identical to that URL's query string and a caller can skip the
+ * rewrite. `infer` is always dropped. `page` is dropped only alongside
+ * `infer`: a fresh search starts on page 1, but paging within a search must
+ * keep its position.
+ */
+export function buildDiscoverSyncQuery(
+  rawParams: RawSearchParams,
+  effective: {
+    category: string | null;
+    subcategories: string[];
+    materials: string[];
+  },
+  inferredFields: readonly InferredField[],
+): string {
+  const first = (key: string): string | undefined => {
+    const value = rawParams[key];
+    return Array.isArray(value) ? value[0] : value;
+  };
+
+  const next = new URLSearchParams();
+  const q = first("q");
+  if (q) next.set("q", q);
+  if (effective.category) next.set("category", effective.category);
+  if (effective.subcategories.length) {
+    next.set("sub", effective.subcategories.join(","));
+  }
+  if (effective.materials.length) {
+    next.set("material", effective.materials.join(","));
+  }
+
+  const inferred = INFERRED_FIELDS.filter(
+    (field) => inferredFields.includes(field) && next.has(field),
+  );
+  if (inferred.length) next.set("inferred", inferred.join(","));
+
+  const sort = first("sort");
+  if (sort) next.set("sort", sort);
+  const page = first("page");
+  if (page && first("infer") === undefined) next.set("page", page);
+
+  for (const [key, value] of Object.entries(rawParams)) {
+    if (SYNC_OWNED_KEYS.has(key) || value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value]) {
+      next.append(key, item);
+    }
+  }
+
+  const qs = next.toString();
+  return qs ? `?${qs}` : "";
 }
 
 // ---------------------------------------------------------------------------

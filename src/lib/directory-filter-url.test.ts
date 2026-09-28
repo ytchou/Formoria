@@ -55,3 +55,53 @@ describe("directory filter URLs", () => {
     );
   });
 });
+
+describe("updateDirectoryUrl — inferred filters", () => {
+  it("removes the edited field from inferred", () => {
+    const params = new URLSearchParams(
+      "q=tea&category=home&material=metal&inferred=category,material",
+    );
+
+    expect(updateDirectoryUrl("/discover", params, { material: null })).toBe(
+      "/discover?q=tea&category=home&inferred=category",
+    );
+  });
+
+  it("category change also drops sub from inferred", () => {
+    const params = new URLSearchParams(
+      "q=tea&category=home&sub=cups&material=metal&inferred=category,sub,material",
+    );
+
+    expect(
+      updateDirectoryUrl("/discover", params, { category: "beauty" }),
+    ).toBe("/discover?q=tea&category=beauty&material=metal&inferred=material");
+  });
+
+  it("deletes inferred when it becomes empty", () => {
+    const params = new URLSearchParams(
+      "q=tea&material=metal&inferred=material",
+    );
+
+    expect(updateDirectoryUrl("/discover", params, { material: "wood" })).toBe(
+      "/discover?q=tea&material=wood",
+    );
+  });
+
+  it("always deletes infer", () => {
+    const params = new URLSearchParams("q=tea&infer=1&sort=newest");
+
+    expect(updateDirectoryUrl("/discover", params, { material: "wood" })).toBe(
+      "/discover?q=tea&sort=newest&material=wood",
+    );
+  });
+
+  it("leaves URLs without inferred unchanged", () => {
+    const params = new URLSearchParams(
+      "search=herbs&category=jewelry&price=2&page=3&sort=name",
+    );
+
+    expect(updateDirectoryUrl("/brands", params, { search: null })).toBe(
+      "/brands?category=jewelry&sort=name",
+    );
+  });
+});

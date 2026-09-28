@@ -1,3 +1,6 @@
+import { INFERRED_FIELDS } from "@/lib/products/discover-search-params";
+import { parseCommaParam } from "@/lib/seo/directory-filters";
+
 /**
  * Query keys that carry a REFINEMENT of the result set rather than a position
  * in the taxonomy.
@@ -49,6 +52,22 @@ export function updateDirectoryUrl(
   if (changesCategory && !setsSubExplicitly) {
     params.delete("sub");
   }
+
+  // A filter the visitor edits is no longer inferred (/discover's `inferred`
+  // list); a category change takes the inferred sub with it.
+  const inferred = params.get("inferred");
+  if (inferred !== null) {
+    const touched = new Set<string>(Object.keys(updates));
+    if (changesCategory) touched.add("sub");
+    const remaining = parseCommaParam(inferred).filter(
+      (field) =>
+        !touched.has(field) &&
+        (INFERRED_FIELDS as readonly string[]).includes(field),
+    );
+    if (remaining.length) params.set("inferred", remaining.join(","));
+    else params.delete("inferred");
+  }
+  params.delete("infer");
 
   params.delete("page");
   const query = params.toString();

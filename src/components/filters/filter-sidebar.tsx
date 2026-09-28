@@ -214,12 +214,15 @@ export type FilterDrawerProps = FilterSidebarProps & {
   triggerLabel: string;
   showResultsLabel: string;
   clearAllLabel: string;
+  /** Query keys clear-all removes in addition to `sub` and `material`. */
+  clearAllExtraKeys?: string[];
 };
 
 export function FilterDrawer({
   triggerLabel,
   showResultsLabel,
   clearAllLabel,
+  clearAllExtraKeys = [],
   ...sidebarProps
 }: FilterDrawerProps) {
   const router = useRouter();
@@ -231,6 +234,7 @@ export function FilterDrawer({
     startTransition(() => {
       router.replace(
         updateDirectoryUrl(pathname, searchParams, {
+          ...Object.fromEntries(clearAllExtraKeys.map((key) => [key, null])),
           sub: null,
           material: null,
         }),

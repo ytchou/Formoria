@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import Script from 'next/script'
 
 import { isPublicAnalyticsPath } from '@/lib/analytics'
+import { consumePageviewSkip } from '@/lib/analytics/pageview-skip'
 import { deferNoncritical } from '@/lib/browser/defer-noncritical'
 
 interface PublicGoogleAnalyticsProps {
@@ -15,13 +16,19 @@ interface PublicGoogleAnalyticsProps {
 // DEV-1408 — but only as the `search_term` property on PostHog's search events, where the
 // value is guarded and truncated at the call site. A query smuggled through a URL gets none
 // of that: GA derives `dl`/`dr` from whatever we hand it, so these must still be stripped
-// before they reach `page_location`/`page_referrer`. Filter/sort/page params are
-// deliberately kept: they are a closed vocabulary and carry no user text.
-const FREE_TEXT_PARAMS = ['search']
+// before they reach `page_location`/`page_referrer`. `q` (the /discover query) is
+// stripped too — it previously leaked into page_location. Filter/sort/page params
+// (category/sub/material, …) are deliberately kept: they are a closed vocabulary and
+// carry no user text.
+const FREE_TEXT_PARAMS = ['search', 'q']
+
+// Internal inference markers, not free text, but noise in GA reports.
+const INTERNAL_PARAMS = ['infer', 'inferred']
 
 function toAnalyticsQuery(search: string): string {
   const params = new URLSearchParams(search)
   for (const key of FREE_TEXT_PARAMS) params.delete(key)
+  for (const key of INTERNAL_PARAMS) params.delete(key)
   return params.toString()
 }
 
@@ -70,6 +77,10 @@ export function PublicGoogleAnalytics({ gaId }: PublicGoogleAnalyticsProps) {
       window.gtag('config', gaId, { send_page_view: false })
       initializedRef.current = true
     }
+
+    // A client-side URL rewrite (DiscoverUrlSync) already counted by the search
+    // submit's page_view. The first page_view of a load precedes it, so it still fires.
+    if (consumePageviewSkip()) return
 
     const pagePath = query ? `${pathname}?${query}` : pathname
     window.gtag?.('event', 'page_view', {
