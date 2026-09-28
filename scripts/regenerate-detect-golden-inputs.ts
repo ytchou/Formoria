@@ -48,7 +48,7 @@ const UUID_NAMESPACE_URL = '6ba7b811-9dad-11d1-80b4-00c04fd430c8'
 const ANCHOR_NAMES = ['好物嚴選', '島嶼紙品', '某某工作室'] as const
 /** The same-name failures the design's riskiest assumption is checked against (pre-mortem). */
 const NAMED_FAILURES: Array<{ label: string; matches: (name: string) => boolean }> = [
-  { label: 'IDDAT', matches: (n) => n === 'IDDAT' },
+  { label: 'IDDAT', matches: (n) => /^IDDAT\b/.test(n) },
   { label: 'AMUSE inc.', matches: (n) => n === 'AMUSE inc.' },
   { label: 'KOBE', matches: (n) => n === 'KOBE' },
   { label: 'Pinkoi placeholder', matches: (n) => /^Pinkoi Brand \S+$/.test(n) },
