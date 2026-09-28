@@ -192,7 +192,7 @@ export const LLM_PROFILES = {
     temperature: 0,
     maxTokens: 400,
   },
-  /** Lightweight query intent extraction for /discover?q= search. */
+  /** Query intent extraction, gpt arm. Live /discover?q= runs on Jev since DEV-1889; only the eval comparison arm uses this. */
   intentParse: {
     model: "text_mini",
     maxTokens: 200,

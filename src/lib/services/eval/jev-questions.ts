@@ -2,7 +2,11 @@
  * Jev question sets for the DEV-1824 eval candidates. Each candidate turns
  * one eval input into a Jev `state` plus typed questions, and turns Jev answers
  * back into the output shape the existing scorers read, plus a `probability`
- * for the calibration sweep. Eval-only: no production call site imports this.
+ * for the calibration sweep. Eval-only, except `intentParse`: that candidate
+ * lives in production (`intent-parse-jev.ts`, DEV-1889) and is re-exported here
+ * so the eval measures exactly what `/discover?q=` runs. The shared candidate
+ * types and decoding helpers live in `jev-candidate.ts`. Production code never
+ * imports this file.
  *
  * Input shapes, probed 2026-09-26 against staging (step 0 of the plan). Field
  * labels are named by their `JEV_INPUT_LABELS` key, because this file may not
@@ -29,22 +33,35 @@
 
 import { JEV_INPUT_LABELS } from '@/lib/prompts/jev'
 import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
-import {
-  L1_CATEGORIES,
-  L2_SUBCATEGORIES,
-  MATERIALS,
-} from '@/lib/taxonomy/ontology'
-import type { DecideResult } from '@/lib/services/typesafe-audit'
+import { L1_CATEGORIES } from '@/lib/taxonomy/ontology'
 import type {
   ChoiceQuestion,
   JevAnswer,
-  JevQuestion,
   JevState,
-  JevUsage,
   NoulQuestion,
   ScoreQuestion,
 } from '@/lib/services/typesafe-client'
+import {
+  L1_SLUGS,
+  combineRuns,
+  l1MemberCriteria,
+  l1Name,
+  l2Criteria,
+  pickChoice,
+  requireChoice,
+  runTwoStep,
+  subcategoriesOf,
+  type DecideFn,
+  type JevAnswers,
+  type JevCandidate,
+  type JevQuestions,
+  type JevRunResult,
+  type TwoStepJevCandidate,
+} from '@/lib/services/jev-candidate'
+import { intentParseJev } from '@/lib/services/intent-parse-jev'
 import { bandFromProbability, type ConfidenceBand } from './scorers'
+
+export type { DecideFn, JevAnswers, JevCandidate, TwoStepJevCandidate } from '@/lib/services/jev-candidate'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -54,48 +71,13 @@ import { bandFromProbability, type ConfidenceBand } from './scorers'
 const NOUL_TRUE_AT = 0.5
 /** productCategory keeps the top K L1s and asks one L2 choice per L1 (decision 3). */
 const PRODUCT_BEAM_K = 3
-/** intentParse keeps the L2 only at this confidence; below it, L1 only (decision 4). */
-const INTENT_SUBCATEGORY_MIN = 0.9
 /** Same cap as the OpenAI judge's user message. */
 const RELEVANCE_DESCRIPTION_MAX = 600
-
-const L1_SLUGS: ReadonlySet<string> = new Set(L1_CATEGORIES.map((c) => c.slug))
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type JevAnswers = Record<string, JevAnswer>
-type JevQuestions = Record<string, JevQuestion>
-
-/** `decide()` from typesafe-audit.ts, injected so tests and callers choose the transport. */
-export type DecideFn = (
-  profileKey: string,
-  state: JevState,
-  questions: JevQuestions,
-) => Promise<DecideResult>
-
-export type JevCandidate<I, S extends JevState, O> = {
-  profileKey: string
-  buildState(input: I): S
-  questions(state: S): JevQuestions
-  toOutput(answers: JevAnswers): O
-}
-
-type JevRunResult<O> = {
-  output: O
-  /** Answers from every call, merged. */
-  answers: JevAnswers
-  /** Summed over every call; null when any call's usage is unknown. */
-  usage: JevUsage | null
-  latencyMs: number
-  /** Summed; null when any call's cost is unknown. */
-  costUsd: number | null
-}
-
-export type TwoStepJevCandidate<I, S extends JevState, O> = JevCandidate<I, S, O> & {
-  run(decide: DecideFn, input: I): Promise<JevRunResult<O>>
-}
 
 /** A golden chat input: the stored `{ user, promptName }` item input, or the bare user message. */
 type GoldenChatInput = string | { user: string; promptName?: string }
@@ -120,16 +102,6 @@ type ProductCategoryOutput = {
   probability: number
 }
 
-type IntentParseInput = { query: string }
-type IntentParseState = { query: string }
-type IntentParseOutput = {
-  category: string
-  subcategory: string | null
-  materials: string[]
-  /** P(L1). */
-  probability: number
-}
-
 type RelevanceProduct = {
   name_zh: string
   name_en?: string | null
@@ -150,40 +122,9 @@ type RelevanceJudgeOutput = {
 }
 
 // ---------------------------------------------------------------------------
-// Option descriptions — derived from the taxonomy, never hand-typed slugs
+// Relevance levels
 // ---------------------------------------------------------------------------
 
-function subcategoriesOf(l1: string) {
-  return L2_SUBCATEGORIES.filter((s) => s.category === l1)
-}
-
-/**
- * Each L1 described by its own subcategory names. On intent-parse-golden this beat
- * the `CATEGORY_LIST` examples (category 0.885 -> 0.929, DEV-1887).
- */
-function l1MemberCriteria(): Record<string, string> {
-  return Object.fromEntries(
-    L1_CATEGORIES.map((c) => [
-      c.slug,
-      `${c.nameZh}（${c.name}）：${subcategoriesOf(c.slug).map((s) => s.nameZh).join('、')}`,
-    ]),
-  )
-}
-
-/** Same gloss as `SUBCATEGORY_VOCAB_BLOCK`: zh name, English name, aliases. */
-function l2Criteria(l1: string): Record<string, string> {
-  return Object.fromEntries(
-    subcategoriesOf(l1).map((s) => [
-      s.slug,
-      `${s.nameZh}（${s.nameEn}）${s.aliases.length > 0 ? `：${s.aliases.join('、')}` : ''}`,
-    ]),
-  )
-}
-
-function l1Name(slug: string): string {
-  const c = L1_CATEGORIES.find((cat) => cat.slug === slug)
-  return c ? `${c.nameZh}（${c.name}）` : slug
-}
 
 /**
  * The most probable relevance level from a score answer's per-level probabilities.
@@ -248,36 +189,6 @@ function parseLabelledLines(text: string, labels: readonly string[]): Record<str
 // Answer decoding
 // ---------------------------------------------------------------------------
 
-type Pick = { key: string; p: number }
-
-/**
- * The chosen option and its probability. When `allowed` is given, a choice
- * outside it is ignored and the best allowed option by probability is used.
- */
-function pickChoice(answer: JevAnswer | undefined, allowed?: ReadonlySet<string>): Pick | null {
-  if (!answer) return null
-  const probs = answer.probabilities ?? {}
-  let key = answer.choice
-  if (key === undefined || (allowed && !allowed.has(key))) {
-    key = undefined
-    let best = -1
-    for (const [k, p] of Object.entries(probs)) {
-      if ((!allowed || allowed.has(k)) && p > best) {
-        best = p
-        key = k
-      }
-    }
-  }
-  if (key === undefined) return null
-  return { key, p: probs[key] ?? (key === answer.choice ? answer.confidence ?? 0 : 0) }
-}
-
-function requireChoice(answers: JevAnswers, questionKey: string, allowed: ReadonlySet<string>): Pick {
-  const pick = pickChoice(answers[questionKey], allowed)
-  if (!pick) throw new Error(`jev-questions: no usable choice for "${questionKey}"`)
-  return pick
-}
-
 /** P(option) for a choice answer: its probability, else the confidence when it is the choice. */
 function optionProbability(answer: JevAnswer | undefined, key: string): number {
   if (!answer) return 0
@@ -301,50 +212,6 @@ function noulVerdict(answers: JevAnswers, questionKey: string): { yes: boolean; 
   if (typeof p !== 'number') throw new Error(`jev-questions: no noul answer for "${questionKey}"`)
   const yes = p >= NOUL_TRUE_AT
   return { yes, probability: yes ? p : 1 - p }
-}
-
-function sumUsage(runs: DecideResult[]): JevUsage | null {
-  let inputTokens = 0
-  let outputTokens = 0
-  for (const { usage } of runs) {
-    if (!usage) return null
-    inputTokens += usage.inputTokens
-    outputTokens += usage.outputTokens
-  }
-  return { inputTokens, outputTokens }
-}
-
-function combineRuns<O>(runs: DecideResult[], output: O, answers: JevAnswers): JevRunResult<O> {
-  const costs = runs.map((r) => r.costUsd)
-  return {
-    output,
-    answers,
-    usage: sumUsage(runs),
-    latencyMs: runs.reduce((sum, r) => sum + r.latencyMs, 0),
-    costUsd: costs.some((c) => c === null) ? null : costs.reduce<number>((sum, c) => sum + (c ?? 0), 0),
-  }
-}
-
-/**
- * The two-step flow shared by productCategory and intentParse: step 1 asks the
- * candidate's own questions; `stepTwo` derives the follow-up questions from its
- * answers. No follow-up questions means one call.
- */
-async function runTwoStep<I, S extends JevState, O>(
-  candidate: JevCandidate<I, S, O>,
-  decide: DecideFn,
-  input: I,
-  stepTwo: (first: JevAnswers) => JevQuestions,
-): Promise<JevRunResult<O>> {
-  const state = candidate.buildState(input)
-  const first = await decide(candidate.profileKey, state, candidate.questions(state))
-  const followUp = stepTwo(first.answers)
-  if (Object.keys(followUp).length === 0) {
-    return combineRuns([first], candidate.toOutput(first.answers), first.answers)
-  }
-  const second = await decide(candidate.profileKey, state, followUp)
-  const answers = { ...first.answers, ...second.answers }
-  return combineRuns([first, second], candidate.toOutput(answers), answers)
 }
 
 // ---------------------------------------------------------------------------
@@ -566,70 +433,10 @@ const productCategory: TwoStepJevCandidate<GoldenChatInput, BrandTextState, Prod
 }
 
 // ---------------------------------------------------------------------------
-// intentParse (L1 + materials, then L2 with coarsening)
+// intentParse — the production candidate (`intent-parse-jev.ts`, DEV-1889)
 // ---------------------------------------------------------------------------
 
-function intentSubcategoryQuestions(l1: string): JevQuestions {
-  const criteria = l2Criteria(l1)
-  if (Object.keys(criteria).length === 0) return {}
-  const subcategory: ChoiceQuestion = {
-    type: 'choice',
-    instructions: `The shopper's search query is about ${l1Name(l1)}. Which subcategory is the query asking for?`,
-    criteria,
-  }
-  return { subcategory }
-}
-
-function intentParseOutput(answers: JevAnswers): IntentParseOutput {
-  const category = requireChoice(answers, 'category', L1_SLUGS)
-  const sub = pickChoice(answers.subcategory, new Set(subcategoriesOf(category.key).map((s) => s.slug)))
-  return {
-    category: category.key,
-    subcategory: sub && sub.p >= INTENT_SUBCATEGORY_MIN ? sub.key : null,
-    materials: MATERIALS.filter((m) => (answers[m.slug]?.noul ?? 0) >= NOUL_TRUE_AT).map((m) => m.slug),
-    probability: category.p,
-  }
-}
-
-const intentParse: TwoStepJevCandidate<IntentParseInput, IntentParseState, IntentParseOutput> = {
-  profileKey: 'intentParse',
-  buildState(input) {
-    return { query: input.query }
-  },
-  /** Step 1: the L1 choice plus one noul per material, keyed by the material slug. */
-  questions() {
-    const questions: JevQuestions = {
-      category: {
-        type: 'choice',
-        instructions:
-          "A shopper typed this situation query into a directory of Taiwanese products. Which product category is the query asking for?",
-        criteria: l1MemberCriteria(),
-      },
-    }
-    for (const m of MATERIALS) {
-      const question: NoulQuestion = {
-        type: 'noul',
-        instructions: `Does the query ask for products made of ${m.nameZh} (${m.nameEn})?`,
-        criteria: {
-          true: 'The query names this material or clearly implies it.',
-          false: 'The material is absent, or only a product kind, occasion or technique is mentioned. A product kind, occasion or technique alone is not a material.',
-        },
-      }
-      questions[m.slug] = question
-    }
-    return questions
-  },
-  /** Keeps the L1; drops the L2 below `INTENT_SUBCATEGORY_MIN`; materials at p >= 0.5. */
-  toOutput(answers) {
-    return intentParseOutput(answers)
-  },
-  /** Step 2: one L2 choice within the chosen L1. */
-  run(decide, input) {
-    return runTwoStep(intentParse, decide, input, (first) =>
-      intentSubcategoryQuestions(requireChoice(first, 'category', L1_SLUGS).key),
-    )
-  },
-}
+const intentParse = intentParseJev
 
 // ---------------------------------------------------------------------------
 // relevanceJudge

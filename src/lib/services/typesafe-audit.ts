@@ -21,8 +21,9 @@ import {
  * emits one Langfuse generation when a trace is in scope -- on failure too, at
  * level ERROR, because the envelope emits no span for an LLM provider.
  *
- * Eval-only: it does not persist to `brand_ai_results` because eval paths have
- * no enrichment target. Add that when a production phase switches to Jev.
+ * It does not persist to `brand_ai_results`: its callers (the eval harness and,
+ * since DEV-1889, live search intent parse) have no enrichment target. Add that
+ * when an enrichment phase switches to Jev.
  */
 
 const MAX_INPUT_LENGTH = 2_000;

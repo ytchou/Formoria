@@ -6,10 +6,10 @@ import {
 
 describe("intent-parse-cache", () => {
   describe("cacheKey", () => {
-    it("key format is intent:<8-char-hash>:<sha256>", () => {
+    it("key format is intent:jev1:<8-char-hash>:<sha256>", () => {
       const key = cacheKey("hello");
-      // Should match intent:<8chars>:<64-char-hex>
-      expect(key).toMatch(/^intent:[a-f0-9]{8}:[a-f0-9]{64}$/);
+      // The parser version keeps gpt-era entries from being served (DEV-1889).
+      expect(key).toMatch(/^intent:jev1:[a-f0-9]{8}:[a-f0-9]{64}$/);
     });
 
     it("strips punctuation — query with and without trailing question mark produce same key", () => {
