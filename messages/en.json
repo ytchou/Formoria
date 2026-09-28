@@ -90,7 +90,9 @@
       "sortRelevance": "Relevance",
       "resultCount": "{count, plural, one {# product} other {# products}}",
       "sortLabel": "Sort",
-      "query": "Situation"
+      "query": "Situation",
+      "category": "Category",
+      "inferred": "Auto-detected"
     },
     "search": {
       "label": "Search by situation",

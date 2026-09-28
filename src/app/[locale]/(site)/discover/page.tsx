@@ -14,6 +14,7 @@ import {
 } from "@/components/products/product-filter-sidebar";
 import { ProductSortSelect } from "@/components/products/product-sort-select";
 import { ProductActiveFilters } from "@/components/products/product-active-filters";
+import { DiscoverUrlSync } from "@/components/products/discover-url-sync";
 import { Pagination } from "@/components/brands/pagination";
 import { buildAlternates } from "@/lib/seo/alternates";
 import { parseCommaParam } from "@/lib/seo/directory-filters";
@@ -22,10 +23,15 @@ import {
   getProductFacetCounts,
   type CatalogProduct,
 } from "@/lib/services/curated-products-catalog";
-import { searchProductsBySituation } from "@/lib/services/product-situation-search";
+import {
+  searchProductsBySituation,
+  type SearchResult,
+} from "@/lib/services/product-situation-search";
 import { shouldAttemptIntentParse } from "@/lib/services/query-intent-parse";
 import { createClient } from "@/lib/supabase/server";
 import {
+  VISIBLE_L1_CATEGORIES,
+  categoryLabel,
   isMaterialApplicable,
   isVisibleCategory,
   subcategoryBySlug,
@@ -35,7 +41,10 @@ import {
 import {
   parseDiscoverQuery,
   discoverMetadataFor,
+  buildDiscoverSyncQuery,
+  parseInferredFields,
   type DiscoverSort,
+  type InferredField,
 } from "@/lib/products/discover-search-params";
 import { ProductSituationSearchForm } from "@/components/products/product-situation-search-form";
 import { SearchResultsTracker } from "@/components/analytics/search-results-tracker";
@@ -132,9 +141,15 @@ export default async function DiscoverPage({
 
   const isSearchMode = searchQuery !== null;
 
-  // Intent parse gate: only for CJK-rich queries from authenticated users
+  // Intent parse gate: once per search-form submit (`infer=1`), only for
+  // CJK-rich queries from authenticated users. Later loads of the same search
+  // read the inferred filters back from the URL instead of re-parsing.
   let enableIntentParse = false;
-  if (searchQuery && shouldAttemptIntentParse(searchQuery)) {
+  if (
+    rawParams.infer === "1" &&
+    searchQuery &&
+    shouldAttemptIntentParse(searchQuery)
+  ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     enableIntentParse = !!user;
@@ -152,6 +167,11 @@ export default async function DiscoverPage({
   let intentMaterials: string[] = [];
   let intentCacheHit = false;
   let intentLatencyMs = 0;
+  let appliedInference: SearchResult["appliedInference"] = {
+    category: null,
+    subcategory: null,
+    materials: [],
+  };
   let rpcLatencyMs = 0;
   let embedLatencyMs = 0;
   let ltrMode: string | undefined;
@@ -196,6 +216,7 @@ export default async function DiscoverPage({
       intentMaterials = searchResult.intentMaterials;
       intentCacheHit = searchResult.intentCacheHit;
       intentLatencyMs = searchResult.intentLatencyMs;
+      appliedInference = searchResult.appliedInference;
       rpcLatencyMs = searchResult.rpcLatencyMs;
       embedLatencyMs = searchResult.embedLatencyMs;
       ltrMode = searchResult.ltrMode;
@@ -207,6 +228,10 @@ export default async function DiscoverPage({
       rrfProductKeys = searchResult.rrfProductKeys;
       armBySlot = searchResult.armBySlot;
       facets = facetResult;
+      // An inferred category changes which subcategory facets apply.
+      if (appliedInference.category && appliedInference.category !== category) {
+        facets = await getProductFacetCounts(appliedInference.category);
+      }
     } else {
       // In catalog mode, sort is never "relevance" (parseDiscoverQuery guarantees this)
       const catalogSort = sort as "newest" | "alphabetical";
@@ -229,12 +254,31 @@ export default async function DiscoverPage({
     captureReadFailure("discover.catalog")(err);
   }
 
+  // Effective filters: the URL's own values plus what the search inferred.
+  const effectiveCategory = category ?? appliedInference.category;
+  const effectiveSubs = subcategories.length
+    ? subcategories
+    : appliedInference.subcategory
+      ? [appliedInference.subcategory]
+      : [];
+  const effectiveMaterials = materials.length
+    ? materials
+    : appliedInference.materials;
+  // Fields marked inferred: those this request filled in, plus those an
+  // earlier synced URL already marked (reloads and paging skip the parse).
+  const inferredFields: InferredField[] = [
+    ...parseInferredFields(rawParams),
+    ...(appliedInference.category ? (["category"] as const) : []),
+    ...(appliedInference.subcategory ? (["sub"] as const) : []),
+    ...(appliedInference.materials.length ? (["material"] as const) : []),
+  ];
+
   // Build subcategory options for sidebar (only for active category, filter count > 0)
-  const subcategoryOptions = category
+  const subcategoryOptions = effectiveCategory
     ? facets.subcategoryCounts
         .filter((fc) => {
           const node = subcategoryBySlug(fc.slug);
-          return node && node.category === category;
+          return node && node.category === effectiveCategory;
         })
         .map((fc) => {
           const node = subcategoryBySlug(fc.slug)!;
@@ -247,7 +291,7 @@ export default async function DiscoverPage({
     : [];
 
   // Build material options (filter count > 0, only for applicable L1s)
-  const materialOptions = isMaterialApplicable(category)
+  const materialOptions = isMaterialApplicable(effectiveCategory)
     ? facets.materialCounts
         .filter((fc) => fc.count > 0)
         .map((fc) => {
@@ -264,13 +308,27 @@ export default async function DiscoverPage({
         })
     : [];
 
-  // Build active filters for chips
+  // Build active filters for chips. The category chip exists only in search
+  // mode; in browse mode the category is the page's position, not a filter.
+  const activeCategoryNode =
+    isSearchMode && effectiveCategory
+      ? VISIBLE_L1_CATEGORIES.find((c) => c.slug === effectiveCategory)
+      : undefined;
   const activeFilters: {
-    type: "subcategory" | "material";
+    type: "category" | "subcategory" | "material";
     slug: string;
     label: string;
   }[] = [
-    ...subcategories.map((slug) => {
+    ...(activeCategoryNode
+      ? [
+          {
+            type: "category" as const,
+            slug: activeCategoryNode.slug,
+            label: categoryLabel(activeCategoryNode, locale),
+          },
+        ]
+      : []),
+    ...effectiveSubs.map((slug) => {
       const node = subcategoryBySlug(slug);
       return {
         type: "subcategory" as const,
@@ -278,7 +336,7 @@ export default async function DiscoverPage({
         label: node ? subcategoryLabel(node, locale) : slug,
       };
     }),
-    ...materials.map((slug) => {
+    ...effectiveMaterials.map((slug) => {
       const mat = MATERIALS.find((m) => m.slug === slug);
       return {
         type: "material" as const,
@@ -302,13 +360,26 @@ export default async function DiscoverPage({
           <p className="type-body">{t("subheading")}</p>
         </header>
 
+        {/* Writes the effective filters into the address bar; also strips the
+            one-time infer flag. */}
+        {(isSearchMode || rawParams.infer !== undefined) && (
+          <DiscoverUrlSync
+            search={buildDiscoverSyncQuery(
+              rawParams,
+              {
+                category: effectiveCategory,
+                subcategories: effectiveSubs,
+                materials: effectiveMaterials,
+              },
+              inferredFields,
+            )}
+          />
+        )}
+
         {/* Situation search form */}
         <ProductSituationSearchForm
           locale={locale}
           query={searchQuery}
-          category={category}
-          subcategories={subcategories}
-          materials={materials}
           labels={{
             label: t("search.label"),
             placeholder: t("search.placeholder"),
@@ -332,12 +403,12 @@ export default async function DiscoverPage({
         <div className="lg:hidden">
           <ProductFilterDrawer
             locale={locale}
-            activeCategory={category}
+            activeCategory={effectiveCategory}
             allLabel={commonT("all")}
             subcategoryOptions={subcategoryOptions}
-            activeSubSlugs={subcategories}
+            activeSubSlugs={effectiveSubs}
             materialOptions={materialOptions}
-            activeMaterials={materials}
+            activeMaterials={effectiveMaterials}
             totalCount={totalCount}
           />
         </div>
@@ -348,12 +419,12 @@ export default async function DiscoverPage({
           <aside className="hidden shrink-0 lg:block lg:w-48">
             <ProductFilterSidebar
               locale={locale}
-              activeCategory={category}
+              activeCategory={effectiveCategory}
               allLabel={commonT("all")}
               subcategoryOptions={subcategoryOptions}
-              activeSubSlugs={subcategories}
+              activeSubSlugs={effectiveSubs}
               materialOptions={materialOptions}
-              activeMaterials={materials}
+              activeMaterials={effectiveMaterials}
               totalCount={totalCount}
             />
           </aside>

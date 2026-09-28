@@ -6,12 +6,23 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { FilterToken } from "@/components/filters";
 import { updateDirectoryUrl } from "@/lib/directory-filter-url";
 import { parseCommaParam } from "@/lib/seo/directory-filters";
-import { hrefWithoutQuery } from "@/lib/products/discover-search-params";
+import {
+  hrefWithoutQuery,
+  parseInferredFields,
+  type InferredField,
+} from "@/lib/products/discover-search-params";
 
 type ActiveFilter = {
-  type: "subcategory" | "material";
+  type: "category" | "subcategory" | "material";
   slug: string;
   label: string;
+};
+
+/** The URL field each chip type edits, as named in the `inferred` param. */
+const FIELD_BY_TYPE: Record<ActiveFilter["type"], InferredField> = {
+  category: "category",
+  subcategory: "sub",
+  material: "material",
 };
 
 type ProductActiveFiltersProps = {
@@ -31,7 +42,13 @@ export function ProductActiveFilters({
   const hasQuery = Boolean(query?.trim());
   if (activeFilters.length === 0 && !hasQuery) return null;
 
+  const inferredFields = new Set(parseInferredFields(searchParams));
+
   function removeHref(filter: ActiveFilter): string {
+    // Also clears `sub`, which is scoped to the category.
+    if (filter.type === "category") {
+      return updateDirectoryUrl(pathname, searchParams, { category: null });
+    }
     if (filter.type === "subcategory") {
       const currentSubs = parseCommaParam(
         searchParams.get("sub") ?? undefined,
@@ -49,12 +66,13 @@ export function ProductActiveFilters({
     });
   }
 
-  // Clear all: drop sub, material, and q
+  // Clear all: drop sub and material; in search mode also category (with any
+  // inferred marker) and q, so the visitor is back to an unfiltered page.
   const clearAllBase = updateDirectoryUrl(pathname, searchParams, {
+    ...(hasQuery ? { category: null } : {}),
     sub: null,
     material: null,
   });
-  // If q is present, also strip it from the cleared URL
   const clearAllHref = hasQuery
     ? hrefWithoutQuery(
         pathname,
@@ -85,22 +103,24 @@ export function ProductActiveFilters({
           variant="chip"
         />
       )}
-      {activeFilters.map((filter) => (
-        <FilterToken
-          key={`${filter.type}-${filter.slug}`}
-          href={removeHref(filter)}
-          label={
-            filter.type === "subcategory" ? t("subcategory") : t("material")
-          }
-          removeLabel={t("removeFilter", {
-            label:
-              filter.type === "subcategory" ? t("subcategory") : t("material"),
-            value: filter.label,
-          })}
-          value={filter.label}
-          variant="chip"
-        />
-      ))}
+      {activeFilters.map((filter) => {
+        const label = t(filter.type);
+        return (
+          <FilterToken
+            key={`${filter.type}-${filter.slug}`}
+            href={removeHref(filter)}
+            label={label}
+            removeLabel={t("removeFilter", { label, value: filter.label })}
+            value={filter.label}
+            variant="chip"
+            badge={
+              inferredFields.has(FIELD_BY_TYPE[filter.type])
+                ? t("inferred")
+                : undefined
+            }
+          />
+        );
+      })}
       {totalTokens > 1 && (
         <Link
           href={clearAllHref}

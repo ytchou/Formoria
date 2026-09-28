@@ -185,6 +185,75 @@ describe("ProductFilterSidebar", () => {
     );
   });
 
+  it("category links keep q in search mode", () => {
+    renderSidebar({ activeCategory: "home" }, "q=%E6%90%AC%E5%AE%B6&category=home");
+
+    const hrefs = screen
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href")!);
+    expect(hrefs).toContain(`/discover?q=${encodeURIComponent("搬家")}`);
+    const categoryHrefs = hrefs.filter((href) => href.includes("category="));
+    expect(categoryHrefs.length).toBeGreaterThan(0);
+    for (const href of categoryHrefs) {
+      expect(new URLSearchParams(href.split("?")[1]).get("q")).toBe("搬家");
+    }
+  });
+
+  it("category links are unchanged in browse mode", () => {
+    renderSidebar({ activeCategory: "home" }, "category=home&material=wood");
+
+    const hrefs = screen
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href")!);
+    expect(hrefs).toContain("/discover");
+    expect(hrefs).toContain("/discover?category=home");
+    expect(hrefs.every((href) => !href.includes("q="))).toBe(true);
+  });
+
+  it("drawer clear-all in search mode drops q, category and inferred", () => {
+    searchParams.current = new URLSearchParams(
+      "q=x&category=home&sub=candles&material=metal&inferred=category,material&sort=newest",
+    );
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <ProductFilterDrawer
+          locale="en"
+          activeCategory="home"
+          allLabel="All"
+          totalCount={10}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(replace).toHaveBeenCalledWith("/discover?sort=newest", {
+      scroll: false,
+    });
+  });
+
+  it("drawer clear-all in browse mode keeps category", () => {
+    searchParams.current = new URLSearchParams(
+      "category=home&sub=candles&material=wood",
+    );
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <ProductFilterDrawer
+          locale="en"
+          activeCategory="home"
+          allLabel="All"
+          totalCount={10}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expect(replace).toHaveBeenCalledWith("/discover?category=home", {
+      scroll: false,
+    });
+  });
+
   it("drawer renders with trigger button", () => {
     searchParams.current = new URLSearchParams();
     render(

@@ -90,7 +90,9 @@
       "sortRelevance": "相關度",
       "resultCount": "{count} 件商品",
       "sortLabel": "排序",
-      "query": "情境"
+      "query": "情境",
+      "category": "分類",
+      "inferred": "自動判斷"
     },
     "search": {
       "label": "搜尋情境",

@@ -6,9 +6,6 @@ import { routes } from "@/lib/routes";
 type ProductSituationSearchFormProps = {
   locale: string;
   query: string | null;
-  category: string | null;
-  subcategories: string[];
-  materials: string[];
   labels: {
     label: string;
     placeholder: string;
@@ -22,14 +19,12 @@ type ProductSituationSearchFormProps = {
  * Server component — no "use client". Submits as a plain GET so the URL is
  * shareable and the page re-renders server-side with the `q` param.
  *
- * Hidden inputs preserve the active taxonomy filters across submissions.
+ * A submit starts a fresh search: earlier filters are not carried over, and
+ * `infer=1` asks the page to run the intent parse once for this query.
  */
 export function ProductSituationSearchForm({
   locale,
   query,
-  category,
-  subcategories,
-  materials,
   labels,
 }: ProductSituationSearchFormProps) {
   return (
@@ -38,14 +33,7 @@ export function ProductSituationSearchForm({
       action={`/${locale}${routes.discover()}`}
       className="flex items-end gap-3"
     >
-      {/* Preserve active taxonomy filters */}
-      {category && <input type="hidden" name="category" value={category} />}
-      {subcategories.length > 0 && (
-        <input type="hidden" name="sub" value={subcategories.join(",")} />
-      )}
-      {materials.length > 0 && (
-        <input type="hidden" name="material" value={materials.join(",")} />
-      )}
+      <input type="hidden" name="infer" value="1" />
 
       <div className="flex-1">
         <Label htmlFor="discover-search-q" className="text-ink-muted mb-1">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FilterSidebar, FilterDrawer } from "@/components/filters";
 import { routes } from "@/lib/routes";
@@ -31,17 +32,27 @@ export type ProductFilterSidebarProps = {
   totalCount: number;
 };
 
-function productCategoryHref(slug: string | null): string {
-  return slug ? routes.discover({ category: slug }) : routes.discover();
+/**
+ * Category links for the product filters. During a situation search they keep
+ * `q`, so changing the category refines the search instead of ending it.
+ */
+function useProductCategoryHref() {
+  const q = useSearchParams().get("q");
+  return {
+    q,
+    categoryHref: (slug: string | null) =>
+      routes.discover({ category: slug ?? undefined, q }),
+  };
 }
 
 export function ProductFilterSidebar(props: ProductFilterSidebarProps) {
   const t = useTranslations("products.filters");
+  const { categoryHref } = useProductCategoryHref();
 
   return (
     <FilterSidebar
       {...props}
-      categoryHref={productCategoryHref}
+      categoryHref={categoryHref}
       labels={{
         title: t("title"),
         subcategory: t("subcategory"),
@@ -55,16 +66,18 @@ export function ProductFilterSidebar(props: ProductFilterSidebarProps) {
 
 export function ProductFilterDrawer(props: ProductFilterSidebarProps) {
   const t = useTranslations("products.filters");
+  const { q, categoryHref } = useProductCategoryHref();
 
   return (
     <FilterDrawer
       {...props}
-      categoryHref={productCategoryHref}
+      categoryHref={categoryHref}
       labels={{
         title: t("title"),
         subcategory: t("subcategory"),
         material: t("material"),
       }}
+      clearAllExtraKeys={q ? ["category", "inferred", "q"] : undefined}
       triggerLabel={t("trigger")}
       showResultsLabel={t("showResults", { count: props.totalCount })}
       clearAllLabel={t("clearAll")}
