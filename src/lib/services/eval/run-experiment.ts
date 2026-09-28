@@ -536,14 +536,19 @@ export async function runExperiment({
       })),
       items: armResults.flatMap((ar) =>
         ar.items.map((ir) => {
-          // Reduce output to {evaluations, selected, agentOutcome} for JSON
-          const reducedOutput = ir.output && typeof ir.output === 'object'
-            ? {
-                evaluations: (ir.output as Record<string, unknown>).evaluations,
-                selected: (ir.output as Record<string, unknown>).selected,
-                agentOutcome: (ir.output as Record<string, unknown>).agentOutcome,
-              }
+          // A products-agent output (it carries `evaluations`) is reduced to
+          // {evaluations, selected, agentOutcome} to keep the file small; every
+          // other output is kept whole so predictions and probabilities survive.
+          const out = ir.output && typeof ir.output === 'object'
+            ? (ir.output as Record<string, unknown>)
             : undefined
+          const reducedOutput = out && 'evaluations' in out
+            ? {
+                evaluations: out.evaluations,
+                selected: out.selected,
+                agentOutcome: out.agentOutcome,
+              }
+            : out
           return {
             arm: ar.arm,
             itemId: ir.itemId,

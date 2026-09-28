@@ -677,6 +677,34 @@ describe('runExperiment', () => {
     expect(parsed).toHaveProperty('arms')
     expect(parsed).toHaveProperty('items')
     expect(parsed).toHaveProperty('scores')
+    // A non-products output is persisted whole, so predictions and probabilities survive.
+    expect(parsed.items[0].output).toEqual({ isNonBrand: false, confidence: 'high' })
+  })
+
+  it('run JSON reduces a products-agent output to evaluations, selected and agentOutcome', async () => {
+    const writeFile = vi.fn()
+    const output = { evaluations: { u: { score: 1 } }, selected: ['u'], agentOutcome: 'ok', trace: 'large' }
+
+    await runExperiment({
+      dataset: 'products-agent-ranking-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter({ task: vi.fn().mockResolvedValue({ ok: true, output }) }),
+      items: [makeItem()],
+      deps: {
+        callModel: vi.fn(),
+        writeFile,
+        now: () => new Date('2026-09-04T12:00:00.000Z'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const parsed = JSON.parse(writeFile.mock.calls[0]![1] as string)
+    expect(parsed.items[0].output).toEqual({ evaluations: { u: { score: 1 } }, selected: ['u'], agentOutcome: 'ok' })
   })
 
   it('uses adapter.task instead of callModel when present', async () => {
