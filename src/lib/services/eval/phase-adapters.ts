@@ -9,8 +9,6 @@ import {
 } from '@/lib/prompts'
 import { detectBatchShape, classifyBatchShape } from '@/lib/services/category-classifier'
 import { nameArbitrationShape } from '@/lib/services/name-arbiter'
-import { siteIdentityShape } from '@/lib/services/site-identity-arbiter'
-import { resolveQuarantine } from '@/lib/services/enrich-phases/site-identity'
 import { descriptionShape } from '@/lib/services/description-rewrite'
 import { isHighConfidenceWrite } from '@/lib/services/enrich-phases/detect'
 import { parseAndValidate, toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
@@ -235,12 +233,6 @@ const nameExpectedSchema = z.object({
   confidence: z.string(),
 })
 
-const siteIdentityExpectedSchema = z.object({
-  owned: z.boolean(),
-  confidence: z.string(),
-  writeEligible: z.boolean().optional(),
-})
-
 /**
  * A labelled intent. Seeded items carry `expectedOutput: null` and stay
  * ARCHIVED until prelabel, so this schema never sees them: prelabel validates
@@ -380,55 +372,6 @@ const registry: Record<string, PhaseAdapter> = {
         const out = o as Record<string, unknown>
         const exp = e as Record<string, unknown>
         return confidenceBandAgreement(out.confidence as string, exp.confidence as string)
-      }},
-    ],
-    mode: 'scored',
-  },
-
-  'site-identity-confidence-golden': {
-    promptName: 'site-identity',
-    profileKey: 'siteIdentityBatch',
-    outputSchema: siteIdentityShape,
-    requestSchema: makeRequestSchema('site_identity', siteIdentityShape),
-    parseOutput: makeParseOutput(siteIdentityShape),
-    unwrap: (output) => (output as BatchResult).results?.[0] ?? undefined,
-    expectedOf: (item) => {
-      const eo = item.expectedOutput as Record<string, unknown>
-      return {
-        owned: eo.owned,
-        confidence: eo.confidence,
-        writeEligible: eo.writeEligible,
-      }
-    },
-    expectedSchema: siteIdentityExpectedSchema,
-    scorers: [
-      { name: 'decisionAgreement', fn: (o, e) => {
-        const out = o as Record<string, unknown>
-        const exp = e as Record<string, unknown>
-        return decisionAgreement(out.owned, exp.owned)
-      }},
-      { name: 'confidenceBandAgreement', fn: (o, e) => {
-        const out = o as Record<string, unknown>
-        const exp = e as Record<string, unknown>
-        return confidenceBandAgreement(out.confidence as string, exp.confidence as string)
-      }},
-      { name: 'writeEligibleAgreement', fn: (o, e) => {
-        const exp = e as Record<string, unknown>
-        return writeEligibleAgreement(
-          o,
-          { writeEligible: exp.writeEligible as boolean },
-          (out) => {
-            const verdict = out as { owned: boolean; confidence: string }
-            const decision = resolveQuarantine({
-              slug: '',
-              owned: verdict.owned,
-              confidence: verdict.confidence as 'high' | 'medium' | 'low',
-              reason: '',
-            })
-            // write-eligible = not revoked
-            return !decision.revoked
-          },
-        )
       }},
     ],
     mode: 'scored',
@@ -644,8 +587,6 @@ function transportHooks(
       return { decide: jevDecide(JEV_CANDIDATES.detect, decide) }
     case 'category-confidence-golden':
       return { decide: jevDecide(JEV_CANDIDATES.classification, decide) }
-    case 'site-identity-confidence-golden':
-      return { decide: jevDecide(JEV_CANDIDATES.siteIdentity, decide) }
     case 'intent-parse-golden':
       return {
         task: intentParseTask(deps.callModel ?? defaultIntentCallModel),

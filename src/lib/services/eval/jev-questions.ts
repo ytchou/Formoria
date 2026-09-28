@@ -1,12 +1,12 @@
 /**
- * Jev question sets for the six DEV-1824 eval candidates. Each candidate turns
+ * Jev question sets for the five DEV-1824 eval candidates. Each candidate turns
  * one eval input into a Jev `state` plus typed questions, and turns Jev answers
  * back into the output shape the existing scorers read, plus a `probability`
  * for the calibration sweep. Eval-only: no production call site imports this.
  *
  * Input shapes, probed 2026-09-26 against staging (step 0 of the plan). Field
- * labels are named by their `JEV_INPUT_LABELS` / `SITE_IDENTITY_LABELS` key,
- * because this file may not carry Han text (no-hardcoded-cjk guard).
+ * labels are named by their `JEV_INPUT_LABELS` key, because this file may not
+ * carry Han text (no-hardcoded-cjk guard).
  *
  * - `detect-confidence-golden` (12 ACTIVE): `input = { user, promptName: 'detect' }`.
  *   `user` is the live chat message (`category-classifier.ts#detectBrand`), one
@@ -15,10 +15,6 @@
  *   `probe` lines. A missing description or website is written as `missingValue`.
  * - `category-confidence-golden` (12 ACTIVE): `input = { user, promptName: 'category-classify' }`,
  *   `user` = brandName and description lines.
- * - `site-identity-confidence-golden` (22 ACTIVE): `input = { user, promptName: 'site-identity' }`,
- *   `user` = `userPreamble`, newline, then `1. [<slug>] ` and " / "-joined fields: brandName,
- *   optional categorySlug, a bare subjectKind label, url, title, description, story
- *   (`site-identity-arbiter.ts`). A value may itself contain " / ".
  * - `situation-search-v2.json` (156 queries): `{ id, query, category, queryType, split,
  *   expected: [{ brandSlug, productKey, grade }] }`. `intent-parse-golden` items are
  *   seeded from it as `input = { query }`.
@@ -29,11 +25,10 @@
  * - Distillation `eval.jsonl` user message (productCategory): productName and
  *   description lines (`scripts/distillation/export-training-data.ts`).
  *
- * All three Langfuse golden inputs are flat prompt strings, not JSON, so the
+ * Both Langfuse golden inputs are flat prompt strings, not JSON, so the
  * state builders parse the labelled fields back out of `user`.
  */
 
-import { SITE_IDENTITY_LABELS } from '@/lib/prompts'
 import { JEV_INPUT_LABELS } from '@/lib/prompts/jev'
 import { CATEGORY_LIST, RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import {
@@ -119,17 +114,6 @@ type DetectOutput = { isNonBrand: boolean; confidence: ConfidenceBand; probabili
 
 type BrandTextState = { name: string | null; description: string | null }
 type ClassificationOutput = { category: string; confidence: ConfidenceBand; probability: number }
-
-type SiteIdentityState = {
-  brandName: string | null
-  categorySlug: string | null
-  subjectKind: 'website' | 'source-page' | null
-  url: string | null
-  title: string | null
-  description: string | null
-  story: string | null
-}
-type SiteIdentityOutput = { owned: boolean; confidence: ConfidenceBand; probability: number }
 
 type ProductCategoryOutput = {
   category: string
@@ -250,51 +234,6 @@ function parseLabelledLines(text: string, labels: readonly string[]): Record<str
     }
   }
   return fields
-}
-
-const SITE_FIELD_LABELS = {
-  brandName: SITE_IDENTITY_LABELS.brandName,
-  categorySlug: SITE_IDENTITY_LABELS.categorySlug,
-  url: SITE_IDENTITY_LABELS.url,
-  title: SITE_IDENTITY_LABELS.title,
-  description: SITE_IDENTITY_LABELS.description,
-  story: SITE_IDENTITY_LABELS.story,
-} as const
-
-/** Parses the first (and, in the golden set, only) numbered candidate of a site-identity message. */
-function parseSiteIdentity(text: string): SiteIdentityState {
-  const body = text.startsWith(SITE_IDENTITY_LABELS.userPreamble)
-    ? text.slice(SITE_IDENTITY_LABELS.userPreamble.length).trim()
-    : text.trim()
-  const candidate = body.replace(/^\d+\. \[[^\]]*\] /, '')
-  const fieldLabels = Object.values(SITE_FIELD_LABELS)
-  const kindLabels = Object.entries(SITE_IDENTITY_LABELS.subjectKind)
-
-  // " / " separates fields, but a value may contain it: a segment that opens no
-  // known field belongs to the previous one.
-  const parts: string[] = []
-  for (const segment of candidate.split(' / ')) {
-    const opensField =
-      fieldLabels.some((l) => segment.startsWith(`${l}：`)) ||
-      kindLabels.some(([, label]) => segment === label)
-    if (opensField || parts.length === 0) parts.push(segment)
-    else parts[parts.length - 1] += ` / ${segment}`
-  }
-
-  const valueOf = (label: string) => {
-    const part = parts.find((p) => p.startsWith(`${label}：`))
-    return valueOrNull(part?.slice(label.length + 1))
-  }
-  const kind = kindLabels.find(([, label]) => parts.includes(label))?.[0]
-  return {
-    brandName: valueOf(SITE_FIELD_LABELS.brandName),
-    categorySlug: valueOf(SITE_FIELD_LABELS.categorySlug),
-    subjectKind: kind === 'website' || kind === 'source-page' ? kind : null,
-    url: valueOf(SITE_FIELD_LABELS.url),
-    title: valueOf(SITE_FIELD_LABELS.title),
-    description: valueOf(SITE_FIELD_LABELS.description),
-    story: valueOf(SITE_FIELD_LABELS.story),
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -477,33 +416,6 @@ const classification: JevCandidate<GoldenChatInput, BrandTextState, Classificati
   toOutput(answers) {
     const { key, p } = requireChoice(answers, 'category', L1_SLUGS)
     return { category: key, confidence: bandFromProbability(p), probability: p }
-  },
-}
-
-// ---------------------------------------------------------------------------
-// siteIdentity
-// ---------------------------------------------------------------------------
-
-const siteIdentity: JevCandidate<GoldenChatInput, SiteIdentityState, SiteIdentityOutput> = {
-  profileKey: 'siteIdentityBatch',
-  buildState(input) {
-    return parseSiteIdentity(userText(input))
-  },
-  questions() {
-    const owned: NoulQuestion = {
-      type: 'noul',
-      instructions:
-        "Does this candidate page belong to the brand — a page the brand itself operates — rather than a third-party page that mentions, sells or aggregates it? Judge by the semantic fit between the page content and the brand's name and product type, not by string similarity to the domain.",
-      criteria: {
-        true: 'The page is operated by the brand itself. For a scraped source page, the page shows it is content operated by the brand itself.',
-        false: 'An e-commerce platform, retailer or marketplace product page; news, media, blog or review pages; directory listings, brand lists, price-comparison or search-aggregation pages; parked, expired or for-sale domains; a same-name company with a different product type.',
-      },
-    }
-    return { owned }
-  },
-  toOutput(answers) {
-    const { yes, probability } = noulVerdict(answers, 'owned')
-    return { owned: yes, confidence: bandFromProbability(probability), probability }
   },
 }
 
@@ -710,7 +622,6 @@ const relevanceJudge: JevCandidate<RelevanceJudgeInput, RelevanceJudgeState, Rel
 export const JEV_CANDIDATES = {
   detect,
   classification,
-  siteIdentity,
   productCategory,
   intentParse,
   relevanceJudge,

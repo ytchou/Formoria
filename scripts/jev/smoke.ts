@@ -1,6 +1,6 @@
 /**
  * @formoria-script
- * purpose: Smoke-test the six DEV-1824 TypeSafe Jev eval candidates against the live Jev API on inline zh-TW fixtures
+ * purpose: Smoke-test the five DEV-1824 TypeSafe Jev eval candidates against the live Jev API on inline zh-TW fixtures
  * class: operator
  * invoke: pnpm jev:smoke [--target staging|production]
  * target: staging-default
@@ -26,17 +26,14 @@ async function main(): Promise<void> {
     { decide },
     { JEV_CANDIDATES, runJevCandidate },
     { JEV_INPUT_LABELS },
-    { SITE_IDENTITY_LABELS },
   ] = await Promise.all([
     import('@/lib/services/eval/zero-write'),
     import('@/lib/services/typesafe-audit'),
     import('@/lib/services/eval/jev-questions'),
     import('@/lib/prompts/jev'),
-    import('@/lib/prompts'),
   ])
 
   const L = JEV_INPUT_LABELS
-  const S = SITE_IDENTITY_LABELS
 
   // Inline fixtures in the live prompt shapes documented at the top of jev-questions.ts.
   const cases: SmokeCase[] = [
@@ -63,22 +60,6 @@ async function main(): Promise<void> {
             `${L.description}：來自南投鹿谷的小農茶品牌，自產自焙凍頂烏龍茶`,
           ].join('\n'),
           promptName: 'category-classify',
-        }),
-    },
-    {
-      name: 'siteIdentity',
-      run: () =>
-        runJevCandidate(JEV_CANDIDATES.siteIdentity, decide, {
-          user: `${S.userPreamble}\n1. [mountain-tea-studio] ${[
-            `${S.brandName}：山茶工作室`,
-            `${S.categorySlug}：food`,
-            S.subjectKind.website,
-            `${S.url}：https://example.com`,
-            `${S.title}：山茶工作室｜南投鹿谷凍頂烏龍`,
-            `${S.description}：第三代茶農自產自焙的凍頂烏龍茶`,
-            `${S.story}：我們在鹿谷山上種茶三十年，每一批茶都親手烘焙。`,
-          ].join(' / ')}`,
-          promptName: 'site-identity',
         }),
     },
     {

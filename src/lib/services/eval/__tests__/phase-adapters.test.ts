@@ -13,7 +13,6 @@ const GOLDEN_DATASET_NAMES = [
   'detect-confidence-golden',
   'category-confidence-golden',
   'name-arbiter-confidence-golden',
-  'site-identity-confidence-golden',
   'products-agent-ranking-golden',
   'intent-parse-golden',
 ] as const
@@ -22,7 +21,7 @@ const GOLDEN_DATASET_NAMES = [
 const PROMPTLESS_DATASETS: ReadonlySet<string> = new Set(['intent-parse-golden'])
 
 describe('phase-adapters registry', () => {
-  it('resolves each of the six golden dataset names plus descriptions', () => {
+  it('resolves each of the five golden dataset names plus descriptions', () => {
     for (const name of GOLDEN_DATASET_NAMES) {
       const adapter = adapterFor(name)
       expect(adapter).toBeDefined()
@@ -165,18 +164,12 @@ describe('phase-adapters registry', () => {
     expect(decision.fn(verdict('德瑪貝爾化粧品'), expected)).toBe(0)
   })
 
-  it('name-arbiter and site-identity adapters expose their exported shapes', () => {
+  it('name-arbiter adapter exposes its exported shape', () => {
     const nameAdapter = adapterFor('name-arbiter-confidence-golden')
     expect(nameAdapter.outputSchema).toBeDefined()
     // The requestSchema should match what the module exports
     expect(nameAdapter.requestSchema.schema).toEqual(
       toStrictJsonSchema(nameAdapter.outputSchema),
-    )
-
-    const siteAdapter = adapterFor('site-identity-confidence-golden')
-    expect(siteAdapter.outputSchema).toBeDefined()
-    expect(siteAdapter.requestSchema.schema).toEqual(
-      toStrictJsonSchema(siteAdapter.outputSchema),
     )
   })
 
@@ -255,16 +248,9 @@ describe('Jev decide wiring', () => {
       answers: { category: { choice: 'beauty', probabilities: { beauty: 0.95 } } },
       expectedOutput: { category: 'beauty', confidence: 'high' },
     },
-    {
-      dataset: 'site-identity-confidence-golden',
-      primary: 'decisionAgreement',
-      input: { user: 'site line', promptName: 'site-identity' },
-      answers: { owned: { noul: 0.05 } },
-      expectedOutput: { owned: false, confidence: 'high', writeEligible: false },
-    },
   ] as const
 
-  it('detect/category/site-identity adapters expose decide mapping to the scorer output shape', async () => {
+  it('detect/category adapters expose decide mapping to the scorer output shape', async () => {
     for (const c of cases) {
       const decide = fakeDecide(c.answers)
       const adapter = adapterFor(c.dataset, { decide })
@@ -284,7 +270,7 @@ describe('Jev decide wiring', () => {
     }
   })
 
-  it('the default registry wires decide on the three confidence adapters', () => {
+  it('the default registry wires decide on the two confidence adapters', () => {
     for (const c of cases) {
       expect(typeof adapterFor(c.dataset).decide).toBe('function')
     }

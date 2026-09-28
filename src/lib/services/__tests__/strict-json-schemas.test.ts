@@ -33,7 +33,6 @@ vi.mock("@/lib/langfuse/prompt", async (importOriginal) => {
 
 import { toStrictJsonSchema } from "../_shared/zod-schema";
 import { nameArbitrationShape } from "../name-arbiter";
-import { siteIdentityShape } from "../site-identity-arbiter";
 import { factsShape, researchFoundingFacts } from "../brand-facts";
 import {
   classifyBatchShape,
@@ -326,10 +325,6 @@ const WIRE_SCHEMAS: Array<[string, () => Promise<JsonSchema>]> = [
   [
     "name-arbiter NAME_ARBITRATION_SCHEMA",
     async () => toStrictJsonSchema(nameArbitrationShape),
-  ],
-  [
-    "site-identity-arbiter SITE_IDENTITY_SCHEMA",
-    async () => toStrictJsonSchema(siteIdentityShape),
   ],
   ["brand-facts FACTS_SCHEMA", async () => toStrictJsonSchema(factsShape)],
   [

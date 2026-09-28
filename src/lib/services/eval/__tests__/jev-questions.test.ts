@@ -20,14 +20,6 @@ const DETECT_INPUT = {
   promptName: 'detect',
 }
 
-const SITE_IDENTITY_INPUT = {
-  user: [
-    '請裁決以下品牌候選頁面是否真正屬於該品牌：',
-    '1. [pangscent] 品牌名稱：雱PĀNG / 宣稱的官方網站 / 網址：https://www.pangscent.com/ / 頁面標題：雱 PĀNG - 台灣靈魂 / 頁面描述：臺灣獨立無性別香氛品牌 / 頁面故事文字：淡香精 A / B 空間噴霧',
-  ].join('\n'),
-  promptName: 'site-identity',
-}
-
 function subsOf(l1: string): string[] {
   return L2_SUBCATEGORIES.filter((s) => s.category === l1).map((s) => s.slug)
 }
@@ -63,8 +55,8 @@ describe('JEV_CANDIDATES', () => {
         expect(q.criteria.false.trim().length).toBeGreaterThan(0)
       }
     }
-    // detect + siteIdentity + one per material
-    expect(nouls).toBe(2 + MATERIALS.length)
+    // detect + one per material
+    expect(nouls).toBe(1 + MATERIALS.length)
   })
 
   it('detect: buildState picks brand fields; toOutput maps noul p>=0.5 to isNonBrand and band via bandFromProbability', () => {
@@ -140,30 +132,6 @@ describe('JEV_CANDIDATES', () => {
       { category: { choice: home, probabilities: { [home]: 0.92, [L1_CATEGORIES[6].slug]: 0.08 } } },
     )
     expect(out).toEqual({ category: home, confidence: 'high', probability: 0.92 })
-  })
-
-  it('siteIdentity: toOutput maps owned noul to {owned, confidence, probability}', () => {
-    const c = JEV_CANDIDATES.siteIdentity
-    const state = c.buildState(SITE_IDENTITY_INPUT)
-    expect(state).toMatchObject({
-      brandName: '雱PĀNG',
-      subjectKind: 'website',
-      url: 'https://www.pangscent.com/',
-      title: '雱 PĀNG - 台灣靈魂',
-      description: '臺灣獨立無性別香氛品牌',
-      // a " / " inside a value is not a field boundary
-      story: '淡香精 A / B 空間噴霧',
-    })
-    expect(c.questions(state).owned?.type).toBe('noul')
-    expect(c.toOutput({ owned: { noul: 0.75 } })).toEqual({
-      owned: true,
-      confidence: 'medium',
-      probability: 0.75,
-    })
-    const notOwned = c.toOutput({ owned: { noul: 0.02 } })
-    expect(notOwned.owned).toBe(false)
-    expect(notOwned.confidence).toBe('high')
-    expect(notOwned.probability).toBeCloseTo(0.98)
   })
 
   it('productCategory: beam K=3 builds 1 L1 choice + 3 L2 choices, and toOutput picks the max joint probability with an L2 that belongs to its L1', async () => {
