@@ -249,3 +249,36 @@ describe('cmdApplyGrades', () => {
     expect(q.humanApproval!.reviewedVia).toBe('agreement-kappa')
   })
 })
+
+describe('export-grades output (rerank arm deleted, DEV-1898)', () => {
+  it('CSV header has no rerank_rank column', async () => {
+    const { CSV_COLUMNS } = await import('../label-grade-holdout')
+    expect(CSV_COLUMNS).not.toContain('rerank_rank')
+    expect(CSV_COLUMNS).toContain('hybrid_rank')
+  })
+
+  it('avgRank equals hybrid_rank', async () => {
+    const { avgRank } = await import('../label-grade-holdout')
+    expect(avgRank({ hybrid_rank: '3' })).toBe(3)
+    expect(avgRank({ hybrid_rank: '' })).toBe(Infinity)
+  })
+
+  it('builds the candidate document with the same text as before', async () => {
+    const { buildCandidateDocument } = await import('../label-grade-holdout')
+    const doc = buildCandidateDocument({
+      nameZh: '經典茶具組',
+      nameEn: 'Classic Tea Set',
+      brandName: 'GOODGLAS',
+      category: 'lifestyle',
+      subcategory: 'tea',
+      productDescriptionZh: '精緻雙層玻璃杯，適合日常品茶使用。',
+    })
+    expect(doc).toBe(
+      'GOODGLAS — 經典茶具組 (Classic Tea Set) [lifestyle/tea] 精緻雙層玻璃杯，適合日常品茶使用。',
+    )
+    expect(buildCandidateDocument({ productDescriptionZh: '茶'.repeat(600) })).toBe(
+      ' —  [/] ' + '茶'.repeat(500) + '…',
+    )
+    expect(buildCandidateDocument({})).toBe(' —  [/] ')
+  })
+})

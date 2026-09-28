@@ -1,4 +1,7 @@
-import { LLM_MODELS } from "@/lib/constants/llm-models";
+import {
+  LLM_MODELS,
+  RETIRED_OPENAI_MODELS,
+} from "@/lib/constants/llm-models";
 import {
   SERVICE_REGISTRY,
   type ServiceEntry,
@@ -132,8 +135,13 @@ export async function loadAllPages<T>(
   return rows.concat(...remaining);
 }
 
+/** Live plus retired OpenAI models, so a model swap keeps its spend history. */
+export function openaiModels(): string[] {
+  return [...new Set([...Object.values(LLM_MODELS), ...RETIRED_OPENAI_MODELS])];
+}
+
 function modelsForService(id: string): readonly string[] {
-  if (id === "openai") return [...new Set(Object.values(LLM_MODELS))];
+  if (id === "openai") return openaiModels();
   return [];
 }
 
@@ -342,9 +350,7 @@ export async function loadSpendWindow(
   billableCallsByModel: Record<string, number>;
   auditSpans: AuditSpanRow[];
 }> {
-  const models = [
-    ...new Set(Object.values(LLM_MODELS)),
-  ];
+  const models = openaiModels();
   const pricedRowsRequest = loadAllPages<LlmSpendRow>(
     (from, to, includeCount) =>
       supabase

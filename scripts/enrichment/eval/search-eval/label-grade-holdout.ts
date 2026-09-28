@@ -2,7 +2,6 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 
 import { searchProductsBySituation } from '@/lib/services/product-situation-search'
-import { buildRerankDocument, rerankProducts } from '@/lib/services/product-rerank'
 import { compositeKey } from '@/lib/services/eval/retrieval-adapter'
 import { loadDatasetV2, type DatasetV2Item } from './dataset-v2'
 import { HOLDOUT_GRADES_PATH, escapeCsvField, parseCsvLine } from './label-shared'
@@ -23,23 +22,48 @@ type GradeRow = {
   official_url: string
   llm_grade: string
   hybrid_rank: string
-  rerank_rank: string
   disagreement: string
   human_grade: string
 }
 
-const CSV_COLUMNS: (keyof GradeRow)[] = [
+export const CSV_COLUMNS: (keyof GradeRow)[] = [
   'query_id', 'query', 'brand_slug', 'product_key',
   'name_zh', 'description_zh', 'official_url', 'llm_grade',
-  'hybrid_rank', 'rerank_rank', 'disagreement', 'human_grade',
+  'hybrid_rank', 'disagreement', 'human_grade',
 ]
+
+/** Minimal input for a candidate document string. All fields optional so a
+ *  narrow product type yields a degraded but valid document. Moved verbatim
+ *  from the deleted LLM rerank service (DEV-1898). Only the rerank arm consumed
+ *  it, so it has no caller today; kept for the next candidate-scoring arm —
+ *  delete it if none lands. */
+export type CandidateDocumentInput = {
+  nameZh?: string
+  nameEn?: string | null
+  brandName?: string
+  category?: string
+  subcategory?: string
+  productDescriptionZh?: string
+  [key: string]: unknown
+}
+
+export function buildCandidateDocument(product: CandidateDocumentInput): string {
+  const nameZh = product.nameZh ?? ''
+  const name = product.nameEn ? `${nameZh} (${product.nameEn})` : nameZh
+  const brand = product.brandName ?? ''
+  const cat = product.category ?? ''
+  const subcat = product.subcategory ?? ''
+  const rawDesc = product.productDescriptionZh ?? ''
+  const desc = rawDesc.length > 500 ? rawDesc.slice(0, 500) + '…' : rawDesc
+  return `${brand} — ${name} [${cat}/${subcat}] ${desc}`
+}
 
 // ---------------------------------------------------------------------------
 // export-grades
 // ---------------------------------------------------------------------------
 
 export async function cmdExportGrades(values: Record<string, unknown>) {
-  const armSpecs = String(values.arm ?? 'hybrid,rerank').split(',')
+  const armSpecs = String(values.arm ?? 'hybrid').split(',')
   const k = parseInt(String(values.k ?? '10'), 10)
   const outPath = values.out ? String(values.out) : HOLDOUT_GRADES_PATH
 
@@ -78,26 +102,12 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
       })
     }
 
-    const candidates = products.map((p) => ({
-      id: p.id,
-      document: buildRerankDocument(p),
-    }))
-    const byId = new Map(products.map((p) => [p.id, p]))
-
     const rankings = new Map<string, string[]>()
 
     for (const arm of armSpecs) {
       let ranked: string[]
       if (arm === 'hybrid') {
         ranked = products.map((p) => compositeKey(p))
-      } else if (arm === 'rerank') {
-        const reranked = await rerankProducts(item.query, candidates)
-        ranked = reranked
-          .map((r) => {
-            const p = byId.get(r.id)
-            return p ? compositeKey(p) : ''
-          })
-          .filter(Boolean)
       } else {
         throw new Error(`Unknown arm: "${arm}"`)
       }
@@ -124,9 +134,7 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
         const idx = ranked.indexOf(ckey)
         const rank1 = idx >= 0 && idx < k ? idx + 1 : -1
         if (rank1 > 0) ranks.push(rank1)
-        const armKey = arm === 'hybrid' ? 'hybrid_rank'
-          : arm === 'rerank' ? 'rerank_rank'
-          : arm
+        const armKey = arm === 'hybrid' ? 'hybrid_rank' : arm
         rankStrs[armKey] = rank1 > 0 ? String(rank1) : ''
       }
 
@@ -144,7 +152,6 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
         official_url: meta?.officialUrl ?? '',
         llm_grade: gradeLookup.has(ckey) ? String(gradeLookup.get(ckey)) : '',
         hybrid_rank: rankStrs['hybrid_rank'] ?? '',
-        rerank_rank: rankStrs['rerank_rank'] ?? '',
         disagreement: String(disagreement),
         human_grade: '',
       })
@@ -169,8 +176,8 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
   console.log(`[export-grades] wrote ${allRows.length} rows to ${outPath}`)
 }
 
-function avgRank(row: GradeRow): number {
-  const vals = [row.hybrid_rank, row.rerank_rank]
+export function avgRank(row: Pick<GradeRow, 'hybrid_rank'>): number {
+  const vals = [row.hybrid_rank]
     .filter((v) => v !== '')
     .map(Number)
   return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : Infinity

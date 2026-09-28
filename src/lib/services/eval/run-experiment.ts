@@ -5,6 +5,7 @@ import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
 import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
 import { p95, mean, thresholdSweep, expectedCalibrationError, type CalibrationPoint } from './scorers'
+import { listPriceCost } from './list-prices'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,6 +36,11 @@ export type ItemResult = {
   /** Null when any of the item's calls has an unknown price. */
   costUsd: number | null
   latencyMs: number
+  /** Token counts summed over the item's audited calls (D15); absent when the item never ran. */
+  promptTokens?: number
+  cachedPromptTokens?: number
+  cacheWriteTokens?: number
+  completionTokens?: number
   output?: unknown
   expected?: unknown
   promptMeta?: PromptMeta['prompt']
@@ -46,6 +52,11 @@ type ArmSummary = {
   scorerMeans: Record<string, number>
   /** Null when any item's cost is unknown. */
   costPerItem: number | null
+  /**
+   * Model arms only: cost per item at eval list prices (`list-prices.ts`),
+   * set when `costPerItem` is null and the arm's model has a list price.
+   */
+  listCostPerItem?: number
   p95LatencyMs: number
 }
 
@@ -155,6 +166,11 @@ type RunItemsParams = {
   runWithAuditContext: ExperimentDeps['runWithAuditContext']
   /** Creates a Langfuse trace per item for generation linking. */
   createItemTrace?: (itemId: string, itemRunId: string) => unknown
+  /**
+   * The model a model-type arm is testing (D19). When set, an item any of
+   * whose audited calls went to another model fails as off-slot.
+   */
+  armModel?: string
 }
 
 /**
@@ -189,6 +205,7 @@ export async function runItems({
   collector,
   runWithAuditContext,
   createItemTrace,
+  armModel,
 }: RunItemsParams): Promise<ItemResult[]> {
   const limit = createLimiter(concurrency)
 
@@ -239,8 +256,24 @@ export async function runItems({
         const totalLatency = auditRecords.length > 0
           ? auditRecords.reduce((sum, r) => sum + (r.latencyMs ?? 0), 0)
           : wallMs
+        const tokens = {
+          promptTokens: sumOf(auditRecords, (r) => r.promptTokens),
+          cachedPromptTokens: sumOf(auditRecords, (r) => r.cachedPromptTokens),
+          cacheWriteTokens: sumOf(auditRecords, (r) => r.cacheWriteTokens),
+          completionTokens: sumOf(auditRecords, (r) => r.completionTokens),
+        }
 
-        if (taskResult?.ok) {
+        // Slot assertion (D19): the model override is process-global, so a
+        // model arm must prove every call it paid for hit the model under
+        // test. Records without a model (started rows) carry no claim.
+        const offSlot = armModel === undefined
+          ? undefined
+          : auditRecords.find((r) => typeof r.model === 'string' && r.model !== armModel)?.model ?? undefined
+        if (offSlot !== undefined) {
+          lastError = `off-slot call: ${offSlot}`
+        }
+
+        if (taskResult?.ok && offSlot === undefined) {
           // Score against expected
           const expected = adapter.expectedOf(item)
           const scores: Record<string, number> = {}
@@ -257,6 +290,7 @@ export async function runItems({
             scores,
             costUsd: totalCost,
             latencyMs: totalLatency,
+            ...tokens,
             output: taskResult.output,
             expected,
             ...(taskResult.promptMeta !== undefined ? { promptMeta: taskResult.promptMeta } : {}),
@@ -275,6 +309,7 @@ export async function runItems({
           error: lastError,
           costUsd: totalCost,
           latencyMs: totalLatency,
+          ...tokens,
           ...(taskResult?.promptMeta !== undefined ? { promptMeta: taskResult.promptMeta } : {}),
         }
       }),
@@ -282,6 +317,10 @@ export async function runItems({
   )
 
   return results
+}
+
+function sumOf<T>(records: T[], pick: (r: T) => number | null | undefined): number {
+  return records.reduce((sum, r) => sum + (pick(r) ?? 0), 0)
 }
 
 // ---------------------------------------------------------------------------
@@ -447,6 +486,7 @@ export async function runExperiment({
           collector,
           runWithAuditContext: deps.runWithAuditContext,
           createItemTrace,
+          ...(arm.type === 'model' ? { armModel: arm.value } : {}),
         })
 
         // Aggregate per-arm metrics
@@ -464,6 +504,27 @@ export async function runExperiment({
         const knownCosts = costs.filter((c): c is number => c !== null)
         const latencies = itemResults.map((r) => r.latencyMs)
 
+        const costPerItem =
+          knownCosts.length < costs.length ? null : costs.length > 0 ? mean(knownCosts) : 0
+        // A model with no DB price row yet (D15) is priced at its list price,
+        // shown separately so it is never mistaken for a DB-priced cost.
+        const listCosts = costPerItem === null && arm.type === 'model'
+          ? itemResults.map((r) =>
+              listPriceCost(
+                {
+                  promptTokens: r.promptTokens ?? 0,
+                  cachedPromptTokens: r.cachedPromptTokens,
+                  cacheWriteTokens: r.cacheWriteTokens,
+                  completionTokens: r.completionTokens ?? 0,
+                },
+                arm.value,
+              ),
+            )
+          : []
+        const listCostPerItem = listCosts.length > 0 && listCosts.every((c) => c !== null)
+          ? mean(listCosts as number[])
+          : undefined
+
         // Derive promptMeta for the arm from the first item that has one
         const armPromptMeta = itemResults.find((r) => r.promptMeta !== undefined)?.promptMeta
 
@@ -472,8 +533,8 @@ export async function runExperiment({
           items: itemResults,
           summary: {
             scorerMeans,
-            costPerItem:
-              knownCosts.length < costs.length ? null : costs.length > 0 ? mean(knownCosts) : 0,
+            costPerItem,
+            ...(listCostPerItem !== undefined ? { listCostPerItem } : {}),
             p95LatencyMs: p95(latencies),
           },
           ...(armPromptMeta !== undefined ? { promptMeta: armPromptMeta } : {}),
@@ -665,7 +726,11 @@ function buildMarkdownTable(
     const scoreCols = scorerNames.map(
       (name) => ar.summary.scorerMeans[name]?.toFixed(3) ?? 'n/a',
     )
-    const cost = ar.summary.costPerItem === null ? 'n/a' : `$${ar.summary.costPerItem.toFixed(4)}`
+    const cost = ar.summary.costPerItem !== null
+      ? `$${ar.summary.costPerItem.toFixed(4)}`
+      : ar.summary.listCostPerItem !== undefined
+        ? `$${ar.summary.listCostPerItem.toFixed(4)} (list)`
+        : 'n/a'
     return `| ${ar.arm} | ${scoreCols.join(' | ')} | ${cost} | ${ar.summary.p95LatencyMs.toFixed(0)} |`
   })
 

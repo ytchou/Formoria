@@ -198,7 +198,19 @@ describe('harvestRowsToItems', () => {
 
 describe('capturedCallsToItems', () => {
   function call(system: string, user: string, capturedAt: string): TimedCapturedCall {
-    return { phase: 'products', profileKey: 'products', system, user, promptName: null, capturedAt }
+    return {
+      phase: 'products',
+      profileKey: 'products',
+      system,
+      user,
+      promptName: null,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      response: { content: null },
+      capturedAt,
+    }
   }
 
   it('maps captured calls, derives the fallback context, and leaves critique unlabeled', () => {

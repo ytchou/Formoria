@@ -286,6 +286,60 @@ describe("createOpenAIClient", () => {
       expect(body).not.toHaveProperty("reasoning_effort");
     });
 
+    it("sends max_completion_tokens and reasoning_effort for gpt-6 models, never max_tokens", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(okResponse());
+      const client = createOpenAIClient({ apiKey: "k", model: "gpt-6-luna" });
+
+      await client.chat({
+        system: "s",
+        user: "u",
+        maxTokens: 250,
+        temperature: 0,
+        reasoningEffort: "none",
+      });
+
+      const body = requestBody(fetchSpy);
+      expect(body).toMatchObject({
+        model: "gpt-6-luna",
+        max_completion_tokens: 250,
+        reasoning_effort: "none",
+        temperature: 0,
+      });
+      expect(body).not.toHaveProperty("max_tokens");
+    });
+
+    it("turns reasoning off by itself when a gpt-6 caller asks only for a temperature", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(okResponse());
+      const client = createOpenAIClient({ apiKey: "k", model: "gpt-6-luna" });
+
+      await client.chat({ system: "s", user: "u", temperature: 0 });
+
+      expect(requestBody(fetchSpy)).toMatchObject({
+        temperature: 0,
+        reasoning_effort: "none",
+      });
+    });
+
+    // The reasoning-model list is explicit (D8): a family nobody has probed
+    // keeps the chat-model parameters until someone probes it.
+    it("keeps max_tokens for gpt-7-anything", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(okResponse());
+      const client = createOpenAIClient({ apiKey: "k", model: "gpt-7-anything" });
+
+      await client.chat({ system: "s", user: "u", maxTokens: 250, temperature: 0 });
+
+      const body = requestBody(fetchSpy);
+      expect(body).toMatchObject({ max_tokens: 250, temperature: 0 });
+      expect(body).not.toHaveProperty("max_completion_tokens");
+      expect(body).not.toHaveProperty("reasoning_effort");
+    });
+
     it("omits reasoning_effort when the caller does not ask for one", async () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
