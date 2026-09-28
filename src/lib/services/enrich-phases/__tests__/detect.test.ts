@@ -123,7 +123,22 @@ describe("runDetectPhase", () => {
         chunkBrandNames: ["Test Brand", "Second Brand"],
         jobId: "job-1",
       }),
-      new Map([["Second Brand", { urls: [], snippets: ["second snippet"] }]]),
+      new Map([
+        [
+          "Second Brand",
+          {
+            urls: [],
+            snippets: ["second snippet"],
+            entries: [
+              {
+                title: "Second Brand",
+                link: "https://second.example",
+                snippet: "second snippet",
+              },
+            ],
+          },
+        ],
+      ]),
     );
 
     expect(mocks.detectBrand).toHaveBeenCalledTimes(2);
@@ -135,7 +150,9 @@ describe("runDetectPhase", () => {
       ["second-brand", "job-1"],
     ]);
     const second = mocks.detectBrand.mock.calls[1][0] as DetectItem;
-    expect(second.snippets).toEqual(["second snippet"]);
+    expect(second.results).toEqual([
+      { title: "Second Brand", snippet: "second snippet", host: "second.example", match: null },
+    ]);
     expect(second.target).toEqual({ type: "brand", id: "brand-2" });
   });
 
@@ -191,32 +208,83 @@ describe("runDetectPhase", () => {
       ]),
     );
 
-    // `status` is dropped: it steers the probe, it does not describe the brand.
+    // `status` is kept (DEV-1894): the renderer shows it on a failed probe.
     expect(firstItem().probes).toEqual([
       {
         url: "https://test.example",
         title: "Test Brand Official Site",
         description: "Handmade ceramics from Taipei",
         platform: "instagram",
+        status: 200,
       },
     ]);
   });
 
-  it("probe_evidence_without_head_text_is_dropped", async () => {
+  it("failed_probe_reaches_detect", async () => {
     mocks.detectBrand.mockResolvedValue(healthyEmpty);
 
     await runDetectPhase(
       ctx(),
       new Map(),
-      // A timed-out probe carries only the url it was asked about. Passing it
-      // on would spend prompt tokens restating the item's own website line.
-      new Map([["brand-1", [{ url: "https://test.example", platform: "instagram" }]]]),
+      // A dead submitted site is evidence too: the probe read no <head>, but
+      // its 404 says the page is gone.
+      new Map([["brand-1", [{ url: "https://test.example", status: 404 }]]]),
     );
 
-    expect(firstItem().probes).toBeUndefined();
+    expect(firstItem().probes).toEqual([
+      { url: "https://test.example", status: 404 },
+    ]);
   });
 
-  it("caps probe evidence at four urls per brand", async () => {
+  it("detect_item_carries_results_with_tags", async () => {
+    mocks.detectBrand.mockResolvedValue(healthyEmpty);
+
+    await runDetectPhase(
+      ctx(),
+      new Map([
+        [
+          "Test Brand",
+          {
+            urls: [],
+            snippets: ["own", "other"],
+            entries: [
+              {
+                title: "Test Brand Official",
+                link: "https://www.test.example/about",
+                snippet: "own",
+              },
+              {
+                title: "Someone Else",
+                link: "https://other.example/test-brand",
+                snippet: "other",
+              },
+            ],
+          },
+        ],
+      ]),
+      undefined,
+      new Map([["brand-1", ["https://test.example"]]]),
+    );
+
+    const item = firstItem();
+    expect(item.results?.map((line) => line.match)).toEqual(["site", null]);
+    expect(item).not.toHaveProperty("snippets");
+  });
+
+  it("detect_item_carries_submitted_website", async () => {
+    mocks.detectBrand.mockResolvedValue(healthyEmpty);
+
+    await runDetectPhase(
+      ctx({
+        chunk: [{ ...brand, website_url: "https://submitted.example" }],
+      }),
+      new Map(),
+    );
+
+    expect(firstItem().submittedWebsite).toBe("https://submitted.example");
+  });
+
+  it("probe_cap_still_four", async () => {
     mocks.detectBrand.mockResolvedValue(healthyEmpty);
 
     await runDetectPhase(

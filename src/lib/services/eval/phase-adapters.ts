@@ -31,7 +31,12 @@ import {
 import { AcquisitionPlan, CritiqueVerdictSchema } from '@/lib/services/enrich-phases/acquisition/plan'
 import { runPlanStage } from '@/lib/services/enrich-phases/acquisition/graph'
 import { fetchHtmlWithMetadata } from '@/lib/services/enrich-phases/scraper/fetch-guards'
-import { fetchLangfusePromptWithMeta, parsePromptVersionPins } from '@/lib/langfuse/prompt'
+import {
+  fetchLangfusePromptWithMeta,
+  parsePromptVersionPins,
+  type PromptMeta,
+  type PromptName,
+} from '@/lib/langfuse/prompt'
 import {
   confidenceBandAgreement,
   writeEligibleAgreement,
@@ -158,10 +163,11 @@ function makeRequestSchema(name: string, schema: ZodType): { name: string; schem
 function jevDecide<I, S extends JevState, O>(
   candidate: JevCandidate<I, S, O> | TwoStepJevCandidate<I, S, O>,
   decide: DecideFn,
+  inputOf: (item: ExperimentItem) => Promise<unknown> = async (item) => item.input,
 ): NonNullable<PhaseAdapter['decide']> {
   return async (item) => {
     try {
-      const { output, answers } = await runJevCandidate(candidate, decide, item.input as I)
+      const { output, answers } = await runJevCandidate(candidate, decide, (await inputOf(item)) as I)
       return { ok: true, output, answers }
     } catch (e) {
       return { ok: false, output: null, error: describeError(e) }
@@ -527,6 +533,22 @@ export type AdapterDeps = {
   decide?: DecideFn
   /** The intent-parse model call; defaults to the audited `intentParse` profile client. */
   callModel?: IntentCallModel
+  /**
+   * Prompt text fetch for rule injection; defaults to `fetchLangfusePromptWithMeta`,
+   * which honours `LANGFUSE_PROMPT_VERSIONS` (a pinned jev arm sets it).
+   */
+  fetchPrompt?: (name: PromptName) => Promise<Pick<PromptMeta, 'text'>>
+}
+
+/**
+ * DEV-1894: the detect Jev candidate runs on the same instructions as the
+ * incumbent — the `detect` prompt text rides along as `rules`.
+ */
+function withDetectRules(fetchPrompt: NonNullable<AdapterDeps['fetchPrompt']>) {
+  return async (item: ExperimentItem): Promise<unknown> => {
+    const { text } = await fetchPrompt('detect')
+    return { ...(item.input as Record<string, unknown>), rules: text }
+  }
 }
 
 /** The model-calling hooks, built per call so tests can inject the transport. */
@@ -537,7 +559,13 @@ function transportHooks(
   const decide = deps.decide ?? typesafeDecide
   switch (datasetName) {
     case 'detect-confidence-golden':
-      return { decide: jevDecide(JEV_CANDIDATES.detect, decide) }
+      return {
+        decide: jevDecide(
+          JEV_CANDIDATES.detect,
+          decide,
+          withDetectRules(deps.fetchPrompt ?? ((name) => fetchLangfusePromptWithMeta(name))),
+        ),
+      }
     case 'name-arbiter-confidence-golden':
       return { decide: jevDecide(JEV_CANDIDATES.names, decide) }
     case 'intent-parse-golden':

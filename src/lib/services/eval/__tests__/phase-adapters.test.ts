@@ -3,7 +3,7 @@ import { adapterFor } from '../phase-adapters'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { isHighConfidenceWrite } from '../../enrich-phases/detect'
 import { INTENT_PARSE_JSON_SCHEMA, INTENT_PARSE_SYSTEM_PROMPT } from '../../query-intent-parse'
-import type { DecideFn, JevAnswers } from '../jev-questions'
+import { JEV_CANDIDATES, type DecideFn, type JevAnswers } from '../jev-questions'
 import type { ExperimentArm, ExperimentItem } from '../run-experiment'
 import { CritiqueVerdictSchema } from '../../enrich-phases/acquisition/plan'
 import { PRODUCTS_PROMPT_VARIABLES, PRODUCTS_PROPOSAL_SHAPE, PRODUCTS_SCHEMA } from '../../enrich-phases/products'
@@ -223,7 +223,8 @@ describe('Jev decide wiring', () => {
       dataset: 'detect-confidence-golden',
       primary: 'decisionAgreement',
       input: { user: 'brand line', promptName: 'detect' },
-      answers: { isNonBrand: { noul: 0.95 } },
+      // P(non-brand) = 1 * 0.95 * (1 - 0) = 0.95
+      answers: { aboutEntity: { noul: 1 }, nonBrandType: { noul: 0.95 }, ownProductLine: { noul: 0 } },
       expectedOutput: { isNonBrand: true, confidence: 'high' },
     },
   ] as const
@@ -261,6 +262,32 @@ describe('Jev decide wiring', () => {
     const adapter = adapterFor('detect-confidence-golden', { decide })
     const result = await adapter.decide!(goldenItem({ user: 'x' }, null), { itemRunId: 'run-1' })
     expect(result).toEqual({ ok: false, output: null, error: 'typesafe 503' })
+  })
+
+  it('detect_decide_passes_rules', async () => {
+    const buildState = vi.spyOn(JEV_CANDIDATES.detect, 'buildState')
+    try {
+      const decide = fakeDecide({ aboutEntity: { noul: 0.9 }, nonBrandType: { noul: 0.1 }, ownProductLine: { noul: 0.9 } })
+      const rules = 'RULES\n\n## Not a product brand\nTypes.'
+      const fetchPrompt = vi.fn(async () => ({
+        text: rules,
+        prompt: { name: 'detect', version: 4, source: 'langfuse' as const },
+      }))
+      const adapter = adapterFor('detect-confidence-golden', { decide, fetchPrompt })
+
+      const result = await adapter.decide!(
+        goldenItem({ user: 'brand line', promptName: 'detect' }, null),
+        { itemRunId: 'run-1' },
+      )
+
+      expect(result.ok).toBe(true)
+      expect(fetchPrompt).toHaveBeenCalledWith('detect')
+      const input = buildState.mock.calls[0]![0] as { rules?: string; user: string }
+      expect(input.rules).toBe(rules)
+      expect(input.user).toBe('brand line')
+    } finally {
+      buildState.mockRestore()
+    }
   })
 })
 

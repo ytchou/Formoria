@@ -26,11 +26,15 @@ async function main(): Promise<void> {
     { decide },
     { JEV_CANDIDATES, runJevCandidate },
     { JEV_INPUT_LABELS },
+    { renderDetectUserMessage },
+    { snapshotPrompt },
   ] = await Promise.all([
     import('@/lib/services/eval/zero-write'),
     import('@/lib/services/typesafe-audit'),
     import('@/lib/services/eval/jev-questions'),
     import('@/lib/prompts/jev'),
+    import('@/lib/services/category-classifier'),
+    import('@/lib/langfuse/prompt'),
   ])
 
   const L = JEV_INPUT_LABELS
@@ -41,14 +45,21 @@ async function main(): Promise<void> {
       name: 'detect',
       run: () =>
         runJevCandidate(JEV_CANDIDATES.detect, decide, {
-          user: [
-            `${L.brandSlug}：mountain-tea-studio`,
-            `${L.brandName}：山茶工作室`,
-            `${L.description}：來自南投鹿谷的小農茶品牌，自產自焙凍頂烏龍茶`,
-            `${L.website}：https://example.com`,
-            `${L.searchSnippets}：山茶工作室 凍頂烏龍 手工烘焙；南投鹿谷 茶農 第三代`,
-          ].join('\n'),
+          user: renderDetectUserMessage({
+            slug: 'mountain-tea-studio',
+            name: '山茶工作室',
+            description: '來自南投鹿谷的小農茶品牌，自產自焙凍頂烏龍茶',
+            website: 'https://example.com',
+            submittedWebsite: 'https://example.com',
+            results: [
+              { title: '山茶工作室', snippet: '凍頂烏龍 手工烘焙', host: 'example.com', match: 'site' },
+              { title: '南投鹿谷 茶農 第三代', host: 'news.example.org', match: null },
+            ],
+            probes: [{ url: 'https://example.com', title: '山茶工作室', description: '自產自焙凍頂烏龍茶' }],
+          }),
           promptName: 'detect',
+          // The eval adapter injects the pinned detect prompt the same way (DEV-1894 D13).
+          rules: snapshotPrompt('detect').text,
         }),
     },
     {

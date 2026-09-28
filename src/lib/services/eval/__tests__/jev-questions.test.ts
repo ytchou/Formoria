@@ -6,19 +6,38 @@ import {
 } from '@/lib/taxonomy/ontology'
 import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import type { JevAnswer, JevQuestion, JevState } from '@/lib/services/typesafe-client'
-import { JEV_CANDIDATES, argmaxGrade, type DecideFn } from '../jev-questions'
+import { snapshotPrompt } from '@/lib/langfuse/prompt'
+import { renderDetectUserMessage } from '@/lib/services/category-classifier'
+import { JEV_CANDIDATES, argmaxGrade, detectRuleSections, type DecideFn } from '../jev-questions'
 
 // Fixtures mirror the stored golden inputs recorded in jev-questions.ts's header.
-const DETECT_INPUT = {
-  user: [
-    '品牌 slug：submission-456c87e9',
-    '品牌名稱：Design Council Busan',
-    '描述：無',
-    '網站：https://dcb.or.kr',
-    '搜尋摘要：Design Council Busan provides design education；WDO Design Council Busan',
-  ].join('\n'),
-  promptName: 'detect',
-}
+const DETECT_RULES = [
+  'Intro line.',
+  '',
+  '## Not a product brand',
+  'Non-brand types and boundaries.',
+  '',
+  '## Confidence',
+  'Band rules.',
+].join('\n')
+
+const DETECT_USER = renderDetectUserMessage({
+  slug: 'submission-456c87e9',
+  name: 'Design Council Busan',
+  description: null,
+  website: 'https://dcb.or.kr',
+  submittedWebsite: 'https://dcb.or.kr/about',
+  results: [
+    { title: 'Design Council Busan', snippet: 'provides design education', host: 'dcb.or.kr', match: 'site' },
+    { title: 'WDO Design Council Busan', host: 'wdo.org', match: null },
+  ],
+  probes: [
+    { url: 'https://dcb.or.kr', title: 'DCB', description: 'Design Council Busan' },
+    { url: 'https://dead.example.com', status: 404 },
+  ],
+})
+
+const DETECT_INPUT = { user: DETECT_USER, promptName: 'detect', rules: DETECT_RULES }
 
 function subsOf(l1: string): string[] {
   return L2_SUBCATEGORIES.filter((s) => s.category === l1).map((s) => s.slug)
@@ -46,7 +65,8 @@ describe('JEV_CANDIDATES', () => {
     for (const cand of Object.values(JEV_CANDIDATES)) {
       // names builds its one choice from the parsed state and asks no noul.
       if (cand === JEV_CANDIDATES.names) continue
-      const questions = (cand.questions as (state: unknown) => Record<string, JevQuestion>)(undefined)
+      const state = cand === JEV_CANDIDATES.detect ? JEV_CANDIDATES.detect.buildState(DETECT_INPUT) : undefined
+      const questions = (cand.questions as (state: unknown) => Record<string, JevQuestion>)(state)
       for (const q of Object.values(questions)) {
         if (q.type !== 'noul') continue
         nouls++
@@ -57,62 +77,100 @@ describe('JEV_CANDIDATES', () => {
         expect(q.criteria.false.trim().length).toBeGreaterThan(0)
       }
     }
-    // detect + one per material
-    expect(nouls).toBe(1 + MATERIALS.length)
+    // detect's three + one per material
+    expect(nouls).toBe(3 + MATERIALS.length)
   })
 
-  it('detect: buildState picks brand fields; toOutput maps noul p>=0.5 to isNonBrand and band via bandFromProbability', () => {
+  it('rule_sections_keep_and_drop: slices the real detect prompt by heading', () => {
+    const text = snapshotPrompt('detect').text
+    const body = (heading: string): string => {
+      const at = text.indexOf(`${heading}\n`)
+      const next = text.indexOf('\n## ', at + heading.length)
+      return text.slice(at + heading.length, next === -1 ? undefined : next).trim()
+    }
+    const intro = text.slice(0, text.indexOf('\n## ')).trim()
+    const rules = detectRuleSections(text)
+
+    expect(rules.startsWith(intro)).toBe(true)
+    for (const kept of ['## Not a product brand', '## Input', '## Golden anchors']) {
+      expect(rules).toContain(kept)
+      expect(rules).toContain(body(kept))
+    }
+    for (const dropped of ['## Confidence', '## Slug', '## Brand name']) {
+      expect(rules).not.toContain(dropped)
+      expect(rules).not.toContain(body(dropped))
+    }
+  })
+
+  it('rule_sections_throw_on_missing_heading', () => {
+    expect(() => detectRuleSections('Intro.\n\n## Input\nFields.')).toThrow(/Not a product brand/)
+  })
+
+  it('build_state_parses_new_labels: results, submitted website and probes from a rendered message', () => {
+    const state = JEV_CANDIDATES.detect.buildState(DETECT_INPUT)
+    const lines = DETECT_USER.split('\n')
+    const valuesOf = (label: string) =>
+      lines.filter((l) => l.startsWith(`${label}：`)).map((l) => l.slice(label.length + 1))
+
+    expect(state.name).toBe('Design Council Busan')
+    expect(state.description).toBeNull()
+    expect(state.website).toBe('https://dcb.or.kr')
+    expect(state.submittedWebsite).toBe('https://dcb.or.kr/about')
+    expect(valuesOf('搜尋結果')).toHaveLength(2)
+    expect(state.searchResults).toBe(valuesOf('搜尋結果').join('\n'))
+    expect(valuesOf('探測')).toHaveLength(2)
+    expect(state.probes).toBe(valuesOf('探測').join('\n'))
+    expect(state.rules).toBe(detectRuleSections(DETECT_RULES))
+  })
+
+  it('build_state_parses_new_labels: absent results, submitted website and probes are null', () => {
+    const state = JEV_CANDIDATES.detect.buildState({
+      user: renderDetectUserMessage({ slug: 's', name: '山焙茶室', description: '鹿谷炭焙烏龍', website: null }),
+      rules: DETECT_RULES,
+    })
+    expect(state).toMatchObject({
+      name: '山焙茶室',
+      description: '鹿谷炭焙烏龍',
+      website: null,
+      submittedWebsite: null,
+      searchResults: null,
+      probes: null,
+    })
+  })
+
+  it('missing_rules_throws: the candidate never runs on hand-written rules', () => {
+    expect(() => JEV_CANDIDATES.detect.buildState({ user: DETECT_USER, promptName: 'detect' })).toThrow(/rules/)
+    expect(() => JEV_CANDIDATES.detect.buildState(DETECT_USER)).toThrow(/rules/)
+  })
+
+  it('questions_share_rules_verbatim: three questions, same rules prefix, distinct stems', () => {
     const c = JEV_CANDIDATES.detect
     expect(c.profileKey).toBe('detect')
     const state = c.buildState(DETECT_INPUT)
-    expect(state).toEqual({
-      name: 'Design Council Busan',
-      description: null,
-      website: 'https://dcb.or.kr',
-      searchSnippets: 'Design Council Busan provides design education；WDO Design Council Busan',
-      probes: null,
-    })
     const q = c.questions(state)
-    expect(q.isNonBrand?.type).toBe('noul')
-
-    expect(c.toOutput({ isNonBrand: { noul: 0.95 } })).toEqual({
-      isNonBrand: true,
-      confidence: 'high',
-      probability: 0.95,
+    expect(Object.keys(q).sort()).toEqual(['aboutEntity', 'nonBrandType', 'ownProductLine'])
+    const stems = Object.values(q).map((question) => {
+      expect(question.type).toBe('noul')
+      expect(question.instructions.startsWith(state.rules)).toBe(true)
+      return question.instructions.slice(state.rules.length).trim()
     })
-    // p = 0.2 → not a non-brand, and the decision's own confidence is 0.8 → medium
-    const low = c.toOutput({ isNonBrand: { noul: 0.2 } })
-    expect(low.isNonBrand).toBe(false)
-    expect(low.probability).toBeCloseTo(0.8)
-    expect(low.confidence).toBe('medium')
-    // exactly 0.5 counts as a non-brand verdict at low confidence
-    expect(c.toOutput({ isNonBrand: { noul: 0.5 } })).toEqual({
-      isNonBrand: true,
-      confidence: 'low',
-      probability: 0.5,
-    })
+    expect(new Set(stems).size).toBe(3)
+    expect(stems.every((stem) => stem.length > 0)).toBe(true)
   })
 
-  it('detect: probe lines become their own field instead of leaking into the one before', () => {
-    const state = JEV_CANDIDATES.detect.buildState({
-      user: [
-        '品牌 slug：submission-7f3a',
-        '品牌名稱：山焙茶室',
-        '描述：鹿谷自家茶園的炭焙烏龍',
-        '網站：無',
-        '搜尋摘要：山焙茶室｜鹿谷凍頂烏龍茶',
-        '探測：山焙茶室 — 炭焙烏龍禮盒 (instagram)',
-        '探測：https://www.facebook.com/shanbei.tea',
-      ].join('\n'),
-      promptName: 'detect',
-    })
-    expect(state).toEqual({
-      name: '山焙茶室',
-      description: '鹿谷自家茶園的炭焙烏龍',
-      website: null,
-      searchSnippets: '山焙茶室｜鹿谷凍頂烏龍茶',
-      probes: '山焙茶室 — 炭焙烏龍禮盒 (instagram)\nhttps://www.facebook.com/shanbei.tea',
-    })
+  it('product_score_output: P(non-brand) = about * type * (1 - own); probability is P(chosen verdict)', () => {
+    const c = JEV_CANDIDATES.detect
+    const out = c.toOutput({ aboutEntity: { noul: 0.9 }, nonBrandType: { noul: 0.8 }, ownProductLine: { noul: 0.25 } })
+    expect(out.isNonBrand).toBe(true)
+    expect(out.probability).toBeCloseTo(0.54)
+    expect(out.confidence).toBe('low')
+
+    const brand = c.toOutput({ aboutEntity: { noul: 0.9 }, nonBrandType: { noul: 0.2 }, ownProductLine: { noul: 0.9 } })
+    expect(brand.isNonBrand).toBe(false)
+    expect(brand.probability).toBeCloseTo(1 - 0.9 * 0.2 * 0.1)
+    expect(brand.confidence).toBe('high')
+
+    expect(() => c.toOutput({ aboutEntity: { noul: 0.9 }, nonBrandType: { noul: 0.8 } })).toThrow(/ownProductLine/)
   })
 
   it('productCategory: beam K=3 builds 1 L1 choice + 3 L2 choices, and toOutput picks the max joint probability with an L2 that belongs to its L1', async () => {

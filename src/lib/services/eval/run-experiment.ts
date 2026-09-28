@@ -24,6 +24,8 @@ export type ExperimentArm = {
   name: string
   type: 'model' | 'prompt' | 'custom'
   value: string
+  /** Custom arms only: a `LANGFUSE_PROMPT_VERSIONS` pin (e.g. `detect:4`) held for the arm's items. */
+  promptVersions?: string
 }
 
 export type ItemResult = {
@@ -346,7 +348,10 @@ export async function runExperiment({
         } else if (arm.type === 'prompt') {
           process.env.LANGFUSE_PROMPT_VERSIONS = arm.value
         } else if (arm.type === 'custom') {
-          // Custom arms manage their own execution — no env setup
+          // Custom arms manage their own execution; a prompt pin is the only env they take.
+          if (arm.promptVersions !== undefined) {
+            process.env.LANGFUSE_PROMPT_VERSIONS = arm.promptVersions
+          }
         } else {
           throw new Error(`Unknown arm type: ${(arm as { type: string }).type}`)
         }

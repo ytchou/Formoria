@@ -17,25 +17,40 @@ import {
   type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
+import { DETECT_MESSAGE_LABELS as L } from "@/lib/prompts/detect-message";
+// Type-only: detect-evidence runtime-imports MAX_PROBE_URLS from this module.
+import type { DetectResultLine } from "./enrich-phases/detect-evidence";
+
+export type { DetectResultLine };
 
 export type DetectItem = {
   slug: string;
   name: string;
   description: string | null;
   website: string | null;
-  snippets?: string[];
+  /** The `website_url` the brand was submitted with. */
+  submittedWebsite?: string | null;
+  /**
+   * Gather's SERP results for the brand name, each tagged with whether the
+   * link sits on one of the brand's own URLs (`enrich-phases/detect-evidence.ts`).
+   */
+  results?: DetectResultLine[];
   /**
    * What a free HTTP GET on the brand's own known URLs found in each `<head>`
-   * (`enrich-phases/gather.ts`). SERP snippets describe what the web says about
-   * the brand; a probe is the brand's own page saying what it is, which is the
-   * cheapest evidence available for the non-brand call and the only one a
-   * search-less brand has. Capped and rendered by `probeLines`.
+   * (`enrich-phases/gather.ts`). Search results describe what the web says
+   * about the brand; a probe is the brand's own page saying what it is, which
+   * is the cheapest evidence available for the non-brand call and the only one
+   * a search-less brand has. A probe without head text renders as unreachable,
+   * with its HTTP status when one came back. Capped and rendered by
+   * `renderDetectUserMessage`.
    */
   probes?: Array<{
     url: string;
     title?: string;
     description?: string;
     platform?: string;
+    status?: number;
+    instagramFollowers?: number;
   }>;
   target?: EnrichmentTarget;
 };
@@ -275,33 +290,82 @@ function parseSingleTriageResponse(
 /** At most four probed URLs reach the prompt, at most 160 characters each. */
 export const MAX_PROBE_URLS = 4;
 const PROBE_LINE_CHARS = 160;
+const MAX_RESULT_LINES = 10;
+
+type DetectProbe = NonNullable<DetectItem["probes"]>[number];
+
+function headText(probe: DetectProbe): string {
+  return [probe.title, probe.description]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join(" — ");
+}
+
+function probeHost(url: string): string {
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url;
+  }
+}
+
+function resultLine(result: DetectResultLine): string {
+  const head = result.snippet?.trim()
+    ? `${result.title} — ${result.snippet}`
+    : result.title;
+  const tag =
+    result.match === "site"
+      ? `，${L.tagSite}`
+      : result.match === "instagram"
+        ? `，${L.tagInstagram}`
+        : "";
+  return `${L.searchResult}：${head}（${result.host}${tag}）`;
+}
+
+function probeLine(probe: DetectProbe): string {
+  const head = headText(probe);
+  let value: string;
+  if (head) {
+    value = probe.platform ? `${head} (${probe.platform})` : head;
+    if (probe.instagramFollowers !== undefined) {
+      const followers = probe.instagramFollowers.toLocaleString("en-US");
+      value += `，${L.igFollowers} ${followers}`;
+    }
+  } else {
+    const status =
+      probe.status !== undefined ? `（HTTP ${probe.status}）` : "";
+    value = `${probeHost(probe.url)} — ${L.unreachable}${status}`;
+  }
+  return `${L.probe}：${value.slice(0, PROBE_LINE_CHARS)}`;
+}
 
 /**
- * One line per probed URL, rendered after the SERP snippets in the detect
- * user message.
+ * The detect user message for one brand. Pure, and the only template: the
+ * production call and the golden-set regenerate script both render through it,
+ * so the model sees byte-identical messages in both.
  *
- * A probe with neither title nor description falls back to its URL: the
- * orchestrator only forwards probes that carry head text, but a caller passing
- * a bare one must not render an empty field pair.
+ * Head-text probes come before unreachable ones, then the cap applies.
  */
-function probeLines(probes: DetectItem["probes"]): string[] {
-  if (!probes?.length) return [];
+export function renderDetectUserMessage(item: DetectItem): string {
+  const probes = [...(item.probes ?? [])]
+    .sort((a, b) => Number(!headText(a)) - Number(!headText(b)))
+    .slice(0, MAX_PROBE_URLS);
 
-  return probes.slice(0, MAX_PROBE_URLS).map((probe) => {
-    const head =
-      [probe.title, probe.description]
-        .filter((part): part is string => Boolean(part?.trim()))
-        .join(" — ") || probe.url;
-    const value = probe.platform ? `${head} (${probe.platform})` : head;
-    return `探測：${value.slice(0, PROBE_LINE_CHARS)}`;
-  });
+  return [
+    `${L.brandSlug}：${item.slug}`,
+    `${L.brandName}：${item.name}`,
+    `${L.description}：${item.description ?? L.missing}`,
+    `${L.website}：${item.website ?? L.missing}`,
+    `${L.submittedWebsite}：${item.submittedWebsite ?? L.missing}`,
+    ...(item.results ?? []).slice(0, MAX_RESULT_LINES).map(resultLine),
+    ...probes.map(probeLine),
+  ].join("\n");
 }
 
 /**
  * One detect call for one brand. Every brand gets its own call (DEV-1886): the
  * batched path averaged 5.5 brands per call on staging for ~3% of LLM spend, so
  * batching bought little and split the pipeline into two shapes. The prompt
- * judges each entity from its own name, site, snippets and probes only.
+ * judges each entity from its own name, sites, search results and probes only.
  */
 export async function detectBrand(
   brand: DetectItem,
@@ -320,13 +384,7 @@ async function detectBrandCall(
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const snippetLine = brand.snippets?.length
-    ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join("；")}`
-    : "";
-  const probeLine = probeLines(brand.probes)
-    .map((line) => `\n${line}`)
-    .join("");
-  const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}\n網站：${brand.website ?? "無"}${snippetLine}${probeLine}`;
+  const userContent = renderDetectUserMessage(brand);
 
   try {
     const { text: detectPrompt, prompt: detectPromptMeta } = await fetchLangfusePromptWithMeta("detect");

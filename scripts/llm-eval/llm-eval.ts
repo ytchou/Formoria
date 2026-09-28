@@ -49,7 +49,7 @@ import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/type
 export type ArmSpec =
   | { kind: 'prompt'; version: number }
   | { kind: 'model'; model: string }
-  | { kind: 'jev'; version: string }
+  | { kind: 'jev'; version: string; promptVersion?: number }
 
 /** Pairwise runs compare generated text; jev arms are rejected at parse time. */
 export type PairwiseArmSpec = Exclude<ArmSpec, { kind: 'jev' }>
@@ -113,11 +113,20 @@ export function parseArm(spec: string): ArmSpec {
   }
 
   if (kind === 'jev') {
+    // `jev:<version>@<promptVersion>` also pins the adapter's prompt (DEV-1894).
+    const at = value.indexOf('@')
+    const version = at === -1 ? value : value.slice(0, at)
     // Only the pinned version: a floating tag would make runs irreproducible.
-    if (value !== JEV_MODEL) {
+    if (version !== JEV_MODEL) {
       throw new Error(`Malformed arm spec: ${spec} (jev version must be ${JEV_MODEL})`)
     }
-    return { kind: 'jev', version: value }
+    if (at === -1) return { kind: 'jev', version }
+    const pin = value.slice(at + 1)
+    const promptVersion = Number(pin)
+    if (!/^\d+$/.test(pin) || promptVersion < 1) {
+      throw new Error(`Malformed arm spec: ${spec} (prompt version must be a positive integer)`)
+    }
+    return { kind: 'jev', version, promptVersion }
   }
 
   throw new Error(
@@ -782,6 +791,14 @@ export async function cmdRun(
       }
     }
     if (spec.kind === 'jev') {
+      if (spec.promptVersion !== undefined) {
+        return {
+          name: `${spec.version}@${spec.promptVersion}`,
+          type: 'custom' as const,
+          value: `jev:${spec.version}`,
+          promptVersions: `${adapter.promptName}:${spec.promptVersion}`,
+        }
+      }
       return { name: spec.version, type: 'custom' as const, value: `jev:${spec.version}` }
     }
     return { name: spec.model, type: 'model' as const, value: spec.model }

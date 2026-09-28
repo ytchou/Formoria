@@ -1233,6 +1233,26 @@ describe('runExperiment — jev arms', () => {
     ).rejects.toThrow('adapter for test-golden has no decide hook')
   })
 
+  it('custom_arm_pin_sets_and_restores_env', async () => {
+    const envCaptures: string[] = []
+    const decide = vi.fn().mockImplementation(async () => {
+      envCaptures.push(process.env.LANGFUSE_PROMPT_VERSIONS ?? 'unset')
+      return { ok: true, output: { isNonBrand: false, confidence: 'high' } }
+    })
+    process.env.LANGFUSE_PROMPT_VERSIONS = 'names:2'
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ ...jevArm, name: 'jev-1.13.0@4', promptVersions: 'detect:4' }],
+      adapter: makeAdapter({ decide, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: makeJevDeps(),
+    })
+
+    expect(envCaptures).toEqual(['detect:4', 'detect:4'])
+    expect(process.env.LANGFUSE_PROMPT_VERSIONS).toBe('names:2')
+  })
+
   it('duplicate arm names get #2 suffix and separate results', async () => {
     const callModel = vi.fn().mockResolvedValue({
       ok: true,

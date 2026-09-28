@@ -2,7 +2,6 @@ import type { PhaseResult } from "@/lib/types/curation";
 import { auditedCall } from "@/lib/audit";
 import {
   detectBrand,
-  MAX_PROBE_URLS,
   type DetectItem,
   type DetectResult,
 } from "../category-classifier";
@@ -16,6 +15,8 @@ import {
   mapWithConcurrency,
 } from "../_shared/concurrency";
 import type { ProbeEvidence } from "./gather";
+import { detectProbes, detectResults as toDetectResults } from "./detect-evidence";
+import { extractInstagramHandle } from "./scraper/parse/extractors";
 import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
 import {
@@ -81,7 +82,7 @@ function buildDetectPatch(
 
   // No category write here on purpose: the category is a reasoning task the
   // descriptions phase owns, decided from the brand's own site text and its
-  // classified image alt text. Detect only sees SERP snippets.
+  // classified image alt text. Detect only sees SERP results and probes.
 
   if (
     detectResult.brandName &&
@@ -115,31 +116,6 @@ function buildDetectPatch(
   return patch;
 }
 
-// Probe cap imported from category-classifier.ts (prompt owner).
-
-/**
- * Probe evidence worth prompt tokens: one that read a `<head>`. A timed-out or
- * blocked probe carries only the url it was asked about, which the item's own
- * `website` line already says.
- */
-function usableProbes(
-  evidence: readonly ProbeEvidence[] | undefined,
-): DetectItem["probes"] {
-  if (!evidence?.length) return undefined;
-
-  const usable = evidence
-    .filter((probe) => Boolean(probe.title?.trim() || probe.description?.trim()))
-    .slice(0, MAX_PROBE_URLS)
-    .map((probe) => ({
-      url: probe.url,
-      ...(probe.title ? { title: probe.title } : {}),
-      ...(probe.description ? { description: probe.description } : {}),
-      ...(probe.platform ? { platform: probe.platform } : {}),
-    }));
-
-  return usable.length > 0 ? usable : undefined;
-}
-
 export async function runDetectPhase(
   ctx: BatchPhaseContext,
   searchResults: Map<string, SearchPhaseResult>,
@@ -149,6 +125,13 @@ export async function runDetectPhase(
    * `detect` can both rewrite a name and a name key would be a silent miss.
    */
   probeEvidence?: Map<string, readonly ProbeEvidence[]>,
+  /**
+   * Each brand's own URLs (submitted `website_url` plus link columns), keyed by
+   * TARGET ID like `probeEvidence`. Search results on one of them are tagged
+   * as the brand's own site. Built by the orchestrator, which already has them
+   * for the probe list.
+   */
+  ownedUrlsByBrandId?: Map<string, readonly string[]>,
 ): Promise<{
   phaseResult: PhaseResult;
   detectResults: Map<string, DetectResult>;
@@ -186,13 +169,20 @@ export async function runDetectPhase(
     async () => {
   const { result, durationMs } = await timePhase(async () => {
     const detectItems: DetectItem[] = ctx.chunk.map((brand, index) => {
-      const probes = usableProbes(probeEvidence?.get(brand.id));
+      const name = ctx.chunkBrandNames[index];
+      const probes = detectProbes(probeEvidence?.get(brand.id));
+      const results = toDetectResults(
+        searchResults.get(name)?.entries ?? [],
+        ownedUrlsByBrandId?.get(brand.id) ?? [],
+        extractInstagramHandle(brand.social_instagram),
+      );
       return {
         slug: brand.slug,
-        name: ctx.chunkBrandNames[index],
+        name,
         description: brand.description ?? null,
         website: brand.purchase_website ?? null,
-        snippets: searchResults.get(ctx.chunkBrandNames[index])?.snippets ?? [],
+        submittedWebsite: brand.website_url ?? null,
+        results,
         ...(probes ? { probes } : {}),
         target: { type: ctx.targetType ?? "brand", id: brand.id },
       };

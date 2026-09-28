@@ -864,6 +864,18 @@ describe('jev arms', () => {
     expect(() => parseArm('jev:')).toThrow()
   })
 
+  it('parses_jev_arm_with_prompt_pin', () => {
+    expect(parseArm('jev:jev-1.13.0@4')).toEqual({ kind: 'jev', version: 'jev-1.13.0', promptVersion: 4 })
+    expect(() => parseArm('jev:jev-1.13.0@x')).toThrow(/Malformed arm spec/)
+    expect(() => parseArm('jev:jev-1.13.0@0')).toThrow(/Malformed arm spec/)
+  })
+
+  it('jev_arm_without_pin_unchanged', () => {
+    const spec = parseArm('jev:jev-1.13.0')
+    expect(spec).toEqual({ kind: 'jev', version: 'jev-1.13.0' })
+    expect(spec).not.toHaveProperty('promptVersion')
+  })
+
   it('run accepts a jev arm', () => {
     expect(
       parseCliArgs(['run', '--dataset', 'detect-confidence-golden', '--arm', 'jev:jev-1.13.0']),
