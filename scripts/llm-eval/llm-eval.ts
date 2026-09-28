@@ -16,6 +16,13 @@ import { config as dotenvConfig } from 'dotenv'
 
 import { assertCensusTarget } from '../enrichment/eval/production-guard'
 import { loadScriptTarget } from '../shared/target'
+import {
+  LANGFUSE_PACE_MS,
+  LANGFUSE_RETRY_POLICY,
+  httpStatusOf,
+  pacedLangfuseWriter,
+  realSleep,
+} from '../shared/langfuse-paced-write'
 
 // @/ imports — available after loadScriptTarget() sets up env
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
@@ -26,13 +33,14 @@ import {
 } from '@/lib/services/eval/phase-adapters'
 import { enqueueDataset, applyVerdicts, type PrelabelDeps } from '@/lib/services/eval/golden-review'
 import { runExperiment, type ExperimentArm } from '@/lib/services/eval/run-experiment'
+import { shippedNameSweep } from '@/lib/services/eval/names-shipped'
 import {
   type ProductsReplayOutput,
   driftRate,
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
 import { JEV_MODEL } from '@/lib/constants/llm-models'
-import { withRetry, type RetryPolicy } from '@/lib/retry'
+import { withRetry } from '@/lib/retry'
 import {
   promptForDataset,
   type GoldenItemBody,
@@ -70,6 +78,7 @@ export type ParsedCommand =
       arms: ArmSpec[]
       envFile?: string
       allowUnreviewed: boolean
+      split?: DatasetSplit[]
     }
   | { command: 'prompt-push'; name: string; file?: string; label?: string; allowVariableChange: boolean }
   | { command: 'prompt-pull'; add: string[]; check: boolean; allowVariableChange: boolean }
@@ -85,6 +94,22 @@ export type ParsedCommand =
       allowUnreviewed: boolean
     }
   | { command: 'pairwise-report'; runName: string }
+  | { command: 'sweep-names'; runFile: string; dataset: string; split: DatasetSplit[] }
+
+/** Golden-set splits (DEV-1896). Holdout stays untouched until tuned cutoffs are committed. */
+export const DATASET_SPLITS = ['train', 'val', 'holdout'] as const
+export type DatasetSplit = (typeof DATASET_SPLITS)[number]
+
+function parseSplit(value: string): DatasetSplit[] {
+  const parts = splitList(value)
+  if (parts.length === 0) throw new Error(`--split needs at least one of ${DATASET_SPLITS.join(', ')}`)
+  for (const part of parts) {
+    if (!(DATASET_SPLITS as readonly string[]).includes(part)) {
+      throw new Error(`Unknown --split value: ${part} (expected ${DATASET_SPLITS.join(', ')})`)
+    }
+  }
+  return parts as DatasetSplit[]
+}
 
 export function parseArm(spec: string): ArmSpec {
   const colon = spec.indexOf(':')
@@ -172,6 +197,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       datasets: { type: 'string' },
       confirm: { type: 'boolean', default: false },
       draft: { type: 'boolean', default: false },
+      split: { type: 'string' },
     },
   })
 
@@ -272,7 +298,17 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       arms,
       envFile: values['env-file'],
       allowUnreviewed: values['allow-unreviewed'] ?? false,
+      split: values.split !== undefined ? parseSplit(values.split) : undefined,
     }
+  }
+
+  if (sub === 'sweep-names') {
+    const runFile = positionals[1]
+    if (!runFile) throw new Error('run file argument is required')
+    if (!values.dataset) throw new Error('--dataset is required')
+    // Required, not defaulted: a sweep over every split would tune on the holdout.
+    if (values.split === undefined) throw new Error('--split is required (e.g. train,val)')
+    return { command: 'sweep-names', runFile, dataset: values.dataset, split: parseSplit(values.split) }
   }
 
   if (sub === 'prompt') {
@@ -361,12 +397,13 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>] [--target production --confirm]\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
-      '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
+      '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed] [--split train,val,holdout]\n' +
       '  llm-eval prompt push <name> [--file <path>] [--label production] [--allow-variable-change]\n' +
       '  llm-eval prompt pull [--add <name>]... [--check] [--allow-variable-change]\n' +
       '  llm-eval prompt promote <name> <version> [--allow-variable-change]\n' +
       '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue] [--allow-unreviewed]\n' +
-      '  llm-eval pairwise report <runName>',
+      '  llm-eval pairwise report <runName>\n' +
+      '  llm-eval sweep-names <runfile> --dataset <name> --split train,val',
   )
 }
 
@@ -713,36 +750,57 @@ type RunDatasetItem = {
   metadata?: unknown
 }
 
+/** True when the item's `metadata.split` is one of `split`; an item with no split is in none. */
+function inSplit(item: { metadata?: unknown }, split: readonly string[]): boolean {
+  const itemSplit = (item.metadata as { split?: unknown } | null | undefined)?.split
+  return typeof itemSplit === 'string' && split.includes(itemSplit)
+}
+
 export type RunDeps = {
   /** Injectable for tests; defaults to the Langfuse client's getDataset. */
   getDataset?: (name: string) => Promise<{ items: RunDatasetItem[] }>
+  /** Injectable for tests; when set, the script experiment deps are not built. */
+  runExperiment?: (
+    input: Omit<Parameters<typeof runExperiment>[0], 'deps'>,
+  ) => ReturnType<typeof runExperiment>
+}
+
+export type RunOptions = {
+  /** Keep only items whose metadata.split is listed; undefined keeps all items. */
+  split?: DatasetSplit[]
+}
+
+/** Dataset items from the injected loader, else Langfuse; null when Langfuse is not configured. */
+async function loadDatasetItems(
+  dataset: string,
+  getDataset: RunDeps['getDataset'],
+): Promise<RunDatasetItem[] | null> {
+  if (getDataset) return (await getDataset(dataset)).items
+  const client = getLangfuse()
+  if (!client) return null
+  return (await client.getDataset(dataset)).items.map((i) => ({
+    id: i.id,
+    status: i.status,
+    input: i.input,
+    expectedOutput: i.expectedOutput,
+    metadata: i.metadata,
+  }))
 }
 
 export async function cmdRun(
   dataset: string,
   armSpecs: ArmSpec[],
   allowUnreviewed: boolean,
+  options: RunOptions = {},
   runDeps: RunDeps = {},
 ): Promise<void> {
   const adapter = adapterFor(dataset)
 
-  let rawItems: RunDatasetItem[]
-  if (runDeps.getDataset) {
-    rawItems = (await runDeps.getDataset(dataset)).items
-  } else {
-    const client = getLangfuse()
-    if (!client) {
-      console.error('[run] Langfuse not configured')
-      process.exitCode = 1
-      return
-    }
-    rawItems = (await client.getDataset(dataset)).items.map((i) => ({
-      id: i.id,
-      status: i.status,
-      input: i.input,
-      expectedOutput: i.expectedOutput,
-      metadata: i.metadata,
-    }))
+  const rawItems = await loadDatasetItems(dataset, runDeps.getDataset)
+  if (!rawItems) {
+    console.error('[run] Langfuse not configured')
+    process.exitCode = 1
+    return
   }
 
   const activeItems = rawItems.filter(
@@ -762,7 +820,13 @@ export async function cmdRun(
     console.log(`[run] ${skipped} unreviewed item(s) skipped; pass --allow-unreviewed to include them`)
   }
 
-  const items = admitted
+  const { split } = options
+  const selected = split ? admitted.filter((i) => inSplit(i, split)) : admitted
+  if (split) {
+    console.log(`[run] kept ${selected.length} of ${admitted.length} items for split=${split.join(',')}`)
+  }
+
+  const items = selected
     .map((i) => ({
       id: i.id,
       input: i.input,
@@ -787,19 +851,17 @@ export async function cmdRun(
     return { name: spec.model, type: 'model' as const, value: spec.model }
   })
 
-  const { createScriptExperimentDeps } = await import(
-    '@/lib/services/eval/script-experiment-deps'
-  )
-  const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
-
-  const result = await runExperiment({
-    dataset,
-    arms,
-    adapter,
-    items,
-    allowUnreviewed,
-    deps,
-  })
+  const experimentInput = { dataset, arms, adapter, items, allowUnreviewed }
+  let result: Awaited<ReturnType<typeof runExperiment>>
+  if (runDeps.runExperiment) {
+    result = await runDeps.runExperiment(experimentInput)
+  } else {
+    const { createScriptExperimentDeps } = await import(
+      '@/lib/services/eval/script-experiment-deps'
+    )
+    const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
+    result = await runExperiment({ ...experimentInput, deps })
+  }
 
   console.log(result.markdown)
   if (result.provisional) {
@@ -809,6 +871,85 @@ export async function cmdRun(
     `\nSummary: ${result.summary.succeeded}/${result.summary.total} succeeded`,
   )
   process.exitCode = result.exitCode
+}
+
+// ---------------------------------------------------------------------------
+// sweep-names (DEV-1896 D10)
+// ---------------------------------------------------------------------------
+
+type RunFileArm = { name: string; type: string; value: string }
+type RunFileItem = { arm: string; itemId: string; ok: boolean; output?: unknown }
+type RunFile = { dataset?: string; arms: RunFileArm[]; items: RunFileItem[] }
+
+export type SweepNamesDeps = {
+  readFile?: (path: string) => string
+  getDataset?: RunDeps['getDataset']
+  log?: (msg: string) => void
+}
+
+/**
+ * Tunes the Jev names band cutoffs from a finished run: joins the run file's jev
+ * outputs to the dataset items by id (the run file stores no inputs), keeps the
+ * listed splits, and prints the shipped-name agreement grid. Loads, joins and
+ * prints only; the sweep itself is `shippedNameSweep`.
+ */
+export async function cmdSweepNames(
+  runFile: string,
+  dataset: string,
+  split: DatasetSplit[],
+  deps: SweepNamesDeps = {},
+): Promise<void> {
+  const readFileFn = deps.readFile ?? ((p: string) => readFileSync(p, 'utf8'))
+  const log = deps.log ?? console.log
+
+  const run = JSON.parse(readFileFn(runFile)) as RunFile
+  if (run.dataset !== undefined && run.dataset !== dataset) {
+    throw new Error(`run file ${runFile} is for dataset ${run.dataset}, not ${dataset}`)
+  }
+  const jevArms = run.arms.filter((arm) => arm.type === 'custom' && arm.value.startsWith('jev:'))
+  const jevArm = jevArms[0]
+  if (!jevArm) throw new Error(`run file ${runFile} has no jev arm`)
+  if (jevArms.length > 1) log(`[sweep-names] ${jevArms.length} jev arms; sweeping the first, ${jevArm.name}`)
+
+  const datasetItems = await loadDatasetItems(dataset, deps.getDataset)
+  if (!datasetItems) throw new Error('Langfuse not configured')
+  const byId = new Map(datasetItems.map((item) => [item.id, item]))
+
+  const points = run.items.flatMap((runItem) => {
+    if (runItem.arm !== jevArm.name || !runItem.ok) return []
+    const output = runItem.output as { chosen?: unknown; probability?: unknown } | undefined
+    if (typeof output?.probability !== 'number') return []
+    const item = byId.get(runItem.itemId)
+    if (!item || !inSplit(item, split)) return []
+    const user = (item.input as { user?: unknown } | undefined)?.user
+    const acceptedNames = (item.expectedOutput as { acceptedNames?: unknown } | undefined)?.acceptedNames
+    if (typeof user !== 'string' || !Array.isArray(acceptedNames)) return []
+    return [{
+      user,
+      chosen: typeof output.chosen === 'string' ? output.chosen : null,
+      probability: output.probability,
+      acceptedNames: acceptedNames as string[],
+    }]
+  })
+  if (points.length === 0) {
+    throw new Error(`run file ${runFile} has no scorable ${jevArm.name} items for split=${split.join(',')}`)
+  }
+
+  const { rows, best, skipped } = shippedNameSweep(points)
+  const lines = [
+    `Shipped-name agreement, ${jevArm.name}, split=${split.join(',')}, n=${points.length - skipped}`,
+    '',
+    '| NAMES_HIGH_MIN | NAMES_MEDIUM_MIN | agreed | agreement |',
+    '|---|---|---|---|',
+    ...rows.map((row) =>
+      `| ${row.high.toFixed(2)} | ${row.medium.toFixed(2)} | ${row.agreed}/${row.total} | ${row.agreement.toFixed(3)} |`,
+    ),
+    '',
+    `Best: NAMES_HIGH_MIN=${best.high.toFixed(2)} NAMES_MEDIUM_MIN=${best.medium.toFixed(2)} ` +
+      `(agreement ${best.agreement.toFixed(3)}; ties go to the higher cutoff)`,
+    ...(skipped > 0 ? [`skipped ${skipped} unparseable items`] : []),
+  ]
+  log(lines.join('\n'))
 }
 
 async function cmdDatasetRecord(
@@ -1173,17 +1314,6 @@ export function readSituationQueries(path: string = SITUATION_SEARCH_SOURCE): Si
 export type SeedIntentOptions = { sleep?: (ms: number) => Promise<void> }
 
 /**
- * Fixed pacing under Langfuse's 100 writes/min: 700ms per item is ~86/min, so a
- * 156-item seed takes ~2 minutes. Ceiling: one serial writer at the default rate
- * limit; read the limit from 429 headers if the dataset grows past ~1k items.
- */
-const SEED_PACE_MS = 700
-/** 1 attempt + 3 retries, waiting ~2s/4s/8s (withRetry adds up to 100% jitter, capped at 8s). */
-const SEED_RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, capMs: 8_000 }
-
-const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
-
-/**
  * Seeds one unlabelled item per situation query. Items are written ACTIVE with
  * a null `expectedOutput` and a pending `humanApproval`, the same state
  * `golden-review.ts#prelabelItem` keeps: the dataset listing omits ARCHIVED
@@ -1249,7 +1379,7 @@ export async function seedIntentDataset(
       kept++
       continue
     }
-    if (written++ > 0) await sleep(SEED_PACE_MS)
+    if (written++ > 0) await sleep(LANGFUSE_PACE_MS)
     const body = {
       datasetName: INTENT_PARSE_DATASET,
       id,
@@ -1259,7 +1389,7 @@ export async function seedIntentDataset(
       metadata: { split: q.split, humanApproval: { status: 'pending' } },
     }
     const ok = await withRetry(
-      SEED_RETRY_POLICY,
+      LANGFUSE_RETRY_POLICY,
       async () => {
         try {
           const result = (await client.createDatasetItem(body)) as { id?: unknown } | null | undefined
@@ -1413,11 +1543,6 @@ function langfuseGoldenWriteApi(): GoldenWriteApi {
   }
 }
 
-function httpStatusOf(error: unknown): number | undefined {
-  const status = (error as { status?: unknown } | null)?.status
-  return typeof status === 'number' ? status : undefined
-}
-
 export type GoldenWriteOptions = {
   api?: GoldenWriteApi
   sleep?: (ms: number) => Promise<void>
@@ -1431,47 +1556,11 @@ export type GoldenWriteOptions = {
  * The paced, 429-retrying Langfuse call path shared by `writeGoldenItems` and
  * `dataset prelabel --draft`. See `writeGoldenItems` for the pacing budget.
  */
-function goldenWritePacer({
-  api = langfuseGoldenWriteApi(),
-  sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
-  now = Date.now,
-  minIntervalMs = 700,
-  retries = 4,
-  backoffMs = 10_000,
-}: GoldenWriteOptions) {
-  let lastCall: number | null = null
-  const paced = async <T>(call: () => Promise<T>): Promise<T> => {
-    if (lastCall !== null) {
-      const wait = lastCall + minIntervalMs - now()
-      if (wait > 0) await sleep(wait)
-    }
-    lastCall = now()
-    return call()
-  }
-  /** Retries a 429; `undefined` from `call` also means "retry". Other errors propagate. */
-  const withRetry = async <T>(call: () => Promise<T | undefined>): Promise<T | undefined> => {
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const result = await paced(call)
-        if (result !== undefined) return result
-      } catch (error) {
-        if (httpStatusOf(error) !== 429) throw error
-      }
-      if (attempt >= retries) return undefined
-      await sleep(backoffMs * 2 ** (attempt - 1))
-    }
-  }
-  const orThrow = <T>(value: T | undefined, what: string): T => {
-    if (value === undefined) throw new Error(`[golden] ${what}: still rate-limited after ${retries} attempts`)
-    return value
-  }
-
-  /** Creates `body` through the paced, retried path; true only when Langfuse confirms the id. */
-  const confirmedWrite = async (body: GoldenWriteBody): Promise<boolean> =>
-    (await withRetry(async () => {
-      const response = (await api.createItem(body)) as { id?: unknown } | null
-      return response?.id === body.id ? true : undefined
-    })) === true
+function goldenWritePacer({ api = langfuseGoldenWriteApi(), ...pacing }: GoldenWriteOptions) {
+  const { withRetry, orThrow, confirmedWrite } = pacedLangfuseWriter<GoldenWriteBody>({
+    createItem: (body) => api.createItem(body),
+    ...pacing,
+  })
   return { api, withRetry, orThrow, confirmedWrite }
 }
 
@@ -2315,7 +2404,7 @@ async function main() {
       await cmdDatasetReviewPush(parsed.dataset, parsed.approvedBy)
       break
     case 'run':
-      await cmdRun(parsed.dataset, parsed.arms, parsed.allowUnreviewed)
+      await cmdRun(parsed.dataset, parsed.arms, parsed.allowUnreviewed, { split: parsed.split })
       break
     case 'prompt-push':
       await cmdPromptPush(parsed.name, parsed.file, parsed.label)
@@ -2331,6 +2420,9 @@ async function main() {
       break
     case 'pairwise-report':
       await cmdPairwiseReport(parsed.runName)
+      break
+    case 'sweep-names':
+      await cmdSweepNames(parsed.runFile, parsed.dataset, parsed.split)
       break
   }
 }

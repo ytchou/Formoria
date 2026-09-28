@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { adapterFor } from '../phase-adapters'
+import { buildNameArbiterUserContent } from '../../name-arbiter'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { isHighConfidenceWrite } from '../../enrich-phases/detect'
 import { INTENT_PARSE_JSON_SCHEMA, INTENT_PARSE_SYSTEM_PROMPT } from '../../query-intent-parse'
@@ -146,6 +147,46 @@ describe('phase-adapters registry', () => {
     expect(decision.fn(verdict('Adela 愛德拉'), expected)).toBe(1)
     expect(decision.fn(verdict('ADELA'), expected)).toBe(1)
     expect(decision.fn(verdict('德瑪貝爾化粧品'), expected)).toBe(0)
+  })
+
+  it('names adapter scorers are [decisionAgreement, confidenceBandAgreement, shippedNameAgreement] in that order', () => {
+    const adapter = adapterFor('name-arbiter-confidence-golden')
+    expect(adapter.scorers.map((s) => s.name)).toEqual([
+      'decisionAgreement',
+      'confidenceBandAgreement',
+      'shippedNameAgreement',
+    ])
+  })
+
+  it('expectedOf carries the input user message', () => {
+    const adapter = adapterFor('name-arbiter-confidence-golden')
+    const user = buildNameArbiterUserContent([
+      {
+        slug: 'adela-shop',
+        storedName: 'ADELA shop',
+        candidates: [
+          { source: 'stored', value: 'ADELA shop' },
+          { source: 'cleaned', value: 'ADELA' },
+          { source: 'detected', value: 'Adela Atelier' },
+        ],
+      },
+    ])
+    const item = {
+      input: { system: 'sys', user },
+      expectedOutput: { confidence: 'high', acceptedNames: ['Adela Atelier'] },
+    }
+    const expected = adapter.expectedOf(item)
+    expect(expected).toEqual({ acceptedNames: ['Adela Atelier'], confidence: 'high', user })
+
+    const shipped = adapter.scorers.find((s) => s.name === 'shippedNameAgreement')!
+    const verdict = (confidence: string) => ({ slug: 'adela-shop', chosen: 'Adela Atelier', confidence, reason: '' })
+    // A high rename ships; the same rename at low falls back to the cleaned name.
+    expect(shipped.fn(verdict('high'), expected)).toBe(1)
+    expect(shipped.fn(verdict('low'), expected)).toBe(0)
+    // No input message: n/a rather than a wrong score.
+    expect(shipped.fn(verdict('high'), adapter.expectedOf({ expectedOutput: item.expectedOutput }))).toBeNull()
+    // An unparseable input message: n/a rather than an aborted run.
+    expect(shipped.fn(verdict('high'), { ...(expected as Record<string, unknown>), user: 'no item here' })).toBeNull()
   })
 
   it('name-arbiter adapter exposes its exported shape', () => {
