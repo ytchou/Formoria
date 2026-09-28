@@ -2,8 +2,7 @@
  * Field labels of the chat user messages the Jev eval candidates parse back
  * into state (`src/lib/services/eval/jev-questions.ts`). They mirror the
  * templates in `category-classifier.ts` (detect, classify) and
- * `scripts/distillation/export-training-data.ts` (product classify); the
- * site-identity message uses `SITE_IDENTITY_LABELS`.
+ * `scripts/distillation/export-training-data.ts` (product classify).
  */
 export const JEV_INPUT_LABELS = {
   brandSlug: "品牌 slug",

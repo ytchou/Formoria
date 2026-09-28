@@ -29,8 +29,8 @@ import type { ProductCandidate } from "../product-candidates";
  * `@/lib/services/` alias spelling only, so the relative path below passes the
  * gate. That is a gap in the gate, filed separately, and NOT the licence this
  * test relies on: the reason the mock is legitimate is that the mocked export
- * is the adapter, and `site-identity.test.ts` stubs `../../site-identity-arbiter`
- * on the same ground.
+ * is the adapter, and `names.test.ts` stubs `../../name-arbiter` on the same
+ * ground.
  *
  * Supabase is INJECTED rather than mocked, which is also what lets the
  * zero-writes assertion below observe every table the phase touches.

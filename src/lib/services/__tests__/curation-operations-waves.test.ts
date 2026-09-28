@@ -29,7 +29,6 @@ const mocks = vi.hoisted(() => ({
   runStockistsPhase: vi.fn(),
   runFaqPhase: vi.fn(),
   runDiscoverPhase: vi.fn(),
-  runSiteIdentityPhase: vi.fn(),
   runImageSearchPhase: vi.fn(),
   runNamesPhase: vi.fn(),
   runProductsPhase: vi.fn(),
@@ -132,16 +131,6 @@ vi.mock("../enrich-phases/discover", async (importOriginal) => {
     ...original,
     runDiscoverPhase: mocks.runDiscoverPhase.mockImplementation(
       original.runDiscoverPhase,
-    ),
-  };
-});
-
-vi.mock("../enrich-phases/site-identity", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../enrich-phases/site-identity")>();
-  return {
-    ...original,
-    runSiteIdentityPhase: mocks.runSiteIdentityPhase.mockImplementation(
-      original.runSiteIdentityPhase,
     ),
   };
 });
@@ -667,7 +656,10 @@ describe("wave collapse — single per-brand loop", () => {
       fakeSupabase([target]),
     );
 
-    expect(mocks.runSiteIdentityPhase).not.toHaveBeenCalled();
+    // DEV-1885 deleted the standalone site-identity runner; page ownership is
+    // judged inside the acquisition critique. Nothing left for runEnrich to call.
+    const siteIdentity = await import("../enrich-phases/site-identity");
+    expect(siteIdentity).not.toHaveProperty("runSiteIdentityPhase");
   });
 
   it("probe_evidence_feeds_detect — detect receives probe evidence from gather", async () => {

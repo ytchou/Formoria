@@ -198,10 +198,6 @@ describe("confidence prompt rubric anchors", () => {
       name: "name-arbiter",
       ids: ["name-high-unigaze", "name-medium-aromase", "name-low-trista"],
     },
-    {
-      name: "site-identity",
-      ids: ["site-high-smore", "site-medium-jaibei", "site-low-1koshijimi"],
-    },
   ];
 
   it.each(prompts)(

@@ -73,10 +73,10 @@ import {
 } from './scraper/search'
 import type { ImageQueryInput } from './scraper/types'
 import type { SerperAuditOptions } from './scraper/serper'
-import { siteIdentityKey } from '../site-identity-arbiter'
 import {
   applyRevocation,
   resolveQuarantine,
+  siteIdentityKey,
   verdictsFromCritique,
   type RevokableImagePayload,
 } from './site-identity'
