@@ -6,6 +6,11 @@
  *
  * Every item stores `input` as the raw user string production sent, never an
  * object, so a replay sends the exact message (name-arbiter lesson).
+ *
+ * DEV-1898 adds agreement sets (D11): the incumbent model's own answer, captured
+ * zero-write, is the reference. Their items store the full captured request
+ * (`{ user, messages, schema, ... }`) and the captured output as
+ * `expectedOutput.output`; see `agreementCallsToItems`.
  */
 
 import { createHash } from 'node:crypto'
@@ -15,35 +20,79 @@ import { productUrlKey } from '../enrich-phases/product-candidates'
 import { brandSiteUrl } from '../enrich-phases/products/graph'
 import { DESCRIPTION_ORIGIN_OMITTED } from '../enrich-phases/products/verify'
 import { MAX_PROMPT_LENGTH, PROMPT_TRUNCATION_MARK, type CapturedCall } from '../llm-audit'
+import type { ChatMessage, OpenAIJsonSchema } from '../openai-client'
 import type { ProductsGoldenContext } from './product-scorers'
 
 // ---------------------------------------------------------------------------
 // Prompts and datasets
 // ---------------------------------------------------------------------------
 
-export const GOLDEN_PROMPTS = [
+/** Labelled or rule-scored golden sets (DEV-1873). */
+export const LEGACY_GOLDEN_PROMPTS = [
   'acquisition-plan',
   'acquisition-critique',
   'products-repair',
   'products',
 ] as const
 
+/**
+ * Agreement sets (DEV-1898 D11/D3/D17). Each key is the Langfuse prompt name
+ * the phase compiles, so classification matches the text production sends.
+ */
+export const AGREEMENT_PROMPTS = [
+  'brand-facts',
+  'founding-facts',
+  'founding-facts-verify',
+  'faq-preamble',
+  'stockists',
+  'editorial-repair',
+  'classify-images',
+  'sentry-classify',
+] as const
+
+export const GOLDEN_PROMPTS = [...LEGACY_GOLDEN_PROMPTS, ...AGREEMENT_PROMPTS] as const
+
 export type GoldenPrompt = (typeof GOLDEN_PROMPTS)[number]
+export type AgreementPrompt = (typeof AGREEMENT_PROMPTS)[number]
+
+export function isAgreementPrompt(prompt: GoldenPrompt): prompt is AgreementPrompt {
+  return (AGREEMENT_PROMPTS as readonly string[]).includes(prompt)
+}
 
 export const GOLDEN_DATASETS: Record<GoldenPrompt, string> = {
   'acquisition-plan': 'acquisition-plan-golden',
   'acquisition-critique': 'acquisition-critique-golden',
   'products-repair': 'products-repair-golden',
   products: 'products-fallback-golden',
+  'brand-facts': 'brand-facts-agreement',
+  'founding-facts': 'founding-facts-agreement',
+  'founding-facts-verify': 'founding-facts-verify-agreement',
+  'faq-preamble': 'faq-preamble-agreement',
+  stockists: 'stockists-agreement',
+  'editorial-repair': 'editorial-repair-agreement',
+  'classify-images': 'classify-images-agreement',
+  'sentry-classify': 'sentry-classify-agreement',
 }
 
-/** `brand_ai_results.phase` values each prompt's rows are written under. */
+/**
+ * `brand_ai_results.phase` values each prompt's rows are written under. The
+ * editorial repair turn is audited as `descriptions` (and faq rows share `faq`),
+ * so editorial rows are told apart by prompt text, never by phase.
+ */
 export const GOLDEN_PROMPT_PHASES: Record<GoldenPrompt, readonly string[]> = {
   // `acquisition` is the sub-phase historical rows carry (before 20260903100400).
   'acquisition-plan': ['acquire', 'acquisition'],
   'acquisition-critique': ['acquire', 'acquisition'],
   'products-repair': ['products'],
   products: ['products'],
+  'brand-facts': ['facts'],
+  'founding-facts': ['founding_facts'],
+  'founding-facts-verify': ['founding_facts_verify'],
+  'faq-preamble': ['faq'],
+  stockists: ['stockists'],
+  'editorial-repair': ['descriptions', 'faq'],
+  'classify-images': ['classify_images'],
+  'sentry-classify': ['sentry-classify'],
 }
 
 export function promptForDataset(dataset: string): GoldenPrompt | null {
@@ -181,6 +230,9 @@ function contextFor(prompt: GoldenPrompt, user: string): unknown {
       return repairContext(user) ?? undefined
     case 'products':
       return fallbackContext(user) ?? undefined
+    default:
+      // Agreement sets are built by `agreementCallsToItems`, never from a user message alone.
+      return undefined
   }
 }
 
@@ -316,11 +368,11 @@ export function capturedCallsToItems(
   calls: readonly TimedCapturedCall[],
   options: { brandSlug: string; jobId: string; texts: PromptTexts; prompts?: readonly GoldenPrompt[] },
 ): GoldenItemBody[] {
-  const wanted = new Set(options.prompts ?? GOLDEN_PROMPTS)
+  const wanted = new Set(options.prompts ?? LEGACY_GOLDEN_PROMPTS)
   const records: GoldenCallRecord[] = []
   for (const call of calls) {
     const prompt = classifyCapturedCall(call, options.texts)
-    if (!prompt || !wanted.has(prompt)) continue
+    if (!prompt || !wanted.has(prompt) || isAgreementPrompt(prompt)) continue
     records.push({
       prompt,
       user: call.user,
@@ -331,4 +383,127 @@ export function capturedCallsToItems(
     })
   }
   return toGoldenItems(records)
+}
+
+// ---------------------------------------------------------------------------
+// Agreement items (DEV-1898 D11)
+// ---------------------------------------------------------------------------
+
+/** The full captured request of a text agreement item; `user` lets the default replay path read it too. */
+export type AgreementInput = {
+  user: string
+  messages: ChatMessage[]
+  schema: OpenAIJsonSchema | null
+  promptName: string | null
+  profileKey: string | null
+}
+
+/** A vision agreement item: one brand's images, re-downloaded and classified on replay (D3). */
+export type VisionAgreementInput = {
+  brandContext: string
+  imageUrls: string[]
+}
+
+/** One image's verdict as `classifyImageBuffers` returned it. */
+export type VisionVerdict = { sourceUrl: string; disposition: 'keep' | 'reject'; score: number; tag: string }
+
+export type AgreementItemBody = {
+  datasetName: string
+  id: string
+  input: AgreementInput | VisionAgreementInput
+  /** The incumbent's captured output: the reference, not a label. */
+  expectedOutput: { output: unknown }
+  status: 'ACTIVE'
+  metadata: {
+    source: 'capture'
+    brandSlug: string
+    jobId: string | null
+    phase: string
+    profileKey: string | null
+    humanApproval: { status: 'pending' }
+  }
+}
+
+function agreementItemId(prompt: AgreementPrompt, key: string, content: string): string {
+  const digest = createHash('sha256').update(content).digest('hex').slice(0, 16)
+  return `${prompt}:${key}:${digest}`
+}
+
+/**
+ * Captured calls to agreement items. A call is kept when its system text
+ * classifies to one of `prompts` and the incumbent answered with parseable
+ * JSON (`response.parsed`); a failed or unparseable call has no reference.
+ * One item per (prompt, brand, user message), so a re-capture upserts.
+ * `classify-images` calls are skipped; see `visionAgreementItem`.
+ */
+export function agreementCallsToItems(
+  calls: readonly TimedCapturedCall[],
+  options: { brandSlug: string; jobId: string | null; texts: PromptTexts; prompts: readonly AgreementPrompt[] },
+): AgreementItemBody[] {
+  const wanted = new Set<GoldenPrompt>(options.prompts)
+  const seen = new Set<string>()
+  const items: AgreementItemBody[] = []
+  for (const call of [...calls].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))) {
+    const prompt = classifyCapturedCall(call, options.texts)
+    if (!prompt || !wanted.has(prompt) || !isAgreementPrompt(prompt)) continue
+    // Vision items are per brand (`visionAgreementItem`): a batch call's images are not in `messages`.
+    if (prompt === 'classify-images') continue
+    if (call.response.parsed === undefined) continue
+    const id = agreementItemId(prompt, options.brandSlug, call.user)
+    if (seen.has(id)) continue
+    seen.add(id)
+    items.push({
+      datasetName: GOLDEN_DATASETS[prompt],
+      id,
+      input: {
+        user: call.user,
+        messages: call.messages,
+        schema: call.schema ?? null,
+        promptName: call.promptName,
+        profileKey: call.profileKey,
+      },
+      expectedOutput: { output: call.response.parsed },
+      status: 'ACTIVE',
+      metadata: {
+        source: 'capture',
+        brandSlug: options.brandSlug,
+        jobId: options.jobId,
+        phase: call.phase,
+        profileKey: call.profileKey,
+        humanApproval: { status: 'pending' },
+      },
+    })
+  }
+  return items
+}
+
+/**
+ * One brand's vision agreement item (D3): the image URLs and brand context the
+ * replay re-classifies, with the incumbent's per-image verdicts as reference.
+ * Null when the incumbent judged no image (every batch failed or none gated).
+ */
+export function visionAgreementItem(options: {
+  brandSlug: string
+  jobId: string | null
+  brandContext: string
+  imageUrls: readonly string[]
+  verdicts: readonly VisionVerdict[]
+}): AgreementItemBody | null {
+  if (options.verdicts.length === 0) return null
+  const imageUrls = [...options.imageUrls]
+  return {
+    datasetName: GOLDEN_DATASETS['classify-images'],
+    id: agreementItemId('classify-images', options.brandSlug, JSON.stringify(imageUrls)),
+    input: { brandContext: options.brandContext, imageUrls },
+    expectedOutput: { output: { images: options.verdicts.map(({ sourceUrl, disposition, score, tag }) => ({ sourceUrl, disposition, score, tag })) } },
+    status: 'ACTIVE',
+    metadata: {
+      source: 'capture',
+      brandSlug: options.brandSlug,
+      jobId: options.jobId,
+      phase: 'classify_images',
+      profileKey: 'classifyImages',
+      humanApproval: { status: 'pending' },
+    },
+  }
 }

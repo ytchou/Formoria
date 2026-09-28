@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+
 import type { ZodType } from 'zod'
 
 import { reportBannedTerms } from '@/lib/i18n/banned-terms'
@@ -249,11 +251,72 @@ export function recoveryActionConsistent(output: {
   return hasAction === (output.verdict === 'thin') ? 1 : 0
 }
 
+/**
+ * Enum agreement on one field (`verdict` by default). n/a (null) when the
+ * expected side has no value for the field; a missing output value disagrees.
+ */
 export function verdictAgreement(
-  output: { verdict?: unknown },
-  expected: { verdict: unknown },
-): number {
-  return decisionAgreement(output.verdict, expected.verdict)
+  output: Record<string, unknown> | null | undefined,
+  expected: Record<string, unknown> | null | undefined,
+  field = 'verdict',
+): number | null {
+  const want = expected?.[field]
+  if (want === undefined || want === null) return null
+  return decisionAgreement(output?.[field], want)
+}
+
+// ---------------------------------------------------------------------------
+// Agreement scorers (DEV-1898 D11/D12): compare a challenger's output with the
+// incumbent's captured output by shape. No prose is compared.
+// ---------------------------------------------------------------------------
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+/**
+ * Flat structured fields: the mean of per-field exact (deep) matches over the
+ * fields the expected output carries. n/a when it carries none of them.
+ */
+export function fieldAgreement(output: unknown, expected: unknown, fields: readonly string[]): number | null {
+  const want = asRecord(expected)
+  if (!want) return null
+  const got = asRecord(output) ?? {}
+  const present = fields.filter((field) => want[field] !== undefined)
+  if (present.length === 0) return null
+  const matches = present.filter((field) => isDeepStrictEqual(got[field] ?? null, want[field] ?? null)).length
+  return matches / present.length
+}
+
+/**
+ * Lists: Jaccard over the elements' keys (`keyOf`, default the JSON text).
+ * n/a when the expected list is absent; two empty lists agree.
+ */
+export function setAgreement(
+  output: unknown,
+  expected: unknown,
+  keyOf: (element: unknown) => string = (element) => JSON.stringify(element),
+): number | null {
+  if (!Array.isArray(expected)) return null
+  const got = Array.isArray(output) ? output : []
+  return jaccard(new Set(got.map(keyOf)), new Set(expected.map(keyOf)))
+}
+
+/**
+ * Prose-bearing outputs (faq, editorial repair): Jaccard over which parts are
+ * present — preset ids, non-null fields — never over the wording. `partsOf`
+ * returns null for a value it cannot read; the expected side reading null is n/a.
+ */
+export function structureAgreement(
+  output: unknown,
+  expected: unknown,
+  partsOf: (value: unknown) => readonly string[] | null,
+): number | null {
+  const want = partsOf(expected)
+  if (want === null) return null
+  return jaccard(new Set(partsOf(output) ?? []), new Set(want))
 }
 
 // ---------------------------------------------------------------------------

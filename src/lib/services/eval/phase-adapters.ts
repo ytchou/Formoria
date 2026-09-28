@@ -47,7 +47,15 @@ import {
   planSchemaValid,
   recoveryActionConsistent,
   verdictAgreement,
+  fieldAgreement,
+  setAgreement,
+  structureAgreement,
 } from './scorers'
+import { MIN_KEEP_SCORE, type ClassifiedImageWithBuffer } from '../enrich-phases/classify-images'
+import type { GatedImage } from '../image-download'
+import type { ChatMessage, OpenAIJsonSchema } from '../openai-client'
+import type { LlmProfileKey } from '@/lib/constants/llm-models'
+import type { AgreementInput, VisionAgreementInput, VisionVerdict } from './golden-capture'
 import {
   JEV_CANDIDATES,
   runJevCandidate,
@@ -252,6 +260,294 @@ const REPAIR_SHAPE = PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })
 
 function contextOf(item: { expectedOutput: unknown }): { context: unknown } {
   return { context: (item.expectedOutput as { context?: unknown } | null)?.context ?? {} }
+}
+
+// ---------------------------------------------------------------------------
+// Agreement sets (DEV-1898 D11/D12/D17/D3): the captured incumbent output is
+// the reference. Scored by output shape; prose is never compared.
+// ---------------------------------------------------------------------------
+
+/** Replays a captured text call on the arm's model: the captured messages and schema, unchanged. */
+export type AgreementCallModel = (
+  input: { profileKey: LlmProfileKey; phase: string; messages: ChatMessage[]; schema: OpenAIJsonSchema | null },
+  options: { model?: string },
+) => Promise<{ ok: boolean; content: string }>
+
+const defaultAgreementCallModel: AgreementCallModel = async (input, options) => {
+  const client = createProfiledOpenAIClient(input.profileKey, { phase: input.phase }, { model: options.model })
+  const result = await client.chat({
+    messages: input.messages,
+    ...(input.schema ? { schema: input.schema } : { json: true }),
+    ...profileChatParams(input.profileKey),
+  })
+  return { ok: result.response.ok, content: result.content ?? '' }
+}
+
+/**
+ * The replay task for a text agreement set. It re-sends the captured request
+ * as-is, so the system text is the prompt version that ran at capture time:
+ * model arms compare models on identical input; a prompt arm has no effect here.
+ */
+function agreementReplayTask(
+  profileKey: LlmProfileKey,
+  phase: string,
+  callModel: AgreementCallModel,
+): NonNullable<PhaseAdapter['task']> {
+  return async (item, _arm, ctx) => {
+    try {
+      const input = item.input as Partial<AgreementInput> | null
+      if (!Array.isArray(input?.messages)) return { ok: false, output: null, error: 'item has no captured messages' }
+      const result = await callModel(
+        { profileKey, phase, messages: input.messages, schema: input.schema ?? null },
+        { model: ctx.model },
+      )
+      if (!result.ok) return { ok: false, output: null, error: 'Model call failed' }
+      try {
+        return { ok: true, output: JSON.parse(result.content) as unknown }
+      } catch {
+        return { ok: false, output: null, error: 'Output parsing failed' }
+      }
+    } catch (e) {
+      return { ok: false, output: null, error: describeError(e) }
+    }
+  }
+}
+
+/** Vision replay seams: download + production gates, then the buffer classifier. */
+export type VisionReplayDeps = {
+  gate: (imageUrls: string[]) => Promise<GatedImage[]>
+  classify: (
+    gated: GatedImage[],
+    options: { brandContext: string; onBatchFailure: () => void },
+  ) => Promise<ClassifiedImageWithBuffer[]>
+}
+
+const defaultVisionReplayDeps: VisionReplayDeps = {
+  // A synthetic submission target: its existing-candidate and phash reads find
+  // nothing, so every URL is re-downloaded, and nothing is written (no store step).
+  gate: async (imageUrls) => {
+    const { randomUUID } = await import('node:crypto')
+    const { downloadAndGateImages } = await import('../image-download')
+    return downloadAndGateImages(imageUrls, { type: 'submission', id: randomUUID() })
+  },
+  classify: async (gated, options) => {
+    const { classifyImageBuffers } = await import('../enrich-phases/classify-images')
+    return classifyImageBuffers(gated, options)
+  },
+}
+
+/**
+ * Re-classifies one brand's images on the arm's model (the profiled client
+ * honours `OPENAI_MODEL_OVERRIDE`). A failed batch fails the item: D3 gates on
+ * zero failed batches, and a partial verdict list would skew keep agreement.
+ */
+function visionReplayTask(deps: VisionReplayDeps): NonNullable<PhaseAdapter['task']> {
+  return async (item) => {
+    try {
+      const input = item.input as Partial<VisionAgreementInput> | null
+      if (!Array.isArray(input?.imageUrls) || typeof input.brandContext !== 'string') {
+        return { ok: false, output: null, error: 'item has no image URLs' }
+      }
+      const gated = await deps.gate(input.imageUrls)
+      let failedBatches = 0
+      const classified = await deps.classify(gated, {
+        brandContext: input.brandContext,
+        onBatchFailure: () => {
+          failedBatches += 1
+        },
+      })
+      const output = { images: classified.map(toVisionVerdict), failedBatches }
+      if (failedBatches > 0) return { ok: false, output, error: `failed batches: ${failedBatches}` }
+      return { ok: true, output }
+    } catch (e) {
+      return { ok: false, output: null, error: describeError(e) }
+    }
+  }
+}
+
+function toVisionVerdict(image: ClassifiedImageWithBuffer): VisionVerdict {
+  return { sourceUrl: image.sourceUrl, disposition: image.disposition, score: image.score, tag: image.tag }
+}
+
+function field(value: unknown, key: string): unknown {
+  return value !== null && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined
+}
+
+function asFields(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
+
+/** Kept means a keep verdict at or above the production floor. */
+function isKept(image: VisionVerdict): boolean {
+  return image.disposition === 'keep' && image.score >= MIN_KEEP_SCORE
+}
+
+/** Output and expected verdicts for the images both sides judged, matched by source URL. */
+function matchedImages(output: unknown, expected: unknown): Array<[VisionVerdict, VisionVerdict]> | null {
+  const want = field(expected, 'images')
+  if (!Array.isArray(want)) return null
+  const got = field(output, 'images')
+  const byUrl = new Map((Array.isArray(got) ? (got as VisionVerdict[]) : []).map((image) => [image.sourceUrl, image]))
+  const pairs = (want as VisionVerdict[]).flatMap((image) => {
+    const other = byUrl.get(image.sourceUrl)
+    return other ? [[other, image] as [VisionVerdict, VisionVerdict]] : []
+  })
+  return pairs.length > 0 ? pairs : null
+}
+
+function meanOver(pairs: Array<[VisionVerdict, VisionVerdict]> | null, fn: (o: VisionVerdict, e: VisionVerdict) => number): number | null {
+  if (!pairs) return null
+  return pairs.reduce((sum, [o, e]) => sum + fn(o, e), 0) / pairs.length
+}
+
+/** Keep/reject agreement at `MIN_KEEP_SCORE`, over images both sides judged. */
+export function keepAgreement(output: unknown, expected: unknown): number | null {
+  return meanOver(matchedImages(output, expected), (o, e) => (isKept(o) === isKept(e) ? 1 : 0))
+}
+
+/** Mean absolute score difference (0-100 scale). Reported, never thresholded (D3). */
+export function scoreDelta(output: unknown, expected: unknown): number | null {
+  return meanOver(matchedImages(output, expected), (o, e) => Math.abs(o.score - e.score))
+}
+
+function tagAgreement(output: unknown, expected: unknown): number | null {
+  return meanOver(matchedImages(output, expected), (o, e) => (o.tag === e.tag ? 1 : 0))
+}
+
+const AGREEMENT_OUTPUT_SHAPE = z.record(z.string(), z.unknown())
+const agreementExpectedSchema = z.object({ output: z.unknown() })
+
+type AgreementScorer = PhaseAdapter['scorers'][number]
+
+/** A nullable scorer: n/a (null) stays absent on failed items instead of zeroing them. */
+function agreementScorer(name: string, fn: (output: unknown, expected: unknown) => number | null): AgreementScorer {
+  return { name, fn, nullable: true }
+}
+
+/** Static fields of an agreement adapter; the replay task comes from `transportHooks`. */
+function agreementAdapter(options: {
+  promptName: string
+  profileKey: LlmProfileKey
+  variables?: Record<string, string>
+  scorers: AgreementScorer[]
+}): PhaseAdapter {
+  return {
+    promptName: options.promptName,
+    ...(options.variables ? { variables: options.variables } : {}),
+    profileKey: options.profileKey,
+    outputSchema: AGREEMENT_OUTPUT_SHAPE,
+    // Unused by the replay task, which re-sends each item's captured schema; kept for the adapter contract.
+    requestSchema: { name: 'agreement_output', schema: { type: 'object' } },
+    parseOutput: makeParseOutput(AGREEMENT_OUTPUT_SHAPE),
+    unwrap: (output) => output,
+    // The reference is the incumbent's captured output (D11), not a label.
+    expectedOf: (item) => (item.expectedOutput as { output?: unknown } | null)?.output ?? null,
+    expectedSchema: agreementExpectedSchema,
+    scorers: options.scorers,
+    mode: 'scored',
+  }
+}
+
+const normalizedName = (value: unknown) => String(field(value, 'name') ?? '').trim().toLowerCase()
+
+/** Keys whose value is a non-empty string: the fields a repair turn actually rewrote. */
+function filledFields(value: unknown): string[] | null {
+  const fields = asFields(value)
+  if (!fields) return null
+  return Object.keys(fields).filter((key) => typeof fields[key] === 'string' && (fields[key] as string).length > 0)
+}
+
+function faqPresetIds(value: unknown): string[] | null {
+  const entries = field(value, 'entries')
+  return Array.isArray(entries) ? entries.map((entry) => String(field(entry, 'preset_id'))) : null
+}
+
+/** Agreement adapters, keyed by dataset. Their `profileKey`s name the slot under test. */
+const agreementRegistry: Record<string, PhaseAdapter> = {
+  'brand-facts-agreement': agreementAdapter({
+    promptName: 'brand-facts',
+    profileKey: 'facts',
+    variables: {
+      category_list: CATEGORY_LIST,
+      subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+      material_vocab_block: MATERIAL_VOCAB_BLOCK,
+    },
+    scorers: [
+      agreementScorer('factsFieldAgreement', (o, e) => fieldAgreement(o, e, ['category', 'city', 'founding_year'])),
+      agreementScorer('subcategoriesAgreement', (o, e) => setAgreement(field(o, 'subcategories'), field(e, 'subcategories'))),
+      agreementScorer('listingVerdictAgreement', (o, e) => verdictAgreement(asFields(field(o, 'listing')), asFields(field(e, 'listing')))),
+      agreementScorer('listingFieldAgreement', (o, e) =>
+        fieldAgreement(field(o, 'listing'), field(e, 'listing'), ['taiwan_connection', 'has_own_products', 'has_purchase_channel'])),
+    ],
+  }),
+  'founding-facts-agreement': agreementAdapter({
+    promptName: 'founding-facts',
+    profileKey: 'foundingFacts',
+    scorers: [
+      agreementScorer('claimsAgreement', (o, e) =>
+        setAgreement(field(o, 'claims'), field(e, 'claims'), (claim) => `${String(field(claim, 'field'))}:${String(field(claim, 'value'))}`)),
+    ],
+  }),
+  'founding-facts-verify-agreement': agreementAdapter({
+    promptName: 'founding-facts-verify',
+    profileKey: 'foundingFactsVerify',
+    scorers: [
+      agreementScorer('verificationAgreement', (o, e) =>
+        setAgreement(field(o, 'results'), field(e, 'results'), (r) => `${String(field(r, 'claim_index'))}:${String(field(r, 'passed'))}`)),
+    ],
+  }),
+  'faq-preamble-agreement': agreementAdapter({
+    promptName: 'faq-preamble',
+    profileKey: 'faq',
+    variables: { taiwan_usage_rules: TAIWAN_USAGE_RULES },
+    // D12: answers are prose; only which presets were answered is compared here.
+    scorers: [agreementScorer('presetStructureAgreement', (o, e) => structureAgreement(o, e, faqPresetIds))],
+  }),
+  'stockists-agreement': agreementAdapter({
+    promptName: 'stockists',
+    profileKey: 'stockists',
+    scorers: [
+      agreementScorer('stockistNamesAgreement', (o, e) => setAgreement(field(o, 'stockists'), field(e, 'stockists'), normalizedName)),
+      agreementScorer('stockistRegionsAgreement', (o, e) =>
+        setAgreement(field(o, 'stockists'), field(e, 'stockists'), (s) => `${normalizedName(s)}|${String(field(s, 'regionSlug'))}`)),
+    ],
+  }),
+  'editorial-repair-agreement': agreementAdapter({
+    promptName: 'editorial-repair',
+    profileKey: 'editorial',
+    // D12: the repaired copy is prose; only which fields were rewritten is compared.
+    scorers: [agreementScorer('repairFieldsAgreement', (o, e) => structureAgreement(o, e, filledFields))],
+  }),
+  'sentry-classify-agreement': agreementAdapter({
+    promptName: 'sentry-classify',
+    profileKey: 'sentryClassify',
+    scorers: [
+      agreementScorer('severityAgreement', (o, e) => verdictAgreement(asFields(o), asFields(e), 'severity')),
+      agreementScorer('fixabilityAgreement', (o, e) => verdictAgreement(asFields(o), asFields(e), 'fixability')),
+      agreementScorer('mergePolicyAgreement', (o, e) => verdictAgreement(asFields(o), asFields(e), 'mergePolicy')),
+      agreementScorer('changedFilesAgreement', (o, e) => setAgreement(field(o, 'changedFiles'), field(e, 'changedFiles'))),
+    ],
+  }),
+  'classify-images-agreement': agreementAdapter({
+    promptName: 'classify-images',
+    profileKey: 'classifyImages',
+    scorers: [
+      agreementScorer('keepAgreement', keepAgreement),
+      agreementScorer('scoreDelta', scoreDelta),
+      agreementScorer('tagAgreement', tagAgreement),
+    ],
+  }),
+}
+
+/** Text agreement sets and the audit phase their replay calls run under. */
+const AGREEMENT_REPLAY_PHASES: Readonly<Record<string, string>> = {
+  'brand-facts-agreement': 'facts',
+  'founding-facts-agreement': 'founding_facts',
+  'founding-facts-verify-agreement': 'founding_facts_verify',
+  'faq-preamble-agreement': 'faq',
+  'stockists-agreement': 'stockists',
+  'editorial-repair-agreement': 'descriptions',
+  'sentry-classify-agreement': 'sentry-classify',
 }
 
 // ---------------------------------------------------------------------------
@@ -536,6 +832,8 @@ const registry: Record<string, PhaseAdapter> = {
     ],
     mode: 'scored',
   },
+
+  ...agreementRegistry,
 }
 
 /** Injected transports; each defaults to the live client. */
@@ -544,6 +842,10 @@ export type AdapterDeps = {
   decide?: DecideFn
   /** The intent-parse model call; defaults to the audited `intentParse` profile client. */
   callModel?: IntentCallModel
+  /** The agreement replay call; defaults to the audited profile client of the set's slot. */
+  agreementCallModel?: AgreementCallModel
+  /** The vision agreement replay seams; default to the real download gates and buffer classifier. */
+  visionReplay?: VisionReplayDeps
 }
 
 /** The model-calling hooks, built per call so tests can inject the transport. */
@@ -562,8 +864,14 @@ function transportHooks(
         task: intentParseTask(deps.callModel ?? defaultIntentCallModel),
         decide: jevDecide(JEV_CANDIDATES.intentParse, decide),
       }
-    default:
-      return {}
+    case 'classify-images-agreement':
+      return { task: visionReplayTask(deps.visionReplay ?? defaultVisionReplayDeps) }
+    default: {
+      const phase = AGREEMENT_REPLAY_PHASES[datasetName]
+      if (phase === undefined) return {}
+      const profileKey = agreementRegistry[datasetName]!.profileKey as LlmProfileKey
+      return { task: agreementReplayTask(profileKey, phase, deps.agreementCallModel ?? defaultAgreementCallModel) }
+    }
   }
 }
 

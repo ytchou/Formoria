@@ -574,6 +574,30 @@ describe("chat capture seam", () => {
       content: '{"ok":true}',
       parsed: { ok: true },
     });
+    expect(captured[0]!.schema).toBeUndefined();
+  });
+
+  it("capture records the request schema so an agreement replay can re-send it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }),
+          { status: 200 },
+        ),
+      ),
+    );
+    const captured: CapturedCall[] = [];
+    setChatCaptureSeam((call) => captured.push(call));
+    const schema = { name: "facts", schema: { type: "object", properties: {}, additionalProperties: false } };
+    const client = createAuditedOpenAIClient(
+      { target, phase: "facts", supabase: fakeSupabase([]) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "sys", user: "u", schema });
+
+    expect(captured[0]!.schema).toEqual(schema);
   });
 
   it("capture stays zero-write", async () => {

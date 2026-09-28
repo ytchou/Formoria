@@ -1795,6 +1795,12 @@ export type ClassifyImageBuffersOptions = {
   target?: import('../_shared/enrichment-target').EnrichmentTarget;
   /** Job ID — forwarded to the profiled client for audit correlation. */
   jobId?: string;
+  /**
+   * Called once per batch whose model call failed. The batch is skipped, so
+   * without this a caller cannot tell a failed batch from a small result
+   * (the offline vision capture counts them, DEV-1898 D3).
+   */
+  onBatchFailure?: (failure: BatchFailure) => void;
 };
 
 /**
@@ -1903,6 +1909,7 @@ export async function classifyImageBuffers(
       console.error(
         `[classifyImageBuffers] batch failed: ${failure.reason}`,
       );
+      options.onBatchFailure?.(failure);
       continue;
     }
 
