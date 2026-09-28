@@ -8,7 +8,7 @@ import {
 import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
 import * as Sentry from "@sentry/nextjs";
 import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
-import { isVisibleCategory } from "@/lib/taxonomy/ontology";
+import { isMaterialApplicable, isVisibleCategory } from "@/lib/taxonomy/ontology";
 import type { RpcRow as LtrRpcRow } from "./ltr-features";
 
 // ---------------------------------------------------------------------------
@@ -371,7 +371,11 @@ export async function searchProductsBySituation(
     category: !input.category && parsedCategory ? parsedCategory : null,
     subcategory:
       !input.subcategories?.length && useSubcategory ? parsedSubcategory : null,
-    materials: !input.materials?.length ? (parsed?.materials ?? []) : [],
+    // No inferred material filter where the sidebar can't show one (DEV-1891).
+    materials:
+      !input.materials?.length && isMaterialApplicable(resolvedCategory)
+        ? (parsed?.materials ?? [])
+        : [],
   };
 
   const rpcParams: Record<string, unknown> = {
