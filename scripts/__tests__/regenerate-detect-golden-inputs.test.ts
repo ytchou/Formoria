@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   applyGuard,
   buildDetectItem,
+  DENIED_SAMPLE_SEED,
+  sampleDenied,
   buildRestorePlan,
   dropExistingIds,
   landedMismatches,
@@ -14,6 +16,7 @@ import {
   parseStoredFields,
   sourceFromStored,
   sourceFromSubmission,
+  submissionIdFromSlug,
   uuid5,
   type SubmissionRow,
 } from '../regenerate-detect-golden-inputs'
@@ -114,6 +117,40 @@ describe('evidenceMetadata', () => {
   })
 })
 
+describe('submissionIdFromSlug', () => {
+  it('reads the submission id a provisional slug carries', () => {
+    expect(submissionIdFromSlug('submission-bc4ff848-8129-4bb2-b665-a33453796666')).toBe(
+      'bc4ff848-8129-4bb2-b665-a33453796666',
+    )
+    expect(submissionIdFromSlug('SUBMISSION-BC4FF848-8129-4BB2-B665-A33453796666')).toBe(
+      'bc4ff848-8129-4bb2-b665-a33453796666',
+    )
+  })
+
+  it('returns null for a brand slug or a malformed id', () => {
+    expect(submissionIdFromSlug('iwi-writing')).toBeNull()
+    expect(submissionIdFromSlug('submission-not-a-uuid')).toBeNull()
+    expect(submissionIdFromSlug('x-submission-bc4ff848-8129-4bb2-b665-a33453796666')).toBeNull()
+  })
+})
+
+describe('sampleDenied', () => {
+  const rows = Array.from({ length: 200 }, (_, i) => ({ id: `id-${String(i).padStart(3, '0')}` }))
+
+  it('takes a deterministic seeded sample of n, independent of input order', () => {
+    const first = sampleDenied(rows, 60, DENIED_SAMPLE_SEED)
+    expect(first).toHaveLength(60)
+    expect(new Set(first.map((row) => row.id)).size).toBe(60)
+    expect(sampleDenied([...rows].reverse(), 60, DENIED_SAMPLE_SEED)).toEqual(first)
+    expect(sampleDenied(rows, 60, 'other-seed')).not.toEqual(first)
+  })
+
+  it('keeps every row when n is null or at least the pool size', () => {
+    expect(sampleDenied(rows, null, DENIED_SAMPLE_SEED)).toHaveLength(200)
+    expect(sampleDenied(rows.slice(0, 5), 60, DENIED_SAMPLE_SEED)).toHaveLength(5)
+  })
+})
+
 describe('isAnchorLeak', () => {
   it('anchor_leak_check_rejects: names matching a prompt golden anchor are rejected', () => {
     expect(isAnchorLeak('好物嚴選')).toBe(true)
@@ -132,6 +169,13 @@ describe('applyGuard', () => {
 })
 
 describe('parseRegenerateArgs', () => {
+  it('parses --denied-sample, which needs --add-denied and a positive integer', () => {
+    expect(parseRegenerateArgs(['--add-denied', '--denied-sample', '60']).deniedSample).toBe(60)
+    expect(parseRegenerateArgs([]).deniedSample).toBeNull()
+    expect(() => parseRegenerateArgs(['--denied-sample', '60'])).toThrow(/--add-denied/)
+    expect(() => parseRegenerateArgs(['--add-denied', '--denied-sample', '0'])).toThrow(/positive integer/)
+  })
+
   it('apply_requires_pre_export: --apply without --pre-export is rejected', () => {
     expect(() => parseRegenerateArgs(['--apply'])).toThrow(/--pre-export/)
     expect(parseRegenerateArgs(['--apply', '--pre-export', '/tmp/x.json'])).toMatchObject({
@@ -148,6 +192,7 @@ describe('parseRegenerateArgs', () => {
       addDenied: false,
       assignSplits: false,
       diffs: 10,
+      deniedSample: null,
     })
     expect(parseRegenerateArgs(['--add-denied', '--assign-splits', '--diffs', '3'])).toMatchObject({
       addDenied: true,

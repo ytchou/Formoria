@@ -2,7 +2,7 @@
  * @formoria-script
  * purpose: Re-render detect-confidence-golden inputs through the production detect renderer, optionally adding admin-denied submissions and seeded splits (DEV-1894)
  * class: operator
- * invoke: npx tsx scripts/regenerate-detect-golden-inputs.ts [--target production] [--add-denied] [--assign-splits] [--diffs <n>] [--apply --pre-export <path>] | --restore <pre-export path> [--apply]
+ * invoke: npx tsx scripts/regenerate-detect-golden-inputs.ts [--target production] [--add-denied [--denied-sample <n>]] [--assign-splits] [--diffs <n>] [--apply --pre-export <path>] | --restore <pre-export path> [--apply]
  * target: staging-default
  * safety: dry-run-default
  * owner: engineering
@@ -31,6 +31,7 @@ import { getDisplayBrandName } from '@/lib/services/enrich-phases/types'
 import { parseLabelledLines } from '@/lib/services/eval/jev-questions'
 import { JEV_INPUT_LABELS } from '@/lib/prompts/jev'
 import { withRetry, type RetryPolicy } from '@/lib/retry'
+import { shuffleWithSeed } from '@/lib/curated-products/home-wall'
 
 const DATASET = 'detect-confidence-golden'
 const SPLIT_SEED = 20260928
@@ -68,6 +69,8 @@ export type RegenerateArgs = {
   addDenied: boolean
   assignSplits: boolean
   diffs: number
+  /** Seeded sample size for `--add-denied`; null keeps every candidate. */
+  deniedSample: number | null
 }
 
 export function parseRegenerateArgs(argv: readonly string[]): RegenerateArgs {
@@ -90,6 +93,14 @@ export function parseRegenerateArgs(argv: readonly string[]): RegenerateArgs {
   const diffsRaw = valueOf('--diffs')
   const diffs = diffsRaw === null ? 10 : Number(diffsRaw)
   if (!Number.isInteger(diffs) || diffs < 0) throw new Error(`--diffs must be a non-negative integer, got ${diffsRaw}`)
+  const sampleRaw = valueOf('--denied-sample')
+  const deniedSample = sampleRaw === null ? null : Number(sampleRaw)
+  if (deniedSample !== null) {
+    if (!argv.includes('--add-denied')) throw new Error('--denied-sample requires --add-denied')
+    if (!Number.isInteger(deniedSample) || deniedSample < 1) {
+      throw new Error(`--denied-sample must be a positive integer, got ${sampleRaw}`)
+    }
+  }
   return {
     apply,
     preExport,
@@ -97,6 +108,7 @@ export function parseRegenerateArgs(argv: readonly string[]): RegenerateArgs {
     addDenied: argv.includes('--add-denied'),
     assignSplits: argv.includes('--assign-splits'),
     diffs,
+    deniedSample,
   }
 }
 
@@ -125,6 +137,17 @@ const valueOrNull = (value: string | undefined): string | null => {
  * the fallback when the item's submission row is gone (Tweakable Decision #3).
  * The old snippet label is listed so its lines never leak into the website field.
  */
+const SUBMISSION_SLUG = /^submission-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i
+
+/**
+ * A provisional detect item's slug is `submission-<uuid>`. When the audit row
+ * and metadata carry no submission id, the slug is the last place it survives.
+ */
+export function submissionIdFromSlug(slug: string): string | null {
+  const match = SUBMISSION_SLUG.exec(slug.trim())
+  return match ? match[1].toLowerCase() : null
+}
+
 export function parseStoredFields(user: string): StoredFields {
   const fields = parseLabelledLines(user, [
     L.brandSlug,
@@ -613,10 +636,28 @@ type Plan = {
   deniedAdded: number
   /** `existingById`: the uuid5 id is already in Langfuse (any status, ARCHIVED included). */
   deniedSkipped: { existing: number; existingById: number; anchorLeak: string[] }
+  /** Denied candidates left after every skip, before `--denied-sample`. */
+  deniedPool: number
   submissionIds: string[]
 }
 
 const deniedItemId = (submissionId: string) => uuid5(`detect-golden:denied:${submissionId}`)
+
+/**
+ * Denial reasons that may hide a non-brand. The others (`duplicate`,
+ * `no_purchase_channel`, `insufficient_info`, `not_mit`, taxonomy re-files)
+ * reject a real brand on policy, so they would only add easy negatives.
+ */
+const DENIED_REASONS = ['other', 'admin_reject'] as const
+
+export const DENIED_SAMPLE_SEED = '20260928'
+
+/** PURE. A seeded sample of `n` rows, stable under input order; null keeps all. */
+export function sampleDenied<T extends { id: string }>(rows: readonly T[], n: number | null, seed: string): T[] {
+  const ordered = [...rows].sort((a, b) => a.id.localeCompare(b.id))
+  if (n === null || n >= ordered.length) return ordered
+  return shuffleWithSeed(ordered, seed).slice(0, n)
+}
 
 async function buildPlan(
   client: SupabaseClient,
@@ -636,6 +677,7 @@ async function buildPlan(
     rerendered: 0,
     deniedAdded: 0,
     deniedSkipped: { existing: 0, existingById: 0, anchorLeak: [] },
+    deniedPool: 0,
     submissionIds: [],
   }
 
@@ -650,9 +692,22 @@ async function buildPlan(
     return data ?? []
   })
   const submissionByAudit = new Map(auditRows.map((row) => [row.id, row.submission_id]))
+  const slugSubmissionIdOf = (item: DatasetItem): string | null => {
+    const user = (item.input as { user?: unknown } | null)?.user
+    if (typeof user !== 'string') return null
+    try {
+      return submissionIdFromSlug(parseStoredFields(user).slug)
+    } catch {
+      return null
+    }
+  }
   const submissionIdOf = (item: DatasetItem): string | null => {
     const source = sourceOf(item)
-    return (source.sourceAuditResultId && submissionByAudit.get(source.sourceAuditResultId)) || source.submissionId || null
+    return (
+      (source.sourceAuditResultId && submissionByAudit.get(source.sourceAuditResultId)) ||
+      source.submissionId ||
+      slugSubmissionIdOf(item)
+    )
   }
 
   const itemSubmissionIds = items.map(submissionIdOf).filter((id): id is string => Boolean(id))
@@ -678,8 +733,7 @@ async function buildPlan(
         .from('brand_submissions')
         .select('*')
         .eq('status', 'rejected')
-        .not('denial_reason', 'is', null)
-        .neq('denial_reason', 'duplicate')
+        .in('denial_reason', [...DENIED_REASONS])
         .order('submitted_at', { ascending: true })
         .order('id', { ascending: true })
         .range(from, from + PAGE - 1)
@@ -713,6 +767,9 @@ async function buildPlan(
     )
     denied = kept.map(({ row }) => row)
     plan.deniedSkipped.existingById = skipped.length
+    // Sampled last, after every skip, so the sample is exactly n when the pool allows.
+    plan.deniedPool = denied.length
+    denied = sampleDenied(denied, args.deniedSample, DENIED_SAMPLE_SEED)
   }
 
   plan.submissionIds = [...new Set([...itemSubmissionIds, ...denied.map((row) => row.id)])]
@@ -840,7 +897,7 @@ function report(plan: Plan, args: RegenerateArgs): void {
   const live = plan.upserts.filter((upsert) => upsert.metadata.serpSource === 'live').length
   console.log(`  SERP: ${plan.upserts.length - live} stored, ${live} live`)
   if (args.addDenied) {
-    console.log(`  admin-denied added ${plan.deniedAdded}, skipped ${plan.deniedSkipped.existing} already present, ${plan.deniedSkipped.existingById} id already in Langfuse (any status), ${plan.deniedSkipped.anchorLeak.length} anchor leak`)
+    console.log(`  admin-denied added ${plan.deniedAdded} of a pool of ${plan.deniedPool}, skipped ${plan.deniedSkipped.existing} already present, ${plan.deniedSkipped.existingById} id already in Langfuse (any status), ${plan.deniedSkipped.anchorLeak.length} anchor leak`)
     for (const leak of plan.deniedSkipped.anchorLeak) console.log(`    anchor leak: ${leak}`)
   }
   for (const failure of plan.failures) console.log(`  FAILED ${failure.id}: ${failure.reason}`)
