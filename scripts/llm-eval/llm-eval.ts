@@ -26,6 +26,7 @@ import {
 } from '@/lib/services/eval/phase-adapters'
 import { enqueueDataset, applyVerdicts, type PrelabelDeps } from '@/lib/services/eval/golden-review'
 import { runExperiment, type ExperimentArm } from '@/lib/services/eval/run-experiment'
+import { shippedNameSweep } from '@/lib/services/eval/names-shipped'
 import {
   type ProductsReplayOutput,
   driftRate,
@@ -86,6 +87,7 @@ export type ParsedCommand =
       allowUnreviewed: boolean
     }
   | { command: 'pairwise-report'; runName: string }
+  | { command: 'sweep-names'; runFile: string; dataset: string; split: DatasetSplit[] }
 
 /** Golden-set splits (DEV-1896). Holdout stays untouched until tuned cutoffs are committed. */
 export const DATASET_SPLITS = ['train', 'val', 'holdout'] as const
@@ -293,6 +295,15 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     }
   }
 
+  if (sub === 'sweep-names') {
+    const runFile = positionals[1]
+    if (!runFile) throw new Error('run file argument is required')
+    if (!values.dataset) throw new Error('--dataset is required')
+    // Required, not defaulted: a sweep over every split would tune on the holdout.
+    if (values.split === undefined) throw new Error('--split is required (e.g. train,val)')
+    return { command: 'sweep-names', runFile, dataset: values.dataset, split: parseSplit(values.split) }
+  }
+
   if (sub === 'prompt') {
     const sub2 = positionals[1]
     if (sub2 === 'push') {
@@ -384,7 +395,8 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval prompt pull [--add <name>]... [--check] [--allow-variable-change]\n' +
       '  llm-eval prompt promote <name> <version> [--allow-variable-change]\n' +
       '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue] [--allow-unreviewed]\n' +
-      '  llm-eval pairwise report <runName>',
+      '  llm-eval pairwise report <runName>\n' +
+      '  llm-eval sweep-names <runfile> --dataset <name> --split train,val',
   )
 }
 
@@ -745,6 +757,23 @@ export type RunOptions = {
   split?: DatasetSplit[]
 }
 
+/** Dataset items from the injected loader, else Langfuse; null when Langfuse is not configured. */
+async function loadDatasetItems(
+  dataset: string,
+  getDataset: RunDeps['getDataset'],
+): Promise<RunDatasetItem[] | null> {
+  if (getDataset) return (await getDataset(dataset)).items
+  const client = getLangfuse()
+  if (!client) return null
+  return (await client.getDataset(dataset)).items.map((i) => ({
+    id: i.id,
+    status: i.status,
+    input: i.input,
+    expectedOutput: i.expectedOutput,
+    metadata: i.metadata,
+  }))
+}
+
 export async function cmdRun(
   dataset: string,
   armSpecs: ArmSpec[],
@@ -754,23 +783,11 @@ export async function cmdRun(
 ): Promise<void> {
   const adapter = adapterFor(dataset)
 
-  let rawItems: RunDatasetItem[]
-  if (runDeps.getDataset) {
-    rawItems = (await runDeps.getDataset(dataset)).items
-  } else {
-    const client = getLangfuse()
-    if (!client) {
-      console.error('[run] Langfuse not configured')
-      process.exitCode = 1
-      return
-    }
-    rawItems = (await client.getDataset(dataset)).items.map((i) => ({
-      id: i.id,
-      status: i.status,
-      input: i.input,
-      expectedOutput: i.expectedOutput,
-      metadata: i.metadata,
-    }))
+  const rawItems = await loadDatasetItems(dataset, runDeps.getDataset)
+  if (!rawItems) {
+    console.error('[run] Langfuse not configured')
+    process.exitCode = 1
+    return
   }
 
   const activeItems = rawItems.filter(
@@ -846,6 +863,85 @@ export async function cmdRun(
     `\nSummary: ${result.summary.succeeded}/${result.summary.total} succeeded`,
   )
   process.exitCode = result.exitCode
+}
+
+// ---------------------------------------------------------------------------
+// sweep-names (DEV-1896 D10)
+// ---------------------------------------------------------------------------
+
+type RunFileArm = { name: string; type: string; value: string }
+type RunFileItem = { arm: string; itemId: string; ok: boolean; output?: unknown }
+type RunFile = { dataset?: string; arms: RunFileArm[]; items: RunFileItem[] }
+
+export type SweepNamesDeps = {
+  readFile?: (path: string) => string
+  getDataset?: RunDeps['getDataset']
+  log?: (msg: string) => void
+}
+
+/**
+ * Tunes the Jev names band cutoffs from a finished run: joins the run file's jev
+ * outputs to the dataset items by id (the run file stores no inputs), keeps the
+ * listed splits, and prints the shipped-name agreement grid. Loads, joins and
+ * prints only; the sweep itself is `shippedNameSweep`.
+ */
+export async function cmdSweepNames(
+  runFile: string,
+  dataset: string,
+  split: DatasetSplit[],
+  deps: SweepNamesDeps = {},
+): Promise<void> {
+  const readFileFn = deps.readFile ?? ((p: string) => readFileSync(p, 'utf8'))
+  const log = deps.log ?? console.log
+
+  const run = JSON.parse(readFileFn(runFile)) as RunFile
+  if (run.dataset !== undefined && run.dataset !== dataset) {
+    throw new Error(`run file ${runFile} is for dataset ${run.dataset}, not ${dataset}`)
+  }
+  const jevArms = run.arms.filter((arm) => arm.type === 'custom' && arm.value.startsWith('jev:'))
+  const jevArm = jevArms[0]
+  if (!jevArm) throw new Error(`run file ${runFile} has no jev arm`)
+  if (jevArms.length > 1) log(`[sweep-names] ${jevArms.length} jev arms; sweeping the first, ${jevArm.name}`)
+
+  const datasetItems = await loadDatasetItems(dataset, deps.getDataset)
+  if (!datasetItems) throw new Error('Langfuse not configured')
+  const byId = new Map(datasetItems.map((item) => [item.id, item]))
+
+  const points = run.items.flatMap((runItem) => {
+    if (runItem.arm !== jevArm.name || !runItem.ok) return []
+    const output = runItem.output as { chosen?: unknown; probability?: unknown } | undefined
+    if (typeof output?.probability !== 'number') return []
+    const item = byId.get(runItem.itemId)
+    const itemSplit = (item?.metadata as { split?: unknown } | undefined)?.split
+    if (!item || typeof itemSplit !== 'string' || !(split as readonly string[]).includes(itemSplit)) return []
+    const user = (item.input as { user?: unknown } | undefined)?.user
+    const acceptedNames = (item.expectedOutput as { acceptedNames?: unknown } | undefined)?.acceptedNames
+    if (typeof user !== 'string' || !Array.isArray(acceptedNames)) return []
+    return [{
+      user,
+      chosen: typeof output.chosen === 'string' ? output.chosen : null,
+      probability: output.probability,
+      acceptedNames: acceptedNames as string[],
+    }]
+  })
+  if (points.length === 0) {
+    throw new Error(`run file ${runFile} has no scorable ${jevArm.name} items for split=${split.join(',')}`)
+  }
+
+  const { rows, best } = shippedNameSweep(points)
+  const lines = [
+    `Shipped-name agreement, ${jevArm.name}, split=${split.join(',')}, n=${points.length}`,
+    '',
+    '| NAMES_HIGH_MIN | NAMES_MEDIUM_MIN | agreed | agreement |',
+    '|---|---|---|---|',
+    ...rows.map((row) =>
+      `| ${row.high.toFixed(2)} | ${row.medium.toFixed(2)} | ${row.agreed}/${row.total} | ${row.agreement.toFixed(3)} |`,
+    ),
+    '',
+    `Best: NAMES_HIGH_MIN=${best.high.toFixed(2)} NAMES_MEDIUM_MIN=${best.medium.toFixed(2)} ` +
+      `(agreement ${best.agreement.toFixed(3)}; ties go to the higher cutoff)`,
+  ]
+  log(lines.join('\n'))
 }
 
 async function cmdDatasetRecord(
@@ -2368,6 +2464,9 @@ async function main() {
       break
     case 'pairwise-report':
       await cmdPairwiseReport(parsed.runName)
+      break
+    case 'sweep-names':
+      await cmdSweepNames(parsed.runFile, parsed.dataset, parsed.split)
       break
   }
 }

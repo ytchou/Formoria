@@ -6,7 +6,15 @@ import {
 } from '@/lib/taxonomy/ontology'
 import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import type { JevAnswer, JevQuestion, JevState } from '@/lib/services/typesafe-client'
-import { JEV_CANDIDATES, argmaxGrade, type DecideFn } from '../jev-questions'
+import { snapshotPrompt } from '@/lib/langfuse/prompt'
+import {
+  JEV_CANDIDATES,
+  NAMES_HIGH_MIN,
+  NAMES_MEDIUM_MIN,
+  argmaxGrade,
+  sliceNameArbiterInstructions,
+  type DecideFn,
+} from '../jev-questions'
 
 // Fixtures mirror the stored golden inputs recorded in jev-questions.ts's header.
 const DETECT_INPUT = {
@@ -260,7 +268,7 @@ describe('JEV_CANDIDATES', () => {
     expect(minResult.output).toMatchObject({ category: home, subcategory: null, probability: 0.6 })
   })
 
-  it('names: one choice over the distinct candidate names, stored first; evidence and snippets parsed; toOutput returns the chosen name (DEV-1888)', () => {
+  it('names: one choice over the distinct candidate names, stored first; evidence and snippets parsed; toOutput returns the chosen name; buildState uses the shared parser (DEV-1888, DEV-1896)', () => {
     const cand = JEV_CANDIDATES.names
     const input = {
       user: [
@@ -277,12 +285,54 @@ describe('JEV_CANDIDATES', () => {
     expect(Object.keys(q.criteria)).toEqual(['LID Shoes', '劉一刀手工鞋 LID Shoes'])
     expect(q.criteria['LID Shoes']).toContain('stored, cleaned')
     expect(q.criteria['劉一刀手工鞋 LID Shoes']).toContain('https://www.lidshoes.com')
+    // Same strings the pre-DEV-1896 local parser produced, now via parseNameArbiterItemLine.
+    expect(state.candidates).toBe(
+      'LID Shoes <- stored, stored, cleaned\n劉一刀手工鞋 LID Shoes <- official_website (official_website https://www.lidshoes.com observed="劉一刀 手工鞋")',
+    )
+    expect(q.criteria['劉一刀手工鞋 LID Shoes']).toBe(
+      'Proposed by: official_website (official_website https://www.lidshoes.com observed="劉一刀 手工鞋")',
+    )
 
     const out = cand.toOutput({
       name: { choice: '劉一刀手工鞋 LID Shoes', probabilities: { '劉一刀手工鞋 LID Shoes': 0.93, 'LID Shoes': 0.07 } },
     })
     expect(out).toEqual({ chosen: '劉一刀手工鞋 LID Shoes', confidence: 'high', probability: 0.93 })
     expect(() => cand.buildState({ user: 'no item line' })).toThrow()
+  })
+
+  it('names instructions are name-arbiter v6 minus rubric and response format (DEV-1896)', () => {
+    const text = snapshotPrompt('name-arbiter').text
+    const rubricAt = text.indexOf('\nConfidence rubric:') + 1
+    const anchorsAt = text.indexOf('\nGolden anchors:') + 1
+    const responseAt = text.indexOf('\nResponse format') + 1
+    const expected = (text.slice(0, rubricAt) + text.slice(anchorsAt, responseAt)).trimEnd()
+
+    const { instructions } = JEV_CANDIDATES.names.questions({ storedName: 'A', candidates: 'A <- stored\nB <- cleaned', searchSnippets: null })
+      .name as { instructions: string }
+    expect(instructions).toBe(expected)
+    expect(instructions).toContain(text.split('\n')[0]!)
+    expect(instructions).toContain('\nRules:\n- ')
+    expect(instructions).toContain('Golden anchors:')
+    expect(instructions).not.toContain('Confidence rubric:')
+    expect(instructions).not.toContain('Response format')
+  })
+
+  it('names instruction slicing fails loudly when a heading is missing (DEV-1896)', () => {
+    const full = 'Intro\nConfidence rubric:\n- high\nGolden anchors:\nA\nResponse format (json)\n{}'
+    expect(sliceNameArbiterInstructions(full)).toBe('Intro\nGolden anchors:\nA')
+    expect(() => sliceNameArbiterInstructions('Intro\nGolden anchors:\nA\nResponse format\n{}')).toThrow(/Confidence rubric:/)
+    expect(() => sliceNameArbiterInstructions('Intro\nConfidence rubric:\n- high\nResponse format\n{}')).toThrow(/Golden anchors:/)
+    expect(() => sliceNameArbiterInstructions('Intro\nConfidence rubric:\n- high\nGolden anchors:\nA')).toThrow(/Response format/)
+  })
+
+  it('names toOutput bands with NAMES_HIGH_MIN / NAMES_MEDIUM_MIN (DEV-1896)', () => {
+    const cand = JEV_CANDIDATES.names
+    const band = (p: number) => cand.toOutput({ name: { choice: 'A', probabilities: { A: p, B: 1 - p } } }).confidence
+    expect(band(NAMES_HIGH_MIN)).toBe('high')
+    expect(band(NAMES_HIGH_MIN - 0.001)).toBe('medium')
+    expect(band(NAMES_MEDIUM_MIN)).toBe('medium')
+    expect(band(NAMES_MEDIUM_MIN - 0.001)).toBe('low')
+    expect(cand.toOutput({})).toEqual({ chosen: null, confidence: 'low', probability: 0 })
   })
 
   it('relevanceJudge: 4-level score (zero-indexed 0..3) with described levels; toOutput returns an integer grade = round(score), probabilities from the answer, votes = [grade]', () => {

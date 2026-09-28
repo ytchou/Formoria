@@ -29,8 +29,17 @@
  *
  * The detect golden input and the distillation message are flat prompt
  * strings, not JSON, so their state builders parse the labelled fields back out.
+ * The names golden input is the arbiter's own user message, parsed with the
+ * shared production inverse `parseNameArbiterItemLine` (DEV-1896).
+ *
+ * names instructions are luna's name-arbiter snapshot rule text (rules plus
+ * golden anchors), so the comparison runs on matched instructions (DEV-1896).
+ * The confidence rubric and the response format are removed. The rubric is the
+ * one intended difference from luna: Jev's band comes from its probability,
+ * via `NAMES_HIGH_MIN` / `NAMES_MEDIUM_MIN`, not from a self-reported label.
  */
 
+import { snapshotPrompt } from '@/lib/langfuse/prompt'
 import { JEV_INPUT_LABELS } from '@/lib/prompts/jev'
 import { RELEVANCE_GRADE_LEVELS } from '@/lib/prompts/shared'
 import { L1_CATEGORIES } from '@/lib/taxonomy/ontology'
@@ -59,6 +68,7 @@ import {
   type TwoStepJevCandidate,
 } from '@/lib/services/jev-candidate'
 import { intentParseJev } from '@/lib/services/intent-parse-jev'
+import { parseNameArbiterItemLine } from '@/lib/services/name-arbiter'
 import { bandFromProbability, type ConfidenceBand } from './scorers'
 
 export type { DecideFn, JevAnswers, JevCandidate, TwoStepJevCandidate } from '@/lib/services/jev-candidate'
@@ -266,12 +276,6 @@ const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
 // names (brand-name arbitration: a choice over the supplied candidate names)
 // ---------------------------------------------------------------------------
 
-const NAME_LABELS = {
-  stored: JEV_INPUT_LABELS.storedName,
-  candidates: JEV_INPUT_LABELS.nameCandidates,
-  snippets: JEV_INPUT_LABELS.searchSnippets,
-} as const
-
 type NamesState = {
   storedName: string
   /** One line per distinct candidate: `<name> <- <sources>`. */
@@ -280,29 +284,57 @@ type NamesState = {
 }
 type NamesOutput = { chosen: string | null; confidence: ConfidenceBand; probability: number }
 
+/** Band a names pick at p >= this as high; initial; tuned on name-arbiter-confidence-golden train+val, DEV-1896. */
+export const NAMES_HIGH_MIN = 0.9
+/** Band a names pick at p >= this (and below `NAMES_HIGH_MIN`) as medium; initial; tuned on name-arbiter-confidence-golden train+val, DEV-1896. */
+export const NAMES_MEDIUM_MIN = 0.7
+
+function namesBand(p: number): ConfidenceBand {
+  if (p >= NAMES_HIGH_MIN) return 'high'
+  if (p >= NAMES_MEDIUM_MIN) return 'medium'
+  return 'low'
+}
+
+function headingLine(lines: readonly string[], heading: string): number {
+  const at = lines.findIndex((l) => l.startsWith(heading))
+  if (at < 0) throw new Error(`jev-questions: name-arbiter prompt has no "${heading}" heading`)
+  return at
+}
+
 /**
- * `name-arbiter.ts#buildNameArbiterUserContent` renders one brand as
- * `N. [slug] <stored>：X / <candidates>：src：v；src：v / <snippets>：a；b`.
- * Fields split on ` / ` followed by a known label, so a ` / ` inside a name stays
- * whole. A candidate's first-party evidence is a trailing `（official_… url …）`.
+ * The name-arbiter prompt text minus its confidence rubric (from `Confidence rubric:`
+ * up to `Golden anchors:`) and its response format (from `Response format` to the
+ * end). Throws when any of the three headings is missing, so a prompt edit that
+ * renames one fails the eval instead of silently shipping the rubric to Jev.
  */
-function parseNameArbiterLine(text: string): { stored: string; candidates: Map<string, string[]>; snippets: string | null } {
-  const line = text.split('\n').find((l) => /^\d+\. \[[^\]]*\] /.test(l))
-  if (!line) throw new Error('jev-questions: no name-arbiter item line in the input')
-  const body = line.replace(/^\d+\. \[[^\]]*\] /, '')
-  const labels = Object.values(NAME_LABELS)
-  const fields: Record<string, string> = {}
-  let current: string | null = null
-  for (const segment of body.split(' / ')) {
-    const label = labels.find((l) => segment.startsWith(`${l}：`))
-    if (label) {
-      current = label
-      fields[label] = segment.slice(label.length + 1)
-    } else if (current) {
-      fields[current] += ` / ${segment}`
-    }
+export function sliceNameArbiterInstructions(text: string): string {
+  const lines = text.split('\n')
+  const rubric = headingLine(lines, 'Confidence rubric:')
+  const anchors = headingLine(lines, 'Golden anchors:')
+  const response = headingLine(lines, 'Response format')
+  if (!(rubric < anchors && anchors < response)) {
+    throw new Error('jev-questions: name-arbiter prompt headings are out of order')
   }
-  const stored = (fields[NAME_LABELS.stored] ?? '').trim()
+  return [...lines.slice(0, rubric), ...lines.slice(anchors, response)].join('\n').trimEnd()
+}
+
+let namesInstructions: string | null = null
+function nameArbiterInstructions(): string {
+  namesInstructions ??= sliceNameArbiterInstructions(snapshotPrompt('name-arbiter').text)
+  return namesInstructions
+}
+
+/**
+ * Parses the first item line of a name-arbiter user message with the shared
+ * production inverse, and groups candidates by value: stored first, then each
+ * candidate with its sources (first-party evidence rendered as
+ * `source (official_… url observed="…")`).
+ */
+function parseNamesInput(text: string): { stored: string; candidates: Map<string, string[]>; snippets: string | null } {
+  const line = text.split('\n').find((l) => /^\d+\. \[[^\]]*\] /.test(l))
+  const parsed = line ? parseNameArbiterItemLine(line) : null
+  if (!parsed) throw new Error('jev-questions: no name-arbiter item line in the input')
+  const stored = parsed.storedName.trim()
   const candidates = new Map<string, string[]>()
   const add = (value: string, source: string) => {
     const v = value.trim()
@@ -310,22 +342,19 @@ function parseNameArbiterLine(text: string): { stored: string; candidates: Map<s
     candidates.set(v, [...(candidates.get(v) ?? []), source])
   }
   add(stored, 'stored')
-  const list = valueOrNull(fields[NAME_LABELS.candidates])
-  for (const entry of list ? list.split('；') : []) {
-    const match = /^([a-z_]+)：(.*)$/.exec(entry.trim())
-    if (!match) continue
-    const evidenceAt = match[2]!.lastIndexOf('（official_')
-    const value = evidenceAt >= 0 && match[2]!.endsWith('）') ? match[2]!.slice(0, evidenceAt) : match[2]!
-    const evidence = evidenceAt >= 0 ? match[2]!.slice(evidenceAt + 1, -1) : null
-    add(value, evidence ? `${match[1]} (${evidence})` : match[1]!)
+  for (const candidate of parsed.candidates) {
+    const evidence = candidate.evidence
+      ?.map((e) => `${e.source} ${e.url} observed=${JSON.stringify(e.observedName)}`)
+      .join(', ')
+    add(candidate.value, evidence ? `${candidate.source} (${evidence})` : candidate.source)
   }
-  return { stored, candidates, snippets: valueOrNull(fields[NAME_LABELS.snippets]) }
+  return { stored, candidates, snippets: valueOrNull(parsed.snippets.join('\uff1b')) }
 }
 
 const names: JevCandidate<GoldenChatInput, NamesState, NamesOutput> = {
   profileKey: 'names',
   buildState(input) {
-    const { stored, candidates, snippets } = parseNameArbiterLine(userText(input))
+    const { stored, candidates, snippets } = parseNamesInput(userText(input))
     return {
       storedName: stored,
       candidates: [...candidates].map(([value, sources]) => `${value} <- ${sources.join(', ')}`).join('\n'),
@@ -335,12 +364,7 @@ const names: JevCandidate<GoldenChatInput, NamesState, NamesOutput> = {
   questions(state) {
     const name: ChoiceQuestion = {
       type: 'choice',
-      instructions: [
-        "Formoria lists Taiwanese brands. Which candidate is this brand's formal name, as the brand itself uses it?",
-        'Judge by meaning, not string shape: a trailing maker suffix (studio, workshop) is part of the name; a trailing tagline, SEO copy, page-title chrome or product-category description is not.',
-        'Keep both halves of a bilingual name only when a candidate already has both; never prefer a candidate that drops an identity half, and differing capitalisation alone keeps the capitalisation the brand uses.',
-        'A candidate that may be a different entity (a parent company, a legal name, another brand sharing a word) is not the name; when unsure, keep the stored name.',
-      ].join(' '),
+      instructions: nameArbiterInstructions(),
       criteria: Object.fromEntries(
         state.candidates.split('\n').map((l) => {
           const at = l.lastIndexOf(' <- ')
@@ -353,7 +377,7 @@ const names: JevCandidate<GoldenChatInput, NamesState, NamesOutput> = {
   toOutput(answers) {
     const pick = pickChoice(answers.name)
     const p = pick?.p ?? 0
-    return { chosen: pick?.key ?? null, confidence: bandFromProbability(p), probability: p }
+    return { chosen: pick?.key ?? null, confidence: namesBand(p), probability: p }
   },
 }
 

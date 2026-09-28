@@ -150,9 +150,9 @@ const CANDIDATE_SOURCES = [
   "official_social",
 ] as const satisfies readonly NameCandidateSource[];
 const SOURCE_ALT = CANDIDATE_SOURCES.join("|");
-const ITEM_LINE_RE = /^\d+\. \[([^\]]*)\] 儲存名稱：([\s\S]*)$/;
+const ITEM_HEAD_RE = /^\d+\. \[([^\]]*)\] 儲存名稱：([\s\S]*)$/;
 // A field opens only at " / " followed by a known label, so " / " inside a
-// name stays whole (same rule as jev-questions' parseNameArbiterLine).
+// name stays whole.
 const FIELD_SPLIT_RE = / \/ (?=候選：|搜尋摘要：)/;
 const CANDIDATE_SPLIT_RE = new RegExp(`；(?=(?:${SOURCE_ALT})：)`);
 const CANDIDATE_RE = new RegExp(`^(${SOURCE_ALT})：(.*)$`, "s");
@@ -202,7 +202,7 @@ function parseCandidate(entry: string): NameCandidate | null {
  * that itself contains "；" comes back as two — the formatted line is ambiguous there.
  */
 export function parseNameArbiterItemLine(line: string): ParsedNameArbiterItem | null {
-  const head = ITEM_LINE_RE.exec(line);
+  const head = ITEM_HEAD_RE.exec(line);
   if (!head) return null;
   const [storedName, ...rest] = (head[2] ?? "").split(FIELD_SPLIT_RE);
   let candidateField: string | undefined;

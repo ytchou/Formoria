@@ -17,6 +17,7 @@ import {
   isAdmittedProductsItem,
   LANGFUSE_SNAPSHOT_PATH,
   cmdRun,
+  cmdSweepNames,
   seedIntentDataset,
   readSituationQueries,
   INTENT_PARSE_DATASET,
@@ -30,6 +31,7 @@ import { PRODUCTION_PROJECT_REF } from '@/lib/supabase/project-target'
 import { adapterFor } from '@/lib/services/eval/phase-adapters'
 import type { GoldenItemBody } from '@/lib/services/eval/golden-capture'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
+import { buildNameArbiterUserContent } from '@/lib/services/name-arbiter'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -969,6 +971,94 @@ describe('parseCliArgs — run --split (DEV-1896)', () => {
 
   it('rejects an unknown split value', () => {
     expect(() => parseCliArgs([...base, '--split', 'train,test'])).toThrow(/Unknown --split value: test/)
+  })
+})
+
+describe('sweep-names (DEV-1896)', () => {
+  const user = buildNameArbiterUserContent([
+    {
+      slug: 'adela-shop',
+      storedName: 'ADELA shop',
+      candidates: [
+        { source: 'stored', value: 'ADELA shop' },
+        { source: 'cleaned', value: 'ADELA' },
+        { source: 'detected', value: 'Adela Atelier' },
+      ],
+    },
+  ])
+  const datasetItem = (id: string, split: string, acceptedNames: string[]) => ({
+    id,
+    status: 'ACTIVE',
+    input: { system: 'sys', user },
+    expectedOutput: { confidence: 'high', acceptedNames },
+    metadata: { split },
+  })
+  const items = [
+    datasetItem('item-train', 'train', ['Adela Atelier']),
+    datasetItem('item-val', 'val', ['ADELA']),
+    datasetItem('item-holdout', 'holdout', ['ADELA']),
+  ]
+  const jevOutput = (itemId: string, probability: number) => ({
+    arm: 'jev-1.13.0',
+    itemId,
+    ok: true,
+    output: { chosen: 'Adela Atelier', confidence: 'high', probability },
+  })
+  const runFile = {
+    dataset: 'name-arbiter-confidence-golden',
+    arms: [
+      { name: 'gpt-5.6-luna', type: 'model', value: 'gpt-5.6-luna' },
+      { name: 'jev-1.13.0', type: 'custom', value: 'jev:jev-1.13.0' },
+    ],
+    items: [
+      { arm: 'gpt-5.6-luna', itemId: 'item-train', ok: true, output: { chosen: 'ADELA', confidence: 'high' } },
+      jevOutput('item-train', 0.8),
+      jevOutput('item-val', 0.6),
+      jevOutput('item-holdout', 0.99),
+    ],
+  }
+
+  async function sweep(file: unknown, split: ('train' | 'val' | 'holdout')[]) {
+    const logs: string[] = []
+    const getDataset = vi.fn().mockResolvedValue({ items })
+    await cmdSweepNames('runs/fixture.json', 'name-arbiter-confidence-golden', split, {
+      readFile: () => JSON.stringify(file),
+      getDataset,
+      log: (msg) => logs.push(msg),
+    })
+    expect(getDataset).toHaveBeenCalledWith('name-arbiter-confidence-golden')
+    return logs.join('\n')
+  }
+
+  it('parses sweep-names <runfile> --dataset --split', () => {
+    expect(
+      parseCliArgs(['sweep-names', 'runs/x.json', '--dataset', 'name-arbiter-confidence-golden', '--split', 'train,val']),
+    ).toEqual({ command: 'sweep-names', runFile: 'runs/x.json', dataset: 'name-arbiter-confidence-golden', split: ['train', 'val'] })
+    expect(() => parseCliArgs(['sweep-names', 'runs/x.json', '--dataset', 'name-arbiter-confidence-golden'])).toThrow(
+      /--split is required/,
+    )
+  })
+
+  it('sweep-names joins run-file jev outputs to dataset items by id and prints the grid + best', async () => {
+    const out = await sweep(runFile, ['train', 'val'])
+    expect(out).toMatch(/jev-1\.13\.0, split=train,val, n=2/)
+    expect(out).toContain('| NAMES_HIGH_MIN | NAMES_MEDIUM_MIN | agreed | agreement |')
+    // 0.8 must ship (high <= 0.80) and 0.6 must fall back (high > 0.60).
+    expect(out).toContain('| 0.80 | 0.75 | 2/2 | 1.000 |')
+    expect(out).toContain('| 0.95 | 0.90 | 1/2 | 0.500 |')
+    expect(out).toMatch(/Best: NAMES_HIGH_MIN=0\.80 NAMES_MEDIUM_MIN=0\.75/)
+  })
+
+  it('sweep-names ignores items outside --split', async () => {
+    // The holdout point (p=0.99, wrong rename) would cap agreement below 1.
+    const out = await sweep(runFile, ['train'])
+    expect(out).toMatch(/n=1/)
+    expect(out).toMatch(/Best: NAMES_HIGH_MIN=0\.80 NAMES_MEDIUM_MIN=0\.75 \(agreement 1\.000/)
+  })
+
+  it('sweep-names errors when the run file has no jev arm', async () => {
+    const noJev = { ...runFile, arms: [runFile.arms[0]], items: [runFile.items[0]] }
+    await expect(sweep(noJev, ['train', 'val'])).rejects.toThrow(/has no jev arm/)
   })
 })
 
