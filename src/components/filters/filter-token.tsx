@@ -2,15 +2,19 @@
 
 import { X } from 'lucide-react'
 import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 type FilterTokenProps = {
   href: string
   label: string
+  /** The link's full accessible name; when `badge` is set it must already name the badge. */
   removeLabel: string
   value: string
   variant: 'row' | 'chip'
+  /** Visual qualifier after the value (e.g. 自動判斷), hidden from assistive tech. */
+  badge?: string
 }
 
 export function FilterToken({
@@ -19,6 +23,7 @@ export function FilterToken({
   removeLabel,
   value,
   variant,
+  badge,
 }: FilterTokenProps) {
   return (
     <Link
@@ -40,6 +45,11 @@ export function FilterToken({
         <span className="font-medium text-ink">{label}:</span>{' '}
         <span className="text-ink-muted">{value}</span>
       </span>
+      {badge && (
+        <Badge variant="outline" aria-hidden="true">
+          {badge}
+        </Badge>
+      )}
       <X className="size-4" aria-hidden="true" />
     </Link>
   )

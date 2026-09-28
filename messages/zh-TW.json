@@ -85,12 +85,15 @@
       "showResults": "顯示 {count} 件商品",
       "clearAll": "清除全部",
       "removeFilter": "移除 {label}: {value}",
+      "removeFilterInferred": "移除 {label}: {value}（{badge}）",
       "sortNewest": "最新",
       "sortAlphabetical": "依名稱排序",
       "sortRelevance": "相關度",
       "resultCount": "{count} 件商品",
       "sortLabel": "排序",
-      "query": "情境"
+      "query": "情境",
+      "category": "分類",
+      "inferred": "自動判斷"
     },
     "search": {
       "label": "搜尋情境",

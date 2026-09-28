@@ -45,6 +45,15 @@ export type SearchResult = {
   intentMaterials: string[];
   intentCacheHit: boolean;
   intentLatencyMs: number;
+  /**
+   * The LLM-inferred filters that actually reached the RPC — manual filters
+   * and hidden categories excluded. Empty when the parse was skipped or failed.
+   */
+  appliedInference: {
+    category: string | null;
+    subcategory: string | null;
+    materials: string[];
+  };
   rpcLatencyMs: number;
   embedLatencyMs: number;
   searchId: string;
@@ -356,21 +365,30 @@ export async function searchProductsBySituation(
   const parsedSubcategory = parsed?.subcategory ?? null;
   const useSubcategory = parsedSubcategory && resolvedCategory && parsed?.category === resolvedCategory;
 
+  // The LLM values that survive the merge. rpcParams below is built from
+  // these, so what the result reports is exactly what the RPC filtered on.
+  const appliedInference: SearchResult["appliedInference"] = {
+    category: !input.category && parsedCategory ? parsedCategory : null,
+    subcategory:
+      !input.subcategories?.length && useSubcategory ? parsedSubcategory : null,
+    materials: !input.materials?.length ? (parsed?.materials ?? []) : [],
+  };
+
   const rpcParams: Record<string, unknown> = {
     query_text: normalized,
     query_embedding: embedding,
     mode: effectiveMode,
     match_count: CANDIDATE_POOL,
-    filter_category: input.category ?? parsedCategory ?? null,
+    filter_category: input.category ?? appliedInference.category,
     filter_subcategories: input.subcategories?.length
       ? input.subcategories
-      : useSubcategory
-        ? [parsedSubcategory]
+      : appliedInference.subcategory
+        ? [appliedInference.subcategory]
         : null,
     filter_materials: input.materials?.length
       ? input.materials
-      : parsed?.materials?.length
-        ? parsed.materials
+      : appliedInference.materials.length
+        ? appliedInference.materials
         : null,
   };
 
@@ -399,6 +417,7 @@ export async function searchProductsBySituation(
       embedLatencyMs,
       searchId,
       ...intentMeta,
+      appliedInference,
     };
   }
 
@@ -560,6 +579,7 @@ export async function searchProductsBySituation(
     embedLatencyMs,
     searchId,
     ...intentMeta,
+    appliedInference,
     ...(ltrFields
       ? {
           ltrMode: ltrFields.ltrMode,
