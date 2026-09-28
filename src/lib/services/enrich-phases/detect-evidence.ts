@@ -2,7 +2,10 @@ import { isPrivateUrl } from "@/lib/url";
 import { MAX_PROBE_URLS, MAX_RESULT_LINES } from "@/lib/prompts/detect-message";
 import { canonicalizeThreadsUrl, pageKeyHost } from "../link-enrichment";
 import type { ProbeEvidence } from "./gather";
-import { isNonBrandSiteHost } from "./scraper/input-detector";
+import {
+  isNonBrandSiteHost,
+  isPublishingPlatformSubdomain,
+} from "./scraper/input-detector";
 import { extractInstagramHandle, hostMatches } from "./scraper/parse/extractors";
 import { stripTrackingParams } from "./scraper/search";
 import type { BrandSearchEntry } from "./scraper/types";
@@ -40,17 +43,6 @@ function normalisedPath(url: URL): string {
 }
 
 /**
- * Whether a bare owned host on a shared platform is the platform itself
- * (`pixnet.net`, `shopee.tw`) rather than a brand's own subdomain on it
- * (`brand.pixnet.net`): the platform apex is the host whose parent domain is
- * not itself a shared platform.
- */
-function isPlatformApex(bareOwnedHost: string): boolean {
-  const parent = bareOwnedHost.slice(bareOwnedHost.indexOf(".") + 1);
-  return !isNonBrandSiteHost(`https://${parent}/`);
-}
-
-/**
  * Every non-tracking query param on the owned URL must appear on the link
  * with the same value: on a shared host the query can be the identity
  * (`facebook.com/profile.php?id=100`).
@@ -67,12 +59,21 @@ function queryMatches(linkUrl: URL, ownedHref: string): boolean {
  * Whether a search-result link belongs to the brand: `'site'` for one of its
  * owned URLs, `'instagram'` for its own Instagram profile, otherwise null.
  *
+ * Each owned URL grants matches on its own; any one granting is enough.
+ *
+ * On an ordinary (non-shared) host, subdomains included: an owned URL whose
+ * path has at most one segment (`brand.tw`, `brand.tw/zh-tw`) grants the whole
+ * host. One with two or more segments (`someblog.com/post/123`) grants only
+ * links at or under that path, segment-wise and case-insensitive — a third
+ * party's blog post submitted as the website must not claim the whole blog.
+ *
  * On a shared platform host (pinkoi, shopee, facebook, ...) a host match says
  * nothing about the brand, so the link must also sit under the owned URL's
  * path and carry its non-tracking query params. An owned URL with an empty
- * path on the platform itself never matches — it would claim every store on
- * the platform — but one on a brand subdomain (brand.pixnet.net) matches by
- * host.
+ * path matches by host only when its host is one user's subdomain on a
+ * per-user publishing platform (brand.pixnet.net); on the platform itself or
+ * a platform subdomain (m.facebook.com, maps.google.com) it never matches —
+ * it would claim every store on the platform.
  */
 export function matchOwnership(
   link: string,
@@ -102,17 +103,22 @@ export function matchOwnership(
     const ownedHref = ownedUrl.toString();
     const ownedHost = pageKeyHost(ownedHref);
     if (!ownedHost || !hostMatches(canonicalLink, ownedHost)) continue;
-    if (!shared) return "site";
 
     const ownedPath = normalisedPath(ownedUrl);
-    if (!ownedPath) {
-      // The platform root would claim every store on it; a brand's own
-      // subdomain (brand.pixnet.net) is scoped by the host match alone.
-      if (isPlatformApex(ownedHost)) continue;
-      return "site";
-    }
     const underOwnedPath =
       linkPath === ownedPath || linkPath.startsWith(`${ownedPath}/`);
+    if (!shared) {
+      const ownedSegments = ownedPath.split("/").filter(Boolean).length;
+      if (ownedSegments <= 1 || underOwnedPath) return "site";
+      continue;
+    }
+
+    if (!ownedPath) {
+      // The platform root would claim every store on it; a user's own
+      // subdomain (brand.pixnet.net) is scoped by the host match alone.
+      if (isPublishingPlatformSubdomain(`https://${ownedHost}/`)) return "site";
+      continue;
+    }
     if (underOwnedPath && queryMatches(linkUrl, ownedHref)) return "site";
   }
 

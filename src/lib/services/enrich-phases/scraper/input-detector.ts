@@ -191,6 +191,42 @@ export function isThirdPartyDirectoryHost(url: string): boolean {
   }
 }
 
+/**
+ * Platforms from the lists above that give each user their own subdomain
+ * (`brand.pixnet.net`). A host on one of these other than the apex belongs to
+ * a single publisher. Wix (`*.wixsite.com`) and Shopify (`*.myshopify.com`)
+ * serve user sites from domains absent from the lists, so they are not here.
+ */
+const PER_USER_SUBDOMAIN_HOSTS = [
+  'pixnet.net',
+  'blogspot.com',
+  'wordpress.com',
+  'weebly.com',
+  'medium.com',
+  'carrd.co',
+]
+
+/** Platform-owned subdomains that never name a user. */
+const COMMON_SUBDOMAINS = new Set(['www', 'm', 'web', 'mobile'])
+
+/**
+ * True when the URL's host is one user's own subdomain on a per-user
+ * publishing platform (`brand.pixnet.net`) — not the apex, and not a common
+ * platform subdomain such as `www.` or `m.`. A malformed URL returns false.
+ */
+export function isPublishingPlatformSubdomain(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    return PER_USER_SUBDOMAIN_HOSTS.some((domain) => {
+      if (!hostname.endsWith(`.${domain}`)) return false
+      const userLabel = hostname.slice(0, -domain.length - 1).split('.').pop()
+      return !!userLabel && !COMMON_SUBDOMAINS.has(userLabel)
+    })
+  } catch {
+    return false
+  }
+}
+
 export function classifyByDomain(url: string): InputType | null {
   try {
     const hostname = new URL(url).hostname.toLowerCase()
