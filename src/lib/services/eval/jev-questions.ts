@@ -284,10 +284,15 @@ type NamesState = {
 }
 type NamesOutput = { chosen: string | null; confidence: ConfidenceBand; probability: number }
 
-/** Band a names pick at p >= this as high; initial; tuned on name-arbiter-confidence-golden train+val, DEV-1896. */
-export const NAMES_HIGH_MIN = 0.9
-/** Band a names pick at p >= this (and below `NAMES_HIGH_MIN`) as medium; initial; tuned on name-arbiter-confidence-golden train+val, DEV-1896. */
-export const NAMES_MEDIUM_MIN = 0.7
+/**
+ * Band a names pick at p >= this as high. Tuned on name-arbiter-confidence-golden train+val
+ * (88 items, DEV-1896): shipped-name agreement 76/88 = 0.864, the best of the 0.50-0.95 grid;
+ * see docs/eval/archive/dev-1869/names-rerun/sweep.md. The optimum sits at the grid floor:
+ * any stricter gate only sends correct Jev renames back to the stored name.
+ */
+export const NAMES_HIGH_MIN = 0.55
+/** Band a names pick at p >= this (and below `NAMES_HIGH_MIN`) as medium; tuned with `NAMES_HIGH_MIN` (DEV-1896, same sweep). */
+export const NAMES_MEDIUM_MIN = 0.5
 
 function namesBand(p: number): ConfidenceBand {
   if (p >= NAMES_HIGH_MIN) return 'high'
