@@ -32,8 +32,8 @@ describe('search detector', () => {
   it('reports degraded share and intent-parse failure share above threshold', async () => {
     // Simulate: 100 searches, 40 degraded, 25 intent failures
     const client = fakePostHogClient({
-      columns: ['total_searches', 'degraded_count', 'intent_parse_failures'],
-      results: [[100, 40, 25]],
+      columns: ['total_searches', 'degraded_count', 'intent_parse_failures', 'intent_parse_attempts'],
+      results: [[100, 40, 25, 100]],
     })
 
     const findings = await searchDetector.run(
@@ -54,8 +54,8 @@ describe('search detector', () => {
 
   it('reports nothing when there were no search events', async () => {
     const client = fakePostHogClient({
-      columns: ['total_searches', 'degraded_count', 'intent_parse_failures'],
-      results: [[0, 0, 0]],
+      columns: ['total_searches', 'degraded_count', 'intent_parse_failures', 'intent_parse_attempts'],
+      results: [[0, 0, 0, 0]],
     })
 
     const findings = await searchDetector.run(
@@ -64,3 +64,17 @@ describe('search detector', () => {
     expect(findings).toHaveLength(0)
   })
 })
+
+// Regression: real parse failures were invisible because the detector queried an unused event.
+it('reports failures among attempted parses using the emitted event states', async () => {
+  const findings = await searchDetector.run(ctx({ deps: { posthogClient: {
+    run: async (_name: string, query: string) => {
+      expect(query).toContain("event = 'product_search_executed'");
+      expect(query).toContain("properties.intent_parsed = 'failed'");
+      expect(query).toContain("properties.intent_parsed IN ('ok', 'failed')");
+      expect(query).toContain("properties.degraded = 'true'");
+      return { columns: ['total_searches', 'degraded_count', 'intent_parse_failures', 'intent_parse_attempts'], results: [[100, 0, 3, 10]] };
+    },
+  } } }));
+  expect(findings).toEqual([expect.objectContaining({ evidence: expect.objectContaining({ intentFailureShare: 0.3, intentFailures: 3 }) })]);
+});

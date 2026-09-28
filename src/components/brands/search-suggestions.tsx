@@ -76,7 +76,7 @@ export function SearchSuggestions({
             aria-selected={index === selectedIndex}
             onClick={() => onSelect(item.slug, index)}
             className={`cursor-pointer px-4 py-3 type-body-sm text-ink-soft ${
-              index === selectedIndex ? "bg-surface" : "hover:bg-surface"
+              index === selectedIndex ? "bg-surface-deep" : "hover:bg-surface-deep"
             }`}
           >
             <span className="font-medium text-ink">

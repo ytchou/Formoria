@@ -305,7 +305,7 @@ export const ANALYTICS_EVENTS = {
    * @property search_term {string | undefined} The query text, trimmed and capped at 100
    *   characters. Absent when the query looked like an email address or contained a run
    *   of 7+ digits.
-   * @property search_source {string} Where the search originated: `discover_page` | `url`.
+   * @property search_source {string} Where the search originated: `nav` | `hero` | `discover_page` | `url`.
    * @property degraded {boolean} Whether the search fell back to lexical-only mode.
    * @property intent_parsed {'skipped' | 'ok' | 'failed' | undefined} Intent parse state: skipped (not attempted), ok (succeeded), or failed (timeout/error).
    * @property intent_category {string | null | undefined} Resolved top-level category.
@@ -315,6 +315,13 @@ export const ANALYTICS_EVENTS = {
    * @property intent_latency_ms {number | undefined} Wall-clock ms spent on intent parsing.
    */
   PRODUCT_SEARCH_EXECUTED: "product_search_executed",
+
+  /** Product search returned no products. search_term is privacy-filtered; search_id correlates the search. */
+  PRODUCT_SEARCH_EMPTY: "product_search_empty",
+
+  /** A related brand was opened: brand_slug, zero-based position, search_id and privacy-filtered search_term. */
+  PRODUCT_SEARCH_BRAND_CLICKED: "product_search_brand_clicked",
+
 
   /**
    * A search returned zero results. Denominator partner of `brand_search_executed`
