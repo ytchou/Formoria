@@ -1,3 +1,6 @@
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import type { AuditRecord } from '@/lib/audit/emit'
 import { installSeams, assertNoNewAuditRows } from '../zero-write'
@@ -67,6 +70,18 @@ describe('installSeams', () => {
 
     // After restore, env var is cleared
     expect(process.env.CURATION_EVAL_SINK).toBeUndefined()
+  })
+
+  it('installSeams creates the sink directory', () => {
+    const root = mkdtempSync(join(tmpdir(), 'zero-write-'))
+    const sinkDir = join(root, 'runs', 'nested')
+    const { restore } = installSeams({ sinkPath: join(sinkDir, 'capture-sink.jsonl') })
+    try {
+      expect(existsSync(sinkDir)).toBe(true)
+    } finally {
+      restore()
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it('the installed seam intercepts emitAuditRecord', async () => {

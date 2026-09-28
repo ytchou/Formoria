@@ -723,11 +723,20 @@ export function isAdmittedProductsItem(
 // Subcommand handlers
 // ---------------------------------------------------------------------------
 
-/** A Langfuse 404 on a dataset lookup: `LangfuseFetchHttpError` carries the response. */
+/**
+ * A Langfuse 404 on a dataset lookup: `LangfuseFetchHttpError` carries the response.
+ *
+ * `client.getDataset` (langfuse-core 3.x) also swallows the 404 on the dataset
+ * lookup and then fails on the items page with
+ * `TypeError: itemsResponse.data is not iterable`. Matched on the SDK's own
+ * variable name so an unrelated "is not iterable" still surfaces; re-check if
+ * the SDK is upgraded and renames it.
+ */
 export function isDatasetNotFound(e: unknown): boolean {
   const status = (e as { response?: { status?: unknown } } | null)?.response?.status
   if (status === 404) return true
   const message = e instanceof Error ? e.message : String(e)
+  if (e instanceof TypeError && /\bitemsResponse\.data is not iterable\b/.test(message)) return true
   return /\b404\b|not found/i.test(message)
 }
 

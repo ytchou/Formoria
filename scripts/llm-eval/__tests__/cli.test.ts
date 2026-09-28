@@ -1276,6 +1276,37 @@ describe('cmdDatasetValidate', () => {
     }
   })
 
+  it('validate reports a missing dataset and continues', async () => {
+    // The Langfuse SDK swallows the 404 on the dataset lookup, then fails on
+    // the items page: `items.push(...itemsResponse.data)` with data undefined.
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getDataset = vi.fn(async (name: string) => {
+      if (name === INTENT_PARSE_DATASET) throw new TypeError('itemsResponse.data is not iterable')
+      return { items: [] }
+    })
+    try {
+      await cmdDatasetValidate(false, { getDataset })
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines.some((l) => l.startsWith(INTENT_PARSE_DATASET) && l.includes('not seeded'))).toBe(true)
+      expect(getDataset.mock.calls.length).toBeGreaterThan(1)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('rethrows an unrelated TypeError', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await expect(
+        cmdDatasetValidate(false, {
+          getDataset: vi.fn().mockRejectedValue(new TypeError('foo.bar is not iterable')),
+        }),
+      ).rejects.toThrow(/foo\.bar/)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
   it('rethrows any error other than a missing dataset', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     try {
