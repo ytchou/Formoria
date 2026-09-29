@@ -285,6 +285,41 @@ export async function restoreTicket(
   if (error) throw error
 }
 
+/** A queue row's ticket link before this run reserved it for a follow-up. */
+type PreviousTicket = { ticketedAt: string; linearIdentifier: string | null }
+
+/**
+ * Reserve one finding for ticket creation: a follow-up when `previous` is
+ * given, a first ticket otherwise. Pair with `undoReservation`.
+ */
+export async function reserveTicket(
+  client: HealthLedgerClient,
+  id: string,
+  previous?: PreviousTicket,
+): Promise<void> {
+  if (previous) {
+    await reserveFollowUp(client, id, previous.ticketedAt)
+  } else {
+    await reserveTickets(client, [id])
+  }
+}
+
+/**
+ * Undo a `reserveTicket` whose ticket was never created: restore the earlier
+ * ticket link for a follow-up, release the reservation otherwise.
+ */
+export async function undoReservation(
+  client: HealthLedgerClient,
+  id: string,
+  previous?: PreviousTicket,
+): Promise<void> {
+  if (previous) {
+    await restoreTicket(client, id, previous)
+  } else {
+    await releaseFailedReservations(client, [id])
+  }
+}
+
 /**
  * Finalize ticket creation by writing the Linear identifier.
  * Called after the ticket was successfully created in Linear.

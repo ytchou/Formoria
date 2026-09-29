@@ -382,8 +382,9 @@ function parseKnipReport(
             severity: 'medium',
             title: `Knip ${kind}: ${symbol}`,
             disposition,
-            // Only a scoped, non-dependency finding is fixable by a code PR.
-            autoFix: !agentCannotRepair && changedFiles.length > 0,
+            // Only a scoped finding is fixable by a code PR; kinds the agent
+            // cannot repair get no scope (scopeCandidate above).
+            autoFix: changedFiles.length > 0,
           }),
         )
       }

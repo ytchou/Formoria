@@ -37,7 +37,7 @@ export interface HealthFinding {
    * Opt-in: set only where the ops routine can fix the finding with a code
    * PR. Absent means ticket.
    */
-  route?: 'auto_fix'
+  route?: Extract<HealthFindingRoute, 'auto_fix'>
   humanReason?: string
   changedFiles?: readonly string[]
   sentryIssueId?: string

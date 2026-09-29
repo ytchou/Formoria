@@ -335,18 +335,23 @@ function openaiBudgetLabel(report: SpendWatchReport): string {
     : "OpenAI budget (derived, prod only)";
 }
 
+// openaiBilled: object → billed; null → a configured Costs API read failed;
+// absent → OPENAI_ADMIN_KEY is unset (optional feature), derived with no warning.
 function yesterdayLines(report: SpendWatchReport): string[] {
   const lines = [
     report.openaiBilled
       ? `${usd(report.openaiBilled.dayUsd)} OpenAI billed (UTC day)`
-      : `${usd(report.day.llmUsd)} prod enrichment (derived — OpenAI Costs API unavailable)`,
+      : report.openaiBilled === null
+        ? `${usd(report.day.llmUsd)} prod enrichment (derived — OpenAI Costs API unavailable)`
+        : `${usd(report.day.llmUsd)} prod enrichment (derived)`,
   ];
   if (report.jev) {
     const unpriced =
       report.jev.unpricedCalls > 0
         ? ` · ${report.jev.unpricedCalls} unpriced`
         : "";
-    lines.push(`${usd(report.jev.dayUsd)} Jev (derived)${unpriced}`);
+    // Jev uses the rolling 24h window; OpenAI billed is the previous UTC day.
+    lines.push(`${usd(report.jev.dayUsd)} Jev (derived, last 24h)${unpriced}`);
   }
   return lines;
 }

@@ -69,15 +69,19 @@ export type TicketLedgerEntry = {
 
 const DAY_MS = 86_400_000
 
+function msSinceTicketed(ticketedAt: string, now: Date): number {
+  return now.getTime() - Date.parse(ticketedAt)
+}
+
 /** Whole days between `ticketedAt` and `now`. */
 export function daysSinceTicketed(ticketedAt: string, now: Date): number {
-  return Math.floor((now.getTime() - Date.parse(ticketedAt)) / DAY_MS)
+  return Math.floor(msSinceTicketed(ticketedAt, now) / DAY_MS)
 }
 
 /**
  * Whether the health agent may file a ticket for this finding: never
- * ticketed, or ticketed more than HEALTH_TICKET_FOLLOW_UP_DAYS ago and still
- * firing (a follow-up).
+ * ticketed, or ticketed under a known Linear identifier more than
+ * HEALTH_TICKET_FOLLOW_UP_DAYS ago and still firing (a follow-up).
  *
  * Runtime Sentry issues are signal-only. Credential findings, including
  * sentry-capture failures, remain eligible for operational tickets.
@@ -90,8 +94,13 @@ export function isTicketEligible(
   if (finding.source === 'sentry') return false
   const entry = ticketed.get(finding.fingerprint)
   if (!entry) return true
+  // No identifier, no follow-up: migration 20260729110000 backfilled active
+  // rows with ticketed_at but a NULL linear_identifier on 2026-07-29, and a
+  // stranded reservation looks the same. Following those up would file a
+  // burst of tickets on the first run after deploy.
+  if (!entry.linearIdentifier) return false
   return (
-    now.getTime() - Date.parse(entry.ticketedAt) >
+    msSinceTicketed(entry.ticketedAt, now) >
     HEALTH_TICKET_FOLLOW_UP_DAYS * DAY_MS
   )
 }

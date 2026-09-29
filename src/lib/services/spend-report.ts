@@ -47,7 +47,8 @@ export type SpendReportV1 = {
   operations?: OperationalAlertSummary;
   // Optional: a renderer on `main` may read an endpoint that predates these.
   // OpenAI's billed cost (Costs API). Day is the previous complete UTC day,
-  // because Costs API buckets are UTC days. Null when unavailable.
+  // because Costs API buckets are UTC days. Absent when OPENAI_ADMIN_KEY is
+  // unset (optional feature); null when a configured read failed.
   openaiBilled?: {
     dayUsd: number;
     cycleUsd: number;
@@ -123,6 +124,9 @@ async function loadOpenAIBilled(
   at: Date,
   cycleStart: string,
 ): Promise<SpendReportV1["openaiBilled"]> {
+  // Unset is the optional feature not configured, not a failure: omit the
+  // field so the renderer shows the derived figure without a warning.
+  if (!process.env.OPENAI_ADMIN_KEY?.trim()) return undefined;
   const dayEnd = new Date(
     Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()),
   );
@@ -160,14 +164,11 @@ async function loadJev(
   cycle: { start: string; end: string },
 ): Promise<SpendReportV1["jev"]> {
   try {
-    const [daySpend, cycleSpend] = await Promise.all([
-      loadJevSpend(supabase, day.start, day.end),
-      loadJevSpend(supabase, cycle.start, cycle.end),
-    ]);
+    const [daySpend, cycleSpend] = await loadJevSpend(supabase, [day, cycle]);
     return {
-      dayUsd: daySpend.usd,
-      cycleUsd: cycleSpend.usd,
-      unpricedCalls: daySpend.unpricedCalls,
+      dayUsd: daySpend?.usd ?? 0,
+      cycleUsd: cycleSpend?.usd ?? 0,
+      unpricedCalls: daySpend?.unpricedCalls ?? 0,
     };
   } catch (error) {
     logUnavailable("spend_report_jev_unavailable", error);
@@ -208,7 +209,7 @@ export async function loadSpendReport(
         now: at,
         supabase,
         spend: Promise.resolve(cycleSnapshot),
-        openaiBilledCycleUsd: Promise.resolve(openaiBilled?.cycleUsd ?? null),
+        openaiBilledCycleUsd: openaiBilled?.cycleUsd ?? null,
       }),
     );
   } catch {

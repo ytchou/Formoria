@@ -831,10 +831,63 @@ type OperationalDependencies = {
   posthog?: PostHogQueryClient | null;
   // OpenAI's billed cycle-to-date USD (Costs API). Null or absent → the meter
   // falls back to the production-only derived snapshot.
-  openaiBilledCycleUsd?: Promise<number | null>;
+  openaiBilledCycleUsd?: number | null;
 };
 
 const DERIVED_OPENAI_SOURCE = "Formoria brand_ai_results (derived, prod only)";
+const OPENAI_MONTHLY_BUDGET_USD = 25;
+
+async function loadOpenAIUsage(
+  now: Date,
+  month: UsageWindow,
+  spend: Promise<SpendSnapshotV1> | null,
+  billedUsd: number | null,
+): Promise<MeteredUsage & { id: string }> {
+  if (billedUsd !== null && Number.isFinite(billedUsd)) {
+    return {
+      id: "openai",
+      state: "ready",
+      primary: createMetric({
+        value: billedUsd,
+        unit: "USD",
+        limit: OPENAI_MONTHLY_BUDGET_USD,
+        window: month,
+        source: "OpenAI Costs API",
+        at: now,
+      }),
+    };
+  }
+  if (!providerConfigured(process.env.OPENAI_API_KEY)) {
+    return {
+      id: "openai",
+      state: "unconfigured",
+      message:
+        "OpenAI usage requires OPENAI_ADMIN_KEY (billed) or OPENAI_API_KEY (derived).",
+    };
+  }
+  if (!spend) throw new Error("OpenAI spend meter is unavailable.");
+  const snapshot = await spend;
+  const line = snapshot.services.find((service) => service.id === "openai");
+  if (!line || line.units === null || line.amountUsd === null)
+    throw new Error("OpenAI spend meter returned no measured data.");
+  const primary = createMetric({
+    value: line.amountUsd,
+    unit: "USD",
+    limit: OPENAI_MONTHLY_BUDGET_USD,
+    window: snapshot.cycles.find((cycle) => cycle.resetsOnDay === 1) ?? month,
+    source: DERIVED_OPENAI_SOURCE,
+    at: now,
+  });
+  const secondary = createMetric({
+    value: line.units,
+    unit: "tokens",
+    limit: null,
+    window: primary.window,
+    source: DERIVED_OPENAI_SOURCE,
+    at: now,
+  });
+  return { id: "openai", state: "ready", primary, secondary };
+}
 
 async function collectMeteredUsage(
   now: Date,
@@ -842,73 +895,13 @@ async function collectMeteredUsage(
   fetchImpl: typeof fetch,
   posthog: PostHogQueryClient | null,
   spend: Promise<SpendSnapshotV1> | null,
-  openaiBilledCycleUsd: Promise<number | null> | null = null,
+  openaiBilledCycleUsd: number | null = null,
 ): Promise<Map<string, MeteredUsage>> {
   const month = utcMonthWindow(now);
   const tasks = [
     {
       id: "openai",
-      promise: (openaiBilledCycleUsd ?? Promise.resolve(null))
-        // A failed billed read degrades to the derived fallback, never an error row.
-        .catch(() => null)
-        .then((billedUsd): Promise<MeteredUsage & { id: string }> => {
-          if (billedUsd !== null && Number.isFinite(billedUsd)) {
-            return Promise.resolve({
-              id: "openai",
-              state: "ready" as const,
-              primary: createMetric({
-                value: billedUsd,
-                unit: "USD",
-                limit: 25,
-                window: month,
-                source: "OpenAI Costs API",
-                at: now,
-              }),
-            });
-          }
-          if (!providerConfigured(process.env.OPENAI_API_KEY)) {
-            return Promise.resolve({
-              id: "openai",
-              state: "unconfigured" as const,
-              message:
-                "OpenAI usage requires OPENAI_ADMIN_KEY (billed) or OPENAI_API_KEY (derived).",
-            });
-          }
-          return (
-            spend ??
-            Promise.reject(new Error("OpenAI spend meter is unavailable."))
-          ).then((snapshot) => {
-            const line = snapshot.services.find(
-              (service) => service.id === "openai",
-            );
-            if (!line || line.units === null || line.amountUsd === null)
-              throw new Error("OpenAI spend meter returned no measured data.");
-            const primary = createMetric({
-              value: line.amountUsd,
-              unit: "USD",
-              limit: 25,
-              window:
-                snapshot.cycles.find((cycle) => cycle.resetsOnDay === 1) ??
-                month,
-              source: DERIVED_OPENAI_SOURCE,
-              at: now,
-            });
-            const secondary = createMetric({
-              value: line.units,
-              unit: "tokens",
-              limit: null,
-              window: primary.window,
-              source: DERIVED_OPENAI_SOURCE,
-              at: now,
-            });
-            return {
-              id: "openai",
-              state: "ready" as const,
-              primary,
-              secondary,
-            };
-          });
-        }),
+      promise: loadOpenAIUsage(now, month, spend, openaiBilledCycleUsd),
     },
     {
       id: "serper",

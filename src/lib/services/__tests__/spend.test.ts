@@ -338,15 +338,41 @@ describe("Jev derived spend", () => {
       tables,
     );
 
-    const spend = await loadJevSpend(
-      client,
-      "2026-08-10T00:00:00.000Z",
-      "2026-08-11T00:00:00.000Z",
+    const [spend] = await loadJevSpend(client, [
+      { start: "2026-08-10T00:00:00.000Z", end: "2026-08-11T00:00:00.000Z" },
+    ]);
+
+    expect(spend?.usd).toBeCloseTo(0.5);
+    expect(spend?.calls).toBe(3);
+    expect(spend?.unpricedCalls).toBe(1);
+    expect(tables).toEqual(["external_call_audit"]);
+  });
+
+  // Bug caught: the day and cycle sums were two full reads of the same rows.
+  it("reads once over the union of windows and splits the sums by created_at", async () => {
+    const tables: string[] = [];
+    const client = auditClient(
+      [
+        // Before the day window, inside the cycle.
+        { provider: "typesafe", status: "succeeded", cost_usd: 1, created_at: "2026-08-01T00:00:00.000Z" },
+        // Inside both windows.
+        { provider: "typesafe", status: "succeeded", cost_usd: 0.25, created_at: "2026-08-10T12:00:00.000Z" },
+        { provider: "typesafe", status: "succeeded", cost_usd: null, created_at: "2026-08-10T13:00:00.000Z" },
+        // Previous cycle, inside the day window (the cycle's first day).
+        { provider: "typesafe", status: "succeeded", cost_usd: 2, created_at: "2026-07-31T23:00:00.000Z" },
+      ],
+      tables,
     );
 
-    expect(spend.usd).toBeCloseTo(0.5);
-    expect(spend.calls).toBe(3);
-    expect(spend.unpricedCalls).toBe(1);
+    const [day, cycle] = await loadJevSpend(client, [
+      { start: "2026-07-31T12:00:00.000Z", end: "2026-08-11T00:00:00.000Z" },
+      { start: "2026-08-01T00:00:00.000Z", end: "2026-09-01T00:00:00.000Z" },
+    ]);
+
+    expect(day?.usd).toBeCloseTo(3.25);
+    expect(day?.unpricedCalls).toBe(1);
+    expect(cycle?.usd).toBeCloseTo(1.25);
+    expect(cycle?.calls).toBe(3);
     expect(tables).toEqual(["external_call_audit"]);
   });
 });

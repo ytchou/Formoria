@@ -18,6 +18,10 @@ export type RunEvent =
       autoFix?: number;
       /** Findings routed to a Linear ticket. */
       ticket?: number;
+      /** @deprecated legacy persisted field; read `autoFix`. */
+      repairable?: number;
+      /** @deprecated legacy persisted field; read `ticket`. */
+      reportOnly?: number;
       /** Known debt, enqueued but neither ticketed nor auto-fixed. */
       acknowledged?: number;
       /** Detectors that could not run; their sources are missing from `total`. */

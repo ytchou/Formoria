@@ -746,7 +746,7 @@ describe("operational usage risk", () => {
         supabase: null,
         posthog: null,
         spend: derivedSpend(),
-        openaiBilledCycleUsd: Promise.resolve(7.5),
+        openaiBilledCycleUsd: 7.5,
       });
       expect(row(snapshot, "openai").usage).toMatchObject({
         state: "ready",
@@ -761,17 +761,14 @@ describe("operational usage risk", () => {
     it("falls back to the labelled derived value when billed spend is unavailable", async () => {
       clearProviderEnvironment();
       vi.stubEnv("OPENAI_API_KEY", "openai-key");
-      for (const billed of [
-        () => Promise.resolve(null),
-        () => Promise.reject(new Error("Costs API down")),
-      ]) {
+      for (const billed of [null, undefined, Number.NaN]) {
         const snapshot = await loadOperationalSnapshot({
           now: NOW,
           health: healthyHealth(),
           supabase: null,
           posthog: null,
           spend: derivedSpend(),
-          openaiBilledCycleUsd: billed(),
+          openaiBilledCycleUsd: billed,
         });
         expect(row(snapshot, "openai").usage).toMatchObject({
           state: "ready",
@@ -791,7 +788,7 @@ describe("operational usage risk", () => {
         supabase: null,
         posthog: null,
         spend: derivedSpend(),
-        openaiBilledCycleUsd: Promise.resolve(null),
+        openaiBilledCycleUsd: null,
       });
       expect(row(snapshot, "openai").usage).toMatchObject({
         state: "unconfigured",

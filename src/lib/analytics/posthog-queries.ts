@@ -65,6 +65,10 @@ ORDER BY date
 `.trim()
 }
 
+// 'search' counts every visit whose previous page is /discover, where every
+// search box lands since DEV-1900. /discover browsing without a query is
+// included too, because sanitizePostHogUrl strips the q param. A precise split
+// would need a join on product_search_executed.
 function trafficSourcesQuery(scope: string): string {
   return `
 SELECT source, uniq(session_id) AS sessions
@@ -218,6 +222,10 @@ ORDER BY date
 `.trim()
 }
 
+// 'search' counts every visit whose previous page is /discover, where every
+// search box lands since DEV-1900. /discover browsing without a query is
+// included too, because sanitizePostHogUrl strips the q param. A precise split
+// would need a join on product_search_executed.
 function trafficSourcesQueryV2(scope: string): string {
   return `
 SELECT source, uniq(session_id) AS sessions

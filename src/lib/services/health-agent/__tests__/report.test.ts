@@ -119,6 +119,17 @@ describe('report — per-finding tickets', () => {
     expect(isTicketEligible(finding, new Map([[fingerprint, ticketedDaysAgo(15)]]), NOW)).toBe(true)
   })
 
+  it('a ticketed row without a Linear identifier never gets a follow-up', () => {
+    // Rows backfilled by migration 20260729110000 and stranded reservations.
+    const fingerprint = 'directory:test:backfilled'
+    const finding = makeFinding({ fingerprint })
+    const ledger = new Map([
+      [fingerprint, { ...ticketedDaysAgo(30), linearIdentifier: null }],
+    ])
+
+    expect(isTicketEligible(finding, ledger, NOW)).toBe(false)
+  })
+
   it('Sentry findings stay ineligible past the follow-up window', () => {
     const sentry = makeFinding({ source: 'sentry', fingerprint: 'sentry:issue:2' })
     expect(

@@ -47,8 +47,11 @@ function utcHHmm(at: number): string {
 function findingsLabel(event: Extract<RunEvent, { kind: "findings" }>): string {
   const parts: string[] = [];
   if (event.total !== undefined) parts.push(`${event.total} findings`);
-  if (event.autoFix !== undefined) parts.push(`${event.autoFix} auto-fix`);
-  if (event.ticket !== undefined) parts.push(`${event.ticket} ticket`);
+  // Events persisted before the auto-fix/ticket rename carry the old names.
+  const autoFix = event.autoFix ?? event.repairable;
+  const ticket = event.ticket ?? event.reportOnly;
+  if (autoFix !== undefined) parts.push(`${autoFix} auto-fix`);
+  if (ticket !== undefined) parts.push(`${ticket} ticket`);
   if (event.acknowledged) parts.push(`${event.acknowledged} acknowledged`);
   if (event.failedDetectors) {
     const n = event.failedDetectors;

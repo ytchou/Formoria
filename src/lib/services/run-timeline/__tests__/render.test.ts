@@ -70,6 +70,15 @@ describe("renderTimeline rows", () => {
     expect(text).not.toContain("acknowledged");
   });
 
+  it("renders a findings event persisted with the legacy repairable/reportOnly fields", () => {
+    const text = allText(
+      renderTimeline(
+        timeline([{ kind: "findings", at: T0, total: 24, repairable: 9, reportOnly: 15 }]),
+      ),
+    );
+    expect(text).toContain("24 findings · 9 auto-fix · 15 ticket");
+  });
+
   it("names acknowledged findings in the findings row, and only when there are some", () => {
     const text = allText(
       renderTimeline(

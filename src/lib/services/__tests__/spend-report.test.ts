@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { createServiceClient } from "@/lib/supabase/service";
 import type { AuditSpanRow, LlmSpendRow } from "../spend";
 import { loadSpendReport } from "../spend-report";
@@ -67,8 +67,13 @@ type JevRow = {
 
 // Tests never reach the network: the Costs API is injected.
 const costsUnavailable = {
-  fetchOpenAICosts: () => Promise.reject(new Error("not configured")),
+  fetchOpenAICosts: () => Promise.reject(new Error("Costs API down")),
 };
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
 
 function createClientDouble({
   aiRows = [],
@@ -250,6 +255,7 @@ describe("daily spend report", () => {
 });
 
 describe("OpenAI billed spend", () => {
+  const configureAdminKey = () => vi.stubEnv("OPENAI_ADMIN_KEY", "admin-key");
   const day = (start: string, usd: number) => ({
     start,
     end: new Date(Date.parse(start) + 86_400_000).toISOString(),
@@ -259,6 +265,7 @@ describe("OpenAI billed spend", () => {
   // Bug caught: the report showed production-derived spend as the OpenAI
   // figure while real spend (staging, evals) went unreported.
   it("reports the previous UTC day and cycle-to-date from one Costs API call", async () => {
+    configureAdminKey();
     const windows: Array<{ startTime: Date; endTime: Date }> = [];
     const report = await loadSpendReport(createClientDouble(), AT, {
       fetchOpenAICosts: async (window) => {
@@ -287,6 +294,7 @@ describe("OpenAI billed spend", () => {
   });
 
   it("widens the range on the cycle's first day so yesterday is still billed", async () => {
+    configureAdminKey();
     const at = new Date("2026-08-01T21:05:00.000Z");
     const windows: Array<{ startTime: Date; endTime: Date }> = [];
     const report = await loadSpendReport(createClientDouble(), at, {
@@ -306,7 +314,9 @@ describe("OpenAI billed spend", () => {
     expect(report.openaiBilled).toMatchObject({ dayUsd: 4, cycleUsd: 1 });
   });
 
-  it("is null when the Costs API is unavailable", async () => {
+  it("is null and logged when a configured Costs API read fails", async () => {
+    configureAdminKey();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const report = await loadSpendReport(
       createClientDouble(),
       AT,
@@ -314,6 +324,31 @@ describe("OpenAI billed spend", () => {
     );
 
     expect(report.openaiBilled).toBeNull();
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining("spend_report_openai_costs_unavailable"),
+    );
+  });
+
+  // Bug caught: an unset OPENAI_ADMIN_KEY (the optional feature, not yet
+  // configured) logged an error and raised a daily "unavailable" warning.
+  it("is absent, unlogged, and never fetched when OPENAI_ADMIN_KEY is unset", async () => {
+    for (const key of ["", "   "]) {
+      vi.stubEnv("OPENAI_ADMIN_KEY", key);
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      let fetched = false;
+      const report = await loadSpendReport(createClientDouble(), AT, {
+        fetchOpenAICosts: () => {
+          fetched = true;
+          return Promise.reject(new Error("unreachable"));
+        },
+      });
+
+      expect(report.openaiBilled).toBeUndefined();
+      expect(fetched).toBe(false);
+      expect(errors).not.toHaveBeenCalledWith(
+        expect.stringContaining("spend_report_openai_costs_unavailable"),
+      );
+    }
   });
 });
 
@@ -324,8 +359,10 @@ describe("Jev derived spend", () => {
       cost_usd: number | null,
       status = "succeeded",
     ): JevRow => ({ provider: "typesafe", status, cost_usd, created_at });
+    const calls: QueryCall[] = [];
     const report = await loadSpendReport(
       createClientDouble({
+        calls,
         jevRows: [
           jevRow("2026-08-02T00:00:00.000Z", 1),
           jevRow("2026-08-10T10:00:00.000Z", null, "started"),
@@ -342,5 +379,13 @@ describe("Jev derived spend", () => {
       cycleUsd: 1.5,
       unpricedCalls: 1,
     });
+    // One read covers both windows.
+    expect(
+      calls.filter(
+        (call) =>
+          call.table === "external_call_audit" &&
+          call.eq.some(([column, value]) => column === "provider" && value === "typesafe"),
+      ),
+    ).toHaveLength(1);
   });
 });

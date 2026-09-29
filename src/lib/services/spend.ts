@@ -419,13 +419,29 @@ export type JevSpend = { usd: number; calls: number; unpricedCalls: number };
  * Derived TypeSafe (Jev) spend from the audit trail. Each Jev call writes a
  * `started` row (cost null) and a terminal `succeeded` row carrying cost_usd,
  * so only succeeded rows are counted.
+ *
+ * Reads once over the union of `windows` ([earliest start, latest end)) and
+ * returns one sum per window, in order, split by created_at.
  */
 export async function loadJevSpend(
   supabase: SpendClient,
-  start: string,
-  end: string,
-): Promise<JevSpend> {
-  const rows = await loadAllPages<{ cost_usd: number | string | null }>(
+  windows: readonly { start: string; end: string }[],
+): Promise<JevSpend[]> {
+  if (windows.length === 0) return [];
+  const bounds = windows.map((window) => ({
+    start: Date.parse(window.start),
+    end: Date.parse(window.end),
+  }));
+  const start = new Date(
+    Math.min(...bounds.map((window) => window.start)),
+  ).toISOString();
+  const end = new Date(
+    Math.max(...bounds.map((window) => window.end)),
+  ).toISOString();
+  const rows = await loadAllPages<{
+    cost_usd: number | string | null;
+    created_at: string;
+  }>(
     (from, to, includeCount) =>
       supabase
         .from("external_call_audit")
@@ -441,14 +457,20 @@ export async function loadJevSpend(
         .order("id", { ascending: true })
         .range(from, to),
   );
-  let usd = 0;
-  let unpricedCalls = 0;
+  const totals = bounds.map(() => ({ usd: 0, calls: 0, unpricedCalls: 0 }));
   // Documented shortcut: JS aggregation; move to a Postgres RPC above ~50k rows/cycle.
   for (const row of rows) {
-    if (row.cost_usd === null) unpricedCalls += 1;
-    else usd += Number(row.cost_usd);
+    const createdAt = Date.parse(row.created_at);
+    bounds.forEach((window, index) => {
+      if (createdAt < window.start || createdAt >= window.end) return;
+      const total = totals[index];
+      if (!total) return;
+      total.calls += 1;
+      if (row.cost_usd === null) total.unpricedCalls += 1;
+      else total.usd += Number(row.cost_usd);
+    });
   }
-  return { usd, calls: rows.length, unpricedCalls };
+  return totals;
 }
 
 async function loadSpendSnapshot(

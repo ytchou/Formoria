@@ -990,6 +990,8 @@ function ticketClient(
     ledgerReadError?: unknown
     /** Per-fingerprint ticketed_at; defaults to DEFAULT_TICKETED_AT. */
     ticketedAt?: Record<string, string>
+    /** Error returned by the finalize write (the Linear identifier update). */
+    finalizeError?: unknown
   } = {},
 ) {
   const client = stubClient()
@@ -1072,6 +1074,10 @@ function ticketClient(
       } else if (update && update.linear_identifier === null) {
         released.push(state.ids)
       } else if (update && typeof update.linear_identifier === 'string') {
+        if (options.finalizeError) {
+          return Promise.resolve({ data: null, error: options.finalizeError })
+            .then(resolve, reject)
+        }
         for (const id of state.ids) {
           finalized.push({ id, linearIdentifier: update.linear_identifier })
         }
@@ -1468,6 +1474,39 @@ describe('runHealthAgent — per-finding tickets', () => {
 
     expect(ledger.released).toEqual([[`id:${REPORT_ONLY.fingerprint}`]])
     expect(ledger.finalized).toEqual([])
+  })
+
+  it('keeps the reservation and logs the identifier when finalize fails after creation', async () => {
+    const ledger = ticketClient({}, { finalizeError: new Error('db down') })
+    const linearCreateTicket = vi.fn(async () => ({
+      identifier: 'DEV-77',
+      url: 'https://linear.app/x/issue/DEV-77',
+    }))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await runHealthAgent(baseDeps({
+        client: ledger.client,
+        registryOverride: [
+          makeDetector({
+            name: 'brand-invariants',
+            source: 'directory',
+            run: async () => [REPORT_ONLY, REPORT_ONLY],
+          }),
+        ],
+        linearCreateTicket,
+      }))
+
+      expect(linearCreateTicket).toHaveBeenCalledOnce()
+      expect(ledger.reserved).toEqual([[`id:${REPORT_ONLY.fingerprint}`]])
+      expect(ledger.released).toEqual([])
+      expect(ledger.restored).toEqual([])
+      const logged = errorSpy.mock.calls.map((call) => call.map(String).join(' ')).join('\n')
+      expect(logged).toContain('DEV-77')
+      expect(logged).toContain(`id:${REPORT_ONLY.fingerprint}`)
+      expect(logged).toContain(REPORT_ONLY.fingerprint)
+    } finally {
+      errorSpy.mockRestore()
+    }
   })
 
   it('sets ticketId on repair findings from the ledger linear_identifier', async () => {

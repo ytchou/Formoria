@@ -618,7 +618,7 @@ describe("OpenAI billed and Jev spend lines", () => {
       jev: { dayUsd: 0.4, cycleUsd: 1.1, unpricedCalls: 0 },
     });
 
-    expect(yesterday).toBe("*Yesterday*\n$4.56 OpenAI billed (UTC day)\n$0.40 Jev (derived)");
+    expect(yesterday).toBe("*Yesterday*\n$4.56 OpenAI billed (UTC day)\n$0.40 Jev (derived, last 24h)");
     expect(cycle).toBe(
       "*Cycle to date*\n$20.50 OpenAI billed · $1.10 Jev (derived)\nof which prod enrichment $6.72 (derived) · ~$75.00 fixed",
     );
@@ -652,7 +652,7 @@ describe("OpenAI billed and Jev spend lines", () => {
     };
     const [yesterday] = spendFields(value);
 
-    expect(yesterday).toContain("$0.40 Jev (derived) · 3 unpriced");
+    expect(yesterday).toContain("$0.40 Jev (derived, last 24h) · 3 unpriced");
     expect(JSON.stringify(buildSpendBlocks(value))).toContain(
       "Jev calls without a price row — add a llm_model_prices row for the new model version",
     );
@@ -695,8 +695,51 @@ describe("OpenAI billed and Jev spend lines", () => {
 
     expect(result.status).toBe("success");
     const blockJson = JSON.stringify(responseBody(fetchImpl, 1).blocks);
-    expect(blockJson).toContain("$1.23 prod enrichment (derived");
+    expect(blockJson).toContain("$1.23 prod enrichment (derived)");
     expect(blockJson).not.toContain("Jev");
+    expect(blockJson).not.toContain("Costs API unavailable");
+  });
+
+  // Bug caught: an unset OPENAI_ADMIN_KEY (optional, not yet configured)
+  // raised "OpenAI Costs API unavailable" in every daily report.
+  it("shows the derived figure without a warning when billed spend is absent", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...report,
+          operations,
+          jev: { dayUsd: 0.4, cycleUsd: 1.1, unpricedCalls: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("success");
+    const body = responseBody(fetchImpl, 1);
+    const blockJson = JSON.stringify(body.blocks);
+    expect(blockJson).toContain(
+      "*Yesterday*\\n$1.23 prod enrichment (derived)\\n$0.40 Jev (derived, last 24h)",
+    );
+    expect(blockJson).toContain(
+      "*Cycle to date*\\n$6.72 prod enrichment (derived) · $1.10 Jev (derived) · ~$75.00 fixed",
+    );
+    expect(blockJson).toContain("*OpenAI budget (derived, prod only)*");
+    expect(blockJson).not.toContain("Costs API unavailable");
+    expect(body.text).toContain("$1.23 prod enrichment (derived) · $6.72 cycle");
+    expect(result.notification.summary).toEqual(
+      expect.arrayContaining([
+        "• Yesterday: $1.23 prod enrichment (derived) · $0.40 Jev (derived, last 24h)",
+      ]),
+    );
+    expect(result.notification.summary.join("\n")).not.toContain(
+      "Costs API unavailable",
+    );
   });
 
   it("rejects a malformed billed block as an invalid report", async () => {

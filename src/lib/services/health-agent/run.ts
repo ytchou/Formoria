@@ -48,10 +48,8 @@ import {
   readActiveSentryFingerprints,
   reconcile,
   releaseClaims,
-  releaseFailedReservations,
-  reserveFollowUp,
-  reserveTickets,
-  restoreTicket,
+  reserveTicket,
+  undoReservation,
   type HealthLedgerClient,
 } from './lifecycle'
 import { runDetectors } from './runner'
@@ -673,7 +671,6 @@ async function executeRunBody(
 
   // Which enqueued entries are already ticketed, when, and under which identifier
   const ticketLedger = new Map<string, TicketLedgerEntry>()
-  const linearIdentifiers = new Map<string, string>()
   let ledgerRead = false
   if (!dryRun && enqueuedIds.length > 0) {
     try {
@@ -701,9 +698,6 @@ async function executeRunBody(
               linearIdentifier: row.linear_identifier,
             })
           }
-          if (row.linear_identifier) {
-            linearIdentifiers.set(row.fingerprint, row.linear_identifier)
-          }
         }
         ledgerRead = true
       }
@@ -713,7 +707,7 @@ async function executeRunBody(
   }
 
   // One ticket per eligible finding: reserve -> create -> finalize, undoing
-  // the reservation on failure. A finding ticketed more than
+  // the reservation only when the ticket was never created. A finding ticketed more than
   // HEALTH_TICKET_FOLLOW_UP_DAYS ago that still fires gets a follow-up ticket.
   // Created tickets are listed under "Needs you" through one tickets_filed
   // event per call.
@@ -745,47 +739,57 @@ async function executeRunBody(
           : {}),
       })
       try {
-        if (previous) {
-          await reserveFollowUp(client, queueId, previous.ticketedAt)
-        } else {
-          await reserveTickets(client, [queueId])
-        }
+        await reserveTicket(client, queueId, previous)
       } catch (err) {
         console.error('[health-agent] ticket reservation failed:', err)
         continue
       }
 
+      let result: { identifier: string; url?: string }
       try {
-        const result = await createTicket({
+        result = await createTicket({
           title: ticket.title,
           body: ticket.body,
           labels: ticket.labels,
         })
-        await finalizeTickets(client, [
-          { id: queueId, linearIdentifier: result.identifier },
-        ])
-        // No URL, no row: no existing src/ code builds Linear issue links (the
-        // workspace slug is not configured), so a ticket without one is left
-        // out of the timeline. It is still in Linear and in the ledger.
-        // No fingerprints: only the relay write-back needs them, and they
-        // bloat the Slack metadata.
-        if (result.url) {
-          filed.push({
-            id: result.identifier,
-            url: result.url,
-            title: finding.title,
-          })
-        }
       } catch (err) {
         console.error('[health-agent] ticket creation failed:', err)
         try {
-          if (previous) {
-            // Keep the earlier ticket link rather than clearing it.
-            await restoreTicket(client, queueId, previous)
-          } else {
-            await releaseFailedReservations(client, [queueId])
-          }
+          // A follow-up keeps its earlier ticket link rather than clearing it.
+          await undoReservation(client, queueId, previous)
         } catch { /* release best-effort */ }
+        continue
+      }
+
+      try {
+        await finalizeTickets(client, [
+          { id: queueId, linearIdentifier: result.identifier },
+        ])
+      } catch (err) {
+        // The ticket exists in Linear, so the reservation stays: undoing it
+        // would re-file the same ticket next run. Log enough to backfill
+        // linear_identifier by hand.
+        console.error(
+          '[health-agent] ticket finalize failed; backfill linear_identifier:',
+          JSON.stringify({
+            queueId,
+            fingerprint: finding.fingerprint,
+            linearIdentifier: result.identifier,
+          }),
+          err,
+        )
+      }
+      // No URL, no row: no existing src/ code builds Linear issue links (the
+      // workspace slug is not configured), so a ticket without one is left
+      // out of the timeline. It is still in Linear and in the ledger.
+      // No fingerprints: only the relay write-back needs them, and they
+      // bloat the Slack metadata.
+      if (result.url) {
+        filed.push({
+          id: result.identifier,
+          url: result.url,
+          title: finding.title,
+        })
       }
     }
     if (filed.length > 0) {
@@ -847,7 +851,8 @@ async function executeRunBody(
           (f) => f.changedFiles ?? [],
         ))],
         findings: autoFixFindings.map((f): RepairFinding => {
-          const ticketId = linearIdentifiers.get(f.fingerprint)
+          const ticketId =
+            ticketLedger.get(f.fingerprint)?.linearIdentifier ?? undefined
           return {
             fingerprint: f.fingerprint,
             title: f.title,
