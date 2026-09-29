@@ -106,3 +106,30 @@ Their 24 unanimous and six 2–1 votes changed six grades. The combined
 the 0.6 gate. `dev-1900-batch-panel.json` records the second panel's
 individual votes, costs, hashes, and combined agreement. The local audit
 logs and full inputs remain gitignored.
+
+## DEV-1900 scorer sweep and holdout
+
+The 28-config train+validation sweep selected BM25F (k1=0.9, b=0.5;
+A/B/C/D=1/1/0.5/0.25). Its NDCG@10 was 0.6124 versus 0.6013 for the best
+weighted `ts_rank` arm; paired bootstrap BM25F minus `ts_rank` was +0.0111
+with a 95% interval of [+0.0013, +0.0218]. Two 30-query staging latency
+checks measured BM25F p95 within +50 ms of the same-index IDF arm, at
++46.9 and +49.5 ms. This is a narrow pass.
+
+The v3 holdout compared BM25F with same-index IDF once, on 30 original and
+10 new queries. Values below are BM25F minus IDF means:
+
+| Slice / mode | NDCG@10 | MRR | Recall@100 |
+| --- | ---: | ---: | ---: |
+| Original / lexical | +0.0061 | -0.0022 | -0.0266 |
+| Original / hybrid | -0.0117 | 0.0000 | -0.0057 |
+| New / lexical | +0.1039 | +0.1524 | 0.0000 |
+| New / hybrid | +0.0296 | 0.0000 | 0.0000 |
+
+The original-slice no-loss gate failed. Original lexical recall@100 had a
+paired 95% interval of [-0.0578, -0.0006]. BM25F is a scorer no-go, and
+`20260930130000_lexical_scorer_idf_fallback.sql` restores IDF as the
+staging default. `dev-1900-sweep.json` and `dev-1900-holdout.json` contain
+the full per-query evidence. The index-only ship gate remains unverified:
+no pre-index-migration v3 baseline was captured. A human ship decision is
+pending; this result does not authorize production promotion.

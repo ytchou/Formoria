@@ -18,6 +18,7 @@ const LTR_MIGRATION_FILE = "20260916120000_situation_search_ltr_columns.sql";
 const LTR_REVERSE_FILE = "20260916120000_revert_situation_search_ltr_columns.sql";
 const SCORER_FILE = "20260930110000_lexical_scorer_bm25f.sql";
 const DEFAULTS_FILE = "20260930120000_lexical_scorer_defaults.sql";
+const FALLBACK_FILE = "20260930130000_lexical_scorer_idf_fallback.sql";
 
 function migrationText(): string {
   return readFileSync(
@@ -260,6 +261,15 @@ describe("field-weighted lexical scorer migration", () => {
     expect(sql).toContain("matched as materialized");
     expect(sql).toContain("cp.search_vector @@ to_tsquery('simple', array_to_string(v_terms, ' | '))");
     expect(sql).toContain("sum(nentry)");
+    expect(sql).toContain("revoke all on function public.situation_search_lexical(text, integer, jsonb)");
+    expect(sql).toContain("has_function_privilege('anon', 'public.situation_search_lexical(text, integer, jsonb)', 'execute')");
+  });
+
+  it("restores IDF as the default when the holdout gate rejects the tuned scorer", () => {
+    const report = JSON.parse(readFileSync(join(process.cwd(), "scripts/enrichment/eval/search-eval/runs/dev-1900-holdout.json"), "utf8"));
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", FALLBACK_FILE), "utf8");
+    expect(report.gate.overall).toBe(false);
+    expect(sql).toContain("v_scorer text := coalesce(params ->> 'scorer', 'idf');");
     expect(sql).toContain("revoke all on function public.situation_search_lexical(text, integer, jsonb)");
     expect(sql).toContain("has_function_privilege('anon', 'public.situation_search_lexical(text, integer, jsonb)', 'execute')");
   });

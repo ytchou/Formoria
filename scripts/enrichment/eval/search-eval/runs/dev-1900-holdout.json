@@ -1,0 +1,1328 @@
+{
+  "dataset": "situation-search-v3",
+  "split": "holdout",
+  "candidate": "bm25f-k0.9-b0.5-w1-1-0.5-0.25",
+  "baseline": "idf on the new index",
+  "baselineLimit": "No pre-index-migration 156-query baseline was captured; this is a same-index scorer comparison.",
+  "rawReportTimestamp": "2026-09-29T05:19:34.949Z",
+  "datasetSha256": "85ae6e4156302bd8897161c7a2c0bffa83e449143f5410aa0dfb0f66ed290968",
+  "queryCounts": {
+    "original": 30,
+    "new": 10
+  },
+  "queryIds": {
+    "original": [
+      "taiwanese-snack-souvenirs",
+      "eco-friendly-daily-essentials",
+      "ceramic-tableware",
+      "gift-for-tea-lovers",
+      "office-desk-organizer",
+      "commuter-laptop-backpack",
+      "dry-scalp-shampoo",
+      "taiwan-travel-calendar",
+      "handmade-socks-for-daily-wear",
+      "gentle-face-serum-for-dull-skin",
+      "taiwan-flavored-frozen-food",
+      "waterproof-luggage-strap",
+      "silver-necklace-for-anniversary",
+      "quiet-office-chair-wheels",
+      "wedding-guest-lace-shoes",
+      "running-sweat-socks",
+      "paper-wedding-card",
+      "kebab-case-id-16",
+      "kebab-case-id-18",
+      "travel-suitcase-strap",
+      "new-year-dumplings",
+      "wooden-earrings-gift",
+      "旅行收納需要防水短夾",
+      "咖啡桌旁需要小巧台灣造型淺盤",
+      "生日聚會想準備特別造型餐具",
+      "plant-inspired-gem-ring",
+      "baby-rattle-doll",
+      "silent-metal-clock",
+      "handmade-silver-flower-ring",
+      "wooden-home-earrings"
+    ],
+    "new": [
+      "brand-satbakhi",
+      "brand-mogu",
+      "brand-塗狗-togo",
+      "brand-針線球-yarn-ball",
+      "keyword-彩妝",
+      "keyword-手套",
+      "keyword-掛畫-畫作",
+      "keyword-斜背包",
+      "english-plant-effect-instant-moisture-repair-spray",
+      "english-siang-apato-x-inblooom-duvet-cover-weeds-and-butterfly"
+    ]
+  },
+  "slices": {
+    "original": {
+      "lexical": {
+        "ndcg@10": {
+          "candidateMean": 0.6362271088723002,
+          "baselineMean": 0.6301439823603843,
+          "delta": {
+            "lo": -0.050682131119836084,
+            "hi": 0.058055676554882855,
+            "mean": 0.006083126511915628,
+            "signTestP": 0.8318119049072269
+          }
+        },
+        "mrr": {
+          "candidateMean": 0.8111111111111112,
+          "baselineMean": 0.8133333333333332,
+          "delta": {
+            "lo": -0.07444444444444445,
+            "hi": 0.06722222222222222,
+            "mean": -0.002222222222222222,
+            "signTestP": 1
+          }
+        },
+        "recall@100": {
+          "candidateMean": 0.7253360839516445,
+          "baselineMean": 0.7518963292618898,
+          "delta": {
+            "lo": -0.05777417027417027,
+            "hi": -0.0006132756132756175,
+            "mean": -0.026560245310245312,
+            "signTestP": 0.07031250000000004
+          }
+        }
+      },
+      "hybrid": {
+        "ndcg@10": {
+          "candidateMean": 0.722836850335643,
+          "baselineMean": 0.7345243322384081,
+          "delta": {
+            "lo": -0.023836359019234952,
+            "hi": 0.0004853350677160917,
+            "mean": -0.011687481902765163,
+            "signTestP": 0.07835388183593738
+          }
+        },
+        "mrr": {
+          "candidateMean": 0.8944444444444445,
+          "baselineMean": 0.8944444444444445,
+          "delta": {
+            "lo": 0,
+            "hi": 0,
+            "mean": 0,
+            "signTestP": 1
+          }
+        },
+        "recall@100": {
+          "candidateMean": 0.9045454545454545,
+          "baselineMean": 0.9102272727272727,
+          "delta": {
+            "lo": -0.01136363636363637,
+            "hi": -0.0013888888888888876,
+            "mean": -0.005681818181818185,
+            "signTestP": 0.12500000000000006
+          }
+        }
+      }
+    },
+    "new": {
+      "lexical": {
+        "ndcg@10": {
+          "candidateMean": 0.9182769534465777,
+          "baselineMean": 0.8144039015051596,
+          "delta": {
+            "lo": 0,
+            "hi": 0.24503455491498843,
+            "mean": 0.10387305194141791,
+            "signTestP": 0.5
+          }
+        },
+        "mrr": {
+          "candidateMean": 1,
+          "baselineMean": 0.8476190476190476,
+          "delta": {
+            "lo": 0,
+            "hi": 0.35238095238095246,
+            "mean": 0.1523809523809524,
+            "signTestP": 0.5
+          }
+        },
+        "recall@100": {
+          "candidateMean": 0.8588368153585545,
+          "baselineMean": 0.8588368153585545,
+          "delta": {
+            "lo": 0,
+            "hi": 0,
+            "mean": 0,
+            "signTestP": 1
+          }
+        }
+      },
+      "hybrid": {
+        "ndcg@10": {
+          "candidateMean": 0.9402363989257625,
+          "baselineMean": 0.9105956311608618,
+          "delta": {
+            "lo": -0.00026805707665629176,
+            "hi": 0.08048929438749505,
+            "mean": 0.02964076776490061,
+            "signTestP": 1
+          }
+        },
+        "mrr": {
+          "candidateMean": 1,
+          "baselineMean": 1,
+          "delta": {
+            "lo": 0,
+            "hi": 0,
+            "mean": 0,
+            "signTestP": 1
+          }
+        },
+        "recall@100": {
+          "candidateMean": 1,
+          "baselineMean": 1,
+          "delta": {
+            "lo": 0,
+            "hi": 0,
+            "mean": 0,
+            "signTestP": 1
+          }
+        }
+      }
+    }
+  },
+  "byQueryType": {
+    "subjective": {
+      "lexical:idf": {
+        "ndcg@10": 0.520244629028001,
+        "precision@5": 0.45,
+        "recall@100": 0.6268351214003388,
+        "mrr": 0.6722222222222222
+      },
+      "lexical:bm25f": {
+        "ndcg@10": 0.499665179261009,
+        "precision@5": 0.4666666666666666,
+        "recall@100": 0.6011542050944225,
+        "mrr": 0.6736111111111112
+      },
+      "hybrid:idf": {
+        "ndcg@10": 0.6490336663323965,
+        "precision@5": 0.5666666666666667,
+        "recall@100": 0.8484848484848485,
+        "mrr": 0.8333333333333334
+      },
+      "hybrid:bm25f": {
+        "ndcg@10": 0.6356229915092416,
+        "precision@5": 0.5000000000000001,
+        "recall@100": 0.8446969696969697,
+        "mrr": 0.8333333333333334
+      }
+    },
+    "concrete": {
+      "lexical:idf": {
+        "ndcg@10": 0.7034102179153068,
+        "precision@5": 0.6222222222222223,
+        "recall@100": 0.8352704678362574,
+        "mrr": 0.9074074074074073
+      },
+      "lexical:bm25f": {
+        "ndcg@10": 0.7272683952798275,
+        "precision@5": 0.6777777777777778,
+        "recall@100": 0.8081240031897927,
+        "mrr": 0.9027777777777778
+      },
+      "hybrid:idf": {
+        "ndcg@10": 0.7915181095090825,
+        "precision@5": 0.6777777777777777,
+        "recall@100": 0.9513888888888888,
+        "mrr": 0.9351851851851853
+      },
+      "hybrid:bm25f": {
+        "ndcg@10": 0.7809794228865772,
+        "precision@5": 0.6777777777777777,
+        "recall@100": 0.9444444444444444,
+        "mrr": 0.9351851851851853
+      }
+    },
+    "brand_name": {
+      "lexical:idf": {
+        "ndcg@10": 1,
+        "precision@5": 0.85,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "lexical:bm25f": {
+        "ndcg@10": 1,
+        "precision@5": 0.85,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "hybrid:idf": {
+        "ndcg@10": 1,
+        "precision@5": 0.85,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "hybrid:bm25f": {
+        "ndcg@10": 1,
+        "precision@5": 0.85,
+        "recall@100": 1,
+        "mrr": 1
+      }
+    },
+    "keyword": {
+      "lexical:idf": {
+        "ndcg@10": 0.6281854894696729,
+        "precision@5": 0.65,
+        "recall@100": 0.6925465838509317,
+        "mrr": 0.619047619047619
+      },
+      "lexical:bm25f": {
+        "ndcg@10": 0.8878681193232177,
+        "precision@5": 0.8500000000000001,
+        "recall@100": 0.6925465838509317,
+        "mrr": 1
+      },
+      "hybrid:idf": {
+        "ndcg@10": 0.8323761457483673,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "hybrid:bm25f": {
+        "ndcg@10": 0.8954341970078797,
+        "precision@5": 0.7,
+        "recall@100": 1,
+        "mrr": 1
+      }
+    },
+    "english": {
+      "lexical:idf": {
+        "ndcg@10": 0.8156485285864528,
+        "precision@5": 0.5,
+        "recall@100": 0.9090909090909092,
+        "mrr": 1
+      },
+      "lexical:bm25f": {
+        "ndcg@10": 0.8156485285864528,
+        "precision@5": 0.5,
+        "recall@100": 0.9090909090909092,
+        "mrr": 1
+      },
+      "hybrid:idf": {
+        "ndcg@10": 0.8882258643075749,
+        "precision@5": 0.5,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "hybrid:bm25f": {
+        "ndcg@10": 0.910313600613053,
+        "precision@5": 0.5,
+        "recall@100": 1,
+        "mrr": 1
+      }
+    }
+  },
+  "latencyGate": {
+    "method": "EXPLAIN ANALYZE on direct lexical function; first 30 v2 queries, two runs on staging",
+    "maxDeltaMs": 50,
+    "runs": [
+      {
+        "idfP95Ms": 59.021,
+        "bm25fP95Ms": 105.962,
+        "tsrankP95Ms": 61.474,
+        "bm25fDeltaMs": 46.941
+      },
+      {
+        "idfP95Ms": 51.883,
+        "bm25fP95Ms": 101.432,
+        "tsrankP95Ms": 55.549,
+        "bm25fDeltaMs": 49.549
+      }
+    ],
+    "passed": true
+  },
+  "gate": {
+    "originalNoLoss": false,
+    "newWinOrTie": true,
+    "latency": true,
+    "overall": false
+  },
+  "perQuery": {
+    "lexical:idf": {
+      "taiwanese-snack-souvenirs": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0.13636363636363635,
+        "mrr": 0.06666666666666667
+      },
+      "eco-friendly-daily-essentials": {
+        "ndcg@10": 0.3558905869041096,
+        "precision@5": 0.8,
+        "recall@100": 0.3333333333333333,
+        "mrr": 1
+      },
+      "ceramic-tableware": {
+        "ndcg@10": 0.6079246839551893,
+        "precision@5": 1,
+        "recall@100": 0.9473684210526315,
+        "mrr": 1
+      },
+      "gift-for-tea-lovers": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0,
+        "mrr": 0
+      },
+      "office-desk-organizer": {
+        "ndcg@10": 0.43519067418264495,
+        "precision@5": 0.6,
+        "recall@100": 0.625,
+        "mrr": 1
+      },
+      "commuter-laptop-backpack": {
+        "ndcg@10": 0.8428033177507257,
+        "precision@5": 1,
+        "recall@100": 0.875,
+        "mrr": 1
+      },
+      "dry-scalp-shampoo": {
+        "ndcg@10": 0.7762511134845456,
+        "precision@5": 1,
+        "recall@100": 0.9166666666666666,
+        "mrr": 1
+      },
+      "taiwan-travel-calendar": {
+        "ndcg@10": 0.9058464496821221,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "handmade-socks-for-daily-wear": {
+        "ndcg@10": 0.7971981566811596,
+        "precision@5": 1,
+        "recall@100": 0.9090909090909091,
+        "mrr": 1
+      },
+      "gentle-face-serum-for-dull-skin": {
+        "ndcg@10": 0.78456437408943,
+        "precision@5": 0.8,
+        "recall@100": 0.9375,
+        "mrr": 1
+      },
+      "taiwan-flavored-frozen-food": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "waterproof-luggage-strap": {
+        "ndcg@10": 0.46518064252116126,
+        "precision@5": 0.4,
+        "recall@100": 0.6363636363636364,
+        "mrr": 1
+      },
+      "silver-necklace-for-anniversary": {
+        "ndcg@10": 0.8431720262813561,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "quiet-office-chair-wheels": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "wedding-guest-lace-shoes": {
+        "ndcg@10": 0.08567016883950575,
+        "precision@5": 0.4,
+        "recall@100": 0.08695652173913043,
+        "mrr": 0.5
+      },
+      "running-sweat-socks": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "paper-wedding-card": {
+        "ndcg@10": 0.6952810980246208,
+        "precision@5": 0.4,
+        "recall@100": 0.7142857142857143,
+        "mrr": 1
+      },
+      "kebab-case-id-16": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0,
+        "mrr": 0
+      },
+      "kebab-case-id-18": {
+        "ndcg@10": 0.8099531166420328,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "travel-suitcase-strap": {
+        "ndcg@10": 0.8098704273443043,
+        "precision@5": 1,
+        "recall@100": 0.8571428571428571,
+        "mrr": 1
+      },
+      "new-year-dumplings": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0,
+        "mrr": 0
+      },
+      "wooden-earrings-gift": {
+        "ndcg@10": 0.7990309626677666,
+        "precision@5": 0.6,
+        "recall@100": 0.7272727272727273,
+        "mrr": 1
+      },
+      "旅行收納需要防水短夾": {
+        "ndcg@10": 0.6618893377474475,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "咖啡桌旁需要小巧台灣造型淺盤": {
+        "ndcg@10": 0.9086649763494136,
+        "precision@5": 1,
+        "recall@100": 0.9,
+        "mrr": 1
+      },
+      "生日聚會想準備特別造型餐具": {
+        "ndcg@10": 0.442175077748888,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 0.5
+      },
+      "plant-inspired-gem-ring": {
+        "ndcg@10": 0.8388726173071172,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "baby-rattle-doll": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "silent-metal-clock": {
+        "ndcg@10": 0.7232329748419101,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "handmade-silver-flower-ring": {
+        "ndcg@10": 0.7117495232879538,
+        "precision@5": 0.8,
+        "recall@100": 0.9545454545454546,
+        "mrr": 1
+      },
+      "wooden-home-earrings": {
+        "ndcg@10": 0.6039071644781282,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 0.3333333333333333
+      },
+      "brand-satbakhi": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-mogu": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-塗狗-togo": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-針線球-yarn-ball": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-彩妝": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 0.5,
+        "mrr": 1
+      },
+      "keyword-手套": {
+        "ndcg@10": 0.5743048695519521,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 0.3333333333333333
+      },
+      "keyword-掛畫-畫作": {
+        "ndcg@10": 0.7956419442906023,
+        "precision@5": 1,
+        "recall@100": 0.35714285714285715,
+        "mrr": 1
+      },
+      "keyword-斜背包": {
+        "ndcg@10": 0.1427951440361373,
+        "precision@5": 0,
+        "recall@100": 0.9130434782608695,
+        "mrr": 0.14285714285714285
+      },
+      "english-plant-effect-instant-moisture-repair-spray": {
+        "ndcg@10": 0.6312970571729055,
+        "precision@5": 0.6,
+        "recall@100": 0.8181818181818182,
+        "mrr": 1
+      },
+      "english-siang-apato-x-inblooom-duvet-cover-weeds-and-butterfly": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      }
+    },
+    "lexical:bm25f": {
+      "taiwanese-snack-souvenirs": {
+        "ndcg@10": 0.036971991228538316,
+        "precision@5": 0.2,
+        "recall@100": 0.045454545454545456,
+        "mrr": 0.25
+      },
+      "eco-friendly-daily-essentials": {
+        "ndcg@10": 0.4586086492208337,
+        "precision@5": 0.8,
+        "recall@100": 0.25,
+        "mrr": 1
+      },
+      "ceramic-tableware": {
+        "ndcg@10": 0.5435392525014153,
+        "precision@5": 0.8,
+        "recall@100": 0.9473684210526315,
+        "mrr": 1
+      },
+      "gift-for-tea-lovers": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0,
+        "mrr": 0
+      },
+      "office-desk-organizer": {
+        "ndcg@10": 0.5806095962076112,
+        "precision@5": 0.8,
+        "recall@100": 0.5833333333333334,
+        "mrr": 1
+      },
+      "commuter-laptop-backpack": {
+        "ndcg@10": 0.7286586613046478,
+        "precision@5": 1,
+        "recall@100": 0.875,
+        "mrr": 1
+      },
+      "dry-scalp-shampoo": {
+        "ndcg@10": 0.774003863483902,
+        "precision@5": 1,
+        "recall@100": 0.9166666666666666,
+        "mrr": 1
+      },
+      "taiwan-travel-calendar": {
+        "ndcg@10": 0.9639404333166532,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "handmade-socks-for-daily-wear": {
+        "ndcg@10": 0.8429782301121695,
+        "precision@5": 1,
+        "recall@100": 0.6363636363636364,
+        "mrr": 1
+      },
+      "gentle-face-serum-for-dull-skin": {
+        "ndcg@10": 0.8917780188488733,
+        "precision@5": 1,
+        "recall@100": 0.9375,
+        "mrr": 1
+      },
+      "taiwan-flavored-frozen-food": {
+        "ndcg@10": 0.4306765580733931,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 0.25
+      },
+      "waterproof-luggage-strap": {
+        "ndcg@10": 0.6900527740318104,
+        "precision@5": 0.8,
+        "recall@100": 0.5454545454545454,
+        "mrr": 1
+      },
+      "silver-necklace-for-anniversary": {
+        "ndcg@10": 0.8526849471904775,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "quiet-office-chair-wheels": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "wedding-guest-lace-shoes": {
+        "ndcg@10": 0.07510431785355748,
+        "precision@5": 0.4,
+        "recall@100": 0.08695652173913043,
+        "mrr": 0.3333333333333333
+      },
+      "running-sweat-socks": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "paper-wedding-card": {
+        "ndcg@10": 0.7203984695774446,
+        "precision@5": 0.6,
+        "recall@100": 0.8571428571428571,
+        "mrr": 1
+      },
+      "kebab-case-id-16": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0,
+        "mrr": 0
+      },
+      "kebab-case-id-18": {
+        "ndcg@10": 0.8099531166420328,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "travel-suitcase-strap": {
+        "ndcg@10": 0.775401639741851,
+        "precision@5": 0.8,
+        "recall@100": 0.8571428571428571,
+        "mrr": 1
+      },
+      "new-year-dumplings": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0,
+        "mrr": 0
+      },
+      "wooden-earrings-gift": {
+        "ndcg@10": 0.6155002397333982,
+        "precision@5": 0.8,
+        "recall@100": 0.7272727272727273,
+        "mrr": 1
+      },
+      "旅行收納需要防水短夾": {
+        "ndcg@10": 0.6309091238214636,
+        "precision@5": 0.6,
+        "recall@100": 0.6875,
+        "mrr": 1
+      },
+      "咖啡桌旁需要小巧台灣造型淺盤": {
+        "ndcg@10": 0.9086649763494136,
+        "precision@5": 1,
+        "recall@100": 0.9,
+        "mrr": 1
+      },
+      "生日聚會想準備特別造型餐具": {
+        "ndcg@10": 0.3250709886687247,
+        "precision@5": 0.6,
+        "recall@100": 0.9523809523809523,
+        "mrr": 0.5
+      },
+      "plant-inspired-gem-ring": {
+        "ndcg@10": 0.8146673574978555,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "baby-rattle-doll": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "silent-metal-clock": {
+        "ndcg@10": 0.8703949452749975,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "handmade-silver-flower-ring": {
+        "ndcg@10": 0.7462451154879371,
+        "precision@5": 1,
+        "recall@100": 0.9545454545454546,
+        "mrr": 1
+      },
+      "wooden-home-earrings": {
+        "ndcg@10": 1,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-satbakhi": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-mogu": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-塗狗-togo": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-針線球-yarn-ball": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-彩妝": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 0.5,
+        "mrr": 1
+      },
+      "keyword-手套": {
+        "ndcg@10": 0.9072278740982787,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-掛畫-畫作": {
+        "ndcg@10": 0.7956419442906023,
+        "precision@5": 1,
+        "recall@100": 0.35714285714285715,
+        "mrr": 1
+      },
+      "keyword-斜背包": {
+        "ndcg@10": 0.84860265890399,
+        "precision@5": 0.8,
+        "recall@100": 0.9130434782608695,
+        "mrr": 1
+      },
+      "english-plant-effect-instant-moisture-repair-spray": {
+        "ndcg@10": 0.6312970571729055,
+        "precision@5": 0.6,
+        "recall@100": 0.8181818181818182,
+        "mrr": 1
+      },
+      "english-siang-apato-x-inblooom-duvet-cover-weeds-and-butterfly": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      }
+    },
+    "hybrid:idf": {
+      "taiwanese-snack-souvenirs": {
+        "ndcg@10": 0.08000530102734678,
+        "precision@5": 0.2,
+        "recall@100": 0.18181818181818182,
+        "mrr": 0.5
+      },
+      "eco-friendly-daily-essentials": {
+        "ndcg@10": 0.39863903221816194,
+        "precision@5": 1,
+        "recall@100": 0.4166666666666667,
+        "mrr": 1
+      },
+      "ceramic-tableware": {
+        "ndcg@10": 0.8119111964844753,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "gift-for-tea-lovers": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0,
+        "mrr": 0
+      },
+      "office-desk-organizer": {
+        "ndcg@10": 0.7923983887148338,
+        "precision@5": 1,
+        "recall@100": 0.7083333333333334,
+        "mrr": 1
+      },
+      "commuter-laptop-backpack": {
+        "ndcg@10": 0.8850611305683427,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "dry-scalp-shampoo": {
+        "ndcg@10": 0.6243734408223135,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "taiwan-travel-calendar": {
+        "ndcg@10": 0.9327783893101107,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "handmade-socks-for-daily-wear": {
+        "ndcg@10": 0.869746254023162,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "gentle-face-serum-for-dull-skin": {
+        "ndcg@10": 0.7953219455250098,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "taiwan-flavored-frozen-food": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "waterproof-luggage-strap": {
+        "ndcg@10": 0.7270866388441379,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "silver-necklace-for-anniversary": {
+        "ndcg@10": 0.8387302359891678,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "quiet-office-chair-wheels": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "wedding-guest-lace-shoes": {
+        "ndcg@10": 0.5108574595231277,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "running-sweat-socks": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "paper-wedding-card": {
+        "ndcg@10": 0.6007188761797405,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "kebab-case-id-16": {
+        "ndcg@10": 0.5,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 0.3333333333333333
+      },
+      "kebab-case-id-18": {
+        "ndcg@10": 0.8808784659346812,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "travel-suitcase-strap": {
+        "ndcg@10": 0.8520071503384503,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "new-year-dumplings": {
+        "ndcg@10": 0.6509209298071326,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 0.5
+      },
+      "wooden-earrings-gift": {
+        "ndcg@10": 0.8789407692350965,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "旅行收納需要防水短夾": {
+        "ndcg@10": 0.5858597163345438,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "咖啡桌旁需要小巧台灣造型淺盤": {
+        "ndcg@10": 0.610617894049814,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 0.5
+      },
+      "生日聚會想準備特別造型餐具": {
+        "ndcg@10": 0.857585168244041,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "plant-inspired-gem-ring": {
+        "ndcg@10": 0.7072652993678245,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "baby-rattle-doll": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "silent-metal-clock": {
+        "ndcg@10": 0.86013962778462,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "handmade-silver-flower-ring": {
+        "ndcg@10": 0.78388665682611,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "wooden-home-earrings": {
+        "ndcg@10": 1,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-satbakhi": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-mogu": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-塗狗-togo": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-針線球-yarn-ball": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-彩妝": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-手套": {
+        "ndcg@10": 0.8167448055966118,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-掛畫-畫作": {
+        "ndcg@10": 0.7947133070320624,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-斜背包": {
+        "ndcg@10": 0.7180464703647947,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "english-plant-effect-instant-moisture-repair-spray": {
+        "ndcg@10": 0.7764517286151498,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "english-siang-apato-x-inblooom-duvet-cover-weeds-and-butterfly": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      }
+    },
+    "hybrid:bm25f": {
+      "taiwanese-snack-souvenirs": {
+        "ndcg@10": 0.0541629881580241,
+        "precision@5": 0.2,
+        "recall@100": 0.13636363636363635,
+        "mrr": 0.5
+      },
+      "eco-friendly-daily-essentials": {
+        "ndcg@10": 0.42441087462063876,
+        "precision@5": 0.8,
+        "recall@100": 0.375,
+        "mrr": 1
+      },
+      "ceramic-tableware": {
+        "ndcg@10": 0.7719742052639426,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "gift-for-tea-lovers": {
+        "ndcg@10": 0,
+        "precision@5": 0,
+        "recall@100": 0,
+        "mrr": 0
+      },
+      "office-desk-organizer": {
+        "ndcg@10": 0.782380906585361,
+        "precision@5": 1,
+        "recall@100": 0.6666666666666666,
+        "mrr": 1
+      },
+      "commuter-laptop-backpack": {
+        "ndcg@10": 0.8653734981846263,
+        "precision@5": 1,
+        "recall@100": 0.9583333333333334,
+        "mrr": 1
+      },
+      "dry-scalp-shampoo": {
+        "ndcg@10": 0.559613814043397,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "taiwan-travel-calendar": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "handmade-socks-for-daily-wear": {
+        "ndcg@10": 0.8489664136649474,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "gentle-face-serum-for-dull-skin": {
+        "ndcg@10": 0.849803897108137,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "taiwan-flavored-frozen-food": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "waterproof-luggage-strap": {
+        "ndcg@10": 0.7438608512429318,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "silver-necklace-for-anniversary": {
+        "ndcg@10": 0.7800951060867003,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "quiet-office-chair-wheels": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "wedding-guest-lace-shoes": {
+        "ndcg@10": 0.4847796387845436,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "running-sweat-socks": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "paper-wedding-card": {
+        "ndcg@10": 0.5854966666974958,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "kebab-case-id-16": {
+        "ndcg@10": 0.5,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 0.3333333333333333
+      },
+      "kebab-case-id-18": {
+        "ndcg@10": 0.8808784659346812,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "travel-suitcase-strap": {
+        "ndcg@10": 0.8784804580724621,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "new-year-dumplings": {
+        "ndcg@10": 0.6509209298071326,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 0.5
+      },
+      "wooden-earrings-gift": {
+        "ndcg@10": 0.7979277571444214,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "旅行收納需要防水短夾": {
+        "ndcg@10": 0.6132011494674364,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "咖啡桌旁需要小巧台灣造型淺盤": {
+        "ndcg@10": 0.6005454354866233,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 0.5
+      },
+      "生日聚會想準備特別造型餐具": {
+        "ndcg@10": 0.7824112038926829,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "plant-inspired-gem-ring": {
+        "ndcg@10": 0.645537689265779,
+        "precision@5": 0.8,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "baby-rattle-doll": {
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "silent-metal-clock": {
+        "ndcg@10": 0.8366114007058858,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "handmade-silver-flower-ring": {
+        "ndcg@10": 0.7476721598514391,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "wooden-home-earrings": {
+        "ndcg@10": 1,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-satbakhi": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-mogu": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-塗狗-togo": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "brand-針線球-yarn-ball": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-彩妝": {
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-手套": {
+        "ndcg@10": 0.8154045202133303,
+        "precision@5": 0.2,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-掛畫-畫作": {
+        "ndcg@10": 0.7947133070320624,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "keyword-斜背包": {
+        "ndcg@10": 0.9716189607861262,
+        "precision@5": 1,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "english-plant-effect-instant-moisture-repair-spray": {
+        "ndcg@10": 0.8206272012261059,
+        "precision@5": 0.6,
+        "recall@100": 1,
+        "mrr": 1
+      },
+      "english-siang-apato-x-inblooom-duvet-cover-weeds-and-butterfly": {
+        "ndcg@10": 1,
+        "precision@5": 0.4,
+        "recall@100": 1,
+        "mrr": 1
+      }
+    }
+  },
+  "decision": {
+    "scorer": "idf",
+    "status": "bm25f-no-go",
+    "fallbackMigration": "20260930130000_lexical_scorer_idf_fallback.sql",
+    "reason": "Original holdout lexical recall@100 and hybrid NDCG@10/recall@100 lose against the same-index IDF arm.",
+    "indexOnlyGate": "unverified: no pre-index-migration v3 baseline was captured",
+    "humanShipDecision": "pending"
+  }
+}
