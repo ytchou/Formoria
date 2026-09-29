@@ -36,6 +36,11 @@ type DatasetItem = {
 type DiscoveryQuery = { id: string; query: string; category?: string; queryType?: DatasetV2Item['queryType'] }
 type GradedPair = { queryId: string; brandSlug: string; productKey: string; grade: number }
 
+export function approvalSourceFromAgreement(agreement: { kappa_w?: number; reviewer?: string }): string | undefined {
+  if (typeof agreement.kappa_w !== 'number' || agreement.kappa_w < 0.6) return undefined
+  return agreement.reviewer === 'blind-llm-panel' ? 'blind-llm-panel' : 'agreement-kappa'
+}
+
 export function buildV3Dataset(
   original: DatasetV2Item[],
   queries: DiscoveryQuery[],
@@ -134,14 +139,15 @@ export async function cmdBuildDataset(
   }
 
   // Load agreement for humanApproval stamp
-  let humanApproval = false
+  let approvalSource: string | undefined
   if (existsSync(AGREEMENT_PATH)) {
     const agreement = JSON.parse(readFileSync(AGREEMENT_PATH, 'utf8'))
-    humanApproval = typeof agreement.kappa_w === 'number' && agreement.kappa_w >= 0.6
+    approvalSource = approvalSourceFromAgreement(agreement)
     console.log(
-      `[build-dataset] Agreement kappa_w=${agreement.kappa_w?.toFixed(4)}, humanApproval=${humanApproval}`,
+      `[build-dataset] Agreement kappa_w=${agreement.kappa_w?.toFixed(4)}, reviewer=${approvalSource ?? 'unapproved'}`,
     )
   }
+  const humanApproval = approvalSource !== undefined
 
   // Filter out pairs with empty votes
   let droppedCount = 0
@@ -207,8 +213,8 @@ export async function cmdBuildDataset(
 
   if (selected.version === 'v3') {
     const original = loadDatasetV2(resolveDataset('v2').path)
-    const approval = humanApproval
-      ? { reviewedVia: 'agreement-kappa', at: new Date().toISOString().slice(0, 10) }
+    const approval = approvalSource
+      ? { reviewedVia: approvalSource, at: new Date().toISOString().slice(0, 10) }
       : undefined
     const v3 = buildV3Dataset(original, queries, items, ratios, seed, approval)
     writeFileSync(selected.path, JSON.stringify(v3, null, 2))

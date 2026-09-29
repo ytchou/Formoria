@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { buildV3Dataset } from '../label-build-dataset'
+import { buildV3Dataset, approvalSourceFromAgreement } from '../label-build-dataset'
 import type { DatasetV2Item } from '../dataset-v2'
 
 it('retains original query grades and splits while adding judged discovery queries', () => {
@@ -18,4 +18,9 @@ it('retains original query grades and splits while adding judged discovery queri
     expected: [{ brandSlug: 'marcia-studio', productKey: 'canvas-tote', grade: 3 }],
   })
   expect(['train', 'val', 'holdout']).toContain(v3[1]!.split)
+})
+
+it('records a blind LLM panel as the reviewer when its agreement clears the gate', () => {
+  expect(approvalSourceFromAgreement({ kappa_w: 0.955, reviewer: 'blind-llm-panel' })).toBe('blind-llm-panel')
+  expect(approvalSourceFromAgreement({ kappa_w: 0.4, reviewer: 'blind-llm-panel' })).toBeUndefined()
 })

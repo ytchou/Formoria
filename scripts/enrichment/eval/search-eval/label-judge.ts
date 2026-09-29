@@ -252,7 +252,7 @@ export async function cmdJudge(
             product: {
               name_zh: product.nameZh,
               name_en: product.nameEn,
-              brand_name: product.brandName,
+              ...(q.queryType === 'brand_name' ? { brand_name: product.brandName } : {}),
               category_zh: product.category,
               subcategory_zh: product.subcategory,
               materials_zh: product.materials.join(', '),

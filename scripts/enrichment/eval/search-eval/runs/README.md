@@ -80,3 +80,17 @@ baseline view and embeddings were restored; a dry run found zero stale rows.
 The compact evidence record is `dev-1739-no-go.json`. Full local snapshots were
 not committed because they total roughly 3 MB and contain reproducible service
 output for every product and brand anchor.
+
+## DEV-1900 blind label review
+
+At the user's request, the 30-pair manual spot check was replaced by three
+independent Claude judges: Opus 5.5, Opus 5, and Sonnet 5.5. Each saw the same
+query, brand, product name, and description without the existing LLM grade or
+candidate rank. The input and rubric hashes, individual votes, majority grade,
+model cost, and agreement are recorded in `dev-1900-panel.json`.
+
+Of 30 pairs, 28 votes were unanimous and two were 2–1 majorities. No pair had
+a three-way split. The panel changed five initial grades. Exact agreement with
+the initial labels was 83.3%; quadratic-weighted Cohen's kappa was 0.9550,
+above the 0.6 approval gate. The three model calls cost $0.194205 total. The
+dataset approval provenance is `blind-llm-panel`, not a human label.

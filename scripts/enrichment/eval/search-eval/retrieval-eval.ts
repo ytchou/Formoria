@@ -739,6 +739,7 @@ async function main() {
       judged: { type: "string" },
       "grade-mode": { type: "string" },
       human: { type: "string" },
+      reviewer: { type: "string" },
       force: { type: "boolean", default: false },
       "env-file": { type: "string" },
       model: { type: "string" },

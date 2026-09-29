@@ -1,0 +1,424 @@
+{
+  "provenance": "blind three-model LLM panel on 30 pairs; models saw query, brand and product fields only",
+  "models": [
+    {
+      "id": "claude-opus-5-5",
+      "costUsd": 0.06882400000000001,
+      "latencyMs": 10331
+    },
+    {
+      "id": "claude-opus-5",
+      "costUsd": 0.094655,
+      "latencyMs": 15923
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "costUsd": 0.030726,
+      "latencyMs": 5588
+    }
+  ],
+  "decisions": [
+    {
+      "id": "pair-01",
+      "queryId": "brand-arozma",
+      "product": "arozma/tiao-wang-wei-lai-fu-fang-ching-yu",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-02",
+      "queryId": "brand-dr-hsieh-達特醫",
+      "product": "dr-hsieh/egf-fu-ho-chin-chih-hsiu-hu-ju-trl1010ix00",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-03",
+      "queryId": "brand-arozma",
+      "product": "arozma/ping-heng-chih-yueh-fu-fang-ching-yu",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-04",
+      "queryId": "brand-dr-hsieh-達特醫",
+      "product": "dr-hsieh/22-wei-sheng-su-c-kao-hsiao-mei-pai-ching-hua-tcw1023fx00",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-05",
+      "queryId": "brand-arozma",
+      "product": "arozma/yeh-hua-sen-lin-kung-chien-hsiang-fen-pen-wu",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-06",
+      "queryId": "brand-arozma",
+      "product": "aromase/chieh-li-erh-tou-pi-ching-hua-yeh-820ml",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-07",
+      "queryId": "brand-dr-hsieh-達特醫",
+      "product": "heme-cosmetics/jou-wu-fen-ti-yeh",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-08",
+      "queryId": "brand-arozma",
+      "product": "aromase/chieh-li-erh-tou-pi-ching-hua-yeh-260ml",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-09",
+      "queryId": "brand-dr-hsieh-達特醫",
+      "product": "heme-cosmetics/jou-wu-che-hsia-yeh-he1489",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-10",
+      "queryId": "brand-arozma",
+      "product": "eeyans/pao-shih-peng-peng-shui-tsao-mo",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-11",
+      "queryId": "keyword-保健食品",
+      "product": "berule/jih-pen-yuan-chuang-85-kao-omega-3-yu-yu-120-ting",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-12",
+      "queryId": "keyword-印章",
+      "product": "b-610-asteroid-b-610/fa-wen-jih-chang-yung-yu-yin-chang-b610100701",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-13",
+      "queryId": "keyword-保健食品",
+      "product": "berule/berule-chih-wu-tan-pai-fen-wu-tai-tang-tou-chiang-feng-wei-1kg",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 2,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 2
+      },
+      "majorityGrade": 2
+    },
+    {
+      "id": "pair-14",
+      "queryId": "keyword-印章",
+      "product": "b-610-asteroid-b-610/hsing-hsing-te-lai-hsin-yin-chang-tsu-b610100201",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-15",
+      "queryId": "keyword-保健食品",
+      "product": "berule/berule-chih-wu-tan-pai-fen-wu-tai-tang-lu-na-tieh-feng-wei-1kg",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 2,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 2
+      },
+      "majorityGrade": 2
+    },
+    {
+      "id": "pair-16",
+      "queryId": "keyword-保健食品",
+      "product": "popola/popola-pao-pi-la-chiao-hei-tun-chiao-pla01060022",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-17",
+      "queryId": "keyword-印章",
+      "product": "hsiaoyu-illustration/sheringham-chuan-wu-tu-pan-ming-hsin-pien-55",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-18",
+      "queryId": "keyword-保健食品",
+      "product": "hh-healthy-happy/304-pu-hsiu-kang-chang-kuai",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-19",
+      "queryId": "keyword-印章",
+      "product": "rmc/fan-kuang-pu-chang",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "pair-20",
+      "queryId": "keyword-保健食品",
+      "product": "hh-healthy-happy/tai-wan-ching-wu-ching-liang-kuai",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-21",
+      "queryId": "english-albatross-1914",
+      "product": "tsnowstationery-design-studio/albatross-1914-hsin-tien-weng-chan-chi-mo-hsing-qw8mrzpg",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-22",
+      "queryId": "english-centella-hydrosol",
+      "product": "kloser/ssu-chi-ping-an-chun-lu",
+      "priorGrade": 1,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "pair-23",
+      "queryId": "english-centella-hydrosol",
+      "product": "kloser/chi-hsueh-tsao-chun-lu",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "pair-24",
+      "queryId": "english-centella-hydrosol",
+      "product": "monarita-soap-kitchen/lo-le-tso-shou-hsiang-chih-chun-lu-tsao",
+      "priorGrade": 1,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "pair-25",
+      "queryId": "english-centella-hydrosol",
+      "product": "xiadisha/wai-mi-ti-hsi-hsieh-chieh-yen-mu-ssu",
+      "priorGrade": 1,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "pair-26",
+      "queryId": "english-albatross-1914",
+      "product": "bobird/ocean-925-chun-yin-gkqqkpbj",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-27",
+      "queryId": "english-centella-hydrosol",
+      "product": "kloser/yeh-chiang-hua-chun-lu",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "pair-28",
+      "queryId": "english-albatross-1914",
+      "product": "addable/chuan-chi-verde-lien-ming-kuan-shih-lai-yun-chuan",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "pair-29",
+      "queryId": "english-centella-hydrosol",
+      "product": "caihuagirl/shan-cha-hua-chun-lu-ca-0036",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "pair-30",
+      "queryId": "english-albatross-1914",
+      "product": "bobird/chan-fang-925-chun-yin-qtftnnft",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    }
+  ],
+  "blindInputSha256": "1b017a2b9057f6a049106c05a4fe3054c7d677e074e15dfd6fdefe197b47d1d7",
+  "rubricSha256": "863ec195d1d8eb016e9113d0cb49eeaaa9821840572d69c825daa66251cce732",
+  "agreement": {
+    "timestamp": "2026-09-29T03:28:28.988Z",
+    "reviewer": "blind-llm-panel",
+    "pairs": 30,
+    "accuracy": 0.8333333333333334,
+    "kappa": 0.7422680412371134,
+    "kappa_w": 0.954954954954955,
+    "confusionMatrix": [
+      [
+        12,
+        3,
+        0,
+        0
+      ],
+      [
+        0,
+        3,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        2,
+        10
+      ]
+    ]
+  },
+  "voteSummary": {
+    "unanimous": 28,
+    "majority": 2,
+    "threeWaySplit": 0,
+    "changedFromInitial": 5
+  }
+}
