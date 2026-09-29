@@ -62,6 +62,8 @@ const ALLOWLIST = [
   "lib/taxonomy/ontology.ts",
   // Slug generation regex uses CJK character ranges (not UI copy).
   "lib/services/brands.ts",
+  // Brand name matching uses CJK character ranges (not UI copy).
+  "lib/brands/brand-name-match.ts",
   // AI-slop detector uses Chinese regex patterns (not UI copy).
   "lib/services/enrich-validators.ts",
   // Punctuation normalizer: a CJK character-range regex written with literal

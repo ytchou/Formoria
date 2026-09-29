@@ -4,7 +4,6 @@ import type { PhaseAdapter } from './phase-adapters'
 import type { ExperimentItem, ExperimentArm } from './run-experiment'
 import { ndcgAt, precisionAtK, recallAtK, mrr as mrrFn, type GradedItem } from './scorers'
 import type { SearchMode, LexicalParams } from '@/lib/services/product-situation-search'
-import { buildRerankDocument } from '@/lib/services/product-rerank'
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -24,10 +23,6 @@ export type RetrievalAdapterDeps = {
     category: string
     pageSize?: number
   }) => Promise<{ products: Array<{ id: string; key: string; brandSlug: string }> }>
-  rerank?: (
-    query: string,
-    candidates: Array<{ id: string; document: string }>,
-  ) => Promise<Array<{ id: string }>>
   rank?: (opts: {
     query: string
     version: string
@@ -114,35 +109,6 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
           pageSize: 100,
         })
         return { ok: true, output: result.products.map(compositeKey) }
-      }
-
-      if (arm.value === 'rerank') {
-        const result = await deps.search({
-          query: input.query,
-          locale,
-          mode: 'hybrid',
-          pageSize: 100,
-          category: input.category ?? null,
-          enableIntentParse: false,
-        })
-        if (!deps.rerank) {
-          return { ok: true, output: result.products.map(compositeKey) }
-        }
-        const candidates = result.products.map((p) => ({
-          id: p.id,
-          document: buildRerankDocument(p),
-        }))
-        const reranked = await deps.rerank(input.query, candidates)
-        const byId = new Map(result.products.map((p) => [p.id, p]))
-        return {
-          ok: true,
-          output: reranked
-            .map((r) => {
-              const p = byId.get(r.id)
-              return p ? compositeKey(p) : ''
-            })
-            .filter(Boolean),
-        }
       }
 
       // hybrid / vector / lexical, optionally with a scorer override

@@ -174,7 +174,9 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "back-office",
     operationalKind: "dependency",
-    envVars: ["OPENAI_API_KEY", "CODEX_API_KEY"],
+    // OPENAI_ADMIN_KEY is optional: an organization admin key that reads the
+    // billed Costs API for the spend report. Absent → prod-derived fallback.
+    envVars: ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_ADMIN_KEY"],
     status: "active",
     plan: {
       kind: "usage",

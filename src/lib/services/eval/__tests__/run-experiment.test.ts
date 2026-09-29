@@ -1467,3 +1467,168 @@ describe('runExperiment — calibration and unknown cost', () => {
     expect(priced.markdown).toContain('$0.0100')
   })
 })
+
+// ---------------------------------------------------------------------------
+// DEV-1898: token counts (D15) and the slot assertion (D19)
+// ---------------------------------------------------------------------------
+
+describe('runExperiment — token counts and slot assertion', () => {
+  afterEach(() => {
+    delete process.env.OPENAI_MODEL_OVERRIDE
+  })
+
+  /** Deps whose callModel records the given audited calls under the item's correlation id. */
+  function depsRecording(calls: Array<Record<string, unknown>>) {
+    const collector = makeCollector()
+    const callModel = vi.fn(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      for (const call of calls) collector.push({ correlationId: itemRunId, ...call } as never)
+      return { ok: true, content: JSON.stringify({ isNonBrand: false, confidence: 'high' }) }
+    })
+    return {
+      ...makeJevDeps(callModel),
+      installSeams: () => ({ collector, restore: vi.fn() }),
+    }
+  }
+
+  it('sums token counts across an item\'s calls', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: depsRecording([
+        { model: 'gpt-5.6-luna', costUsd: 0.001, promptTokens: 100, cachedPromptTokens: 20, cacheWriteTokens: 5, completionTokens: 50 },
+        { model: 'gpt-5.6-luna', costUsd: 0.001, promptTokens: 10, cachedPromptTokens: 0, cacheWriteTokens: 0, completionTokens: 5 },
+      ]),
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item).toMatchObject({
+      promptTokens: 110,
+      cachedPromptTokens: 20,
+      cacheWriteTokens: 5,
+      completionTokens: 55,
+    })
+  })
+
+  it('fails an item whose calls hit a model other than the arm\'s', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: depsRecording([
+        { model: 'gpt-6-luna', costUsd: 0.001 },
+        { model: 'gpt-5.6-luna', costUsd: 0.001 },
+      ]),
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item.ok).toBe(false)
+    expect(item.error).toBe('off-slot call: gpt-5.6-luna')
+    expect(item.scores).toEqual({ decisionAgreement: 0, confidenceBand: 0 })
+    expect(result.summary.failed).toBe(1)
+  })
+
+  it('keeps the task error when an item is both failed and off-slot', async () => {
+    const collector = makeCollector()
+    const callModel = vi.fn(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      collector.push({ correlationId: itemRunId, model: 'gpt-5.6-luna', costUsd: 0.001 } as never)
+      throw new Error('boom')
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: { ...makeJevDeps(callModel), installSeams: () => ({ collector, restore: vi.fn() }) },
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item.ok).toBe(false)
+    expect(item.error).toContain('boom')
+    expect(item.error).toMatch(/; off-slot call: gpt-5\.6-luna$/)
+  })
+
+  it('excludes off-slot items from the list-priced cost', async () => {
+    const collector = makeCollector()
+    let invocation = 0
+    const callModel = vi.fn(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      invocation += 1
+      const tokens = { promptTokens: 1_000_000, cachedPromptTokens: 0, cacheWriteTokens: 0, completionTokens: 1_000_000 }
+      collector.push({ correlationId: itemRunId, model: 'gpt-6-luna', costUsd: null, ...tokens } as never)
+      if (invocation === 2) {
+        // Off-slot tokens must not be priced at gpt-6-luna's list price.
+        collector.push({ correlationId: itemRunId, model: 'gpt-5.6-luna', costUsd: 0.001, ...tokens } as never)
+      }
+      return { ok: true, content: JSON.stringify({ isNonBrand: false, confidence: 'high' }) }
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ name: 'gpt-6', value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: { ...makeJevDeps(callModel), installSeams: () => ({ collector, restore: vi.fn() }) },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items.filter((i) => i.error?.includes('off-slot call'))).toHaveLength(1)
+    expect(arm.summary.costPerItem).toBeNull()
+    expect(arm.summary.listCostPerItem).toBeCloseTo(0.6, 6)
+  })
+
+  it('passes when every call matches the arm model', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: depsRecording([
+        { model: 'gpt-6-luna', costUsd: 0.001 },
+        { model: 'gpt-6-luna', costUsd: 0.001 },
+      ]),
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item.ok).toBe(true)
+    expect(item.error).toBeUndefined()
+    expect(result.summary.failed).toBe(0)
+  })
+
+  it('labels a list-priced cost when the arm model has no DB price', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ name: 'gpt-6', value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: depsRecording([
+        { model: 'gpt-6-luna', costUsd: null, promptTokens: 1_000_000, cachedPromptTokens: 0, cacheWriteTokens: 0, completionTokens: 1_000_000 },
+      ]),
+    })
+
+    const summary = result.armResults[0]!.summary
+    expect(summary.costPerItem).toBeNull()
+    expect(summary.listCostPerItem).toBeCloseTo(0.6, 6)
+    expect(result.markdown).toContain('$0.6000 (list)')
+  })
+
+  it('does not check the model on custom arms', async () => {
+    const collector = makeCollector()
+    const decide = vi.fn(async (_item: ExperimentItem, ctx: { itemRunId: string }) => {
+      collector.push({ correlationId: ctx.itemRunId, model: 'gpt-5.6-luna', costUsd: 0.001 } as never)
+      return { ok: true, output: { isNonBrand: false, confidence: 'high' } }
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide }),
+      items: [makeItem()],
+      deps: { ...makeJevDeps(), installSeams: () => ({ collector, restore: vi.fn() }) },
+    })
+
+    expect(result.armResults[0]!.items[0]!.ok).toBe(true)
+  })
+})

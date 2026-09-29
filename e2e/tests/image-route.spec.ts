@@ -83,29 +83,6 @@ test.describe("image proxy /i/", () => {
     expect(response.headers()["content-type"]).toContain("image/");
   });
 
-  test("sets an immutable one-year cache header", async ({ request }) => {
-    const key = e2eBrandImageKey(randomUUID(), `${randomUUID()}.webp`);
-    await seedObject(PUBLIC_BUCKET, key);
-
-    const response = await request.get(e2eProxyImageUrl(key));
-    const cacheControl = response.headers()["cache-control"] ?? "";
-
-    // Cloudflare Access rewrites cache-control on authenticated responses.
-    // Observed variants: `private, no-store` and `private, max-age=14400`.
-    // Neither is the origin's header, so asserting either would turn this into
-    // a test of Cloudflare. The route's own header is covered by the unit test
-    // in src/app/i/[...path]/route.test.ts.
-    test.skip(
-      !cacheControl.includes("immutable"),
-      "Cloudflare rewrites cache-control on remote targets",
-    );
-
-    // Objects are UUID-addressed and content-immutable, so the CDN absorbs
-    // every repeat and the proxy chain runs on cache misses only.
-    expect(cacheControl).toContain("immutable");
-    expect(cacheControl).toContain("max-age=31536000");
-  });
-
   test("404s a submissions/ object even though it exists", async ({
     request,
   }) => {

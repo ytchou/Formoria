@@ -5,6 +5,7 @@ import {
   type DependabotAlertEvidence,
 } from '../../../../../../scripts/health-agent/directory'
 import { dependabotDetector } from '../dependabot'
+import { routeOf } from '../../contracts'
 
 function detectorContext(signal: AbortSignal) {
   return {
@@ -122,5 +123,18 @@ describe('dependabot detector', () => {
       'Major dependency upgrades require approval',
     )
     expect(result.snapshot.humanAlertIds).toEqual(['alert-major'])
+  })
+
+  it('routes every dependency-bump finding to auto-fix', async () => {
+    const listOpenAlerts = vi.fn().mockResolvedValue([
+      { alertId: '41', packageName: 'next', severity: 'critical' },
+      { alertId: '42', packageName: 'react', severity: 'high' },
+    ])
+    const findings = await dependabotDetector({ listOpenAlerts }).run(
+      detectorContext(new AbortController().signal),
+    )
+
+    expect(findings).toHaveLength(2)
+    expect(findings.map(routeOf)).toEqual(['auto_fix', 'auto_fix'])
   })
 })

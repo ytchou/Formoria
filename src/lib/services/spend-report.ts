@@ -1,7 +1,12 @@
+import {
+  fetchOpenAICosts,
+  type OpenAICosts,
+} from "@/lib/adapters/openai/costs";
 import { SERVICE_REGISTRY } from "@/lib/services/service-registry";
 import {
   buildSpendSnapshot,
   cycleForResetDay,
+  loadJevSpend,
   loadSpendWindow,
   type SpendSnapshotV1,
 } from "@/lib/services/spend";
@@ -40,6 +45,26 @@ export type SpendReportV1 = {
     nonLlmDollarsAvailable: false;
   };
   operations?: OperationalAlertSummary;
+  // Optional: a renderer on `main` may read an endpoint that predates these.
+  // OpenAI's billed cost (Costs API). Day is the previous complete UTC day,
+  // because Costs API buckets are UTC days. Absent when OPENAI_ADMIN_KEY is
+  // unset (optional feature); null when a configured read failed.
+  openaiBilled?: {
+    dayUsd: number;
+    cycleUsd: number;
+    dayStart: string;
+    dayEnd: string;
+  } | null;
+  // Derived TypeSafe (Jev) spend from external_call_audit, over the same
+  // windows as `day` and `cycle`. Null when the read failed.
+  jev?: { dayUsd: number; cycleUsd: number; unpricedCalls: number } | null;
+};
+
+export type SpendReportDependencies = {
+  fetchOpenAICosts?: (window: {
+    startTime: Date;
+    endTime: Date;
+  }) => Promise<OpenAICosts>;
 };
 
 type SpendClient = ReturnType<typeof createServiceClient>;
@@ -83,16 +108,91 @@ function llmUsd(snapshot: SpendSnapshotV1): number {
   );
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function logUnavailable(event: string, error: unknown): void {
+  console.error(
+    JSON.stringify({
+      event,
+      error: error instanceof Error ? error.name : "UnknownError",
+    }),
+  );
+}
+
+async function loadOpenAIBilled(
+  load: NonNullable<SpendReportDependencies["fetchOpenAICosts"]>,
+  at: Date,
+  cycleStart: string,
+): Promise<SpendReportV1["openaiBilled"]> {
+  // Unset is the optional feature not configured, not a failure: omit the
+  // field so the renderer shows the derived figure without a warning.
+  if (!process.env.OPENAI_ADMIN_KEY?.trim()) return undefined;
+  const dayEnd = new Date(
+    Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()),
+  );
+  const dayStart = new Date(dayEnd.getTime() - DAY_MS);
+  const cycleStartMs = Date.parse(cycleStart);
+  try {
+    // One call covers both windows; on the cycle's first day yesterday
+    // precedes the cycle start, so the range widens to include it.
+    const costs = await load({
+      startTime: new Date(Math.min(cycleStartMs, dayStart.getTime())),
+      endTime: at,
+    });
+    let dayUsd = 0;
+    let cycleUsd = 0;
+    for (const day of costs.days) {
+      const start = Date.parse(day.start);
+      if (start === dayStart.getTime()) dayUsd += day.usd;
+      if (start >= cycleStartMs) cycleUsd += day.usd;
+    }
+    return {
+      dayUsd,
+      cycleUsd,
+      dayStart: dayStart.toISOString(),
+      dayEnd: dayEnd.toISOString(),
+    };
+  } catch (error) {
+    logUnavailable("spend_report_openai_costs_unavailable", error);
+    return null;
+  }
+}
+
+async function loadJev(
+  supabase: SpendClient,
+  day: { start: string; end: string },
+  cycle: { start: string; end: string },
+): Promise<SpendReportV1["jev"]> {
+  try {
+    const [daySpend, cycleSpend] = await loadJevSpend(supabase, [day, cycle]);
+    return {
+      dayUsd: daySpend?.usd ?? 0,
+      cycleUsd: cycleSpend?.usd ?? 0,
+      unpricedCalls: daySpend?.unpricedCalls ?? 0,
+    };
+  } catch (error) {
+    logUnavailable("spend_report_jev_unavailable", error);
+    return null;
+  }
+}
+
 export async function loadSpendReport(
   supabase: SpendClient = createServiceClient(),
   at = new Date(),
+  dependencies: SpendReportDependencies = {},
 ): Promise<SpendReportV1> {
   const generatedAt = at.toISOString();
-  const dayStart = new Date(at.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const dayStart = new Date(at.getTime() - DAY_MS).toISOString();
   const cycle = cycleForResetDay(at, 1);
-  const [dayWindow, cycleWindow] = await Promise.all([
+  const [dayWindow, cycleWindow, openaiBilled, jev] = await Promise.all([
     loadSpendWindow(supabase, dayStart, generatedAt),
     loadSpendWindow(supabase, cycle.start, cycle.end),
+    loadOpenAIBilled(
+      dependencies.fetchOpenAICosts ?? ((window) => fetchOpenAICosts(window)),
+      at,
+      cycle.start,
+    ),
+    loadJev(supabase, { start: dayStart, end: generatedAt }, cycle),
   ]);
 
   const daySnapshot = buildWindowSnapshot(dayWindow, at);
@@ -109,6 +209,7 @@ export async function loadSpendReport(
         now: at,
         supabase,
         spend: Promise.resolve(cycleSnapshot),
+        openaiBilledCycleUsd: openaiBilled?.cycleUsd ?? null,
       }),
     );
   } catch {
@@ -160,5 +261,7 @@ export async function loadSpendReport(
       nonLlmDollarsAvailable: false,
     },
     operations,
+    openaiBilled,
+    jev,
   };
 }

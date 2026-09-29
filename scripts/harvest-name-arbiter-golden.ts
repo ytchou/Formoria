@@ -15,7 +15,6 @@
  *   and merges only split and hardTags into existing items. A new id Langfuse already holds in any status (the listing omits ARCHIVED) is skipped.
  *   A reviewed item newly pinned to train gets only its split moved. Every write is paced, confirmed by returned id, then re-read per id (the SDK swallows 429s).
  */
-import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 
@@ -24,6 +23,7 @@ import { config as dotenvConfig } from 'dotenv'
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
 import { snapshotPrompt } from '@/lib/langfuse/prompt'
 import { normalizeCandidates, normalizeCandidateValue } from '@/lib/services/enrich-phases/names'
+import { assignSplits as assignSeededSplits, SPLITS, splitOf, type Split } from '@/lib/services/eval/splits'
 import { MAX_PROMPT_LENGTH, PROMPT_TRUNCATION_MARK } from '@/lib/services/llm-audit'
 import { buildNameArbiterUserContent, parseNameArbiterItemLine } from '@/lib/services/name-arbiter'
 
@@ -36,11 +36,6 @@ const DEFAULT_SEED = 'dev-1896'
 
 export const HARD_TAGS = ['trailing-segment', 'bilingual-half', 'capitalisation'] as const
 export type HardTag = (typeof HARD_TAGS)[number]
-export const SPLITS = ['train', 'val', 'holdout'] as const
-export type Split = (typeof SPLITS)[number]
-
-/** 60/20/20: every five positions in the stratum-ordered list hold 3 train, 1 val, 1 holdout. */
-const SPLIT_PATTERN: readonly Split[] = ['train', 'train', 'train', 'val', 'holdout']
 
 /** Golden items quoted in prompt v6 (D1). They stay in train so no scored split holds a prompt example. */
 export const PINNED_SLUGS: ReadonlySet<string> = new Set(['unigaze', 'trista', 'mu-ran', 'lin-tsao', 'qn-dessert', 'boingboing'])
@@ -243,8 +238,7 @@ export function isPromptLeak(values: string[], leakStrings: string[]): boolean {
 // ---------------------------------------------------------------------------
 
 function existingSplit(item: ExistingItem | undefined): Split | undefined {
-  const split = (item?.metadata as { split?: unknown } | null | undefined)?.split
-  return SPLITS.includes(split as Split) ? (split as Split) : undefined
+  return splitOf(item?.metadata)
 }
 
 function isReviewed(item: ExistingItem): boolean {
@@ -322,46 +316,17 @@ export function buildPool({
 // Splits
 // ---------------------------------------------------------------------------
 
-function seededKey(seed: string, id: string): string {
-  return createHash('sha256').update(`${seed}:${id}`).digest('hex')
-}
-
 /**
- * Pinned items go to train. Unpinned items that already carry a split keep it,
- * so a re-run never moves an item between splits. The rest are grouped by their
- * tag set, ordered by a seeded hash within each group, and dealt round-robin
- * through the 3/1/1 pattern over the concatenated stratum-ordered list. The
- * position starts at the count of unpinned items that already have a split, so
- * an incremental harvest continues the pattern instead of restarting at train.
- * Each stratum lands within +-1 item per split of 60/20/20 (a small stratum can
- * get no train item), and the result does not depend on input order.
+ * The shared seeded 60/20/20 deal (`@/lib/services/eval/splits`), stratified by
+ * the item's hard-tag set. Pinned items go to train; unpinned items that
+ * already carry a split keep it, so a re-run never moves an item between splits.
  */
-export function assignSplits(pool: PoolItem[], seed: string): PoolItem[] {
-  const strata = new Map<string, PoolItem[]>()
-  for (const item of pool) {
-    if (item.pinned || item.split) continue
-    const key = item.hardTags.join('+') || 'untagged'
-    strata.set(key, [...(strata.get(key) ?? []), item])
-  }
-
-  const assigned = new Map<string, Split>()
-  let position = pool.filter((item) => !item.pinned && item.split).length
-  for (const key of [...strata.keys()].sort()) {
-    const ordered = strata
-      .get(key)!
-      .map((item) => ({ item, hash: seededKey(seed, item.id) }))
-      .sort((a, b) => a.hash.localeCompare(b.hash))
-    for (const { item } of ordered) {
-      assigned.set(item.id, SPLIT_PATTERN[position % SPLIT_PATTERN.length]!)
-      position++
-    }
-  }
-
-  return pool.map((item) => ({
-    ...item,
-    split: item.pinned ? 'train' : (item.split ?? assigned.get(item.id)),
-  }))
-}
+export const assignSplits = (pool: PoolItem[], seed: string): PoolItem[] =>
+  assignSeededSplits(pool, {
+    seed,
+    strataOf: (item) => item.hardTags.join('+') || 'untagged',
+    pinnedToTrain: new Set(pool.filter((item) => item.pinned).map((item) => item.id)),
+  })
 
 // ---------------------------------------------------------------------------
 // Output

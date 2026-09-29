@@ -155,35 +155,14 @@ describe('createRetrievalAdapter', () => {
     expect(result.output).toEqual([])
   })
 
-  it('task dispatches rerank to deps.rerank', async () => {
-    const searchMock = vi.fn().mockResolvedValue({
-      products: [
-        { id: 'id-a', key: 'p-a', brandSlug: 'b1', brandName: 'Brand One', nameZh: '產品甲', nameEn: 'Product A', category: 'lifestyle', subcategory: 'tea', productDescriptionZh: '優質好茶' },
-        { id: 'id-b', key: 'p-b', brandSlug: 'b2', brandName: 'Brand Two', nameZh: '產品乙', nameEn: null, category: 'food', subcategory: 'snack', productDescriptionZh: '美味零食' },
-      ],
-    })
-    const rerankMock = vi.fn().mockResolvedValue([
-      { id: 'id-b' },
-      { id: 'id-a' },
-    ])
-    const adapter = createRetrievalAdapter(
-      makeDeps({ search: searchMock, rerank: rerankMock }),
-    )
+  it('treats the deleted rerank arm as an unknown arm', async () => {
+    const adapter = createRetrievalAdapter(makeDeps())
     const item = makeItem()
     const arm = makeArm({ name: 'rerank', value: 'rerank' })
 
-    const result = await adapter.task!(item, arm, { itemRunId: 'run-4' })
-
-    expect(rerankMock).toHaveBeenCalledWith(
-      '送禮推薦',
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: 'id-a',
-          document: expect.stringContaining('優質好茶'),
-        }),
-      ]),
+    await expect(adapter.task!(item, arm, { itemRunId: 'run-4' })).rejects.toThrow(
+      'Unknown arm value: "rerank"',
     )
-    expect(result.output).toEqual(['b2/p-b', 'b1/p-a'])
   })
 
   it('task throws on unknown arm value', async () => {

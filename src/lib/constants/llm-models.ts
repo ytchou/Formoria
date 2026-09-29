@@ -22,6 +22,12 @@ export const LLM_MODELS = {
 } as const;
 
 /**
+ * Every model that ever sat in LLM_MODELS. Add the outgoing model on every
+ * swap, or the spend report drops its history.
+ */
+export const RETIRED_OPENAI_MODELS: readonly string[] = [];
+
+/**
  * TypeSafe AI's Jev decision model (DEV-1824), eval-only. Pinned to a dated
  * version — never jev-latest — so eval rows and the price row name the model
  * that actually ran. Not in LLM_MODELS: it is not an OpenAI chat model.
@@ -185,12 +191,6 @@ export const LLM_PROFILES = {
     temperature: 0.3,
     reasoningEffort: "none",
     timeoutMs: 90_000,
-  },
-  /** Rerank candidates against a query for retrieval. */
-  rerank: {
-    model: "text",
-    temperature: 0,
-    maxTokens: 400,
   },
   /** Query intent extraction, gpt arm. Live /discover?q= runs on Jev since DEV-1889; only the eval comparison arm uses this. */
   intentParse: {

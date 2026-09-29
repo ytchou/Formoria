@@ -95,7 +95,7 @@ type OpenAIChatInput = {
   maxTokens?: number;
   temperature?: number;
   /**
-   * Reasoning budget, for `gpt-5`-family models only. Ignored by older snapshots,
+   * Reasoning budget, for `gpt-5`/`gpt-6`-family models only. Ignored by older snapshots,
    * which have no reasoning to spend. Every phase here is extraction or closed-set
    * classification against a fixed rubric, so `none` is the intended production value.
    */
@@ -187,7 +187,7 @@ function firstMessageText(messages: ChatMessage[], role: string): string {
 }
 
 /**
- * `gpt-5`-family models differ from the chat models in two ways, both hard 400s:
+ * `gpt-5`/`gpt-6`-family models differ from the chat models in two ways, both hard 400s:
  *
  *   - `max_tokens` is rejected outright — use `max_completion_tokens`.
  *   - Sampling parameters are only live when internal reasoning is OFF.
@@ -202,13 +202,34 @@ function firstMessageText(messages: ChatMessage[], role: string): string {
  *   temperature 0 + reasoning_effort low   -> 400
  *   reasoning_effort minimal               -> 400 (unsupported value)
  *
+ * Probed against `gpt-6-luna` on 2026-09-29 (same rules as 5.6):
+ *
+ *   max_tokens                             -> 400 (use max_completion_tokens)
+ *   temperature 0                          -> 400
+ *   temperature 0 + reasoning_effort none  -> OK
+ *   temperature 0 + reasoning_effort low   -> 400
+ *   reasoning_effort minimal               -> 400 (none|low|medium|high|xhigh)
+ *
+ *   With max_completion_tokens + temperature 0 + reasoning_effort none:
+ *   plain text                             -> OK
+ *   json_schema strict response_format     -> OK
+ *   tool call (strict function, required)  -> OK
+ *   image input, data-URI PNG, detail low  -> OK
+ *
+ *   usage.prompt_tokens_details.cache_write_tokens is reported on text, schema,
+ *   and tool calls (absent on the image call). It is a subset of prompt_tokens:
+ *   a 1819-token prompt reported cache_write_tokens 1816, and the identical
+ *   repeat reported cached_tokens 1816, cache_write_tokens 0.
+ *
  * An earlier note here recorded that temperature "passed through on every
  * model". It does not, and that assumption silently failed every image
  * classification the moment the default model moved to luna — the phase still
  * reported success because a failed batch is logged as skipped.
  */
 function isReasoningModel(model: string): boolean {
-  return model.startsWith("gpt-5");
+  // Explicit list, not open-ended: an unprobed family (gpt-7…) keeps the chat
+  // parameters until someone probes it and adds it here.
+  return /^gpt-(5|6)(?!\d)/.test(model);
 }
 
 // Latched so a model snapshot without Structured Outputs warns once per process, not per batch.
@@ -428,7 +449,7 @@ export function createOpenAIClient({
       }
 
       /**
-       * Temperature and reasoning effort are one decision on gpt-5 models, not
+       * Temperature and reasoning effort are one decision on gpt-5/gpt-6 models, not
        * two: sampling is only applied when reasoning is off, so a caller asking
        * for a temperature is implicitly asking for `reasoning_effort: 'none'`.
        *

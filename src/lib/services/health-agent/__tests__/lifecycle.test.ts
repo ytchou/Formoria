@@ -9,6 +9,8 @@ import {
   recordTickets,
   reconcile,
   releaseClaims,
+  reserveFollowUp,
+  restoreTicket,
 } from '../lifecycle'
 
 // ---------------------------------------------------------------------------
@@ -311,6 +313,40 @@ describe('lifecycle', () => {
     await expect(
       reserveTickets(client, ['fix-1', 'fix-2']),
     ).rejects.toThrow()
+  })
+
+  it('reserveFollowUp moves ticketed_at forward when it is unchanged', async () => {
+    const { client, tableWrites } = fakeClient({ updateResult: { count: 1 } })
+
+    await reserveFollowUp(client, 'fix-1', '2026-09-01T00:00:00+00:00')
+
+    expect(tableWrites).toHaveLength(1)
+    const data = tableWrites[0].data as Record<string, unknown>
+    expect(typeof data.ticketed_at).toBe('string')
+    expect(data.ticketed_at).not.toBe('2026-09-01T00:00:00+00:00')
+    expect(data).not.toHaveProperty('linear_identifier')
+  })
+
+  it('reserveFollowUp throws when ticketed_at changed since it was read', async () => {
+    const { client } = fakeClient({ updateResult: { count: 0 } })
+
+    await expect(
+      reserveFollowUp(client, 'fix-1', '2026-09-01T00:00:00+00:00'),
+    ).rejects.toThrow(/changed/)
+  })
+
+  it('restoreTicket writes back the previous ticketed_at and identifier', async () => {
+    const { client, tableWrites } = fakeClient()
+
+    await restoreTicket(client, 'fix-1', {
+      ticketedAt: '2026-09-01T00:00:00+00:00',
+      linearIdentifier: 'DEV-100',
+    })
+
+    expect(tableWrites[0].data).toEqual({
+      ticketed_at: '2026-09-01T00:00:00+00:00',
+      linear_identifier: 'DEV-100',
+    })
   })
 
   it('reconcile passes only completed sources and every observed fingerprint', async () => {

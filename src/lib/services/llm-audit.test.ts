@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   resetAuditEmitterForTests,
@@ -15,6 +18,8 @@ import {
 } from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
+import { priceUsage } from "./llm-pricing";
+import type { ChatMessage } from "./openai-client";
 
 vi.mock("./llm-pricing", () => ({
   priceUsage: vi.fn().mockResolvedValue({
@@ -136,6 +141,69 @@ describe("audited LLM clients", () => {
       completionTokens: 25,
       costUsd: 0.005,
     });
+  });
+
+  it("records cached and cache-write tokens from usage", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: {
+              prompt_tokens: 100,
+              completion_tokens: 25,
+              prompt_tokens_details: { cached_tokens: 20, cache_write_tokens: 5 },
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const client = createAuditedOpenAIClient(
+      { target, phase: "descriptions", supabase: fakeSupabase([]) },
+      { apiKey: "k", model: "gpt-6-luna" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(writes[1]).toMatchObject({
+      status: "succeeded",
+      cachedPromptTokens: 20,
+      cacheWriteTokens: 5,
+      model: "gpt-6-luna",
+    });
+  });
+
+  it("records prompt and completion tokens even when pricing fails", async () => {
+    vi.mocked(priceUsage).mockRejectedValueOnce(new Error("price lookup down"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: { prompt_tokens: 40, completion_tokens: 7 },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const client = createAuditedOpenAIClient(
+      { target, phase: "descriptions", supabase: fakeSupabase([]) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(writes[1]).toMatchObject({
+      status: "succeeded",
+      promptTokens: 40,
+      completionTokens: 7,
+    });
+    expect(writes[1]?.costUsd ?? null).toBeNull();
   });
 
   // Agent turns go through the same hook: a tool-call response must land in
@@ -497,7 +565,7 @@ describe("chat capture seam", () => {
     await client.chat({ system: "sys", user: longUser });
 
     expect(captured).toHaveLength(1);
-    expect(captured[0]).toEqual({
+    expect(captured[0]).toMatchObject({
       phase: "facts",
       profileKey: "facts",
       system: "sys",
@@ -505,6 +573,85 @@ describe("chat capture seam", () => {
       promptName: "facts-prompt",
     });
     expect(captured[0]!.user).toHaveLength(5_000);
+  });
+
+  it("capture records the full request and the response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }),
+          { status: 200 },
+        ),
+      ),
+    );
+    const captured: CapturedCall[] = [];
+    setChatCaptureSeam((call) => captured.push(call));
+    const longUser = "x".repeat(2_500);
+    const client = createAuditedOpenAIClient(
+      { target, phase: "facts", supabase: fakeSupabase([]) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "sys", user: longUser, json: true });
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]!.messages).toEqual([
+      { role: "system", content: "sys" },
+      { role: "user", content: longUser },
+    ]);
+    const userMessage = captured[0]!.messages[1] as { content: string };
+    expect(userMessage.content).toHaveLength(2_500);
+    expect(captured[0]!.response).toEqual({
+      content: '{"ok":true}',
+      parsed: { ok: true },
+    });
+  });
+
+  it("capture copies the caller's messages array", async () => {
+    const captured: CapturedCall[] = [];
+    setChatCaptureSeam((call) => captured.push(call));
+    const messages: ChatMessage[] = [
+      { role: "system", content: "sys" },
+      { role: "user", content: "u" },
+    ];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "facts", supabase: fakeSupabase([]) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ messages });
+    messages.push({ role: "user", content: "later turn" });
+
+    expect(captured[0]!.messages).toEqual([
+      { role: "system", content: "sys" },
+      { role: "user", content: "u" },
+    ]);
+  });
+
+  it("capture stays zero-write", async () => {
+    // Capture runs under installSeams, which sets CURATION_EVAL_SINK; the
+    // injected Supabase client is the seam that would see a brand_ai_results write.
+    const sinkDir = mkdtempSync(join(tmpdir(), "llm-audit-capture-"));
+    process.env.CURATION_EVAL_SINK = join(sinkDir, "sink.jsonl");
+    try {
+      const captured: CapturedCall[] = [];
+      setChatCaptureSeam((call) => captured.push(call));
+      const inserts: InsertedRow[] = [];
+      const client = createAuditedOpenAIClient(
+        { target, phase: "facts", supabase: fakeSupabase(inserts) },
+        { apiKey: "k" },
+      );
+
+      await client.chat({ system: "sys", user: "u" });
+
+      expect(captured).toHaveLength(1);
+      expect(captured[0]!.response.content).toBe("answer");
+      expect(inserts).toHaveLength(0);
+    } finally {
+      delete process.env.CURATION_EVAL_SINK;
+      rmSync(sinkDir, { recursive: true, force: true });
+    }
   });
 
   it("capture seam errors never fail the call", async () => {

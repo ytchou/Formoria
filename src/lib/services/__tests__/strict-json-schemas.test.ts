@@ -37,7 +37,6 @@ import { factsShape, researchFoundingFacts } from "../brand-facts";
 import { detectSingleShape } from "../category-classifier";
 import { descriptionShape } from "../description-rewrite";
 import { adapterFor } from "../eval/phase-adapters";
-import { rerankProducts } from "../product-rerank";
 import { judgeRelevance } from "../eval/search-relevance-judge";
 import {
   classifySentryIssue,
@@ -204,12 +203,6 @@ async function captureIntentParse(): Promise<JsonSchema> {
   return firstSent(schemas);
 }
 
-async function captureRerank(): Promise<JsonSchema> {
-  const { chat, schemas } = capturingChat({ ok: false, content: null });
-  await rerankProducts("禮物", [{ id: "a", document: "doc" }], { chat });
-  return firstSent(schemas);
-}
-
 async function captureJudge(): Promise<JsonSchema> {
   const { chat, schemas } = capturingChat({ content: "{}" });
   await judgeRelevance(
@@ -306,7 +299,6 @@ async function captureFoundingFacts(): Promise<WireSchema[]> {
 const WIRE_SCHEMAS: Array<[string, () => Promise<JsonSchema>]> = [
   // Captured from the real call.
   ["query-intent-parse INTENT_PARSE_JSON_SCHEMA", captureIntentParse],
-  ["product-rerank RERANK_JSON_SCHEMA", captureRerank],
   ["eval/search-relevance-judge JUDGE_JSON_SCHEMA", captureJudge],
   [
     "health-agent/sentry-classify SENTRY_CLASSIFICATION_JSON_SCHEMA",

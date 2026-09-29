@@ -140,7 +140,7 @@ source /tmp/relay.sh && relay /api/internal/run-timeline /tmp/timeline-done.json
 
 - On the E2E path the PR has no PR ticket: pass `--arg ticketId ""` so the template leaves `ticketId` out, and pass nothing after `--args`.
 - Send `tickets_filed` only when you created at least one new ticket. Leave out tickets that already existed.
-- The fingerprints you send are written back to the findings ledger as the ticket ID. The health agent still re-sends every active repairable finding each night, but with its `ticketId` attached, so the next routine reuses the open ticket instead of filing a duplicate. If this session dies before it reports its tickets, the findings come back the next night without a `ticketId` and get triaged as new. That is the intended recovery.
+- The fingerprints you send are written back to the findings ledger as the ticket ID. The health agent still re-sends every active auto-fix finding each night, but with its `ticketId` attached, so the next routine reuses the open ticket instead of filing a duplicate. If this session dies before it reports its tickets, the findings come back the next night without a `ticketId` and get triaged as new. That is the intended recovery.
 
 If `repair.agent === "e2e-agent"`, follow **Execution — E2E repair path** below instead of the generic repair path. Every other `repair` uses **Execution — Repair path**.
 
@@ -288,8 +288,7 @@ jq -n \
 ✅ False positive: <N>
 🔧 Fixed: <N> → <PR link or \"no code bugs\"> (DEV-1870)
 📋 Tickets: <N> → DEV-1234, DEV-1235
-⏳ Fix pending release: <N> → DEV-1201
-⏭️ Report-only: <N>" \
+⏳ Fix pending release: <N> → DEV-1201" \
   --arg ctx "<traceUrl|Langfuse trace> · Run ID: \`<runId>\`" \
   '{channel:$channel, thread_ts:$thread_ts, text:$text, blocks:[
      {type:"header", text:{type:"plain_text", text:("Repair Summary — " + $date)}},

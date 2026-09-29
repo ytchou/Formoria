@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DetectorContext } from '../../types'
 import { sentryCaptureDetector } from '../sentry-capture'
+import { routeOf } from '../../contracts'
 
 function makeCtx(
   deps: Record<string, unknown> = {},
@@ -158,6 +159,8 @@ describe('sentry-capture detector', () => {
     expect(findings[0].evidence).toMatchObject({
       rateLimited: { error_usage_exceeded: 1570 },
     })
+    // A credential/quota problem cannot be fixed with a code PR.
+    expect(routeOf(findings[0])).toBe('ticket')
   })
 
   it('keeps the round-trip finding when the quota check itself fails', async () => {

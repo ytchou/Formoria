@@ -50,6 +50,13 @@ describe('posthog-queries definitions', () => {
     }
   })
 
+  it('traffic sources classifies search by the /discover path, not the q param sanitizePostHogUrl strips', () => {
+    for (const def of [OWNER_ENDPOINTS.brand_traffic_sources, OWNER_ENDPOINTS_V2.brand_traffic_sources]) {
+      expect(def.hogql).toContain("normalized_previous_path = '/discover'")
+      expect(def.hogql).not.toContain("extractURLParameter(previous_url, 'q')")
+    }
+  })
+
   it('every endpoint has a dashboard insight variant carrying the {filters} placeholder', () => {
     for (const def of listOwnerEndpoints()) {
       expect(def.insight.name.length).toBeGreaterThan(0)

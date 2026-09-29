@@ -32,7 +32,6 @@ import {
   getRelatedBrandsByCentroid,
 } from "@/lib/services/brand-embeddings";
 import { createServiceClient } from "@/lib/supabase/service";
-import { rerankProducts } from "@/lib/services/product-rerank";
 import {
   buildBlindReviewPool,
   compareConsumerOverlap,
@@ -109,7 +108,6 @@ async function cmdRun(values: Record<string, unknown>) {
         category: opts.category,
         pageSize: opts.pageSize,
       }),
-    rerank: async (query, candidates) => rerankProducts(query, candidates),
     rank: async ({ query, version, category }) => {
       const teed: LtrRpcRow[] = [];
       const baseDeps = createDefaultSearchDeps();
@@ -855,7 +853,7 @@ async function main() {
         "  build-dataset [--split 60/20/20] Build labelled dataset for Langfuse",
       );
       console.error(
-        "  export-grades [--arm hybrid,rerank] [--k 10]  Export holdout grades CSV",
+        "  export-grades [--arm hybrid] [--k 10]  Export holdout grades CSV",
       );
       console.error(
         "  apply-grades [--csv labels/holdout-grades.csv]               Apply human grades to dataset",

@@ -69,6 +69,9 @@ function stubClient(): RunHealthAgentDeps['client'] {
   } as unknown as RunHealthAgentDeps['client']
 }
 
+/** The run clock; the ledger fake's default ticketed_at is 6.5 days earlier. */
+const RUN_NOW = new Date('2026-09-16T12:00:00Z')
+
 function baseDeps(overrides?: Partial<RunHealthAgentDeps>): RunHealthAgentDeps {
   return {
     client: stubClient(),
@@ -89,6 +92,7 @@ function baseDeps(overrides?: Partial<RunHealthAgentDeps>): RunHealthAgentDeps {
     triggerRepair: undefined,
     runWithAuditContext: (_seed, fn) => fn(),
     flushLangfuse: vi.fn(async () => {}),
+    now: () => RUN_NOW,
     ...overrides,
   }
 }
@@ -808,7 +812,7 @@ describe('runHealthAgent', () => {
 
   // ---- Task 6: repair trigger ----
 
-  it('triggers repair for all non-report-only findings', async () => {
+  it('triggers auto-fix only for findings that opt in and are not report_only', async () => {
     const triggerRepair = vi.fn(async () => {})
 
     const deps = baseDeps({
@@ -824,6 +828,7 @@ describe('runHealthAgent', () => {
               severity: 'high' as const,
               evidence: {},
               mergePolicy: 'automatic' as const,
+              route: 'auto_fix' as const,
             },
             {
               source: 'directory',
@@ -840,6 +845,7 @@ describe('runHealthAgent', () => {
               severity: 'low' as const,
               evidence: {},
               mergePolicy: 'human' as const,
+              route: 'auto_fix' as const,
               disposition: 'report_only' as const,
             },
           ],
@@ -854,14 +860,13 @@ describe('runHealthAgent', () => {
     const request = (triggerRepair.mock.calls as unknown[][])[0][0] as RepairRequest
     expect(request.agent).toBe('ops-agent')
     expect(request.ref).toBe('staging')
-    expect(request.findings).toHaveLength(2)
+    // Default route is ticket; report_only forces ticket even when opted in.
     expect(request.findings.map((f) => f.fingerprint)).toEqual([
       'quality:vitest-failure:test',
-      'directory:test:manual',
     ])
   })
 
-  it('skips trigger when all findings are report_only', async () => {
+  it('skips trigger when no finding routes to auto-fix', async () => {
     const triggerRepair = vi.fn(async () => {})
 
     const deps = baseDeps({
@@ -981,13 +986,22 @@ function fakeSlack() {
  */
 function ticketClient(
   ticketed: Record<string, string> = {},
-  options: { ledgerReadError?: unknown } = {},
+  options: {
+    ledgerReadError?: unknown
+    /** Per-fingerprint ticketed_at; defaults to DEFAULT_TICKETED_AT. */
+    ticketedAt?: Record<string, string>
+    /** Error returned by the finalize write (the Linear identifier update). */
+    finalizeError?: unknown
+  } = {},
 ) {
   const client = stubClient()
   const reserved: string[][] = []
   const finalized: Array<{ id: string; linearIdentifier: string }> = []
   const released: string[][] = []
+  const restored: Array<{ id: string; ticketedAt: string; linearIdentifier: unknown }> = []
   const selects: string[] = []
+  const ticketedAtFor = (fingerprint: string) =>
+    options.ticketedAt?.[fingerprint] ?? DEFAULT_TICKETED_AT
 
   const baseRpc = client.rpc.bind(client)
   client.rpc = vi.fn(async (fn: string, params: Record<string, unknown>) => {
@@ -1010,8 +1024,8 @@ function ticketClient(
     })
     chain.order = vi.fn(() => chain)
     chain.is = vi.fn(() => chain)
-    chain.eq = vi.fn((_column: string, value: string) => {
-      state.ids = [value]
+    chain.eq = vi.fn((column: string, value: string) => {
+      if (column === 'id') state.ids = [value]
       return chain
     })
     chain.in = vi.fn((_column: string, values: string[]) => {
@@ -1034,7 +1048,7 @@ function ticketClient(
             id,
             fingerprint,
             status: 'pending',
-            ticketed_at: ticketed[fingerprint] ? '2026-09-01T00:00:00Z' : null,
+            ticketed_at: ticketed[fingerprint] ? ticketedAtFor(fingerprint) : null,
             linear_identifier: ticketed[fingerprint] ?? null,
           }
         }),
@@ -1046,9 +1060,24 @@ function ticketClient(
       reject: (reason: unknown) => unknown,
     ) => {
       const update = state.update
-      if (update && update.linear_identifier === null) {
+      const restoring =
+        update !== undefined &&
+        'linear_identifier' in update &&
+        state.ids.length === 1 &&
+        update.ticketed_at === ticketedAtFor(state.ids[0].slice('id:'.length))
+      if (restoring) {
+        restored.push({
+          id: state.ids[0],
+          ticketedAt: update.ticketed_at as string,
+          linearIdentifier: update.linear_identifier,
+        })
+      } else if (update && update.linear_identifier === null) {
         released.push(state.ids)
       } else if (update && typeof update.linear_identifier === 'string') {
+        if (options.finalizeError) {
+          return Promise.resolve({ data: null, error: options.finalizeError })
+            .then(resolve, reject)
+        }
         for (const id of state.ids) {
           finalized.push({ id, linearIdentifier: update.linear_identifier })
         }
@@ -1063,8 +1092,11 @@ function ticketClient(
     return chain
   }) as unknown as typeof client.from
 
-  return { client, reserved, finalized, released, selects }
+  return { client, reserved, finalized, released, restored, selects }
 }
+
+/** Within the follow-up window of RUN_NOW, so an existing ticket is not re-filed. */
+const DEFAULT_TICKETED_AT = '2026-09-10T00:00:00Z'
 
 function finding(
   fingerprint: string,
@@ -1089,6 +1121,7 @@ const REPAIRABLE = finding('quality:vitest-failure:repairable', {
   source: 'quality',
   title: 'Repairable finding',
   mergePolicy: 'automatic',
+  route: 'auto_fix',
 })
 
 function timelineDeps(
@@ -1137,8 +1170,8 @@ function repairTrigger(slack: ReturnType<typeof fakeSlack>) {
   return vi.fn(async (request: RepairRequest, threadTs?: string) => {
     await slack.deps.postMessage({
       channel: HEALTH_CHANNEL,
-      text: buildRepairTriggerMessage('U_OPS', request, 'Health agent'),
-      blocks: buildRepairTriggerBlocks(request, 'Health Agent'),
+      text: buildRepairTriggerMessage('U_OPS', request, 'Health agent', 'Auto-fix Request'),
+      blocks: buildRepairTriggerBlocks(request, 'Health Agent', 'Auto-fix Request'),
       threadTs,
     })
   })
@@ -1166,9 +1199,10 @@ describe('runHealthAgent — run timeline', () => {
     expect(events[1]).toMatchObject({
       kind: 'findings',
       total: 1,
-      repairable: 0,
-      reportOnly: 1,
+      autoFix: 0,
+      ticket: 1,
     })
+    expect(events[1]).not.toHaveProperty('acknowledged')
     expect(deps.triggerRepair).not.toHaveBeenCalled()
   })
 
@@ -1192,8 +1226,8 @@ describe('runHealthAgent — run timeline', () => {
     ])
     expect(slack.events(PARENT_TS)[1]).toMatchObject({
       total: 2,
-      repairable: 1,
-      reportOnly: 1,
+      autoFix: 1,
+      ticket: 1,
     })
     const [request, threadTs] = triggerRepair.mock.calls[0]
     expect(request.timeline).toEqual({ channel: HEALTH_CHANNEL, ts: PARENT_TS })
@@ -1313,7 +1347,11 @@ describe('runHealthAgent — per-finding tickets', () => {
   it('files fallback tickets for new repairable findings when triggerRepair is absent, but never for Sentry', async () => {
     const ledger = ticketClient()
     const linearCreateTicket = vi.fn(async () => ({ identifier: 'DEV-20' }))
-    const sentry = finding('sentry:issue:abc', { source: 'sentry', title: 'Sentry issue' })
+    const sentry = finding('sentry:issue:abc', {
+      source: 'sentry',
+      title: 'Sentry issue',
+      route: 'auto_fix',
+    })
 
     await runHealthAgent(baseDeps({
       client: ledger.client,
@@ -1438,8 +1476,44 @@ describe('runHealthAgent — per-finding tickets', () => {
     expect(ledger.finalized).toEqual([])
   })
 
+  it('keeps the reservation and logs the identifier when finalize fails after creation', async () => {
+    const ledger = ticketClient({}, { finalizeError: new Error('db down') })
+    const linearCreateTicket = vi.fn(async () => ({
+      identifier: 'DEV-77',
+      url: 'https://linear.app/x/issue/DEV-77',
+    }))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await runHealthAgent(baseDeps({
+        client: ledger.client,
+        registryOverride: [
+          makeDetector({
+            name: 'brand-invariants',
+            source: 'directory',
+            run: async () => [REPORT_ONLY, REPORT_ONLY],
+          }),
+        ],
+        linearCreateTicket,
+      }))
+
+      expect(linearCreateTicket).toHaveBeenCalledOnce()
+      expect(ledger.reserved).toEqual([[`id:${REPORT_ONLY.fingerprint}`]])
+      expect(ledger.released).toEqual([])
+      expect(ledger.restored).toEqual([])
+      const logged = errorSpy.mock.calls.map((call) => call.map(String).join(' ')).join('\n')
+      expect(logged).toContain('DEV-77')
+      expect(logged).toContain(`id:${REPORT_ONLY.fingerprint}`)
+      expect(logged).toContain(REPORT_ONLY.fingerprint)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('sets ticketId on repair findings from the ledger linear_identifier', async () => {
-    const other = finding('directory:test:repairable-2', { title: 'Other repairable' })
+    const other = finding('directory:test:repairable-2', {
+      title: 'Other repairable',
+      route: 'auto_fix',
+    })
     const ledger = ticketClient({ [REPAIRABLE.fingerprint]: 'DEV-40' })
     const triggerRepair = vi.fn(async () => {})
 
@@ -1488,7 +1562,7 @@ describe('runHealthAgent — Block Kit guard', () => {
 
     await runHealthAgent(deps)
 
-    const trigger = slack.calls.find((call) => call.text.includes('repair request'))
+    const trigger = slack.calls.find((call) => call.text.includes('auto-fix request'))
     expect(trigger?.text).toMatch(/```json\n\{.*\}\n```/)
     const fenced = /```json\n([\s\S]*?)\n```/.exec(trigger?.text ?? '')
     const parsed = JSON.parse(fenced?.[1] ?? '{}') as RepairRequest
@@ -1681,6 +1755,144 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
       'started',
       'findings',
       'completed',
+    ])
+  })
+})
+
+describe('runHealthAgent — acknowledged known debt', () => {
+  // Covered by the shipped `directory:trail-empty-section:` acknowledgement.
+  const ACK_TICKET = finding('directory:trail-empty-section:autumn-kitchen:glassware', {
+    title: 'Trail section has no products',
+  })
+  const ACK_AUTO_FIX = finding('directory:trail-empty-section:autumn-kitchen:tableware', {
+    title: 'Trail section has no products (auto-fix)',
+    route: 'auto_fix',
+  })
+
+  it('enqueues acknowledged findings but neither tickets nor auto-fixes them, and counts them', async () => {
+    const slack = fakeSlack()
+    const ledger = ticketClient()
+    const linearCreateTicket = vi.fn(async () => ({ identifier: 'DEV-60' }))
+    const triggerRepair = vi.fn(async () => {})
+    const deps = timelineDeps(slack, [ACK_TICKET, ACK_AUTO_FIX, REPAIRABLE, REPORT_ONLY], {
+      client: ledger.client,
+      linearCreateTicket,
+      triggerRepair,
+    })
+
+    await runHealthAgent(deps)
+
+    const enqueued = rpcCalls(ledger.client)
+      .filter(([name]) => name === 'enqueue_health_fix')
+      .map(([, params]) => params.p_fingerprint)
+    expect(enqueued).toEqual(
+      expect.arrayContaining([ACK_TICKET.fingerprint, ACK_AUTO_FIX.fingerprint]),
+    )
+
+    const titles = linearCreateTicket.mock.calls.map(
+      (call) => (call as unknown as [{ title: string }])[0].title,
+    )
+    expect(titles).toEqual(['Health Agent — Report-only finding'])
+
+    const request = (triggerRepair.mock.calls as unknown[][])[0][0] as RepairRequest
+    expect(request.findings.map((f) => f.fingerprint)).toEqual([REPAIRABLE.fingerprint])
+
+    expect(slack.events(PARENT_TS)[1]).toMatchObject({
+      kind: 'findings',
+      total: 4,
+      autoFix: 1,
+      ticket: 1,
+      acknowledged: 2,
+    })
+  })
+
+  it('routes an acknowledged fingerprint normally once the acknowledgement has expired', async () => {
+    const ledger = ticketClient()
+    const linearCreateTicket = vi.fn(async () => ({ identifier: 'DEV-61' }))
+
+    await runHealthAgent(baseDeps({
+      client: ledger.client,
+      logicalDate: '2027-01-01',
+      registryOverride: [
+        makeDetector({
+          name: 'brand-invariants',
+          source: 'directory',
+          run: async () => [ACK_TICKET],
+        }),
+      ],
+      linearCreateTicket,
+    }))
+
+    expect(linearCreateTicket).toHaveBeenCalledOnce()
+    expect(ledger.reserved).toEqual([[`id:${ACK_TICKET.fingerprint}`]])
+  })
+})
+
+describe('runHealthAgent — stale-ticket follow-up', () => {
+  const DAY_MS = 86_400_000
+  const ticketedDaysAgo = (days: number) =>
+    new Date(RUN_NOW.getTime() - days * DAY_MS).toISOString()
+
+  function followUpRun(days: number, createTicket?: RunHealthAgentDeps['linearCreateTicket']) {
+    const ledger = ticketClient(
+      { [REPORT_ONLY.fingerprint]: 'DEV-10' },
+      { ticketedAt: { [REPORT_ONLY.fingerprint]: ticketedDaysAgo(days) } },
+    )
+    const linearCreateTicket = vi.fn(
+      createTicket ?? (async () => ({ identifier: 'DEV-11' })),
+    )
+    const deps = baseDeps({
+      client: ledger.client,
+      registryOverride: [
+        makeDetector({
+          name: 'brand-invariants',
+          source: 'directory',
+          run: async () => [REPORT_ONLY],
+        }),
+      ],
+      linearCreateTicket,
+    })
+    return { ledger, linearCreateTicket, deps }
+  }
+
+  it('files a follow-up ticket 15 days after the first one, referencing the old identifier', async () => {
+    const { ledger, linearCreateTicket, deps } = followUpRun(15)
+
+    await runHealthAgent(deps)
+
+    expect(linearCreateTicket).toHaveBeenCalledOnce()
+    const [spec] = linearCreateTicket.mock.calls[0] as unknown as [{ title: string; body: string }]
+    expect(spec.title).toBe('Health Agent — Still firing — Report-only finding')
+    expect(spec.body).toContain('Follow-up of DEV-10: still observed 15 days after it was ticketed.')
+    expect(ledger.reserved).toEqual([[`id:${REPORT_ONLY.fingerprint}`]])
+    expect(ledger.finalized).toEqual([
+      { id: `id:${REPORT_ONLY.fingerprint}`, linearIdentifier: 'DEV-11' },
+    ])
+  })
+
+  it('files no follow-up 13 days after the first ticket', async () => {
+    const { ledger, linearCreateTicket, deps } = followUpRun(13)
+
+    await runHealthAgent(deps)
+
+    expect(linearCreateTicket).not.toHaveBeenCalled()
+    expect(ledger.reserved).toEqual([])
+  })
+
+  it('restores the previous ticket link when the follow-up ticket cannot be created', async () => {
+    const { ledger, deps } = followUpRun(15, async () => {
+      throw new Error('linear down')
+    })
+
+    await runHealthAgent(deps)
+
+    expect(ledger.released).toEqual([])
+    expect(ledger.restored).toEqual([
+      {
+        id: `id:${REPORT_ONLY.fingerprint}`,
+        ticketedAt: ticketedDaysAgo(15),
+        linearIdentifier: 'DEV-10',
+      },
     ])
   })
 })

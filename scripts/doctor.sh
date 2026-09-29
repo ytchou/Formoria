@@ -168,6 +168,11 @@ check_env() {
     else
       echo "WARN: OPENAI_API_KEY not set (the entire enrichment pipeline will fail — descriptions, reputation, category classification, brand detection, and image classification)"
     fi
+    if grep -q "OPENAI_ADMIN_KEY=." .env.local; then
+      echo "OK: OPENAI_ADMIN_KEY"
+    else
+      echo "WARN: OPENAI_ADMIN_KEY not set (optional — the spend report falls back to prod-derived OpenAI spend instead of the billed Costs API)"
+    fi
     if pnpm exec node -e "const {chromium}=require('@playwright/test');process.exit(require('fs').existsSync(chromium.executablePath())?0:1)" 2>/dev/null; then
       echo "OK: Playwright Chromium installed"
     else
