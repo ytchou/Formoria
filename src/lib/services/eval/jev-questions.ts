@@ -22,7 +22,7 @@
  *   expected: [{ brandSlug, productKey, grade }] }`. `intent-parse-golden` items are
  *   seeded from it as `input = { query }`.
  * - `labels/holdout-grades.csv`: `query_id, query, brand_slug, product_key, name_zh,
- *   description_zh, official_url, llm_grade, hybrid_rank, rerank_rank, cohere_rank,
+ *   description_zh, official_url, llm_grade, hybrid_rank, cohere_rank,
  *   disagreement, human_grade`. The judge input is `{ query, product: { name_zh, … } }`,
  *   the `judgeRelevance` input.
  * - Distillation `eval.jsonl` user message (productCategory): productName and

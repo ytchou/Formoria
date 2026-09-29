@@ -23,9 +23,12 @@ import {
   readSituationQueries,
   INTENT_PARSE_DATASET,
   cmdDatasetValidate,
+  cmdDatasetSplit,
   writeGoldenItems,
   type GoldenWriteApi,
   type GoldenWriteBody,
+  type SplitDatasetItem,
+  type SplitWriteBody,
 } from '../llm-eval'
 import { assertCensusTarget } from '../../enrichment/eval/production-guard'
 import { PRODUCTION_PROJECT_REF } from '@/lib/supabase/project-target'
@@ -124,6 +127,10 @@ describe('parseArm', () => {
       kind: 'model',
       model: 'gpt-4o-mini',
     })
+  })
+
+  it('trims the value after the colon', () => {
+    expect(parseArm('model:gpt-6-luna ')).toEqual({ kind: 'model', model: 'gpt-6-luna' })
   })
 
   it('throws on a malformed arm spec', () => {
@@ -1328,6 +1335,66 @@ describe('cmdDatasetValidate', () => {
     }
   })
 
+  it('validate reports a missing dataset and continues', async () => {
+    // The Langfuse SDK swallows the 404 on the dataset lookup, then fails on
+    // the items page: `items.push(...itemsResponse.data)` with data undefined.
+    // A status-visible probe confirms the 404.
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getDataset = vi.fn(async (name: string) => {
+      if (name === INTENT_PARSE_DATASET) throw new TypeError('itemsResponse.data is not iterable')
+      return { items: [] }
+    })
+    const probeDataset = vi.fn().mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }))
+    try {
+      await cmdDatasetValidate(false, { getDataset, probeDataset })
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines.some((l) => l.startsWith(INTENT_PARSE_DATASET) && l.includes('not seeded'))).toBe(true)
+      expect(probeDataset).toHaveBeenCalledWith(INTENT_PARSE_DATASET)
+      expect(getDataset.mock.calls.length).toBeGreaterThan(1)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('a rate-limited items page fails validate instead of reporting not seeded', async () => {
+    // langfuse-core swallows a 429 on the items page too, then throws the same TypeError.
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getDataset = async (name: string) => {
+      if (name === INTENT_PARSE_DATASET) throw new TypeError('itemsResponse.data is not iterable')
+      return { items: [] }
+    }
+    try {
+      // The dataset exists, so the items page failed for another reason.
+      await expect(
+        cmdDatasetValidate(false, { getDataset, probeDataset: vi.fn().mockResolvedValue({ name: INTENT_PARSE_DATASET }) }),
+      ).rejects.toThrow(/refusing to report it as not seeded/)
+      // The probe itself is rate-limited.
+      const limited = Object.assign(new Error('Too Many Requests'), { status: 429 })
+      await expect(
+        cmdDatasetValidate(false, { getDataset, probeDataset: vi.fn().mockRejectedValue(limited) }),
+      ).rejects.toBe(limited)
+      // No probe: fail closed.
+      await expect(cmdDatasetValidate(false, { getDataset })).rejects.toThrow(/refusing to report it as not seeded/)
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines.some((l) => l.includes('not seeded'))).toBe(false)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('rethrows an unrelated TypeError', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await expect(
+        cmdDatasetValidate(false, {
+          getDataset: vi.fn().mockRejectedValue(new TypeError('foo.bar is not iterable')),
+        }),
+      ).rejects.toThrow(/foo\.bar/)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
   it('rethrows any error other than a missing dataset', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     try {
@@ -1638,5 +1705,206 @@ describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
     })
     // datasetGet, then get+create per item: 5 calls, 4 paced gaps.
     expect(waits.filter((ms) => ms === 700)).toHaveLength(4)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1898: dataset split and split counts
+// ---------------------------------------------------------------------------
+
+describe('dataset split (DEV-1898 D9a)', () => {
+  it('parses dataset split', () => {
+    expect(
+      parseCliArgs(['dataset', 'split', '--dataset', 'acquisition-plan-golden', '--seed', 's1', '--pin', 'a,b', '--apply']),
+    ).toEqual({ command: 'dataset-split', dataset: 'acquisition-plan-golden', seed: 's1', apply: true, pin: ['a', 'b'] })
+    expect(parseCliArgs(['dataset', 'split', '--dataset', 'x'])).toEqual({
+      command: 'dataset-split',
+      dataset: 'x',
+      seed: 'dev-1898',
+      apply: false,
+      pin: [],
+    })
+    expect(() => parseCliArgs(['dataset', 'split'])).toThrow('--dataset is required')
+  })
+
+  it('validate prints split counts', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const reviewed = { humanApproval: { reviewedVia: { queueId: 'q', scoreId: 's' } } }
+    const items = [
+      ...['train', 'train', 'train', 'val'].map((split) => ({ status: 'ACTIVE', metadata: { ...reviewed, split } })),
+      { status: 'ACTIVE', metadata: reviewed },
+      { status: 'ARCHIVED', metadata: { split: 'holdout' } },
+    ]
+    try {
+      await cmdDatasetValidate(false, {
+        getDataset: async (name) => ({ items: name === 'detect-confidence-golden' ? items : [] }),
+      })
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines[0]).toMatch(/Train \| Val +\| Holdout \| None$/)
+      const row = lines.find((l) => l.startsWith('detect-confidence-golden'))!
+      // ACTIVE items only: 3 train, 1 val, 0 holdout, 1 with no split.
+      expect(row).toMatch(/\| 3 +\| 1 +\| 0 +\| 1$/)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('--apply merges only metadata.split into unsplit items and re-reads each one', async () => {
+    const stored = new Map<string, SplitWriteBody>()
+    const items: SplitDatasetItem[] = [
+      { id: 'old', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: { split: 'holdout', keep: 1 } },
+      ...Array.from({ length: 4 }, (_, i) => ({
+        id: `new-${i}`,
+        status: 'ACTIVE',
+        input: `in-${i}`,
+        expectedOutput: { output: i },
+        metadata: { humanApproval: { status: 'pending' } },
+      })),
+    ]
+    const api = {
+      createItem: vi.fn(async (body: SplitWriteBody) => {
+        stored.set(body.id, body)
+        return { id: body.id }
+      }),
+      // Before the write the fresh read returns the listed item; after it, the stored body.
+      getItem: vi.fn(async (id: string) => stored.get(id) ?? items.find((item) => item.id === id)),
+    }
+
+    const result = await cmdDatasetSplit({
+      dataset: 'acquisition-plan-golden',
+      seed: 's',
+      apply: true,
+      pin: ['new-0'],
+      getDataset: async () => ({ items }),
+      api,
+      sleep: async () => {},
+      minIntervalMs: 0,
+      log: () => {},
+    })
+
+    expect(result).toEqual({ written: 4, unchanged: 1 })
+    expect(stored.has('old')).toBe(false)
+    expect(stored.get('new-0')!.metadata).toEqual({ humanApproval: { status: 'pending' }, split: 'train' })
+    expect(stored.get('new-1')).toMatchObject({ input: 'in-1', expectedOutput: { output: 1 }, status: 'ACTIVE' })
+    // One fresh read before each write, one confirming read after.
+    expect(api.getItem).toHaveBeenCalledTimes(8)
+  })
+
+  /** An in-memory write API: `fresh` overrides what the pre-write read returns per id. */
+  function memoryApi(items: SplitDatasetItem[], fresh: Record<string, unknown> = {}) {
+    const stored = new Map<string, SplitWriteBody>()
+    const api = {
+      createItem: vi.fn(async (body: SplitWriteBody) => {
+        stored.set(body.id, body)
+        return { id: body.id }
+      }),
+      getItem: vi.fn(async (id: string) => stored.get(id) ?? (id in fresh ? fresh[id] : items.find((item) => item.id === id))),
+    }
+    return { stored, api }
+  }
+
+  const splitRun = (dataset: string, items: SplitDatasetItem[], api: ReturnType<typeof memoryApi>['api'], apply = true, log: (message: string) => void = () => {}) =>
+    cmdDatasetSplit({
+      dataset,
+      seed: 's',
+      apply,
+      pin: [],
+      getDataset: async () => ({ items }),
+      api,
+      sleep: async () => {},
+      minIntervalMs: 0,
+      log,
+    })
+
+  it('--apply writes from the fresh read, carrying every create field and a concurrent change', async () => {
+    const items: SplitDatasetItem[] = [
+      { id: 'a', status: 'ACTIVE', input: 'listed-in', expectedOutput: null, metadata: { humanApproval: { status: 'pending' } } },
+    ]
+    const { stored, api } = memoryApi(items, {
+      a: {
+        id: 'a',
+        status: 'ACTIVE',
+        input: 'fresh-in',
+        expectedOutput: { output: 9 },
+        metadata: { humanApproval: { status: 'pending' }, note: 'added after the listing' },
+        sourceTraceId: 'trace-1',
+        sourceObservationId: 'obs-1',
+      },
+    })
+
+    await splitRun('acquisition-plan-golden', items, api)
+
+    expect(stored.get('a')).toEqual({
+      datasetName: 'acquisition-plan-golden',
+      id: 'a',
+      input: 'fresh-in',
+      expectedOutput: { output: 9 },
+      metadata: { humanApproval: { status: 'pending' }, note: 'added after the listing', split: 'train' },
+      status: 'ACTIVE',
+      sourceTraceId: 'trace-1',
+      sourceObservationId: 'obs-1',
+    })
+  })
+
+  it('--apply refuses and reports an item whose fresh metadata is not a plain object', async () => {
+    const items: SplitDatasetItem[] = [
+      { id: 'a', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: {} },
+      { id: 'b', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: {} },
+    ]
+    const { stored, api } = memoryApi(items, { a: { id: 'a', status: 'ACTIVE', input: 'i', metadata: ['not', 'an', 'object'] } })
+
+    await expect(splitRun('acquisition-plan-golden', items, api)).rejects.toThrow(
+      /refused: a \(metadata is not a plain object\)/,
+    )
+    expect(stored.has('a')).toBe(false)
+    expect(stored.get('b')!.metadata).toHaveProperty('split')
+  })
+
+  it('an unrecognised stored split is listed in the dry run and refuses --apply', async () => {
+    const items: SplitDatasetItem[] = [
+      { id: 'a', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: { split: 'test' } },
+      { id: 'b', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: { split: 'Holdout' } },
+      { id: 'c', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: {} },
+    ]
+    const { api } = memoryApi(items)
+    const lines: string[] = []
+
+    await splitRun('acquisition-plan-golden', items, api, false, (line: string) => lines.push(line))
+    expect(lines.join('\n')).toContain('2 item(s) carry an unrecognised split: a="test", b="Holdout"')
+
+    await expect(splitRun('acquisition-plan-golden', items, api)).rejects.toThrow(/refusing --apply.*a="test", b="Holdout"/)
+    expect(api.createItem).not.toHaveBeenCalled()
+  })
+
+  it('leaves unlabelled items unsplit and reports their count', async () => {
+    const labelled = Array.from({ length: 5 }, (_, i) => ({
+      id: `l-${i}`,
+      status: 'ACTIVE',
+      input: 'i',
+      expectedOutput: { confidence: 'high' },
+      metadata: {},
+    }))
+    const items: SplitDatasetItem[] = [
+      ...labelled,
+      { id: 'u-null', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: {} },
+      { id: 'u-missing', status: 'ACTIVE', input: 'i', expectedOutput: {}, metadata: {} },
+    ]
+    const { stored, api } = memoryApi(items)
+    const lines: string[] = []
+
+    const result = await splitRun('detect-confidence-golden', items, api, true, (line: string) => lines.push(line))
+
+    expect(result).toEqual({ written: 5, unchanged: 0 })
+    expect(stored.has('u-null')).toBe(false)
+    expect(stored.has('u-missing')).toBe(false)
+    expect(lines.join('\n')).toContain('2 unlabelled item(s) left unsplit; re-run after review')
+  })
+
+  it('refuses the names dataset, whose splits the harvest script owns', async () => {
+    const getDataset = vi.fn()
+    await expect(
+      cmdDatasetSplit({ dataset: 'name-arbiter-confidence-golden', seed: 's', apply: false, pin: [], getDataset, log: () => {} }),
+    ).rejects.toThrow(/harvest-name-arbiter-golden/)
+    expect(getDataset).not.toHaveBeenCalled()
   })
 })

@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// A retired model must still be counted in the openai window. Mocking the
+// constants module (not a service) keeps check-test-boundaries green.
+vi.mock("@/lib/constants/llm-models", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/constants/llm-models")>()),
+  RETIRED_OPENAI_MODELS: ["gpt-old"],
+}));
 import type { ServiceEntry } from "../service-registry";
 import {
   buildSpendSnapshot,
   countBillableLlmRows,
   cycleForResetDay,
   loadAllPages,
+  openaiModels,
   type AuditSpanRow,
   type LlmSpendRow,
 } from "../spend";
@@ -113,6 +121,38 @@ describe("spend snapshot", () => {
       pricingCoverage: 2 / 3,
     });
     expect(result.coverage.unpricedCalls).toBe(1);
+  });
+
+  it("includes retired models in the openai window", () => {
+    expect(openaiModels()).toContain("gpt-old");
+
+    const result = snapshot({
+      registry: [service("openai", { meter: "llm-tokens" })],
+      llmRows: [
+        {
+          model: "gpt-5.6-luna",
+          cost_usd: 1,
+          prompt_tokens: 10,
+          completion_tokens: 0,
+        },
+        {
+          model: "gpt-old",
+          cost_usd: 2,
+          prompt_tokens: 20,
+          completion_tokens: 0,
+        },
+      ],
+      billableRows: [
+        { model: "gpt-5.6-luna", raw_response: { ok: true } },
+        { model: "gpt-old", raw_response: { ok: true } },
+      ],
+    });
+
+    expect(result.services.at(0)).toMatchObject({
+      amountUsd: 3,
+      units: 30,
+      pricingCoverage: 1,
+    });
   });
 
   it("excludes verdict rows and non-2xx calls from the billable denominator", () => {

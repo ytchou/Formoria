@@ -25,8 +25,14 @@ export type AuditRecord = {
   errorMessage?: string | null;
   logTag?: string | null;
   promptTokens?: number | null;
+  /** In-process only (eval cost); not a column of external_call_audit. */
+  cachedPromptTokens?: number | null;
+  /** In-process only (eval cost); not a column of external_call_audit. */
+  cacheWriteTokens?: number | null;
   completionTokens?: number | null;
   costUsd?: number | null;
+  /** In-process only (eval slot assertion); not a column of external_call_audit. */
+  model?: string | null;
 };
 
 export type AuditWriteError = { code?: string; message: string };
