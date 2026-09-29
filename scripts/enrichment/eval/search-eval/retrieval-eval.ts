@@ -164,6 +164,9 @@ async function cmdRun(values: Record<string, unknown>) {
     allowUnreviewed,
     deps,
   });
+  if (result.summary.failed > 0) {
+    throw new Error(`[run] ${result.summary.failed} retrieval items failed; refusing to score a partial run`);
+  }
 
   const report = writeReport(result, {
     seed: 1736,

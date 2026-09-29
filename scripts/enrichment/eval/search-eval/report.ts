@@ -20,6 +20,7 @@ import type { ExperimentResult } from '@/lib/services/eval/run-experiment'
 export type ReportOutput = {
   timestamp: string
   arms: Record<string, Record<string, { lo: number; hi: number; mean: number }>>
+  perQuery: Record<string, Record<string, Record<string, number>>>
   paired: { ndcgAt10: { lo: number; hi: number; mean: number; signTestP: number } }
   byQueryType: Record<string, Record<string, Record<string, number>>>
   verdict: 'proceed' | 'null'
@@ -93,6 +94,9 @@ export function writeReport(
   const report: ReportOutput = {
     timestamp: new Date().toISOString(),
     arms,
+    perQuery: Object.fromEntries(result.armResults.map(ar => [ar.arm,
+      Object.fromEntries(ar.items.map(item => [item.itemId, item.scores])),
+    ])),
     paired,
     byQueryType,
     verdict,
