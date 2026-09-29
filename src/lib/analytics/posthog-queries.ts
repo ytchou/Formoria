@@ -73,7 +73,7 @@ FROM (
     session_id,
     multiIf(
       previous_path IS NULL, 'direct',
-      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR notEmpty(extractURLParameter(previous_url, 'q')), 'search',
+      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR normalized_previous_path = '/discover', 'search',
       normalized_previous_path = '/brands' AND notEmpty(extractURLParameter(previous_url, 'category')), 'category',
       previous_path IN ('/', '/en', '/zh-TW') OR normalized_previous_path = '/', 'homepage',
       'other'
@@ -226,7 +226,7 @@ FROM (
     session_id,
     multiIf(
       previous_path IS NULL, 'direct',
-      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR notEmpty(extractURLParameter(previous_url, 'q')), 'search',
+      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR normalized_previous_path = '/discover', 'search',
       normalized_previous_path = '/brands' AND notEmpty(extractURLParameter(previous_url, 'category')), 'category',
       previous_path IN ('/', '/en', '/zh-TW') OR normalized_previous_path = '/', 'homepage',
       'other'
