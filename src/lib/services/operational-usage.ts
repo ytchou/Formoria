@@ -841,7 +841,7 @@ export function parseRailwayCustomerUsage(value: unknown): RailwayCustomerUsage 
   const body = record(value);
   if (Array.isArray(body.errors) && body.errors.length > 0) throw malformed();
   const customer = record(
-    record(record(body.data).workspace).customer,
+    record(record(record(body.data).project).workspace).customer,
   );
   const usageUsd = customer.currentUsage;
   const period = record(customer.billingPeriod);
@@ -871,12 +871,16 @@ export function parseRailwayCustomerUsage(value: unknown): RailwayCustomerUsage 
   };
 }
 
+// Reached through the running service's own project (RAILWAY_PROJECT_ID is
+// injected by Railway), so no workspace id needs configuring.
 const RAILWAY_USAGE_QUERY = `query($id: String!) {
-  workspace(workspaceId: $id) {
-    customer {
-      currentUsage
-      usageLimit { softLimit }
-      billingPeriod { start end }
+  project(id: $id) {
+    workspace {
+      customer {
+        currentUsage
+        usageLimit { softLimit }
+        billingPeriod { start end }
+      }
     }
   }
 }`;
@@ -886,8 +890,8 @@ async function fetchRailwayUsage(
   fetchImpl: typeof fetch,
 ): Promise<MeteredUsage> {
   const token = process.env.OPS_AGENT_RAILWAY_TOKEN?.trim();
-  const workspaceId = process.env.RAILWAY_WORKSPACE_ID?.trim();
-  if (!providerConfigured(token, workspaceId)) {
+  const projectId = process.env.RAILWAY_PROJECT_ID?.trim();
+  if (!providerConfigured(token, projectId)) {
     return {
       state: "unconfigured",
       message: "Railway usage monitoring is not configured.",
@@ -903,7 +907,7 @@ async function fetchRailwayUsage(
       },
       body: JSON.stringify({
         query: RAILWAY_USAGE_QUERY,
-        variables: { id: workspaceId },
+        variables: { id: projectId },
       }),
     },
     "railway",

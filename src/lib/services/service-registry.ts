@@ -503,7 +503,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     envVars: [
       "FORMORIA_RAILWAY_URL",
       "OPS_AGENT_RAILWAY_TOKEN",
-      "RAILWAY_WORKSPACE_ID",
+      "RAILWAY_PROJECT_ID",
     ],
     status: "active",
     plan: {

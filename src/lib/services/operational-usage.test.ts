@@ -52,7 +52,7 @@ function clearProviderEnvironment() {
     "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_APP_INSTALLATION_ID",
     "OPS_AGENT_RAILWAY_TOKEN",
-    "RAILWAY_WORKSPACE_ID",
+    "RAILWAY_PROJECT_ID",
   ]) {
     vi.stubEnv(name, "");
   }
@@ -829,15 +829,17 @@ describe("operational usage risk", () => {
   describe("parseRailwayCustomerUsage", () => {
     const customer = (overrides: Record<string, unknown> = {}) => ({
       data: {
-        workspace: {
-          customer: {
-            currentUsage: 10.99,
-            usageLimit: { softLimit: 40 },
-            billingPeriod: {
-              start: "2026-09-23T03:28:40.000Z",
-              end: "2026-10-23T03:28:40.000Z",
+        project: {
+          workspace: {
+            customer: {
+              currentUsage: 10.99,
+              usageLimit: { softLimit: 40 },
+              billingPeriod: {
+                start: "2026-09-23T03:28:40.000Z",
+                end: "2026-10-23T03:28:40.000Z",
+              },
+              ...overrides,
             },
-            ...overrides,
           },
         },
       },
@@ -867,7 +869,7 @@ describe("operational usage risk", () => {
       expect(() =>
         parseRailwayCustomerUsage(customer({ currentUsage: "10" })),
       ).toThrow("Railway usage response was malformed.");
-      expect(() => parseRailwayCustomerUsage({ data: { workspace: null } })).toThrow(
+      expect(() => parseRailwayCustomerUsage({ data: { project: { workspace: null } } })).toThrow(
         "Railway usage response was malformed.",
       );
     });
