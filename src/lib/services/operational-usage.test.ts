@@ -51,7 +51,7 @@ function clearProviderEnvironment() {
     "GITHUB_APP_ID",
     "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_APP_INSTALLATION_ID",
-    "RAILWAY_USAGE_TOKEN",
+    "OPS_AGENT_RAILWAY_TOKEN",
     "RAILWAY_WORKSPACE_ID",
   ]) {
     vi.stubEnv(name, "");

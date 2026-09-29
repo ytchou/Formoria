@@ -885,7 +885,7 @@ async function fetchRailwayUsage(
   now: Date,
   fetchImpl: typeof fetch,
 ): Promise<MeteredUsage> {
-  const token = process.env.RAILWAY_USAGE_TOKEN?.trim();
+  const token = process.env.OPS_AGENT_RAILWAY_TOKEN?.trim();
   const workspaceId = process.env.RAILWAY_WORKSPACE_ID?.trim();
   if (!providerConfigured(token, workspaceId)) {
     return {
