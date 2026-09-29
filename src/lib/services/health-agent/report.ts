@@ -15,6 +15,7 @@ import type { RepairRequest } from './repair-request'
 import type { RunHealthAgentResult } from './run'
 import type { RunEvent } from '@/lib/services/run-timeline/types'
 import { escapeSlackMrkdwn } from '@/lib/adapters/slack/blocks'
+import { HEALTH_TICKET_FOLLOW_UP_DAYS } from '@/lib/constants/health-detectors'
 
 // Re-exported so existing importers (ops-agent/execute.ts, tests) keep working.
 export { escapeSlackMrkdwn }
@@ -53,20 +54,54 @@ export type FindingTicketOptions = {
   traceUrl: string
   /** Run date (YYYY-MM-DD, Asia/Taipei). */
   date: string
+  /** Present when the finding was ticketed before and is still firing. */
+  followUp?: {
+    previousIdentifier: string | null
+    daysSinceTicketed: number
+  }
+}
+
+/** A finding's ticket state in `health_fix_queue`. */
+export type TicketLedgerEntry = {
+  ticketedAt: string
+  linearIdentifier: string | null
+}
+
+const DAY_MS = 86_400_000
+
+function msSinceTicketed(ticketedAt: string, now: Date): number {
+  return now.getTime() - Date.parse(ticketedAt)
+}
+
+/** Whole days between `ticketedAt` and `now`. */
+export function daysSinceTicketed(ticketedAt: string, now: Date): number {
+  return Math.floor(msSinceTicketed(ticketedAt, now) / DAY_MS)
 }
 
 /**
- * Whether the health agent may file a ticket for this finding.
+ * Whether the health agent may file a ticket for this finding: never
+ * ticketed, or ticketed under a known Linear identifier more than
+ * HEALTH_TICKET_FOLLOW_UP_DAYS ago and still firing (a follow-up).
  *
  * Runtime Sentry issues are signal-only. Credential findings, including
  * sentry-capture failures, remain eligible for operational tickets.
  */
 export function isTicketEligible(
   finding: HealthFinding,
-  alreadyTicketed: ReadonlySet<string>,
+  ticketed: ReadonlyMap<string, TicketLedgerEntry>,
+  now: Date,
 ): boolean {
+  if (finding.source === 'sentry') return false
+  const entry = ticketed.get(finding.fingerprint)
+  if (!entry) return true
+  // No identifier, no follow-up: migration 20260729110000 backfilled active
+  // rows with ticketed_at but a NULL linear_identifier on 2026-07-29, and a
+  // stranded reservation looks the same. Following those up would file a
+  // burst of tickets on the first run after deploy.
+  if (!entry.linearIdentifier) return false
   return (
-    finding.source !== 'sentry' && !alreadyTicketed.has(finding.fingerprint)
+    msSinceTicketed(entry.ticketedAt, now) >
+    HEALTH_TICKET_FOLLOW_UP_DAYS * DAY_MS
   )
 }
 
@@ -75,6 +110,14 @@ function findingTicketBody(
   options: FindingTicketOptions,
 ): string {
   const lines: string[] = []
+  if (options.followUp) {
+    // A Linear identifier in the body creates the backlink.
+    const previous = options.followUp.previousIdentifier ?? 'an earlier ticket'
+    lines.push(
+      `Follow-up of ${previous}: still observed ${options.followUp.daysSinceTicketed} days after it was ticketed.`,
+    )
+    lines.push('')
+  }
   lines.push(`# ${finding.title}`)
   lines.push('')
   lines.push(`- **Source:** ${finding.source}`)
@@ -101,7 +144,9 @@ export function buildFindingTicket(
   options: FindingTicketOptions,
 ): TicketSpec {
   return {
-    title: `Health Agent — ${finding.title}`,
+    title: options.followUp
+      ? `Health Agent — Still firing — ${finding.title}`
+      : `Health Agent — ${finding.title}`,
     body: findingTicketBody(finding, options),
     labels: [linearLabelForSource(finding.source)],
   }
@@ -402,11 +447,19 @@ function contextBlock(runId: string | undefined, traceUrl: string | undefined): 
 // ---------------------------------------------------------------------------
 
 /**
+ * Human name of the request in the trigger message. Display only: the
+ * ops-agent detects a request by its ```json block (`JSON_BLOCK_RE`), never by
+ * this text. The e2e agent keeps the default.
+ */
+const DEFAULT_REQUEST_NAME = 'Repair Request'
+
+/**
  * Build Block Kit blocks for the repair trigger message (human display).
  */
 export function buildRepairTriggerBlocks(
   request: RepairRequest,
   label: string,
+  requestName: string = DEFAULT_REQUEST_NAME,
 ): SlackBlock[] {
   const blocks: SlackBlock[] = []
 
@@ -414,7 +467,7 @@ export function buildRepairTriggerBlocks(
     type: 'header',
     text: {
       type: 'plain_text',
-      text: `${label} Repair Request`,
+      text: `${label} ${requestName}`,
       emoji: true,
     },
   })
@@ -464,10 +517,11 @@ export function buildRepairTriggerMessage(
   botId: string,
   request: RepairRequest,
   label: string,
+  requestName: string = DEFAULT_REQUEST_NAME,
 ): string {
   const lines: string[] = []
 
-  lines.push(`<@${botId}> ${label} repair request`)
+  lines.push(`<@${botId}> ${label} ${requestName.toLowerCase()}`)
   lines.push('')
   lines.push(`Findings (${request.findings.length}):`)
   for (const finding of request.findings) {

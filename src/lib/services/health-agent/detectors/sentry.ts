@@ -60,6 +60,8 @@ export function sentryIssueToFinding(issue: SentryIssue): HealthFinding {
     severity: severityForIssue(issue),
     evidence: baseEvidence(issue),
     mergePolicy: 'human',
+    // Signal-only for the agent (never ticketed); the ops routine triages it.
+    route: 'auto_fix',
     sentryIssueId: issue.id,
   }
 }
@@ -89,6 +91,7 @@ function classifiedIssueToFinding(
       confidence: classification.confidence,
     },
     mergePolicy: policy.mergePolicy,
+    route: 'auto_fix',
     ...(policy.humanReason ? { humanReason: policy.humanReason } : {}),
     ...(safeFiles.length > 0 ? { changedFiles: safeFiles } : {}),
     sentryIssueId: issue.id,

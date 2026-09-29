@@ -56,7 +56,10 @@ export function dependabotDetector(alertsPort: DependabotAlertsPort): Detector {
       )
 
       const result = evaluateDependabotAlerts(alerts)
-      return result.findings
+      // A dependency bump is a code PR the ops routine can open.
+      return result.findings.map(
+        (finding): HealthFinding => ({ ...finding, route: 'auto_fix' }),
+      )
     },
   }
 }

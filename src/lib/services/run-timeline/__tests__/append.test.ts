@@ -109,7 +109,7 @@ describe("appendRunEvent", () => {
 
     const ok = await appendRunEvent(
       REF,
-      { kind: "findings", at: 1060, total: 3, repairable: 1, reportOnly: 2 },
+      { kind: "findings", at: 1060, total: 3, autoFix: 1, ticket: 2 },
       deps,
     );
 
@@ -122,7 +122,7 @@ describe("appendRunEvent", () => {
     expect(params.metadata?.event_type).toBe(RUN_TIMELINE_EVENT_TYPE);
     expect((params.metadata?.event_payload as RunTimeline).events).toEqual([
       { kind: "started", at: 1000 },
-      { kind: "findings", at: 1060, total: 3, repairable: 1, reportOnly: 2 },
+      { kind: "findings", at: 1060, total: 3, autoFix: 1, ticket: 2 },
     ]);
   });
 

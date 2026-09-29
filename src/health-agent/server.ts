@@ -189,8 +189,13 @@ async function main(): Promise<never> {
   const triggerRepair =
     opsAgentBotId && repairChannel
       ? async (request: RepairRequest, threadTs?: string) => {
-          const blocks = buildRepairTriggerBlocks(request, 'Health Agent')
-          const fallback = buildRepairTriggerMessage(opsAgentBotId, request, 'Health agent')
+          const blocks = buildRepairTriggerBlocks(request, 'Health Agent', 'Auto-fix Request')
+          const fallback = buildRepairTriggerMessage(
+            opsAgentBotId,
+            request,
+            'Health agent',
+            'Auto-fix Request',
+          )
           // A thrown error (timeout, network) is left as-is: delivery is
           // ambiguous. Only Slack's explicit { ok: false } is a definite miss.
           const posted = await postMessage({

@@ -1,6 +1,6 @@
 const PROVIDERS = {
   serper: ["search", "images", "maps"],
-  openai: ["chat_completions", "embeddings", "codex_exec"],
+  openai: ["chat_completions", "embeddings", "codex_exec", "organization_costs"],
   resend: ["send_email"],
   upstash: ["get_database", "get_stats"],
   sentry: ["get_error_events", "list_issues"],

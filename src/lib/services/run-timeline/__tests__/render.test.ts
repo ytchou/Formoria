@@ -61,12 +61,33 @@ describe("renderTimeline rows", () => {
     const result = renderTimeline(
       timeline([
         { kind: "started", at: T0 },
-        { kind: "findings", at: T0 + 30, total: 24, repairable: 9, reportOnly: 15 },
+        { kind: "findings", at: T0 + 30, total: 24, autoFix: 9, ticket: 15 },
       ]),
     );
     const text = allText(result);
     expect(text).toContain(`<!date^${T0}^{time}|`);
-    expect(text).toContain("24 findings · 9 repairable · 15 report-only");
+    expect(text).toContain("24 findings · 9 auto-fix · 15 ticket");
+    expect(text).not.toContain("acknowledged");
+  });
+
+  it("renders a findings event persisted with the legacy repairable/reportOnly fields", () => {
+    const text = allText(
+      renderTimeline(
+        timeline([{ kind: "findings", at: T0, total: 24, repairable: 9, reportOnly: 15 }]),
+      ),
+    );
+    expect(text).toContain("24 findings · 9 auto-fix · 15 ticket");
+  });
+
+  it("names acknowledged findings in the findings row, and only when there are some", () => {
+    const text = allText(
+      renderTimeline(
+        timeline([
+          { kind: "findings", at: T0, total: 29, autoFix: 9, ticket: 15, acknowledged: 5 },
+        ]),
+      ),
+    );
+    expect(text).toContain("29 findings · 9 auto-fix · 15 ticket · 5 acknowledged");
   });
 
   it("names failed detectors in the findings row, and only when some failed", () => {

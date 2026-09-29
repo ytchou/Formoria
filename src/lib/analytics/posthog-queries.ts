@@ -65,6 +65,10 @@ ORDER BY date
 `.trim()
 }
 
+// 'search' counts every visit whose previous page is /discover, where every
+// search box lands since DEV-1900. /discover browsing without a query is
+// included too, because sanitizePostHogUrl strips the q param. A precise split
+// would need a join on product_search_executed.
 function trafficSourcesQuery(scope: string): string {
   return `
 SELECT source, uniq(session_id) AS sessions
@@ -73,7 +77,7 @@ FROM (
     session_id,
     multiIf(
       previous_path IS NULL, 'direct',
-      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR notEmpty(extractURLParameter(previous_url, 'q')), 'search',
+      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR normalized_previous_path = '/discover', 'search',
       normalized_previous_path = '/brands' AND notEmpty(extractURLParameter(previous_url, 'category')), 'category',
       previous_path IN ('/', '/en', '/zh-TW') OR normalized_previous_path = '/', 'homepage',
       'other'
@@ -218,6 +222,10 @@ ORDER BY date
 `.trim()
 }
 
+// 'search' counts every visit whose previous page is /discover, where every
+// search box lands since DEV-1900. /discover browsing without a query is
+// included too, because sanitizePostHogUrl strips the q param. A precise split
+// would need a join on product_search_executed.
 function trafficSourcesQueryV2(scope: string): string {
   return `
 SELECT source, uniq(session_id) AS sessions
@@ -226,7 +234,7 @@ FROM (
     session_id,
     multiIf(
       previous_path IS NULL, 'direct',
-      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR notEmpty(extractURLParameter(previous_url, 'q')), 'search',
+      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR normalized_previous_path = '/discover', 'search',
       normalized_previous_path = '/brands' AND notEmpty(extractURLParameter(previous_url, 'category')), 'category',
       previous_path IN ('/', '/en', '/zh-TW') OR normalized_previous_path = '/', 'homepage',
       'other'
