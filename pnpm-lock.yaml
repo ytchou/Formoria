@@ -83,8 +83,8 @@ importers:
         specifier: ^4.0.3
         version: 4.0.3
       jose:
-        specifier: ^6.2.11
-        version: 6.2.11
+        specifier: ^6.2.12
+        version: 6.2.12
       langfuse:
         specifier: ^3.38.20
         version: 3.38.20
@@ -4612,8 +4612,8 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  jose@6.2.11:
-    resolution: {integrity: sha512-A5NPn7g8EAzGU3IzRs+Yiq8K5n3ypYS75M5+KKiVHdUexfpWK1kP4ZMq7QnTGDoMj6TJ1dtcEJjW60yZDXS4hg==}
+  jose@6.2.12:
+    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
 
   js-tiktoken@1.0.21:
     resolution: {integrity: sha512-biOj/6M5qdgx5TKjDnFT1ymSpM5tbd3ylwDtrQvFQSu0Z7bBYko2dF+W/aUkXUPuk6IVpRxk/3Q2sHOzGlS36g==}
@@ -7588,7 +7588,7 @@ snapshots:
       express: 5.2.1
       express-rate-limit: 8.6.2(express@5.2.1)
       hono: 4.13.2
-      jose: 6.2.11
+      jose: 6.2.12
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
@@ -11015,7 +11015,7 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jose@6.2.11: {}
+  jose@6.2.12: {}
 
   js-tiktoken@1.0.21:
     dependencies:
@@ -12928,7 +12928,7 @@ snapshots:
   supabase@2.116.0:
     dependencies:
       eciesjs: 0.5.0
-      jose: 6.2.11
+      jose: 6.2.12
     optionalDependencies:
       '@supabase/cli-darwin-arm64': 2.116.0
       '@supabase/cli-darwin-x64': 2.116.0
