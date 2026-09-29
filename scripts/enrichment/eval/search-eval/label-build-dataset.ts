@@ -90,7 +90,7 @@ export async function cmdBuildDataset(
   if (values.help) {
     console.log('Usage: pnpm search:eval build-dataset [--dataset v2|v3] [--split 60/20/20] [--seed 1736]')
     console.log(
-      '  Reads all labels, splits queries into train/val/holdout, uploads to Langfuse as situation-search-v2',
+      '  Reads labels, splits queries into train/val/holdout, and mirrors the selected dataset to Langfuse',
     )
     return
   }

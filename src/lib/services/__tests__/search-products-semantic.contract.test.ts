@@ -17,6 +17,7 @@ const AMBIGUITY_FIX_FILE =
 const LTR_MIGRATION_FILE = "20260916120000_situation_search_ltr_columns.sql";
 const LTR_REVERSE_FILE = "20260916120000_revert_situation_search_ltr_columns.sql";
 const SCORER_FILE = "20260930110000_lexical_scorer_bm25f.sql";
+const DEFAULTS_FILE = "20260930120000_lexical_scorer_defaults.sql";
 
 function migrationText(): string {
   return readFileSync(
@@ -245,5 +246,21 @@ describe("field-weighted lexical scorer migration", () => {
       expect(sql).toContain(`revoke all on function public.${signature}`);
       expect(sql).toContain(`has_function_privilege('anon', 'public.${signature}'`);
     }
+  });
+
+  it("freezes the evaluated winner and matches before unnesting document vectors", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", DEFAULTS_FILE), "utf8");
+    const sweep = JSON.parse(readFileSync(join(process.cwd(), "scripts/enrichment/eval/search-eval/runs/dev-1900-sweep.json"), "utf8"));
+    const winner = sweep.configs.find((config: { id: string }) => config.id === sweep.winner);
+    expect(winner).toBeDefined();
+    expect(sql).toContain(`-- DEV-1900 train+val winner: ${winner.id}.`);
+    for (const [key, variable] of [["wA", "v_wa"], ["wB", "v_wb"], ["wC", "v_wc"], ["wD", "v_wd"], ["k1", "v_k1"], ["b", "v_b"]] as const) {
+      expect(sql).toContain(`${variable} float8 := coalesce((params ->> '${key}')::float8, ${winner.params[key]});`);
+    }
+    expect(sql).toContain("matched as materialized");
+    expect(sql).toContain("cp.search_vector @@ to_tsquery('simple', array_to_string(v_terms, ' | '))");
+    expect(sql).toContain("sum(nentry)");
+    expect(sql).toContain("revoke all on function public.situation_search_lexical(text, integer, jsonb)");
+    expect(sql).toContain("has_function_privilege('anon', 'public.situation_search_lexical(text, integer, jsonb)', 'execute')");
   });
 });
