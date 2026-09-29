@@ -222,3 +222,51 @@ describe("curation worker database target guard", () => {
     );
   });
 });
+
+describe("local app with staging database", () => {
+  const local = {
+    ...stagingEnvironment,
+    STAGING_BASE_URL: "http://127.0.0.1:3190",
+    BASE_URL: "http://127.0.0.1:3190",
+    SUPABASE_DB_URL: `postgresql://postgres.${STAGING_PROJECT_REF}:unused@pooler.supabase.com:5432/postgres`,
+  };
+  it("requires explicit opt-in while accepting a loopback app with verified staging identities", () => {
+    expect(() => validateStagingTarget(local)).toThrow();
+    expect(validateStagingTarget(local, { allowLocalApp: true })).toMatchObject(
+      { appHostname: "127.0.0.1", projectRef: STAGING_PROJECT_REF },
+    );
+  });
+  it.each([
+    {
+      NEXT_PUBLIC_SUPABASE_URL: `https://${PRODUCTION_PROJECT_REF}.supabase.co`,
+    },
+    { SUPABASE_SERVICE_ROLE_KEY: jwt(PRODUCTION_PROJECT_REF, "service_role") },
+    { NEXT_PUBLIC_SUPABASE_ANON_KEY: jwt(PRODUCTION_PROJECT_REF, "anon") },
+    {
+      SUPABASE_DB_URL: `postgresql://postgres.${PRODUCTION_PROJECT_REF}:unused@pooler.supabase.com:5432/postgres`,
+    },
+    { SUPABASE_DB_URL: undefined },
+    { FORMORIA_DEPLOYMENT_ENV: "production" },
+    { BASE_URL: "http://localhost:3191" },
+    { NEXT_PUBLIC_SITE_URL: "https://formoria.com" },
+  ])("rejects a cross-wired local environment %j", (override) => {
+    expect(() =>
+      validateStagingTarget({ ...local, ...override }, { allowLocalApp: true }),
+    ).toThrow();
+  });
+  it.each([
+    "http://192.168.1.2:3190",
+    "https://formoria.com",
+    "http://localhost.evil.example:3190",
+    "http://localhost:3190/path",
+    "http://user:pass@localhost:3190",
+    "http://localhost:3190?q=secret",
+  ])("rejects unsafe local origin %s", (url) => {
+    expect(() =>
+      validateStagingTarget(
+        { ...local, STAGING_BASE_URL: url, BASE_URL: url },
+        { allowLocalApp: true },
+      ),
+    ).toThrow();
+  });
+});

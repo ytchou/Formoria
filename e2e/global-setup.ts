@@ -58,7 +58,7 @@ function listeningProcessCwd(port: string): string | null {
  * Fail fast and name the directory actually being served.
  */
 function assertServerServesThisCheckout(): void {
-  if (process.env.CI) return;
+  if (process.env.CI && process.env.E2E_LOCAL_APP !== "true") return;
 
   const baseURL =
     process.env.BASE_URL ??
@@ -75,7 +75,13 @@ function assertServerServesThisCheckout(): void {
   if (!LOCAL_HOSTNAMES.has(url.hostname)) return;
 
   const serverCwd = listeningProcessCwd(url.port || "3000");
-  if (!serverCwd) return; // nothing listening yet, or no lsof — don't block the run
+  if (!serverCwd) {
+    if (process.env.E2E_LOCAL_APP === "true")
+      throw new Error(
+        "Cannot verify local E2E server checkout; lsof and a running server are required",
+      );
+    return;
+  }
 
   const projectRoot = path.resolve(__dirname, "..");
   if (path.resolve(serverCwd) === projectRoot) return;
@@ -102,7 +108,8 @@ async function preflightStagingSession(baseURL: string): Promise<void> {
     );
   }
   const headers = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "CF-Access-Client-Id": accessClientId,
     "CF-Access-Client-Secret": accessClientSecret,
     ...(process.env.E2E_ORIGIN_SECRET
@@ -137,10 +144,11 @@ async function preflightStagingSession(baseURL: string): Promise<void> {
 }
 
 async function globalSetup() {
-  // This is deliberately before any cleanup or probe mutation. Local and
-  // production targets are not supported: the suite is canonical only against
-  // the isolated deployed staging origin and project.
-  const stagingTarget = validateStagingTarget(process.env);
+  // Local opt-in changes the app origin only; staging database identities stay mandatory.
+  const localApp = process.env.E2E_LOCAL_APP === "true";
+  const stagingTarget = validateStagingTarget(process.env, {
+    allowLocalApp: localApp,
+  });
   const databaseUrl = process.env.SUPABASE_DB_URL?.trim();
   if (!databaseUrl) {
     throw new Error("SUPABASE_DB_URL is required for staging E2E");
@@ -186,7 +194,7 @@ async function globalSetup() {
       `Staging E2E session preflight failed: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  await cleanupTestData();
+  if (!localApp) await cleanupTestData();
 
   const requiredVars = [
     "E2E_ADMIN_EMAIL",
@@ -251,7 +259,7 @@ async function globalSetup() {
 
   // CI runs against the deployed staging server, so there are no on-demand
   // bundles to warm.
-  if (process.env.CI) return;
+  if (process.env.CI || localApp) return;
 
   // Browser warm-up: compile the submit flows before specs hit them.
   // A plain fetch() only warms the server bundle, not the client bundle.
@@ -261,17 +269,14 @@ async function globalSetup() {
   const manifestProbeUrl = `${baseURL}/_next/static/chunks/main.js`;
   try {
     await expect
-      .poll(
-        async () => {
-          try {
-            const res = await fetch(manifestProbeUrl);
-            return res.ok;
-          } catch {
-            return false;
-          }
-        },
-        POLL.NAVIGATION,
-      )
+      .poll(async () => {
+        try {
+          const res = await fetch(manifestProbeUrl);
+          return res.ok;
+        } catch {
+          return false;
+        }
+      }, POLL.NAVIGATION)
       .toBe(true);
   } catch (err) {
     console.warn(

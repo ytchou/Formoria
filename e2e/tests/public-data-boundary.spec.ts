@@ -126,9 +126,7 @@ test.describe.serial("Public brand data boundary", () => {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
-    const searchbox = page.locator(
-      'header form[role="search"] input[role="searchbox"]:visible',
-    );
+    const searchbox = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
     await searchbox.fill(searchToken);
     await searchbox.press("Enter");
     await expect(page).toHaveURL((url) => {
@@ -171,6 +169,13 @@ test.describe.serial("Public brand data boundary", () => {
       ).toBeVisible();
     }
     await auditCurrentDocument(page, canaries, "story surface");
+    const productSearch = page.getByRole("search", { name: "全站商品搜尋" }).getByRole("searchbox", { name: "全站商品搜尋" });
+    await productSearch.fill(searchToken);
+    await productSearch.press("Enter");
+    await expect(page).toHaveURL(url => url.pathname === "/discover" && url.searchParams.get("q") === searchToken);
+    await expect(page.getByRole("heading", { name: `符合「${searchToken}」的商品` })).toBeVisible();
+    await expect(page.getByRole("region", { name: "相關品牌" }).getByRole("link", { name: brandName })).toHaveCount(0);
+    await auditCurrentDocument(page, canaries, "product discovery");
 
     await expect
       .poll(() => rscBodies.length, POLL.UI)

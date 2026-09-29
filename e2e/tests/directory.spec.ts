@@ -116,9 +116,7 @@ test.describe("Directory deep", () => {
       });
     });
     await page.goto("/brands");
-    const search = page.locator(
-      'header form[role="search"] input[role="searchbox"]:visible',
-    );
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
     await search.fill("directory");
     await expect(
       page.getByRole("option", { name: /Directory Search Result/ }),
@@ -140,9 +138,7 @@ test.describe("Directory deep", () => {
 
   test("empty search shows empty state not error", async ({ page }) => {
     await page.goto("/brands");
-    const search = page
-      .locator('form[role="search"] input[role="searchbox"]:visible')
-      .first();
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
     await search.fill("zzzzzzzzzzzzz_nonexistent");
     await page.keyboard.press("Enter");
     await expect(page.locator("[data-empty]")).toBeVisible({

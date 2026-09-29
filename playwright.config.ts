@@ -30,7 +30,8 @@ process.env.PLAYWRIGHT_TEST = "true";
  * exact reason the old single flag could not be turned back on per project.
  */
 const securityGates = {
-  SECURITY_DISABLE_RATE_LIMIT: process.env.SECURITY_DISABLE_RATE_LIMIT ?? "true",
+  SECURITY_DISABLE_RATE_LIMIT:
+    process.env.SECURITY_DISABLE_RATE_LIMIT ?? "true",
   SECURITY_STUB_TURNSTILE: process.env.SECURITY_STUB_TURNSTILE ?? "true",
 };
 for (const [name, value] of Object.entries(securityGates)) {
@@ -45,6 +46,7 @@ const baseURL =
   process.env.PLAYWRIGHT_BASE_URL ??
   process.env.STAGING_BASE_URL ??
   "http://localhost:3000";
+const localApp = process.env.E2E_LOCAL_APP === "true";
 const isLocalTarget = ["localhost", "127.0.0.1", "::1"].includes(
   new URL(baseURL).hostname,
 );
@@ -86,8 +88,7 @@ export default defineConfig({
   // (ECONNRESET server-side) reaches the client as a truncated flight payload.
   // Keep local and canonical-staging runs deterministic; other CI targets
   // retain their parallel worker count.
-  workers:
-    process.env.CI && !isTargetedSelfheal && !isCanonicalStaging ? 4 : 1,
+  workers: process.env.CI && !isTargetedSelfheal && !isCanonicalStaging ? 4 : 1,
   reporter: "html",
   // CI serves a production build via `pnpm start`, so every route is already
   // compiled and 30s is a real budget. Locally `webServer` runs `pnpm dev`,
@@ -221,14 +222,15 @@ export default defineConfig({
         // PLAYWRIGHT_TEST stays on the command line for the NON-security uses
         // that still read it (test token hashes, generateStaticParams skips,
         // dev-widget suppression). It no longer decides either gate.
-        command:
-          process.env.CI && !isTargetedSelfheal
+        command: localApp
+          ? `PLAYWRIGHT_TEST=true ${securityGateEnv} pnpm start --hostname localhost --port ${new URL(baseURL).port || "3000"}`
+          : process.env.CI && !isTargetedSelfheal
             ? `PLAYWRIGHT_TEST=true ${securityGateEnv} pnpm start`
             : process.env.BASE_URL
               ? `PLAYWRIGHT_TEST=true ${securityGateEnv} PORT=${new URL(baseURL).port || "3000"} pnpm dev`
               : `PLAYWRIGHT_TEST=true ${securityGateEnv} pnpm dev`,
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: !process.env.CI && !localApp,
         timeout: process.env.CI && !isTargetedSelfheal ? 60_000 : 120_000,
       }
     : undefined,

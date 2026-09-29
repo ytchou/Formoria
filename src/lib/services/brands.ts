@@ -2047,7 +2047,7 @@ const getCachedBrandNameIndex = unstable_cache(
       );
       if (error) throw error;
       return (data ?? [])
-        .filter(row => !DEFERRED_CATEGORY_NAMES.has(row.category ?? ""))
+        .filter(row => !DEFERRED_CATEGORY_SLUGS.has(row.category ?? ""))
         .map(row => ({
           id: row.id, slug: row.slug, name: row.name,
           romanizedName: row.romanized_name,

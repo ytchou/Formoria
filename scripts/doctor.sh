@@ -61,6 +61,9 @@ check_deps() {
 
 # ── Environment file ─────────────────────────────────────────────────────────
 check_env() {
+  if [ "${E2E_LOCAL_APP:-}" = "true" ]; then
+    echo "INFO: E2E_LOCAL_APP uses a loopback app and staging DB; Playwright validates identities before seeding"
+  fi
   if [ ! -f ".env.local" ]; then
     echo "ERROR: .env.local missing. Run: cp .env.example .env.local"
     ERRORS=$((ERRORS + 1))
