@@ -116,6 +116,10 @@ with a 95% interval of [+0.0013, +0.0218]. Two 30-query staging latency
 checks measured BM25F p95 within +50 ms of the same-index IDF arm, at
 +46.9 and +49.5 ms. This is a narrow pass.
 
+The committed sweep record keeps aggregate metrics for all 28 configurations
+and per-query scores only for the best BM25F and `ts_rank` arms used in the
+paired comparison. This avoids repeating 166 query scores for every setting.
+
 The v3 holdout compared BM25F with same-index IDF once, on 30 original and
 10 new queries. Values below are BM25F minus IDF means:
 

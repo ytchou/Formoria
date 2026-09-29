@@ -49,6 +49,14 @@ export function pickSweepWinner<T extends { id: string; ndcgAt10: number; mrr: n
   return [...results].sort((a, b) => b.ndcgAt10 - a.ndcgAt10 || b.mrr - a.mrr || a.id.localeCompare(b.id)).at(0)
 }
 
+export function compactSweepResults(results: SweepResult[]) {
+  const bestBm25f = pickSweepWinner(results.filter(result => result.params.scorer === 'bm25f'))
+  const bestTsrank = pickSweepWinner(results.filter(result => result.params.scorer === 'tsrank'))
+  const compared = new Set([bestBm25f?.id, bestTsrank?.id])
+  return results.map(({ scoresByQuery, ...metrics }) =>
+    compared.has(metrics.id) ? { ...metrics, scoresByQuery } : metrics)
+}
+
 export async function cmdSweep(values: Record<string, unknown>): Promise<void> {
   if (values.help) {
     console.log('Usage: pnpm search:eval sweep [--dataset v3] [--out path]')
@@ -91,7 +99,7 @@ export async function cmdSweep(values: Record<string, unknown>): Promise<void> {
     })
     const winner = pickSweepWinner(results)
     mkdirSync(dirname(out), { recursive: true })
-    writeFileSync(out, JSON.stringify({ dataset: dataset.name, splits: ['train', 'val'], queryCount: items.length, configs: results, winner: winner?.id }, null, 2))
+    writeFileSync(out, JSON.stringify({ dataset: dataset.name, splits: ['train', 'val'], queryCount: items.length, configs: compactSweepResults(results), winner: winner?.id }, null, 2) + '\n')
     console.log(`[sweep] ${results.length}/28 ${config.id}: NDCG@10=${results.at(-1)!.ndcgAt10.toFixed(4)}`)
   }
 }

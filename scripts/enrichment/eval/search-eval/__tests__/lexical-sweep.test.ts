@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { expandLexicalGrid, pickSweepWinner, sweepItems } from '../lexical-sweep'
+import { compactSweepResults, expandLexicalGrid, pickSweepWinner, sweepItems } from '../lexical-sweep'
 
 describe('lexical scorer sweep', () => {
   it('tests every specified BM25F and weighted tsrank setting', () => {
@@ -31,5 +31,25 @@ describe('lexical scorer sweep', () => {
       { id: 'tsrank-c', ndcgAt10: 0.52, mrr: 0.4 },
     ]
     expect(pickSweepWinner(results)?.id).toBe('tsrank-c')
+  })
+
+  it('keeps every configuration metric and per-query evidence for the compared winners', () => {
+    const results = [
+      { id: 'bm25f-a', params: { scorer: 'bm25f' as const }, ndcgAt10: 0.51, mrr: 0.6, p95LatencyMs: 42, failed: 0, scoresByQuery: { 'tea-gift': { ndcgAt10: 0.4, mrr: 1 } } },
+      { id: 'bm25f-b', params: { scorer: 'bm25f' as const }, ndcgAt10: 0.55, mrr: 0.7, p95LatencyMs: 45, failed: 0, scoresByQuery: { 'tea-gift': { ndcgAt10: 0.6, mrr: 1 } } },
+      { id: 'tsrank-a', params: { scorer: 'tsrank' as const }, ndcgAt10: 0.52, mrr: 0.65, p95LatencyMs: 38, failed: 0, scoresByQuery: { 'tea-gift': { ndcgAt10: 0.5, mrr: 1 } } },
+    ]
+    const compact = compactSweepResults(results)
+
+    expect(compact.map(result => [result.id, result.ndcgAt10, result.mrr, result.p95LatencyMs, result.failed])).toEqual(
+      results.map(result => [result.id, result.ndcgAt10, result.mrr, result.p95LatencyMs, result.failed]),
+    )
+    expect(compact.find(result => result.id === 'bm25f-a')).not.toHaveProperty('scoresByQuery')
+    expect(compact.find(result => result.id === 'bm25f-b')).toHaveProperty(
+      'scoresByQuery', results.find(result => result.id === 'bm25f-b')?.scoresByQuery,
+    )
+    expect(compact.find(result => result.id === 'tsrank-a')).toHaveProperty(
+      'scoresByQuery', results.find(result => result.id === 'tsrank-a')?.scoresByQuery,
+    )
   })
 })
