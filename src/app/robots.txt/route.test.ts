@@ -13,6 +13,7 @@ interface ParsedGroup {
   allow: string[];
   disallow: string[];
   contentSignal?: string;
+  crawlDelay?: number;
 }
 
 /**
@@ -41,6 +42,7 @@ function parseGroups(body: string): Map<string, ParsedGroup> {
     if (key === "allow") current.allow.push(value);
     if (key === "disallow") current.disallow.push(value);
     if (key === "content-signal") current.contentSignal = value;
+    if (key === "crawl-delay") current.crawlDelay = Number(value);
   }
 
   return groups;
@@ -91,7 +93,23 @@ describe("GET /robots.txt", () => {
         allow: ["/"],
         disallow: wildcardDisallow,
         contentSignal: CONTENT_SIGNAL,
+        crawlDelay: entry.crawlDelaySeconds,
       });
+    }
+  });
+
+  // DEV-1905: Meta's crawler was ~120 req/min on /brands. The delay must reach
+  // its own group (a crawler obeys only its most specific group) and must not
+  // leak onto the wildcard or onto crawlers that have no delay configured.
+  it("publishes Crawl-delay only for Meta-ExternalAgent", async () => {
+    const groups = parseGroups(await getBody());
+    expect(groups.get("Meta-ExternalAgent")?.crawlDelay).toBe(10);
+    expect(groups.get("*")?.crawlDelay).toBeUndefined();
+
+    for (const entry of CRAWLER_REGISTRY.filter(
+      ({ crawlDelaySeconds }) => crawlDelaySeconds === undefined,
+    )) {
+      expect(groups.get(robotsTokenFor(entry))?.crawlDelay).toBeUndefined();
     }
   });
 
