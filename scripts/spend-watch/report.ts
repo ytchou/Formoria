@@ -150,7 +150,8 @@ function isOperationalAlertSummary(value: unknown): boolean {
     (value.sentry === undefined || value.sentry === null || isAlertMeter(value.sentry)) &&
     (value.resend === undefined || value.resend === null || isAlertMeter(value.resend)) &&
     (value.langfuse === undefined || value.langfuse === null || isAlertMeter(value.langfuse)) &&
-    (value.github === undefined || value.github === null || isAlertMeter(value.github))
+    (value.github === undefined || value.github === null || isAlertMeter(value.github)) &&
+    (value.railway === undefined || value.railway === null || isAlertMeter(value.railway))
   );
 }
 
@@ -416,6 +417,7 @@ type ExtendedOps = NonNullable<SpendWatchReport["operations"]> & {
   resend?: OperationalMeter | null;
   langfuse?: OperationalMeter | null;
   github?: OperationalMeter | null;
+  railway?: OperationalMeter | null;
 };
 
 function meterField(
@@ -432,6 +434,24 @@ function meterField(
   const limitStr = isEffectivelyUnlimited(meter.limit)
     ? `${valueStr} ${unit} · no cap`
     : `${valueStr}/${humanNumber(meter.limit!)} ${unit}`;
+  return { type: "mrkdwn", text: `*${label}*\n${bar}${pct}\n${limitStr}` };
+}
+
+// Dollar-denominated meters (OpenAI budget, Railway usage): meterField formats
+// values as counts, so the value/limit line is rebuilt with usd().
+function usdMeterField(
+  label: string,
+  meter: NonNullable<OperationalMeter>,
+): { type: "mrkdwn"; text: string } {
+  const field = meterField(label, meter, "USD");
+  if (meter.value === null) return field;
+  const bar = progressBar(meter.percentage);
+  const pct =
+    meter.percentage !== null ? ` ${Math.round(meter.percentage * 100)}%` : "";
+  const valueStr = usd(meter.value);
+  const limitStr = isEffectivelyUnlimited(meter.limit)
+    ? `${valueStr} · no cap`
+    : `${valueStr}/${usd(meter.limit!)}`;
   return { type: "mrkdwn", text: `*${label}*\n${bar}${pct}\n${limitStr}` };
 }
 
@@ -462,19 +482,9 @@ export function buildSpendBlocks(report: SpendWatchReport): SlackBlock[] {
   ];
 
   if (ops?.openai) {
-    const budgetLabel = openaiBudgetLabel(report);
-    const openaiField = meterField(budgetLabel, ops.openai, "USD");
-    // Override to show USD formatting for the value/limit
-    const bar = progressBar(ops.openai.percentage);
-    const pct = ops.openai.percentage !== null ? ` ${Math.round(ops.openai.percentage * 100)}%` : "";
-    const valueStr = usd(ops.openai.value);
-    const limitStr = isEffectivelyUnlimited(ops.openai.limit)
-      ? `${valueStr} · no cap`
-      : `${valueStr}/${usd(ops.openai.limit!)}`;
-    openaiField.text = `*${budgetLabel}*\n${bar}${pct}\n${limitStr}`;
     blocks.push({
       type: "section",
-      fields: [openaiField],
+      fields: [usdMeterField(openaiBudgetLabel(report), ops.openai)],
     });
   }
 
@@ -500,6 +510,9 @@ export function buildSpendBlocks(report: SpendWatchReport): SlackBlock[] {
     }
     if (ops.github != null) {
       quotaFields.push(meterField("GitHub Actions", ops.github, "runs"));
+    }
+    if (ops.railway != null) {
+      quotaFields.push(usdMeterField("Railway", ops.railway));
     }
 
     // Slack fields limit: 10 per section, split into pairs for two-column layout

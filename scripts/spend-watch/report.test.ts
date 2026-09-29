@@ -140,6 +140,17 @@ const operations = {
     window: null,
     subject: null,
   },
+  railway: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 11,
+    limit: 40,
+    percentage: 0.275,
+    projection: null,
+    message: null,
+    window: null,
+    subject: null,
+  },
 };
 
 function environment(
@@ -515,6 +526,34 @@ describe("spend-watch report", () => {
     const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
     // GitHub Actions has null limit, should show "no cap"
     expect(blockJson).toContain("no cap");
+  });
+});
+
+describe("Railway usage meter", () => {
+  it("renders Railway usage in dollars against the soft limit", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ ...report, operations }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await runSpendReport({ clock: () => AT, env: environment(), fetchImpl });
+
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).toContain("Railway");
+    expect(blockJson).toContain("$11.00/$40.00");
+  });
+
+  it("omits Railway when the endpoint predates the field", async () => {
+    const { railway: _railway, ...withoutRailway } = operations;
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ ...report, operations: withoutRailway }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await runSpendReport({ clock: () => AT, env: environment(), fetchImpl });
+
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).not.toContain("Railway");
   });
 });
 

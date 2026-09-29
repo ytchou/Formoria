@@ -6,6 +6,7 @@ import {
   fetchUpstashUsage,
   loadOperationalSnapshot,
   parseLangfuseObservationCount,
+  parseRailwayCustomerUsage,
   parseSentryAcceptedCount,
   parseUpstashDatabase,
   parseUpstashStats,
@@ -50,6 +51,8 @@ function clearProviderEnvironment() {
     "GITHUB_APP_ID",
     "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_APP_INSTALLATION_ID",
+    "OPS_AGENT_RAILWAY_TOKEN",
+    "RAILWAY_PROJECT_ID",
   ]) {
     vi.stubEnv(name, "");
   }
@@ -823,6 +826,55 @@ describe("operational usage risk", () => {
     });
   });
 
+  describe("parseRailwayCustomerUsage", () => {
+    const customer = (overrides: Record<string, unknown> = {}) => ({
+      data: {
+        project: {
+          workspace: {
+            customer: {
+              currentUsage: 10.99,
+              usageLimit: { softLimit: 40 },
+              billingPeriod: {
+                start: "2026-09-23T03:28:40.000Z",
+                end: "2026-10-23T03:28:40.000Z",
+              },
+              ...overrides,
+            },
+          },
+        },
+      },
+    });
+
+    it("reads usage, soft limit and the billing period", () => {
+      expect(parseRailwayCustomerUsage(customer())).toEqual({
+        usageUsd: 10.99,
+        softLimitUsd: 40,
+        window: {
+          start: "2026-09-23T03:28:40.000Z",
+          end: "2026-10-23T03:28:40.000Z",
+        },
+      });
+    });
+
+    it("treats a missing usage limit as no cap", () => {
+      expect(
+        parseRailwayCustomerUsage(customer({ usageLimit: null })).softLimitUsd,
+      ).toBeNull();
+    });
+
+    it("rejects GraphQL errors and malformed bodies", () => {
+      expect(() =>
+        parseRailwayCustomerUsage({ errors: [{ message: "Not Authorized" }] }),
+      ).toThrow("Railway usage response was malformed.");
+      expect(() =>
+        parseRailwayCustomerUsage(customer({ currentUsage: "10" })),
+      ).toThrow("Railway usage response was malformed.");
+      expect(() => parseRailwayCustomerUsage({ data: { project: { workspace: null } } })).toThrow(
+        "Railway usage response was malformed.",
+      );
+    });
+  });
+
   describe("parseLangfuseObservationCount", () => {
     it("sums countObservations across multiple daily entries", () => {
       expect(
@@ -941,5 +993,6 @@ describe("operational usage risk", () => {
     expect(alerts).toHaveProperty("resend");
     expect(alerts).toHaveProperty("langfuse");
     expect(alerts).toHaveProperty("github");
+    expect(alerts).toHaveProperty("railway");
   });
 });
