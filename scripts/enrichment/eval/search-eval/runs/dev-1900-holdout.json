@@ -1323,6 +1323,6 @@
     "fallbackMigration": "20260930130000_lexical_scorer_idf_fallback.sql",
     "reason": "Original holdout lexical recall@100 and hybrid NDCG@10/recall@100 lose against the same-index IDF arm.",
     "indexOnlyGate": "unverified: no pre-index-migration v3 baseline was captured",
-    "humanShipDecision": "pending"
+    "humanShipDecision": "approved-index-only-with-baseline-waiver"
   }
 }

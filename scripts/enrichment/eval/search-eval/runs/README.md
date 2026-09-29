@@ -131,8 +131,13 @@ paired 95% interval of [-0.0578, -0.0006]. BM25F is a scorer no-go, and
 `20260930130000_lexical_scorer_idf_fallback.sql` restores IDF as the
 staging default. `dev-1900-sweep.json` and `dev-1900-holdout.json` contain
 the full per-query evidence. The index-only ship gate remains unverified:
-no pre-index-migration v3 baseline was captured. A human ship decision is
-pending; this result does not authorize production promotion.
+no pre-index-migration v3 baseline was captured. The user approved an
+index-only release despite that missing baseline, waiving this comparison
+for the release decision. The approved serving configuration keeps IDF as
+the lexical default and `SEARCH_LTR_MODE=off`; BM25F and LTR v2 are not
+approved to serve. The migration still installs optional scorer arms for
+evaluation, while production calls use the IDF default. Production promotion
+has not occurred.
 
 ## DEV-1900 LTR v2
 
