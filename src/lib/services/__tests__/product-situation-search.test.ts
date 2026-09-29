@@ -867,6 +867,25 @@ describe("searchProductsBySituation — appliedInference", () => {
     expect(result.appliedInference.category).toBe("home");
   });
 
+  it("inferred materials are dropped when the resolved category has no materials", async () => {
+    const deps = depsWithRows(
+      vi.fn().mockResolvedValue({
+        parsed: { category: "beauty", subcategory: null, materials: ["ceramic"] },
+        cacheHit: false,
+      }),
+    );
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    const rpcParams = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(rpcParams.filter_category).toBe("beauty");
+    expect(rpcParams.filter_materials).toBeNull();
+    expect(result.appliedInference.materials).toEqual([]);
+  });
+
   it("hidden category is not reported", async () => {
     const deps = depsWithRows(
       vi.fn().mockResolvedValue({

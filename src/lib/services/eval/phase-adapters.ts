@@ -9,6 +9,7 @@ import {
 } from '@/lib/prompts'
 import { detectSingleShape } from '@/lib/services/category-classifier'
 import { nameArbitrationShape } from '@/lib/services/name-arbiter'
+import { shippedName } from '@/lib/services/eval/names-shipped'
 import { descriptionShape } from '@/lib/services/description-rewrite'
 import { isHighConfidenceWrite } from '@/lib/services/enrich-phases/detect'
 import { parseAndValidate, toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
@@ -93,7 +94,8 @@ export interface PhaseAdapter {
   requestSchema: { name: string; schema: object }
   parseOutput(content: string): { ok: true; data: unknown } | { ok: false; error: unknown }
   unwrap: (output: unknown) => unknown
-  expectedOf: (item: { expectedOutput: unknown }) => unknown
+  /** `input` is optional: callers that only hold a label pass `{ expectedOutput }`. */
+  expectedOf: (item: { expectedOutput: unknown; input?: unknown }) => unknown
   expectedSchema: ZodType
   /**
    * A scorer returns null when it does not apply to the item (n/a).
@@ -327,6 +329,8 @@ const registry: Record<string, PhaseAdapter> = {
       return {
         acceptedNames: eo.acceptedNames,
         confidence: eo.confidence,
+        // Scorers only see (output, expected); shippedNameAgreement re-parses the input.
+        user: (item.input as { user?: unknown } | undefined)?.user,
       }
     },
     expectedSchema: nameExpectedSchema,
@@ -340,6 +344,19 @@ const registry: Record<string, PhaseAdapter> = {
         const out = o as Record<string, unknown>
         const exp = e as Record<string, unknown>
         return confidenceBandAgreement(out.confidence as string, exp.confidence as string)
+      }},
+      // Third on purpose: scorers[0] stays the raw pick, which the Jev threshold sweep reads.
+      { name: 'shippedNameAgreement', fn: (o, e) => {
+        const out = o as Record<string, unknown>
+        const exp = e as Record<string, unknown>
+        if (typeof exp.user !== 'string') return null
+        const shipped = shippedName(exp.user, {
+          chosen: typeof out.chosen === 'string' ? out.chosen : null,
+          confidence: out.confidence as 'high' | 'medium' | 'low',
+        })
+        // An unparseable input is n/a, not an aborted run.
+        if (shipped === null) return null
+        return (exp.acceptedNames as string[]).includes(shipped) ? 1 : 0
       }},
     ],
     mode: 'scored',

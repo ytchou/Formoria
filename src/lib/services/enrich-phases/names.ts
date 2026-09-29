@@ -90,7 +90,7 @@ export function normalizeCandidates(
   return [...byValue.values()];
 }
 
-function normalizeCandidateValue(value: string): string {
+export function normalizeCandidateValue(value: string): string {
   return value
     .normalize("NFC")
     .trim()
@@ -184,8 +184,9 @@ function isAcceptedConfidence(
  * Extracted so the DEV-1321 offline evaluation can score the exact bytes
  * production would ship rather than a re-typed copy of this condition that can
  * silently drift.
+ * Exported for eval: `eval/names-shipped.ts` scores this shipped name (DEV-1896).
  */
-function resolveArbitratedName(
+export function resolveArbitratedName(
   verdict: NameVerdict | undefined,
   normalizedCandidates: NameCandidate[],
   storedName: string,

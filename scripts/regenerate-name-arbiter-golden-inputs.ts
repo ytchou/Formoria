@@ -12,30 +12,26 @@ import { loadScriptTarget } from './shared/target'
 
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
 import { normalizeCandidates } from '@/lib/services/enrich-phases/names'
-import { buildNameArbiterUserContent, type NameCandidate } from '@/lib/services/name-arbiter'
+import {
+  buildNameArbiterUserContent,
+  parseSingleNameArbiterUser,
+  type ParsedNameArbiterItem,
+} from '@/lib/services/name-arbiter'
 
 const DATASET = 'name-arbiter-confidence-golden'
-const LINE_RE = /^1\. \[([^\]]+)\] 儲存名稱：(.*) \/ 候選：(.*)$/u
 
-type ParsedLine = { slug: string; storedName: string; candidates: NameCandidate[] }
-
-/** Inverse of formatNameArbiterItem for lines without evidence or snippets. */
-export function parseGoldenLine(user: string): ParsedLine {
+/**
+ * Parses a single-item golden user message with the shared production inverse,
+ * so the script and the eval read the formatter's output the same way.
+ */
+export function parseGoldenUser(user: string): ParsedNameArbiterItem {
   const [header, line, ...rest] = user.split('\n')
   if (header !== '請裁決以下品牌的正式名稱：' || !line || rest.length > 0) {
     throw new Error(`Unexpected golden user text: ${user.slice(0, 80)}`)
   }
-  const match = LINE_RE.exec(line)
-  if (!match) throw new Error(`Unparseable golden line: ${line}`)
-  const [, slug, storedName, candidateLine] = match
-  const candidates = candidateLine === '無'
-    ? []
-    : candidateLine!.split('；').map((part) => {
-        const sep = part.indexOf('：')
-        if (sep === -1) throw new Error(`Unparseable candidate "${part}" in ${slug}`)
-        return { source: part.slice(0, sep), value: part.slice(sep + 1) } as NameCandidate
-      })
-  return { slug: slug!, storedName: storedName!, candidates }
+  const parsed = parseSingleNameArbiterUser(user)
+  if (!parsed) throw new Error(`Unparseable golden line: ${line}`)
+  return parsed
 }
 
 async function main() {
@@ -50,7 +46,7 @@ async function main() {
 
   for (const item of dataset.items) {
     const input = item.input as { user: string; promptName: string }
-    const parsed = parseGoldenLine(input.user)
+    const parsed = parseGoldenUser(input.user)
     const normalized = normalizeCandidates(parsed.storedName, parsed.candidates)
     const metadata = { ...((item.metadata as Record<string, unknown> | null) ?? {}) }
 
@@ -71,7 +67,9 @@ async function main() {
       continue
     }
 
-    const user = buildNameArbiterUserContent([{ slug: parsed.slug, storedName: parsed.storedName, candidates: normalized }])
+    const user = buildNameArbiterUserContent([
+      { slug: parsed.slug, storedName: parsed.storedName, candidates: normalized, ...(parsed.snippets.length ? { snippets: parsed.snippets } : {}) },
+    ])
     if (user === input.user) {
       console.log(`same     ${parsed.slug}`)
       continue
