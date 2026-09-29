@@ -213,7 +213,7 @@ describe("spend-watch report", () => {
     const body = responseBody(fetchImpl, 1);
     expect(body.blocks).toBeDefined();
     expect(Array.isArray(body.blocks)).toBe(true);
-    expect(body.text).toContain("$1.23 LLM");
+    expect(body.text).toContain("$1.23 prod LLM");
     expect(body.text).toContain("$6.72 cycle");
     const blockJson = allBlockText(body.blocks!);
     expect(blockJson).toContain("$1.23");

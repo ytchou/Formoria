@@ -257,6 +257,10 @@ async function fetchSpendReport(
   return body;
 }
 
+// The budget meter is fed the same production-only derived snapshot as the
+// spend lines, so it is labelled as such until DEV-1904 reads the Costs API.
+const OPENAI_BUDGET_LABEL = "OpenAI (prod-derived)";
+
 function usd(value: number | null | undefined): string {
   return `$${(typeof value === "number" && Number.isFinite(value)
     ? value
@@ -377,14 +381,17 @@ export function buildSpendBlocks(report: SpendWatchReport): SlackBlock[] {
     {
       type: "section",
       fields: [
-        { type: "mrkdwn", text: `*Yesterday*\n${usd(report.day.llmUsd)} LLM cost` },
-        { type: "mrkdwn", text: `*Cycle to date*\n${usd(report.cycle.derivedUsd)} derived / ~${usd(report.cycle.declaredMonthlyUsd)} fixed` },
+        // Derived from production brand_ai_results only: staging runs and local
+        // evals never reach it, so this is not the OpenAI bill. Ceiling until the
+        // spend line reads OpenAI's organization Costs API (DEV-1904).
+        { type: "mrkdwn", text: `*Yesterday*\n${usd(report.day.llmUsd)} prod enrichment LLM` },
+        { type: "mrkdwn", text: `*Cycle to date*\n${usd(report.cycle.derivedUsd)} prod derived / ~${usd(report.cycle.declaredMonthlyUsd)} fixed` },
       ],
     },
   ];
 
   if (ops?.openai) {
-    const openaiField = meterField("OpenAI budget", ops.openai, "USD");
+    const openaiField = meterField(OPENAI_BUDGET_LABEL, ops.openai, "USD");
     // Override to show USD formatting for the value/limit
     const bar = progressBar(ops.openai.percentage);
     const pct = ops.openai.percentage !== null ? ` ${Math.round(ops.openai.percentage * 100)}%` : "";
@@ -392,7 +399,7 @@ export function buildSpendBlocks(report: SpendWatchReport): SlackBlock[] {
     const limitStr = isEffectivelyUnlimited(ops.openai.limit)
       ? `${valueStr} · no cap`
       : `${valueStr}/${usd(ops.openai.limit!)}`;
-    openaiField.text = `*OpenAI budget*\n${bar}${pct}\n${limitStr}`;
+    openaiField.text = `*${OPENAI_BUDGET_LABEL}*\n${bar}${pct}\n${limitStr}`;
     blocks.push({
       type: "section",
       fields: [openaiField],
@@ -507,7 +514,7 @@ function successNotification(report: SpendWatchReport): AgentNotification {
   const operations = report.operations;
   const operationDetails = operations
     ? [
-        operationalMeterLine("OpenAI budget", operations.openai, "usd"),
+        operationalMeterLine(OPENAI_BUDGET_LABEL, operations.openai, "usd"),
         operationalMeterLine("Upstash commands", operations.upstash, "units"),
         operationalMeterLine("PostHog events", operations.posthog, "units"),
         ...operations.lowerBoundCaveats.map((caveat) => `• Caveat: ${caveat}`),
@@ -516,14 +523,14 @@ function successNotification(report: SpendWatchReport): AgentNotification {
   return {
     agent: `spend — ${dateLabel(report)}`,
     details: [
-      `• LLM ${usd(report.day.llmUsd)} · Serper ${units(serper?.units)} ${unitName(serper?.unitLabel, "credits")} ${usd(serper?.amountUsd)} · Resend ${units(resend?.units)} ${unitName(resend?.unitLabel, "sends")} ${usd(resend?.amountUsd)}`,
+      `• Prod enrichment LLM ${usd(report.day.llmUsd)} · Serper ${units(serper?.units)} ${unitName(serper?.unitLabel, "credits")} ${usd(serper?.amountUsd)} · Resend ${units(resend?.units)} ${unitName(resend?.unitLabel, "sends")} ${usd(resend?.amountUsd)}`,
       `• ${report.coverage.unpricedCalls} unpriced calls · ${report.coverage.inFlightCalls} in-flight · ${report.coverage.unmeteredServices} services unmetered`,
       ...operationDetails,
     ],
     status: operations?.needsAttention ? "needs_attention" : "success",
     summary: [
-      `• Yesterday: ${usd(report.day.llmUsd)} derived`,
-      `• Cycle to date: ${usd(report.cycle.derivedUsd)} derived · ~${usd(report.cycle.declaredMonthlyUsd)}/mo declared fixed`,
+      `• Yesterday: ${usd(report.day.llmUsd)} prod derived`,
+      `• Cycle to date: ${usd(report.cycle.derivedUsd)} prod derived · ~${usd(report.cycle.declaredMonthlyUsd)}/mo declared fixed`,
       ...(operations?.warnings ?? []),
     ],
   };
@@ -598,7 +605,7 @@ export async function runSpendReport(
   }
 
   const blocks = buildSpendBlocks(report);
-  const fallbackText = `Formoria spend — ${dateLabel(report)}: ${usd(report.day.llmUsd)} LLM · ${usd(report.cycle.derivedUsd)} cycle`;
+  const fallbackText = `Formoria spend — ${dateLabel(report)}: ${usd(report.day.llmUsd)} prod LLM · ${usd(report.cycle.derivedUsd)} cycle`;
   try {
     await sendSpendBlocks(blocks, fallbackText, webhookUrl, {
       audit,
