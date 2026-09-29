@@ -251,9 +251,8 @@ describe("field-weighted lexical scorer migration", () => {
 
   it("freezes the evaluated winner and matches before unnesting document vectors", () => {
     const sql = readFileSync(join(process.cwd(), "supabase/migrations", DEFAULTS_FILE), "utf8");
-    const sweep = JSON.parse(readFileSync(join(process.cwd(), "scripts/enrichment/eval/search-eval/runs/dev-1900-sweep.json"), "utf8"));
-    const winner = sweep.configs.find((config: { id: string }) => config.id === sweep.winner);
-    expect(winner).toBeDefined();
+    const decision = JSON.parse(readFileSync(join(process.cwd(), "scripts/enrichment/eval/search-eval/dev-1900-decision.json"), "utf8"));
+    const winner = decision.sweepWinner;
     expect(sql).toContain(`-- DEV-1900 train+val winner: ${winner.id}.`);
     for (const [key, variable] of [["wA", "v_wa"], ["wB", "v_wb"], ["wC", "v_wc"], ["wD", "v_wd"], ["k1", "v_k1"], ["b", "v_b"]] as const) {
       expect(sql).toContain(`${variable} float8 := coalesce((params ->> '${key}')::float8, ${winner.params[key]});`);
@@ -266,9 +265,9 @@ describe("field-weighted lexical scorer migration", () => {
   });
 
   it("restores IDF as the default when the holdout gate rejects the tuned scorer", () => {
-    const report = JSON.parse(readFileSync(join(process.cwd(), "scripts/enrichment/eval/search-eval/runs/dev-1900-holdout.json"), "utf8"));
+    const decision = JSON.parse(readFileSync(join(process.cwd(), "scripts/enrichment/eval/search-eval/dev-1900-decision.json"), "utf8"));
     const sql = readFileSync(join(process.cwd(), "supabase/migrations", FALLBACK_FILE), "utf8");
-    expect(report.gate.overall).toBe(false);
+    expect(decision.holdoutGatePassed).toBe(false);
     expect(sql).toContain("v_scorer text := coalesce(params ->> 'scorer', 'idf');");
     expect(sql).toContain("revoke all on function public.situation_search_lexical(text, integer, jsonb)");
     expect(sql).toContain("has_function_privilege('anon', 'public.situation_search_lexical(text, integer, jsonb)', 'execute')");

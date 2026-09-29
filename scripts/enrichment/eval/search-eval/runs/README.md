@@ -133,8 +133,9 @@ The v3 holdout compared BM25F with same-index IDF once, on 30 original and
 The original-slice no-loss gate failed. Original lexical recall@100 had a
 paired 95% interval of [-0.0578, -0.0006]. BM25F is a scorer no-go, and
 `20260930130000_lexical_scorer_idf_fallback.sql` restores IDF as the
-staging default. `dev-1900-sweep.json` and `dev-1900-holdout.json` contain
-the full per-query evidence. The index-only ship gate remains unverified:
+staging default. The run JSON files are local-only; the compact
+`dev-1900-decision.json` records the sweep winner and holdout gate for the
+migration checks. The index-only ship gate remains unverified:
 no pre-index-migration v3 baseline was captured. The user approved an
 index-only release despite that missing baseline, waiving this comparison
 for the release decision. The approved serving configuration keeps IDF as
@@ -142,6 +143,10 @@ the lexical default and `SEARCH_LTR_MODE=off`; BM25F and LTR v2 are not
 approved to serve. The migration still installs optional scorer arms for
 evaluation, while production calls use the IDF default. Production promotion
 has not occurred.
+
+The v3 evaluation dataset is assembled by the loader from tracked
+`situation-search-v2.json` and `situation-search-v3-additions.json`.
+The redundant full `situation-search-v3.json` is ignored by Git.
 
 ## DEV-1900 LTR v2
 

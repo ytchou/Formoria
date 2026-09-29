@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
-import { loadDatasetV2, resolveDataset, type DatasetV2Item } from './dataset-v2'
+import { loadDatasetV2, resolveDataset, V3_ADDITIONS_PATH, type DatasetV2Item } from './dataset-v2'
 import {
   LABELS_DIR,
   QUERIES_PATH,
@@ -217,9 +217,9 @@ export async function cmdBuildDataset(
       ? { reviewedVia: approvalSource, at: new Date().toISOString().slice(0, 10) }
       : undefined
     const v3 = buildV3Dataset(original, queries, items, ratios, seed, approval)
-    writeFileSync(selected.path, JSON.stringify(v3, null, 2))
+    writeFileSync(V3_ADDITIONS_PATH, JSON.stringify(v3.slice(original.length), null, 2))
     writeFileSync(labelDatasetPath('v3'), JSON.stringify(v3, null, 2))
-    console.log(`[build-dataset] Wrote ${v3.length} queries to ${selected.path}`)
+    console.log(`[build-dataset] Wrote ${v3.length - original.length} new queries to ${V3_ADDITIONS_PATH}`)
     const langfuse = getLangfuse()
     if (langfuse) {
       try {

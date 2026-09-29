@@ -103,6 +103,14 @@ describe('loadDatasetV2', () => {
     expect(dataset.name).toBe('situation-search-v3')
     expect(() => resolveDataset('v4')).toThrow('Unknown dataset')
   })
+
+  it('loads the full v3 dataset from v2 and the tracked additions', () => {
+    const original = loadDatasetV2(resolveDataset('v2').path)
+    const full = loadDatasetV2(resolveDataset('v3').path)
+    expect(full).toHaveLength(206)
+    expect(full.slice(0, original.length)).toEqual(original)
+    expect(full.slice(original.length)).toHaveLength(50)
+  })
 })
 
 describe('toExperimentItems', () => {
