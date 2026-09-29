@@ -4,7 +4,7 @@ import {
   evaluateQualityReports,
   type QualityReportsInput,
 } from '../quality'
-import { stableFingerprint } from '../../contracts'
+import { routeOf, stableFingerprint } from '../../contracts'
 
 // ---------------------------------------------------------------------------
 // Helpers — mirrors scripts/health-agent/quality.ts test fixtures
@@ -260,5 +260,67 @@ describe('quality detector', () => {
     expect(depFinding?.changedFiles).toEqual([])
     // Exports: agent CAN repair → includes the file
     expect(exportFinding?.changedFiles).toEqual(['src/lib/utils.ts'])
+  })
+
+  it('routes vitest failures and scoped knip findings to auto-fix, everything else to ticket', () => {
+    const result = evaluateQualityReports(
+      makeInput({
+        trackedFiles: new Set(['src/app.test.ts', 'src/app.ts', 'src/lib/utils.ts']),
+        vitestExitCode: 1,
+        vitestReport: {
+          numFailedTestSuites: 1,
+          numFailedTests: 1,
+          numTotalTestSuites: 5,
+          numTotalTests: 20,
+          success: false,
+          testResults: [
+            {
+              name: '/repo/src/app.test.ts',
+              status: 'failed',
+              assertionResults: [
+                {
+                  status: 'failed',
+                  fullName: 'app renders correctly',
+                  failureMessages: ['boom at /repo/src/app.ts:10:5'],
+                },
+              ],
+            },
+          ],
+        },
+        knipExitCode: 1,
+        knipReport: {
+          issues: [
+            {
+              file: 'src/lib/utils.ts',
+              exports: ['deadExport'],
+              dependencies: ['leftpad'],
+              unlisted: ['missing-pkg'],
+              binaries: ['some-bin'],
+            },
+            { file: 'src/lib/orphan.ts', files: ['src/lib/orphan.ts'] },
+            // Reported file is not tracked: no scope, so no auto-fix.
+            { file: 'src/untracked.ts', exports: ['ghost'] },
+          ],
+        },
+      }),
+    )
+
+    const routes = new Map(
+      result.findings.map((f) => [
+        f.evidence.check === 'full-unit-suite'
+          ? 'vitest'
+          : `${String(f.evidence.kind)}:${String(f.evidence.file)}`,
+        routeOf(f),
+      ]),
+    )
+    expect(Object.fromEntries(routes)).toEqual({
+      vitest: 'auto_fix',
+      'exports:src/lib/utils.ts': 'auto_fix',
+      'dependencies:src/lib/utils.ts': 'ticket',
+      'unlisted:src/lib/utils.ts': 'ticket',
+      'binaries:src/lib/utils.ts': 'ticket',
+      'files:src/lib/orphan.ts': 'ticket',
+      'exports:src/untracked.ts': 'ticket',
+    })
   })
 })

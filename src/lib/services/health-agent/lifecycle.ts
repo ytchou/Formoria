@@ -39,6 +39,9 @@ export type HealthLedgerClient = {
     }
     update: (data: Record<string, unknown>) => {
       eq: (column: string, value: unknown) => {
+        eq: (column: string, value: unknown) => {
+          select: () => Promise<{ data: unknown[] | null; error: unknown }>
+        }
         select: () => Promise<{ data: unknown[] | null; error: unknown }>
       }
       in: (column: string, values: unknown[]) => {
@@ -231,6 +234,55 @@ export async function reserveTickets(
       `reserveTickets: expected ${ids.length} rows updated but got ${updated}`,
     )
   }
+}
+
+/**
+ * Reserve a still-firing, already-ticketed finding for a follow-up ticket by
+ * moving `ticketed_at` forward. Optimistic like `reserveTickets`: the update
+ * only lands while `ticketed_at` still equals the value this run read, so a
+ * concurrent writer makes it throw instead of filing a duplicate.
+ */
+export async function reserveFollowUp(
+  client: HealthLedgerClient,
+  id: string,
+  previousTicketedAt: string,
+): Promise<void> {
+  const { data, error } = await client
+    .from('health_fix_queue')
+    .update({ ticketed_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('ticketed_at', previousTicketedAt)
+    .select()
+
+  if (error) throw error
+
+  const updated = (data as unknown[] | null)?.length ?? 0
+  if (updated === 0) {
+    throw new Error(
+      `reserveFollowUp: ticketed_at for ${id} changed since it was read`,
+    )
+  }
+}
+
+/**
+ * Put back the previous ticket link after a follow-up ticket could not be
+ * created, so the earlier Linear identifier is not lost.
+ */
+export async function restoreTicket(
+  client: HealthLedgerClient,
+  id: string,
+  previous: { ticketedAt: string; linearIdentifier: string | null },
+): Promise<void> {
+  const { error } = await client
+    .from('health_fix_queue')
+    .update({
+      ticketed_at: previous.ticketedAt,
+      linear_identifier: previous.linearIdentifier,
+    })
+    .eq('id', id)
+    .select()
+
+  if (error) throw error
 }
 
 /**

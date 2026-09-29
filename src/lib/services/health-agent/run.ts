@@ -7,8 +7,12 @@
  * Run order:
  *   admitRun → runDetectors → worker jobs (quality/mdx-links) →
  *   consolidate findings → enqueue/reconcile lifecycle →
- *   report-only tickets → digest → repair trigger (fallback tickets when
+ *   ticket-route tickets → digest → auto-fix trigger (fallback tickets when
  *   it is unavailable) → completeRun
+ *
+ * Routing: a finding goes to the auto-fix routine only when its detector opts
+ * in (`routeOf`); everything else is ticketed. Acknowledged known debt
+ * (`HEALTH_ACKNOWLEDGEMENTS`) is enqueued but takes neither route.
  *
  * The run timeline (Slack parent message) gets `started`, `findings`, then
  * `repair_requested` or `completed`. The repair routine owns the rest. A
@@ -19,7 +23,8 @@
  */
 
 import type { AuditContextSeed } from '@/lib/audit/context'
-import { stableFingerprint, type HealthFinding } from './contracts'
+import { routeOf, stableFingerprint, type HealthFinding } from './contracts'
+import { isAcknowledged } from '@/lib/constants/health-acknowledgements'
 import type { Detector } from './types'
 import type { RepoWorkerClient } from './repo-worker-client'
 import {
@@ -44,7 +49,9 @@ import {
   reconcile,
   releaseClaims,
   releaseFailedReservations,
+  reserveFollowUp,
   reserveTickets,
+  restoreTicket,
   type HealthLedgerClient,
 } from './lifecycle'
 import { runDetectors } from './runner'
@@ -52,7 +59,9 @@ import {
   buildDigest,
   buildDigestBlocks,
   buildFindingTicket,
+  daysSinceTicketed,
   isTicketEligible,
+  type TicketLedgerEntry,
 } from './report'
 import { registry as defaultRegistry } from './registry'
 import { HEALTH_JOBS, QUALITY_CONTEXT_COMMANDS } from './jobs'
@@ -116,6 +125,9 @@ export type RunHealthAgentDeps = {
 
   /** Langfuse trace for spans. */
   langfuseTrace?: unknown
+
+  /** Clock for the stale-ticket follow-up window. Defaults to `new Date()`. */
+  now?: () => Date
 }
 
 export type RunHealthAgentResult = {
@@ -588,19 +600,26 @@ async function executeRunBody(
   // Consolidate all findings (after quality jobs so their findings are included)
   const allFindings: HealthFinding[] = results.flatMap((r) => r.findings)
   const totalFindings = allFindings.length
-  const repairableFindings = allFindings.filter(
-    (f) => f.disposition !== 'report_only',
+  // Acknowledged known debt is still enqueued (reconcile closes it by
+  // detector absence) but takes neither route.
+  const routedFindings = allFindings.filter(
+    (f) => !isAcknowledged(f.fingerprint, logicalDate),
   )
-  const reportOnlyFindings = allFindings.filter(
-    (f) => f.disposition === 'report_only',
+  const acknowledgedCount = totalFindings - routedFindings.length
+  const autoFixFindings = routedFindings.filter(
+    (f) => routeOf(f) === 'auto_fix',
+  )
+  const ticketFindings = routedFindings.filter(
+    (f) => routeOf(f) === 'ticket',
   )
   const failedDetectors = results.filter((r) => r.status === 'failed').length
   await appendEvent({
     kind: 'findings',
     at: nowSeconds(),
     total: totalFindings,
-    repairable: repairableFindings.length,
-    reportOnly: reportOnlyFindings.length,
+    autoFix: autoFixFindings.length,
+    ticket: ticketFindings.length,
+    ...(acknowledgedCount > 0 ? { acknowledged: acknowledgedCount } : {}),
     ...(failedDetectors > 0 ? { failedDetectors } : {}),
   })
   const sentryFindings = allFindings.filter(
@@ -643,7 +662,7 @@ async function executeRunBody(
     }
   }
 
-  // ---- 6. Ticket ledger + report-only tickets (skip in dry-run) ----
+  // ---- 6. Ticket ledger + ticket-route tickets (skip in dry-run) ----
   const traceUrl = `https://cloud.langfuse.com/trace/${runId}`
 
   // Build fingerprint -> queue-entry-ID map from enqueue results
@@ -652,8 +671,8 @@ async function executeRunBody(
     fingerprintToId.set(allFindings[i].fingerprint, enqueuedIds[i])
   }
 
-  // Which enqueued entries are already ticketed, and under which identifier
-  const alreadyTicketed = new Set<string>()
+  // Which enqueued entries are already ticketed, when, and under which identifier
+  const ticketLedger = new Map<string, TicketLedgerEntry>()
   const linearIdentifiers = new Map<string, string>()
   let ledgerRead = false
   if (!dryRun && enqueuedIds.length > 0) {
@@ -676,7 +695,12 @@ async function executeRunBody(
           ticketed_at: string | null
           linear_identifier: string | null
         }>) {
-          if (row.ticketed_at) alreadyTicketed.add(row.fingerprint)
+          if (row.ticketed_at) {
+            ticketLedger.set(row.fingerprint, {
+              ticketedAt: row.ticketed_at,
+              linearIdentifier: row.linear_identifier,
+            })
+          }
           if (row.linear_identifier) {
             linearIdentifiers.set(row.fingerprint, row.linear_identifier)
           }
@@ -688,25 +712,46 @@ async function executeRunBody(
     }
   }
 
-  // One ticket per new eligible finding: reserve -> create -> finalize,
-  // releasing the reservation on failure. Created tickets are listed under
-  // "Needs you" through one tickets_filed event per call.
+  // One ticket per eligible finding: reserve -> create -> finalize, undoing
+  // the reservation on failure. A finding ticketed more than
+  // HEALTH_TICKET_FOLLOW_UP_DAYS ago that still fires gets a follow-up ticket.
+  // Created tickets are listed under "Needs you" through one tickets_filed
+  // event per call.
+  const now = deps.now?.() ?? new Date()
+  const attempted = new Set<string>()
   const fileFindingTickets = async (findings: HealthFinding[]): Promise<void> => {
     const createTicket = deps.linearCreateTicket
     if (dryRun || !createTicket || !ledgerRead) return
     const filed: RunTicket[] = []
     for (const finding of findings) {
-      if (!isTicketEligible(finding, alreadyTicketed)) continue
+      // A duplicate fingerprint is never retried.
+      if (attempted.has(finding.fingerprint)) continue
+      if (!isTicketEligible(finding, ticketLedger, now)) continue
       const queueId = fingerprintToId.get(finding.fingerprint)
       if (!queueId) continue
-      // Mark before the attempt so a duplicate fingerprint is never retried.
-      alreadyTicketed.add(finding.fingerprint)
+      attempted.add(finding.fingerprint)
 
-      const ticket = buildFindingTicket(finding, { traceUrl, date: logicalDate })
+      const previous = ticketLedger.get(finding.fingerprint)
+      const ticket = buildFindingTicket(finding, {
+        traceUrl,
+        date: logicalDate,
+        ...(previous
+          ? {
+              followUp: {
+                previousIdentifier: previous.linearIdentifier,
+                daysSinceTicketed: daysSinceTicketed(previous.ticketedAt, now),
+              },
+            }
+          : {}),
+      })
       try {
-        await reserveTickets(client, [queueId])
+        if (previous) {
+          await reserveFollowUp(client, queueId, previous.ticketedAt)
+        } else {
+          await reserveTickets(client, [queueId])
+        }
       } catch (err) {
-        console.error('[health-agent] reserveTickets failed:', err)
+        console.error('[health-agent] ticket reservation failed:', err)
         continue
       }
 
@@ -734,7 +779,12 @@ async function executeRunBody(
       } catch (err) {
         console.error('[health-agent] ticket creation failed:', err)
         try {
-          await releaseFailedReservations(client, [queueId])
+          if (previous) {
+            // Keep the earlier ticket link rather than clearing it.
+            await restoreTicket(client, queueId, previous)
+          } else {
+            await releaseFailedReservations(client, [queueId])
+          }
         } catch { /* release best-effort */ }
       }
     }
@@ -748,8 +798,8 @@ async function executeRunBody(
     }
   }
 
-  // shortcut: one ticket per report-only finding; the first night after a new detector ships can file many. Upgrade path: group by detector.
-  await fileFindingTickets(reportOnlyFindings)
+  // shortcut: one ticket per ticket-route finding; the first night after a new detector ships can file many. Upgrade path: group by detector.
+  await fileFindingTickets(ticketFindings)
 
   // ---- 7. Worker jobs (knip-fix/repair/PR publishing) ----
   // Quality dispatch (vitest + knip) moved to step 3.5.
@@ -778,14 +828,14 @@ async function executeRunBody(
     }
   }
 
-  // ---- 9.5. Repair trigger (Slack → ops-agent) ----
+  // ---- 9.5. Auto-fix trigger (Slack → ops-agent) ----
   // The repair routine owns tickets for the findings it receives. When the
   // trigger is unconfigured or Slack definitely rejected the post, the health
   // agent files them instead, so no finding goes without a ticket. The
   // timeline never ends on `tickets_filed`: a failed trigger ends on
   // `repair_failed`, an unconfigured one on `completed`.
   if (!dryRun) {
-    if (repairableFindings.length === 0) {
+    if (autoFixFindings.length === 0) {
       await appendEvent({ kind: 'completed', at: nowSeconds() })
     } else if (deps.triggerRepair) {
       const repairRequest: RepairRequest = {
@@ -793,10 +843,10 @@ async function executeRunBody(
         ref: 'staging',
         runId,
         traceUrl,
-        scope: [...new Set(repairableFindings.flatMap(
+        scope: [...new Set(autoFixFindings.flatMap(
           (f) => f.changedFiles ?? [],
         ))],
-        findings: repairableFindings.map((f): RepairFinding => {
+        findings: autoFixFindings.map((f): RepairFinding => {
           const ticketId = linearIdentifiers.get(f.fingerprint)
           return {
             fingerprint: f.fingerprint,
@@ -819,14 +869,14 @@ async function executeRunBody(
       try {
         await deps.triggerRepair(repairRequest, threadTs)
         console.log(
-          `[health-agent] repair trigger sent for ${repairableFindings.length} findings`,
+          `[health-agent] repair trigger sent for ${autoFixFindings.length} findings`,
         )
       } catch (err) {
         // Repair trigger failure is independent — does NOT set digestFailed
         console.error('[health-agent] repair trigger failed:', err)
         if (err instanceof RepairPostRejectedError) {
           // Definite: the routine never saw the request.
-          await fileFindingTickets(repairableFindings)
+          await fileFindingTickets(autoFixFindings)
         } else {
           // ambiguous: the post may have been delivered; the routine tickets, and ticketed_at stays NULL so tomorrow's run re-sends if not.
         }
@@ -838,7 +888,7 @@ async function executeRunBody(
       }
     } else {
       // Unconfigured trigger: nothing further will happen for this run.
-      await fileFindingTickets(repairableFindings)
+      await fileFindingTickets(autoFixFindings)
       await appendEvent({ kind: 'completed', at: nowSeconds() })
     }
   }

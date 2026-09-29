@@ -13,7 +13,14 @@ export type HealthSeverity = 'low' | 'medium' | 'high' | 'critical'
 
 type MergePolicy = 'automatic' | 'human'
 
+/**
+ * Forces the ticket route, even for a finding that opted into auto-fix.
+ * `scripts/health-agent/*` evaluators still set it.
+ */
 export type HealthFindingDisposition = 'report_only'
+
+/** Where a finding goes: the auto-fix routine (code PR) or a Linear ticket. */
+export type HealthFindingRoute = 'auto_fix' | 'ticket'
 
 type JsonPrimitive = string | number | boolean | null
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
@@ -26,9 +33,21 @@ export interface HealthFinding {
   evidence: Record<string, JsonValue>
   mergePolicy: MergePolicy
   disposition?: HealthFindingDisposition
+  /**
+   * Opt-in: set only where the ops routine can fix the finding with a code
+   * PR. Absent means ticket.
+   */
+  route?: 'auto_fix'
   humanReason?: string
   changedFiles?: readonly string[]
   sentryIssueId?: string
+}
+
+/** Auto-fix is opt-in; ticket is the default, and `report_only` forces it. */
+export function routeOf(finding: HealthFinding): HealthFindingRoute {
+  return finding.route === 'auto_fix' && finding.disposition !== 'report_only'
+    ? 'auto_fix'
+    : 'ticket'
 }
 
 export function stableFingerprint(

@@ -47,8 +47,9 @@ function utcHHmm(at: number): string {
 function findingsLabel(event: Extract<RunEvent, { kind: "findings" }>): string {
   const parts: string[] = [];
   if (event.total !== undefined) parts.push(`${event.total} findings`);
-  if (event.repairable !== undefined) parts.push(`${event.repairable} repairable`);
-  if (event.reportOnly !== undefined) parts.push(`${event.reportOnly} report-only`);
+  if (event.autoFix !== undefined) parts.push(`${event.autoFix} auto-fix`);
+  if (event.ticket !== undefined) parts.push(`${event.ticket} ticket`);
+  if (event.acknowledged) parts.push(`${event.acknowledged} acknowledged`);
   if (event.failedDetectors) {
     const n = event.failedDetectors;
     parts.push(`${n} detector${n === 1 ? "" : "s"} failed`);

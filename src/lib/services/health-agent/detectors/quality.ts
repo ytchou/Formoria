@@ -117,6 +117,7 @@ function qualityFinding({
   severity,
   title,
   disposition,
+  autoFix,
 }: {
   changedFiles: readonly string[]
   evidence: Record<string, JsonValue>
@@ -124,6 +125,8 @@ function qualityFinding({
   severity: 'high' | 'medium'
   title: string
   disposition?: HealthFindingDisposition
+  /** The ops routine can fix this with a code PR. */
+  autoFix: boolean
 }): HealthFinding {
   return {
     changedFiles,
@@ -139,6 +142,7 @@ function qualityFinding({
     source: 'quality',
     title,
     ...(disposition ? { disposition } : {}),
+    ...(autoFix ? { route: 'auto_fix' as const } : {}),
   }
 }
 
@@ -249,6 +253,7 @@ function parseVitestReport(
           ),
           severity: 'high',
           title: `Vitest failure: ${testName}`,
+          autoFix: true,
         }),
       )
     }
@@ -276,6 +281,7 @@ function parseVitestReport(
           ),
           severity: 'high',
           title: `Vitest suite failure: ${testFile}`,
+          autoFix: true,
         }),
       )
     }
@@ -376,6 +382,8 @@ function parseKnipReport(
             severity: 'medium',
             title: `Knip ${kind}: ${symbol}`,
             disposition,
+            // Only a scoped, non-dependency finding is fixable by a code PR.
+            autoFix: !agentCannotRepair && changedFiles.length > 0,
           }),
         )
       }

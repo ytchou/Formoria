@@ -213,6 +213,12 @@ export const DETECTOR_SCHEDULE: Record<DetectorName, DetectorSchedule> = {
  */
 export const WEEKLY_RUN_WEEKDAY = 6; // Saturday
 
+/**
+ * A ticketed finding that is still firing this many days after it was
+ * ticketed gets a "still firing" follow-up ticket.
+ */
+export const HEALTH_TICKET_FOLLOW_UP_DAYS = 14;
+
 // ---------------------------------------------------------------------------
 // Schedule helpers.
 // ---------------------------------------------------------------------------

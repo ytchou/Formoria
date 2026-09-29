@@ -90,18 +90,69 @@ describe('report — per-finding tickets', () => {
     expect(ticket.body).not.toContain('actions/runs')
   })
 
-  it('only never-ticketed, non-Sentry findings are eligible', () => {
+  const NOW = new Date('2026-09-20T12:00:00Z')
+  const DAY_MS = 86_400_000
+  const ticketedDaysAgo = (days: number) => ({
+    ticketedAt: new Date(NOW.getTime() - days * DAY_MS).toISOString(),
+    linearIdentifier: 'DEV-100',
+  })
+
+  it('never-ticketed, non-Sentry findings are eligible; recently ticketed ones are not', () => {
     const sentry = makeFinding({ source: 'sentry', fingerprint: 'sentry:issue:1' })
     const captureCredential = makeFinding({
       source: 'credential',
       fingerprint: 'credential:sentry-capture:round-trip',
     })
     const ticketed = makeFinding({ fingerprint: 'directory:test:ticketed' })
-    const alreadyTicketed = new Set([ticketed.fingerprint])
+    const ledger = new Map([[ticketed.fingerprint, ticketedDaysAgo(13)]])
 
-    expect(isTicketEligible(sentry, alreadyTicketed)).toBe(false)
-    expect(isTicketEligible(captureCredential, alreadyTicketed)).toBe(true)
-    expect(isTicketEligible(ticketed, alreadyTicketed)).toBe(false)
+    expect(isTicketEligible(sentry, ledger, NOW)).toBe(false)
+    expect(isTicketEligible(captureCredential, ledger, NOW)).toBe(true)
+    expect(isTicketEligible(ticketed, ledger, NOW)).toBe(false)
+  })
+
+  it('a ticketed finding becomes eligible again once the follow-up window has passed', () => {
+    const fingerprint = 'directory:test:stale'
+    const finding = makeFinding({ fingerprint })
+
+    expect(isTicketEligible(finding, new Map([[fingerprint, ticketedDaysAgo(14)]]), NOW)).toBe(false)
+    expect(isTicketEligible(finding, new Map([[fingerprint, ticketedDaysAgo(15)]]), NOW)).toBe(true)
+  })
+
+  it('Sentry findings stay ineligible past the follow-up window', () => {
+    const sentry = makeFinding({ source: 'sentry', fingerprint: 'sentry:issue:2' })
+    expect(
+      isTicketEligible(sentry, new Map([[sentry.fingerprint, ticketedDaysAgo(30)]]), NOW),
+    ).toBe(false)
+  })
+
+  it('a follow-up ticket says it is still firing and references the earlier ticket', () => {
+    const ticket = buildFindingTicket(makeFinding({ title: 'Cron stale' }), {
+      ...options,
+      followUp: { previousIdentifier: 'DEV-100', daysSinceTicketed: 15 },
+    })
+
+    expect(ticket.title).toBe('Health Agent — Still firing — Cron stale')
+    expect(ticket.body.split('\n')[0]).toBe(
+      'Follow-up of DEV-100: still observed 15 days after it was ticketed.',
+    )
+  })
+
+  it('a follow-up without a previous identifier names an earlier ticket', () => {
+    const ticket = buildFindingTicket(makeFinding(), {
+      ...options,
+      followUp: { previousIdentifier: null, daysSinceTicketed: 20 },
+    })
+
+    expect(ticket.body.split('\n')[0]).toBe(
+      'Follow-up of an earlier ticket: still observed 20 days after it was ticketed.',
+    )
+  })
+
+  it('a first-time ticket has no follow-up line', () => {
+    const ticket = buildFindingTicket(makeFinding({ title: 'Cron stale' }), options)
+    expect(ticket.title).toBe('Health Agent — Cron stale')
+    expect(ticket.body).not.toContain('Follow-up of')
   })
 })
 
@@ -492,6 +543,28 @@ describe('report — repair trigger blocks', () => {
 
     const message = buildRepairTriggerMessage('U_BOT', request, 'E2E Agent')
     expect(message.split('\n')[0]).toBe('<@U_BOT> E2E Agent repair request')
+  })
+
+  it('names the health agent request an auto-fix request and keeps the json fence', () => {
+    const request: RepairRequest = {
+      agent: 'ops-agent',
+      ref: 'staging',
+      runId: 'run-auto-fix',
+      scope: [],
+      findings: [
+        { fingerprint: 'quality:a', title: 'A fails', severity: 'high', source: 'quality' },
+      ],
+    }
+
+    const blocks = buildRepairTriggerBlocks(request, 'Health Agent', 'Auto-fix Request')
+    expect(blocks[0]).toEqual({
+      type: 'header',
+      text: { type: 'plain_text', text: 'Health Agent Auto-fix Request', emoji: true },
+    })
+
+    const message = buildRepairTriggerMessage('U_BOT', request, 'Health agent', 'Auto-fix Request')
+    expect(message.split('\n')[0]).toBe('<@U_BOT> Health agent auto-fix request')
+    expect(message).toMatch(/```json\n\{.*\}\n```/)
   })
 })
 

@@ -14,8 +14,12 @@ export type RunEvent =
       at: number;
       // health agent
       total?: number;
-      repairable?: number;
-      reportOnly?: number;
+      /** Findings sent to the auto-fix routine. */
+      autoFix?: number;
+      /** Findings routed to a Linear ticket. */
+      ticket?: number;
+      /** Known debt, enqueued but neither ticketed nor auto-fixed. */
+      acknowledged?: number;
       /** Detectors that could not run; their sources are missing from `total`. */
       failedDetectors?: number;
       // e2e agent
