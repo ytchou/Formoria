@@ -6,6 +6,7 @@ import {
   compareFingerprints,
   formatComparison,
   main,
+  parseCliArgs,
   parseBaselineReport,
 } from "../verify-contract-fingerprints";
 
@@ -52,11 +53,11 @@ const TABLE_ROWS: ReadonlyArray<readonly [string, string]> = [
     "7bcba2c4bd56c0d6ba50988f59e3f80e",
   ],
   [
-    "curated_products_search_document(text,text,text,text,text)",
+    "curated_products_search_document(text,text,text,text,text,text,text)",
     "0e73cbab77e7b5a5ded43e76f00d05e0",
   ],
   [
-    "search_products_semantic(text,extensions.vector,text,integer,text,text[],text[])",
+    "search_products_semantic(text,vector,text,integer,text,text[],text[],jsonb)",
     "5fe81a42ea076ce54dfb4e84f97be369",
   ],
   [
@@ -64,9 +65,13 @@ const TABLE_ROWS: ReadonlyArray<readonly [string, string]> = [
     "40ae8d270a6e49d0a2e3fcf3d74341ea",
   ],
   [
-    "situation_search_lexical(text,integer)",
+    "situation_search_lexical(text,integer,jsonb)",
     "bb27e4ad3e8003ade6a60492e57e7fe1",
   ],
+  ["curated_products_search_vector_update()", "abababababababababababababababab"],
+  ["brands_retouch_product_search_vector()", "bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc"],
+  ["curated_products_set_updated_at()", "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"],
+  ["taxonomy_terms_retouch_product_search_vector()", "dededededededededededededededede"],
 ];
 
 const PROSE_SIGNATURE = "brands_track_content_provenance()";
@@ -136,6 +141,32 @@ function silenceConsole() {
 }
 
 describe("verify-contract-fingerprints", () => {
+  it("accepts an explicit database mode when staging has no management token", () => {
+    const options = parseCliArgs(["--ref", "ttkkyvgvcamfoezsetvf", "--db"], {
+      ...process.env,
+      SUPABASE_DB_URL: "postgresql://postgres.ttkkyvgvcamfoezsetvf:fixture@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres",
+    });
+    expect(options.projectRef).toBe("ttkkyvgvcamfoezsetvf");
+    expect(options.useDatabase).toBe(true);
+  });
+
+  it("guards every recreated product search function", () => {
+    expect(CONTRACT_FUNCTION_NAMES).toEqual(expect.arrayContaining([
+      "curated_products_search_vector_update",
+      "brands_retouch_product_search_vector",
+      "curated_products_set_updated_at",
+      "taxonomy_terms_retouch_product_search_vector",
+    ]));
+  });
+
+  it("rejects a contract row without a function signature", () => {
+    const invalid = baselineFixture().replace(
+      "`curated_products_search_document(text,text,text,text,text,text,text)`",
+      "`curated_products_search_document`",
+    );
+    expect(() => parseBaselineReport(invalid)).toThrow(/curated_products_search_document/);
+  });
+
   it("parses_the_baseline_table_into_signature_md5_pairs", () => {
     const rows = baselineRows();
 
@@ -252,7 +283,7 @@ describe("verify-contract-fingerprints", () => {
     }
     // Still actionable without the content: position, shape, and the flags.
     expect(output).toContain("argument 1 of 1");
-    expect(output).toContain("--ref, --token, --baseline");
+    expect(output).toContain("--ref, --token, --baseline, --db");
   });
 
   it("fails_when_the_baseline_omits_a_contract_function", async () => {
