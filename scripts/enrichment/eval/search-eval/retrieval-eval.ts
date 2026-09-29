@@ -754,6 +754,9 @@ async function main() {
     case "run":
       await cmdRun(values);
       break;
+    case "sweep":
+      await import("./lexical-sweep").then((m) => m.cmdSweep(values));
+      break;
     case "neighbours":
       await cmdNeighbours(values);
       break;
@@ -820,7 +823,7 @@ async function main() {
       break;
     default:
       console.error(
-        "Usage: search:eval <run|neighbours|export-features|snapshot|compare|generate-queries|judge|retrieve-candidates|agreement|build-dataset|export-grades|apply-grades>",
+        "Usage: search:eval <run|sweep|neighbours|export-features|snapshot|compare|generate-queries|judge|retrieve-candidates|agreement|build-dataset|export-grades|apply-grades>",
       );
       console.error(
         "  run [--arm hybrid,ltr:v1] [--split holdout] [--out file] [--allow-unreviewed true]",
