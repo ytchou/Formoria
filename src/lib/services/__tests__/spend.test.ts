@@ -12,6 +12,7 @@ import {
   countBillableLlmRows,
   cycleForResetDay,
   loadAllPages,
+  loadJevSpend,
   openaiModels,
   type AuditSpanRow,
   type LlmSpendRow,
@@ -264,5 +265,88 @@ describe("spend snapshot", () => {
     const result = snapshot({ registry: [service("railway")] });
 
     expect(result.coverage.nonLlmDollarsAvailable).toBe(false);
+  });
+});
+
+describe("Jev derived spend", () => {
+  type AuditRow = {
+    provider: string;
+    status: string;
+    cost_usd: number | string | null;
+    created_at: string;
+  };
+
+  function auditClient(rows: AuditRow[], tables: string[] = []) {
+    return {
+      from(table: string) {
+        tables.push(table);
+        const eq: Array<[string, unknown]> = [];
+        let gte = "";
+        let lt = "";
+        const matched = () =>
+          rows.filter(
+            (row) =>
+              eq.every(
+                ([column, value]) => row[column as keyof AuditRow] === value,
+              ) &&
+              row.created_at >= gte &&
+              row.created_at < lt,
+          );
+        const builder = {
+          select: () => builder,
+          eq: (column: string, value: unknown) => {
+            eq.push([column, value]);
+            return builder;
+          },
+          gte: (_column: string, value: string) => {
+            gte = value;
+            return builder;
+          },
+          lt: (_column: string, value: string) => {
+            lt = value;
+            return builder;
+          },
+          order: () => builder,
+          range: async (from: number, to: number) => {
+            const all = matched();
+            return {
+              data: all.slice(from, to + 1),
+              count: all.length,
+              error: null,
+            };
+          },
+        };
+        return builder;
+      },
+    } as unknown as Parameters<typeof loadJevSpend>[0];
+  }
+
+  // Bug caught: counting the `started` row (cost null) double-counts every
+  // call and reports each one as unpriced.
+  it("sums succeeded typesafe rows only and counts null-cost rows as unpriced", async () => {
+    const tables: string[] = [];
+    const client = auditClient(
+      [
+        { provider: "typesafe", status: "started", cost_usd: null, created_at: "2026-08-10T01:00:00.000Z" },
+        { provider: "typesafe", status: "succeeded", cost_usd: "0.40", created_at: "2026-08-10T01:00:01.000Z" },
+        { provider: "typesafe", status: "succeeded", cost_usd: 0.1, created_at: "2026-08-10T02:00:00.000Z" },
+        { provider: "typesafe", status: "succeeded", cost_usd: null, created_at: "2026-08-10T03:00:00.000Z" },
+        { provider: "typesafe", status: "failed", cost_usd: 9, created_at: "2026-08-10T04:00:00.000Z" },
+        { provider: "openai", status: "succeeded", cost_usd: 9, created_at: "2026-08-10T05:00:00.000Z" },
+        { provider: "typesafe", status: "succeeded", cost_usd: 9, created_at: "2026-08-11T00:00:00.000Z" },
+      ],
+      tables,
+    );
+
+    const spend = await loadJevSpend(
+      client,
+      "2026-08-10T00:00:00.000Z",
+      "2026-08-11T00:00:00.000Z",
+    );
+
+    expect(spend.usd).toBeCloseTo(0.5);
+    expect(spend.calls).toBe(3);
+    expect(spend.unpricedCalls).toBe(1);
+    expect(tables).toEqual(["external_call_audit"]);
   });
 });

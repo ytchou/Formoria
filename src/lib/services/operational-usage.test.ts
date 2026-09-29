@@ -703,6 +703,102 @@ describe("operational usage risk", () => {
     });
   });
 
+  describe("OpenAI budget meter source", () => {
+    const derivedSpend = () =>
+      Promise.resolve({
+        schemaVersion: 1 as const,
+        generatedAt: NOW.toISOString(),
+        cycles: [
+          {
+            resetsOnDay: 1,
+            start: "2026-08-01T00:00:00.000Z",
+            end: "2026-09-01T00:00:00.000Z",
+          },
+        ],
+        services: [
+          {
+            id: "openai",
+            provenance: "derived" as const,
+            amountUsd: 2,
+            units: 10,
+            unitLabel: "tokens",
+            quotaUsedRatio: null,
+            asOf: null,
+            pricingCoverage: 1,
+          },
+        ],
+        totals: { declaredMonthlyUsd: 0, derivedCycleUsd: 2 },
+        coverage: {
+          unmeteredServices: 0,
+          unpricedCalls: 0,
+          inFlightCalls: 0,
+          nonLlmDollarsAvailable: false as const,
+        },
+      });
+
+    // Bug caught: the budget meter read production brand_ai_results only, so
+    // staging and eval spend never counted against the OpenAI budget.
+    it("uses the billed Costs API total when it is available", async () => {
+      clearProviderEnvironment();
+      const snapshot = await loadOperationalSnapshot({
+        now: NOW,
+        health: healthyHealth(),
+        supabase: null,
+        posthog: null,
+        spend: derivedSpend(),
+        openaiBilledCycleUsd: Promise.resolve(7.5),
+      });
+      expect(row(snapshot, "openai").usage).toMatchObject({
+        state: "ready",
+        primary: expect.objectContaining({
+          value: 7.5,
+          limit: 25,
+          source: "OpenAI Costs API",
+        }),
+      });
+    });
+
+    it("falls back to the labelled derived value when billed spend is unavailable", async () => {
+      clearProviderEnvironment();
+      vi.stubEnv("OPENAI_API_KEY", "openai-key");
+      for (const billed of [
+        () => Promise.resolve(null),
+        () => Promise.reject(new Error("Costs API down")),
+      ]) {
+        const snapshot = await loadOperationalSnapshot({
+          now: NOW,
+          health: healthyHealth(),
+          supabase: null,
+          posthog: null,
+          spend: derivedSpend(),
+          openaiBilledCycleUsd: billed(),
+        });
+        expect(row(snapshot, "openai").usage).toMatchObject({
+          state: "ready",
+          primary: expect.objectContaining({
+            value: 2,
+            source: "Formoria brand_ai_results (derived, prod only)",
+          }),
+        });
+      }
+    });
+
+    it("is unconfigured with neither a billed total nor OPENAI_API_KEY", async () => {
+      clearProviderEnvironment();
+      const snapshot = await loadOperationalSnapshot({
+        now: NOW,
+        health: healthyHealth(),
+        supabase: null,
+        posthog: null,
+        spend: derivedSpend(),
+        openaiBilledCycleUsd: Promise.resolve(null),
+      });
+      expect(row(snapshot, "openai").usage).toMatchObject({
+        state: "unconfigured",
+      });
+    });
+  });
+
   it("keeps a valid Sentry count exact but without an unverified limit", async () => {
     clearProviderEnvironment();
     vi.stubEnv("SENTRY_BASE_URL", "https://sentry.example");

@@ -58,13 +58,27 @@ const aiRow = (overrides: Partial<AiRow> & { created_at: string }): AiRow => ({
   ...overrides,
 });
 
+type JevRow = {
+  provider: string;
+  status: string;
+  cost_usd: number | null;
+  created_at: string;
+};
+
+// Tests never reach the network: the Costs API is injected.
+const costsUnavailable = {
+  fetchOpenAICosts: () => Promise.reject(new Error("not configured")),
+};
+
 function createClientDouble({
   aiRows = [],
   auditRows = [],
+  jevRows = [],
   calls = [],
 }: {
   aiRows?: AiRow[];
   auditRows?: AuditRow[];
+  jevRows?: JevRow[];
   calls?: QueryCall[];
 } = {}) {
   return {
@@ -80,7 +94,12 @@ function createClientDouble({
       };
       calls.push(call);
       const builder = {} as QueryBuilder;
-      const rows = () => (table === "brand_ai_results" ? aiRows : auditRows);
+      const rows = (): Array<AiRow | AuditRow> =>
+        table === "brand_ai_results"
+          ? aiRows
+          : table === "external_call_audit"
+            ? (jevRows as unknown as AuditRow[])
+            : auditRows;
       const matches = (row: AiRow | AuditRow) => {
         const timestamp =
           table === "brand_ai_results"
@@ -164,7 +183,11 @@ describe("daily spend report", () => {
   it("uses a trailing 24h day window and the reset-day cycle window", async () => {
     const calls: QueryCall[] = [];
 
-    const report = await loadSpendReport(createClientDouble({ calls }), AT);
+    const report = await loadSpendReport(
+      createClientDouble({ calls }),
+      AT,
+      costsUnavailable,
+    );
 
     expect(report.day.end).toBe(AT.toISOString());
     expect(report.day.start).toBe("2026-08-09T12:00:00.000Z");
@@ -197,6 +220,7 @@ describe("daily spend report", () => {
         ],
       }),
       AT,
+      costsUnavailable,
     );
 
     expect(report.day.llmUsd).toBe(3.75);
@@ -204,15 +228,119 @@ describe("daily spend report", () => {
   });
 
   it("excludes unmetered services from the dollar total", async () => {
-    const report = await loadSpendReport(createClientDouble(), AT);
+    const report = await loadSpendReport(
+      createClientDouble(),
+      AT,
+      costsUnavailable,
+    );
 
     expect(report.day.llmUsd).toBe(0);
     expect(report.cycle.derivedUsd).toBe(0);
   });
 
   it("reports nonLlmDollarsAvailable as false", async () => {
-    const report = await loadSpendReport(createClientDouble(), AT);
+    const report = await loadSpendReport(
+      createClientDouble(),
+      AT,
+      costsUnavailable,
+    );
 
     expect(report.coverage.nonLlmDollarsAvailable).toBe(false);
+  });
+});
+
+describe("OpenAI billed spend", () => {
+  const day = (start: string, usd: number) => ({
+    start,
+    end: new Date(Date.parse(start) + 86_400_000).toISOString(),
+    usd,
+  });
+
+  // Bug caught: the report showed production-derived spend as the OpenAI
+  // figure while real spend (staging, evals) went unreported.
+  it("reports the previous UTC day and cycle-to-date from one Costs API call", async () => {
+    const windows: Array<{ startTime: Date; endTime: Date }> = [];
+    const report = await loadSpendReport(createClientDouble(), AT, {
+      fetchOpenAICosts: async (window) => {
+        windows.push(window);
+        return {
+          totalUsd: 6,
+          days: [
+            day("2026-08-01T00:00:00.000Z", 1),
+            day("2026-08-09T00:00:00.000Z", 2),
+            day("2026-08-10T00:00:00.000Z", 3),
+          ],
+        };
+      },
+    });
+
+    expect(windows).toEqual([
+      { startTime: new Date("2026-08-01T00:00:00.000Z"), endTime: AT },
+    ]);
+    expect(report.openaiBilled).toEqual({
+      dayUsd: 2,
+      cycleUsd: 6,
+      dayStart: "2026-08-09T00:00:00.000Z",
+      dayEnd: "2026-08-10T00:00:00.000Z",
+    });
+    expect(report.operations?.openai?.value).toBe(6);
+  });
+
+  it("widens the range on the cycle's first day so yesterday is still billed", async () => {
+    const at = new Date("2026-08-01T21:05:00.000Z");
+    const windows: Array<{ startTime: Date; endTime: Date }> = [];
+    const report = await loadSpendReport(createClientDouble(), at, {
+      fetchOpenAICosts: async (window) => {
+        windows.push(window);
+        return {
+          totalUsd: 5,
+          days: [
+            day("2026-07-31T00:00:00.000Z", 4),
+            day("2026-08-01T00:00:00.000Z", 1),
+          ],
+        };
+      },
+    });
+
+    expect(windows[0]?.startTime).toEqual(new Date("2026-07-31T00:00:00.000Z"));
+    expect(report.openaiBilled).toMatchObject({ dayUsd: 4, cycleUsd: 1 });
+  });
+
+  it("is null when the Costs API is unavailable", async () => {
+    const report = await loadSpendReport(
+      createClientDouble(),
+      AT,
+      costsUnavailable,
+    );
+
+    expect(report.openaiBilled).toBeNull();
+  });
+});
+
+describe("Jev derived spend", () => {
+  it("sums succeeded Jev rows for the day and cycle windows", async () => {
+    const jevRow = (
+      created_at: string,
+      cost_usd: number | null,
+      status = "succeeded",
+    ): JevRow => ({ provider: "typesafe", status, cost_usd, created_at });
+    const report = await loadSpendReport(
+      createClientDouble({
+        jevRows: [
+          jevRow("2026-08-02T00:00:00.000Z", 1),
+          jevRow("2026-08-10T10:00:00.000Z", null, "started"),
+          jevRow("2026-08-10T10:00:01.000Z", 0.5),
+          jevRow("2026-08-10T11:00:00.000Z", null),
+        ],
+      }),
+      AT,
+      costsUnavailable,
+    );
+
+    expect(report.jev).toEqual({
+      dayUsd: 0.5,
+      cycleUsd: 1.5,
+      unpricedCalls: 1,
+    });
   });
 });

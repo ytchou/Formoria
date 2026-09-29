@@ -413,6 +413,44 @@ export async function loadSpendWindow(
   };
 }
 
+export type JevSpend = { usd: number; calls: number; unpricedCalls: number };
+
+/**
+ * Derived TypeSafe (Jev) spend from the audit trail. Each Jev call writes a
+ * `started` row (cost null) and a terminal `succeeded` row carrying cost_usd,
+ * so only succeeded rows are counted.
+ */
+export async function loadJevSpend(
+  supabase: SpendClient,
+  start: string,
+  end: string,
+): Promise<JevSpend> {
+  const rows = await loadAllPages<{ cost_usd: number | string | null }>(
+    (from, to, includeCount) =>
+      supabase
+        .from("external_call_audit")
+        .select(
+          "id, cost_usd, created_at",
+          includeCount ? { count: "exact" } : {},
+        )
+        .eq("provider", "typesafe")
+        .eq("status", "succeeded")
+        .gte("created_at", start)
+        .lt("created_at", end)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
+  let usd = 0;
+  let unpricedCalls = 0;
+  // Documented shortcut: JS aggregation; move to a Postgres RPC above ~50k rows/cycle.
+  for (const row of rows) {
+    if (row.cost_usd === null) unpricedCalls += 1;
+    else usd += Number(row.cost_usd);
+  }
+  return { usd, calls: rows.length, unpricedCalls };
+}
+
 async function loadSpendSnapshot(
   supabase = createServiceClient(),
   at = new Date(),
