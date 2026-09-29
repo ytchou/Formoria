@@ -8,7 +8,7 @@ import {
   searchProductsBySituation,
 } from '@/lib/services/product-situation-search'
 import { getPublishedCuratedProducts } from '@/lib/services/curated-products-catalog'
-import { judgeRelevance } from '@/lib/services/eval/search-relevance-judge'
+import { judgeRelevance, judgeRelevanceBatch } from '@/lib/services/eval/search-relevance-judge'
 import type { DecideFn } from '@/lib/services/eval/jev-questions'
 import { decide } from '@/lib/services/typesafe-audit'
 import { fetchLangfusePromptWithMeta } from '@/lib/langfuse/prompt'
@@ -128,7 +128,7 @@ export async function cmdJudge(
 ): Promise<void> {
   if (values.help) {
     console.log(
-      'Usage: pnpm search:eval judge [--judge openai|jev] [--model gpt-4o-mini] [--samples 3] [--temperature 0.7] [--force]',
+      'Usage: pnpm search:eval judge [--judge openai|jev] [--batch] [--samples 3] [--temperature 0.7] [--force]',
     )
     console.log(
       '  Runs LLM judge (multi-sample) on (query, product) pairs, outputs 0-3 grade',
@@ -236,8 +236,54 @@ export async function cmdJudge(
 
     console.log(`[judge] ${queryId}: judging ${pending.length} candidates...`)
 
-    for (let index = 0; index < pending.length; index += 8) {
-      const batch = pending.slice(index, index + 8)
+    if (!isJev && values.batch) {
+      const available = pending
+        .map(candidate => ({ candidate, product: productMap.get(candidate.productId) }))
+        .filter((item): item is { candidate: Candidate; product: NonNullable<typeof item.product> } => Boolean(item.product))
+        .sort((a, b) => `${a.candidate.brandSlug}|${a.candidate.productKey}`.localeCompare(`${b.candidate.brandSlug}|${b.candidate.productKey}`))
+      const batchInput = available.map(({ candidate, product }) => ({
+        id: `${candidate.brandSlug}|${candidate.productKey}`,
+        product: {
+          name_zh: product.nameZh,
+          name_en: product.nameEn,
+          ...(q.queryType === 'brand_name' ? { brand_name: product.brandName } : {}),
+          category_zh: product.category,
+          subcategory_zh: product.subcategory,
+          materials_zh: product.materials.join(', '),
+          description_zh: product.descriptionZh,
+        },
+      }))
+      const batchGrades = await judgeRelevanceBatch(
+        { query: q.query, queryType: q.queryType, products: batchInput },
+        { fetchPrompt: promptMeta ? async () => promptMeta : undefined, samples, temperature },
+      )
+      for (const { candidate, product } of available) {
+        const id = `${candidate.brandSlug}|${candidate.productKey}`
+        const result = batchGrades.get(id)
+        if (!result || result.grade == null || result.votes.length !== samples) {
+          console.warn(`  ${candidate.productKey}: incomplete batch vote, retried on --resume`)
+          continue
+        }
+        judgedPairs.push({
+          queryId: candidate.queryId,
+          query: q.query,
+          brandSlug: candidate.brandSlug,
+          productKey: candidate.productKey,
+          nameZh: product.nameZh,
+          descriptionZh: product.descriptionZh,
+          officialUrl: product.officialUrl,
+          categoryZh: product.category,
+          votes: result.votes,
+          grade: result.grade,
+          split: result.split,
+        })
+      }
+      writeFileSync(outPath, JSON.stringify(judgedPairs, null, 2))
+      continue
+    }
+
+    for (let index = 0; index < pending.length; index += 4) {
+      const batch = pending.slice(index, index + 4)
       const graded = await Promise.all(batch.map(async c => {
         const product = productMap.get(c.productId)
         if (!product) {

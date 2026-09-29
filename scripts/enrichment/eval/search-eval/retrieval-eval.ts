@@ -736,6 +736,7 @@ async function main() {
       temperature: { type: "string" },
       pageSize: { type: "string" },
       judge: { type: "string" },
+      batch: { type: "boolean", default: false },
       judged: { type: "string" },
       "grade-mode": { type: "string" },
       human: { type: "string" },
