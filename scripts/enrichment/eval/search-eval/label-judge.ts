@@ -236,8 +236,8 @@ export async function cmdJudge(
 
     console.log(`[judge] ${queryId}: judging ${pending.length} candidates...`)
 
-    for (let index = 0; index < pending.length; index += 4) {
-      const batch = pending.slice(index, index + 4)
+    for (let index = 0; index < pending.length; index += 8) {
+      const batch = pending.slice(index, index + 8)
       const graded = await Promise.all(batch.map(async c => {
         const product = productMap.get(c.productId)
         if (!product) {
