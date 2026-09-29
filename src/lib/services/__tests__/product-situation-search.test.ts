@@ -173,6 +173,7 @@ describe("searchProductsBySituation", () => {
       filter_subcategories: ["tea"],
       filter_materials: ["ceramic"],
     });
+    expect(rpcArgs[1]).not.toHaveProperty("lexical_params");
 
     // Hydrated in RPC order (p1 first, then p2)
     expect(result.products.map((p) => p.id)).toEqual(["p1", "p2"]);

@@ -16,6 +16,7 @@ const AMBIGUITY_FIX_FILE =
   "20260916103000_fix_situation_search_product_id_ambiguity.sql";
 const LTR_MIGRATION_FILE = "20260916120000_situation_search_ltr_columns.sql";
 const LTR_REVERSE_FILE = "20260916120000_revert_situation_search_ltr_columns.sql";
+const SCORER_FILE = "20260930110000_lexical_scorer_bm25f.sql";
 
 function migrationText(): string {
   return readFileSync(
@@ -216,5 +217,33 @@ describe("ltr columns migration contract", () => {
       "returns table(product_id uuid, rank_score real, search_source text)",
     );
     expect(sql).toContain("has_function_privilege('anon'");
+  });
+});
+
+describe("field-weighted lexical scorer migration", () => {
+  it("stems Latin query tokens and offers the three scorer branches", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", SCORER_FILE), "utf8");
+    expect(sql).toContain("to_tsvector('english', v_token)");
+    expect(sql).toContain("params jsonb default null");
+    expect(sql).toContain("'bm25f'");
+    expect(sql).toContain("'tsrank'");
+    expect(sql).toContain("'idf'");
+    expect(sql).toContain("unnest(cp.search_vector)");
+    expect(sql).toContain("ts_stat(");
+  });
+
+  it("passes lexical params through the hybrid RPC and protects the new signatures", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", SCORER_FILE), "utf8");
+    expect(sql).toContain("situation_search_lexical(query_text, 100, lexical_params)");
+    expect(sql).toContain("1.0 / (60 + v.rnk)");
+    expect(sql).toContain("limit 100");
+    for (const signature of [
+      "situation_query_bigrams(text)",
+      "situation_search_lexical(text, integer, jsonb)",
+      "search_products_semantic(text, extensions.vector, text, integer, text, text[], text[], jsonb)",
+    ]) {
+      expect(sql).toContain(`revoke all on function public.${signature}`);
+      expect(sql).toContain(`has_function_privilege('anon', 'public.${signature}'`);
+    }
   });
 });
