@@ -106,6 +106,7 @@ export type OperationalAlertSummary = {
   resend: OperationalAlertMeter | null;
   langfuse: OperationalAlertMeter | null;
   github: OperationalAlertMeter | null;
+  railway: OperationalAlertMeter | null;
 };
 
 export type UsageMetricInput = {
@@ -489,13 +490,14 @@ export function parseUpstashStats(value: unknown): {
 async function auditedJson(
   url: string,
   init: RequestInit,
-  provider: "upstash" | "sentry" | "langfuse" | "github",
+  provider: "upstash" | "sentry" | "langfuse" | "github" | "railway",
   operation:
     | "get_database"
     | "get_stats"
     | "get_error_events"
     | "get_daily_metrics"
-    | "get_workflow_runs",
+    | "get_workflow_runs"
+    | "get_customer_usage",
   fetchImpl: typeof fetch,
 ): Promise<unknown> {
   const parsedUrl = new URL(url);
@@ -524,6 +526,7 @@ async function auditedJson(
         sentry: "Sentry",
         langfuse: "Langfuse",
         github: "GitHub",
+        railway: "Railway",
       }[provider];
       if (!response.ok)
         throw new Error(`${providerName} returned HTTP ${response.status}.`);
@@ -822,6 +825,110 @@ async function fetchGitHubActionsUsage(
   };
 }
 
+export type RailwayCustomerUsage = {
+  usageUsd: number;
+  softLimitUsd: number | null;
+  window: UsageWindow;
+};
+
+export function parseRailwayCustomerUsage(value: unknown): RailwayCustomerUsage {
+  const malformed = () => new Error("Railway usage response was malformed.");
+  const record = (input: unknown): Record<string, unknown> => {
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      throw malformed();
+    return input as Record<string, unknown>;
+  };
+  const body = record(value);
+  if (Array.isArray(body.errors) && body.errors.length > 0) throw malformed();
+  const customer = record(
+    record(record(body.data).workspace).customer,
+  );
+  const usageUsd = customer.currentUsage;
+  const period = record(customer.billingPeriod);
+  if (
+    typeof usageUsd !== "number" ||
+    !Number.isFinite(usageUsd) ||
+    usageUsd < 0 ||
+    typeof period.start !== "string" ||
+    typeof period.end !== "string" ||
+    !Number.isFinite(Date.parse(period.start)) ||
+    !Number.isFinite(Date.parse(period.end))
+  ) {
+    throw malformed();
+  }
+  // No usage limit configured → `usageLimit` is null and the meter has no cap.
+  const softLimit =
+    customer.usageLimit === null || customer.usageLimit === undefined
+      ? null
+      : record(customer.usageLimit).softLimit;
+  return {
+    usageUsd,
+    softLimitUsd:
+      typeof softLimit === "number" && Number.isFinite(softLimit) && softLimit > 0
+        ? softLimit
+        : null,
+    window: { start: period.start, end: period.end },
+  };
+}
+
+const RAILWAY_USAGE_QUERY = `query($id: String!) {
+  workspace(workspaceId: $id) {
+    customer {
+      currentUsage
+      usageLimit { softLimit }
+      billingPeriod { start end }
+    }
+  }
+}`;
+
+async function fetchRailwayUsage(
+  now: Date,
+  fetchImpl: typeof fetch,
+): Promise<MeteredUsage> {
+  const token = process.env.RAILWAY_USAGE_TOKEN?.trim();
+  const workspaceId = process.env.RAILWAY_WORKSPACE_ID?.trim();
+  if (!providerConfigured(token, workspaceId)) {
+    return {
+      state: "unconfigured",
+      message: "Railway usage monitoring is not configured.",
+    };
+  }
+  const body = await auditedJson(
+    "https://backboard.railway.com/graphql/v2",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: RAILWAY_USAGE_QUERY,
+        variables: { id: workspaceId },
+      }),
+    },
+    "railway",
+    "get_customer_usage",
+    fetchImpl,
+  );
+  const usage = parseRailwayCustomerUsage(body);
+  return {
+    state: "ready",
+    primary: createMetric({
+      value: usage.usageUsd,
+      unit: "USD",
+      // The workspace's own soft usage limit; the meter warns as spend nears it.
+      limit: usage.softLimitUsd,
+      window: usage.window,
+      source: "Railway customer.currentUsage",
+      // Deliberately no linear projection: Railway usage is front-loaded by
+      // one-off egress, so value/elapsed over-projects and would warn daily.
+      // Upgrade path: derive one from the estimatedUsage query.
+      projection: null,
+      at: now,
+    }),
+  };
+}
+
 type OperationalDependencies = {
   now?: Date;
   health?: Promise<ExecutiveHealthSnapshot>;
@@ -1037,6 +1144,13 @@ async function collectMeteredUsage(
         ...usage,
       })),
     },
+    {
+      id: "railway-formoria",
+      promise: fetchRailwayUsage(now, fetchImpl).then((usage) => ({
+        id: "railway-formoria",
+        ...usage,
+      })),
+    },
   ];
   const outputs = await Promise.allSettled(tasks.map((task) => task.promise));
   const map = new Map<string, MeteredUsage>();
@@ -1064,7 +1178,6 @@ function usageForEntry(
   if (
     entry.id === "supabase" ||
     entry.id === "public-site" ||
-    entry.id === "railway-formoria" ||
     entry.id === "railway-curation-worker"
   ) {
     return emptyUsage("unsupported", "Dashboard only");
@@ -1079,6 +1192,7 @@ function usageForEntry(
       "sentry",
       "langfuse",
       "github",
+      "railway-formoria",
     ].includes(entry.id)
   ) {
     return toUsage(
@@ -1248,6 +1362,7 @@ export function buildOperationalAlertSummary(
     resend: alertMeter(byId.get("resend")),
     langfuse: alertMeter(byId.get("langfuse")),
     github: alertMeter(byId.get("github")),
+    railway: alertMeter(byId.get("railway-formoria")),
   };
 }
 

@@ -235,6 +235,7 @@ export async function loadSpendReport(
       resend: null,
       langfuse: null,
       github: null,
+      railway: null,
     };
   }
 

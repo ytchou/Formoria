@@ -500,7 +500,12 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-critical",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["FORMORIA_RAILWAY_URL", "OPS_AGENT_RAILWAY_TOKEN"],
+    envVars: [
+      "FORMORIA_RAILWAY_URL",
+      "OPS_AGENT_RAILWAY_TOKEN",
+      "RAILWAY_USAGE_TOKEN",
+      "RAILWAY_WORKSPACE_ID",
+    ],
     status: "active",
     plan: {
       kind: "usage",
