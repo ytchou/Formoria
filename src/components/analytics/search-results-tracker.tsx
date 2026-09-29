@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
-import { trackSearchExecuted, trackSearchNoResults, trackProductSearchExecuted, trackProductSearchResultsViewed } from '@/lib/analytics'
+import { trackSearchExecuted, trackSearchNoResults, trackProductSearchExecuted, trackProductSearchResultsViewed, trackProductSearchEmpty } from '@/lib/analytics'
 
 /**
  * How long a query must stay put before it counts as a search.
@@ -141,8 +141,9 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
       } else {
         trackSearchExecuted(trimmed, resultCount)
       }
-      if (resultCount === 0 && trackerKind !== 'product') {
-        trackSearchNoResults(trimmed)
+      if (resultCount === 0) {
+        if (trackerKind === 'product') trackProductSearchEmpty(trimmed, searchId)
+        else trackSearchNoResults(trimmed)
       }
       if (trackerKind === 'product' && searchId && productKeys) {
         // Impression event is page-scoped: slice armBySlot to match productKeys length.

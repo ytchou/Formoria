@@ -3,12 +3,14 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render } from '@testing-library/react'
+import { registerPostHogProvider, clearPostHogProviderForTests } from '@/lib/analytics/posthog-provider'
 
 const trackSearchExecuted = vi.fn()
 const trackSearchNoResults = vi.fn()
 const trackProductSearchExecuted = vi.fn()
 const trackProductSearchResultsViewed = vi.fn()
-vi.mock('@/lib/analytics', () => ({
+vi.mock('@/lib/analytics', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/analytics')>(),
   trackSearchExecuted: (...args: unknown[]) => trackSearchExecuted(...args),
   trackSearchNoResults: (...args: unknown[]) => trackSearchNoResults(...args),
   trackProductSearchExecuted: (...args: unknown[]) => trackProductSearchExecuted(...args),
@@ -38,6 +40,7 @@ describe('SearchResultsTracker', () => {
   })
 
   afterEach(() => {
+    clearPostHogProviderForTests()
     vi.useRealTimers()
   })
 
@@ -177,17 +180,20 @@ describe('SearchResultsTracker', () => {
     expect(trackSearchExecuted).not.toHaveBeenCalled()
   })
 
-  it('with trackerKind="product" does not fire brand zero-result tracker', () => {
-    render(
-      <SearchResultsTracker
-        query="罕見商品"
-        resultCount={0}
-        trackerKind="product"
-      />,
-    )
+  it('emits one product empty event for a settled zero-result search', () => {
+    const captured: { event: string; properties?: Record<string, unknown> }[] = []
+    registerPostHogProvider({
+      capture: (event, properties) => { captured.push({ event, properties }) },
+      identify() {}, reset() {},
+    })
+    const props = { query: '罕見商品', resultCount: 0, trackerKind: 'product' as const, searchId: 'rare-product-search' }
+    const { rerender } = render(<SearchResultsTracker {...props} />)
     settle()
-
-    expect(trackProductSearchExecuted).toHaveBeenCalledOnce()
+    rerender(<SearchResultsTracker {...props} />)
+    settle()
+    expect(captured).toEqual([{ event: 'product_search_empty', properties: {
+      query_length: 4, search_term: '罕見商品', search_id: 'rare-product-search',
+    } }])
     expect(trackSearchNoResults).not.toHaveBeenCalled()
   })
 

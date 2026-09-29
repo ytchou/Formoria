@@ -474,7 +474,7 @@ describe("buildWebSiteJsonLd", () => {
   it("includes SearchAction with search URL template", () => {
     const jsonLd = buildWebSiteJsonLd();
     expect(jsonLd.potentialAction["@type"]).toBe("SearchAction");
-    expect(jsonLd.potentialAction.target.urlTemplate).toContain("search=");
+    expect(jsonLd.potentialAction.target.urlTemplate).toContain("/discover?q=");
     expect(jsonLd.potentialAction["query-input"]).toContain(
       "search_term_string",
     );
@@ -487,10 +487,10 @@ describe("buildWebSiteJsonLd", () => {
     expect(jsonLd.publisher["@id"]).toBe(organization["@id"]);
   });
 
-  it("SearchAction targets /brands?search= not /?search=", () => {
+  it("SearchAction targets product discovery", () => {
     const jsonLd = buildWebSiteJsonLd();
     const urlTemplate = jsonLd.potentialAction.target.urlTemplate;
-    expect(urlTemplate).toContain("/brands?search=");
+    expect(urlTemplate).toContain("/discover?q={search_term_string}");
     expect(urlTemplate).not.toContain("/?search=");
   });
 });

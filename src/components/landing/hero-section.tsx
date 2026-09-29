@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { getTranslations } from "next-intl/server";
-import { SearchInput } from "@/components/brands/search-input";
+import { ProductSearchBoxCompact } from "@/components/products/product-situation-search-form";
 import { actionLinkStyles } from "@/components/ui/action-link";
 import { PhotoBand } from "@/components/ui/photo-band";
 import { routes } from "@/lib/routes";
@@ -48,10 +48,11 @@ export default async function HeroSection() {
           <Suspense
             fallback={<div className="h-11 w-full flex-1" aria-hidden="true" />}
           >
-            <SearchInput
-              redirectTo={routes.brands()}
+            <ProductSearchBoxCompact
+              src="hero"
+              visibleLabel
               placeholder={t("searchPlaceholder")}
-              formAriaLabel={t("searchLabel")}
+              label={t("searchLabel")}
               className="max-w-none flex-1"
             />
           </Suspense>

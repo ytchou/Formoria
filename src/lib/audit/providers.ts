@@ -62,6 +62,7 @@ const PROVIDERS = {
     "upsertEnrichedStockists",
   ],
   cache: [
+    "getCachedBrandNameIndex",
     "getCachedExploreBrandPool",
     "getCachedMetrics",
     "getCachedRecentBrandCount",

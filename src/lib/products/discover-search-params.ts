@@ -208,6 +208,7 @@ export function parseInferredFields(raw: RawParamValue): InferredField[] {
 
 /** Params this builder owns; everything else passes through unchanged. */
 const SYNC_OWNED_KEYS = new Set([
+  "src",
   "q",
   "category",
   "sub",
@@ -282,4 +283,11 @@ export function sortOptionsFor(hasQuery: boolean): DiscoverSort[] {
   return hasQuery
     ? ["relevance", "newest", "alphabetical"]
     : ["newest", "alphabetical"];
+}
+
+export function parseDiscoverSource(
+  params: RawSearchParams,
+): "nav" | "hero" | "discover_page" {
+  const source = firstValue(params.src);
+  return source === "nav" || source === "hero" ? source : "discover_page";
 }

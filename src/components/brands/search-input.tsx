@@ -1,14 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { SearchFieldShell } from '@/components/search/search-field-shell'
 import {
   trackSearchExecuted,
   trackSearchResultClicked,
@@ -244,81 +242,23 @@ function SearchInput({
         </span>
       ) : null}
 
-      {/* Search icon */}
-      {isBusy ? (
-        <Loader2
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-ink-muted"
-          aria-hidden="true"
-        />
-      ) : (
-        <svg
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          stroke="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-          />
-        </svg>
-      )}
-
-      <Input
-        name="q"
-        type="text"
-        role="searchbox"
-        aria-label={t('search.aria')}
-        aria-autocomplete="list"
-        aria-controls={showDropdown ? suggestionsId : undefined}
-        aria-activedescendant={
-          showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
-            ? searchSuggestionOptionId(
-                suggestionsId,
-                suggestions[selectedIndex].id,
-              )
-            : undefined
-        }
-        placeholder={placeholder ?? t('search.placeholder')}
-        maxLength={100}
+      <SearchFieldShell
         value={value}
         onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        className="w-full pl-9 pr-8"
+        onClear={handleClear}
+        busy={isBusy}
+        clearLabel={t('search.clear')}
+        inputProps={{
+          name: 'q', type: 'search',
+          'aria-label': t('search.aria'),
+          'aria-autocomplete': 'list',
+          'aria-controls': showDropdown ? suggestionsId : undefined,
+          'aria-activedescendant': showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
+            ? searchSuggestionOptionId(suggestionsId, suggestions[selectedIndex].id) : undefined,
+          placeholder: placeholder ?? t('search.placeholder'),
+          maxLength: 100, onKeyDown: handleKeyDown,
+        }}
       />
-
-      {/* Clear button */}
-      {value && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleClear}
-          aria-label={t('search.clear')}
-          // `size="icon"` is 44px against the old 28px box, so the glyph is
-          // held in the same place by POSITION rather than by re-adding a
-          // height: `right-0` puts its centre at the 22px inset the `right-2`
-          // + `p-1.5` box used to produce, and 44px is exactly the `h-11`
-          // field, so vertical centring is unchanged. No hover fill — the
-          // affordance here has always been the glyph darkening.
-          className="absolute right-0 top-1/2 -translate-y-1/2 text-ink-muted hover:bg-transparent hover:text-ink"
-        >
-          <svg
-            className="h-4 w-4"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </Button>
-      )}
 
       {/* Hidden submit button ensures implicit form submission works in all browsers (WebKit) */}
       <button type="submit" hidden aria-hidden="true" tabIndex={-1} />

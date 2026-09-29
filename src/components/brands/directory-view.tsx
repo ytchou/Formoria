@@ -1,3 +1,4 @@
+import { SearchInput } from "@/components/brands/search-input";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import {
@@ -393,6 +394,7 @@ export async function DirectoryView({
         <header className="prose-measure space-y-3">
           <h1 className="type-page-title">{pageHeading}</h1>
           <p className="type-body">{t("subheading")}</p>
+          <SearchInput />
         </header>
 
         {/* Mobile drawer trigger */}

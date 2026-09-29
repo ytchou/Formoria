@@ -1,14 +1,20 @@
-import { cleanupTestData } from './helpers/cleanup';
-import { validateStagingTarget } from '../src/lib/supabase/project-target';
+import { cleanupTestData } from "./helpers/cleanup";
+import { validateStagingTarget } from "../src/lib/supabase/project-target";
 
 async function globalTeardown() {
-  validateStagingTarget(process.env);
+  const localApp = process.env.E2E_LOCAL_APP === "true";
+  validateStagingTarget(process.env, { allowLocalApp: localApp });
+  // Local runs can overlap deployed staging: fixture finally/afterAll owns cleanup,
+  // while the broad namespace sweep is reserved for serialized deployed runs.
+  if (localApp) return;
   // Previous runs' orphans, then this run's own rows. The second sweep is a
   // hard integrity gate: a green deployed run must not leave E2E data behind.
   await cleanupTestData();
   const createdSince = process.env.E2E_RUN_STARTED_AT;
   if (!createdSince) {
-    throw new Error('[E2E teardown] E2E_RUN_STARTED_AT is missing; refusing to certify cleanup');
+    throw new Error(
+      "[E2E teardown] E2E_RUN_STARTED_AT is missing; refusing to certify cleanup",
+    );
   }
   await cleanupTestData({ createdSince });
 }

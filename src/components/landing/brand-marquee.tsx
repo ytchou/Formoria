@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import AutoScroll from "embla-carousel-auto-scroll";
 import useEmblaCarousel from "embla-carousel-react";
 import { Link } from "@/i18n/navigation";
-import { SurfaceImage } from "@/components/ui/image";
+import { BrandAvatar } from "@/components/brands/brand-avatar";
 
 type MarqueeBrand = {
   id: string;
@@ -76,29 +76,7 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
               href={brand.href}
               className="flex flex-col items-center rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground"
             >
-              {brand.imageSrc ? (
-                <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-surface">
-                  <SurfaceImage
-                    src={brand.imageSrc}
-                    alt={brand.name}
-                    fill
-                    surface="thumb"
-                    className="object-cover"
-                  />
-                </div>
-              ) : (
-                <div
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-deep"
-                  aria-hidden="true"
-                >
-                  <span className="type-metadata text-ink-soft">
-                    {brand.name.charAt(0)}
-                  </span>
-                </div>
-              )}
-              <span className="mt-1 line-clamp-1 type-metadata text-ink-soft text-center">
-                {brand.name}
-              </span>
+              <BrandAvatar name={brand.name} imageSrc={brand.imageSrc} />
             </Link>
           </li>
         ))}

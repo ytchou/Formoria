@@ -28,15 +28,16 @@ const INTENT_PARSE_FAILURE_THRESHOLD = 0.1
  * A single aggregate query that counts:
  * - total search events in the past 24 hours
  * - degraded searches (those with degraded=true property)
- * - intent-parse failures (those with intent_parse_failed=true property)
+ * - intent-parse failures (those with intent_parsed=failed property)
  */
 const SEARCH_QUALITY_QUERY = `
   SELECT
     count() AS total_searches,
     countIf(properties.degraded = 'true') AS degraded_count,
-    countIf(properties.intent_parse_failed = 'true') AS intent_parse_failures
+    countIf(properties.intent_parsed = 'failed') AS intent_parse_failures,
+    countIf(properties.intent_parsed IN ('ok', 'failed')) AS intent_parse_attempts
   FROM events
-  WHERE event = 'situation_search_executed'
+  WHERE event = 'product_search_executed'
     AND timestamp >= now() - INTERVAL 1 DAY
 `
 
@@ -77,7 +78,8 @@ export const searchDetector: Detector = {
     if (totalSearches === 0) return findings
 
     const degradedShare = degradedCount / totalSearches
-    const intentFailureShare = intentFailures / totalSearches
+    const intentAttempts = Number(row[colIdx('intent_parse_attempts')] ?? 0)
+    const intentFailureShare = intentAttempts > 0 ? intentFailures / intentAttempts : 0
 
     if (degradedShare > DEGRADED_SHARE_THRESHOLD) {
       findings.push({
