@@ -57,7 +57,7 @@ import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/type
 export type ArmSpec =
   | { kind: 'prompt'; version: number }
   | { kind: 'model'; model: string }
-  | { kind: 'jev'; version: string }
+  | { kind: 'jev'; version: string; promptVersion?: number }
 
 /** Pairwise runs compare generated text; jev arms are rejected at parse time. */
 export type PairwiseArmSpec = Exclude<ArmSpec, { kind: 'jev' }>
@@ -138,11 +138,20 @@ export function parseArm(spec: string): ArmSpec {
   }
 
   if (kind === 'jev') {
+    // `jev:<version>@<promptVersion>` also pins the adapter's prompt (DEV-1894).
+    const at = value.indexOf('@')
+    const version = at === -1 ? value : value.slice(0, at)
     // Only the pinned version: a floating tag would make runs irreproducible.
-    if (value !== JEV_MODEL) {
+    if (version !== JEV_MODEL) {
       throw new Error(`Malformed arm spec: ${spec} (jev version must be ${JEV_MODEL})`)
     }
-    return { kind: 'jev', version: value }
+    if (at === -1) return { kind: 'jev', version }
+    const pin = value.slice(at + 1)
+    const promptVersion = Number(pin)
+    if (!/^\d+$/.test(pin) || promptVersion < 1) {
+      throw new Error(`Malformed arm spec: ${spec} (prompt version must be a positive integer)`)
+    }
+    return { kind: 'jev', version, promptVersion }
   }
 
   throw new Error(
@@ -787,6 +796,32 @@ async function loadDatasetItems(
   }))
 }
 
+/**
+ * Refuses arm sets that would compare a jev arm and the incumbent on different
+ * rules (DEV-1894 D13). A `jev:<ver>@N` pin is only meaningful where the jev
+ * candidate reads the adapter's prompt as its rules; elsewhere it is inert.
+ * Where it does read them, a prompt arm beside an unpinned jev arm would give
+ * Jev the production-labelled version instead of the version under test.
+ */
+export function checkRunArms(dataset: string, adapter: PhaseAdapter, armSpecs: ArmSpec[]): void {
+  const readsRules = adapter.promptName !== null && adapter.decideUsesPrompt === true
+  const jevArms = armSpecs.filter((spec): spec is Extract<ArmSpec, { kind: 'jev' }> => spec.kind === 'jev')
+  for (const spec of jevArms) {
+    if (spec.promptVersion !== undefined && !readsRules) {
+      throw new Error(
+        `[run] arm jev:${spec.version}@${spec.promptVersion}: the ${dataset} jev candidate does not read prompt rules, so a prompt pin would be inert; drop the @${spec.promptVersion}`,
+      )
+    }
+  }
+  const promptArm = armSpecs.find((spec): spec is Extract<ArmSpec, { kind: 'prompt' }> => spec.kind === 'prompt')
+  const unpinned = jevArms.find((spec) => spec.promptVersion === undefined)
+  if (readsRules && promptArm && unpinned) {
+    throw new Error(
+      `[run] ${dataset}: arm jev:${unpinned.version} is unpinned beside prompt:${promptArm.version}, so Jev would run on different rules than the incumbent; pin the jev arm, e.g. jev:${unpinned.version}@${promptArm.version}`,
+    )
+  }
+}
+
 export async function cmdRun(
   dataset: string,
   armSpecs: ArmSpec[],
@@ -795,6 +830,7 @@ export async function cmdRun(
   runDeps: RunDeps = {},
 ): Promise<void> {
   const adapter = adapterFor(dataset)
+  checkRunArms(dataset, adapter, armSpecs)
 
   const rawItems = await loadDatasetItems(dataset, runDeps.getDataset)
   if (!rawItems) {
@@ -846,6 +882,14 @@ export async function cmdRun(
       }
     }
     if (spec.kind === 'jev') {
+      if (spec.promptVersion !== undefined) {
+        return {
+          name: `${spec.version}@${spec.promptVersion}`,
+          type: 'custom' as const,
+          value: `jev:${spec.version}`,
+          promptVersions: `${adapter.promptName}:${spec.promptVersion}`,
+        }
+      }
       return { name: spec.version, type: 'custom' as const, value: `jev:${spec.version}` }
     }
     return { name: spec.model, type: 'model' as const, value: spec.model }

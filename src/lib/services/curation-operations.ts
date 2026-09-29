@@ -28,7 +28,7 @@ import type { BlockContext, BlockRunResult } from "./enrich-blocks/registry";
 import { runBlocks } from "./enrich-blocks/runner";
 import { restoreAcquireCheckpoint } from "./enrich-blocks/hydration";
 import { createSupabasePhaseOutputStore, toAcquireCarry, isUsablePhaseOutput, mergeSelectedPhaseOutputs } from "./enrich-blocks/phase-outputs";
-import { normalizeToRootUrl } from "@/lib/url";
+import { normalizeToRootUrl, sanitizeHref } from "@/lib/url";
 import {
   ONLINE_STORES,
   type OnlineStoreColumn,
@@ -39,6 +39,7 @@ import {
   hasLinkValue,
   LINK_FIELDS,
   linkColumnFor,
+  pageKey,
 } from "./link-enrichment";
 import {
   collectHubUrls,
@@ -874,8 +875,50 @@ function chunkItems<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-// Probe cap imported from the prompt owner — see `probeLines` in category-classifier.ts.
-// Probing more would pay for evidence no model ever reads.
+// Probe cap imported from the prompt owner — `renderDetectUserMessage` in
+// category-classifier.ts renders at most MAX_PROBE_URLS probe lines. Probing more
+// would pay for evidence no model ever reads.
+
+/**
+ * Gather's SERP name query. The IG handle is included when usable so a single
+ * credit covers both name and handle discovery. Exported so the detect golden
+ * regenerate script re-searches with the exact production query (DEV-1894).
+ */
+export function serpNameQuery(name: string, handle: string | null): string {
+  return handle && isUsableHandle(handle)
+    ? `${name} ${handle} 台灣`
+    : `${name} 台灣`;
+}
+
+/**
+ * A brand's own URLs, shared by the probe list and detect's search-result
+ * ownership tags. The submitted `website_url` leads (D15): it is the one URL
+ * the brand itself named, so the probe cap must never push it out. A
+ * schemeless `website_url` gets `https://` (fetch throws on it otherwise), and
+ * scheme, `www.` and trailing-slash variants of one page collapse to the first,
+ * so duplicates cannot eat MAX_PROBE_URLS slots.
+ */
+export function ownedUrlsFor(
+  brand: { website_url?: string | null } & Partial<
+    Pick<BrandFlatLinkColumns, LinkColumn>
+  >,
+): string[] {
+  const seen = new Set<string>();
+  const owned: string[] = [];
+  for (const url of [
+    sanitizeHref(brand.website_url) ?? "",
+    ...collectKnownUrls(brand),
+  ]) {
+    if (!url) continue;
+    // pageKey ignores the query, so two same-path owned URLs differing only
+    // by query collapse; no link column holds two such URLs for one brand.
+    const key = pageKey(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    owned.push(url);
+  }
+  return owned;
+}
 
 /** Reads only the link columns, so any brand-shaped row can be passed. */
 export function collectKnownUrls(
@@ -2108,9 +2151,7 @@ export async function runEnrich(
                     } else {
                       serp = "searched";
                       const queryTemplate = (name: string) =>
-                        handle && isUsableHandle(handle)
-                          ? `${name} ${handle} 台灣`
-                          : `${name} 台灣`;
+                        serpNameQuery(name, handle);
                       let nameResult: SerpResult = undefined;
                       try {
                         const results = await batchSearchBrandsWithSnippets(
@@ -2220,6 +2261,9 @@ export async function runEnrich(
                   chunk,
                   chunkBrandNames: chunk.map(getDisplayBrandName),
                 };
+                // Each brand's own URLs, shared by the probe list and detect's
+                // search-result ownership tags. Filled only when detect runs.
+                const ownedUrlsByBrandId = new Map<string, string[]>();
                 // ---- Probe evidence collection (per-brand, AFTER link expansion) ----
                 // Moved after expansion so adopted URLs are included in the probe set.
                 // Skipped for products-only jobs: probes only feed the detect phase.
@@ -2235,10 +2279,9 @@ export async function runEnrich(
                   const probeUrls: string[] = [];
                   const seenProbeUrls = new Set<string>();
                   for (const brand of chunk) {
-                    const urls = collectKnownUrls(brand).slice(
-                      0,
-                      MAX_PROBE_URLS,
-                    );
+                    const ownedUrls = ownedUrlsFor(brand);
+                    ownedUrlsByBrandId.set(brand.id, ownedUrls);
+                    const urls = ownedUrls.slice(0, MAX_PROBE_URLS);
                     if (urls.length === 0) continue;
                     probeUrlsByBrandId.set(brand.id, urls);
                     for (const url of urls) {
@@ -2272,6 +2315,7 @@ export async function runEnrich(
                   batchContext,
                   searchResults,
                   probeEvidenceByBrandId,
+                  ownedUrlsByBrandId,
                 );
                 const detectResults = detectPhaseResult.detectResults;
                 /**

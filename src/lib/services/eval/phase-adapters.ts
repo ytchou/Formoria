@@ -32,7 +32,11 @@ import {
 import { AcquisitionPlan, CritiqueVerdictSchema } from '@/lib/services/enrich-phases/acquisition/plan'
 import { runPlanStage } from '@/lib/services/enrich-phases/acquisition/graph'
 import { fetchHtmlWithMetadata } from '@/lib/services/enrich-phases/scraper/fetch-guards'
-import { fetchLangfusePromptWithMeta, parsePromptVersionPins } from '@/lib/langfuse/prompt'
+import {
+  fetchLangfusePromptWithMeta,
+  parsePromptVersionPins,
+  type PromptMeta,
+} from '@/lib/langfuse/prompt'
 import {
   confidenceBandAgreement,
   writeEligibleAgreement,
@@ -112,13 +116,22 @@ export interface PhaseAdapter {
    * An output that carries a numeric `probability` adds a threshold sweep to
    * the run summary.
    */
-  decide?: (item: ExperimentItem, ctx: { itemRunId: string }) => Promise<{
+  decide?: (item: ExperimentItem, ctx: {
+    itemRunId: string
+    /** The arm's prompt, resolved once per arm; passed only when `decideUsesPrompt`. */
+    prompt?: Pick<PromptMeta, 'text' | 'prompt'>
+  }) => Promise<{
     ok: boolean
     output: unknown
     error?: string
     /** Raw Jev answers, written to the run file for offline threshold tuning. */
     answers?: Record<string, unknown>
   }>
+  /**
+   * The decide hook reads `ctx.prompt` text as its rules (DEV-1894 D13), so a
+   * jev arm on this adapter can pin the prompt (`jev:<version>@N`).
+   */
+  decideUsesPrompt?: true
   summarize?: (results: ArmResult[]) => string
   reviewView?: (item: ExperimentItem) => unknown
   /**
@@ -160,10 +173,12 @@ function makeRequestSchema(name: string, schema: ZodType): { name: string; schem
 function jevDecide<I, S extends JevState, O>(
   candidate: JevCandidate<I, S, O> | TwoStepJevCandidate<I, S, O>,
   decide: DecideFn,
+  inputOf: (item: ExperimentItem, ctx: Parameters<NonNullable<PhaseAdapter['decide']>>[1]) => unknown = (item) =>
+    item.input,
 ): NonNullable<PhaseAdapter['decide']> {
-  return async (item) => {
+  return async (item, ctx) => {
     try {
-      const { output, answers } = await runJevCandidate(candidate, decide, item.input as I)
+      const { output, answers } = await runJevCandidate(candidate, decide, inputOf(item, ctx) as I)
       return { ok: true, output, answers }
     } catch (e) {
       return { ok: false, output: null, error: describeError(e) }
@@ -546,15 +561,31 @@ export type AdapterDeps = {
   callModel?: IntentCallModel
 }
 
+/**
+ * DEV-1894: the detect Jev candidate runs on the same instructions as the
+ * incumbent — the arm's `detect` prompt text rides along as `rules`.
+ * `runExperiment` fetches that prompt once per arm (through
+ * `fetchLangfusePromptWithMeta`, which honours the arm's pin) and checks the
+ * pinned version landed, so no item can run on a different version.
+ */
+function withDetectRules(item: ExperimentItem, ctx: Parameters<NonNullable<PhaseAdapter['decide']>>[1]): unknown {
+  if (!ctx.prompt) {
+    throw new Error('detect jev decide needs the arm prompt (ctx.prompt); run it through runExperiment')
+  }
+  const rules = ctx.prompt.text
+  const input = item.input
+  return typeof input === 'string' ? { user: input, rules } : { ...(input as Record<string, unknown>), rules }
+}
+
 /** The model-calling hooks, built per call so tests can inject the transport. */
 function transportHooks(
   datasetName: string,
   deps: AdapterDeps,
-): Pick<PhaseAdapter, 'task' | 'decide'> {
+): Pick<PhaseAdapter, 'task' | 'decide' | 'decideUsesPrompt'> {
   const decide = deps.decide ?? typesafeDecide
   switch (datasetName) {
     case 'detect-confidence-golden':
-      return { decide: jevDecide(JEV_CANDIDATES.detect, decide) }
+      return { decide: jevDecide(JEV_CANDIDATES.detect, decide, withDetectRules), decideUsesPrompt: true }
     case 'name-arbiter-confidence-golden':
       return { decide: jevDecide(JEV_CANDIDATES.names, decide) }
     case 'intent-parse-golden':

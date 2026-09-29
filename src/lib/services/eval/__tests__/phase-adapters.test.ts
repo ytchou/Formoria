@@ -4,7 +4,7 @@ import { buildNameArbiterUserContent } from '../../name-arbiter'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { isHighConfidenceWrite } from '../../enrich-phases/detect'
 import { INTENT_PARSE_JSON_SCHEMA, INTENT_PARSE_SYSTEM_PROMPT } from '../../query-intent-parse'
-import type { DecideFn, JevAnswers } from '../jev-questions'
+import { JEV_CANDIDATES, type DecideFn, type JevAnswers } from '../jev-questions'
 import type { ExperimentArm, ExperimentItem } from '../run-experiment'
 import { CritiqueVerdictSchema } from '../../enrich-phases/acquisition/plan'
 import { PRODUCTS_PROMPT_VARIABLES, PRODUCTS_PROPOSAL_SHAPE, PRODUCTS_SCHEMA } from '../../enrich-phases/products'
@@ -258,13 +258,20 @@ function fakeDecide(answers: JevAnswers): DecideFn {
   }))
 }
 
+/** The arm-level detect prompt runExperiment hands a detect decide. */
+const DETECT_ARM_PROMPT = {
+  text: 'Intro.\n\n## Not a product brand\nTypes.',
+  prompt: { name: 'detect', version: 4, source: 'langfuse' as const },
+}
+
 describe('Jev decide wiring', () => {
   const cases = [
     {
       dataset: 'detect-confidence-golden',
       primary: 'decisionAgreement',
       input: { user: 'brand line', promptName: 'detect' },
-      answers: { isNonBrand: { noul: 0.95 } },
+      // P(non-brand) = 1 * 0.95 * (1 - 0) = 0.95
+      answers: { aboutEntity: { noul: 1 }, nonBrandType: { noul: 0.95 }, ownProductLine: { noul: 0 } },
       expectedOutput: { isNonBrand: true, confidence: 'high' },
     },
   ] as const
@@ -276,7 +283,7 @@ describe('Jev decide wiring', () => {
       expect(typeof adapter.decide).toBe('function')
 
       const item = goldenItem(c.input, c.expectedOutput)
-      const result = await adapter.decide!(item, { itemRunId: 'run-1' })
+      const result = await adapter.decide!(item, { itemRunId: 'run-1', prompt: DETECT_ARM_PROMPT })
       expect(result.ok).toBe(true)
       expect(decide).toHaveBeenCalledTimes(1)
 
@@ -300,8 +307,64 @@ describe('Jev decide wiring', () => {
       throw new Error('typesafe 503')
     })
     const adapter = adapterFor('detect-confidence-golden', { decide })
-    const result = await adapter.decide!(goldenItem({ user: 'x' }, null), { itemRunId: 'run-1' })
+    const result = await adapter.decide!(goldenItem({ user: 'x' }, null), { itemRunId: 'run-1', prompt: DETECT_ARM_PROMPT })
     expect(result).toEqual({ ok: false, output: null, error: 'typesafe 503' })
+  })
+
+  it('detect_decide_passes_rules: the arm prompt text rides along as rules, with no fetch per item', async () => {
+    const buildState = vi.spyOn(JEV_CANDIDATES.detect, 'buildState')
+    try {
+      const decide = fakeDecide({ aboutEntity: { noul: 0.9 }, nonBrandType: { noul: 0.1 }, ownProductLine: { noul: 0.9 } })
+      const rules = 'RULES\n\n## Not a product brand\nTypes.'
+      const prompt = { text: rules, prompt: { name: 'detect', version: 4, source: 'langfuse' as const } }
+      const adapter = adapterFor('detect-confidence-golden', { decide })
+
+      const result = await adapter.decide!(
+        goldenItem({ user: 'brand line', promptName: 'detect' }, null),
+        { itemRunId: 'run-1', prompt },
+      )
+
+      expect(result.ok).toBe(true)
+      const input = buildState.mock.calls[0]![0] as { rules?: string; user: string }
+      expect(input.rules).toBe(rules)
+      expect(input.user).toBe('brand line')
+    } finally {
+      buildState.mockRestore()
+    }
+  })
+
+  it('detect decide accepts a bare string input as the user message', async () => {
+    const buildState = vi.spyOn(JEV_CANDIDATES.detect, 'buildState')
+    try {
+      const decide = fakeDecide({ aboutEntity: { noul: 0.9 }, nonBrandType: { noul: 0.1 }, ownProductLine: { noul: 0.9 } })
+      const rules = 'RULES\n\n## Not a product brand\nTypes.'
+      const adapter = adapterFor('detect-confidence-golden', { decide })
+
+      const result = await adapter.decide!(goldenItem('brand line', null), {
+        itemRunId: 'run-1',
+        prompt: { text: rules, prompt: { name: 'detect', version: 4, source: 'langfuse' } },
+      })
+
+      expect(result.ok).toBe(true)
+      expect(buildState.mock.calls[0]![0]).toEqual({ user: 'brand line', rules })
+    } finally {
+      buildState.mockRestore()
+    }
+  })
+
+  it('detect decide without the arm prompt fails instead of running on no rules', async () => {
+    const decide = vi.fn() as unknown as DecideFn
+    const adapter = adapterFor('detect-confidence-golden', { decide })
+    const result = await adapter.decide!(goldenItem({ user: 'x' }, null), { itemRunId: 'run-1' })
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/prompt/)
+    expect(decide).not.toHaveBeenCalled()
+  })
+
+  it('only the detect adapter declares that its decide reads the prompt', () => {
+    expect(adapterFor('detect-confidence-golden').decideUsesPrompt).toBe(true)
+    expect(adapterFor('name-arbiter-confidence-golden').decideUsesPrompt).toBeUndefined()
+    expect(adapterFor('intent-parse-golden').decideUsesPrompt).toBeUndefined()
   })
 })
 

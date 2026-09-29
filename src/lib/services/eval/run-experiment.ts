@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import type { PromptMeta } from '@/lib/langfuse/prompt'
+import { parsePromptVersionPins, type PromptMeta } from '@/lib/langfuse/prompt'
 import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
 import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
@@ -24,6 +24,8 @@ export type ExperimentArm = {
   name: string
   type: 'model' | 'prompt' | 'custom'
   value: string
+  /** Custom arms only: a `LANGFUSE_PROMPT_VERSIONS` pin (e.g. `detect:4`) held for the arm's items. */
+  promptVersions?: string
 }
 
 export type ItemResult = {
@@ -346,7 +348,10 @@ export async function runExperiment({
         } else if (arm.type === 'prompt') {
           process.env.LANGFUSE_PROMPT_VERSIONS = arm.value
         } else if (arm.type === 'custom') {
-          // Custom arms manage their own execution — no env setup
+          // Custom arms manage their own execution; a prompt pin is the only env they take.
+          if (arm.promptVersions !== undefined) {
+            process.env.LANGFUSE_PROMPT_VERSIONS = arm.promptVersions
+          }
         } else {
           throw new Error(`Unknown arm type: ${(arm as { type: string }).type}`)
         }
@@ -357,8 +362,16 @@ export async function runExperiment({
           : { text: '', prompt: { name: '', version: 0, source: 'snapshot' as const } }
 
         // Pin check: a prompt arm requires Langfuse as the source —
-        // the snapshot fallback ignores version pins.
-        if (arm.type === 'prompt' && promptResult.prompt.source !== 'langfuse') {
+        // the snapshot fallback ignores version pins. A pinned custom (jev)
+        // arm also requires exactly the pinned version, so it can never run
+        // on rules other than the ones its name claims.
+        const pinError =
+          arm.type === 'prompt' && promptResult.prompt.source !== 'langfuse'
+            ? `prompt pin ${arm.value} resolved from ${promptResult.prompt.source}, not langfuse`
+            : arm.type === 'custom' && arm.promptVersions !== undefined
+              ? customPinError(arm.promptVersions, promptResult.prompt)
+              : null
+        if (pinError !== null) {
           const zeroScores = zeroScoresFor(adapter)
           armResults.push({
             arm: arm.name,
@@ -367,7 +380,7 @@ export async function runExperiment({
               itemRunId: randomUUID(),
               ok: false,
               scores: { ...zeroScores },
-              error: `prompt pin ${arm.value} resolved from ${promptResult.prompt.source}, not langfuse`,
+              error: pinError,
               costUsd: 0,
               latencyMs: 0,
               promptMeta: promptResult.prompt,
@@ -416,10 +429,15 @@ export async function runExperiment({
         }
 
         // A jev arm goes to adapter.decide. Otherwise use adapter.task when
-        // present, and fall back to the default callModel path.
+        // present, and fall back to the default callModel path. A decide hook
+        // that reads prompt rules gets the arm's prompt, resolved once above
+        // (never per item), and every item records which version it ran on.
+        const jevPrompt = adapter.decideUsesPrompt && adapter.promptName ? promptResult : undefined
         const task = isJevArm(arm)
-          ? (item: ExperimentItem, itemRunId: string) =>
-              adapter.decide!(item, { itemRunId })
+          ? async (item: ExperimentItem, itemRunId: string) => ({
+              ...(await adapter.decide!(item, { itemRunId, ...(jevPrompt ? { prompt: jevPrompt } : {}) })),
+              ...(jevPrompt ? { promptMeta: jevPrompt.prompt } : {}),
+            })
           : adapter.task
             ? (item: ExperimentItem, itemRunId: string) =>
                 adapter.task!(item, arm, { itemRunId, model: arm.type === 'model' ? arm.value : undefined })
@@ -603,6 +621,17 @@ export async function runExperiment({
 
 function isJevArm(arm: ExperimentArm): boolean {
   return arm.type === 'custom' && arm.value.startsWith('jev:')
+}
+
+/**
+ * Null when a custom arm's `promptVersions` pin resolved to exactly the pinned
+ * version from Langfuse; otherwise the arm's error. An adapter without a
+ * prompt resolves to the empty snapshot placeholder, so its pin always fails.
+ */
+function customPinError(pin: string, resolved: PromptMeta['prompt']): string | null {
+  const pinned = resolved.name ? parsePromptVersionPins({ LANGFUSE_PROMPT_VERSIONS: pin })[resolved.name] : undefined
+  if (resolved.source === 'langfuse' && pinned !== undefined && resolved.version === pinned) return null
+  return `prompt pin ${pin} resolved to ${resolved.name || '(no prompt)'} v${resolved.version} from ${resolved.source}; a pinned arm needs exactly that version from langfuse`
 }
 
 /** Suffixes repeated arm names with `#2`, `#3`, ... in order of appearance. */

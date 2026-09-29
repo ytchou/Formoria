@@ -54,7 +54,6 @@ const PRE_EXISTING_VIOLATIONS = new Map(
       "../scraper",
       "../acquisition/graph",
     ],
-    "src/lib/services/enrich-phases/__tests__/detect.test.ts": ["../../category-classifier"],
     "src/lib/services/enrich-phases/__tests__/discover.test.ts": ["../scraper/search"],
     "src/lib/services/enrich-phases/__tests__/faq.test.ts": [
       "../../brands",

@@ -12,11 +12,12 @@
  * labels are named by their `JEV_INPUT_LABELS` key, because this file may not
  * carry Han text (no-hardcoded-cjk guard).
  *
- * - `detect-confidence-golden` (12 ACTIVE): `input = { user, promptName: 'detect' }`.
- *   `user` is the live chat message (`category-classifier.ts#detectBrand`), one
+ * - `detect-confidence-golden`: `input = { user, promptName: 'detect' }`, and the
+ *   eval adapter adds `rules` (the pinned `detect` prompt text, DEV-1894 D13).
+ *   `user` is `category-classifier.ts#renderDetectUserMessage`: one
  *   `<label>：<value>` line each for brandSlug, brandName, description, website and
- *   searchSnippets (snippets joined by a full-width semicolon), then up to four
- *   `probe` lines. A missing description or website is written as `missingValue`.
+ *   submittedWebsite, then one searchResult line per result (up to 10) and up to
+ *   four probe lines. A missing value is written as `missingValue`.
  * - `situation-search-v2.json` (156 queries): `{ id, query, category, queryType, split,
  *   expected: [{ brandSlug, productKey, grade }] }`. `intent-parse-golden` items are
  *   seeded from it as `input = { query }`.
@@ -97,9 +98,13 @@ type DetectState = {
   name: string | null
   description: string | null
   website: string | null
-  searchSnippets: string | null
+  submittedWebsite: string | null
+  /** Search-result lines, newline-joined; null when the message has none. */
+  searchResults: string | null
   /** Probe lines, newline-joined; null when the message has none. */
   probes: string | null
+  /** The sliced detect prompt rules (`detectRuleSections`) every question carries. */
+  rules: string
 }
 type DetectOutput = { isNonBrand: boolean; confidence: ConfidenceBand; probability: number }
 
@@ -180,7 +185,7 @@ function valueOrNull(value: string | undefined): string | null {
  * a multi-line description stays whole; every label the templates emit must be
  * in `labels`, or its lines leak into the field before them.
  */
-function parseLabelledLines(text: string, labels: readonly string[]): Record<string, string> {
+export function parseLabelledLines(text: string, labels: readonly string[]): Record<string, string> {
   const fields: Record<string, string> = {}
   let current: string | null = null
   for (const line of text.split('\n')) {
@@ -217,12 +222,11 @@ function topChoices(answer: JevAnswer | undefined, allowed: ReadonlySet<string>,
   return ranked.slice(0, k)
 }
 
-/** A noul verdict plus the probability of that verdict (not of "yes"). */
-function noulVerdict(answers: JevAnswers, questionKey: string): { yes: boolean; probability: number } {
+/** Reads a noul answer's P(yes); throws when the answer is missing. */
+function noulP(answers: JevAnswers, questionKey: string): number {
   const p = answers[questionKey]?.noul
   if (typeof p !== 'number') throw new Error(`jev-questions: no noul answer for "${questionKey}"`)
-  const yes = p >= NOUL_TRUE_AT
-  return { yes, probability: yes ? p : 1 - p }
+  return p
 }
 
 // ---------------------------------------------------------------------------
@@ -233,43 +237,110 @@ const DETECT_LABELS = {
   name: JEV_INPUT_LABELS.brandName,
   description: JEV_INPUT_LABELS.description,
   website: JEV_INPUT_LABELS.website,
-  snippets: JEV_INPUT_LABELS.searchSnippets,
+  submittedWebsite: JEV_INPUT_LABELS.submittedWebsite,
+  searchResult: JEV_INPUT_LABELS.searchResult,
   probe: JEV_INPUT_LABELS.probe,
 } as const
 
-const detect: JevCandidate<GoldenChatInput, DetectState, DetectOutput> = {
+/** The detect prompt sections every Jev question carries (D13), in prompt order. */
+const DETECT_KEPT_SECTIONS = ['## Not a product brand', '## Input', '## Golden anchors'] as const
+
+/**
+ * The detect prompt sliced by `## ` heading: the intro (text before the first
+ * heading) plus the Not-a-product-brand, Input and Golden-anchors sections.
+ * Confidence, Slug and Brand name are dropped: they govern outputs Jev does not
+ * produce. Throws when the Not-a-product-brand section is missing, so a renamed
+ * heading fails loudly instead of silently shipping rules without the definition.
+ */
+export function detectRuleSections(text: string): string {
+  const sections: Array<{ heading: string | null; lines: string[] }> = [{ heading: null, lines: [] }]
+  for (const line of text.split('\n')) {
+    if (line.startsWith('## ')) sections.push({ heading: line.trim(), lines: [line] })
+    else sections[sections.length - 1]!.lines.push(line)
+  }
+  if (!sections.some((s) => s.heading === DETECT_KEPT_SECTIONS[0])) {
+    throw new Error(`jev-questions: detect rules have no "${DETECT_KEPT_SECTIONS[0]}" section`)
+  }
+  return sections
+    .filter((s) => s.heading === null || (DETECT_KEPT_SECTIONS as readonly string[]).includes(s.heading))
+    .map((s) => s.lines.join('\n').trim())
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+/** The detect golden input after the eval adapter injects the pinned prompt text. */
+type DetectInput = string | { user: string; promptName?: string; rules?: string }
+
+function detectRules(input: DetectInput): string {
+  const rules = typeof input === 'object' && input ? input.rules : undefined
+  if (typeof rules !== 'string' || !rules.trim()) {
+    throw new Error('jev-questions: detect input has no `rules`; the candidate never runs on hand-written rules')
+  }
+  return detectRuleSections(rules)
+}
+
+/**
+ * Detect as three noul questions in one call (DEV-1894 D11), each carrying the
+ * same rules sliced from the pinned detect prompt (D13), then a one-line stem.
+ *
+ * Intended differences from the luna (prompt) arm, reported with the eval:
+ * the confidence band comes from `probability` via `bandFromProbability`, not
+ * from the prompt's Confidence section; and there is no brand-name or slug
+ * output (D13; "slug if detect switches to Jev" is the open item D14).
+ */
+const detect: JevCandidate<DetectInput, DetectState, DetectOutput> = {
   profileKey: 'detect',
   buildState(input) {
+    const rules = detectRules(input)
     // The submission slug is dropped: it carries no evidence about the entity.
-    const fields = parseLabelledLines(userText(input), [...Object.values(DETECT_LABELS), JEV_INPUT_LABELS.brandSlug])
+    // The pre-DEV-1894 snippet label is listed so an old-format line never
+    // continues the website field; its snippets count as search results.
+    const fields = parseLabelledLines(userText(input), [
+      ...Object.values(DETECT_LABELS),
+      JEV_INPUT_LABELS.brandSlug,
+      JEV_INPUT_LABELS.searchSnippets,
+    ])
+    const searchResults = [fields[DETECT_LABELS.searchResult], fields[JEV_INPUT_LABELS.searchSnippets]]
+      .map(valueOrNull)
+      .filter((value): value is string => value !== null)
     return {
       name: valueOrNull(fields[DETECT_LABELS.name]),
       description: valueOrNull(fields[DETECT_LABELS.description]),
       website: valueOrNull(fields[DETECT_LABELS.website]),
-      searchSnippets: valueOrNull(fields[DETECT_LABELS.snippets]),
+      submittedWebsite: valueOrNull(fields[DETECT_LABELS.submittedWebsite]),
+      searchResults: searchResults.length > 0 ? searchResults.join('\n') : null,
       probes: valueOrNull(fields[DETECT_LABELS.probe]),
+      rules,
     }
   },
-  questions() {
-    const isNonBrand: NoulQuestion = {
+  questions(state) {
+    const ask = (stem: string, criteria: { true: string; false: string }): NoulQuestion => ({
       type: 'noul',
-      instructions: [
-        'A submission to Formoria, a directory of Taiwanese product brands. From the name, optional description and website, and search-result snippets: is this entity definitionally NOT a product brand?',
-        'Do not judge whether the brand is Taiwanese or how good it is.',
-      ].join(' '),
-      criteria: {
-        true: 'It is clearly one of: a proxy buyer or personal shopper; a curated or multi-brand shop with no product line of its own; a marketplace, platform or retail channel; a media, blog or review site; a distributor or importer of foreign brands; an event, market or fair; an individual creator with no productised physical goods.',
-        false: [
-          'A curated shop also has its own product line; an illustrator or character IP has at least one self-designed physical product; a named founder sells physical products under a brand name.',
-          'Uncertainty is never a yes: sparse, ambiguous or possibly-different-entity snippets mean no.',
-        ].join(' '),
-      },
+      instructions: `${state.rules}\n\n${stem}`,
+      criteria,
+    })
+    return {
+      aboutEntity: ask(
+        'Do the search results and probes describe this submitted entity (not a different one with a similar name)?',
+        { true: 'Yes: the evidence is about this entity.', false: 'No: the evidence is about a different entity, or there is none.' },
+      ),
+      nonBrandType: ask('Is this entity one of the non-brand types listed above?', {
+        true: 'Yes: it is one of the listed non-brand types.',
+        false: 'No: it is not one of the listed non-brand types.',
+      }),
+      ownProductLine: ask('Does this entity sell at least one physical product under its own brand name?', {
+        true: 'Yes: it sells at least one physical product under its own brand name.',
+        false: 'No: it sells no physical product under its own brand name.',
+      }),
     }
-    return { isNonBrand }
   },
+  /** P(non-brand) = P(about) * P(type) * (1 - P(own)) (D11), cut at `NOUL_TRUE_AT`. */
   toOutput(answers) {
-    const { yes, probability } = noulVerdict(answers, 'isNonBrand')
-    return { isNonBrand: yes, confidence: bandFromProbability(probability), probability }
+    const pNonBrand =
+      noulP(answers, 'aboutEntity') * noulP(answers, 'nonBrandType') * (1 - noulP(answers, 'ownProductLine'))
+    const isNonBrand = pNonBrand >= NOUL_TRUE_AT
+    const probability = isNonBrand ? pNonBrand : 1 - pNonBrand
+    return { isNonBrand, confidence: bandFromProbability(probability), probability }
   },
 }
 
