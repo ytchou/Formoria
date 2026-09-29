@@ -20,6 +20,8 @@ export interface CrawlerEntry {
   owner: string
   // Cloudflare delisted Perplexity from verified bots in 2025, so without this carve-out these two silently lose their rate-limit exemption; the cost is that a spoofer claiming either UA gets 200 req/min rather than being limited.
   trustedUnverified?: true
+  // Published as `Crawl-delay` in this crawler's robots.txt group. Advisory only: robots.txt is honored, not enforced, and Meta's crawler docs do not say they support this directive; measure origin req/min before relying on it. Upgrade path if ignored: a per-crawler cap in src/proxy.ts (needs an ADR, it reverses the never-429-registered-crawlers rule in rate-limiter.ts).
+  crawlDelaySeconds?: number
 }
 
 const OWNER = 'growth'
@@ -81,6 +83,8 @@ export const CRAWLER_REGISTRY: readonly CrawlerEntry[] = [
     uaPattern: /Meta-ExternalAgent/i,
     purpose: 'agent',
     policy: 'allow',
+    // DEV-1905: ~120 req/min (~14 GB/day of Railway egress) on /brands alone before this.
+    crawlDelaySeconds: 10,
     reviewDate: REVIEW_DATE,
     owner: OWNER,
   },

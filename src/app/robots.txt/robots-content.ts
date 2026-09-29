@@ -10,8 +10,8 @@ import { routes } from "@/lib/routes";
  * AI input stay allowed. The published Terms cite /robots.txt as the
  * machine-readable authority for this stance, so the line has to be served, not
  * merely declared. Next's metadata serializer (`MetadataRoute.Robots`) can only
- * emit User-Agent/Allow/Disallow/Crawl-delay/Host/Sitemap, which is why this
- * file is rendered by a text/plain Route Handler instead.
+ * emit User-Agent/Allow/Disallow/Crawl-delay/Host/Sitemap -- no Content-Signal --
+ * which is why this file is rendered by a text/plain Route Handler instead.
  */
 export const CONTENT_SIGNAL = "ai-train=no, search=yes, ai-input=yes";
 
@@ -33,6 +33,7 @@ interface RobotsRule {
   allow?: string;
   disallow?: readonly string[];
   contentSignal?: string;
+  crawlDelay?: number;
 }
 
 export interface RobotsDocument {
@@ -72,6 +73,7 @@ export function buildRobotsDocument(siteUrl: string): RobotsDocument {
         contentSignal: CONTENT_SIGNAL,
         allow: "/",
         disallow: WILDCARD_DISALLOW,
+        crawlDelay: entry.crawlDelaySeconds,
       })),
     ],
     host: siteUrl,
@@ -97,6 +99,10 @@ export function formatRobotsTxt({
 
     for (const path of rule.disallow ?? []) {
       lines.push(`Disallow: ${path}`);
+    }
+
+    if (rule.crawlDelay !== undefined) {
+      lines.push(`Crawl-delay: ${rule.crawlDelay}`);
     }
 
     return lines.join("\n");
