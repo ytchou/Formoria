@@ -94,3 +94,15 @@ a three-way split. The panel changed five initial grades. Exact agreement with
 the initial labels was 83.3%; quadratic-weighted Cohen's kappa was 0.9550,
 above the 0.6 approval gate. The three model calls cost $0.194205 total. The
 dataset approval provenance is `blind-llm-panel`, not a human label.
+
+The remaining labels were completed in batches of up to 25 products per
+query, with three independent audited OpenAI calls per batch. Incomplete
+votes were retried; all 1,250 candidate pairs have three votes and each of
+the 50 new queries has a relevant product. To check the batch method, the
+same three Claude models judged another 30 blind pairs (10 each of brand,
+keyword, and English queries, balanced between zero and positive grades).
+Their 24 unanimous and six 2–1 votes changed six grades. The combined
+60-pair agreement was 81.7% exact and quadratic-weighted κ=0.9444, above
+the 0.6 gate. `dev-1900-batch-panel.json` records the second panel's
+individual votes, costs, hashes, and combined agreement. The local audit
+logs and full inputs remain gitignored.

@@ -1,0 +1,424 @@
+{
+  "provenance": "blind three-model panel on batched labels",
+  "models": [
+    {
+      "id": "claude-opus-5-5",
+      "costUsd": 0.075228,
+      "latencyMs": 11947
+    },
+    {
+      "id": "claude-opus-5",
+      "costUsd": 0.12271000000000001,
+      "latencyMs": 31846
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "costUsd": 0.031698,
+      "latencyMs": 5333
+    }
+  ],
+  "decisions": [
+    {
+      "id": "batch-pair-01",
+      "queryId": "brand-z-z-research",
+      "product": "viza-viz/aero-light-kang-chun-shang-yi",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-02",
+      "queryId": "brand-caihuagirl",
+      "product": "hakkei/la-chiao-chueh-se-pu-ou-hci26-0120",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-03",
+      "queryId": "brand-satbakhi",
+      "product": "聲聲慢手染服飾/li-ling-lo-chien-shou-jan-mien-ma-shang-yi-shan-w50035",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-04",
+      "queryId": "brand-繡珍森活-littdlework",
+      "product": "dazzle-jewelry/chiao-tieh-shuang-huan-kai-fang-chieh-chih-chen-chu-14kgf",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-05",
+      "queryId": "brand-tagather-goods",
+      "product": "yi-fan-canvas-bags/tai-wan-shui-kuo-hsiao-wu-pao-yu-wang-tai-tsu",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-06",
+      "queryId": "brand-caihuagirl",
+      "product": "caihuagirl/kuei-hua-chun-lu-ca-0010",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "batch-pair-07",
+      "queryId": "brand-robber-925-silver",
+      "product": "robber-925-silver/kuo-shih-lei-lei-ruby-mi-ni-hung-pao-shih-hsiang-lien-so-ku-lien-sv925-14kgf-ryagdtmg",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "batch-pair-08",
+      "queryId": "brand-farfarawayvillage",
+      "product": "farfarawayvillage/hsiang-ching-hsiang-hsu-ching-yu-hsi-fa-lu",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "batch-pair-09",
+      "queryId": "brand-z-z-research",
+      "product": "z-z-research/chih-hsiao-shun-jun-hsiu-fu-pen-wu",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "batch-pair-10",
+      "queryId": "brand-母子鱷魚-2bm",
+      "product": "2bm/tan-li-shih-shang-to-bal-5642",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 3,
+        "claude-sonnet-5-5": 3
+      },
+      "majorityGrade": 3
+    },
+    {
+      "id": "batch-pair-11",
+      "queryId": "keyword-手套",
+      "product": "聲聲慢手染服飾/hsieh-chin-li-ling-mien-ma-pin-chieh-san-hsiu-shang-yi-s50071",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-12",
+      "queryId": "keyword-手套",
+      "product": "huangs-studio/pien-chih-shou-huan-tiao-pai-tsu-ho",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-13",
+      "queryId": "keyword-胸針",
+      "product": "petit-madam/shui-ti-tsuan-tuan-tai-y-tzu-hsiang-lien",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "batch-pair-14",
+      "queryId": "keyword-彩妝",
+      "product": "purifycare/chih-pin-chu-chou-pen-wu",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-15",
+      "queryId": "keyword-鑰匙圈",
+      "product": "loginheart/shuang-yung-tu-chih-ko-hsing-li-tiao-pai-zn9e5mzr",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "batch-pair-16",
+      "queryId": "keyword-手機背帶",
+      "product": "niizo/peng-peng-kai-chih-shih-tse-pei-hsiao-pao-bag049",
+      "priorGrade": 1,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "batch-pair-17",
+      "queryId": "keyword-環保餐具-吸管",
+      "product": "ycct/su-hsi-pei-san-tai-720ml-su-hsi-pei-san-tai-720ml",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 2
+      },
+      "majorityGrade": 2
+    },
+    {
+      "id": "batch-pair-18",
+      "queryId": "keyword-機能服飾",
+      "product": "halfor/chen-yeh-chi-neng-she-chi-wa-nu-kuan-deav5lss",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 2,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 2
+      },
+      "majorityGrade": 2
+    },
+    {
+      "id": "batch-pair-19",
+      "queryId": "keyword-斜背包",
+      "product": "chez-城市系列/ou-la-hsiao-chien-8tgudxdh",
+      "priorGrade": 3,
+      "votes": {
+        "claude-opus-5-5": 3,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 2
+      },
+      "majorityGrade": 2
+    },
+    {
+      "id": "batch-pair-20",
+      "queryId": "keyword-斜背包",
+      "product": "studio-smoll/nosey-ta-li-cheng-pao",
+      "priorGrade": 2,
+      "votes": {
+        "claude-opus-5-5": 2,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 2
+      },
+      "majorityGrade": 2
+    },
+    {
+      "id": "batch-pair-21",
+      "queryId": "english-whitening-aftercare-toothpaste",
+      "product": "vichy-s-diary/hahababy-pao-yang-hsing-hu-tien-17cm",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-22",
+      "queryId": "english-legusta-wide-leg-denim-scimitar-pants",
+      "product": "a-merry-heart/chun-pai-li-ti-pao-pao-ko-wen-kuan-pan-chen-shan",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-23",
+      "queryId": "english-mugr",
+      "product": "oursglass/tiao-wen-mao-mi-hsiang-ku-603",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-24",
+      "queryId": "english-legusta-wide-leg-denim-scimitar-pants",
+      "product": "s-pantyhose/tou-ming-fang-ssu-lieh-ta-tui-wa",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 0,
+        "claude-sonnet-5-5": 0
+      },
+      "majorityGrade": 0
+    },
+    {
+      "id": "batch-pair-25",
+      "queryId": "english-legusta-wide-leg-denim-scimitar-pants",
+      "product": "le-gusta/tse-chua-chou-tuan-pan-t-g00215027",
+      "priorGrade": 0,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "batch-pair-26",
+      "queryId": "english-plant-effect-instant-moisture-repair-spray",
+      "product": "z-z-research/chih-hsiao-shou-hu-hsiu-fu-ju-yeh",
+      "priorGrade": 1,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "batch-pair-27",
+      "queryId": "english-whitening-aftercare-toothpaste",
+      "product": "oralfresh/erh-tung-han-fu-feng-chiao-ya-kao-pu-tao-kou-wei",
+      "priorGrade": 1,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "batch-pair-28",
+      "queryId": "english-plant-effect-instant-moisture-repair-spray",
+      "product": "z-z-research/chih-hsiao-ching-chun-hsiu-fu-ching-hua",
+      "priorGrade": 1,
+      "votes": {
+        "claude-opus-5-5": 1,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "batch-pair-29",
+      "queryId": "english-plant-effect-instant-moisture-repair-spray",
+      "product": "xiadisha/wai-mi-ti-hsiu-fu-mien-mo",
+      "priorGrade": 1,
+      "votes": {
+        "claude-opus-5-5": 0,
+        "claude-opus-5": 1,
+        "claude-sonnet-5-5": 1
+      },
+      "majorityGrade": 1
+    },
+    {
+      "id": "batch-pair-30",
+      "queryId": "english-taiwan-scenes-series-long-chopsticks",
+      "product": "hh-healthy-happy/tai-wan-ching-wu-ching-liang-kuai",
+      "priorGrade": 2,
+      "votes": {
+        "claude-opus-5-5": 2,
+        "claude-opus-5": 2,
+        "claude-sonnet-5-5": 2
+      },
+      "majorityGrade": 2
+    }
+  ],
+  "blindInputSha256": "bbc18e7808fb7eff7f084dba1d4e8d72db2606d2a1ac7cd335f91c4f70ddb698",
+  "rubricSha256": "863ec195d1d8eb016e9113d0cb49eeaaa9821840572d69c825daa66251cce732",
+  "voteSummary": {
+    "unanimous": 24,
+    "changed": 6,
+    "twoToOne": 6,
+    "threeWaySplit": 0
+  },
+  "combinedAgreement": {
+    "timestamp": "2026-09-29T04:48:01.087Z",
+    "reviewer": "blind-llm-panel",
+    "pairs": 60,
+    "accuracy": 0.8166666666666667,
+    "kappa": 0.7310513447432763,
+    "kappa_w": 0.9443882709807887,
+    "confusionMatrix": [
+      [
+        24,
+        6,
+        0,
+        0
+      ],
+      [
+        0,
+        8,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        2,
+        0
+      ],
+      [
+        0,
+        0,
+        5,
+        15
+      ]
+    ]
+  }
+}

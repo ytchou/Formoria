@@ -135,7 +135,7 @@ export async function cmdBuildDataset(
         }
       }
     }
-    console.log(`[build-dataset] Loaded ${humanGrades.size} human grades`)
+    console.log(`[build-dataset] Loaded ${humanGrades.size} reviewed grades`)
   }
 
   // Load agreement for humanApproval stamp
@@ -222,6 +222,11 @@ export async function cmdBuildDataset(
     console.log(`[build-dataset] Wrote ${v3.length} queries to ${selected.path}`)
     const langfuse = getLangfuse()
     if (langfuse) {
+      try {
+        await langfuse.createDataset({ name: selected.name, description: 'DEV-1900 search relevance golden set v3' })
+      } catch (error) {
+        if (!/exist|409/i.test(error instanceof Error ? error.message : String(error))) throw error
+      }
       for (let start = 0; start < v3.length; start += 20) {
         await Promise.all(v3.slice(start, start + 20).map(item => langfuse.createDatasetItem({
           datasetName: selected.name,
@@ -230,8 +235,13 @@ export async function cmdBuildDataset(
           expectedOutput: item.expected,
           metadata: { split: item.split, humanApproval: item.humanApproval ?? null },
         })))
+        await flushLangfuse()
+        if (start + 20 < v3.length) await new Promise(resolve => setTimeout(resolve, 15_000))
       }
-      await flushLangfuse()
+      const mirrored = new Set((await langfuse.getDataset(selected.name)).items.map(item => item.id))
+      if (v3.some(item => !mirrored.has(item.id))) {
+        throw new Error(`Langfuse dataset ${selected.name} is missing mirrored query items`)
+      }
     }
     return
   }
