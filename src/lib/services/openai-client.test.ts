@@ -286,6 +286,19 @@ describe("createOpenAIClient", () => {
       expect(body).not.toHaveProperty("reasoning_effort");
     });
 
+    it("keeps max_tokens for gpt-60-mini (the family match needs a digit boundary)", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(okResponse());
+      const client = createOpenAIClient({ apiKey: "k", model: "gpt-60-mini" });
+
+      await client.chat({ system: "s", user: "u", maxTokens: 250 });
+
+      const body = requestBody(fetchSpy);
+      expect(body).toMatchObject({ model: "gpt-60-mini", max_tokens: 250 });
+      expect(body).not.toHaveProperty("max_completion_tokens");
+    });
+
     it("sends max_completion_tokens and reasoning_effort for gpt-6 models, never max_tokens", async () => {
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")

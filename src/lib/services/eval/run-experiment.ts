@@ -270,7 +270,10 @@ export async function runItems({
           ? undefined
           : auditRecords.find((r) => typeof r.model === 'string' && r.model !== armModel)?.model ?? undefined
         if (offSlot !== undefined) {
-          lastError = `off-slot call: ${offSlot}`
+          // Appended, not replaced: a task that already failed keeps its own
+          // error. A succeeded task (even after a failed first attempt) drops it.
+          const note = `off-slot call: ${offSlot}`
+          lastError = taskResult?.ok || lastError === undefined ? note : `${lastError}; ${note}`
         }
 
         if (taskResult?.ok && offSlot === undefined) {
@@ -508,8 +511,10 @@ export async function runExperiment({
           knownCosts.length < costs.length ? null : costs.length > 0 ? mean(knownCosts) : 0
         // A model with no DB price row yet (D15) is priced at its list price,
         // shown separately so it is never mistaken for a DB-priced cost.
+        // Off-slot items' tokens were billed at another model's price, so they
+        // are excluded from both the sum and the denominator.
         const listCosts = costPerItem === null && arm.type === 'model'
-          ? itemResults.map((r) =>
+          ? itemResults.filter((r) => !r.error?.includes('off-slot call')).map((r) =>
               listPriceCost(
                 {
                   promptTokens: r.promptTokens ?? 0,

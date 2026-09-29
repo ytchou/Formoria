@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { assignSplits, type Split } from '../splits'
+import { assignSplits, readSplit, splitOf, type Split } from '../splits'
 
 type Item = { id: string; label: string; split?: Split }
 
@@ -71,5 +71,16 @@ describe('assignSplits', () => {
     // Re-running after an expansion moves nothing that already has a split.
     const again = assignSplits([...split, item('newer')], { seed: 'seed-a', ...byLabel })
     for (const i of split) expect(again.find((j) => j.id === i.id)?.split).toBe(i.split)
+  })
+})
+
+describe('readSplit / splitOf', () => {
+  it('reads a recognised split, flags an unrecognised one, and treats missing or empty as none', () => {
+    expect(readSplit({ split: 'val' })).toEqual({ split: 'val' })
+    expect(readSplit({ split: 'test' })).toEqual({ unrecognised: 'test' })
+    expect(readSplit({ split: 'Holdout' })).toEqual({ unrecognised: 'Holdout' })
+    for (const metadata of [undefined, null, 'x', {}, { split: null }, { split: '' }]) expect(readSplit(metadata)).toEqual({})
+    expect(splitOf({ split: 'holdout' })).toBe('holdout')
+    expect(splitOf({ split: 'test' })).toBeUndefined()
   })
 })

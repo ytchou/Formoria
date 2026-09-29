@@ -18,6 +18,8 @@ import {
 } from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
+import { priceUsage } from "./llm-pricing";
+import type { ChatMessage } from "./openai-client";
 
 vi.mock("./llm-pricing", () => ({
   priceUsage: vi.fn().mockResolvedValue({
@@ -172,6 +174,36 @@ describe("audited LLM clients", () => {
       cacheWriteTokens: 5,
       model: "gpt-6-luna",
     });
+  });
+
+  it("records prompt and completion tokens even when pricing fails", async () => {
+    vi.mocked(priceUsage).mockRejectedValueOnce(new Error("price lookup down"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "answer" } }],
+            usage: { prompt_tokens: 40, completion_tokens: 7 },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const client = createAuditedOpenAIClient(
+      { target, phase: "descriptions", supabase: fakeSupabase([]) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ system: "s", user: "u" });
+
+    expect(writes[1]).toMatchObject({
+      status: "succeeded",
+      promptTokens: 40,
+      completionTokens: 7,
+    });
+    expect(writes[1]?.costUsd ?? null).toBeNull();
   });
 
   // Agent turns go through the same hook: a tool-call response must land in
@@ -574,6 +606,27 @@ describe("chat capture seam", () => {
       content: '{"ok":true}',
       parsed: { ok: true },
     });
+  });
+
+  it("capture copies the caller's messages array", async () => {
+    const captured: CapturedCall[] = [];
+    setChatCaptureSeam((call) => captured.push(call));
+    const messages: ChatMessage[] = [
+      { role: "system", content: "sys" },
+      { role: "user", content: "u" },
+    ];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "facts", supabase: fakeSupabase([]) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({ messages });
+    messages.push({ role: "user", content: "later turn" });
+
+    expect(captured[0]!.messages).toEqual([
+      { role: "system", content: "sys" },
+      { role: "user", content: "u" },
+    ]);
   });
 
   it("capture stays zero-write", async () => {

@@ -23,7 +23,7 @@ import { config as dotenvConfig } from 'dotenv'
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
 import { snapshotPrompt } from '@/lib/langfuse/prompt'
 import { normalizeCandidates, normalizeCandidateValue } from '@/lib/services/enrich-phases/names'
-import { assignSplits as assignSeededSplits, SPLITS, type Split } from '@/lib/services/eval/splits'
+import { assignSplits as assignSeededSplits, SPLITS, splitOf, type Split } from '@/lib/services/eval/splits'
 import { MAX_PROMPT_LENGTH, PROMPT_TRUNCATION_MARK } from '@/lib/services/llm-audit'
 import { buildNameArbiterUserContent, parseNameArbiterItemLine } from '@/lib/services/name-arbiter'
 
@@ -36,7 +36,6 @@ const DEFAULT_SEED = 'dev-1896'
 
 export const HARD_TAGS = ['trailing-segment', 'bilingual-half', 'capitalisation'] as const
 export type HardTag = (typeof HARD_TAGS)[number]
-export { SPLITS, type Split }
 
 /** Golden items quoted in prompt v6 (D1). They stay in train so no scored split holds a prompt example. */
 export const PINNED_SLUGS: ReadonlySet<string> = new Set(['unigaze', 'trista', 'mu-ran', 'lin-tsao', 'qn-dessert', 'boingboing'])
@@ -239,8 +238,7 @@ export function isPromptLeak(values: string[], leakStrings: string[]): boolean {
 // ---------------------------------------------------------------------------
 
 function existingSplit(item: ExistingItem | undefined): Split | undefined {
-  const split = (item?.metadata as { split?: unknown } | null | undefined)?.split
-  return SPLITS.includes(split as Split) ? (split as Split) : undefined
+  return splitOf(item?.metadata)
 }
 
 function isReviewed(item: ExistingItem): boolean {

@@ -74,7 +74,8 @@ export function setChatCaptureSeam(
 }
 
 function capturedMessages(input: ChatInput): ChatMessage[] {
-  if (input.messages) return input.messages;
+  // Copied: the caller may keep pushing turns onto its array after this call.
+  if (input.messages) return [...input.messages];
   return [
     { role: "system", content: input.system ?? "" },
     { role: "user", content: input.user ?? "" },
@@ -266,14 +267,14 @@ function createAuditedClient(
               if (event.usage) {
                 // Read straight off usage, not the priced breakdown, so the
                 // counts survive a price-lookup failure. Absent counts are 0.
+                ctx.promptTokens = event.usage.prompt_tokens ?? 0;
+                ctx.completionTokens = event.usage.completion_tokens ?? 0;
                 ctx.cachedPromptTokens =
                   event.usage.prompt_tokens_details?.cached_tokens ?? 0;
                 ctx.cacheWriteTokens =
                   event.usage.prompt_tokens_details?.cache_write_tokens ?? 0;
                 try {
                   const cost = await priceUsage(event.model ?? "", event.usage);
-                  ctx.promptTokens = cost.promptTokens;
-                  ctx.completionTokens = cost.completionTokens;
                   ctx.costUsd = cost.costUsd;
                   costUsd = cost.costUsd;
                 } catch {

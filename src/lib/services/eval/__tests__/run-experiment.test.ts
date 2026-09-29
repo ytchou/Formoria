@@ -1426,6 +1426,55 @@ describe('runExperiment — token counts and slot assertion', () => {
     expect(result.summary.failed).toBe(1)
   })
 
+  it('keeps the task error when an item is both failed and off-slot', async () => {
+    const collector = makeCollector()
+    const callModel = vi.fn(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      collector.push({ correlationId: itemRunId, model: 'gpt-5.6-luna', costUsd: 0.001 } as never)
+      throw new Error('boom')
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: { ...makeJevDeps(callModel), installSeams: () => ({ collector, restore: vi.fn() }) },
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item.ok).toBe(false)
+    expect(item.error).toContain('boom')
+    expect(item.error).toMatch(/; off-slot call: gpt-5\.6-luna$/)
+  })
+
+  it('excludes off-slot items from the list-priced cost', async () => {
+    const collector = makeCollector()
+    let invocation = 0
+    const callModel = vi.fn(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      invocation += 1
+      const tokens = { promptTokens: 1_000_000, cachedPromptTokens: 0, cacheWriteTokens: 0, completionTokens: 1_000_000 }
+      collector.push({ correlationId: itemRunId, model: 'gpt-6-luna', costUsd: null, ...tokens } as never)
+      if (invocation === 2) {
+        // Off-slot tokens must not be priced at gpt-6-luna's list price.
+        collector.push({ correlationId: itemRunId, model: 'gpt-5.6-luna', costUsd: 0.001, ...tokens } as never)
+      }
+      return { ok: true, content: JSON.stringify({ isNonBrand: false, confidence: 'high' }) }
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ name: 'gpt-6', value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: { ...makeJevDeps(callModel), installSeams: () => ({ collector, restore: vi.fn() }) },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items.filter((i) => i.error?.includes('off-slot call'))).toHaveLength(1)
+    expect(arm.summary.costPerItem).toBeNull()
+    expect(arm.summary.listCostPerItem).toBeCloseTo(0.6, 6)
+  })
+
   it('passes when every call matches the arm model', async () => {
     const result = await runExperiment({
       dataset: 'test-golden',

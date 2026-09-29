@@ -229,7 +229,7 @@ function firstMessageText(messages: ChatMessage[], role: string): string {
 function isReasoningModel(model: string): boolean {
   // Explicit list, not open-ended: an unprobed family (gpt-7…) keeps the chat
   // parameters until someone probes it and adds it here.
-  return /^gpt-(5|6)/.test(model);
+  return /^gpt-(5|6)(?!\d)/.test(model);
 }
 
 // Latched so a model snapshot without Structured Outputs warns once per process, not per batch.

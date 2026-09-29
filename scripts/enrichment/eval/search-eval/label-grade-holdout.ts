@@ -32,32 +32,6 @@ export const CSV_COLUMNS: (keyof GradeRow)[] = [
   'hybrid_rank', 'disagreement', 'human_grade',
 ]
 
-/** Minimal input for a candidate document string. All fields optional so a
- *  narrow product type yields a degraded but valid document. Moved verbatim
- *  from the deleted LLM rerank service (DEV-1898). Only the rerank arm consumed
- *  it, so it has no caller today; kept for the next candidate-scoring arm —
- *  delete it if none lands. */
-export type CandidateDocumentInput = {
-  nameZh?: string
-  nameEn?: string | null
-  brandName?: string
-  category?: string
-  subcategory?: string
-  productDescriptionZh?: string
-  [key: string]: unknown
-}
-
-export function buildCandidateDocument(product: CandidateDocumentInput): string {
-  const nameZh = product.nameZh ?? ''
-  const name = product.nameEn ? `${nameZh} (${product.nameEn})` : nameZh
-  const brand = product.brandName ?? ''
-  const cat = product.category ?? ''
-  const subcat = product.subcategory ?? ''
-  const rawDesc = product.productDescriptionZh ?? ''
-  const desc = rawDesc.length > 500 ? rawDesc.slice(0, 500) + '…' : rawDesc
-  return `${brand} — ${name} [${cat}/${subcat}] ${desc}`
-}
-
 // ---------------------------------------------------------------------------
 // export-grades
 // ---------------------------------------------------------------------------
@@ -158,14 +132,13 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
     }
   }
 
-  // Sort by disagreement desc, then average rank asc
+  // Sort by disagreement desc, then hybrid rank asc (unranked last)
+  const hybridRank = (row: GradeRow) => (row.hybrid_rank === '' ? Infinity : Number(row.hybrid_rank))
   allRows.sort((a, b) => {
     const dA = parseInt(a.disagreement) || 0
     const dB = parseInt(b.disagreement) || 0
     if (dB !== dA) return dB - dA
-    const avgA = avgRank(a)
-    const avgB = avgRank(b)
-    return avgA - avgB
+    return hybridRank(a) - hybridRank(b)
   })
 
   const header = CSV_COLUMNS.join(',')
@@ -174,13 +147,6 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
   )
   writeFileSync(outPath, [header, ...lines].join('\n'))
   console.log(`[export-grades] wrote ${allRows.length} rows to ${outPath}`)
-}
-
-export function avgRank(row: Pick<GradeRow, 'hybrid_rank'>): number {
-  const vals = [row.hybrid_rank]
-    .filter((v) => v !== '')
-    .map(Number)
-  return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : Infinity
 }
 
 // ---------------------------------------------------------------------------

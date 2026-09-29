@@ -34,6 +34,7 @@ import {
 import { enqueueDataset, applyVerdicts, type PrelabelDeps } from '@/lib/services/eval/golden-review'
 import { runExperiment, type ExperimentArm } from '@/lib/services/eval/run-experiment'
 import { shippedNameSweep } from '@/lib/services/eval/names-shipped'
+import { SPLITS, assignSplits, readSplit, splitOf, type Split } from '@/lib/services/eval/splits'
 import {
   type ProductsReplayOutput,
   driftRate,
@@ -79,7 +80,7 @@ export type ParsedCommand =
       arms: ArmSpec[]
       envFile?: string
       allowUnreviewed: boolean
-      split?: DatasetSplit[]
+      split?: Split[]
     }
   | { command: 'prompt-push'; name: string; file?: string; label?: string; allowVariableChange: boolean }
   | { command: 'prompt-pull'; add: string[]; check: boolean; allowVariableChange: boolean }
@@ -95,21 +96,17 @@ export type ParsedCommand =
       allowUnreviewed: boolean
     }
   | { command: 'pairwise-report'; runName: string }
-  | { command: 'sweep-names'; runFile: string; dataset: string; split: DatasetSplit[] }
+  | { command: 'sweep-names'; runFile: string; dataset: string; split: Split[] }
 
-/** Golden-set splits (DEV-1896). Holdout stays untouched until tuned cutoffs are committed. */
-export const DATASET_SPLITS = ['train', 'val', 'holdout'] as const
-export type DatasetSplit = (typeof DATASET_SPLITS)[number]
-
-function parseSplit(value: string): DatasetSplit[] {
+function parseSplit(value: string): Split[] {
   const parts = splitList(value)
-  if (parts.length === 0) throw new Error(`--split needs at least one of ${DATASET_SPLITS.join(', ')}`)
+  if (parts.length === 0) throw new Error(`--split needs at least one of ${SPLITS.join(', ')}`)
   for (const part of parts) {
-    if (!(DATASET_SPLITS as readonly string[]).includes(part)) {
-      throw new Error(`Unknown --split value: ${part} (expected ${DATASET_SPLITS.join(', ')})`)
+    if (!(SPLITS as readonly string[]).includes(part)) {
+      throw new Error(`Unknown --split value: ${part} (expected ${SPLITS.join(', ')})`)
     }
   }
-  return parts as DatasetSplit[]
+  return parts as Split[]
 }
 
 export function parseArm(spec: string): ArmSpec {
@@ -121,7 +118,8 @@ export function parseArm(spec: string): ArmSpec {
   }
 
   const kind = spec.slice(0, colon)
-  const value = spec.slice(colon + 1)
+  // Trimmed: OPENAI_MODEL_OVERRIDE is trimmed, and the off-slot check compares exactly.
+  const value = spec.slice(colon + 1).trim()
 
   if (kind === 'prompt') {
     const version = Number(value)
@@ -669,33 +667,59 @@ export function isAdmittedProductsItem(
 // Subcommand handlers
 // ---------------------------------------------------------------------------
 
-/**
- * A Langfuse 404 on a dataset lookup: `LangfuseFetchHttpError` carries the response.
- *
- * `client.getDataset` (langfuse-core 3.x) also swallows the 404 on the dataset
- * lookup and then fails on the items page with
- * `TypeError: itemsResponse.data is not iterable`. Matched on the SDK's own
- * variable name so an unrelated "is not iterable" still surfaces; re-check if
- * the SDK is upgraded and renames it.
- */
+/** A Langfuse 404 on a dataset lookup: `LangfuseFetchHttpError` carries the response. */
 export function isDatasetNotFound(e: unknown): boolean {
   const status = (e as { response?: { status?: unknown } } | null)?.response?.status
   if (status === 404) return true
   const message = e instanceof Error ? e.message : String(e)
-  if (e instanceof TypeError && /\bitemsResponse\.data is not iterable\b/.test(message)) return true
   return /\b404\b|not found/i.test(message)
+}
+
+/**
+ * `client.getDataset` (langfuse-core 3.38.20) swallows ANY failed response on
+ * the dataset lookup and the items page — a 404, but also a 429, a 5xx or a
+ * 401 — and then fails with `TypeError: itemsResponse.data is not iterable`.
+ * The error alone cannot tell a missing dataset from an outage. Matched on the
+ * SDK's own variable name so an unrelated "is not iterable" still surfaces;
+ * re-check if the SDK is upgraded and renames it.
+ */
+function isSwallowedItemsPageError(e: unknown): boolean {
+  return e instanceof TypeError && /\bitemsResponse\.data is not iterable\b/.test(e.message)
 }
 
 export type ValidateDeps = {
   /** Injectable for tests; defaults to the Langfuse client's getDataset. */
   getDataset?: (name: string) => Promise<{ items: Array<{ status: string; metadata?: unknown }> }>
+  /**
+   * A dataset lookup whose HTTP status is visible (`GET /api/public/v2/datasets/{name}`):
+   * it rejects with an object carrying `status`. Defaults to `client.api.datasetsGet`.
+   * Without one, a swallowed items-page failure fails validate.
+   */
+  probeDataset?: (name: string) => Promise<unknown>
+}
+
+/**
+ * Disambiguates a swallowed items-page failure: true only when the probe
+ * returns a real 404. A probe that succeeds (the dataset exists, so the items
+ * page failed for another reason) returns false; any other probe failure
+ * propagates.
+ */
+async function probeSaysMissing(name: string, probe: ValidateDeps['probeDataset']): Promise<boolean> {
+  if (!probe) return false
+  try {
+    await probe(name)
+  } catch (error) {
+    if (httpStatusOf(error) === 404) return true
+    throw error
+  }
+  return false
 }
 
 export async function cmdDatasetValidate(
   allowUnreviewed: boolean,
   deps: ValidateDeps = {},
 ): Promise<void> {
-  let getDataset = deps.getDataset
+  let { getDataset, probeDataset } = deps
   if (!getDataset) {
     const client = getLangfuse()
     if (!client) {
@@ -704,6 +728,7 @@ export async function cmdDatasetValidate(
       return
     }
     getDataset = (name) => client.getDataset(name)
+    probeDataset ??= (name) => client.api.datasetsGet(name)
   }
 
   const names = registeredDatasets().filter(
@@ -720,7 +745,16 @@ export async function cmdDatasetValidate(
     try {
       ;({ items } = await getDataset(name))
     } catch (e) {
-      if (!isDatasetNotFound(e)) throw e
+      if (isSwallowedItemsPageError(e)) {
+        if (!(await probeSaysMissing(name, probeDataset))) {
+          throw new Error(
+            `[validate] ${name}: reading the items failed (the Langfuse SDK swallowed a non-404 response: ` +
+              `rate limit, outage or auth); refusing to report it as not seeded`,
+          )
+        }
+      } else if (!isDatasetNotFound(e)) {
+        throw e
+      }
       console.log(`${name.padEnd(36)}| not seeded`)
       continue
     }
@@ -730,12 +764,10 @@ export async function cmdDatasetValidate(
     const unreviewed = active.length - reviewed.length
 
     if (unreviewed > 0) hasUnreviewed = true
-    const splits = splitCounts(active)
 
     console.log(
       `${name.padEnd(36)}| ${String(reviewed.length).padEnd(9)}| ${String(unreviewed).padEnd(11)}| ` +
-        `${String(archived.length).padEnd(9)}| ${String(splits.train).padEnd(6)}| ${String(splits.val).padEnd(6)}| ` +
-        `${String(splits.holdout).padEnd(8)}| ${splits.none}`,
+        `${String(archived.length).padEnd(9)}| ${formatSplitRow(splitCounts(active))}`,
     )
   }
 
@@ -751,16 +783,19 @@ export async function cmdDatasetValidate(
 // dataset split (DEV-1898 D9a/D21)
 // ---------------------------------------------------------------------------
 
-/** The item's `metadata.split` when it is one of train/val/holdout. */
-function storedSplit(item: { metadata?: unknown }): DatasetSplit | undefined {
-  const split = (item.metadata as { split?: unknown } | null | undefined)?.split
-  return (DATASET_SPLITS as readonly unknown[]).includes(split) ? (split as DatasetSplit) : undefined
+type SplitRow = Record<Split | 'none', number>
+
+const emptySplitRow = (): SplitRow => ({ train: 0, val: 0, holdout: 0, none: 0 })
+
+/** The `Train | Val | Holdout | None` cells of one table row. */
+function formatSplitRow(row: SplitRow): string {
+  return `${String(row.train).padEnd(6)}| ${String(row.val).padEnd(6)}| ${String(row.holdout).padEnd(8)}| ${row.none}`
 }
 
 /** Train/val/holdout counts, plus `none` for items with no (or an unknown) split. */
-export function splitCounts(items: ReadonlyArray<{ metadata?: unknown }>): Record<DatasetSplit | 'none', number> {
-  const counts = { train: 0, val: 0, holdout: 0, none: 0 }
-  for (const item of items) counts[storedSplit(item) ?? 'none'] += 1
+export function splitCounts(items: ReadonlyArray<{ metadata?: unknown }>): SplitRow {
+  const counts = emptySplitRow()
+  for (const item of items) counts[splitOf(item.metadata) ?? 'none'] += 1
   return counts
 }
 
@@ -772,45 +807,55 @@ export type SplitDatasetItem = {
   metadata?: unknown
 }
 
-/** A label field of `expectedOutput` as the stratum; an unlabelled item is its own stratum. */
-function labelStratum(field: string): (item: SplitDatasetItem) => string {
+/** An item's stratum; `undefined` means the item has no label yet. */
+export type Stratum = (item: SplitDatasetItem) => string | undefined
+
+/** A label field of `expectedOutput` as the stratum; `undefined` when the item is unlabelled. */
+function labelStratum(field: string): Stratum {
   return (item) => {
     const value = (item.expectedOutput as Record<string, unknown> | null | undefined)?.[field]
-    return value === undefined || value === null ? 'unlabelled' : String(value)
+    return value === undefined || value === null ? undefined : String(value)
   }
 }
 
 /**
- * Strata per dataset (D21): the label where the set has one — the detect and
- * names confidence band, the critique verdict, the intent L1 — otherwise one
- * stratum.
+ * Strata per dataset (D21): the label where the set has one — the detect
+ * confidence band, the critique verdict, the intent L1 — otherwise one stratum.
  */
-export const SPLIT_STRATA: Readonly<Record<string, (item: SplitDatasetItem) => string>> = {
+export const SPLIT_STRATA: Readonly<Record<string, Stratum>> = {
   'detect-confidence-golden': labelStratum('confidence'),
-  'name-arbiter-confidence-golden': labelStratum('confidence'),
   'acquisition-critique-golden': labelStratum('verdict'),
   'intent-parse-golden': labelStratum('category'),
 }
 
-export function strataOf(dataset: string): (item: SplitDatasetItem) => string {
+/**
+ * Datasets whose splits another script owns; `dataset split` refuses them.
+ * Names: the harvest stratifies by hard-tag set and pins prompt-leak items to
+ * train, which it computes from the live prompt; a deal here would do neither.
+ */
+export const SPLIT_OWNERS: Readonly<Record<string, string>> = {
+  'name-arbiter-confidence-golden': 'scripts/harvest-name-arbiter-golden.ts',
+}
+
+export function strataOf(dataset: string): Stratum {
   return SPLIT_STRATA[dataset] ?? (() => 'all')
 }
 
 /** A split × stratum table: one row per stratum, then the total. */
 export function formatSplitTable(
-  items: ReadonlyArray<SplitDatasetItem & { split?: DatasetSplit }>,
-  stratum: (item: SplitDatasetItem) => string,
+  items: ReadonlyArray<SplitDatasetItem & { split?: Split }>,
+  stratum: Stratum,
 ): string {
-  const rows = new Map<string, Record<DatasetSplit | 'none', number>>()
+  const rows = new Map<string, SplitRow>()
   for (const item of items) {
-    const key = stratum(item)
-    const row = rows.get(key) ?? { train: 0, val: 0, holdout: 0, none: 0 }
+    const key = stratum(item) ?? 'unlabelled'
+    const row = rows.get(key) ?? emptySplitRow()
     row[item.split ?? 'none'] += 1
     rows.set(key, row)
   }
-  const total = splitCounts(items.map((item) => ({ metadata: { split: item.split } })))
-  const line = (name: string, row: Record<DatasetSplit | 'none', number>) =>
-    `${name.padEnd(24)}| ${String(row.train).padEnd(6)}| ${String(row.val).padEnd(6)}| ${String(row.holdout).padEnd(8)}| ${row.none}`
+  const total = emptySplitRow()
+  for (const row of rows.values()) for (const key of Object.keys(total) as Array<keyof SplitRow>) total[key] += row[key]
+  const line = (name: string, row: SplitRow) => `${name.padEnd(24)}| ${formatSplitRow(row)}`
   return [
     'Stratum                 | Train | Val   | Holdout | None',
     '------------------------|-------|-------|---------|-----',
@@ -824,13 +869,16 @@ export type SplitWriteApi = {
   createItem: (body: SplitWriteBody) => Promise<unknown>
 }
 
+/** Every field the dataset-item create API accepts; the upsert replaces the whole item. */
 export type SplitWriteBody = {
   datasetName: string
   id: string
   input: unknown
   expectedOutput: unknown
-  status: string
   metadata: Record<string, unknown>
+  status: 'ACTIVE' | 'ARCHIVED'
+  sourceTraceId: string | null
+  sourceObservationId: string | null
 }
 
 export type SplitOptions = {
@@ -846,19 +894,71 @@ export type SplitOptions = {
   log?: (message: string) => void
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
+
+/**
+ * The upsert body for one split write, built from a FRESH read of the item:
+ * every field the create API accepts is carried as stored now, and only
+ * `split` is merged into metadata. Returns the reason instead when the item
+ * must not be written: it could not be re-read, its metadata is not a plain
+ * object, or its split changed since the listing.
+ */
+function splitWriteBody(
+  datasetName: string,
+  id: string,
+  fresh: unknown,
+  split: Split,
+  listed: ReturnType<typeof readSplit>,
+): SplitWriteBody | string {
+  const item = fresh as {
+    id?: unknown
+    input?: unknown
+    expectedOutput?: unknown
+    metadata?: unknown
+    status?: unknown
+    sourceTraceId?: string | null
+    sourceObservationId?: string | null
+  } | null | undefined
+  if (!item || item.id !== id) return 'could not be re-read'
+  if (item.status !== 'ACTIVE' && item.status !== 'ARCHIVED') return `unknown status ${String(item.status)}`
+  const metadata = item.metadata ?? {}
+  if (!isPlainObject(metadata)) return 'metadata is not a plain object'
+  const now = readSplit(metadata)
+  if (now.split !== listed.split || now.unrecognised !== listed.unrecognised) return 'split changed since listing'
+  return {
+    datasetName,
+    id,
+    input: item.input,
+    expectedOutput: item.expectedOutput ?? null,
+    metadata: { ...metadata, split },
+    status: item.status,
+    sourceTraceId: item.sourceTraceId ?? null,
+    sourceObservationId: item.sourceObservationId ?? null,
+  }
+}
+
 /**
  * `dataset split`: deals every listed item without a split into train/val/
  * holdout through the shared `assignSplits` (seeded, stratified 60/20/20;
- * pinned ids go to train). An item that already has a split keeps it. A dry
- * run prints the split × stratum table; `--apply` merges only `metadata.split`
- * into each changed item (input, expectedOutput, status and every other
- * metadata key are re-sent as stored), paced and confirmed by returned id,
- * then re-read per id, because the SDK resolves a 429 as if it had succeeded.
- * The dataset listing omits ARCHIVED (rejected) items, so they are not split.
+ * pinned ids go to train). An item that already has a split keeps it. An
+ * unlabelled item in a label-stratified set is left unsplit (a split is frozen
+ * once written, so it waits for review). A dataset whose splits another script
+ * owns (`SPLIT_OWNERS`) is refused. A dry run prints the split × stratum table
+ * and any item with an unrecognised stored split; `--apply` refuses while one
+ * exists. `--apply` re-reads each changed item just before its write and
+ * upserts it from that fresh read with only `metadata.split` merged, paced and
+ * confirmed by returned id, then re-read per id, because the SDK resolves a
+ * 429 as if it had succeeded. The dataset listing omits ARCHIVED (rejected)
+ * items, so they are not split.
  */
 export async function cmdDatasetSplit(options: SplitOptions): Promise<{ written: number; unchanged: number }> {
   const { dataset, seed, apply, pin, log = console.log } = options
-  const { assignSplits } = await import('@/lib/services/eval/splits')
+  const owner = SPLIT_OWNERS[dataset]
+  if (owner) throw new Error(`[split] ${dataset} splits are owned by ${owner}; run it instead of dataset split`)
   let getDataset = options.getDataset
   if (!getDataset) {
     const client = getLangfuse()
@@ -871,16 +971,41 @@ export async function cmdDatasetSplit(options: SplitOptions): Promise<{ written:
   const unknownPins = pin.filter((id) => !items.some((item) => item.id === id))
   if (unknownPins.length > 0) throw new Error(`[split] --pin ids not in ${dataset}: ${unknownPins.join(', ')}`)
 
+  // The stored split per id, read once before the deal.
+  const stored = new Map(items.map((item) => [item.id, readSplit(item.metadata)]))
+  const storedOf = (id: string) => stored.get(id) ?? {}
+  const unrecognised = items
+    .filter((item) => storedOf(item.id).unrecognised !== undefined)
+    .map((item) => `${item.id}=${JSON.stringify(storedOf(item.id).unrecognised)}`)
+  const unlabelled = new Set(
+    items
+      .filter((item) => !storedOf(item.id).split && !pinnedToTrain.has(item.id) && stratum(item) === undefined)
+      .map((item) => item.id),
+  )
+
   const dealt = assignSplits(
-    items.map((item) => ({ ...item, split: storedSplit(item) })),
-    { seed, strataOf: stratum, pinnedToTrain },
+    items.filter((item) => !unlabelled.has(item.id)).map((item) => ({ ...item, split: storedOf(item.id).split })),
+    // Only labelled, unsplit, unpinned items reach strataOf, so the fallback never applies.
+    { seed, strataOf: (item) => stratum(item) ?? 'unlabelled', pinnedToTrain },
   )
   log(formatSplitTable(dealt, stratum))
+  if (unlabelled.size > 0) {
+    log(`\n[split] ${dataset}: ${unlabelled.size} unlabelled item(s) left unsplit; re-run after review`)
+  }
+  if (unrecognised.length > 0) {
+    log(`\n[split] ${dataset}: ${unrecognised.length} item(s) carry an unrecognised split: ${unrecognised.join(', ')}`)
+  }
 
-  const changed = dealt.filter((item) => item.split !== storedSplit(item))
+  const changed = dealt.filter((item) => item.split !== storedOf(item.id).split)
   if (!apply) {
     log(`\n[split] ${dataset}: ${changed.length} item(s) would change; dry run, pass --apply to write`)
     return { written: 0, unchanged: dealt.length - changed.length }
+  }
+  if (unrecognised.length > 0) {
+    throw new Error(
+      `[split] refusing --apply: ${unrecognised.length} item(s) carry an unrecognised split (${unrecognised.join(', ')}); ` +
+        'fix or clear their metadata.split first',
+    )
   }
 
   const api = options.api ?? langfuseSplitWriteApi()
@@ -889,32 +1014,42 @@ export async function cmdDatasetSplit(options: SplitOptions): Promise<{ written:
     ...(options.sleep ? { sleep: options.sleep } : {}),
     ...(options.minIntervalMs !== undefined ? { minIntervalMs: options.minIntervalMs } : {}),
   })
-  const bodies: SplitWriteBody[] = changed.map((item) => ({
-    datasetName: dataset,
-    id: item.id,
-    input: item.input,
-    expectedOutput: item.expectedOutput ?? null,
-    status: item.status,
-    metadata: { ...((item.metadata as Record<string, unknown> | null | undefined) ?? {}), split: item.split },
-  }))
+  const written: SplitWriteBody[] = []
   const failed: string[] = []
-  for (const body of bodies) if (!(await confirmedWrite(body))) failed.push(body.id)
-  if (failed.length > 0) {
-    throw new Error(`[split] ${bodies.length - failed.length}/${bodies.length} writes confirmed; unconfirmed: ${failed.join(', ')}`)
+  const refused: string[] = []
+  for (const item of changed) {
+    // Re-read right before the write: the listing is a snapshot, and the upsert replaces the whole item.
+    let fresh: unknown
+    try {
+      fresh = await withRetry(async () => (await api.getItem(item.id)) ?? undefined)
+    } catch (error) {
+      if (httpStatusOf(error) !== 404) throw error
+    }
+    const body = splitWriteBody(dataset, item.id, fresh, item.split!, storedOf(item.id))
+    if (typeof body === 'string') refused.push(`${item.id} (${body})`)
+    else if (await confirmedWrite(body)) written.push(body)
+    else failed.push(item.id)
   }
   const unverified: string[] = []
-  for (const body of bodies) {
+  for (const body of written) {
     const ok = await withRetry(async () => {
-      const stored = (await api.getItem(body.id)) as { id?: unknown; metadata?: { split?: unknown } | null } | null
-      return stored?.id === body.id && stored.metadata?.split === body.metadata.split ? true : undefined
+      const readBack = (await api.getItem(body.id)) as { id?: unknown; metadata?: { split?: unknown } | null } | null
+      return readBack?.id === body.id && readBack.metadata?.split === body.metadata.split ? true : undefined
     })
     if (ok !== true) unverified.push(body.id)
   }
-  if (unverified.length > 0) {
-    throw new Error(`[split] ${unverified.length}/${bodies.length} items did not read back with their split: ${unverified.join(', ')}`)
+  const problems = [
+    failed.length > 0 ? `unconfirmed: ${failed.join(', ')}` : '',
+    refused.length > 0 ? `refused: ${refused.join(', ')}` : '',
+    unverified.length > 0 ? `did not read back with their split: ${unverified.join(', ')}` : '',
+  ].filter(Boolean)
+  if (problems.length > 0) {
+    throw new Error(
+      `[split] ${written.length - unverified.length}/${changed.length} writes verified; ${problems.join('; ')}`,
+    )
   }
-  log(`\n[split] ${dataset}: ${bodies.length} written and verified, ${dealt.length - bodies.length} unchanged`)
-  return { written: bodies.length, unchanged: dealt.length - bodies.length }
+  log(`\n[split] ${dataset}: ${written.length} written and verified, ${dealt.length - changed.length} unchanged`)
+  return { written: written.length, unchanged: dealt.length - changed.length }
 }
 
 function langfuseSplitWriteApi(): SplitWriteApi {
@@ -922,8 +1057,7 @@ function langfuseSplitWriteApi(): SplitWriteApi {
   if (!client) throw new Error('Langfuse not configured')
   return {
     getItem: (id) => client.api.datasetItemsGet(id),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    createItem: (body) => client.api.datasetItemsCreate(body as any),
+    createItem: (body) => client.api.datasetItemsCreate(body),
   }
 }
 
@@ -961,8 +1095,8 @@ type RunDatasetItem = {
 
 /** True when the item's `metadata.split` is one of `split`; an item with no split is in none. */
 function inSplit(item: { metadata?: unknown }, split: readonly string[]): boolean {
-  const itemSplit = (item.metadata as { split?: unknown } | null | undefined)?.split
-  return typeof itemSplit === 'string' && split.includes(itemSplit)
+  const itemSplit = splitOf(item.metadata)
+  return itemSplit !== undefined && split.includes(itemSplit)
 }
 
 export type RunDeps = {
@@ -976,7 +1110,7 @@ export type RunDeps = {
 
 export type RunOptions = {
   /** Keep only items whose metadata.split is listed; undefined keeps all items. */
-  split?: DatasetSplit[]
+  split?: Split[]
 }
 
 /** Dataset items from the injected loader, else Langfuse; null when Langfuse is not configured. */
@@ -1105,7 +1239,7 @@ export type SweepNamesDeps = {
 export async function cmdSweepNames(
   runFile: string,
   dataset: string,
-  split: DatasetSplit[],
+  split: Split[],
   deps: SweepNamesDeps = {},
 ): Promise<void> {
   const readFileFn = deps.readFile ?? ((p: string) => readFileSync(p, 'utf8'))

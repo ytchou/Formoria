@@ -8,6 +8,23 @@ import { createHash } from 'node:crypto'
 export const SPLITS = ['train', 'val', 'holdout'] as const
 export type Split = (typeof SPLITS)[number]
 
+/**
+ * `metadata.split` as stored. `split` is set for train/val/holdout;
+ * `unrecognised` carries any other non-empty value (e.g. 'test', 'Holdout') so a
+ * caller can refuse to overwrite it. A missing, null or empty value is neither.
+ */
+export function readSplit(metadata: unknown): { split?: Split; unrecognised?: unknown } {
+  if (typeof metadata !== 'object' || metadata === null) return {}
+  const raw = (metadata as { split?: unknown }).split
+  if (raw === undefined || raw === null || raw === '') return {}
+  return (SPLITS as readonly unknown[]).includes(raw) ? { split: raw as Split } : { unrecognised: raw }
+}
+
+/** The recognised `metadata.split`, or undefined (missing or unrecognised). */
+export function splitOf(metadata: unknown): Split | undefined {
+  return readSplit(metadata).split
+}
+
 /** 60/20/20: every five positions in the stratum-ordered list hold 3 train, 1 val, 1 holdout. */
 const SPLIT_PATTERN: readonly Split[] = ['train', 'train', 'train', 'val', 'holdout']
 
