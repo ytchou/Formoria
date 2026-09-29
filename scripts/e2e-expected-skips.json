@@ -50,11 +50,6 @@
       "file": "brand-detail.spec.ts",
       "title": "historical slugs targeting hidden brands return direct 404 responses",
       "reason": "Cloudflare WAF challenges raw-HTTP Googlebot requests on a remote target"
-    },
-    {
-      "file": "image-route.spec.ts",
-      "title": "sets an immutable one-year cache header",
-      "reason": "Cloudflare rewrites cache-control on remote targets"
     }
   ]
 }
