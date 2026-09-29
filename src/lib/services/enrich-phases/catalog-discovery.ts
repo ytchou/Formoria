@@ -14,6 +14,7 @@ import {
   type PlatformId,
 } from './scraper/platforms'
 import { upgradeEcommerceImageUrl } from './scraper/parse/extractors'
+import { RenderBudgetExceeded } from './scraper/render/render-budget'
 import type { RenderProvider } from './scraper/render/types'
 import { extractRenderedMainText } from './scraper/product-origin-text'
 
@@ -51,7 +52,13 @@ type CatalogAttemptSummary = {
   platform: PlatformId | 'generic'
   extractor: string
   staticOutcome: 'usable' | 'empty' | 'failed'
-  renderOutcome: 'not_requested' | 'usable' | 'empty' | 'failed' | 'unavailable'
+  renderOutcome:
+    | 'not_requested'
+    | 'usable'
+    | 'empty'
+    | 'failed'
+    | 'unavailable'
+    | 'budget_capped'
   sitemapLocations: number
   rawUrls: number
   ownedDetailUrls: number
@@ -542,6 +549,8 @@ export async function discoverCatalog(
       }
       let hydrated = 0
       let potentiallyUsefulUnrendered = false
+      // A render the budget refused never reached the site (DEV-1908).
+      let budgetCapped = false
       let reachableSurfaces = 0
       let reachableRoutes = 0
       let deadRoutes = 0
@@ -618,9 +627,14 @@ export async function discoverCatalog(
               platform === 'generic' ? null : platform,
             )
             summary.renderOutcome = routes.length > 0 ? 'usable' : 'empty'
-          } catch {
-            summary.renderOutcome = 'failed'
-            potentiallyUsefulUnrendered = true
+          } catch (error) {
+            if (error instanceof RenderBudgetExceeded) {
+              summary.renderOutcome = 'budget_capped'
+              budgetCapped = true
+            } else {
+              summary.renderOutcome = 'failed'
+              potentiallyUsefulUnrendered = true
+            }
           }
         } else if (routes.length === 0) {
           summary.renderOutcome = 'unavailable'
@@ -725,9 +739,13 @@ export async function discoverCatalog(
                       pageEvidence.title && pageEvidence.imageUrls.length > 0
                         ? 'usable'
                         : 'empty'
-                  } catch {
-                    renderOutcome = 'failed'
-                    renderBlocked = true
+                  } catch (error) {
+                    if (error instanceof RenderBudgetExceeded) {
+                      renderOutcome = 'budget_capped'
+                    } else {
+                      renderOutcome = 'failed'
+                      renderBlocked = true
+                    }
                   }
                 } else if (
                   (!pageEvidence.title || pageEvidence.imageUrls.length === 0) &&
@@ -758,6 +776,7 @@ export async function discoverCatalog(
             if (result.reachable) reachableRoutes += 1
             else deadRoutes += 1
             if (result.renderBlocked) potentiallyUsefulUnrendered = true
+            if (result.renderOutcome === 'budget_capped') budgetCapped = true
             if (result.renderOutcome !== 'not_requested') {
               summary.renderOutcome = result.renderOutcome
             }
@@ -895,9 +914,13 @@ export async function discoverCatalog(
                         pageEvidence.title && pageEvidence.imageUrls.length > 0
                           ? 'usable'
                           : 'empty'
-                    } catch {
-                      renderOutcome = 'failed'
-                      renderBlocked = true
+                    } catch (error) {
+                      if (error instanceof RenderBudgetExceeded) {
+                        renderOutcome = 'budget_capped'
+                      } else {
+                        renderOutcome = 'failed'
+                        renderBlocked = true
+                      }
                     }
                   } else if (
                     (!pageEvidence.title ||
@@ -929,6 +952,7 @@ export async function discoverCatalog(
               if (result.reachable) reachableRoutes += 1
               else deadRoutes += 1
               if (result.renderBlocked) potentiallyUsefulUnrendered = true
+              if (result.renderOutcome === 'budget_capped') budgetCapped = true
               if (result.renderOutcome !== 'not_requested') {
                 summary.renderOutcome = result.renderOutcome
               }
@@ -988,13 +1012,13 @@ export async function discoverCatalog(
           }
         }
       }
-      // `truncated` heads the ladder: a crawl the deadline cut short has not
-      // proven anything about the brand, and the other members are persisted as
-      // permanent verdicts by the coverage census.
+      // `truncated` heads the ladder: a crawl the deadline or the render budget
+      // cut short has not proven anything about the brand, and the other members
+      // are persisted as permanent verdicts by the coverage census.
       const zeroReason: CatalogZeroReason | undefined =
         triples.length > 0
           ? undefined
-          : deadlineHit
+          : deadlineHit || budgetCapped
             ? 'truncated'
             : reachableSurfaces === 0 ||
                 (hydrated > 0 && deadRoutes === hydrated && reachableRoutes === 0)
