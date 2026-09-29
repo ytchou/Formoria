@@ -224,6 +224,10 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "CJK character-range regex, no vocabulary",
   ],
   ["lib/services/brands.ts", "CJK character-range regex for slug generation"],
+  [
+    "lib/brands/brand-name-match.ts",
+    "CJK character-range regex for name matching",
+  ],
   ["lib/constants.ts", "CJK range regex and a comment"],
   // --- Fixtures, comments, and test-only fallbacks.
   ["lib/services/submissions.ts", "comments documenting production names"],
