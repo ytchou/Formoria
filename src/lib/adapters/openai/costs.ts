@@ -9,7 +9,7 @@ const BUCKET_LIMIT = 31;
 // asks for a longer window.
 const MAX_PAGES = 12;
 
-export type OpenAICostDay = { start: string; end: string; usd: number };
+type OpenAICostDay = { start: string; end: string; usd: number };
 
 export type OpenAICosts = {
   totalUsd: number;
