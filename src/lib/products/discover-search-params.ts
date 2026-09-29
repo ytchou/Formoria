@@ -285,7 +285,9 @@ export function sortOptionsFor(hasQuery: boolean): DiscoverSort[] {
     : ["newest", "alphabetical"];
 }
 
-export function parseDiscoverSource(params: RawSearchParams): "nav" | "hero" | "discover_page" {
+export function parseDiscoverSource(
+  params: RawSearchParams,
+): "nav" | "hero" | "discover_page" {
   const source = firstValue(params.src);
   return source === "nav" || source === "hero" ? source : "discover_page";
 }

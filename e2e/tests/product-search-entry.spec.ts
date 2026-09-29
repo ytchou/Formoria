@@ -78,11 +78,9 @@ test("directory and discovery own their search on desktop and in the mobile shee
       page.getByRole("search", { name: "全站商品搜尋" }),
     ).toHaveCount(0);
     await expect(
-      page
-        .getByRole("main")
-        .getByRole("searchbox", {
-          name: route === "/brands" ? "搜尋品牌" : "搜尋商品",
-        }),
+      page.getByRole("main").getByRole("searchbox", {
+        name: route === "/brands" ? "搜尋品牌" : "搜尋商品",
+      }),
     ).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "開啟選單" }).click();

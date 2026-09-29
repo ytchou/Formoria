@@ -25,10 +25,10 @@ async function expectProductResults(page: Page) {
 }
 
 async function tabUntilFocused(page: Page, field: Locator) {
-    for (let stop = 0; stop < MAX_TAB_STOPS; stop += 1) {
-      await page.keyboard.press("Tab");
-      if (await field.evaluate((el) => el === document.activeElement)) break;
-    }
+  for (let stop = 0; stop < MAX_TAB_STOPS; stop += 1) {
+    await page.keyboard.press("Tab");
+    if (await field.evaluate((el) => el === document.activeElement)) break;
+  }
 }
 
 test.describe("Homepage hero product search", () => {
@@ -40,7 +40,9 @@ test.describe("Homepage hero product search", () => {
     await field.fill(QUERY);
     await field.press("Enter");
     await expectProductResults(page);
-    await expect(page.getByRole("searchbox", { name: "搜尋商品" })).toHaveValue(QUERY);
+    await expect(page.getByRole("searchbox", { name: "搜尋商品" })).toHaveValue(
+      QUERY,
+    );
   });
   test("completes the same product journey by keyboard alone", async ({
     page,
@@ -52,6 +54,8 @@ test.describe("Homepage hero product search", () => {
     await page.keyboard.type(QUERY);
     await page.keyboard.press("Enter");
     await expectProductResults(page);
-    await expect(page.getByRole("searchbox", { name: "搜尋商品" })).toHaveValue(QUERY);
+    await expect(page.getByRole("searchbox", { name: "搜尋商品" })).toHaveValue(
+      QUERY,
+    );
   });
 });

@@ -2035,32 +2035,48 @@ export async function getExploreBrands(
 }
 
 const getCachedBrandNameIndex = unstable_cache(
-  () => auditedCall(
-    { provider: "cache", operation: "getCachedBrandNameIndex", kind: "service" },
-    async (): Promise<BrandNameMatch[]> => {
-      // One unpaged read is capped at 1000 by PostgREST; paginate above that,
-      // and move to SQL past ~5k brands.
-      const { data, error } = await excludeTestBrands(
-        createServiceClient().from("brands")
-          .select("id, slug, name, romanized_name, hero_image_url, hero_image_storage_path, category")
-          .eq("status", "approved").order("id").limit(1000),
-      );
-      if (error) throw error;
-      return (data ?? [])
-        .filter(row => !DEFERRED_CATEGORY_SLUGS.has(row.category ?? ""))
-        .map(row => ({
-          id: row.id, slug: row.slug, name: row.name,
-          romanizedName: row.romanized_name,
-          heroImageUrl: imagePathToUrl(row.hero_image_storage_path) ?? storageBackedHeroFallback(row.hero_image_url),
-        }));
-    },
-    { summary: { cached: true } },
-  ),
+  () =>
+    auditedCall(
+      {
+        provider: "cache",
+        operation: "getCachedBrandNameIndex",
+        kind: "service",
+      },
+      async (): Promise<BrandNameMatch[]> => {
+        // One unpaged read is capped at 1000 by PostgREST; paginate above that,
+        // and move to SQL past ~5k brands.
+        const { data, error } = await excludeTestBrands(
+          createServiceClient()
+            .from("brands")
+            .select(
+              "id, slug, name, romanized_name, hero_image_url, hero_image_storage_path, category",
+            )
+            .eq("status", "approved")
+            .order("id")
+            .limit(1000),
+        );
+        if (error) throw error;
+        return (data ?? [])
+          .filter((row) => !DEFERRED_CATEGORY_SLUGS.has(row.category ?? ""))
+          .map((row) => ({
+            id: row.id,
+            slug: row.slug,
+            name: row.name,
+            romanizedName: row.romanized_name,
+            heroImageUrl:
+              imagePathToUrl(row.hero_image_storage_path) ??
+              storageBackedHeroFallback(row.hero_image_url),
+          }));
+      },
+      { summary: { cached: true } },
+    ),
   ["brand-name-index-v1"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
-export async function matchBrandsForQuery(query: string): Promise<BrandNameMatch[]> {
+export async function matchBrandsForQuery(
+  query: string,
+): Promise<BrandNameMatch[]> {
   if (!normalizePublicSearchQuery(query)) return [];
   return matchBrandNames(await getCachedBrandNameIndex(), query);
 }
