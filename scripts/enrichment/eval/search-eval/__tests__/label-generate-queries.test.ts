@@ -21,4 +21,16 @@ describe('catalog query generation', () => {
     expect(catalogQueries('keyword', products, brands, 20).map(q => q.query)).toContain('手提包')
     expect(catalogQueries('english', products, brands, 20).map(q => q.query)).toContain('Canvas Tote Bag')
   })
+
+  it('keeps distinct catalog names when their generated slugs collide', () => {
+    const colliding = [
+      { slug: 'amour-1', name: 'A.MOUR', romanizedName: null },
+      { slug: 'amour-2', name: 'A MOUR', romanizedName: null },
+    ]
+    const names = catalogQueries('brand', [
+      { brandSlug: 'amour-1', subcategory: 'handbags', nameEn: null },
+      { brandSlug: 'amour-2', subcategory: 'handbags', nameEn: null },
+    ], colliding, 20)
+    expect(new Set(names.map(item => item.id)).size).toBe(2)
+  })
 })

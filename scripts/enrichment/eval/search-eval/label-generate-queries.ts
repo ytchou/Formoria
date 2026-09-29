@@ -62,10 +62,18 @@ export function catalogQueries(
       ? products.map(p => L2_SUBCATEGORIES.find(s => s.slug === p.subcategory)?.nameZh)
       : products.map(p => p.nameEn)
   const queryType = kind === 'brand' ? 'brand_name' : kind
-  return [...new Set(values.filter((v): v is string => !!v && v.trim().length > 0))]
-    .sort()
-    .slice(0, count)
-    .map(query => ({ id: `${kind}-${slugify(query)}`, query, queryType, source: `catalog-${kind}` }))
+  if (!Number.isInteger(count) || count < 1) throw new Error('Query count must be a positive integer')
+  const candidates = [...new Set(values.filter((v): v is string => !!v && v.trim().length > 0))].sort()
+  const selected = candidates.length <= count
+    ? candidates
+    : Array.from({ length: count }, (_, index) => candidates[Math.floor((index + 0.5) * candidates.length / count)]!)
+  const usedIds = new Map<string, number>()
+  return selected.map(query => {
+    const base = `${kind}-${slugify(query) || 'query'}`
+    const ordinal = (usedIds.get(base) ?? 0) + 1
+    usedIds.set(base, ordinal)
+    return { id: ordinal === 1 ? base : `${base}-${ordinal}`, query, queryType, source: `catalog-${kind}` }
+  })
 }
 
 async function publishedCatalogProducts() {
