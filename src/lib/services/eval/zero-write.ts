@@ -51,6 +51,11 @@ export function installSeams({ sinkPath }: { sinkPath: string }): {
   collector: AuditCollector
   restore: () => void
 } {
+  // The sink writer appends without creating its directory; in a fresh
+  // worktree `scripts/llm-eval/runs/` does not exist and every write ENOENTs.
+  // Created before any seam goes in, so a mkdir failure leaves none installed.
+  mkdirSync(dirname(sinkPath), { recursive: true })
+
   const collector = createCollector()
 
   setAuditWriteSeam(async (record) => {
@@ -58,9 +63,6 @@ export function installSeams({ sinkPath }: { sinkPath: string }): {
     return null
   })
 
-  // The sink writer appends without creating its directory; in a fresh
-  // worktree `scripts/llm-eval/runs/` does not exist and every write ENOENTs.
-  mkdirSync(dirname(sinkPath), { recursive: true })
   process.env.CURATION_EVAL_SINK = sinkPath
 
   return {

@@ -23,14 +23,7 @@ import {
   INTENT_PARSE_DATASET,
   cmdDatasetValidate,
   cmdDatasetSplit,
-  runAgreementCapture,
-  runSentryCapture,
   writeGoldenItems,
-  type AgreementCaptureDeps,
-  type AgreementRunnerKey,
-  type CaptureRunner,
-  type CaptureRunnerContext,
-  type CaptureSeams,
   type GoldenWriteApi,
   type GoldenWriteBody,
   type SplitDatasetItem,
@@ -39,11 +32,7 @@ import {
 import { assertCensusTarget } from '../../enrichment/eval/production-guard'
 import { PRODUCTION_PROJECT_REF } from '@/lib/supabase/project-target'
 import { adapterFor } from '@/lib/services/eval/phase-adapters'
-import type { AgreementItemBody, GoldenItemBody, PromptTexts } from '@/lib/services/eval/golden-capture'
-import type { CapturedCall } from '@/lib/services/llm-audit'
-import type { EnrichBrand } from '@/lib/services/enrich-phases/types'
-import type { ListIssuesOptions, SentryIssue } from '@/lib/adapters/sentry/issues'
-import type { SentryClassifyDeps } from '@/lib/services/health-agent/classifiers/sentry-classify'
+import type { GoldenItemBody } from '@/lib/services/eval/golden-capture'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
 import { buildNameArbiterUserContent } from '@/lib/services/name-arbiter'
 
@@ -1372,7 +1361,6 @@ describe('parseCliArgs — dataset harvest / capture (DEV-1873)', () => {
       brands: ['brand-a', 'brand-b'],
       datasets: ['acquisition-plan-golden', 'acquisition-critique-golden'],
       confirm: false,
-      productsAgent: 'off',
     })
   })
 
@@ -1382,7 +1370,6 @@ describe('parseCliArgs — dataset harvest / capture (DEV-1873)', () => {
       brands: ['brand-a'],
       datasets: undefined,
       confirm: false,
-      productsAgent: 'off',
     })
   })
 
@@ -1623,14 +1610,14 @@ describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// DEV-1898: dataset split, split counts, agreement and Sentry capture
+// DEV-1898: dataset split and split counts
 // ---------------------------------------------------------------------------
 
 describe('dataset split (DEV-1898 D9a)', () => {
   it('parses dataset split', () => {
     expect(
-      parseCliArgs(['dataset', 'split', '--dataset', 'brand-facts-agreement', '--seed', 's1', '--pin', 'a,b', '--apply']),
-    ).toEqual({ command: 'dataset-split', dataset: 'brand-facts-agreement', seed: 's1', apply: true, pin: ['a', 'b'] })
+      parseCliArgs(['dataset', 'split', '--dataset', 'acquisition-plan-golden', '--seed', 's1', '--pin', 'a,b', '--apply']),
+    ).toEqual({ command: 'dataset-split', dataset: 'acquisition-plan-golden', seed: 's1', apply: true, pin: ['a', 'b'] })
     expect(parseCliArgs(['dataset', 'split', '--dataset', 'x'])).toEqual({
       command: 'dataset-split',
       dataset: 'x',
@@ -1684,7 +1671,7 @@ describe('dataset split (DEV-1898 D9a)', () => {
     }
 
     const result = await cmdDatasetSplit({
-      dataset: 'brand-facts-agreement',
+      dataset: 'acquisition-plan-golden',
       seed: 's',
       apply: true,
       pin: ['new-0'],
@@ -1700,234 +1687,5 @@ describe('dataset split (DEV-1898 D9a)', () => {
     expect(stored.get('new-0')!.metadata).toEqual({ humanApproval: { status: 'pending' }, split: 'train' })
     expect(stored.get('new-1')).toMatchObject({ input: 'in-1', expectedOutput: { output: 1 }, status: 'ACTIVE' })
     expect(api.getItem).toHaveBeenCalledTimes(4)
-  })
-})
-
-describe('agreement capture (DEV-1898 D20)', () => {
-  const TEXTS = {
-    'brand-facts': ['FACTS SYSTEM'],
-    stockists: ['STOCKISTS SYSTEM'],
-    'faq-preamble': ['FAQ SYSTEM'],
-    'sentry-classify': ['SENTRY SYSTEM'],
-  } as unknown as PromptTexts
-  const brands = [{ id: 'b1', slug: 'brand-a' }, { id: 'b2', slug: 'brand-b' }] as unknown as EnrichBrand[]
-
-  function call(system: string, user: string, parsed: unknown): CapturedCall {
-    return {
-      phase: 'p',
-      profileKey: null,
-      system,
-      user,
-      promptName: null,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      response: { content: JSON.stringify(parsed), parsed },
-    }
-  }
-
-  /** Records the order of seam installs, runner calls, the zero-write assertion and writes. */
-  function fakeSeams() {
-    const events: string[] = []
-    let seam: ((call: CapturedCall) => void) | null = null
-    const writes: AgreementItemBody[] = []
-    const seams: Required<CaptureSeams> = {
-      installSeams: vi.fn(() => {
-        events.push('install')
-        return { collector: { all: () => [] }, restore: () => events.push('restore') }
-      }),
-      setCaptureSeam: vi.fn((fn: ((c: CapturedCall) => void) | null) => {
-        seam = fn
-      }),
-      runWithAuditContext: <T,>(_seed: { correlationId: string }, fn: () => T): T => fn(),
-      assertNoNewAuditRows: vi.fn(async () => {
-        events.push('assert')
-      }),
-      writeItems: vi.fn(async (items: AgreementItemBody[]) => {
-        events.push('write')
-        writes.push(...items)
-        return { written: items.length, reactivated: 0, existing: 0, failed: [] }
-      }),
-      log: () => {},
-    }
-    return { seams, events, writes, emit: (c: CapturedCall) => seam?.(c), seamCleared: () => seam === null }
-  }
-
-  function runners(emit: (c: CapturedCall) => void, events: string[]): Record<AgreementRunnerKey, CaptureRunner> {
-    return {
-      descriptions: vi.fn(async ({ brand }: CaptureRunnerContext) => {
-        events.push(`descriptions:${brand.slug}`)
-        emit(call('FACTS SYSTEM', `facts for ${brand.slug}`, { category: 'food' }))
-      }),
-      stockists: vi.fn(async ({ brand }: CaptureRunnerContext) => {
-        events.push(`stockists:${brand.slug}`)
-        emit(call('STOCKISTS SYSTEM', `evidence for ${brand.slug}`, { stockists: [] }))
-      }),
-      faq: vi.fn(async () => {}),
-      editorial: vi.fn(async () => {}),
-      vision: vi.fn(async () => {}),
-    }
-  }
-
-  it('capture runs the requested agreement phases zero-write', async () => {
-    const { seams, events, writes, emit, seamCleared } = fakeSeams()
-    const phaseRunners = runners(emit, events)
-    const deps: AgreementCaptureDeps = { ...seams, texts: TEXTS, runners: phaseRunners }
-
-    const summary = await runAgreementCapture({ brands, prompts: ['brand-facts', 'stockists'] }, deps)
-
-    expect(phaseRunners.descriptions).toHaveBeenCalledTimes(2)
-    expect(phaseRunners.stockists).toHaveBeenCalledTimes(2)
-    for (const key of ['faq', 'editorial', 'vision'] as const) expect(phaseRunners[key]).not.toHaveBeenCalled()
-    // Seams go in before the first runner and come out before any item is written.
-    expect(events).toEqual([
-      'install',
-      'descriptions:brand-a',
-      'stockists:brand-a',
-      'descriptions:brand-b',
-      'stockists:brand-b',
-      'assert',
-      'restore',
-      'write',
-    ])
-    expect(seamCleared()).toBe(true)
-    expect(seams.assertNoNewAuditRows).toHaveBeenCalledWith(
-      expect.objectContaining({ spanIds: [], correlationIds: expect.any(Array), submissionIds: expect.any(Array) }),
-    )
-    expect(summary.counts).toEqual({ 'brand-facts-agreement': 2, 'stockists-agreement': 2 })
-    expect(writes.map((item) => item.expectedOutput)).toContainEqual({ output: { category: 'food' } })
-  })
-
-  it('vision capture reports failed batches', async () => {
-    const { seams, events, emit } = fakeSeams()
-    const phaseRunners = runners(emit, events)
-    phaseRunners.vision = vi.fn(async ({ brand }: CaptureRunnerContext) => ({
-      items: [
-        {
-          datasetName: 'classify-images-agreement',
-          id: `classify-images:${brand.slug}:x`,
-          input: { brandContext: '', imageUrls: ['u'] },
-          expectedOutput: { output: { images: [] } },
-          status: 'ACTIVE',
-          metadata: { source: 'capture', brandSlug: brand.slug, jobId: null, phase: 'classify_images', profileKey: 'classifyImages', humanApproval: { status: 'pending' } },
-        } satisfies AgreementItemBody,
-      ],
-      failedBatches: brand.slug === 'brand-a' ? 1 : 0,
-    }))
-
-    const summary = await runAgreementCapture(
-      { brands, prompts: ['classify-images'] },
-      { ...seams, texts: TEXTS, runners: phaseRunners },
-    )
-
-    expect(summary.failedBatches).toBe(1)
-    expect(summary.counts).toEqual({ 'classify-images-agreement': 2 })
-  })
-
-  it('capture reports under-powered phases below --min', async () => {
-    const { seams, events, emit } = fakeSeams()
-    const summary = await runAgreementCapture(
-      { brands, prompts: ['brand-facts', 'faq-preamble'], min: 2 },
-      { ...seams, texts: TEXTS, runners: runners(emit, events) },
-    )
-
-    expect(summary.counts).toEqual({ 'brand-facts-agreement': 2, 'faq-preamble-agreement': 0 })
-    expect(summary.underPowered).toEqual(['faq-preamble-agreement'])
-  })
-
-  it('products-agent flag defaults to off', () => {
-    expect(parseCliArgs(['dataset', 'capture', '--brands', 'a'])).toMatchObject({ productsAgent: 'off' })
-    expect(parseCliArgs(['dataset', 'capture', '--brands', 'a', '--products-agent', 'on'])).toMatchObject({
-      productsAgent: 'on',
-    })
-    expect(() => parseCliArgs(['dataset', 'capture', '--brands', 'a', '--products-agent', 'yes'])).toThrow(
-      '--products-agent must be "on" or "off"',
-    )
-    expect(parseCliArgs(['dataset', 'capture', '--brands', 'a', '--min', '30'])).toMatchObject({ min: 30 })
-  })
-
-  it('refuses to harvest an agreement set or capture the Sentry set per brand', () => {
-    expect(() => parseCliArgs(['dataset', 'harvest', '--dataset', 'brand-facts-agreement'])).toThrow('agreement set')
-    expect(() =>
-      parseCliArgs(['dataset', 'capture', '--brands', 'a', '--datasets', 'sentry-classify-agreement']),
-    ).toThrow('--source sentry')
-    expect(parseCliArgs(['dataset', 'capture', '--source', 'sentry', '--limit', '40'])).toEqual({
-      command: 'dataset-capture-sentry',
-      limit: 40,
-      confirm: false,
-    })
-  })
-
-  describe('--source sentry (D17)', () => {
-    const issue = (id: string): SentryIssue => ({
-      id,
-      title: `TypeError in ${id}`,
-      count: '12',
-      userCount: 3,
-      lastSeen: '2026-09-28T00:00:00Z',
-      permalink: `https://sentry.example/issues/${id}`,
-      level: 'error',
-    })
-
-    beforeEach(() => {
-      vi.stubEnv('OPENAI_API_KEY', 'test-key')
-    })
-    afterEach(() => {
-      vi.unstubAllEnvs()
-    })
-
-    /** The classifier's transport, answering through the capture seam the way the audited client does. */
-    function classifyDeps(emit: (c: CapturedCall) => void): SentryClassifyDeps {
-      const answer = { severity: 'medium', rootCause: 'x', confidence: 0.5, fixability: 'low', mergePolicy: 'human', changedFiles: [] }
-      return {
-        fetchPrompt: (async () => ({
-          text: 'SENTRY SYSTEM',
-          prompt: { name: 'sentry-classify', version: 1, source: 'snapshot' },
-        })) as unknown as SentryClassifyDeps['fetchPrompt'],
-        chatParams: (() => ({})) as unknown as SentryClassifyDeps['chatParams'],
-        createClient: (() => ({
-          chat: async (params: { system: string; user: string }) => {
-            emit({ ...call(params.system, params.user, answer), phase: 'sentry-classify', profileKey: 'sentryClassify' })
-            return { content: JSON.stringify(answer), response: { ok: true } }
-          },
-        })) as unknown as SentryClassifyDeps['createClient'],
-      }
-    }
-
-    it('sentry capture builds classifier inputs from detector issues', async () => {
-      const { seams, writes, emit } = fakeSeams()
-      const listIssues = vi.fn(async (_hours?: number, _options?: ListIssuesOptions) => [issue('101'), issue('102')])
-
-      const summary = await runSentryCapture(
-        { limit: 5 },
-        { ...seams, texts: TEXTS, listIssues, classifyDeps: classifyDeps(emit) },
-      )
-
-      // The detector's own read, capped at --limit.
-      expect(listIssues).toHaveBeenCalledWith(48, expect.objectContaining({ limit: 5, excludeHealthCanary: true }))
-      expect(summary.counts).toEqual({ 'sentry-classify-agreement': 2 })
-      const users = writes.map((item) => (item.input as { user: string }).user)
-      expect(users).toHaveLength(2)
-      for (const user of users) expect(user).toMatch(/^Classify this Sentry issue and reply with a JSON object:\n/)
-      for (const id of ['101', '102']) expect(users.some((user) => user.includes(`"id":"${id}"`))).toBe(true)
-      expect(writes[0]!.expectedOutput).toEqual({ output: expect.objectContaining({ severity: 'medium' }) })
-    })
-
-    it('sentry capture is read-only', async () => {
-      const { seams, events, emit, seamCleared } = fakeSeams()
-      const sentryClient = { listIssues: vi.fn(async () => [issue('201')]), updateIssue: vi.fn() }
-
-      await runSentryCapture(
-        { limit: 40 },
-        { ...seams, texts: TEXTS, listIssues: sentryClient.listIssues, classifyDeps: classifyDeps(emit) },
-      )
-
-      expect(sentryClient.updateIssue).not.toHaveBeenCalled()
-      // No DB row escaped: the zero-write assertion ran inside the seams, before the Langfuse write.
-      expect(events).toEqual(['install', 'assert', 'restore', 'write'])
-      expect(seams.assertNoNewAuditRows).toHaveBeenCalledWith(expect.objectContaining({ spanIds: [] }))
-      expect(seamCleared()).toBe(true)
-    })
   })
 })

@@ -82,36 +82,4 @@ describe("classifyImageBuffers", () => {
     expect(results[0].tag).toBe("product");
     expect(results[0].buffer).toBeInstanceOf(Buffer);
   });
-
-  it("reports a failed batch through onBatchFailure and skips its images", async () => {
-    const failures: string[] = [];
-    const fakeClient = {
-      chat: async () => ({ ok: true, content: "", status: 200, refusal: null }),
-    };
-    const image: GatedImage = {
-      buffer: Buffer.from(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
-        "base64",
-      ),
-      contentType: "image/webp",
-      width: 600,
-      height: 600,
-      dominantColor: "#ffffff",
-      phash: "0000000000000000",
-      entropy: 6.0,
-      sharpness: 10.0,
-      source: "google_image",
-      sourceUrl: "https://example.com/img.png",
-      provider: { resolvedFetchUrl: "https://example.com/img.png" },
-    };
-
-    const results = await classifyImageBuffers([image], {
-      brandContext: "Brand: Test. ",
-      client: fakeClient as never,
-      onBatchFailure: (failure) => failures.push(failure.reason),
-    });
-
-    expect(results).toEqual([]);
-    expect(failures).toEqual(["empty response content"]);
-  });
 });

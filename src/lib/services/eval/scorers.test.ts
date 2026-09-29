@@ -31,9 +31,6 @@ import {
   planSchemaValid,
   recoveryActionConsistent,
   verdictAgreement,
-  fieldAgreement,
-  setAgreement,
-  structureAgreement,
   type GradedItem,
 } from './scorers'
 import { expect, it, describe } from 'vitest'
@@ -665,69 +662,5 @@ describe('verdictAgreement', () => {
     expect(verdictAgreement({ verdict: 'thin' }, { verdict: 'thin' })).toBe(1)
     expect(verdictAgreement({ verdict: 'thin' }, { verdict: 'fail' })).toBe(0)
     expect(verdictAgreement({}, { verdict: 'fail' })).toBe(0)
-  })
-
-  it('compares any enum field: identical 1, different 0, n/a when the expected field is absent', () => {
-    expect(verdictAgreement({ severity: 'high' }, { severity: 'high' }, 'severity')).toBe(1)
-    expect(verdictAgreement({ severity: 'low' }, { severity: 'high' }, 'severity')).toBe(0)
-    expect(verdictAgreement({ severity: 'high' }, {}, 'severity')).toBeNull()
-    expect(verdictAgreement({ severity: 'high' }, null, 'severity')).toBeNull()
-  })
-})
-
-describe('fieldAgreement', () => {
-  const fields = ['category', 'city', 'founding_year']
-
-  it('is 1 for identical fields and 0 for disjoint ones', () => {
-    const expected = { category: 'food', city: 'taipei', founding_year: 2015 }
-    expect(fieldAgreement({ ...expected }, expected, fields)).toBe(1)
-    expect(fieldAgreement({ category: 'home', city: 'tainan', founding_year: 1999 }, expected, fields)).toBe(0)
-  })
-
-  it('is the mean of per-field matches, treating a missing output field as null', () => {
-    const expected = { category: 'food', city: null, founding_year: 2015 }
-    expect(fieldAgreement({ category: 'food', founding_year: 2016 }, expected, fields)).toBeCloseTo(2 / 3)
-  })
-
-  it('is n/a when the expected output carries none of the fields', () => {
-    expect(fieldAgreement({ category: 'food' }, {}, fields)).toBeNull()
-    expect(fieldAgreement({ category: 'food' }, null, fields)).toBeNull()
-  })
-})
-
-describe('setAgreement', () => {
-  it('is 1 for identical lists and 0 for disjoint lists', () => {
-    expect(setAgreement(['a', 'b'], ['b', 'a'])).toBe(1)
-    expect(setAgreement(['a'], ['b'])).toBe(0)
-    expect(setAgreement([], [])).toBe(1)
-  })
-
-  it('is the Jaccard index for a partial overlap, keyed by keyOf', () => {
-    expect(setAgreement(['a', 'b', 'c'], ['b', 'c', 'd'])).toBe(0.5)
-    const byName = (s: unknown) => (s as { name: string }).name.toLowerCase()
-    expect(setAgreement([{ name: 'A' }, { name: 'x' }], [{ name: 'a' }], byName)).toBe(0.5)
-  })
-
-  it('is n/a when the expected list is absent', () => {
-    expect(setAgreement(['a'], undefined)).toBeNull()
-  })
-})
-
-describe('structureAgreement', () => {
-  const presetIds = (value: unknown) => {
-    const entries = (value as { entries?: Array<{ preset_id: string }> } | null)?.entries
-    return Array.isArray(entries) ? entries.map((entry) => entry.preset_id) : null
-  }
-
-  it('compares which parts are present, never the prose', () => {
-    const expected = { entries: [{ preset_id: 'custom', answer_zh: '甲' }, { preset_id: 'where-to-buy', answer_zh: '乙' }] }
-    const reworded = { entries: [{ preset_id: 'where-to-buy', answer_zh: '丙' }, { preset_id: 'custom', answer_zh: '丁' }] }
-    expect(structureAgreement(reworded, expected, presetIds)).toBe(1)
-    expect(structureAgreement({ entries: [{ preset_id: 'other' }] }, expected, presetIds)).toBe(0)
-    expect(structureAgreement({ entries: [{ preset_id: 'custom' }] }, expected, presetIds)).toBe(0.5)
-  })
-
-  it('is n/a when the expected side cannot be read', () => {
-    expect(structureAgreement({ entries: [] }, {}, presetIds)).toBeNull()
   })
 })

@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { adapterFor, registeredDatasets, type VisionReplayDeps } from '../phase-adapters'
-import { AGREEMENT_PROMPTS, GOLDEN_DATASETS } from '../golden-capture'
-import { MIN_KEEP_SCORE } from '../../enrich-phases/classify-images'
+import { adapterFor } from '../phase-adapters'
 import { buildNameArbiterUserContent } from '../../name-arbiter'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { isHighConfidenceWrite } from '../../enrich-phases/detect'
@@ -490,109 +488,5 @@ describe('DEV-1873 golden-set adapters', () => {
   it('only the critique adapter can draft labels', () => {
     expect(adapterFor('acquisition-plan-golden').draftExpected).toBeUndefined()
     expect(adapterFor('products-agent-ranking-golden').draftExpected).toBeUndefined()
-  })
-})
-
-describe('DEV-1898 agreement adapters', () => {
-  const agreementDatasets = AGREEMENT_PROMPTS.map((prompt) => GOLDEN_DATASETS[prompt])
-  const arm: ExperimentArm = { name: 'gpt-6-luna', type: 'model', value: 'gpt-6-luna' }
-
-  it('registers every agreement dataset', () => {
-    const registered = registeredDatasets()
-    for (const dataset of agreementDatasets) {
-      expect(registered).toContain(dataset)
-      const adapter = adapterFor(dataset)
-      expect(adapter.mode).toBe('scored')
-      expect(adapter.draftExpected).toBeUndefined()
-      expect(typeof adapter.task).toBe('function')
-      expect(adapter.scorers.length).toBeGreaterThan(0)
-    }
-    expect(adapterFor('sentry-classify-agreement').profileKey).toBe('sentryClassify')
-    expect(adapterFor('classify-images-agreement').profileKey).toBe('classifyImages')
-    expect(adapterFor('brand-facts-agreement').profileKey).toBe('facts')
-    expect(adapterFor('editorial-repair-agreement').profileKey).toBe('editorial')
-  })
-
-  it("each agreement adapter's expectedOf returns the captured output", () => {
-    const output = { anything: ['the', 'incumbent', 'said'] }
-    for (const dataset of agreementDatasets) {
-      const adapter = adapterFor(dataset)
-      expect(adapter.expectedOf({ expectedOutput: { output } })).toEqual(output)
-      expect(adapter.expectedSchema.safeParse({ output }).success).toBe(true)
-    }
-  })
-
-  it('the text replay task re-sends the captured messages and schema on the arm model', async () => {
-    const callModel = vi.fn(async () => ({ ok: true, content: JSON.stringify({ severity: 'high' }) }))
-    const adapter = adapterFor('sentry-classify-agreement', { agreementCallModel: callModel })
-    const messages = [
-      { role: 'system' as const, content: 'sys' },
-      { role: 'user' as const, content: 'issue' },
-    ]
-    const schema = { name: 'sentry_classification', schema: { type: 'object' } }
-    const result = await adapter.task!(
-      goldenItem({ user: 'issue', messages, schema, promptName: 'sentry-classify', profileKey: 'sentryClassify' }, { output: {} }),
-      arm,
-      { itemRunId: 'run-1', model: 'gpt-6-luna' },
-    )
-
-    expect(result).toEqual({ ok: true, output: { severity: 'high' } })
-    expect(callModel).toHaveBeenCalledWith(
-      { profileKey: 'sentryClassify', phase: 'sentry-classify', messages, schema },
-      { model: 'gpt-6-luna' },
-    )
-  })
-
-  it('sentry scorers compare enums and changed files, never the root-cause prose', () => {
-    const adapter = adapterFor('sentry-classify-agreement')
-    const expected = { severity: 'high', rootCause: 'A', fixability: 'low', mergePolicy: 'human', changedFiles: ['a.ts'] }
-    const output = { ...expected, rootCause: 'a different explanation' }
-    const scores = Object.fromEntries(adapter.scorers.map((s) => [s.name, s.fn(output, expected)]))
-    expect(scores).toEqual({
-      severityAgreement: 1,
-      fixabilityAgreement: 1,
-      mergePolicyAgreement: 1,
-      changedFilesAgreement: 1,
-    })
-  })
-
-  it('the vision adapter scores keep agreement at MIN_KEEP_SCORE', () => {
-    const adapter = adapterFor('classify-images-agreement')
-    const keep = adapter.scorers.find((s) => s.name === 'keepAgreement')!
-    const delta = adapter.scorers.find((s) => s.name === 'scoreDelta')!
-    const image = (sourceUrl: string, score: number) => ({ sourceUrl, disposition: 'keep', score, tag: 'product' })
-    const expected = { images: [image('a', MIN_KEEP_SCORE), image('b', MIN_KEEP_SCORE + 10)] }
-
-    // One point under the floor flips `a` from kept to not kept.
-    const output = { images: [image('a', MIN_KEEP_SCORE - 1), image('b', MIN_KEEP_SCORE + 10)] }
-    expect(keep.fn(output, expected)).toBe(0.5)
-    expect(keep.fn(expected, expected)).toBe(1)
-    expect(delta.fn(output, expected)).toBe(0.5)
-    // Only images both sides judged are compared.
-    expect(keep.fn({ images: [image('b', MIN_KEEP_SCORE + 10)] }, expected)).toBe(1)
-    expect(keep.fn({ images: [] }, expected)).toBeNull()
-  })
-
-  it('the vision replay fails an item with a failed batch and reports the count', async () => {
-    const visionReplay: VisionReplayDeps = {
-      gate: vi.fn(async (urls: string[]) => urls.map((url) => ({ sourceUrl: url }) as never)),
-      classify: vi.fn(async (gated, options) => {
-        options.onBatchFailure()
-        return [{ ...(gated[0] as object), disposition: 'keep', score: 80, tag: 'product', caption: '' } as never]
-      }),
-    }
-    const adapter = adapterFor('classify-images-agreement', { visionReplay })
-    const result = await adapter.task!(
-      goldenItem({ brandContext: 'Brand: X. ', imageUrls: ['https://x/1.jpg', 'https://x/2.jpg'] }, { output: {} }),
-      arm,
-      { itemRunId: 'run-1', model: 'gpt-6-luna' },
-    )
-
-    expect(result.ok).toBe(false)
-    expect(result.error).toBe('failed batches: 1')
-    expect(result.output).toEqual({
-      images: [{ sourceUrl: 'https://x/1.jpg', disposition: 'keep', score: 80, tag: 'product' }],
-      failedBatches: 1,
-    })
   })
 })

@@ -43,18 +43,11 @@ import { JEV_MODEL } from '@/lib/constants/llm-models'
 import { withRetry } from '@/lib/retry'
 import {
   promptForDataset,
-  type AgreementItemBody,
-  type AgreementPrompt,
   type GoldenItemBody,
-  type GoldenPrompt,
   type HarvestRow,
   type PromptTexts,
   type TimedCapturedCall,
 } from '@/lib/services/eval/golden-capture'
-import type { CapturedCall } from '@/lib/services/llm-audit'
-import type { AuditRecord } from '@/lib/audit/emit'
-import type { SentryIssue, ListIssuesOptions } from '@/lib/adapters/sentry/issues'
-import type { SentryClassifyDeps } from '@/lib/services/health-agent/classifiers/sentry-classify'
 import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/types'
 
 // ---------------------------------------------------------------------------
@@ -78,17 +71,7 @@ export type ParsedCommand =
   | { command: 'dataset-prelabel-draft'; dataset: string; limit?: number }
   | { command: 'dataset-seed-intent' }
   | { command: 'dataset-harvest'; dataset: string; since?: string; limit?: number; confirm: boolean }
-  | {
-      command: 'dataset-capture'
-      brands: string[]
-      datasets?: string[]
-      confirm: boolean
-      /** D9b: `on` lets the products agent run during capture; the default keeps it off. */
-      productsAgent: 'on' | 'off'
-      /** D13: phases with fewer captured items than this are reported under-powered. */
-      min?: number
-    }
-  | { command: 'dataset-capture-sentry'; limit: number; confirm: boolean; min?: number }
+  | { command: 'dataset-capture'; brands: string[]; datasets?: string[]; confirm: boolean }
   | { command: 'dataset-split'; dataset: string; seed: string; apply: boolean; pin: string[] }
   | {
       command: 'run'
@@ -173,20 +156,14 @@ function splitList(value: string): string[] {
 }
 
 function parseLimit(value: string | undefined): number | undefined {
-  return value !== undefined ? parsePositiveInt(value, '--limit') : undefined
+  const limit = value !== undefined ? Number(value) : undefined
+  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+    throw new Error('--limit must be a positive integer')
+  }
+  return limit
 }
 
-function parsePositiveInt(value: string, flag: string): number {
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`${flag} must be a positive integer`)
-  return parsed
-}
-
-/** Task 11 captures 40 recent Sentry issues; the detector's own cap is 100. */
-const DEFAULT_SENTRY_CAPTURE_LIMIT = 40
 const DEFAULT_SPLIT_SEED = 'dev-1898'
-const AGREEMENT_DATASET_SUFFIX = '-agreement'
-const SENTRY_AGREEMENT_DATASET = 'sentry-classify-agreement'
 
 function assertGoldenCaptureDataset(dataset: string): void {
   if (!promptForDataset(dataset)) {
@@ -227,9 +204,6 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       seed: { type: 'string' },
       apply: { type: 'boolean', default: false },
       pin: { type: 'string' },
-      'products-agent': { type: 'string' },
-      min: { type: 'string' },
-      source: { type: 'string' },
     },
   })
 
@@ -256,10 +230,6 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     if (sub2 === 'harvest') {
       if (!values.dataset) throw new Error('--dataset is required')
       assertGoldenCaptureDataset(values.dataset)
-      // D11: stored rows are truncated and carry no response, so agreement sets come from capture only.
-      if (values.dataset.endsWith(AGREEMENT_DATASET_SUFFIX)) {
-        throw new Error(`"${values.dataset}" is an agreement set; use \`dataset capture\``)
-      }
       if (values.since !== undefined && Number.isNaN(new Date(values.since).getTime())) {
         throw new Error('--since must be a date (YYYY-MM-DD)')
       }
@@ -273,37 +243,14 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       }
     }
     if (sub2 === 'capture') {
-      const min = values.min !== undefined ? parsePositiveInt(values.min, '--min') : undefined
-      const source = values.source ?? 'brands'
-      if (source === 'sentry') {
-        if (values.brands !== undefined || values.datasets !== undefined) {
-          throw new Error('--source sentry takes no --brands or --datasets')
-        }
-        return {
-          command: 'dataset-capture-sentry',
-          limit: parseLimit(values.limit) ?? DEFAULT_SENTRY_CAPTURE_LIMIT,
-          confirm: values.confirm ?? false,
-          ...(min !== undefined ? { min } : {}),
-        }
-      }
-      if (source !== 'brands') throw new Error(`Unknown --source value: ${source} (expected brands or sentry)`)
       if (!values.brands) throw new Error('--brands is required')
       const datasets = values.datasets ? splitList(values.datasets) : undefined
       datasets?.forEach(assertGoldenCaptureDataset)
-      if (datasets?.includes(SENTRY_AGREEMENT_DATASET)) {
-        throw new Error(`"${SENTRY_AGREEMENT_DATASET}" is captured with --source sentry`)
-      }
-      const productsAgent = values['products-agent'] ?? 'off'
-      if (productsAgent !== 'on' && productsAgent !== 'off') {
-        throw new Error('--products-agent must be "on" or "off"')
-      }
       return {
         command: 'dataset-capture',
         brands: splitList(values.brands),
         datasets,
         confirm: values.confirm ?? false,
-        productsAgent,
-        ...(min !== undefined ? { min } : {}),
       }
     }
     if (sub2 === 'split') {
@@ -463,8 +410,7 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset prelabel --dataset <name> --draft [--limit <n>]\n' +
       '  llm-eval dataset seed-intent\n' +
       '  llm-eval dataset harvest --dataset <name> [--since <YYYY-MM-DD>] [--limit <n>] [--target production --confirm]\n' +
-      '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>] [--products-agent on|off] [--min <n>] [--target production --confirm]\n' +
-      '  llm-eval dataset capture --source sentry [--limit <n>] [--min <n>]\n' +
+      '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>] [--target production --confirm]\n' +
       '  llm-eval dataset split --dataset <name> [--seed <s>] [--pin <id,id,...>] [--apply]\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
@@ -837,8 +783,7 @@ function labelStratum(field: string): (item: SplitDatasetItem) => string {
 /**
  * Strata per dataset (D21): the label where the set has one — the detect and
  * names confidence band, the critique verdict, the intent L1 — otherwise one
- * stratum. Agreement sets carry a captured reference, not a label, so they
- * take the single stratum.
+ * stratum.
  */
 export const SPLIT_STRATA: Readonly<Record<string, (item: SplitDatasetItem) => string>> = {
   'detect-confidence-golden': labelStratum('confidence'),
@@ -1848,7 +1793,7 @@ function goldenWritePacer({ api = langfuseGoldenWriteApi(), ...pacing }: GoldenW
  * ACTIVE ids once and look up only the rest, or batch through the ingestion API.
  */
 export async function writeGoldenItems(
-  items: ReadonlyArray<GoldenItemBody | AgreementItemBody>,
+  items: GoldenItemBody[],
   options: GoldenWriteOptions = {},
 ): Promise<{ written: number; reactivated: number; existing: number; failed: string[] }> {
   const { api, withRetry, orThrow, confirmedWrite } = goldenWritePacer(options)
@@ -2024,35 +1969,37 @@ async function cmdDatasetCapture(
   brandSlugs: string[],
   target: string,
   confirm: boolean,
-  datasets: string[] | undefined,
-  { productsAgent, min }: { productsAgent: 'on' | 'off'; min?: number },
+  datasets?: string[],
 ): Promise<void> {
   assertGoldenTarget(target, confirm)
   const { createServiceClient } = await import('@/lib/supabase/service')
+  const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
+  const { setChatCaptureSeam } = await import('@/lib/services/llm-audit')
+  const { runWithAuditContext } = await import('@/lib/audit/context')
+  const { runAcquirePhase } = await import('@/lib/services/enrich-phases/acquire')
+  const { runProductsPhase } = await import('@/lib/services/enrich-phases/products')
   const { loadCachedSearchResults } = await import('@/lib/services/enrich-phases/discover')
-  const { GOLDEN_DATASETS, LEGACY_GOLDEN_PROMPTS, isAgreementPrompt } = await import(
-    '@/lib/services/eval/golden-capture'
+  const { searchBrandUrls, batchSearchBrandImages } = await import(
+    '@/lib/services/enrich-phases/scraper/search'
   )
+  const { collectKnownUrls, uniqueUrls } = await import('@/lib/services/curation-operations')
+  const { GOLDEN_DATASETS, capturedCallsToItems } = await import('@/lib/services/eval/golden-capture')
 
   if (!getLangfuse()) {
     console.error('[capture] Langfuse not configured')
     process.exitCode = 1
     return
   }
-  // products-repair never runs here (PRODUCTS_AGENT is off by default), so it
-  // is not a default; its items come from `dataset harvest`.
+  // products-repair never runs here (PRODUCTS_AGENT is forced off below), so
+  // it is not a default; its items come from `dataset harvest`.
   const repairDataset = GOLDEN_DATASETS['products-repair']
   if (datasets?.includes(repairDataset)) {
     console.warn(
       `[capture] warning: capture never calls products-repair; "${repairDataset}" items come from \`dataset harvest\``,
     )
   }
-  // Without --datasets, only the DEV-1873 sets: agreement sets are captured on request.
-  const selected =
-    datasets ?? LEGACY_GOLDEN_PROMPTS.map((prompt) => GOLDEN_DATASETS[prompt]).filter((d) => d !== repairDataset)
+  const selected = datasets ?? Object.values(GOLDEN_DATASETS).filter((d) => d !== repairDataset)
   const prompts = selected.map((d) => promptForDataset(d)!)
-  const legacyPrompts = prompts.filter((prompt) => !isAgreementPrompt(prompt))
-  const agreementPrompts = prompts.filter(isAgreementPrompt)
   const texts = await resolveGoldenPromptTexts({ allVersions: false })
   const supabase = createServiceClient()
 
@@ -2078,71 +2025,6 @@ async function cmdDatasetCapture(
     'brand',
   )
 
-  if (legacyPrompts.length > 0) {
-    await captureLegacyGoldenSets({
-      brands,
-      selected: selected.filter((d) => !isAgreementPrompt(promptForDataset(d)!)),
-      prompts: legacyPrompts,
-      texts,
-      cachedSearches,
-      productsAgent,
-      ...(min !== undefined ? { min } : {}),
-    })
-  }
-  if (agreementPrompts.length > 0) {
-    const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
-    const { setChatCaptureSeam } = await import('@/lib/services/llm-audit')
-    const { runWithAuditContext } = await import('@/lib/audit/context')
-    const summary = await runAgreementCapture(
-      { brands, prompts: agreementPrompts, ...(min !== undefined ? { min } : {}) },
-      {
-        runners: await realAgreementRunners({ cachedSearches }),
-        texts,
-        installSeams,
-        setCaptureSeam: setChatCaptureSeam,
-        runWithAuditContext,
-        assertNoNewAuditRows,
-        writeItems: (items) => writeGoldenItems(items),
-      },
-    )
-    await flushLangfuse()
-    reportFailedWrites('capture', summary.failed)
-  }
-}
-
-type CachedSearches = Awaited<
-  ReturnType<typeof import('@/lib/services/enrich-phases/discover').loadCachedSearchResults>
->
-
-/** The DEV-1873 capture: acquire + products, zero-write, per brand. */
-async function captureLegacyGoldenSets({
-  brands,
-  selected,
-  prompts,
-  texts,
-  cachedSearches,
-  productsAgent,
-  min,
-}: {
-  brands: EnrichBrand[]
-  selected: string[]
-  prompts: GoldenPrompt[]
-  texts: PromptTexts
-  cachedSearches: CachedSearches
-  productsAgent: 'on' | 'off'
-  min?: number
-}): Promise<void> {
-  const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
-  const { setChatCaptureSeam } = await import('@/lib/services/llm-audit')
-  const { runWithAuditContext } = await import('@/lib/audit/context')
-  const { runAcquirePhase } = await import('@/lib/services/enrich-phases/acquire')
-  const { runProductsPhase } = await import('@/lib/services/enrich-phases/products')
-  const { searchBrandUrls, batchSearchBrandImages } = await import(
-    '@/lib/services/enrich-phases/scraper/search'
-  )
-  const { collectKnownUrls, uniqueUrls } = await import('@/lib/services/curation-operations')
-  const { capturedCallsToItems } = await import('@/lib/services/eval/golden-capture')
-
   const phases: EnrichPhase[] = ['acquire', 'products']
   // No candidate row may be written; the products phase persists its pool even on a dry run.
   const noCandidateWrites = { insert: async () => ({ data: null, error: null }) }
@@ -2161,9 +2043,8 @@ async function captureLegacyGoldenSets({
   })
 
   try {
-    // The single-call products body only runs with the agent off; `--products-agent on`
-    // lets the agent run instead (D9b), so its products-propose calls happen.
-    process.env.PRODUCTS_AGENT = productsAgent
+    // The single-call products body only runs with the agent off.
+    process.env.PRODUCTS_AGENT = 'off'
     setChatCaptureSeam((call) => {
       captured.push({ ...call, capturedAt: new Date().toISOString() })
     })
@@ -2251,12 +2132,10 @@ async function captureLegacyGoldenSets({
     const { written, reactivated, existing, failed } = await writeGoldenItems(items)
     await flushLangfuse()
 
-    const counts: Record<string, number> = {}
     for (const dataset of selected) {
-      counts[dataset] = items.filter((item) => item.datasetName === dataset).length
-      console.log(`[capture] ${dataset}: ${counts[dataset]} items`)
+      const count = items.filter((item) => item.datasetName === dataset).length
+      console.log(`[capture] ${dataset}: ${count} items`)
     }
-    reportUnderPowered(counts, min)
     console.log(
       `[capture] ${written} items written (ACTIVE, pending review), ${reactivated} reactivated, ` +
       `${existing} already present, ${failed.length} failed`,
@@ -2268,402 +2147,6 @@ async function captureLegacyGoldenSets({
     if (previousProductsAgent === undefined) delete process.env.PRODUCTS_AGENT
     else process.env.PRODUCTS_AGENT = previousProductsAgent
   }
-}
-
-// ---------------------------------------------------------------------------
-// Agreement capture (DEV-1898 D11/D13/D20/D3/D17)
-// ---------------------------------------------------------------------------
-
-/** Logs the datasets that captured fewer than `min` items (D13); returns them. */
-function reportUnderPowered(counts: Record<string, number>, min: number | undefined, log = console.log): string[] {
-  if (min === undefined) return []
-  const under = Object.entries(counts).filter(([, count]) => count < min).map(([dataset]) => dataset)
-  if (under.length > 0) {
-    log(`[capture] under-powered (< ${min}): ${under.map((dataset) => `${dataset} (${counts[dataset]})`).join(', ')}`)
-  }
-  return under
-}
-
-/** The zero-write agreement runners; each runs one live phase for one brand. */
-export const AGREEMENT_RUNNERS = ['descriptions', 'stockists', 'faq', 'editorial', 'vision'] as const
-export type AgreementRunnerKey = (typeof AGREEMENT_RUNNERS)[number]
-
-/**
- * Which agreement prompts each runner's calls produce. `descriptions` makes
- * the facts, founding and verification calls; `editorial` runs the editorial
- * agent's validate -> repair turn over a descriptions patch.
- */
-export const AGREEMENT_RUNNER_PROMPTS: Readonly<Record<AgreementRunnerKey, readonly AgreementPrompt[]>> = {
-  descriptions: ['brand-facts', 'founding-facts', 'founding-facts-verify'],
-  stockists: ['stockists'],
-  faq: ['faq-preamble'],
-  editorial: ['editorial-repair'],
-  vision: ['classify-images'],
-}
-
-export type CaptureRunnerContext = {
-  brand: EnrichBrand
-  correlationId: string
-  /** A fresh id for runners that need a submission target; a leaked row fails its foreign key. */
-  submissionId: string
-}
-
-/**
- * One brand, one phase, zero-write. Model calls reach the capture seam; a
- * runner that builds its own items (vision) returns them, with its failed
- * batch count.
- */
-export type CaptureRunnerResult = { items?: AgreementItemBody[]; failedBatches?: number }
-export type CaptureRunner = (ctx: CaptureRunnerContext) => Promise<CaptureRunnerResult | void>
-
-export type CaptureSeams = {
-  installSeams: (opts: { sinkPath: string }) => { collector: { all(): AuditRecord[] }; restore: () => void }
-  setCaptureSeam: (fn: ((call: CapturedCall) => void) | null) => void
-  runWithAuditContext: <T>(seed: { correlationId: string }, fn: () => T) => T
-  assertNoNewAuditRows: (opts: {
-    since: Date
-    correlationIds: string[]
-    spanIds: string[]
-    submissionIds?: string[]
-  }) => Promise<void>
-  writeItems: (items: AgreementItemBody[]) => Promise<{ written: number; reactivated: number; existing: number; failed: string[] }>
-  log?: (message: string) => void
-}
-
-export type AgreementCaptureDeps = CaptureSeams & {
-  runners: Record<AgreementRunnerKey, CaptureRunner>
-  texts: PromptTexts
-}
-
-export type CaptureSummary = {
-  counts: Record<string, number>
-  failedBatches: number
-  underPowered: string[]
-  written: number
-  failed: string[]
-}
-
-/**
- * The agreement capture loop. Both zero-write diversions go in before the first
- * runner call and come out after the last: `installSeams` routes every audited
- * envelope (`external_call_audit`) to an in-memory collector and every
- * `insertAiCallResult` to a local sink file. Persistence is prevented by those
- * seams and each runner's dry run, not by capture itself. Before any item
- * leaves the process, `assertNoNewAuditRows` proves nothing escaped.
- */
-export async function runAgreementCapture(
-  { brands, prompts, min }: { brands: EnrichBrand[]; prompts: readonly AgreementPrompt[]; min?: number },
-  deps: AgreementCaptureDeps,
-): Promise<CaptureSummary> {
-  const { agreementCallsToItems, GOLDEN_DATASETS } = await import('@/lib/services/eval/golden-capture')
-  const log = deps.log ?? console.log
-  const wanted = new Set(prompts)
-  const runners = AGREEMENT_RUNNERS.filter((key) => AGREEMENT_RUNNER_PROMPTS[key].some((prompt) => wanted.has(prompt)))
-  const since = new Date(Date.now() - 5 * 60_000)
-  const correlationIds: string[] = []
-  const submissionIds: string[] = []
-  const captured: TimedCapturedCall[] = []
-  const items: AgreementItemBody[] = []
-  let failedBatches = 0
-
-  const { collector, restore } = deps.installSeams({ sinkPath: 'scripts/llm-eval/runs/capture-sink.jsonl' })
-  try {
-    deps.setCaptureSeam((call) => {
-      captured.push({ ...call, capturedAt: new Date().toISOString() })
-    })
-    for (const brand of brands) {
-      const brandItems: AgreementItemBody[] = []
-      for (const key of runners) {
-        const correlationId = randomUUID()
-        const submissionId = randomUUID()
-        correlationIds.push(correlationId)
-        submissionIds.push(submissionId)
-        try {
-          // A runner that only makes model calls returns nothing; its items come from the capture seam.
-          const result = (await deps.runWithAuditContext({ correlationId }, () =>
-            deps.runners[key]({ brand, correlationId, submissionId }),
-          )) as CaptureRunnerResult | undefined
-          failedBatches += result?.failedBatches ?? 0
-          brandItems.push(...(result?.items ?? []))
-        } catch (error) {
-          log(`[capture] ${brand.slug}: ${key} failed: ${error instanceof Error ? error.message : String(error)}`)
-        }
-        brandItems.push(
-          ...agreementCallsToItems(captured.splice(0), {
-            brandSlug: brand.slug,
-            jobId: correlationId,
-            texts: deps.texts,
-            prompts: AGREEMENT_RUNNER_PROMPTS[key].filter((prompt) => wanted.has(prompt)),
-          }),
-        )
-      }
-      // A repeated identical call (same prompt, brand and user message) keeps one item.
-      for (const item of brandItems) if (!items.some((kept) => kept.id === item.id)) items.push(item)
-      log(`[capture] ${brand.slug}: ${brandItems.length} agreement items`)
-    }
-
-    await deps.assertNoNewAuditRows({
-      since,
-      correlationIds,
-      spanIds: collector.all().map((record) => record.spanId),
-      submissionIds,
-    })
-  } finally {
-    deps.setCaptureSeam(null)
-    restore()
-  }
-
-  return summarizeCapture(items, prompts.map((prompt) => GOLDEN_DATASETS[prompt]), { failedBatches, min }, deps)
-}
-
-async function summarizeCapture(
-  items: AgreementItemBody[],
-  datasets: string[],
-  { failedBatches, min }: { failedBatches: number; min?: number },
-  deps: Pick<CaptureSeams, 'writeItems' | 'log'>,
-): Promise<CaptureSummary> {
-  const log = deps.log ?? console.log
-  const { written, reactivated, existing, failed } = await deps.writeItems(items)
-  const counts: Record<string, number> = {}
-  for (const dataset of datasets) {
-    counts[dataset] = items.filter((item) => item.datasetName === dataset).length
-    log(`[capture] ${dataset}: ${counts[dataset]} items`)
-  }
-  if (datasets.includes('classify-images-agreement')) log(`[capture] failedBatches: ${failedBatches}`)
-  const underPowered = reportUnderPowered(counts, min, log)
-  log(
-    `[capture] ${written} items written (ACTIVE, pending review), ${reactivated} reactivated, ` +
-      `${existing} already present, ${failed.length} failed`,
-  )
-  return { counts, failedBatches, underPowered, written, failed }
-}
-
-/** Stored images read per brand for the vision capture (two classify batches). */
-const VISION_IMAGES_PER_BRAND = 20
-
-/**
- * The real runners. Each reuses its phase's own dry-run entry point, so the
- * captured request is the one production builds. Known divergences, all
- * deliberate: descriptions, stockists and editorial run on the brand target so
- * they read the brand's persisted scrape (what production reads after its own
- * acquire step); faq runs only for submission targets, so it gets a synthetic
- * submission with the brand's persisted scrape passed as `scrapedData`
- * snippets (ceiling: its `siteContent` block is absent). Vision re-downloads
- * the brand's stored image URLs and classifies the buffers; it never uses the
- * stored-image classifier, whose dry run returns before the model is called.
- * Ceiling of the vision source: stored images already passed an earlier
- * gate, so the pool holds fewer junk candidates than a fresh scrape.
- */
-async function realAgreementRunners({ cachedSearches }: { cachedSearches: CachedSearches }): Promise<Record<AgreementRunnerKey, CaptureRunner>> {
-  const { brandTarget } = await import('@/lib/services/_shared/enrichment-target')
-  const { runDescriptionsPhase, loadPersistedScrapeText } = await import('@/lib/services/enrich-phases/descriptions')
-  const { runStockistsPhase } = await import('@/lib/services/enrich-phases/stockists')
-  const { runFaqPhase } = await import('@/lib/services/enrich-phases/faq')
-  const { runEditorialAgent } = await import('@/lib/services/enrich-phases/editorial/graph')
-  const { buildEditorialDeps } = await import('@/lib/services/enrich-phases/editorial/validators')
-  const { getDisplayBrandName } = await import('@/lib/services/enrich-phases/types')
-  const { buildBrandContext, classifyImageBuffers } = await import('@/lib/services/enrich-phases/classify-images')
-  const { downloadAndGateImages } = await import('@/lib/services/image-download')
-  const { createServiceClient } = await import('@/lib/supabase/service')
-  const { visionAgreementItem } = await import('@/lib/services/eval/golden-capture')
-
-  const snippetsOf = (brand: EnrichBrand) => cachedSearches.get(brand.id)?.snippets ?? []
-  // Overwrite: every field is proposed, so the editorial validators see a full
-  // descriptions patch even for a brand whose copy already exists.
-  const describe = (brand: EnrichBrand) =>
-    runDescriptionsPhase({
-      brand,
-      phases: ['descriptions'],
-      serpSnippets: snippetsOf(brand),
-      overwrite: true,
-      dryRun: true,
-      target: brandTarget(brand.id),
-    })
-
-  return {
-    descriptions: async ({ brand }) => {
-      await describe(brand)
-    },
-    stockists: async ({ brand }) => {
-      await runStockistsPhase({ brand, phases: ['stockists'], overwrite: true, dryRun: true, target: brandTarget(brand.id) })
-    },
-    faq: async ({ brand, submissionId }) => {
-      const persisted = await loadPersistedScrapeText(brandTarget(brand.id))
-      await runFaqPhase({
-        brand,
-        phases: ['faq'],
-        serpSnippets: snippetsOf(brand),
-        scrapedData: { snippets: persisted.snippets },
-        overwrite: true,
-        dryRun: true,
-        target: { type: 'submission', id: submissionId },
-        explicitPhases: ['faq'],
-      })
-    },
-    editorial: async ({ brand }) => {
-      const target = brandTarget(brand.id)
-      // Only descriptions runs: the repair turn edits the descriptions patch,
-      // and stockists/faq have their own runners. The graph never calls these.
-      const notRun = async (): Promise<never> => {
-        throw new Error('[capture] the editorial capture runs descriptions only')
-      }
-      await runEditorialAgent(
-        { brand, phases: ['descriptions'], scrapedData: null, serpSnippets: snippetsOf(brand), overwrite: true, dryRun: true, target },
-        buildEditorialDeps({
-          runDescriptions: async () => {
-            const result = await describe(brand)
-            return {
-              phaseResult: result.phaseResult,
-              patch: result.patch,
-              descriptionRewrite: result.descriptionRewrite,
-              brandFacts: result.brandFacts,
-              attempts: result.attempts,
-              factsAttempts: result.factsAttempts,
-              listingVerdict: result.listingVerdict,
-            }
-          },
-          runStockists: notRun,
-          runFaq: notRun,
-          brandName: getDisplayBrandName(brand),
-          audit: { target },
-        }),
-      )
-    },
-    vision: async ({ brand, submissionId }) => {
-      // Read-only: the brand's stored images, any status, newest first.
-      const { data, error } = await createServiceClient()
-        .from('brand_images')
-        .select('url')
-        .eq('brand_id', brand.id)
-        .order('created_at', { ascending: false })
-        .limit(VISION_IMAGES_PER_BRAND)
-      if (error) throw new Error(`brand_images read failed: ${error.message}`)
-      const imageUrls = [...new Set((data ?? []).map((row) => row.url).filter(Boolean))]
-      const target = { type: 'submission' as const, id: submissionId }
-      // A synthetic target: no stored candidate or phash matches, so every URL is re-downloaded.
-      const gated = await downloadAndGateImages(imageUrls, target)
-      const brandContext = buildBrandContext({
-        name: brand.name ?? brand.slug,
-        categorySlug: brand.category ?? null,
-        website: brand.purchase_website ?? null,
-        pinkoi: brand.purchase_pinkoi ?? null,
-        instagram: brand.social_instagram ?? null,
-      })
-      let failedBatches = 0
-      const classified = await classifyImageBuffers(gated, {
-        brandContext,
-        target,
-        onBatchFailure: () => {
-          failedBatches += 1
-        },
-      })
-      const item = visionAgreementItem({
-        brandSlug: brand.slug,
-        jobId: null,
-        brandContext,
-        // Only the gated URLs: the replay re-gates exactly these.
-        imageUrls: gated.map((image) => image.sourceUrl),
-        verdicts: classified,
-      })
-      return { items: item ? [item] : [], failedBatches }
-    },
-  }
-}
-
-/** Wall-clock bound for one Sentry capture: 40 issues at 4-way classify concurrency. */
-const SENTRY_CAPTURE_DEADLINE_MS = 10 * 60_000
-
-export type SentryCaptureDeps = CaptureSeams & {
-  texts: PromptTexts
-  /** The existing Sentry read (`@/lib/adapters/sentry/issues`); the capture adds no Sentry client. */
-  listIssues: (hours?: number, options?: ListIssuesOptions) => Promise<SentryIssue[]>
-  /** Injected classifier transport for tests; defaults to the audited `sentryClassify` client. */
-  classifyDeps?: SentryClassifyDeps
-}
-
-/**
- * `dataset capture --source sentry` (D17): runs the health agent's Sentry
- * detector with the live classifier on the current text_mini slot, zero-write,
- * and stores each classifier call as a `sentry-classify-agreement` item. It
- * only lists issues (a GET); nothing is resolved, assigned or updated.
- */
-export async function runSentryCapture(
-  { limit, min }: { limit: number; min?: number },
-  deps: SentryCaptureDeps,
-): Promise<CaptureSummary> {
-  const { sentryDetector } = await import('@/lib/services/health-agent/detectors/sentry')
-  const { classifySentryIssue } = await import('@/lib/services/health-agent/classifiers/sentry-classify')
-  const { agreementCallsToItems, GOLDEN_DATASETS } = await import('@/lib/services/eval/golden-capture')
-  const since = new Date(Date.now() - 5 * 60_000)
-  const correlationId = randomUUID()
-  const captured: TimedCapturedCall[] = []
-  let items: AgreementItemBody[] = []
-
-  const { collector, restore } = deps.installSeams({ sinkPath: 'scripts/llm-eval/runs/capture-sink.jsonl' })
-  try {
-    deps.setCaptureSeam((call) => {
-      captured.push({ ...call, capturedAt: new Date().toISOString() })
-    })
-    const detector = sentryDetector({
-      // The detector's own read, capped at --limit.
-      listIssues: (hours, options) => deps.listIssues(hours, { ...options, limit }),
-      classify: (issue) => (deps.classifyDeps ? classifySentryIssue(issue, deps.classifyDeps) : classifySentryIssue(issue)),
-    })
-    // A dry-run detector context, as the health agent builds one; the Sentry detector reads none of it.
-    const deadline = Date.now() + SENTRY_CAPTURE_DEADLINE_MS
-    await deps.runWithAuditContext({ correlationId }, () =>
-      detector.run({
-        date: new Date().toISOString().slice(0, 10),
-        deadline,
-        signal: AbortSignal.timeout(SENTRY_CAPTURE_DEADLINE_MS),
-        dryRun: true,
-        deps: {},
-      }),
-    )
-    items = agreementCallsToItems(captured.splice(0), {
-      brandSlug: 'sentry',
-      jobId: correlationId,
-      texts: deps.texts,
-      prompts: ['sentry-classify'],
-    })
-    await deps.assertNoNewAuditRows({
-      since,
-      correlationIds: [correlationId],
-      spanIds: collector.all().map((record) => record.spanId),
-    })
-  } finally {
-    deps.setCaptureSeam(null)
-    restore()
-  }
-  return summarizeCapture(items, [GOLDEN_DATASETS['sentry-classify']], { failedBatches: 0, min }, deps)
-}
-
-async function cmdDatasetCaptureSentry(target: string, confirm: boolean, limit: number, min?: number): Promise<void> {
-  assertGoldenTarget(target, confirm)
-  if (!getLangfuse()) {
-    console.error('[capture] Langfuse not configured')
-    process.exitCode = 1
-    return
-  }
-  const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
-  const { setChatCaptureSeam } = await import('@/lib/services/llm-audit')
-  const { runWithAuditContext } = await import('@/lib/audit/context')
-  const { listIssues } = await import('@/lib/adapters/sentry/issues')
-  const texts = await resolveGoldenPromptTexts({ allVersions: false })
-  const summary = await runSentryCapture(
-    { limit, ...(min !== undefined ? { min } : {}) },
-    {
-      texts,
-      listIssues,
-      installSeams,
-      setCaptureSeam: setChatCaptureSeam,
-      runWithAuditContext,
-      assertNoNewAuditRows,
-      writeItems: (items) => writeGoldenItems(items),
-    },
-  )
-  await flushLangfuse()
-  reportFailedWrites('capture', summary.failed)
 }
 
 async function cmdPairwiseRun(
@@ -3121,13 +2604,7 @@ async function main() {
       await cmdDatasetHarvest(parsed.dataset, target, parsed.confirm, parsed.since, parsed.limit)
       break
     case 'dataset-capture':
-      await cmdDatasetCapture(parsed.brands, target, parsed.confirm, parsed.datasets, {
-        productsAgent: parsed.productsAgent,
-        ...(parsed.min !== undefined ? { min: parsed.min } : {}),
-      })
-      break
-    case 'dataset-capture-sentry':
-      await cmdDatasetCaptureSentry(target, parsed.confirm, parsed.limit, parsed.min)
+      await cmdDatasetCapture(parsed.brands, target, parsed.confirm, parsed.datasets)
       break
     case 'dataset-split':
       await cmdDatasetSplit({ dataset: parsed.dataset, seed: parsed.seed, apply: parsed.apply, pin: parsed.pin })

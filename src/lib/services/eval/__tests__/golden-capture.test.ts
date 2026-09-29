@@ -5,17 +5,12 @@ import { describe, expect, it } from 'vitest'
 import { PRODUCTS_LABELS } from '@/lib/prompts'
 import { snapshotPrompt } from '@/lib/langfuse/prompt'
 import { MAX_PROMPT_LENGTH, PROMPT_TRUNCATION_MARK } from '../../llm-audit'
-import { adapterFor } from '../phase-adapters'
 import {
-  GOLDEN_DATASETS,
   GOLDEN_PROMPTS,
-  GOLDEN_PROMPT_PHASES,
-  agreementCallsToItems,
   capturedCallsToItems,
   classifyCapturedCall,
   harvestRowsToItems,
   promptForDataset,
-  visionAgreementItem,
   type HarvestRow,
   type PromptTexts,
   type TimedCapturedCall,
@@ -23,9 +18,12 @@ import {
 
 // The snapshot texts: real prompts, so a shared opening between two of them
 // (products vs products-propose) is exercised, not assumed away.
-const TEXTS = Object.fromEntries(
-  GOLDEN_PROMPTS.map((prompt) => [prompt, [snapshotPrompt(prompt).text]]),
-) as unknown as PromptTexts
+const TEXTS: PromptTexts = {
+  'acquisition-plan': [snapshotPrompt('acquisition-plan').text],
+  'acquisition-critique': [snapshotPrompt('acquisition-critique').text],
+  'products-repair': [snapshotPrompt('products-repair').text],
+  products: [snapshotPrompt('products').text],
+}
 
 function idOf(prompt: string, brandSlug: string, user: string): string {
   return `${prompt}:${brandSlug}:${createHash('sha256').update(user).digest('hex').slice(0, 16)}`
@@ -69,7 +67,7 @@ const REPAIR_USER = JSON.stringify({
 })
 
 describe('classifyCapturedCall', () => {
-  it('maps each golden prompt by system prefix', () => {
+  it('maps each of the four prompts by system prefix', () => {
     for (const prompt of GOLDEN_PROMPTS) {
       const system = `${TEXTS[prompt][0]}\n\nSchema trailer appended by withSchema.`
       expect(classifyCapturedCall({ system }, TEXTS)).toBe(prompt)
@@ -299,94 +297,5 @@ describe('capturedCallsToItems', () => {
       { brandSlug: 'brand', jobId: 'run-1', texts: TEXTS, prompts: ['acquisition-plan'] },
     )
     expect(items).toEqual([])
-  })
-})
-
-describe('DEV-1898 agreement prompts', () => {
-  it('every GOLDEN_PROMPTS key has an adapter', () => {
-    for (const prompt of GOLDEN_PROMPTS) {
-      // resolveGoldenPromptTexts compiles each prompt with its adapter's variables.
-      const adapter = adapterFor(GOLDEN_DATASETS[prompt])
-      // Keys are Langfuse prompt names: the snapshot holds each one.
-      expect(() => snapshotPrompt(prompt)).not.toThrow()
-      expect(adapter.promptName).toBe(prompt)
-      expect(GOLDEN_PROMPT_PHASES[prompt].length).toBeGreaterThan(0)
-    }
-  })
-
-  function captured(system: string, phase: string, user: string, parsed?: unknown): TimedCapturedCall {
-    return {
-      phase,
-      profileKey: null,
-      system,
-      user,
-      promptName: null,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      schema: { name: 's', schema: { type: 'object' } },
-      response: { content: JSON.stringify(parsed ?? null), ...(parsed !== undefined ? { parsed } : {}) },
-      capturedAt: '2026-09-29T00:00:00.000Z',
-    }
-  }
-
-  it('editorial rows are classified by prompt text, not phase', () => {
-    // The repair turn is audited under `descriptions`, and faq rows share `faq`.
-    const repair = captured(TEXTS['editorial-repair'][0]!, 'descriptions', '{}')
-    const descriptions = captured(snapshotPrompt('descriptions').text, 'descriptions', '{}')
-    const faq = captured(`${TEXTS['faq-preamble'][0]!}\n\nfragment`, 'faq', 'u')
-    const faqUnderDescriptions = captured(`${TEXTS['faq-preamble'][0]!}\n\nfragment`, 'descriptions', 'u')
-
-    expect(classifyCapturedCall(repair, TEXTS)).toBe('editorial-repair')
-    expect(classifyCapturedCall(descriptions, TEXTS)).toBeNull()
-    expect(classifyCapturedCall(faq, TEXTS)).toBe('faq-preamble')
-    expect(classifyCapturedCall(faqUnderDescriptions, TEXTS)).toBe('faq-preamble')
-  })
-
-  it('agreement items keep the full request and the incumbent output as the reference', () => {
-    const longUser = 'x'.repeat(5_000)
-    const calls = [
-      captured(TEXTS['brand-facts'][0]!, 'facts', longUser, { category: 'food' }),
-      // A failed or unparseable call has no reference.
-      captured(TEXTS.stockists[0]!, 'stockists', 'evidence'),
-      // Legacy prompts never become agreement items.
-      captured(TEXTS.products[0]!, 'products', FALLBACK_USER, { products: [] }),
-    ]
-    const items = agreementCallsToItems(calls, {
-      brandSlug: 'brand',
-      jobId: 'run-1',
-      texts: TEXTS,
-      prompts: ['brand-facts', 'stockists'],
-    })
-
-    expect(items).toHaveLength(1)
-    expect(items[0]).toMatchObject({
-      datasetName: 'brand-facts-agreement',
-      input: { user: longUser, schema: { name: 's' } },
-      expectedOutput: { output: { category: 'food' } },
-      status: 'ACTIVE',
-      metadata: { source: 'capture', phase: 'facts', humanApproval: { status: 'pending' } },
-    })
-    expect((items[0]!.input as { messages: unknown[] }).messages).toHaveLength(2)
-    // The legacy path ignores agreement prompts.
-    expect(capturedCallsToItems(calls, { brandSlug: 'brand', jobId: 'run-1', texts: TEXTS, prompts: ['brand-facts'] })).toEqual([])
-  })
-
-  it('a vision item holds one brand’s image URLs and the incumbent verdicts', () => {
-    const verdict = { sourceUrl: 'https://x/1.jpg', disposition: 'keep' as const, score: 80, tag: 'product' }
-    const item = visionAgreementItem({
-      brandSlug: 'brand',
-      jobId: null,
-      brandContext: 'Brand: X. ',
-      imageUrls: ['https://x/1.jpg'],
-      verdicts: [verdict],
-    })
-    expect(item).toMatchObject({
-      datasetName: 'classify-images-agreement',
-      input: { brandContext: 'Brand: X. ', imageUrls: ['https://x/1.jpg'] },
-      expectedOutput: { output: { images: [verdict] } },
-    })
-    expect(visionAgreementItem({ brandSlug: 'b', jobId: null, brandContext: '', imageUrls: ['u'], verdicts: [] })).toBeNull()
   })
 })

@@ -5,11 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertAiCallResult } from "./_shared/ai-results";
 import { readResponseFormat } from "./eval/llm-usage-sink";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import {
-  createOpenAIClient,
-  type ChatMessage,
-  type OpenAIJsonSchema,
-} from "./openai-client";
+import { createOpenAIClient, type ChatMessage } from "./openai-client";
 import { priceUsage } from "./llm-pricing";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
 import type { PromptMeta } from "@/lib/langfuse/prompt";
@@ -62,8 +58,6 @@ export type CapturedCall = {
   promptName: string | null;
   /** The full conversation as the caller sent it, untruncated. A legacy `{system,user}` call becomes two messages; its `images` are not copied. */
   messages: ChatMessage[];
-  /** The strict response schema the call sent, when it sent one; an agreement replay re-sends it (DEV-1898). */
-  schema?: OpenAIJsonSchema;
   response: CapturedResponse;
 };
 
@@ -127,7 +121,6 @@ function capture(
       user: event.request.user,
       promptName: context.prompt?.name ?? null,
       messages: capturedMessages(input),
-      ...(input.schema ? { schema: input.schema } : {}),
       response: capturedResponse(input, event),
     });
   } catch {
