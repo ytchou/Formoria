@@ -19,6 +19,16 @@ import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
 
 export type SearchMode = "hybrid" | "vector" | "lexical";
 
+export type LexicalParams = {
+  scorer?: "bm25f" | "tsrank" | "idf";
+  wA?: number;
+  wB?: number;
+  wC?: number;
+  wD?: number;
+  k1?: number;
+  b?: number;
+};
+
 export type SearchInput = {
   query: string;
   locale: "zh-TW" | "en";
@@ -31,6 +41,7 @@ export type SearchInput = {
   sort?: "relevance" | "newest" | "alphabetical";
   audit?: { jobId?: string; phase?: string };
   enableIntentParse?: boolean;
+  lexicalParams?: LexicalParams;
 };
 
 export type SearchResult = {
@@ -394,6 +405,7 @@ export async function searchProductsBySituation(
       : appliedInference.materials.length
         ? appliedInference.materials
         : null,
+    ...(input.lexicalParams ? { lexical_params: input.lexicalParams } : {}),
   };
 
   const rpcStart = deps.now();

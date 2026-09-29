@@ -7,9 +7,9 @@ import { createHash } from "node:crypto";
 export const FEATURE_SPEC = [
   { name: "rrf_score", source: "rpc" },
   { name: "vector_rank", source: "rpc" },
-  { name: "lexical_rank", source: "rpc" },
+  { name: "lexical_rank", source: "rpc", definition: "idf-brand-stem-v1" },
   { name: "cosine_sim", source: "rpc" },
-  { name: "lexical_score", source: "rpc" },
+  { name: "lexical_score", source: "rpc", definition: "idf-brand-stem-v1" },
   { name: "in_vector_arm", source: "derived" },
   { name: "in_lexical_arm", source: "derived" },
   { name: "bigram_overlap", source: "derived" },

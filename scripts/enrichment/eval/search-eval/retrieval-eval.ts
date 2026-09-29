@@ -43,7 +43,7 @@ import {
   type GradeRecord,
   type SnapshotVariant,
 } from "@/lib/services/eval/embedding-corpus-regression";
-import { loadDatasetV2, toExperimentItems } from "./dataset-v2";
+import { loadDatasetV2, resolveDataset, toExperimentItems } from "./dataset-v2";
 import { writeReport } from "./report";
 import { cmdExportFeatures } from "./export-features";
 import {
@@ -83,8 +83,8 @@ async function cmdRun(values: Record<string, unknown>) {
       : resolve(RUNS_DIR, `${new Date().toISOString()}.json`);
   const allowUnreviewed = values["allow-unreviewed"] === "true";
 
-  const datasetPath = resolve(SCRIPT_DIR, "situation-search-v2.json");
-  const datasetItems = loadDatasetV2(datasetPath, { split });
+  const dataset = resolveDataset(values.dataset ? String(values.dataset) : undefined);
+  const datasetItems = loadDatasetV2(dataset.path, { split });
   const experimentItems = toExperimentItems(datasetItems);
 
   // Build queryType map for per-type breakdown
@@ -155,13 +155,16 @@ async function cmdRun(values: Record<string, unknown>) {
   );
 
   const result = await runExperiment({
-    dataset: "situation-search-v2",
+    dataset: dataset.name,
     arms,
     adapter,
     items: experimentItems,
     allowUnreviewed,
     deps,
   });
+  if (result.summary.failed > 0) {
+    throw new Error(`[run] ${result.summary.failed} retrieval items failed; refusing to score a partial run`);
+  }
 
   const report = writeReport(result, {
     seed: 1736,
@@ -396,9 +399,9 @@ function assertHealthyCorpus(health: CorpusHealth): void {
 async function cmdSnapshot(
   variant: SnapshotVariant,
   outputPath: string,
+  datasetVersion?: string,
 ): Promise<void> {
-  const datasetPath = resolve(SCRIPT_DIR, "situation-search-v2.json");
-  const datasetItems = loadDatasetV2(datasetPath);
+  const datasetItems = loadDatasetV2(resolveDataset(datasetVersion).path);
   const state = await readCorpusState();
   assertHealthyCorpus(state.health);
 
@@ -657,8 +660,7 @@ async function cmdCompare(options: {
 
 async function cmdNeighbours(values: Record<string, unknown>) {
   const limit = parseInt(String(values.limit ?? "5"), 10);
-  const datasetPath = resolve(SCRIPT_DIR, "situation-search-v2.json");
-  const items = loadDatasetV2(datasetPath);
+  const items = loadDatasetV2(resolveDataset(values.dataset ? String(values.dataset) : undefined).path);
 
   // Collect all unique composite keys from expected
   const allKeys = new Set<string>();
@@ -729,14 +731,17 @@ async function main() {
       grades: { type: "string" },
       "pool-output": { type: "string" },
       count: { type: "string" },
+      kind: { type: "string" },
       seed: { type: "string" },
       samples: { type: "string" },
       temperature: { type: "string" },
       pageSize: { type: "string" },
       judge: { type: "string" },
+      batch: { type: "boolean", default: false },
       judged: { type: "string" },
       "grade-mode": { type: "string" },
       human: { type: "string" },
+      reviewer: { type: "string" },
       force: { type: "boolean", default: false },
       "env-file": { type: "string" },
       model: { type: "string" },
@@ -751,6 +756,9 @@ async function main() {
   switch (subcommand) {
     case "run":
       await cmdRun(values);
+      break;
+    case "sweep":
+      await import("./lexical-sweep").then((m) => m.cmdSweep(values));
       break;
     case "neighbours":
       await cmdNeighbours(values);
@@ -767,7 +775,7 @@ async function main() {
           "snapshot requires --variant baseline|candidate and --output <file>",
         );
       }
-      await cmdSnapshot(values.variant, values.output);
+      await cmdSnapshot(values.variant, values.output, values.dataset);
       break;
     }
     case "compare": {
@@ -818,7 +826,7 @@ async function main() {
       break;
     default:
       console.error(
-        "Usage: search:eval <run|neighbours|export-features|snapshot|compare|generate-queries|judge|retrieve-candidates|agreement|build-dataset|export-grades|apply-grades>",
+        "Usage: search:eval <run|sweep|neighbours|export-features|snapshot|compare|generate-queries|judge|retrieve-candidates|agreement|build-dataset|export-grades|apply-grades>",
       );
       console.error(
         "  run [--arm hybrid,ltr:v1] [--split holdout] [--out file] [--allow-unreviewed true]",

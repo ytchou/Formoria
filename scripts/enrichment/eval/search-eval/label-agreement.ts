@@ -20,13 +20,13 @@ export async function cmdAgreement(
 ): Promise<void> {
   if (values.help) {
     console.log(
-      'Usage: pnpm search:eval agreement [--human labels/hand-label-sheet.csv] [--judged labels/judged-pairs.json] [--grade-mode stored|argmax]',
+      'Usage: pnpm search:eval agreement [--human labels/hand-label-sheet.csv] [--judged labels/judged-pairs.json] [--grade-mode stored|argmax] [--reviewer human|blind-llm-panel]',
     )
     console.log(
       '  --grade-mode argmax: re-grade each pair as its most probable level (needs stored Jev probabilities)',
     )
     console.log(
-      '  Computes Cohen\'s kappa between LLM grades and hand-labeled pairs',
+      '  Computes Cohen\'s kappa between LLM grades and review grades',
     )
     return
   }
@@ -34,8 +34,14 @@ export async function cmdAgreement(
   const humanPath = String(values.human ?? HAND_LABEL_SHEET_PATH)
   const judgedPath = String(values.judged ?? JUDGED_PAIRS_PATH)
   const gradeMode = String(values['grade-mode'] ?? 'stored')
+  const reviewer = String(values.reviewer ?? 'human')
   if (gradeMode !== 'stored' && gradeMode !== 'argmax') {
     console.error(`[agreement] Unknown --grade-mode "${gradeMode}". Use stored or argmax.`)
+    process.exitCode = 1
+    return
+  }
+  if (reviewer !== 'human' && reviewer !== 'blind-llm-panel') {
+    console.error(`[agreement] Unknown --reviewer "${reviewer}". Use human or blind-llm-panel.`)
     process.exitCode = 1
     return
   }
@@ -102,7 +108,7 @@ export async function cmdAgreement(
   console.log(`Quadratic-weighted kappa: ${kappaW.toFixed(4)}`)
 
   // Print confusion matrix
-  console.log('\nConfusion matrix (rows=LLM, cols=Human):')
+  console.log(`\nConfusion matrix (rows=LLM, cols=${reviewer === 'human' ? 'Human' : 'Panel'}):`)
   console.log('     0    1    2    3')
   for (let i = 0; i < 4; i++) {
     const row = matrix[i]!.map(v => String(v).padStart(4)).join(' ')
@@ -112,6 +118,7 @@ export async function cmdAgreement(
   // Write agreement.json
   const agreement = {
     timestamp: new Date().toISOString(),
+    reviewer,
     pairs: pairs.length,
     accuracy,
     kappa,

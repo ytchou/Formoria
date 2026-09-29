@@ -16,6 +16,9 @@ const AMBIGUITY_FIX_FILE =
   "20260916103000_fix_situation_search_product_id_ambiguity.sql";
 const LTR_MIGRATION_FILE = "20260916120000_situation_search_ltr_columns.sql";
 const LTR_REVERSE_FILE = "20260916120000_revert_situation_search_ltr_columns.sql";
+const SCORER_FILE = "20260930110000_lexical_scorer_bm25f.sql";
+const DEFAULTS_FILE = "20260930120000_lexical_scorer_defaults.sql";
+const FALLBACK_FILE = "20260930130000_lexical_scorer_idf_fallback.sql";
 
 function migrationText(): string {
   return readFileSync(
@@ -216,5 +219,57 @@ describe("ltr columns migration contract", () => {
       "returns table(product_id uuid, rank_score real, search_source text)",
     );
     expect(sql).toContain("has_function_privilege('anon'");
+  });
+});
+
+describe("field-weighted lexical scorer migration", () => {
+  it("stems Latin query tokens and offers the three scorer branches", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", SCORER_FILE), "utf8");
+    expect(sql).toContain("to_tsvector('english', v_token)");
+    expect(sql).toContain("params jsonb default null");
+    expect(sql).toContain("'bm25f'");
+    expect(sql).toContain("'tsrank'");
+    expect(sql).toContain("'idf'");
+    expect(sql).toContain("unnest(cp.search_vector)");
+    expect(sql).toContain("ts_stat(");
+  });
+
+  it("passes lexical params through the hybrid RPC and protects the new signatures", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", SCORER_FILE), "utf8");
+    expect(sql).toContain("situation_search_lexical(query_text, 100, lexical_params)");
+    expect(sql).toContain("1.0 / (60 + v.rnk)");
+    expect(sql).toContain("limit 100");
+    for (const signature of [
+      "situation_query_bigrams(text)",
+      "situation_search_lexical(text, integer, jsonb)",
+      "search_products_semantic(text, extensions.vector, text, integer, text, text[], text[], jsonb)",
+    ]) {
+      expect(sql).toContain(`revoke all on function public.${signature}`);
+      expect(sql).toContain(`has_function_privilege('anon', 'public.${signature}'`);
+    }
+  });
+
+  it("freezes the evaluated winner and matches before unnesting document vectors", () => {
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", DEFAULTS_FILE), "utf8");
+    const decision = JSON.parse(readFileSync(join(process.cwd(), "scripts/enrichment/eval/search-eval/dev-1900-decision.json"), "utf8"));
+    const winner = decision.sweepWinner;
+    expect(sql).toContain(`-- DEV-1900 train+val winner: ${winner.id}.`);
+    for (const [key, variable] of [["wA", "v_wa"], ["wB", "v_wb"], ["wC", "v_wc"], ["wD", "v_wd"], ["k1", "v_k1"], ["b", "v_b"]] as const) {
+      expect(sql).toContain(`${variable} float8 := coalesce((params ->> '${key}')::float8, ${winner.params[key]});`);
+    }
+    expect(sql).toContain("matched as materialized");
+    expect(sql).toContain("cp.search_vector @@ to_tsquery('simple', array_to_string(v_terms, ' | '))");
+    expect(sql).toContain("sum(nentry)");
+    expect(sql).toContain("revoke all on function public.situation_search_lexical(text, integer, jsonb)");
+    expect(sql).toContain("has_function_privilege('anon', 'public.situation_search_lexical(text, integer, jsonb)', 'execute')");
+  });
+
+  it("restores IDF as the default when the holdout gate rejects the tuned scorer", () => {
+    const decision = JSON.parse(readFileSync(join(process.cwd(), "scripts/enrichment/eval/search-eval/dev-1900-decision.json"), "utf8"));
+    const sql = readFileSync(join(process.cwd(), "supabase/migrations", FALLBACK_FILE), "utf8");
+    expect(decision.holdoutGatePassed).toBe(false);
+    expect(sql).toContain("v_scorer text := coalesce(params ->> 'scorer', 'idf');");
+    expect(sql).toContain("revoke all on function public.situation_search_lexical(text, integer, jsonb)");
+    expect(sql).toContain("has_function_privilege('anon', 'public.situation_search_lexical(text, integer, jsonb)', 'execute')");
   });
 });

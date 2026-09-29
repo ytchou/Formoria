@@ -18,7 +18,7 @@ import {
   createDefaultSearchDeps,
   type SearchDeps,
 } from "@/lib/services/product-situation-search";
-import { loadDatasetV2 } from "./dataset-v2";
+import { loadDatasetV2, resolveDataset, type DatasetVersion } from "./dataset-v2";
 import { compositeKey } from "@/lib/services/eval/retrieval-adapter";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,10 @@ import { compositeKey } from "@/lib/services/eval/retrieval-adapter";
 
 const SCRIPT_DIR = dirname(new URL(import.meta.url).pathname);
 const RUNS_DIR = resolve(SCRIPT_DIR, "runs");
+
+export function featureOutputPath(version: DatasetVersion, split: string): string {
+  return resolve(RUNS_DIR, `situation-search-${version}-features-${split}.csv`);
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -151,12 +155,10 @@ export async function cmdExportFeatures(
   values: Record<string, unknown>,
 ): Promise<void> {
   const splits = (String(values.split ?? "train,val,holdout")).split(",");
-  const datasetPath = values.dataset
-    ? String(values.dataset)
-    : resolve(SCRIPT_DIR, "situation-search-v2.json");
+  const dataset = resolveDataset(values.dataset ? String(values.dataset) : undefined);
 
   for (const split of splits) {
-    const items = loadDatasetV2(datasetPath, { split });
+    const items = loadDatasetV2(dataset.path, { split });
     const allRows: ExportRow[] = [];
 
     console.log(`[export-features] split=${split} items=${items.length}`);
@@ -224,7 +226,7 @@ export async function cmdExportFeatures(
 
     // Write CSV
     const csv = toFeatureCsv(allRows);
-    const outPath = resolve(RUNS_DIR, `dev-1736-features-${split}.csv`);
+    const outPath = featureOutputPath(dataset.version, split);
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, csv);
     console.log(`[export-features] wrote ${outPath} (${allRows.length} rows)`);

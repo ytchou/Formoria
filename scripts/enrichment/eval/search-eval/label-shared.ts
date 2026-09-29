@@ -14,6 +14,9 @@ export const JEV_JUDGED_PAIRS_PATH = resolve(LABELS_DIR, 'judged-pairs.jev.json'
 export const HAND_LABEL_SHEET_PATH = resolve(LABELS_DIR, 'hand-label-sheet.csv')
 export const AGREEMENT_PATH = resolve(LABELS_DIR, 'agreement.json')
 export const DATASET_V2_PATH = resolve(LABELS_DIR, 'situation-search-v2.json')
+export function labelDatasetPath(version: 'v2' | 'v3'): string {
+  return resolve(LABELS_DIR, `situation-search-${version}.json`)
+}
 export const HOLDOUT_GRADES_PATH = resolve(LABELS_DIR, 'holdout-grades.csv')
 
 // ---------------------------------------------------------------------------
@@ -243,6 +246,12 @@ export function stratifiedSheet(
   }
 
   const selected = new Map<string, SheetRow>()
+
+  // Keep completed human reviews when a resumed judge run rebuilds the sheet.
+  for (const pair of judgedPairs) {
+    const key = `${pair.queryId}|${pair.brandSlug}|${pair.productKey}`
+    if (existingGrades.has(key)) selected.set(key, toSheetRow(pair))
+  }
 
   // 1. Always include split pairs
   for (const pair of judgedPairs) {

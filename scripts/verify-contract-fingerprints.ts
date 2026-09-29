@@ -21,6 +21,8 @@
  * Usage:
  *   pnpm exec tsx scripts/verify-contract-fingerprints.ts \
  *     --ref <project-ref> --token <access-token> [--baseline <path>]
+ *   pnpm exec tsx scripts/verify-contract-fingerprints.ts \
+ *     --ref <project-ref> --db [--baseline <path>]
  *
  * The project ref and the access token are always explicit: no ref is hardcoded
  * here, and no `.env*` file is read, so pointing this at production is a
@@ -31,9 +33,12 @@
  * path below therefore resolves only on a machine that has it. Pass
  * `--baseline` for any other copy.
  */
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { projectRefFromDatabaseUrl } from "@/lib/supabase/project-target";
 
 const ROOT = resolve(import.meta.dirname, "..");
 
@@ -62,6 +67,10 @@ export const CONTRACT_FUNCTION_NAMES = [
   "search_brands",
   "brands_track_content_provenance",
   "curated_products_search_document",
+  "curated_products_search_vector_update",
+  "brands_retouch_product_search_vector",
+  "curated_products_set_updated_at",
+  "taxonomy_terms_retouch_product_search_vector",
   "search_products_semantic",
   "situation_query_bigrams",
   "situation_search_lexical",
@@ -337,13 +346,43 @@ export const fetchLiveFingerprints: FetchLiveFingerprints = async ({
   });
 };
 
+function fetchDatabaseFingerprints(projectRef: string, sql: string, env: NodeJS.ProcessEnv): FingerprintRow[] {
+  const databaseUrl = env.SUPABASE_DB_URL;
+  if (!databaseUrl) throw new Error("SUPABASE_DB_URL is required with --db");
+  if (projectRefFromDatabaseUrl(databaseUrl) !== projectRef) {
+    throw new Error("SUPABASE_DB_URL does not identify the requested --ref");
+  }
+  const db = new URL(databaseUrl);
+  const statement = sql.trim().replace(/;$/, "");
+  const wrapped = `select coalesce(json_agg(row_to_json(f)), '[]'::json) from (${statement}) f;`;
+  const result = spawnSync("psql", ["--no-psqlrc", "--tuples-only", "--no-align", "--set", "ON_ERROR_STOP=1", "--command", wrapped], {
+    encoding: "utf8",
+    env: {
+      ...env,
+      PGHOST: db.hostname,
+      PGPORT: db.port || "5432",
+      PGUSER: decodeURIComponent(db.username),
+      PGPASSWORD: decodeURIComponent(db.password),
+      PGDATABASE: decodeURIComponent(db.pathname.slice(1)),
+      PGSSLMODE: db.searchParams.get("sslmode") || "require",
+    },
+  });
+  if (result.status !== 0) throw new Error(`psql fingerprint query failed: ${result.stderr.trim()}`);
+  const rows: unknown = JSON.parse(result.stdout.trim());
+  if (!Array.isArray(rows) || rows.some(row =>
+    typeof row?.signature !== "string" || typeof row?.md5 !== "string"
+  )) throw new Error("psql returned an unexpected fingerprint row");
+  return rows as FingerprintRow[];
+}
+
 export type CliOptions = {
   projectRef: string;
   token: string;
   baselinePath: string;
+  useDatabase: boolean;
 };
 
-const KNOWN_FLAGS = ["--ref", "--token", "--baseline"] as const;
+const KNOWN_FLAGS = ["--ref", "--token", "--baseline", "--db"] as const;
 type KnownFlag = (typeof KNOWN_FLAGS)[number];
 
 function isKnownFlag(argument: string): argument is KnownFlag {
@@ -372,6 +411,7 @@ export function parseCliArgs(
   let projectRef = "";
   let token = env.SUPABASE_ACCESS_TOKEN ?? "";
   let baselinePath = DEFAULT_BASELINE_PATH;
+  let useDatabase = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index] ?? "";
@@ -379,6 +419,11 @@ export function parseCliArgs(
       throw new Error(
         `Unrecognised ${describeArgument(argv, index)}; expected one of ${KNOWN_FLAGS.join(", ")}`,
       );
+    }
+
+    if (flag === "--db") {
+      useDatabase = true;
+      continue;
     }
 
     const value = argv[index + 1];
@@ -396,13 +441,13 @@ export function parseCliArgs(
   if (!projectRef) {
     throw new Error("--ref <project-ref> is required");
   }
-  if (!token) {
+  if (!token && !useDatabase) {
     throw new Error(
       "--token <access-token> is required (or set SUPABASE_ACCESS_TOKEN)",
     );
   }
 
-  return { projectRef, token, baselinePath };
+  return { projectRef, token, baselinePath, useDatabase };
 }
 
 export type MainDependencies = {
@@ -456,7 +501,7 @@ export async function main(
     return 1;
   }
 
-  const secrets = [options.token, env.SUPABASE_ACCESS_TOKEN];
+  const secrets = [options.token, env.SUPABASE_ACCESS_TOKEN, env.SUPABASE_DB_URL];
 
   try {
     const baseline = parseBaselineReport(
@@ -464,11 +509,13 @@ export async function main(
       options.baselinePath,
     );
 
-    const live = await fetchLive({
-      projectRef: options.projectRef,
-      token: options.token,
-      sql: buildFingerprintQuery(),
-    });
+    const live = options.useDatabase
+      ? fetchDatabaseFingerprints(options.projectRef, buildFingerprintQuery(), env)
+      : await fetchLive({
+          projectRef: options.projectRef,
+          token: options.token,
+          sql: buildFingerprintQuery(),
+        });
 
     const comparison = compareFingerprints(baseline, live);
     console.log(redactSecrets(formatComparison(comparison), secrets));

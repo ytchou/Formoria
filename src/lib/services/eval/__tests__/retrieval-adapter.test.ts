@@ -44,6 +44,15 @@ function makeArm(overrides: Partial<ExperimentArm> = {}): ExperimentArm {
 // ---------------------------------------------------------------------------
 
 describe('createRetrievalAdapter', () => {
+  it('runs the weighted lexical arm with the requested scorer', async () => {
+    const adapter = createRetrievalAdapter({
+      search: async input => ({ products: input.lexicalParams?.scorer === 'tsrank'
+        ? [{ id: 'marcia-bag', key: 'canvas-tote', brandSlug: 'marcia-studio' }]
+        : [] }),
+    })
+    const result = await adapter.task!(makeItem(), makeArm({ value: 'lexical:tsrank' }), { itemRunId: 'weighted-arm' })
+    expect(result.output).toEqual(['marcia-studio/canvas-tote'])
+  })
   it('task calls search with arm mode and returns composite keys', async () => {
     const searchMock = vi.fn().mockResolvedValue({
       products: [

@@ -176,6 +176,8 @@ public/admin/content/
 
 # search-eval run artifacts (DEV-1680 situation search). Run output is not committed.
 scripts/enrichment/eval/search-eval/runs/
+# v3 is assembled from the tracked v2 dataset and v3 additions.
+scripts/enrichment/eval/search-eval/situation-search-v3.json
 # search-eval labeling intermediates (DEV-1736). agreement.json is the only keeper.
 scripts/enrichment/eval/search-eval/labels/
 !scripts/enrichment/eval/search-eval/labels/agreement.json

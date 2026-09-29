@@ -3505,6 +3505,8 @@ export type Database = {
       }
       curated_products_search_document: {
         Args: {
+          p_brand_name: string
+          p_brand_romanized: string
           p_category: string
           p_description_zh: string
           p_name_en: string
@@ -3908,6 +3910,7 @@ export type Database = {
           filter_category: string
           filter_materials: string[]
           filter_subcategories: string[]
+          lexical_params?: Json
           match_count: number
           mode: string
           query_embedding: string
@@ -3927,7 +3930,7 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
       situation_query_bigrams: { Args: { input: string }; Returns: string[] }
       situation_search_lexical: {
-        Args: { query: string; result_limit: number }
+        Args: { params?: Json; query: string; result_limit: number }
         Returns: {
           product_id: string
           score: number

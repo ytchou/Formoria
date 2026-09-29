@@ -3,7 +3,7 @@ import { resolve, dirname } from 'node:path'
 
 import { searchProductsBySituation } from '@/lib/services/product-situation-search'
 import { compositeKey } from '@/lib/services/eval/retrieval-adapter'
-import { loadDatasetV2, type DatasetV2Item } from './dataset-v2'
+import { loadDatasetV2, resolveDataset, V3_ADDITIONS_PATH, type DatasetV2Item } from './dataset-v2'
 import { HOLDOUT_GRADES_PATH, escapeCsvField, parseCsvLine } from './label-shared'
 
 // ---------------------------------------------------------------------------
@@ -41,8 +41,8 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
   const k = parseInt(String(values.k ?? '10'), 10)
   const outPath = values.out ? String(values.out) : HOLDOUT_GRADES_PATH
 
-  const datasetPath = resolve(SCRIPT_DIR, 'situation-search-v2.json')
-  const items = loadDatasetV2(datasetPath, { split: 'holdout' })
+  const dataset = resolveDataset(values.dataset ? String(values.dataset) : undefined)
+  const items = loadDatasetV2(dataset.path, { split: 'holdout' })
 
   const gradeLookup = new Map<string, number>()
   for (const item of items) {
@@ -190,10 +190,16 @@ export async function cmdApplyGrades(values: Record<string, unknown>) {
     return
   }
 
+  const selected = resolveDataset(values.dataset ? String(values.dataset) : undefined)
   const datasetPaths = [
-    resolve(SCRIPT_DIR, 'situation-search-v2.json'),
-    resolve(SCRIPT_DIR, 'labels', 'situation-search-v2.json'),
+    selected.version === 'v3' ? V3_ADDITIONS_PATH : selected.path,
+    resolve(SCRIPT_DIR, 'labels', `${selected.name}.json`),
   ]
+  if (selected.version === 'v3') {
+    const originalIds = new Set(loadDatasetV2(resolveDataset('v2').path).map(item => item.id))
+    const originalGrade = graded.find(row => originalIds.has(row.queryId))
+    if (originalGrade) throw new Error(`Cannot change original v2 query ${originalGrade.queryId} through v3 grades`)
+  }
 
   const today = new Date().toISOString().slice(0, 10)
   let updated = 0

@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 
 import type { ExperimentItem } from '@/lib/services/eval/run-experiment'
 
@@ -10,7 +11,7 @@ export type DatasetV2Item = {
   id: string
   query: string
   category?: string | null
-  queryType?: 'concrete' | 'subjective'
+  queryType?: 'concrete' | 'subjective' | 'brand_name' | 'keyword' | 'english'
   split: 'train' | 'val' | 'holdout'
   expected: Array<{ brandSlug: string; productKey: string; grade: number }>
   humanApproval?: { reviewedVia: string; at: string }
@@ -20,16 +21,41 @@ export type DatasetV2Item = {
 // Loader
 // ---------------------------------------------------------------------------
 
+export type DatasetVersion = 'v2' | 'v3'
+
+const SCRIPT_DIR = dirname(new URL(import.meta.url).pathname)
+export const V3_ADDITIONS_PATH = resolve(SCRIPT_DIR, 'situation-search-v3-additions.json')
+const V3_PATH = resolve(SCRIPT_DIR, 'situation-search-v3.json')
+const V2_PATH = resolve(SCRIPT_DIR, 'situation-search-v2.json')
+
+export function resolveDataset(version?: string): { version: DatasetVersion; name: string; path: string } {
+  const selected = version ?? (existsSync(V3_ADDITIONS_PATH) ? 'v3' : 'v2')
+  if (selected !== 'v2' && selected !== 'v3') {
+    throw new Error(`Unknown dataset: ${selected}; expected v2 or v3`)
+  }
+  const name = `situation-search-${selected}`
+  return { version: selected, name, path: resolve(SCRIPT_DIR, `${name}.json`) }
+}
+
 export function loadDatasetV2(
   path: string,
   opts: { split?: string } = {},
 ): DatasetV2Item[] {
-  const raw: DatasetV2Item[] = JSON.parse(readFileSync(path, 'utf8'))
+  const raw: DatasetV2Item[] = path === V3_PATH
+    ? [
+        ...JSON.parse(readFileSync(V2_PATH, 'utf8')) as DatasetV2Item[],
+        ...JSON.parse(readFileSync(V3_ADDITIONS_PATH, 'utf8')) as DatasetV2Item[],
+      ]
+    : JSON.parse(readFileSync(path, 'utf8'))
+  const queryTypes = new Set(['concrete', 'subjective', 'brand_name', 'keyword', 'english'])
 
   // Duplicate id check
   const ids = new Set<string>()
   for (const item of raw) {
     if (ids.has(item.id)) throw new Error(`Duplicate query id: ${item.id}`)
+    if (item.queryType && !queryTypes.has(item.queryType)) {
+      throw new Error(`Unknown queryType for ${item.id}: ${item.queryType}`)
+    }
     ids.add(item.id)
   }
 

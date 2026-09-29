@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { judgeRelevance } from '../search-relevance-judge'
+import { judgeRelevance, judgeRelevanceBatch } from '../search-relevance-judge'
 
 const QUERY = '送給剛搬新家的朋友'
 
@@ -17,6 +17,42 @@ function grade(value: number, reason = '陶瓷容器能延續使用，適合當�
 }
 
 describe('judgeRelevance', () => {
+  it('requires three valid votes for each product in a batch', async () => {
+    const chat = vi.fn()
+      .mockResolvedValueOnce({ content: JSON.stringify({ grades: [
+        { id: 'candle', grade: 3 }, { id: 'scarf', grade: 0 },
+      ] }) })
+      .mockResolvedValueOnce({ content: JSON.stringify({ grades: [
+        { id: 'candle', grade: 3 }, { id: 'scarf', grade: 0 },
+      ] }) })
+      .mockResolvedValueOnce({ content: JSON.stringify({ grades: [
+        { id: 'candle', grade: 2 },
+      ] }) })
+    const result = await judgeRelevanceBatch(
+      { query: QUERY, products: [
+        { id: 'candle', product },
+        { id: 'scarf', product: { name_zh: '羊毛圍巾', description_zh: '冬季保暖羊毛圍巾。' } },
+      ] },
+      { chat, samples: 3 },
+    )
+
+    expect(result.get('candle')).toMatchObject({ grade: 3, votes: [3, 3, 2] })
+    expect(result.get('scarf')).toMatchObject({ grade: null, votes: [] })
+  })
+
+  it('lets a brand-name query match a product from that brand', async () => {
+    const result = await judgeRelevance(
+      { query: 'AROZMA', queryType: 'brand_name', product: { ...product, brand_name: 'AROZMA' } },
+      {
+        samples: 1,
+        chat: async ({ system, user }) => grade(
+          system.includes('brand name query') && user.includes('brand_name: AROZMA') ? 3 : 0,
+        ),
+      },
+    )
+    expect(result.grade).toBe(3)
+  })
+
   it('returns the majority grade and a unanimous flag', async () => {
     const chat = vi.fn()
       .mockResolvedValueOnce(grade(2))
