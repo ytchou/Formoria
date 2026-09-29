@@ -33,6 +33,7 @@ import {
 type Query = {
   id: string
   query: string
+  queryType?: string
   category?: string
   source: string
 }
@@ -192,6 +193,7 @@ export async function cmdJudge(
   const productMap = new Map<string, {
     nameZh: string
     nameEn: string | null
+    brandName: string
     category: string
     subcategory: string
     materials: string[]
@@ -206,6 +208,7 @@ export async function cmdJudge(
       productMap.set(p.id, {
         nameZh: p.nameZh,
         nameEn: p.nameEn,
+        brandName: p.brandName,
         category: p.category,
         subcategory: p.subcategory,
         materials: p.material,
@@ -233,54 +236,60 @@ export async function cmdJudge(
 
     console.log(`[judge] ${queryId}: judging ${pending.length} candidates...`)
 
-    for (const c of pending) {
-      const product = productMap.get(c.productId)
-      if (!product) {
-        console.warn(`  ${c.productId}: product not found, skipping`)
-        continue
-      }
+    for (let index = 0; index < pending.length; index += 4) {
+      const batch = pending.slice(index, index + 4)
+      const graded = await Promise.all(batch.map(async c => {
+        const product = productMap.get(c.productId)
+        if (!product) {
+          console.warn(`  ${c.productId}: product not found, skipping`)
+          return null
+        }
 
-      const result = await judgeRelevance(
-        {
-          query: q.query,
-          product: {
-            name_zh: product.nameZh,
-            name_en: product.nameEn,
-            category_zh: product.category,
-            subcategory_zh: product.subcategory,
-            materials_zh: product.materials.join(', '),
-            description_zh: product.descriptionZh,
-          },
-        },
-        jevDecide
-          ? { decide: jevDecide }
-          : {
-              fetchPrompt: promptMeta ? async () => promptMeta : undefined,
-              samples,
-              temperature,
+        const result = await judgeRelevance(
+          {
+            query: q.query,
+            queryType: q.queryType,
+            product: {
+              name_zh: product.nameZh,
+              name_en: product.nameEn,
+              brand_name: product.brandName,
+              category_zh: product.category,
+              subcategory_zh: product.subcategory,
+              materials_zh: product.materials.join(', '),
+              description_zh: product.descriptionZh,
             },
-      )
+          },
+          jevDecide
+            ? { decide: jevDecide }
+            : {
+                fetchPrompt: promptMeta ? async () => promptMeta : undefined,
+                samples,
+                temperature,
+              },
+        )
 
-      if (isJev && result.grade == null) {
-        jevUngraded++
-        console.warn(`  ${c.productKey}: Jev returned no grade, not written (retried on --resume)`)
-        continue
-      }
+        if (result.grade == null) {
+          if (isJev) jevUngraded++
+          console.warn(`  ${c.productKey}: judge returned no grade, not written (retried on --resume)`)
+          return null
+        }
 
-      judgedPairs.push({
-        queryId: c.queryId,
-        query: q.query,
-        brandSlug: c.brandSlug,
-        productKey: c.productKey,
-        nameZh: product.nameZh,
-        descriptionZh: product.descriptionZh,
-        officialUrl: product.officialUrl,
-        categoryZh: product.category,
-        votes: result.votes,
-        grade: result.grade ?? 0,
-        split: result.split,
-        ...(isJev && result.probabilities ? { probabilities: result.probabilities } : {}),
-      })
+        return {
+          queryId: c.queryId,
+          query: q.query,
+          brandSlug: c.brandSlug,
+          productKey: c.productKey,
+          nameZh: product.nameZh,
+          descriptionZh: product.descriptionZh,
+          officialUrl: product.officialUrl,
+          categoryZh: product.category,
+          votes: result.votes,
+          grade: result.grade,
+          split: result.split,
+          ...(isJev && result.probabilities ? { probabilities: result.probabilities } : {}),
+        }
+      }))
+      judgedPairs.push(...graded.filter(pair => pair !== null))
     }
 
     // Write after each query for resume safety

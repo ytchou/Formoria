@@ -17,6 +17,19 @@ function grade(value: number, reason = '陶瓷容器能延續使用，適合當�
 }
 
 describe('judgeRelevance', () => {
+  it('lets a brand-name query match a product from that brand', async () => {
+    const result = await judgeRelevance(
+      { query: 'AROZMA', queryType: 'brand_name', product: { ...product, brand_name: 'AROZMA' } },
+      {
+        samples: 1,
+        chat: async ({ system, user }) => grade(
+          system.includes('brand name query') && user.includes('brand_name: AROZMA') ? 3 : 0,
+        ),
+      },
+    )
+    expect(result.grade).toBe(3)
+  })
+
   it('returns the majority grade and a unanimous flag', async () => {
     const chat = vi.fn()
       .mockResolvedValueOnce(grade(2))

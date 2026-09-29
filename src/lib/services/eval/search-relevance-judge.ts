@@ -16,6 +16,7 @@ import { JEV_CANDIDATES, runJevCandidate, type DecideFn } from './jev-questions'
 type JudgeProduct = {
   name_zh: string
   name_en?: string | null
+  brand_name?: string | null
   category_zh?: string | null
   subcategory_zh?: string | null
   materials_zh?: string | null
@@ -91,7 +92,7 @@ const DEFAULT_SYSTEM_PROMPT = [
 // ---------------------------------------------------------------------------
 
 export async function judgeRelevance(
-  input: { query: string; product: JudgeProduct },
+  input: { query: string; queryType?: string; product: JudgeProduct },
   deps: JudgeDeps = {},
 ): Promise<JudgeResult> {
   if (deps.decide) {
@@ -113,7 +114,9 @@ export async function judgeRelevance(
   const promptMeta = deps.fetchPrompt
     ? await deps.fetchPrompt('search-relevance-judge')
     : null
-  const systemPrompt = promptMeta?.text ?? DEFAULT_SYSTEM_PROMPT
+  const systemPrompt = (promptMeta?.text ?? DEFAULT_SYSTEM_PROMPT) + (input.queryType === 'brand_name'
+    ? '\nFor a brand name query, products from the named brand are a direct match (grade 3); products from other brands are not a match (grade 0).'
+    : '')
 
   // Build user message with product variables
   const descTrunc = (input.product.description_zh ?? '').slice(0, 600)
@@ -121,6 +124,7 @@ export async function judgeRelevance(
     `Query: ${input.query}`,
     `name_zh: ${input.product.name_zh}`,
     input.product.name_en ? `name_en: ${input.product.name_en}` : null,
+    input.product.brand_name ? `brand_name: ${input.product.brand_name}` : null,
     input.product.category_zh ? `category_zh: ${input.product.category_zh}` : null,
     input.product.subcategory_zh ? `subcategory_zh: ${input.product.subcategory_zh}` : null,
     input.product.materials_zh ? `materials_zh: ${input.product.materials_zh}` : null,

@@ -247,6 +247,12 @@ export function stratifiedSheet(
 
   const selected = new Map<string, SheetRow>()
 
+  // Keep completed human reviews when a resumed judge run rebuilds the sheet.
+  for (const pair of judgedPairs) {
+    const key = `${pair.queryId}|${pair.brandSlug}|${pair.productKey}`
+    if (existingGrades.has(key)) selected.set(key, toSheetRow(pair))
+  }
+
   // 1. Always include split pairs
   for (const pair of judgedPairs) {
     if (pair.split) {
