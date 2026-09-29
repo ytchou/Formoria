@@ -88,7 +88,7 @@ describe("FEATURE_SPEC", () => {
     }
 
     expect(featureSpecHash).toBe(
-      "a3745c54e2a4ed40323f1eefbf04a7a95f441cc7aef135a27f14d95d2d3bdf69",
+      "00cf793006d9cc151b06e06b41e53f0c32ea8070bed18b14bd59d424db1298e7",
     );
   });
 });

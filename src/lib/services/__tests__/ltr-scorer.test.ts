@@ -52,24 +52,25 @@ describe("ltr-scorer", () => {
 
   const v1Exists = existsSync(join(MODELS_DIR, "v1.onnx"));
   it.skipIf(!v1Exists)(
-    "scoreCandidates matches the Python parity fixture within 1e-5 (v1)",
+    "refuses the v1 model after the lexical feature definition changes",
     async () => {
-      const parity = loadParity("v1");
-      const rows = parity.map(
-        (entry) => new Float32Array(entry.features),
-      );
-
-      const scores = await scoreCandidates(rows, "v1");
-
-      expect(scores).toHaveLength(parity.length);
-      for (let i = 0; i < parity.length; i++) {
-        expect(
-          Math.abs(scores[i]! - parity[i]!.score),
-          `Row ${i}: TS=${scores[i]}, Python=${parity[i]!.score}`,
-        ).toBeLessThan(1e-5);
-      }
+      await expect(loadLtrModel("v1")).rejects.toThrow("Feature spec hash mismatch");
     },
   );
+
+  it("scoreCandidates matches the Python parity fixture within 1e-5 (v2)", async () => {
+    const parity = loadParity("v2");
+    const rows = parity.map((entry) => new Float32Array(entry.features));
+    const scores = await scoreCandidates(rows, "v2");
+
+    expect(scores).toHaveLength(parity.length);
+    for (let i = 0; i < parity.length; i++) {
+      expect(
+        Math.abs(scores[i]! - parity[i]!.score),
+        `Row ${i}: TS=${scores[i]}, Python=${parity[i]!.score}`,
+      ).toBeLessThan(1e-5);
+    }
+  });
 
   it("loadLtrModel rejects a feature-spec hash mismatch", async () => {
     await expect(

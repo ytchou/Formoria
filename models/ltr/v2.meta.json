@@ -1,0 +1,84 @@
+{
+  "git_sha": "d55b67686848afeced924905287e93fc43a46c87",
+  "feature_spec_hash": "00cf793006d9cc151b06e06b41e53f0c32ea8070bed18b14bd59d424db1298e7",
+  "feature_names": [
+    "rrf_score",
+    "vector_rank",
+    "lexical_rank",
+    "cosine_sim",
+    "lexical_score",
+    "in_vector_arm",
+    "in_lexical_arm",
+    "bigram_overlap",
+    "brand_name_hit",
+    "product_name_hit",
+    "desc_zh_len",
+    "desc_en_len",
+    "has_image",
+    "image_area",
+    "has_subcategory",
+    "material_count",
+    "faq_count",
+    "seo_promoted",
+    "made_in_taiwan_confirmed",
+    "product_name_len"
+  ],
+  "input_name": "features",
+  "params": {
+    "objective": "lambdarank",
+    "metric": "ndcg",
+    "eval_at": [
+      5,
+      10
+    ],
+    "lambdarank_truncation_level": 13,
+    "label_gain": [
+      0,
+      1,
+      3,
+      7
+    ],
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 1,
+    "verbose": -1,
+    "seed": 1900,
+    "num_leaves": 15,
+    "min_data_in_leaf": 50,
+    "learning_rate": 0.1
+  },
+  "best_iteration": 30,
+  "cv": {
+    "mean_ndcg10": 0.8527923827609902,
+    "fold_iterations": [
+      13,
+      21,
+      62,
+      30,
+      98
+    ]
+  },
+  "importance": {
+    "rrf_score": 3951.7451303601265,
+    "vector_rank": 602.4930527210236,
+    "lexical_rank": 1024.9821152687073,
+    "cosine_sim": 213.0562623143196,
+    "lexical_score": 352.3334161043167,
+    "in_vector_arm": 0.0,
+    "in_lexical_arm": 3.5005900859832764,
+    "bigram_overlap": 61.133569955825806,
+    "brand_name_hit": 7.584109783172607,
+    "product_name_hit": 0.0,
+    "desc_zh_len": 42.77199351787567,
+    "desc_en_len": 0.0,
+    "has_image": 0.0,
+    "image_area": 49.83433270454407,
+    "has_subcategory": 0.0,
+    "material_count": 9.96352994441986,
+    "faq_count": 11.347309947013855,
+    "seo_promoted": 8.262830018997192,
+    "made_in_taiwan_confirmed": 0.0,
+    "product_name_len": 35.101493775844574
+  },
+  "holdout_untouched": true
+}

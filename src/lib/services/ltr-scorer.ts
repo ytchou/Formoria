@@ -34,7 +34,7 @@ export function _testResetCache(): void {
 // ---------------------------------------------------------------------------
 
 export async function loadLtrModel(
-  version = "v1",
+  version = "v2",
   opts?: { modelDir?: string },
 ): Promise<CachedSession> {
   const cached = sessions.get(version);
@@ -68,7 +68,7 @@ export async function loadLtrModel(
 
 export async function scoreCandidates(
   rows: Float32Array[],
-  version = "v1",
+  version = "v2",
 ): Promise<number[]> {
   if (rows.length === 0) return [];
 

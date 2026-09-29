@@ -133,3 +133,22 @@ staging default. `dev-1900-sweep.json` and `dev-1900-holdout.json` contain
 the full per-query evidence. The index-only ship gate remains unverified:
 no pre-index-migration v3 baseline was captured. A human ship decision is
 pending; this result does not authorize production promotion.
+
+## DEV-1900 LTR v2
+
+With IDF restored as the default, v2 trained on 13,663 feature rows from
+125 train and 41 validation queries. The holdout CSV was exported for
+evaluation but was absent from the training directory. The feature-spec
+hash changed to `00cf793006d9cc151b06e06b41e53f0c32ea8070bed18b14bd59d424db1298e7`,
+so the v1 model is refused by the loader. The new v2 and smoke models pass
+their ONNX parity fixtures; Python training tests pass.
+
+On the 40-query holdout, v2 NDCG@10 was 0.773 versus 0.779 for hybrid
+RRF. The paired delta was -0.0059 with a 95% interval of [-0.0383,
++0.0193]. The interval includes zero, so `SEARCH_LTR_MODE=off` is the
+serving guidance. The new 10-query slice had a -0.0539 NDCG@10 delta.
+`dev-1900-ltr.json` records the training inputs, feature hash, per-query
+scores, and intervals. The evaluation command wrote its complete report
+with no failed items, then exited 134 during native shutdown with a
+`libc++abi` recursive-mutex error; this is a process-cleanup limitation,
+not a passing command exit.

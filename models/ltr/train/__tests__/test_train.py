@@ -206,7 +206,7 @@ class TestExport:
             X_parity=X,
         )
 
-        meta_path = tmp_path / "ltr-test.meta.json"
+        meta_path = tmp_path / "test.meta.json"
         meta = json.loads(meta_path.read_text())
 
         required_keys = [
@@ -240,7 +240,7 @@ class TestExport:
             max_parity_rows=50,
         )
 
-        parity_path = tmp_path / "ltr-test.parity.json"
+        parity_path = tmp_path / "test.parity.json"
         parity = json.loads(parity_path.read_text())
 
         # X has 160 rows (20 queries * 8 products), capped at 50
