@@ -16,7 +16,7 @@ import {
   type InferredField,
 } from "@/lib/directory-filter-url";
 
-export { INFERRED_FIELDS, INFERRED_PARAM, INFER_PARAM, type InferredField };
+export { INFERRED_PARAM, INFER_PARAM, type InferredField };
 
 // ---------------------------------------------------------------------------
 // Types
