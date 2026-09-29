@@ -2,7 +2,8 @@ import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 
 import { createAuditedOpenAIClient } from '@/lib/services/llm-audit'
 import { getPublishedCuratedProducts } from '@/lib/services/curated-products-catalog'
-import { L1_CATEGORIES, MATERIALS } from '@/lib/taxonomy/ontology'
+import { getBrands } from '@/lib/services/brands'
+import { L1_CATEGORIES, L2_SUBCATEGORIES, MATERIALS } from '@/lib/taxonomy/ontology'
 import { LABELS_DIR, QUERIES_PATH } from './label-shared'
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,40 @@ function slugify(text: string): string {
     .slice(0, 60)
 }
 
+type QueryKind = 'brand' | 'keyword' | 'english'
+type CatalogQueryProduct = { brandSlug: string; subcategory: string; nameEn: string | null }
+type CatalogQueryBrand = { slug: string; name: string; romanizedName?: string | null }
+
+export function catalogQueries(
+  kind: QueryKind,
+  products: CatalogQueryProduct[],
+  brands: CatalogQueryBrand[],
+  count: number,
+): Array<{ id: string; query: string; queryType: 'brand_name' | 'keyword' | 'english'; source: string }> {
+  const publishedBrandSlugs = new Set(products.map(p => p.brandSlug))
+  const values = kind === 'brand'
+    ? brands.filter(b => publishedBrandSlugs.has(b.slug)).flatMap(b => [b.name, b.romanizedName])
+    : kind === 'keyword'
+      ? products.map(p => L2_SUBCATEGORIES.find(s => s.slug === p.subcategory)?.nameZh)
+      : products.map(p => p.nameEn)
+  const queryType = kind === 'brand' ? 'brand_name' : kind
+  return [...new Set(values.filter((v): v is string => !!v && v.trim().length > 0))]
+    .sort()
+    .slice(0, count)
+    .map(query => ({ id: `${kind}-${slugify(query)}`, query, queryType, source: `catalog-${kind}` }))
+}
+
+async function publishedCatalogProducts() {
+  const pageSize = 200
+  const first = await getPublishedCuratedProducts({ pageSize, page: 1 })
+  const remainingPages = Array.from(
+    { length: Math.ceil(first.totalCount / pageSize) - 1 },
+    (_, index) => index + 2,
+  )
+  const rest = await Promise.all(remainingPages.map(page => getPublishedCuratedProducts({ pageSize, page })))
+  return [...first.products, ...rest.flatMap(result => result.products)]
+}
+
 // ---------------------------------------------------------------------------
 // Command
 // ---------------------------------------------------------------------------
@@ -52,8 +87,35 @@ export async function cmdGenerateQueries(
   values: Record<string, unknown>,
 ): Promise<void> {
   if (values.help) {
-    console.log('Usage: pnpm search:eval generate-queries [--count 220]')
+    console.log('Usage: pnpm search:eval generate-queries [--kind brand|keyword|english] [--count 20]')
     console.log('  Generates zh-TW situation query candidates from taxonomy + product descriptions')
+    return
+  }
+
+  const kind = values.kind ? String(values.kind) : null
+  if (kind && !['brand', 'keyword', 'english'].includes(kind)) {
+    throw new Error(`Unknown query kind: ${kind}`)
+  }
+  if (kind) {
+    const products = await publishedCatalogProducts()
+    const { brands, totalCount } = kind === 'brand'
+      ? await getBrands({ status: 'approved', limit: 1000 })
+      : { brands: [], totalCount: 0 }
+    if (brands.length !== totalCount) throw new Error('Approved brand read was truncated')
+    const generated = catalogQueries(
+      kind as QueryKind,
+      products,
+      brands,
+      parseInt(String(values.count ?? (kind === 'english' ? '10' : '20')), 10),
+    )
+    mkdirSync(LABELS_DIR, { recursive: true })
+    const existing = existsSync(QUERIES_PATH)
+      ? JSON.parse(readFileSync(QUERIES_PATH, 'utf8')) as typeof generated
+      : []
+    const byId = new Map(existing.map(query => [query.id, query]))
+    for (const query of generated) byId.set(query.id, query)
+    writeFileSync(QUERIES_PATH, JSON.stringify([...byId.values()], null, 2))
+    console.log(`[generate-queries] Added ${generated.length} ${kind} queries to ${QUERIES_PATH}`)
     return
   }
 

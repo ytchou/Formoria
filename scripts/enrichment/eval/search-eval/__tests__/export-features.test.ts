@@ -4,6 +4,7 @@ import {
   buildExportRows,
   toFeatureCsv,
   sortByScores,
+  featureOutputPath,
 } from "../export-features";
 import {
   FEATURE_NAMES,
@@ -200,4 +201,9 @@ describe("sortByScores", () => {
 
     expect(ranked).toEqual(["c/k3", "a/k1"]);
   });
+});
+
+it("writes feature exports under the selected dataset and split", () => {
+  expect(featureOutputPath("v3", "holdout")).toMatch(/situation-search-v3-features-holdout\.csv$/);
+  expect(featureOutputPath("v2", "train")).toMatch(/situation-search-v2-features-train\.csv$/);
 });

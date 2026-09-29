@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, afterEach } from 'vitest'
 
-import { loadDatasetV2, toExperimentItems, type DatasetV2Item } from '../dataset-v2'
+import { loadDatasetV2, resolveDataset, toExperimentItems, type DatasetV2Item } from '../dataset-v2'
 import { writeReport } from '../report'
 import type { ExperimentResult, ArmResult } from '@/lib/services/eval/run-experiment'
 
@@ -85,6 +85,24 @@ describe('loadDatasetV2', () => {
     const path = tmpFile(items)
     expect(() => loadDatasetV2(path)).toThrow('Duplicate query id: dup')
   })
+
+  it('accepts discovery query types and rejects an unknown type', () => {
+    const items: DatasetV2Item[] = [
+      { id: 'maria-brand', query: 'María García', queryType: 'brand_name', split: 'train', expected: [] },
+      { id: 'bags', query: 'bags', queryType: 'english', split: 'val', expected: [] },
+      { id: 'backpack', query: '後背包', queryType: 'keyword', split: 'holdout', expected: [] },
+    ]
+    expect(loadDatasetV2(tmpFile(items)).map(item => item.queryType)).toEqual(['brand_name', 'english', 'keyword'])
+    items[0]!.queryType = 'unrecognized' as DatasetV2Item['queryType']
+    expect(() => loadDatasetV2(tmpFile(items))).toThrow('Unknown queryType')
+  })
+
+  it('resolves v3 to the matching local path and Langfuse name', () => {
+    const dataset = resolveDataset('v3')
+    expect(dataset.path).toMatch(/situation-search-v3\.json$/)
+    expect(dataset.name).toBe('situation-search-v3')
+    expect(() => resolveDataset('v4')).toThrow('Unknown dataset')
+  })
 })
 
 describe('toExperimentItems', () => {
@@ -151,7 +169,7 @@ describe('writeReport', () => {
         latencyMs: 100,
       }))
 
-    // queryType for each item: concrete, concrete, subjective, subjective
+    // queryType for each item: two brand names, one keyword, one English query
     // We need to map itemIds to queryTypes — writeReport uses the ExperimentResult
     // which doesn't carry queryType directly. It uses items' input.
     // So we need to pass items separately.
@@ -209,10 +227,10 @@ describe('writeReport', () => {
     }
 
     const queryTypes = new Map([
-      ['q-1', 'concrete'],
-      ['q-2', 'concrete'],
-      ['q-3', 'subjective'],
-      ['q-4', 'subjective'],
+      ['q-1', 'brand_name'],
+      ['q-2', 'brand_name'],
+      ['q-3', 'keyword'],
+      ['q-4', 'english'],
     ])
 
     const report = writeReport(experimentResult, {
@@ -232,10 +250,10 @@ describe('writeReport', () => {
     expect(report.paired.ndcgAt10.mean).toBeCloseTo(0.1, 5)
 
     // Per-queryType breakdown
-    expect(report.byQueryType.concrete).toBeDefined()
-    expect(report.byQueryType.subjective).toBeDefined()
-    expect(report.byQueryType.concrete!.hybrid!['ndcg@10']).toBeCloseTo(0.7, 5)
-    expect(report.byQueryType.concrete!['ltr:v1']!['ndcg@10']).toBeCloseTo(0.8, 5)
+    expect(report.byQueryType.brand_name!.hybrid!['ndcg@10']).toBeCloseTo(0.7, 5)
+    expect(report.byQueryType.brand_name!['ltr:v1']!['ndcg@10']).toBeCloseTo(0.8, 5)
+    expect(report.byQueryType.keyword).toBeDefined()
+    expect(report.byQueryType.english).toBeDefined()
 
     // Verdict: 'proceed' when paired.lo > 0
     // With only 4 items and mean 0.1, the CI may include 0 → verdict could be 'null'

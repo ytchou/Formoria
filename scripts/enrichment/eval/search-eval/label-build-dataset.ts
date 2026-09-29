@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
+import { loadDatasetV2, resolveDataset, type DatasetV2Item } from './dataset-v2'
 import {
   LABELS_DIR,
   QUERIES_PATH,
@@ -9,6 +10,7 @@ import {
   AGREEMENT_PATH,
   DATASET_V2_PATH,
   splitByQuery,
+  labelDatasetPath,
   fromCsv,
   type JudgedPair,
 } from './label-shared'
@@ -31,6 +33,48 @@ type DatasetItem = {
   category?: string
 }
 
+type DiscoveryQuery = { id: string; query: string; category?: string; queryType?: DatasetV2Item['queryType'] }
+type GradedPair = { queryId: string; brandSlug: string; productKey: string; grade: number }
+
+export function buildV3Dataset(
+  original: DatasetV2Item[],
+  queries: DiscoveryQuery[],
+  pairs: GradedPair[],
+  ratios: [number, number, number],
+  seed: number,
+  approval?: DatasetV2Item['humanApproval'],
+): DatasetV2Item[] {
+  const originalIds = new Set(original.map(item => item.id))
+  const byQuery = new Map<string, DatasetV2Item>()
+  for (const query of queries) {
+    if (originalIds.has(query.id)) continue
+    if (!['brand_name', 'keyword', 'english'].includes(query.queryType ?? '')) {
+      throw new Error(`Discovery query ${query.id} has no valid queryType`)
+    }
+    byQuery.set(query.id, {
+      id: query.id, query: query.query, queryType: query.queryType,
+      ...(query.category ? { category: query.category } : {}), split: 'train', expected: [],
+      ...(approval ? { humanApproval: approval } : {}),
+    })
+  }
+  for (const pair of pairs) {
+    const item = byQuery.get(pair.queryId)
+    if (item) item.expected.push({ brandSlug: pair.brandSlug, productKey: pair.productKey, grade: pair.grade })
+  }
+  const newItems = [...byQuery.values()]
+  for (const item of newItems) {
+    if (!item.expected.some(expected => expected.grade >= 1)) {
+      throw new Error(`Discovery query ${item.id} has no relevant judged product`)
+    }
+  }
+  const splits = splitByQuery(newItems.map(item => ({ id: item.id, category: item.category ?? undefined })), ratios, seed)
+  const byId = new Map(newItems.map(item => [item.id, item]))
+  for (const split of ['train', 'val', 'holdout'] as const) {
+    for (const item of splits[split]) byId.get(item.id)!.split = split
+  }
+  return [...original, ...newItems]
+}
+
 // ---------------------------------------------------------------------------
 // cmdBuildDataset
 // ---------------------------------------------------------------------------
@@ -39,7 +83,7 @@ export async function cmdBuildDataset(
   values: Record<string, unknown>,
 ): Promise<void> {
   if (values.help) {
-    console.log('Usage: pnpm search:eval build-dataset [--split 60/20/20] [--seed 1736]')
+    console.log('Usage: pnpm search:eval build-dataset [--dataset v2|v3] [--split 60/20/20] [--seed 1736]')
     console.log(
       '  Reads all labels, splits queries into train/val/holdout, uploads to Langfuse as situation-search-v2',
     )
@@ -47,7 +91,8 @@ export async function cmdBuildDataset(
   }
 
   const splitStr = String(values.split ?? '60/20/20')
-  const seed = parseInt(String(values.seed ?? '1736'), 10)
+  const selected = resolveDataset(values.dataset ? String(values.dataset) : undefined)
+  const seed = parseInt(String(values.seed ?? (selected.version === 'v3' ? '1900' : '1736')), 10)
 
   const splitParts = splitStr.split('/').map(Number)
   if (splitParts.length !== 3 || splitParts.some(n => Number.isNaN(n))) {
@@ -66,7 +111,7 @@ export async function cmdBuildDataset(
   }
 
   const judgedPairs: JudgedPair[] = JSON.parse(readFileSync(JUDGED_PAIRS_PATH, 'utf8'))
-  const queries: Array<{ id: string; query: string; category?: string }> = existsSync(QUERIES_PATH)
+  const queries: DiscoveryQuery[] = existsSync(QUERIES_PATH)
     ? JSON.parse(readFileSync(QUERIES_PATH, 'utf8'))
     : []
 
@@ -159,6 +204,31 @@ export async function cmdBuildDataset(
     humanApproval,
     ...(item.category ? { category: item.category } : {}),
   }))
+
+  if (selected.version === 'v3') {
+    const original = loadDatasetV2(resolveDataset('v2').path)
+    const approval = humanApproval
+      ? { reviewedVia: 'agreement-kappa', at: new Date().toISOString().slice(0, 10) }
+      : undefined
+    const v3 = buildV3Dataset(original, queries, items, ratios, seed, approval)
+    writeFileSync(selected.path, JSON.stringify(v3, null, 2))
+    writeFileSync(labelDatasetPath('v3'), JSON.stringify(v3, null, 2))
+    console.log(`[build-dataset] Wrote ${v3.length} queries to ${selected.path}`)
+    const langfuse = getLangfuse()
+    if (langfuse) {
+      for (let start = 0; start < v3.length; start += 20) {
+        await Promise.all(v3.slice(start, start + 20).map(item => langfuse.createDatasetItem({
+          datasetName: selected.name,
+          id: item.id,
+          input: { query: item.query, category: item.category ?? null, queryType: item.queryType },
+          expectedOutput: item.expected,
+          metadata: { split: item.split, humanApproval: item.humanApproval ?? null },
+        })))
+      }
+      await flushLangfuse()
+    }
+    return
+  }
 
   // Write local file first
   writeFileSync(DATASET_V2_PATH, JSON.stringify(dataset, null, 2))
