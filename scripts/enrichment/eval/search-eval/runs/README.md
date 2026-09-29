@@ -80,3 +80,89 @@ baseline view and embeddings were restored; a dry run found zero stale rows.
 The compact evidence record is `dev-1739-no-go.json`. Full local snapshots were
 not committed because they total roughly 3 MB and contain reproducible service
 output for every product and brand anchor.
+
+## DEV-1900 blind label review
+
+At the user's request, the 30-pair manual spot check was replaced by three
+independent Claude judges: Opus 5.5, Opus 5, and Sonnet 5.5. Each saw the same
+query, brand, product name, and description without the existing LLM grade or
+candidate rank. The input and rubric hashes, individual votes, majority grade,
+model cost, and agreement are recorded in `dev-1900-panel.json`.
+
+Of 30 pairs, 28 votes were unanimous and two were 2–1 majorities. No pair had
+a three-way split. The panel changed five initial grades. Exact agreement with
+the initial labels was 83.3%; quadratic-weighted Cohen's kappa was 0.9550,
+above the 0.6 approval gate. The three model calls cost $0.194205 total. The
+dataset approval provenance is `blind-llm-panel`, not a human label.
+
+The remaining labels were completed in batches of up to 25 products per
+query, with three independent audited OpenAI calls per batch. Incomplete
+votes were retried; all 1,250 candidate pairs have three votes and each of
+the 50 new queries has a relevant product. To check the batch method, the
+same three Claude models judged another 30 blind pairs (10 each of brand,
+keyword, and English queries, balanced between zero and positive grades).
+Their 24 unanimous and six 2–1 votes changed six grades. The combined
+60-pair agreement was 81.7% exact and quadratic-weighted κ=0.9444, above
+the 0.6 gate. `dev-1900-batch-panel.json` records the second panel's
+individual votes, costs, hashes, and combined agreement. The local audit
+logs and full inputs remain gitignored.
+
+## DEV-1900 scorer sweep and holdout
+
+The 28-config train+validation sweep selected BM25F (k1=0.9, b=0.5;
+A/B/C/D=1/1/0.5/0.25). Its NDCG@10 was 0.6124 versus 0.6013 for the best
+weighted `ts_rank` arm; paired bootstrap BM25F minus `ts_rank` was +0.0111
+with a 95% interval of [+0.0013, +0.0218]. Two 30-query staging latency
+checks measured BM25F p95 within +50 ms of the same-index IDF arm, at
++46.9 and +49.5 ms. This is a narrow pass.
+
+The committed sweep record keeps aggregate metrics for all 28 configurations
+and per-query scores only for the best BM25F and `ts_rank` arms used in the
+paired comparison. This avoids repeating 166 query scores for every setting.
+
+The v3 holdout compared BM25F with same-index IDF once, on 30 original and
+10 new queries. Values below are BM25F minus IDF means:
+
+| Slice / mode | NDCG@10 | MRR | Recall@100 |
+| --- | ---: | ---: | ---: |
+| Original / lexical | +0.0061 | -0.0022 | -0.0266 |
+| Original / hybrid | -0.0117 | 0.0000 | -0.0057 |
+| New / lexical | +0.1039 | +0.1524 | 0.0000 |
+| New / hybrid | +0.0296 | 0.0000 | 0.0000 |
+
+The original-slice no-loss gate failed. Original lexical recall@100 had a
+paired 95% interval of [-0.0578, -0.0006]. BM25F is a scorer no-go, and
+`20260930130000_lexical_scorer_idf_fallback.sql` restores IDF as the
+staging default. The run JSON files are local-only; the compact
+`dev-1900-decision.json` records the sweep winner and holdout gate for the
+migration checks. The index-only ship gate remains unverified:
+no pre-index-migration v3 baseline was captured. The user approved an
+index-only release despite that missing baseline, waiving this comparison
+for the release decision. The approved serving configuration keeps IDF as
+the lexical default and `SEARCH_LTR_MODE=off`; BM25F and LTR v2 are not
+approved to serve. The migration still installs optional scorer arms for
+evaluation, while production calls use the IDF default. Production promotion
+has not occurred.
+
+The v3 evaluation dataset is assembled by the loader from tracked
+`situation-search-v2.json` and `situation-search-v3-additions.json`.
+The redundant full `situation-search-v3.json` is ignored by Git.
+
+## DEV-1900 LTR v2
+
+With IDF restored as the default, v2 trained on 13,663 feature rows from
+125 train and 41 validation queries. The holdout CSV was exported for
+evaluation but was absent from the training directory. The feature-spec
+hash changed to `00cf793006d9cc151b06e06b41e53f0c32ea8070bed18b14bd59d424db1298e7`,
+so the v1 model is refused by the loader. The new v2 and smoke models pass
+their ONNX parity fixtures; Python training tests pass.
+
+On the 40-query holdout, v2 NDCG@10 was 0.773 versus 0.779 for hybrid
+RRF. The paired delta was -0.0059 with a 95% interval of [-0.0383,
++0.0193]. The interval includes zero, so `SEARCH_LTR_MODE=off` is the
+serving guidance. The new 10-query slice had a -0.0539 NDCG@10 delta.
+`dev-1900-ltr.json` records the training inputs, feature hash, per-query
+scores, and intervals. The evaluation command wrote its complete report
+with no failed items, then exited 134 during native shutdown with a
+`libc++abi` recursive-mutex error; this is a process-cleanup limitation,
+not a passing command exit.

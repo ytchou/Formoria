@@ -1,5 +1,5 @@
 /**
- * Reporting — one Linear digest ticket per run and the Slack digest.
+ * Reporting — one Linear ticket per finding and the Slack digest.
  *
  * Linear GraphQL shape follows `scripts/health-agent/adapters.ts` lines 883-1100.
  * Slack rendering reuses `src/lib/adapters/slack/notification`.
@@ -13,6 +13,12 @@ import type { HealthFinding } from './contracts'
 import type { DetectorResult } from './types'
 import type { RepairRequest } from './repair-request'
 import type { RunHealthAgentResult } from './run'
+import type { RunEvent } from '@/lib/services/run-timeline/types'
+import { escapeSlackMrkdwn } from '@/lib/adapters/slack/blocks'
+import { HEALTH_TICKET_FOLLOW_UP_DAYS } from '@/lib/constants/health-detectors'
+
+// Re-exported so existing importers (ops-agent/execute.ts, tests) keep working.
+export { escapeSlackMrkdwn }
 
 // ---------------------------------------------------------------------------
 // Label resolution
@@ -41,30 +47,83 @@ export type TicketSpec = {
   title: string
   body: string
   labels: Array<'Data Quality' | 'Ops'>
-  fingerprints: string[]
 }
 
-export type BuildTicketsOptions = {
-  /** Set of fingerprints that have never been ticketed. */
-  unticketed: Set<string>
+export type FindingTicketOptions = {
   /** Langfuse trace URL for the run. */
   traceUrl: string
   /** Run date (YYYY-MM-DD, Asia/Taipei). */
   date: string
-  /** Per-fingerprint investigator diagnosis, if available. */
-  investigations?: Map<string, string>
+  /** Present when the finding was ticketed before and is still firing. */
+  followUp?: {
+    previousIdentifier: string | null
+    daysSinceTicketed: number
+  }
 }
 
-function findingSection(
+/** A finding's ticket state in `health_fix_queue`. */
+export type TicketLedgerEntry = {
+  ticketedAt: string
+  linearIdentifier: string | null
+}
+
+const DAY_MS = 86_400_000
+
+function msSinceTicketed(ticketedAt: string, now: Date): number {
+  return now.getTime() - Date.parse(ticketedAt)
+}
+
+/** Whole days between `ticketedAt` and `now`. */
+export function daysSinceTicketed(ticketedAt: string, now: Date): number {
+  return Math.floor(msSinceTicketed(ticketedAt, now) / DAY_MS)
+}
+
+/**
+ * Whether the health agent may file a ticket for this finding: never
+ * ticketed, or ticketed under a known Linear identifier more than
+ * HEALTH_TICKET_FOLLOW_UP_DAYS ago and still firing (a follow-up).
+ *
+ * Runtime Sentry issues are signal-only. Credential findings, including
+ * sentry-capture failures, remain eligible for operational tickets.
+ */
+export function isTicketEligible(
   finding: HealthFinding,
-  options: BuildTicketsOptions,
-  index: number,
+  ticketed: ReadonlyMap<string, TicketLedgerEntry>,
+  now: Date,
+): boolean {
+  if (finding.source === 'sentry') return false
+  const entry = ticketed.get(finding.fingerprint)
+  if (!entry) return true
+  // No identifier, no follow-up: migration 20260729110000 backfilled active
+  // rows with ticketed_at but a NULL linear_identifier on 2026-07-29, and a
+  // stranded reservation looks the same. Following those up would file a
+  // burst of tickets on the first run after deploy.
+  if (!entry.linearIdentifier) return false
+  return (
+    msSinceTicketed(entry.ticketedAt, now) >
+    HEALTH_TICKET_FOLLOW_UP_DAYS * DAY_MS
+  )
+}
+
+function findingTicketBody(
+  finding: HealthFinding,
+  options: FindingTicketOptions,
 ): string {
   const lines: string[] = []
-  lines.push(`### ${index + 1}. ${finding.title}`)
+  if (options.followUp) {
+    // A Linear identifier in the body creates the backlink.
+    const previous = options.followUp.previousIdentifier ?? 'an earlier ticket'
+    lines.push(
+      `Follow-up of ${previous}: still observed ${options.followUp.daysSinceTicketed} days after it was ticketed.`,
+    )
+    lines.push('')
+  }
+  lines.push(`# ${finding.title}`)
+  lines.push('')
   lines.push(`- **Source:** ${finding.source}`)
   lines.push(`- **Severity:** ${finding.severity}`)
   lines.push(`- **Fingerprint:** \`${finding.fingerprint}\``)
+  lines.push(`- **Run date:** ${options.date}`)
 
   if (Object.keys(finding.evidence).length > 0) {
     lines.push('')
@@ -74,66 +133,23 @@ function findingSection(
     lines.push('```')
   }
 
-  const investigation = options.investigations?.get(finding.fingerprint)
-  if (investigation) {
-    lines.push('')
-    lines.push('**Investigator diagnosis:**')
-    lines.push(investigation)
-  }
-
+  lines.push('')
+  lines.push(`[Langfuse trace](${options.traceUrl})`)
   return lines.join('\n')
 }
 
-function digestTicketBody(
-  findings: HealthFinding[],
-  options: BuildTicketsOptions,
-): string {
-  return [
-    '# Health Agent review summary',
-    '',
-    `**Findings:** ${findings.length} new`,
-    `**Run date:** ${options.date}`,
-    '',
-    '## Findings',
-    '',
-    ...findings.flatMap((finding, index) => [
-      findingSection(finding, options, index),
-      '',
-    ]),
-    `[Langfuse trace](${options.traceUrl})`,
-  ].join('\n')
-}
-
-/**
- * Build ticket specifications for unticketed findings.
- *
- * Every ticket-eligible finding from the run is included in one digest.
- */
-export function buildTickets(
-  findings: HealthFinding[],
-  options: BuildTicketsOptions,
-): TicketSpec[] {
-  // Runtime Sentry issues are signal-only. Credential findings, including
-  // sentry-capture failures, remain eligible for operational tickets.
-  const eligible = findings.filter(
-    (finding) =>
-      finding.source !== 'sentry' &&
-      options.unticketed.has(finding.fingerprint),
-  )
-  if (eligible.length === 0) return []
-
-  const labels = (['Data Quality', 'Ops'] as const).filter((label) =>
-    eligible.some((finding) => linearLabelForSource(finding.source) === label),
-  )
-
-  return [
-    {
-      title: `Health Agent — ${eligible.length} new finding${eligible.length === 1 ? '' : 's'} (${options.date})`,
-      body: digestTicketBody(eligible, options),
-      labels,
-      fingerprints: eligible.map((finding) => finding.fingerprint),
-    },
-  ]
+/** Build the Linear ticket for one finding. */
+export function buildFindingTicket(
+  finding: HealthFinding,
+  options: FindingTicketOptions,
+): TicketSpec {
+  return {
+    title: options.followUp
+      ? `Health Agent — Still firing — ${finding.title}`
+      : `Health Agent — ${finding.title}`,
+    body: findingTicketBody(finding, options),
+    labels: [linearLabelForSource(finding.source)],
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +163,8 @@ export type BuildDigestOptions = {
   traceUrl: string
   /** Sentry fingerprints that were not active before this run. */
   highlightedFingerprints?: ReadonlySet<string>
+  /** Run id, shown in the context line. */
+  runId?: string
 }
 
 const SENTRY_DIGEST_LIMIT = 10
@@ -408,31 +426,20 @@ export function buildDigestBlocks(
     })
   }
 
-  blocks.push({
-    type: 'context',
-    elements: [
-      {
-        type: 'mrkdwn',
-        text: `<${options.traceUrl}|Langfuse trace>`,
-      },
-    ],
-  })
+  blocks.push(contextBlock(options.runId, options.traceUrl))
 
   return blocks
 }
 
-// ---------------------------------------------------------------------------
-// Slack helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Escape text for Slack mrkdwn: neutralise `&`, `<`, and `>` so that
- * interpolated content (e.g. finding titles containing `<Component>` or
- * `<@U12345>`) is rendered literally instead of being interpreted as
- * Slack formatting or mention syntax.
- */
-export function escapeSlackMrkdwn(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+/** Shared thread-detail context line: run id · trace link. */
+function contextBlock(runId: string | undefined, traceUrl: string | undefined): SlackBlock {
+  const parts: string[] = []
+  if (runId) parts.push(`Run ID: \`${runId}\``)
+  if (traceUrl) parts.push(`<${traceUrl}|Langfuse trace>`)
+  return {
+    type: 'context',
+    elements: [{ type: 'mrkdwn', text: parts.join(' · ') }],
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -440,11 +447,19 @@ export function escapeSlackMrkdwn(text: string): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Human name of the request in the trigger message. Display only: the
+ * ops-agent detects a request by its ```json block (`JSON_BLOCK_RE`), never by
+ * this text. The e2e agent keeps the default.
+ */
+const DEFAULT_REQUEST_NAME = 'Repair Request'
+
+/**
  * Build Block Kit blocks for the repair trigger message (human display).
  */
 export function buildRepairTriggerBlocks(
   request: RepairRequest,
   label: string,
+  requestName: string = DEFAULT_REQUEST_NAME,
 ): SlackBlock[] {
   const blocks: SlackBlock[] = []
 
@@ -452,7 +467,7 @@ export function buildRepairTriggerBlocks(
     type: 'header',
     text: {
       type: 'plain_text',
-      text: `${label} Repair Request`,
+      text: `${label} ${requestName}`,
       emoji: true,
     },
   })
@@ -466,7 +481,7 @@ export function buildRepairTriggerBlocks(
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: `🔧 *${request.findings.length} finding${request.findings.length === 1 ? '' : 's'}* · Run: \`${request.runId.slice(0, 8)}\``,
+      text: `🔧 *${request.findings.length} finding${request.findings.length === 1 ? '' : 's'}*`,
     },
   })
 
@@ -487,17 +502,7 @@ export function buildRepairTriggerBlocks(
     })
   }
 
-  if (request.traceUrl) {
-    blocks.push({
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text: `<${request.traceUrl}|Langfuse trace>`,
-        },
-      ],
-    })
-  }
+  blocks.push(contextBlock(request.runId, request.traceUrl))
 
   return blocks
 }
@@ -512,10 +517,11 @@ export function buildRepairTriggerMessage(
   botId: string,
   request: RepairRequest,
   label: string,
+  requestName: string = DEFAULT_REQUEST_NAME,
 ): string {
   const lines: string[] = []
 
-  lines.push(`<@${botId}> ${label} repair request`)
+  lines.push(`<@${botId}> ${label} ${requestName.toLowerCase()}`)
   lines.push('')
   lines.push(`Findings (${request.findings.length}):`)
   for (const finding of request.findings) {
@@ -531,33 +537,24 @@ export function buildRepairTriggerMessage(
 }
 
 /**
- * Blocks for the run's parent message. Posted with a "Running..." line and
- * updated in place with the final status once the run ends.
+ * The timeline event the server appends when the process exits. Only a
+ * crashed (`undefined` result) or failed run writes at exit. A completed run
+ * returns null even when the digest failed (exitCode != 0): run.ts already
+ * wrote `completed` or `repair_requested`, and an exit-time `failed` would
+ * contradict it and race the ops-agent's `repair_started` append.
  */
-export function buildRunStartBlocks(
-  date: string,
-  statusLine: string,
-): Record<string, unknown>[] {
-  return [
-    {
-      type: 'header',
-      text: { type: 'plain_text', text: `Health Agent — ${date}`, emoji: true },
-    },
-    { type: 'section', text: { type: 'mrkdwn', text: statusLine } },
-  ]
-}
-
-/** Final status line for the parent message. `undefined` result = crashed. */
-export function buildRunStatusLine(
+export function buildRunFailureEvent(
   result: RunHealthAgentResult | undefined,
-  runId: string,
-): string {
-  const id = `\`${runId.slice(0, 8)}\``
-  if (!result) return `⚠️ *Crashed* · ${id}`
-  if (result.status === 'failed') return `❌ *Failed* · ${id}`
-  if (result.status === 'replay') return `↩️ *Replay* · ${id}`
-  const findings = `${result.totalFindings} findings`
-  return result.exitCode === 0
-    ? `✅ *Completed* · ${findings} · ${id}`
-    : `⚠️ *Completed, digest failed* · ${findings} · ${id}`
+  at: number,
+): Extract<RunEvent, { kind: 'failed' }> | null {
+  if (!result) return { kind: 'failed', at, outcome: 'crashed' }
+  if (result.status === 'failed') {
+    return {
+      kind: 'failed',
+      at,
+      outcome: 'failed',
+      ...(result.error ? { reason: result.error } : {}),
+    }
+  }
+  return null
 }

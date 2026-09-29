@@ -22,6 +22,11 @@ export type ProductsReplayOutput = {
   selected: string[]
   proposals: CuratedProductProposal[]
   agentOutcome: string
+  /**
+   * Frozen evidence URLs whose page states Taiwan manufacture. Undefined for
+   * outputs recorded before the field existed.
+   */
+  originStatedUrls?: string[]
 }
 
 export type ProductsExpected = {

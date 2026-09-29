@@ -87,7 +87,14 @@ import { bindBrandKey } from "./scraper/render/render-budget";
 import type { CatalogDiscoveryResult } from "./catalog-discovery";
 import type { CandidateImage } from "./candidate-pool";
 import { rankForProduct, type RankableImage } from "./image-ranking";
-import { createAgentModel, type AgentModel } from "./agents/runtime";
+import {
+  abnormalCompletion,
+  abnormalErrorCode,
+  createAgentModel,
+  type AbnormalCompletionKind,
+  type AgentModel,
+} from "./agents/runtime";
+import type { OpenAIJsonSchema } from "@/lib/services/openai-client";
 import {
   buildPhaseResult,
   timePhase,
@@ -134,8 +141,9 @@ const L1_SLUGS = new Set<string>(
 /**
  * `strict: true` requires every property in `required`, so the nullable fields
  * are typed as unions rather than omitted. `openai-client` falls back to
- * `json_object` mode when a model rejects `json_schema`, and the prompt states
- * the same object contract in prose for exactly that path.
+ * `json_object` mode when a model does not support `json_schema`, appending
+ * the schema text as a system message, and the prompt states the same object
+ * contract in prose for exactly that path.
  *
  * The top level is an OBJECT with one `products` key: a bare top-level array is
  * an illegal reply under `json_object` and returned an empty object on every
@@ -174,7 +182,16 @@ const productsShape = z.object({
   ),
 });
 
-const PRODUCTS_SCHEMA = {
+/** Variables the single-call `products` prompt is compiled with; the golden eval sends the same. */
+export const PRODUCTS_PROMPT_VARIABLES = {
+  category_list: CATEGORY_LIST,
+  subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
+  material_vocab_block: MATERIAL_VOCAB_BLOCK,
+  taiwan_usage_rules: TAIWAN_USAGE_RULES,
+};
+
+/** Strict reply contract — sent by the legacy call and by the agent's propose turn. */
+export const PRODUCTS_SCHEMA: OpenAIJsonSchema = {
   name: "curated_product_proposals",
   schema: toStrictJsonSchema(productsShape),
 };
@@ -683,6 +700,17 @@ export function validateProductProposals(
   return { proposals, dropped, dropReasons, rawCount };
 }
 
+/**
+ * One row under `PRODUCTS_LABELS.originExcerpts`, in the header's column
+ * order: candidate url | excerpt_id | text. Shared with the describe rewrite.
+ */
+export function formatOriginExcerptLine(
+  url: string,
+  excerpt: OriginExcerpt,
+): string {
+  return `- ${url} | ${excerpt.id} | ${excerpt.text}`;
+}
+
 function buildProductsUserContent(
   brand: EnrichBrand,
   site: URL,
@@ -735,6 +763,8 @@ type ProductsRunOutcome = {
   evaluations: Map<string, ProductCandidateEvaluation>;
   originDecisions: Map<string, CandidateOriginDecision>;
   candidateIdsByUrl: Map<string, string>;
+  /** Set when the reply was refused, length-cut or content-filtered. */
+  abnormal?: AbnormalCompletionKind;
 };
 
 type PublishProposalsOptions = {
@@ -1332,7 +1362,6 @@ export async function runProductsPhase({
                 target: effectiveTarget,
                 ...(jobId ? { jobId } : {}),
               },
-              { jsonObject: true },
             ));
 
           // Decision #35, wired to the same two helpers the acquire phase uses.
@@ -1623,9 +1652,8 @@ export async function runProductsPhase({
           }
           const originLines = evaluationCandidates.flatMap((candidate) => {
             const excerpts = excerptsByUrl.get(candidate.url) ?? [];
-            return excerpts.map(
-              (excerpt) =>
-                `- ${candidate.url} | ${excerpt.id} | ${excerpt.text}`,
+            return excerpts.map((excerpt) =>
+              formatOriginExcerptLine(candidate.url, excerpt),
             );
           });
           const userContent = buildProductsUserContent(
@@ -1638,12 +1666,7 @@ export async function runProductsPhase({
           );
           const { text: productsSystemPrompt, prompt: productsPromptMeta } = await fetchLangfusePromptWithMeta(
             "products",
-            {
-              category_list: CATEGORY_LIST,
-              subcategory_vocab_block: SUBCATEGORY_VOCAB_BLOCK,
-              material_vocab_block: MATERIAL_VOCAB_BLOCK,
-              taiwan_usage_rules: TAIWAN_USAGE_RULES,
-            },
+            PRODUCTS_PROMPT_VARIABLES,
           );
           const config = buildProfiledEnrichmentConfig(
             "products",
@@ -1679,6 +1702,24 @@ export async function runProductsPhase({
               evaluations: new Map(),
               originDecisions: new Map(),
               candidateIdsByUrl,
+            };
+          }
+          // NO ANSWER, NO OPINION: a refused, length-cut or content-filtered
+          // reply is not an answer. A feedback retry would waste a second call
+          // on the same prompt, and parsing it would publish an empty list that
+          // wipes the previous run's proposals. Stop here instead.
+          const abnormal = abnormalCompletion(response);
+          if (abnormal) {
+            return {
+              proposals: [],
+              dropped: 0,
+              dropReasons: {},
+              rawCount: 0,
+              calls: { attempted: 1, providerFailed: 0 },
+              evaluations: new Map(),
+              originDecisions: new Map(),
+              candidateIdsByUrl,
+              abnormal,
             };
           }
           let callCount = 1;
@@ -1800,6 +1841,9 @@ export async function runProductsPhase({
       Object.assign(ctx.summary, {
         productsFromModel: result.rawCount,
         ...(parseError ? { productsParseError: true } : {}),
+        ...(result.abnormal
+          ? { productsAbnormal: abnormalErrorCode(result.abnormal) }
+          : {}),
         productsProposed: publishedProposals.length,
         productsDropped: result.dropped,
         productsDropReasons: result.dropReasons,
@@ -1834,6 +1878,29 @@ export async function runProductsPhase({
           // NO ANSWER, NO OPINION: an empty patch leaves the previous run's
           // proposals alone. Clearing them on a transient provider error would
           // destroy good proposals over a 429. See `skipped`.
+          patch: {},
+          proposals: [],
+        };
+      }
+
+      if (result.abnormal) {
+        return {
+          phaseResult: {
+            ...buildPhaseResult(
+              "products",
+              "skipped",
+              [],
+              durationMs,
+              undefined,
+              `${abnormalErrorCode(result.abnormal)}: model gave no usable answer, previous proposals kept${agentNote}`,
+            ),
+            ...(agentFallback ? { agentOutcome: agentFallback.outcome } : {}),
+            ...(catalog.zeroReason
+              ? { catalogZeroReason: catalog.zeroReason }
+              : {}),
+            productsProposed: 0,
+          },
+          // NO ANSWER, NO OPINION: same rule as the provider failure above.
           patch: {},
           proposals: [],
         };

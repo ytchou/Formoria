@@ -1,13 +1,22 @@
 import type { PhaseResult } from "@/lib/types/curation";
 import { auditedCall } from "@/lib/audit";
 import {
-  detectBrandsBatch,
-  MAX_PROBE_URLS,
-  type DetectBatchItem,
+  detectBrand,
+  type DetectItem,
   type DetectResult,
 } from "../category-classifier";
-import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
+import {
+  addLlmCalls,
+  isLlmProviderFailure,
+  noLlmCalls,
+} from "../_shared/llm-call-outcome";
+import {
+  ENRICH_BRAND_CONCURRENCY,
+  mapWithConcurrency,
+} from "../_shared/concurrency";
 import type { ProbeEvidence } from "./gather";
+import { detectProbes, detectResultLines } from "./detect-evidence";
+import { extractInstagramHandle } from "./scraper/parse/extractors";
 import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
 import {
@@ -73,7 +82,7 @@ function buildDetectPatch(
 
   // No category write here on purpose: the category is a reasoning task the
   // descriptions phase owns, decided from the brand's own site text and its
-  // classified image alt text. Detect only sees SERP snippets.
+  // classified image alt text. Detect only sees SERP results and probes.
 
   if (
     detectResult.brandName &&
@@ -107,31 +116,6 @@ function buildDetectPatch(
   return patch;
 }
 
-// Probe cap imported from category-classifier.ts (prompt owner).
-
-/**
- * Probe evidence worth prompt tokens: one that read a `<head>`. A timed-out or
- * blocked probe carries only the url it was asked about, which the item's own
- * `website` line already says.
- */
-function usableProbes(
-  evidence: readonly ProbeEvidence[] | undefined,
-): DetectBatchItem["probes"] {
-  if (!evidence?.length) return undefined;
-
-  const usable = evidence
-    .filter((probe) => Boolean(probe.title?.trim() || probe.description?.trim()))
-    .slice(0, MAX_PROBE_URLS)
-    .map((probe) => ({
-      url: probe.url,
-      ...(probe.title ? { title: probe.title } : {}),
-      ...(probe.description ? { description: probe.description } : {}),
-      ...(probe.platform ? { platform: probe.platform } : {}),
-    }));
-
-  return usable.length > 0 ? usable : undefined;
-}
-
 export async function runDetectPhase(
   ctx: BatchPhaseContext,
   searchResults: Map<string, SearchPhaseResult>,
@@ -140,7 +124,14 @@ export async function runDetectPhase(
    * key rule every other per-brand map in the chunk follows, because `clean` and
    * `detect` can both rewrite a name and a name key would be a silent miss.
    */
-  probeEvidence?: Map<string, readonly ProbeEvidence[]>,
+  probeEvidence: Map<string, readonly ProbeEvidence[]>,
+  /**
+   * Each brand's own URLs (submitted `website_url` plus link columns), keyed by
+   * TARGET ID like `probeEvidence`. Search results on one of them are tagged
+   * as the brand's own site. Built by the orchestrator, which already has them
+   * for the probe list.
+   */
+  ownedUrlsByBrandId: Map<string, readonly string[]>,
 ): Promise<{
   phaseResult: PhaseResult;
   detectResults: Map<string, DetectResult>;
@@ -177,20 +168,40 @@ export async function runDetectPhase(
     { provider: "enrich", operation: "runDetectPhase", kind: "service" },
     async () => {
   const { result, durationMs } = await timePhase(async () => {
-    const detectItems: DetectBatchItem[] = ctx.chunk.map((brand, index) => {
-      const probes = usableProbes(probeEvidence?.get(brand.id));
+    const detectItems: DetectItem[] = ctx.chunk.map((brand, index) => {
+      const name = ctx.chunkBrandNames[index];
+      const probes = detectProbes(probeEvidence.get(brand.id));
+      const results = detectResultLines(
+        searchResults.get(name)?.entries ?? [],
+        ownedUrlsByBrandId.get(brand.id) ?? [],
+        extractInstagramHandle(brand.social_instagram),
+      );
       return {
         slug: brand.slug,
-        name: ctx.chunkBrandNames[index],
+        name,
         description: brand.description ?? null,
         website: brand.purchase_website ?? null,
-        snippets: searchResults.get(ctx.chunkBrandNames[index])?.snippets ?? [],
+        submittedWebsite: brand.website_url ?? null,
+        results,
         ...(probes ? { probes } : {}),
         target: { type: ctx.targetType ?? "brand", id: brand.id },
       };
     });
-    const outcome = await detectBrandsBatch(detectItems, ctx.jobId);
-    const detectResults = outcome.results;
+    // One call per brand (DEV-1886). Each call owns its own outcome, so one
+    // brand's failure leaves the others' results intact; the chunk barrier
+    // around this phase still holds wave B until every brand is judged.
+    const outcomes = await mapWithConcurrency(
+      detectItems,
+      ENRICH_BRAND_CONCURRENCY,
+      (item) => detectBrand(item, ctx.jobId),
+    );
+    const detectResults = new Map<string, DetectResult>();
+    let calls = noLlmCalls();
+    outcomes.forEach((outcome, index) => {
+      calls = addLlmCalls(calls, outcome.calls);
+      const slug = detectItems[index]?.slug;
+      if (outcome.value && slug) detectResults.set(slug, outcome.value);
+    });
     const nonBrandCount = [...detectResults.values()].filter(
       (detectResult) => detectResult.isNonBrand,
     ).length;
@@ -198,7 +209,7 @@ export async function runDetectPhase(
       `  [DETECT] OK — ${detectResults.size} results, ${nonBrandCount} non-brands`,
     );
 
-    return { detectResults, nonBrandCount, calls: outcome.calls };
+    return { detectResults, nonBrandCount, calls };
   });
 
   // Every detect call died at the provider: the empty result map says nothing

@@ -97,6 +97,11 @@ export function normalizeProductUrl(raw: string): string | null {
   return result
 }
 
+/** Map/set key for a product URL: the normalized form, or the raw string when it does not parse. */
+export function productUrlKey(url: string): string {
+  return normalizeProductUrl(url) ?? url
+}
+
 // ---------------------------------------------------------------------------
 // classifyProductUrl
 // ---------------------------------------------------------------------------

@@ -156,6 +156,27 @@ describe("auditedCall", () => {
     expect(writes[1]?.costUsd).toBe(0.0042);
   });
 
+  it("cache token counts and the model set on ctx reach only the terminal record", async () => {
+    await auditedCall(
+      spec(),
+      async (ctx) => {
+        ctx.cachedPromptTokens = 20;
+        ctx.cacheWriteTokens = 5;
+        ctx.model = "gpt-6-luna";
+        return "done";
+      },
+      { wait: async () => {} },
+    );
+
+    expect(writes).toHaveLength(2);
+    expect(writes[0]?.cachedPromptTokens).toBeUndefined();
+    expect(writes[0]?.cacheWriteTokens).toBeUndefined();
+    expect(writes[0]?.model).toBeUndefined();
+    expect(writes[1]?.cachedPromptTokens).toBe(20);
+    expect(writes[1]?.cacheWriteTokens).toBe(5);
+    expect(writes[1]?.model).toBe("gpt-6-luna");
+  });
+
   it("span_id is generated before the first write", async () => {
     let firstSpanId: string | undefined;
     seam.mockImplementation(async (record: AuditRecord) => {

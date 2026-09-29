@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LLM_BATCH_CHUNK_SIZE } from "@/lib/constants/llm-models";
-import { arbitrateBrandNames, type NameArbiterItem } from "../name-arbiter";
+import {
+  arbitrateBrandName,
+  buildNameArbiterUserContent,
+  parseNameArbiterItemLine,
+  parseSingleNameArbiterUser,
+  type NameArbiterItem,
+} from "../name-arbiter";
 
 const promptMeta = { name: "name-arbiter", version: 2, source: "langfuse" as const };
 vi.mock("@/lib/langfuse/prompt", () => ({
@@ -12,7 +17,21 @@ vi.mock("@/lib/langfuse/prompt", () => ({
 
 const mockFetch = vi.fn();
 
-describe("arbitrateBrandNames", () => {
+function modelAnswer(content: string) {
+  return {
+    ok: true,
+    json: async () => ({ choices: [{ message: { content } }] }),
+    headers: new Headers(),
+  };
+}
+
+function verdicts(
+  ...results: Array<{ slug: string; chosen: string; confidence: string; reason: string }>
+) {
+  return modelAnswer(JSON.stringify({ results }));
+}
+
+describe("arbitrateBrandName", () => {
   beforeEach(() => {
     mockFetch.mockReset();
     vi.stubGlobal("fetch", mockFetch);
@@ -25,63 +44,38 @@ describe("arbitrateBrandNames", () => {
     vi.unstubAllEnvs();
   });
 
-  const items: NameArbiterItem[] = [
-    {
-      slug: "xiao-zhu-dessert",
-      storedName: "小朱甜點",
-      candidates: [
-        { source: "stored", value: "小朱甜點" },
-        { source: "scraped", value: "首頁 - 小朱甜點" },
-      ],
-      snippets: ["小朱甜點 官方網站"],
-    },
-    {
-      slug: "unigaze",
-      storedName: "UNIGAZE",
-      candidates: [
-        { source: "stored", value: "UNIGAZE" },
-        { source: "detected", value: "UNIGAZE 慢火金工創作室" },
-      ],
-    },
-  ];
+  const xiaoZhu: NameArbiterItem = {
+    slug: "xiao-zhu-dessert",
+    storedName: "小朱甜點",
+    candidates: [
+      { source: "stored", value: "小朱甜點" },
+      { source: "scraped", value: "首頁 - 小朱甜點" },
+    ],
+    snippets: ["小朱甜點 官方網站"],
+  };
+  const unigaze: NameArbiterItem = {
+    slug: "unigaze",
+    storedName: "UNIGAZE",
+    candidates: [
+      { source: "stored", value: "UNIGAZE" },
+      { source: "detected", value: "UNIGAZE 慢火金工創作室" },
+    ],
+  };
 
-  it("returns verdicts keyed by slug", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "xiao-zhu-dessert",
-                    chosen: "小朱甜點",
-                    confidence: "high",
-                    reason: "去除頁面標題外框",
-                  },
-                  {
-                    slug: "unigaze",
-                    chosen: "UNIGAZE 慢火金工創作室",
-                    confidence: "high",
-                    reason: "中文尾段是正式名稱",
-                  },
-                ],
-              }),
-            },
-          },
-        ],
+  it("returns the verdict from a one-entry results array in one call", async () => {
+    mockFetch.mockResolvedValueOnce(
+      verdicts({
+        slug: "unigaze",
+        chosen: "UNIGAZE 慢火金工創作室",
+        confidence: "high",
+        reason: "中文尾段是正式名稱",
       }),
-    });
+    );
 
-    const outcome = await arbitrateBrandNames(items);
+    const outcome = await arbitrateBrandName(unigaze);
 
-    expect(outcome.results.get("xiao-zhu-dessert")).toEqual({
-      chosen: "小朱甜點",
-      confidence: "high",
-      reason: "去除頁面標題外框",
-    });
-    expect(outcome.results.get("unigaze")).toEqual({
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(outcome.value).toEqual({
       chosen: "UNIGAZE 慢火金工創作室",
       confidence: "high",
       reason: "中文尾段是正式名稱",
@@ -97,250 +91,57 @@ describe("arbitrateBrandNames", () => {
     ).toBe("array");
   });
 
+  it("renders only its own brand into the user message", async () => {
+    mockFetch.mockResolvedValueOnce(
+      verdicts({
+        slug: "xiao-zhu-dessert",
+        chosen: "小朱甜點",
+        confidence: "high",
+        reason: "去除頁面標題外框",
+      }),
+    );
+
+    await arbitrateBrandName(xiaoZhu);
+
+    const body = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const user = body.messages.find((m) => m.role === "user")?.content ?? "";
+    expect(user).toContain("1. [xiao-zhu-dessert]");
+    expect(user).toContain("搜尋摘要：小朱甜點 官方網站");
+    expect(user).not.toContain("2. [");
+  });
+
   it("rejects a model-invented value that is not a supplied candidate", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "xiao-zhu-dessert",
-                    chosen: "小朱甜點工作室",
-                    confidence: "high",
-                    reason: "模型補寫",
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    });
-
-    const outcome = await arbitrateBrandNames([items[0]!]);
-
-    expect(outcome.results).toEqual(new Map());
-  });
-
-  it("parses a wrapped results array in one call with no fan-out", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "xiao-zhu-dessert",
-                    chosen: "小朱甜點",
-                    confidence: "high",
-                    reason: "去除頁面標題外框",
-                  },
-                  {
-                    slug: "unigaze",
-                    chosen: "UNIGAZE 慢火金工創作室",
-                    confidence: "high",
-                    reason: "中文尾段是正式名稱",
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    });
-
-    const outcome = await arbitrateBrandNames(items);
-
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(outcome.results.size).toBe(2);
-    expect(outcome.calls).toEqual({ attempted: 1, providerFailed: 0 });
-  });
-
-  it("parses a single-item results array in one call", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "unigaze",
-                    chosen: "UNIGAZE 慢火金工創作室",
-                    confidence: "high",
-                    reason: "中文尾段是正式名稱",
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    });
-
-    const unigaze = items.filter((item) => item.slug === "unigaze");
-    const outcome = await arbitrateBrandNames(unigaze);
-
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(outcome.results.size).toBe(1);
-    expect(outcome.results.get("unigaze")).toEqual({
-      chosen: "UNIGAZE 慢火金工創作室",
-      confidence: "high",
-      reason: "中文尾段是正式名稱",
-    });
-    expect(outcome.calls).toEqual({ attempted: 1, providerFailed: 0 });
-  });
-
-  it("chunks across the shared batch boundary", async () => {
-    const largeItems: NameArbiterItem[] = Array.from(
-      { length: 25 },
-      (_, index) => ({
-        slug: `brand-${index}`,
-        storedName: `Brand ${index}`,
-        candidates: [
-          { source: "stored" as const, value: `Brand ${index}` },
-          { source: "detected" as const, value: `Brand ${index} Studio` },
-        ],
+    mockFetch.mockResolvedValueOnce(
+      verdicts({
+        slug: "xiao-zhu-dessert",
+        chosen: "小朱甜點工作室",
+        confidence: "high",
+        reason: "模型補寫",
       }),
     );
 
-    const makeResponse = (start: number, count: number) => ({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: Array.from({ length: count }, (_, offset) => ({
-                  slug: `brand-${start + offset}`,
-                  chosen: `Brand ${start + offset}`,
-                  confidence: "high",
-                  reason: "保留品牌名稱",
-                })),
-              }),
-            },
-          },
-        ],
-      }),
-    });
+    const outcome = await arbitrateBrandName(xiaoZhu);
 
-    mockFetch
-      .mockResolvedValueOnce(makeResponse(0, LLM_BATCH_CHUNK_SIZE))
-      .mockResolvedValueOnce(makeResponse(LLM_BATCH_CHUNK_SIZE, 5));
-
-    const outcome = await arbitrateBrandNames(largeItems);
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(outcome.results.size).toBe(25);
-    expect(outcome.calls).toEqual({ attempted: 2, providerFailed: 0 });
+    expect(outcome.value).toBeNull();
+    expect(outcome.calls).toEqual({ attempted: 1, providerFailed: 0 });
   });
 
-  it("uses positional fallback when a response slug is unknown", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "wrong-slug",
-                    chosen: "小朱甜點",
-                    confidence: "high",
-                    reason: "保留正式名稱",
-                  },
-                  {
-                    slug: "not-a-requested-slug",
-                    chosen: "UNIGAZE 慢火金工創作室",
-                    confidence: "medium",
-                    reason: "候選較完整",
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    });
-
-    const outcome = await arbitrateBrandNames(items);
-
-    expect(outcome.results.get("xiao-zhu-dessert")?.chosen).toBe("小朱甜點");
-    expect(outcome.results.get("unigaze")?.chosen).toBe(
-      "UNIGAZE 慢火金工創作室",
-    );
-  });
-
-  it("fans out to single-item calls after malformed batch content", async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: "not json at all" } }],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  results: [
-                    {
-                      slug: "xiao-zhu-dessert",
-                      chosen: "小朱甜點",
-                      confidence: "high",
-                      reason: "保留正式名稱",
-                    },
-                  ],
-                }),
-              },
-            },
-          ],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  results: [
-                    {
-                      slug: "unigaze",
-                      chosen: "UNIGAZE 慢火金工創作室",
-                      confidence: "high",
-                      reason: "保留完整名稱",
-                    },
-                  ],
-                }),
-              },
-            },
-          ],
-        }),
-      });
-
-    const outcome = await arbitrateBrandNames(items);
-
-    expect(mockFetch).toHaveBeenCalledTimes(3);
-    expect(outcome.results.size).toBe(2);
-    expect(outcome.calls).toEqual({ attempted: 3, providerFailed: 0 });
-  });
-
-  it("reports provider failure without per-item fan-out", async () => {
+  it("reports a content failure on malformed content", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    // A spent account answers 429 to the batch call and would answer 429 to
-    // every single-brand retry too. One call, not one plus twenty.
+    mockFetch.mockResolvedValueOnce(modelAnswer("not json at all"));
+
+    const outcome = await arbitrateBrandName(xiaoZhu);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(outcome.value).toBeNull();
+    expect(outcome.calls).toEqual({ attempted: 1, providerFailed: 0 });
+  });
+
+  it("reports a provider failure on a non-2xx answer", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     mockFetch.mockResolvedValue({
       ok: false,
       status: 429,
@@ -351,25 +152,176 @@ describe("arbitrateBrandNames", () => {
       headers: new Headers(),
     });
 
-    const outcome = await arbitrateBrandNames(items);
+    const outcome = await arbitrateBrandName(xiaoZhu);
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(outcome.results.size).toBe(0);
+    expect(outcome.value).toBeNull();
     expect(outcome.calls).toEqual({ attempted: 1, providerFailed: 1 });
   });
 
-  it("audit context carries prompt meta from fetchLangfusePromptWithMeta", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: JSON.stringify({ results: [{ slug: "xiao-zhu-dessert", chosen: "小朱甜點", confidence: "high", reason: "test" }, { slug: "unigaze", chosen: "UNIGAZE", confidence: "high", reason: "test" }] }) } }],
-      }),
-      headers: new Headers(),
-    });
+  it("issues no call without an API key", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
 
-    await arbitrateBrandNames(items);
+    const outcome = await arbitrateBrandName(xiaoZhu);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(outcome).toEqual({
+      value: null,
+      calls: { attempted: 0, providerFailed: 0 },
+    });
+  });
+
+  it("audit context carries prompt meta from fetchLangfusePromptWithMeta", async () => {
+    mockFetch.mockResolvedValueOnce(
+      verdicts({
+        slug: "xiao-zhu-dessert",
+        chosen: "小朱甜點",
+        confidence: "high",
+        reason: "test",
+      }),
+    );
+
+    await arbitrateBrandName(xiaoZhu);
 
     const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("name-arbiter");
+  });
+});
+
+describe("parseNameArbiterItemLine", () => {
+  const itemLine = (item: NameArbiterItem) =>
+    buildNameArbiterUserContent([item]).split("\n")[1] ?? "";
+
+  it("round-trips buildNameArbiterUserContent", () => {
+    const item: NameArbiterItem = {
+      slug: "mountain-tea-co",
+      storedName: "山茶 Mountain Tea｜官方網站",
+      candidates: [
+        { source: "stored", value: "山茶 Mountain Tea｜官方網站" },
+        { source: "cleaned", value: "山茶 Mountain Tea" },
+        { source: "detected", value: "山茶" },
+        {
+          source: "official_website",
+          value: "山茶 Mountain Tea",
+          evidence: [
+            {
+              source: "official_website",
+              url: "https://mountaintea.example.tw/",
+              observedName: "山茶 Mountain Tea",
+            },
+            {
+              source: "official_social",
+              url: "https://instagram.com/mountaintea",
+              observedName: 'Mountain "Tea", 山茶',
+            },
+          ],
+        },
+      ],
+      snippets: ["山茶是台灣茶品牌", "Mountain Tea 官方網站", "山茶門市資訊"],
+    };
+    const line = itemLine(item);
+
+    const parsed = parseNameArbiterItemLine(line);
+
+    expect(parsed).toEqual({
+      slug: item.slug,
+      storedName: item.storedName,
+      candidates: item.candidates,
+      snippets: item.snippets,
+    });
+    if (!parsed) throw new Error("expected a parsed item");
+    expect(itemLine(parsed)).toBe(line);
+  });
+
+  it("parses 無 candidate list as empty candidates", () => {
+    const line = itemLine({ slug: "quiet-brand", storedName: "安靜品牌", candidates: [] });
+
+    expect(line).toContain("候選：無");
+    expect(parseNameArbiterItemLine(line)).toEqual({
+      slug: "quiet-brand",
+      storedName: "安靜品牌",
+      candidates: [],
+      snippets: [],
+    });
+  });
+
+  it('keeps a " / " inside a name whole', () => {
+    const line = itemLine({
+      slug: "slash-brand",
+      storedName: "木作 / Woodwork",
+      candidates: [{ source: "cleaned", value: "木作 / Woodwork" }],
+      snippets: ["木作 / Woodwork 工作室"],
+    });
+
+    const parsed = parseNameArbiterItemLine(line);
+
+    expect(parsed?.storedName).toBe("木作 / Woodwork");
+    expect(parsed?.candidates).toEqual([{ source: "cleaned", value: "木作 / Woodwork" }]);
+    expect(parsed?.snippets).toEqual(["木作 / Woodwork 工作室"]);
+  });
+
+  it("returns null for a non-item line", () => {
+    expect(parseNameArbiterItemLine("請裁決以下品牌的正式名稱：")).toBeNull();
+    expect(parseNameArbiterItemLine("1. [cut-brand] 儲存名稱：截斷品牌")).toBeNull();
+  });
+  it("returns null when a snippet repeats a field label at a field boundary", () => {
+    const line = itemLine({
+      slug: "echo-brand",
+      storedName: "回聲",
+      candidates: [{ source: "cleaned", value: "回聲" }],
+      snippets: ["回聲工作室 / 候選：x"],
+    });
+
+    expect(line).toContain(" / 候選：x");
+    expect(parseNameArbiterItemLine(line)).toBeNull();
+  });
+
+  it("round-trips an evidence URL that holds a space", () => {
+    const item: NameArbiterItem = {
+      slug: "space-url",
+      storedName: "空白",
+      candidates: [
+        { source: "stored", value: "空白" },
+        {
+          source: "official_website",
+          value: "空白 Space",
+          evidence: [
+            { source: "official_website", url: "https://a.example.com/b c", observedName: "空白 Space" },
+            { source: "official_social", url: "https://instagram.com/space", observedName: "Space" },
+          ],
+        },
+      ],
+    };
+    const line = itemLine(item);
+
+    const parsed = parseNameArbiterItemLine(line);
+
+    expect(parsed?.candidates).toEqual(item.candidates);
+    if (!parsed) throw new Error("expected a parsed item");
+    expect(itemLine(parsed)).toBe(line);
+  });
+});
+
+describe("parseSingleNameArbiterUser", () => {
+  const one: NameArbiterItem = {
+    slug: "one-brand",
+    storedName: "一號",
+    candidates: [{ source: "cleaned", value: "一號" }],
+  };
+  const two: NameArbiterItem = { ...one, slug: "two-brand" };
+
+  it("parses a message with exactly one item line", () => {
+    expect(parseSingleNameArbiterUser(buildNameArbiterUserContent([one]))).toEqual({
+      slug: "one-brand",
+      storedName: "一號",
+      candidates: [{ source: "cleaned", value: "一號" }],
+      snippets: [],
+    });
+  });
+
+  it("returns null for zero or two item lines", () => {
+    expect(parseSingleNameArbiterUser("請裁決以下品牌的正式名稱：")).toBeNull();
+    expect(parseSingleNameArbiterUser("no item here")).toBeNull();
+    expect(parseSingleNameArbiterUser(buildNameArbiterUserContent([one, two]))).toBeNull();
   });
 });

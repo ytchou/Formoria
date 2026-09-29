@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { postMessage } from "@/lib/adapters/slack/web-api";
+import { isOpsRoutineAuthorized } from "@/lib/internal/personal-os-auth";
 
 export const runtime = "nodejs";
 
@@ -11,11 +12,6 @@ type SummaryPayload = {
   blocks: Record<string, unknown>[];
 };
 
-function isAuthorizedRoutine(req: Request): boolean {
-  const token = process.env.OPS_ROUTINE_CALLBACK_TOKEN?.trim();
-  return Boolean(token) && req.headers.get("authorization") === `Bearer ${token}`;
-}
-
 /**
  * Relay endpoint for the ops routine to post Slack summaries as the
  * Formoria Ops bot instead of the user's personal Slack connector.
@@ -25,7 +21,7 @@ function isAuthorizedRoutine(req: Request): boolean {
  * Body: { channel, thread_ts, text, blocks }
  */
 export async function POST(req: Request): Promise<Response> {
-  if (!isAuthorizedRoutine(req)) {
+  if (!isOpsRoutineAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

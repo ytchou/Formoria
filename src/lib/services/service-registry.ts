@@ -174,7 +174,9 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "back-office",
     operationalSection: "back-office",
     operationalKind: "dependency",
-    envVars: ["OPENAI_API_KEY", "CODEX_API_KEY"],
+    // OPENAI_ADMIN_KEY is optional: an organization admin key that reads the
+    // billed Costs API for the spend report. Absent → prod-derived fallback.
+    envVars: ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_ADMIN_KEY"],
     status: "active",
     plan: {
       kind: "usage",
@@ -196,6 +198,24 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       "Eval spend bypasses persistence through CURATION_EVAL_SINK at _shared/ai-results.ts:130-140; an eval harness must also install setAuditWriteSeam or its spend goes unrecorded.",
       "Embeddings share the llm-tokens meter and write no brand_ai_results row; spend is tracked only through external_call_audit.",
     ],
+  },
+  {
+    id: "typesafe",
+    name: "TypeSafe AI",
+    vendor: "TypeSafe AI",
+    category: "ai",
+    criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
+    envVars: ["TYPESAFE_API_KEY"],
+    status: "active",
+    plan: {
+      kind: "usage",
+      monthlyUsd: undefined,
+      asOf: TODAY,
+      sourceUrl: "https://docs.typesafe.ai/models",
+    },
+    notes: "Jev decision model, eval-only (DEV-1824).",
   },
   {
     id: "serper",
@@ -480,7 +500,11 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     criticality: "customer-critical",
     operationalSection: "production",
     operationalKind: "dependency",
-    envVars: ["FORMORIA_RAILWAY_URL", "OPS_AGENT_RAILWAY_TOKEN"],
+    envVars: [
+      "FORMORIA_RAILWAY_URL",
+      "OPS_AGENT_RAILWAY_TOKEN",
+      "RAILWAY_PROJECT_ID",
+    ],
     status: "active",
     plan: {
       kind: "usage",

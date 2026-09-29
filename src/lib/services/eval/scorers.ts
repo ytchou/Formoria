@@ -2,6 +2,8 @@ import type { ZodType } from 'zod'
 
 import { reportBannedTerms } from '@/lib/i18n/banned-terms'
 import { bandOf } from '@/lib/constants/curated-products'
+import { descriptionMentionsTaiwan } from '@/lib/services/curated-products/origin-qualification'
+import { AcquisitionPlan, MAX_FETCH_TARGETS } from '@/lib/services/enrich-phases/acquisition/plan'
 import { jaccard, pairwiseConcordance, type ProductsReplayOutput, type ProductsExpected } from './products-calibration'
 
 const CJK_ALL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF60\uFE30-\uFE4F]/u
@@ -176,6 +178,82 @@ export function selectionAgreement(
     expected.decisions.filter((d) => d.selected).map((d) => d.candidateUrl),
   )
   return jaccard(outputSet, expectedSet)
+}
+
+/**
+ * Share of proposals on origin-stated pages whose description mentions Taiwan.
+ * Proposals on pages without a stated origin are ignored. Returns null (n/a)
+ * when the output predates `originStatedUrls` or no proposal sits on an
+ * origin-stated page.
+ */
+export function originWhenSourced(output: ProductsReplayOutput): number | null {
+  if (!output.originStatedUrls) return null
+  const stated = new Set(output.originStatedUrls)
+  const sourced = output.proposals.filter((p) => stated.has(p.officialUrl))
+  if (sourced.length === 0) return null
+  const mentioning = sourced.filter((p) => descriptionMentionsTaiwan(p.productDescriptionZh))
+  return mentioning.length / sourced.length
+}
+
+// ---------------------------------------------------------------------------
+// Curation golden-set scorers (DEV-1873)
+// ---------------------------------------------------------------------------
+// The products-phase ones (keepRate, repairPassRate) live in ./product-scorers:
+// this module must not import enrich-phases/products (see that file's header).
+
+type PlanLike = {
+  surfaces?: unknown
+  fanOut?: unknown
+}
+
+/*
+ * Replay-path limit (DEV-1873 review H4): `planSchemaValid` and
+ * `planFetchCapOk` both reduce to `plan != null` on `acquisitionPlanTask`.
+ * `submit_plan` and `adoptPlanFromText` reject an invalid or over-cap plan, and
+ * `runPlanStage` returns only an accepted plan, so on replay these two scorers
+ * measure plan adoption, not schema or cap compliance. They stay meaningful for
+ * any caller that hands them a raw plan.
+ * Upgrade path: have `runPlanStage` expose the first raw `submit_plan` args
+ * (before parsing) and score those instead of the adopted plan.
+ */
+
+/**
+ * 1 when the plan's fetches (non-skip surfaces + fanOut) stay within
+ * `MAX_FETCH_TARGETS`; 0 when `surfaces` or `fanOut` is present but not an
+ * array. On replay this measures plan adoption (see the note above).
+ */
+export function planFetchCapOk(plan: unknown): number {
+  if (!plan || typeof plan !== 'object') return 0
+  const { surfaces = [], fanOut = [] } = plan as PlanLike
+  if (!Array.isArray(surfaces) || !Array.isArray(fanOut)) return 0
+  const fetches =
+    surfaces.filter((s) => (s as { fetch?: unknown } | null)?.fetch !== 'skip').length + fanOut.length
+  return fetches <= MAX_FETCH_TARGETS ? 1 : 0
+}
+
+/**
+ * 1 when the plan parses as `AcquisitionPlan`, cross-field refine included.
+ * On replay this measures plan adoption (see the note above).
+ */
+export function planSchemaValid(plan: unknown): number {
+  if (plan === null || plan === undefined) return 0
+  return AcquisitionPlan.safeParse(plan).success ? 1 : 0
+}
+
+/** The critique names a recovery action exactly when its verdict is `thin`. */
+export function recoveryActionConsistent(output: {
+  verdict?: unknown
+  recoveryAction?: unknown
+}): number {
+  const hasAction = output.recoveryAction !== null && output.recoveryAction !== undefined
+  return hasAction === (output.verdict === 'thin') ? 1 : 0
+}
+
+export function verdictAgreement(
+  output: { verdict?: unknown },
+  expected: { verdict: unknown },
+): number {
+  return decisionAgreement(output.verdict, expected.verdict)
 }
 
 // ---------------------------------------------------------------------------
@@ -384,4 +462,75 @@ function binomialPmf(n: number, k: number, p: number): number {
 export function ndcgAt(k: number) {
   return (output: unknown, expected: unknown): number =>
     ndcgAtK(output as string[], expected as GradedItem[], k)
+}
+
+// ---------------------------------------------------------------------------
+// Calibration scorers (Jev decision model)
+// ---------------------------------------------------------------------------
+
+export type CalibrationPoint = { p: number; correct: boolean }
+export type ConfidenceBand = 'high' | 'medium' | 'low'
+
+/**
+ * Band cutoffs for Jev probabilities: high >= 0.90, medium >= 0.70, else low.
+ * Kept by DEV-1869 (2026-09-28) on ~500 pooled Jev decisions (detect, category,
+ * site-identity, intent, per-product L1): p >= 0.90 was 94–97% correct on every
+ * set, 0.70–0.90 was 50–84%, and below 0.70 was 29–68%. Revisit when a set
+ * grows past ~100 items or Jev's model version changes.
+ */
+export const JEV_BAND_CUTOFFS = { high: 0.9, medium: 0.7 } as const
+
+export function bandFromProbability(p: number): ConfidenceBand {
+  if (p >= JEV_BAND_CUTOFFS.high) return 'high'
+  if (p >= JEV_BAND_CUTOFFS.medium) return 'medium'
+  return 'low'
+}
+
+/** ECE over 10 equal-width bins: sum of (n_b / N) * |acc_b - conf_b|. Empty → null. */
+export function expectedCalibrationError(points: CalibrationPoint[]): number | null {
+  if (points.length === 0) return null
+  const BINS = 10
+  const count = new Array<number>(BINS).fill(0)
+  const correct = new Array<number>(BINS).fill(0)
+  const confSum = new Array<number>(BINS).fill(0)
+  for (const { p, correct: ok } of points) {
+    // p = 1.0 falls into the last bin
+    const b = Math.min(BINS - 1, Math.max(0, Math.floor(p * BINS)))
+    count[b]++
+    confSum[b] += p
+    if (ok) correct[b]++
+  }
+  let ece = 0
+  for (let b = 0; b < BINS; b++) {
+    if (count[b] === 0) continue
+    ece += (count[b] / points.length) * Math.abs(correct[b] / count[b] - confSum[b] / count[b])
+  }
+  return ece
+}
+
+/** Accuracy over points with p >= threshold. Null when none are accepted. */
+export function acceptedAccuracyAt(points: CalibrationPoint[], threshold: number): number | null {
+  const accepted = points.filter((pt) => pt.p >= threshold)
+  if (accepted.length === 0) return null
+  return accepted.filter((pt) => pt.correct).length / accepted.length
+}
+
+/** Share of points with p >= threshold. Empty input → 0. */
+export function coverageAt(points: CalibrationPoint[], threshold: number): number {
+  if (points.length === 0) return 0
+  return points.filter((pt) => pt.p >= threshold).length / points.length
+}
+
+/** Markdown table of coverage / accepted accuracy for thresholds 0.50..0.95 step 0.05. */
+export function thresholdSweep(points: CalibrationPoint[]): string {
+  const lines = ['| threshold | coverage | accepted accuracy |', '| --- | --- | --- |']
+  // Integer steps (10..19 / 20) avoid accumulated float drift at the boundaries.
+  for (let i = 10; i <= 19; i++) {
+    const t = i / 20
+    const acc = acceptedAccuracyAt(points, t)
+    lines.push(
+      `| ${t.toFixed(2)} | ${coverageAt(points, t).toFixed(3)} | ${acc === null ? 'n/a' : acc.toFixed(3)} |`,
+    )
+  }
+  return lines.join('\n')
 }

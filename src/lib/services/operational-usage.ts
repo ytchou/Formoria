@@ -106,6 +106,7 @@ export type OperationalAlertSummary = {
   resend: OperationalAlertMeter | null;
   langfuse: OperationalAlertMeter | null;
   github: OperationalAlertMeter | null;
+  railway: OperationalAlertMeter | null;
 };
 
 export type UsageMetricInput = {
@@ -489,13 +490,14 @@ export function parseUpstashStats(value: unknown): {
 async function auditedJson(
   url: string,
   init: RequestInit,
-  provider: "upstash" | "sentry" | "langfuse" | "github",
+  provider: "upstash" | "sentry" | "langfuse" | "github" | "railway",
   operation:
     | "get_database"
     | "get_stats"
     | "get_error_events"
     | "get_daily_metrics"
-    | "get_workflow_runs",
+    | "get_workflow_runs"
+    | "get_customer_usage",
   fetchImpl: typeof fetch,
 ): Promise<unknown> {
   const parsedUrl = new URL(url);
@@ -524,6 +526,7 @@ async function auditedJson(
         sentry: "Sentry",
         langfuse: "Langfuse",
         github: "GitHub",
+        railway: "Railway",
       }[provider];
       if (!response.ok)
         throw new Error(`${providerName} returned HTTP ${response.status}.`);
@@ -822,6 +825,114 @@ async function fetchGitHubActionsUsage(
   };
 }
 
+export type RailwayCustomerUsage = {
+  usageUsd: number;
+  softLimitUsd: number | null;
+  window: UsageWindow;
+};
+
+export function parseRailwayCustomerUsage(value: unknown): RailwayCustomerUsage {
+  const malformed = () => new Error("Railway usage response was malformed.");
+  const record = (input: unknown): Record<string, unknown> => {
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      throw malformed();
+    return input as Record<string, unknown>;
+  };
+  const body = record(value);
+  if (Array.isArray(body.errors) && body.errors.length > 0) throw malformed();
+  const customer = record(
+    record(record(record(body.data).project).workspace).customer,
+  );
+  const usageUsd = customer.currentUsage;
+  const period = record(customer.billingPeriod);
+  if (
+    typeof usageUsd !== "number" ||
+    !Number.isFinite(usageUsd) ||
+    usageUsd < 0 ||
+    typeof period.start !== "string" ||
+    typeof period.end !== "string" ||
+    !Number.isFinite(Date.parse(period.start)) ||
+    !Number.isFinite(Date.parse(period.end))
+  ) {
+    throw malformed();
+  }
+  // No usage limit configured → `usageLimit` is null and the meter has no cap.
+  const softLimit =
+    customer.usageLimit === null || customer.usageLimit === undefined
+      ? null
+      : record(customer.usageLimit).softLimit;
+  return {
+    usageUsd,
+    softLimitUsd:
+      typeof softLimit === "number" && Number.isFinite(softLimit) && softLimit > 0
+        ? softLimit
+        : null,
+    window: { start: period.start, end: period.end },
+  };
+}
+
+// Reached through the running service's own project (RAILWAY_PROJECT_ID is
+// injected by Railway), so no workspace id needs configuring.
+const RAILWAY_USAGE_QUERY = `query($id: String!) {
+  project(id: $id) {
+    workspace {
+      customer {
+        currentUsage
+        usageLimit { softLimit }
+        billingPeriod { start end }
+      }
+    }
+  }
+}`;
+
+async function fetchRailwayUsage(
+  now: Date,
+  fetchImpl: typeof fetch,
+): Promise<MeteredUsage> {
+  const token = process.env.OPS_AGENT_RAILWAY_TOKEN?.trim();
+  const projectId = process.env.RAILWAY_PROJECT_ID?.trim();
+  if (!providerConfigured(token, projectId)) {
+    return {
+      state: "unconfigured",
+      message: "Railway usage monitoring is not configured.",
+    };
+  }
+  const body = await auditedJson(
+    "https://backboard.railway.com/graphql/v2",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: RAILWAY_USAGE_QUERY,
+        variables: { id: projectId },
+      }),
+    },
+    "railway",
+    "get_customer_usage",
+    fetchImpl,
+  );
+  const usage = parseRailwayCustomerUsage(body);
+  return {
+    state: "ready",
+    primary: createMetric({
+      value: usage.usageUsd,
+      unit: "USD",
+      // The workspace's own soft usage limit; the meter warns as spend nears it.
+      limit: usage.softLimitUsd,
+      window: usage.window,
+      source: "Railway customer.currentUsage",
+      // Deliberately no linear projection: Railway usage is front-loaded by
+      // one-off egress, so value/elapsed over-projects and would warn daily.
+      // Upgrade path: derive one from the estimatedUsage query.
+      projection: null,
+      at: now,
+    }),
+  };
+}
+
 type OperationalDependencies = {
   now?: Date;
   health?: Promise<ExecutiveHealthSnapshot>;
@@ -829,7 +940,65 @@ type OperationalDependencies = {
   supabase?: UsageClient | null;
   fetchImpl?: typeof fetch;
   posthog?: PostHogQueryClient | null;
+  // OpenAI's billed cycle-to-date USD (Costs API). Null or absent → the meter
+  // falls back to the production-only derived snapshot.
+  openaiBilledCycleUsd?: number | null;
 };
+
+const DERIVED_OPENAI_SOURCE = "Formoria brand_ai_results (derived, prod only)";
+const OPENAI_MONTHLY_BUDGET_USD = 25;
+
+async function loadOpenAIUsage(
+  now: Date,
+  month: UsageWindow,
+  spend: Promise<SpendSnapshotV1> | null,
+  billedUsd: number | null,
+): Promise<MeteredUsage & { id: string }> {
+  if (billedUsd !== null && Number.isFinite(billedUsd)) {
+    return {
+      id: "openai",
+      state: "ready",
+      primary: createMetric({
+        value: billedUsd,
+        unit: "USD",
+        limit: OPENAI_MONTHLY_BUDGET_USD,
+        window: month,
+        source: "OpenAI Costs API",
+        at: now,
+      }),
+    };
+  }
+  if (!providerConfigured(process.env.OPENAI_API_KEY)) {
+    return {
+      id: "openai",
+      state: "unconfigured",
+      message:
+        "OpenAI usage requires OPENAI_ADMIN_KEY (billed) or OPENAI_API_KEY (derived).",
+    };
+  }
+  if (!spend) throw new Error("OpenAI spend meter is unavailable.");
+  const snapshot = await spend;
+  const line = snapshot.services.find((service) => service.id === "openai");
+  if (!line || line.units === null || line.amountUsd === null)
+    throw new Error("OpenAI spend meter returned no measured data.");
+  const primary = createMetric({
+    value: line.amountUsd,
+    unit: "USD",
+    limit: OPENAI_MONTHLY_BUDGET_USD,
+    window: snapshot.cycles.find((cycle) => cycle.resetsOnDay === 1) ?? month,
+    source: DERIVED_OPENAI_SOURCE,
+    at: now,
+  });
+  const secondary = createMetric({
+    value: line.units,
+    unit: "tokens",
+    limit: null,
+    window: primary.window,
+    source: DERIVED_OPENAI_SOURCE,
+    at: now,
+  });
+  return { id: "openai", state: "ready", primary, secondary };
+}
 
 async function collectMeteredUsage(
   now: Date,
@@ -837,51 +1006,13 @@ async function collectMeteredUsage(
   fetchImpl: typeof fetch,
   posthog: PostHogQueryClient | null,
   spend: Promise<SpendSnapshotV1> | null,
+  openaiBilledCycleUsd: number | null = null,
 ): Promise<Map<string, MeteredUsage>> {
   const month = utcMonthWindow(now);
   const tasks = [
     {
       id: "openai",
-      promise: providerConfigured(process.env.OPENAI_API_KEY)
-        ? (
-            spend ??
-            Promise.reject(new Error("OpenAI spend meter is unavailable."))
-          ).then((snapshot) => {
-            const line = snapshot.services.find(
-              (service) => service.id === "openai",
-            );
-            if (!line || line.units === null || line.amountUsd === null)
-              throw new Error("OpenAI spend meter returned no measured data.");
-            const primary = createMetric({
-              value: line.amountUsd,
-              unit: "USD",
-              limit: 25,
-              window:
-                snapshot.cycles.find((cycle) => cycle.resetsOnDay === 1) ??
-                month,
-              source: "Formoria brand_ai_results",
-              at: now,
-            });
-            const secondary = createMetric({
-              value: line.units,
-              unit: "tokens",
-              limit: null,
-              window: primary.window,
-              source: "Formoria brand_ai_results",
-              at: now,
-            });
-            return {
-              id: "openai",
-              state: "ready" as const,
-              primary,
-              secondary,
-            };
-          })
-        : Promise.resolve({
-            id: "openai",
-            state: "unconfigured" as const,
-            message: "OpenAI usage requires OPENAI_API_KEY.",
-          }),
+      promise: loadOpenAIUsage(now, month, spend, openaiBilledCycleUsd),
     },
     {
       id: "serper",
@@ -1017,6 +1148,13 @@ async function collectMeteredUsage(
         ...usage,
       })),
     },
+    {
+      id: "railway-formoria",
+      promise: fetchRailwayUsage(now, fetchImpl).then((usage) => ({
+        id: "railway-formoria",
+        ...usage,
+      })),
+    },
   ];
   const outputs = await Promise.allSettled(tasks.map((task) => task.promise));
   const map = new Map<string, MeteredUsage>();
@@ -1044,7 +1182,6 @@ function usageForEntry(
   if (
     entry.id === "supabase" ||
     entry.id === "public-site" ||
-    entry.id === "railway-formoria" ||
     entry.id === "railway-curation-worker"
   ) {
     return emptyUsage("unsupported", "Dashboard only");
@@ -1059,6 +1196,7 @@ function usageForEntry(
       "sentry",
       "langfuse",
       "github",
+      "railway-formoria",
     ].includes(entry.id)
   ) {
     return toUsage(
@@ -1228,6 +1366,7 @@ export function buildOperationalAlertSummary(
     resend: alertMeter(byId.get("resend")),
     langfuse: alertMeter(byId.get("langfuse")),
     github: alertMeter(byId.get("github")),
+    railway: alertMeter(byId.get("railway-formoria")),
   };
 }
 
@@ -1290,6 +1429,7 @@ export async function loadOperationalSnapshot(
       fetchImpl,
       posthog,
       spend,
+      dependencies.openaiBilledCycleUsd ?? null,
     );
   } catch {
     meters = new Map([

@@ -4,6 +4,7 @@ import {
   detectInputType,
   isLinkAggregatorHost,
   isNonBrandSiteHost,
+  isPublishingPlatformSubdomain,
   isThirdPartyDirectoryHost,
 } from '../input-detector'
 
@@ -120,6 +121,34 @@ describe('isThirdPartyDirectoryHost', () => {
   it('is false for a brand’s own domain and for a malformed URL', () => {
     expect(isThirdPartyDirectoryHost('https://www.gooddays.tw')).toBe(false)
     expect(isThirdPartyDirectoryHost('gooddays.tw')).toBe(false)
+  })
+})
+
+describe('isPublishingPlatformSubdomain', () => {
+  it.each([
+    'https://brand.pixnet.net/blog',
+    'https://brand.blogspot.com/',
+    'https://brand.wordpress.com/',
+    'https://brand.weebly.com/',
+    'https://brand.medium.com/',
+    'https://brand.carrd.co/',
+    'https://www.brand.pixnet.net/',
+  ])('is true for the per-user site %s', (url) => {
+    expect(isPublishingPlatformSubdomain(url)).toBe(true)
+  })
+
+  it.each([
+    'https://pixnet.net/',
+    'https://www.pixnet.net/',
+    'https://m.blogspot.com/',
+    'https://web.wordpress.com/',
+    'https://m.facebook.com/',
+    'https://maps.google.com/',
+    'https://shop.pinkoi.com/',
+    'https://brand.tw/',
+    'not-a-url',
+  ])('is false for %s', (url) => {
+    expect(isPublishingPlatformSubdomain(url)).toBe(false)
   })
 })
 

@@ -84,6 +84,12 @@ export const ORIGIN_GUARD_EXEMPT_PATHS = [
   // to claim and complete ops-bot dispatches; it cannot carry the edge header.
   // The handler authenticates with `Authorization: Bearer E2E_DISPATCH_SECRET`.
   { pathname: "/api/internal/e2e-dispatch", match: "exact" },
+  // The ops routine (a Claude Code cloud session) posts its thread summary and
+  // run-timeline events on the Railway origin, because Cloudflare bot-challenges
+  // machine POSTs to formoria.com; it cannot carry the edge header. Both handlers
+  // authenticate with `Authorization: Bearer OPS_ROUTINE_CALLBACK_TOKEN`.
+  { pathname: "/api/internal/ops-summary", match: "exact" },
+  { pathname: "/api/internal/run-timeline", match: "exact" },
   // Next's own image optimizer re-enters middleware for `/i/` paths and cannot
   // be made to carry the edge credential. `/_next/image?url=%2Fi%2F...` is
   // excluded from the matcher, so the optimizer runs; for a non-absolute href

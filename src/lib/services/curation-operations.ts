@@ -2,13 +2,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { auditedCall, getAuditContext, runWithAuditContext } from "@/lib/audit";
 import { getLangfuse } from "@/lib/langfuse/client";
 import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
-import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./_shared/concurrency";
+import {
+  ENRICH_BRAND_CONCURRENCY,
+  ENRICH_CHUNK_SIZE,
+  mapWithConcurrency,
+} from "./_shared/concurrency";
 import {
   CLEARED_FIELDS_KEY,
   mergeBrandFieldStates,
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
+import type { LinkColumn } from "@/lib/types/link-fields";
 import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
@@ -23,7 +28,7 @@ import type { BlockContext, BlockRunResult } from "./enrich-blocks/registry";
 import { runBlocks } from "./enrich-blocks/runner";
 import { restoreAcquireCheckpoint } from "./enrich-blocks/hydration";
 import { createSupabasePhaseOutputStore, toAcquireCarry, isUsablePhaseOutput, mergeSelectedPhaseOutputs } from "./enrich-blocks/phase-outputs";
-import { normalizeToRootUrl } from "@/lib/url";
+import { normalizeToRootUrl, sanitizeHref } from "@/lib/url";
 import {
   ONLINE_STORES,
   type OnlineStoreColumn,
@@ -34,6 +39,7 @@ import {
   hasLinkValue,
   LINK_FIELDS,
   linkColumnFor,
+  pageKey,
 } from "./link-enrichment";
 import {
   collectHubUrls,
@@ -239,9 +245,6 @@ export function isLlmCircuitBreakerError(error: unknown): boolean {
 }
 
 const SCRAPE_DELAY_MS = 1000;
-// Composite fan-out: one unit runs the whole phase chain (Serper + OpenAI +
-// Postgres + sharp), so this is not the same knob as ENRICH_CHUNK_SIZE.
-const ENRICH_BRAND_CONCURRENCY = 3;
 // Postgres write amplification for progress rows; shares its value with
 // ENRICH_CHUNK_SIZE by coincidence only.
 const TARGET_PROGRESS_BATCH_SIZE = 20;
@@ -552,7 +555,8 @@ export function mergeSubmissionEnrichedData(
   return merged;
 }
 
-function uniqueUrls(urls: string[]): string[] {
+/** Trimmed, non-empty, first-seen-order URLs. Exported for golden capture (DEV-1873). */
+export function uniqueUrls(urls: string[]): string[] {
   const seen = new Set<string>();
   const unique: string[] = [];
 
@@ -871,10 +875,55 @@ function chunkItems<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-// Probe cap imported from the prompt owner — see `probeLines` in category-classifier.ts.
-// Probing more would pay for evidence no model ever reads.
+// Probe cap imported from the prompt owner — `renderDetectUserMessage` in
+// category-classifier.ts renders at most MAX_PROBE_URLS probe lines. Probing more
+// would pay for evidence no model ever reads.
 
-function collectKnownUrls(brand: EnrichBrand): string[] {
+/**
+ * Gather's SERP name query. The IG handle is included when usable so a single
+ * credit covers both name and handle discovery. Exported so the detect golden
+ * regenerate script re-searches with the exact production query (DEV-1894).
+ */
+export function serpNameQuery(name: string, handle: string | null): string {
+  return handle && isUsableHandle(handle)
+    ? `${name} ${handle} 台灣`
+    : `${name} 台灣`;
+}
+
+/**
+ * A brand's own URLs, shared by the probe list and detect's search-result
+ * ownership tags. The submitted `website_url` leads (D15): it is the one URL
+ * the brand itself named, so the probe cap must never push it out. A
+ * schemeless `website_url` gets `https://` (fetch throws on it otherwise), and
+ * scheme, `www.` and trailing-slash variants of one page collapse to the first,
+ * so duplicates cannot eat MAX_PROBE_URLS slots.
+ */
+export function ownedUrlsFor(
+  brand: { website_url?: string | null } & Partial<
+    Pick<BrandFlatLinkColumns, LinkColumn>
+  >,
+): string[] {
+  const seen = new Set<string>();
+  const owned: string[] = [];
+  for (const url of [
+    sanitizeHref(brand.website_url) ?? "",
+    ...collectKnownUrls(brand),
+  ]) {
+    if (!url) continue;
+    // pageKey ignores the query, so two same-path owned URLs differing only
+    // by query collapse; no link column holds two such URLs for one brand.
+    const key = pageKey(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    owned.push(url);
+  }
+  return owned;
+}
+
+/** Reads only the link columns, so any brand-shaped row can be passed. */
+export function collectKnownUrls(
+  brand: Partial<Pick<BrandFlatLinkColumns, LinkColumn>>,
+): string[] {
   const linkUrls = LINK_FIELDS.map(
     (field) => brand[linkColumnFor(field)],
   ).filter((url): url is string => hasLinkValue(url));
@@ -2102,9 +2151,7 @@ export async function runEnrich(
                     } else {
                       serp = "searched";
                       const queryTemplate = (name: string) =>
-                        handle && isUsableHandle(handle)
-                          ? `${name} ${handle} 台灣`
-                          : `${name} 台灣`;
+                        serpNameQuery(name, handle);
                       let nameResult: SerpResult = undefined;
                       try {
                         const results = await batchSearchBrandsWithSnippets(
@@ -2126,11 +2173,19 @@ export async function runEnrich(
                       serpCallStatuses.push(nameResult?.callStatus);
                       serpUrls = nameResult?.urls ?? [];
                       const nameStatus = nameResult?.callStatus;
-                      sources.serpName =
+                      const nameAnswered =
                         nameResult &&
-                        (nameStatus === "succeeded" || nameStatus === "empty")
-                          ? applySerpUrls(serpUrls)
-                          : "unknown";
+                        (nameStatus === "succeeded" || nameStatus === "empty");
+                      sources.serpName = nameAnswered
+                        ? applySerpUrls(serpUrls)
+                        : "unknown";
+                      // Detect and the per-brand phases read `searchResults`, which
+                      // was loaded from the cache before this search ran. Without
+                      // this, a first run judged the brand with no SERP evidence
+                      // (DEV-1893). A failed search keeps any stale cached row.
+                      if (nameResult && nameAnswered) {
+                        searchResults.set(brandName, nameResult);
+                      }
                     }
 
                     // ---- SERP-discovered hub expansion ----
@@ -2206,6 +2261,9 @@ export async function runEnrich(
                   chunk,
                   chunkBrandNames: chunk.map(getDisplayBrandName),
                 };
+                // Each brand's own URLs, shared by the probe list and detect's
+                // search-result ownership tags. Filled only when detect runs.
+                const ownedUrlsByBrandId = new Map<string, string[]>();
                 // ---- Probe evidence collection (per-brand, AFTER link expansion) ----
                 // Moved after expansion so adopted URLs are included in the probe set.
                 // Skipped for products-only jobs: probes only feed the detect phase.
@@ -2221,10 +2279,9 @@ export async function runEnrich(
                   const probeUrls: string[] = [];
                   const seenProbeUrls = new Set<string>();
                   for (const brand of chunk) {
-                    const urls = collectKnownUrls(brand).slice(
-                      0,
-                      MAX_PROBE_URLS,
-                    );
+                    const ownedUrls = ownedUrlsFor(brand);
+                    ownedUrlsByBrandId.set(brand.id, ownedUrls);
+                    const urls = ownedUrls.slice(0, MAX_PROBE_URLS);
                     if (urls.length === 0) continue;
                     probeUrlsByBrandId.set(brand.id, urls);
                     for (const url of urls) {
@@ -2252,12 +2309,13 @@ export async function runEnrich(
                   }
                 }
 
-                // ---- Detect batch (reads probes + cached SERP) ----
+                // ---- Detect batch (reads probes + SERP: cached, or gather's same-run search) ----
                 if (hasDetectPhases) await emitBatchPhaseProgress("detect", chunk);
                 const detectPhaseResult = await runDetectPhase(
                   batchContext,
                   searchResults,
                   probeEvidenceByBrandId,
+                  ownedUrlsByBrandId,
                 );
                 const detectResults = detectPhaseResult.detectResults;
                 /**

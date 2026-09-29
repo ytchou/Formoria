@@ -75,4 +75,20 @@ describe('services shared kernel has no domain cycles', () => {
 
     expect(offenders).toEqual([])
   })
+
+  it('eval scorers reachable from enrich-validators never import the products phase', () => {
+    // enrich-phases/products -> description-rewrite -> enrich-validators ->
+    // eval/scorers. A back-edge from these files into enrich-phases/products
+    // closes the loop, and products/graph then reads PRODUCTS_PROPOSAL_SHAPE
+    // before products.ts has finished loading. Products-phase scorers belong in
+    // eval/product-scorers.ts.
+    const files = ['src/lib/services/eval/scorers.ts', 'src/lib/services/eval/products-calibration.ts']
+    const offenders = files.flatMap((relPath) =>
+      importTargets(join(ROOT, relPath))
+        .filter(({ target }) => /src\/lib\/services\/enrich-phases\/products(\/|$)/.test(target))
+        .map(({ specifier }) => `${relPath}: ${specifier}`),
+    )
+
+    expect(offenders).toEqual([])
+  })
 })

@@ -1,9 +1,5 @@
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
-import {
-  LLM_BATCH_CHUNK_SIZE,
-  type LlmProfileKey,
-} from "@/lib/constants/llm-models";
 import { z } from "zod";
 import {
   parseBatchEntries,
@@ -16,16 +12,12 @@ import {
   profileChatParams,
 } from "./llm-audit";
 import {
-  addLlmCalls,
   contentFailed,
-  isLlmProviderFailure,
-  noLlmCalls,
   notAttempted,
   providerFailed,
   type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import type { LlmBatchOutcome } from "./category-classifier";
 import type { BrandNameEvidence } from "@/lib/types/enriched-data";
 
 type NameCandidateSource =
@@ -73,6 +65,10 @@ export const nameArbitrationShape = z.object({
 });
 
 /**
+ * One call judges one brand (DEV-1886), but the wire contract is still a
+ * `results` array holding that one verdict: the `name-arbiter` Langfuse prompt
+ * asks for exactly that shape, and changing it means a prompt version bump.
+ *
  * The verdicts are wrapped in a `results` object rather than returned as a bare
  * top-level array because `response_format: {type: "json_object"}` — which
  * `openai-client` also falls back to when a model rejects `json_schema` — makes
@@ -85,27 +81,21 @@ const NAME_ARBITRATION_SCHEMA = {
   schema: toStrictJsonSchema(nameArbitrationShape),
 };
 
-// Lenient wrapper for batch parsing — validates structure, not item contents.
-const batchParseShape = z.object({
+// Lenient wrapper — validates the `results` envelope, not the verdict inside it.
+const resultsParseShape = z.object({
   results: z.array(z.unknown()),
 });
 
-type NameArbiterProfileKey = Extract<LlmProfileKey, "names" | "namesBatch">;
-
 function createNameArbiterClient(
   apiKey: string,
-  profileKey: NameArbiterProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
   prompt?: { name: string; version: number; source: "langfuse" | "snapshot" },
 ) {
-  const config = buildProfiledEnrichmentConfig(
-    "names",
-    profileKey,
-  );
+  const config = buildProfiledEnrichmentConfig("names", "names");
 
   return createProfiledOpenAIClient(
-    profileKey,
+    "names",
     {
       target,
       phase: "names",
@@ -136,11 +126,132 @@ function formatNameArbiterItem(item: NameArbiterItem, index: number): string {
   return `${index + 1}. [${item.slug}] 儲存名稱：${item.storedName} / 候選：${candidateLine || "無"}${snippetLine}`;
 }
 
-function buildNameArbiterUserContent(items: NameArbiterItem[]): string {
+/** Exported so golden-eval inputs are rendered by the same bytes production sends. */
+export function buildNameArbiterUserContent(items: NameArbiterItem[]): string {
   const list = items
     .map((item, index) => formatNameArbiterItem(item, index))
     .join("\n");
   return `請裁決以下品牌的正式名稱：\n${list}`;
+}
+
+export type ParsedNameArbiterItem = {
+  slug: string;
+  storedName: string;
+  candidates: NameCandidate[];
+  snippets: string[];
+};
+
+// A Record keyed by the union, so adding a NameCandidateSource member without
+// listing it here fails to compile instead of silently merging "；<new>：" into
+// the previous candidate's value.
+const CANDIDATE_SOURCES = {
+  stored: true,
+  cleaned: true,
+  detected: true,
+  scraped: true,
+  official_website: true,
+  official_social: true,
+} as const satisfies Record<NameCandidateSource, true>;
+const SOURCE_ALT = Object.keys(CANDIDATE_SOURCES).join("|");
+const ITEM_HEAD_RE = /^\d+\. \[([^\]]*)\] 儲存名稱：([\s\S]*)$/;
+// A field opens only at " / " followed by a known label, so " / " inside a
+// name stays whole.
+const FIELD_SPLIT_RE = / \/ (?=候選：|搜尋摘要：)/;
+const CANDIDATE_SPLIT_RE = new RegExp(`；(?=(?:${SOURCE_ALT})：)`);
+const CANDIDATE_RE = new RegExp(`^(${SOURCE_ALT})：(.*)$`, "s");
+// The URL is matched lazily up to ` observed="`, so a URL holding a space still parses.
+const EVIDENCE_RE =
+  /(official_website|official_social) (.+?) observed=("(?:[^"\\]|\\.)*")(?:, |$)/y;
+
+function parseEvidence(text: string): BrandNameEvidence[] | null {
+  const entries: BrandNameEvidence[] = [];
+  EVIDENCE_RE.lastIndex = 0;
+  while (EVIDENCE_RE.lastIndex < text.length) {
+    const match = EVIDENCE_RE.exec(text);
+    if (!match) return null;
+    let observedName: string;
+    try {
+      observedName = JSON.parse(match[3] ?? '""') as string;
+    } catch {
+      return null;
+    }
+    entries.push({
+      source: match[1] as BrandNameEvidence["source"],
+      url: match[2] ?? "",
+      observedName,
+    });
+  }
+  return entries.length ? entries : null;
+}
+
+function parseCandidate(entry: string): NameCandidate | null {
+  const match = CANDIDATE_RE.exec(entry);
+  if (!match) return null;
+  const source = match[1] as NameCandidateSource;
+  const rest = match[2] ?? "";
+  if (rest.endsWith("）")) {
+    // The value itself may hold a "（"; take the first opening whose tail parses as evidence.
+    for (let at = rest.indexOf("（official_"); at >= 0; at = rest.indexOf("（official_", at + 1)) {
+      const evidence = parseEvidence(rest.slice(at + 1, -1));
+      if (evidence) return { source, value: rest.slice(0, at), evidence };
+    }
+  }
+  return { source, value: rest };
+}
+
+/**
+ * Inverse of formatNameArbiterItem: parses one production user-message item line.
+ * Returns null for any line the formatter could not have produced (header lines,
+ * truncated lines with no 候選 field) and for a line where a field label occurs
+ * twice (ambiguous). Snippets are split on "；", so a snippet
+ * that itself contains "；" comes back as two — the formatted line is ambiguous there.
+ */
+export function parseNameArbiterItemLine(line: string): ParsedNameArbiterItem | null {
+  const head = ITEM_HEAD_RE.exec(line);
+  if (!head) return null;
+  const [storedName, ...rest] = (head[2] ?? "").split(FIELD_SPLIT_RE);
+  let candidateField: string | undefined;
+  let snippetField: string | undefined;
+  for (const segment of rest) {
+    // A label seen twice means a snippet or value holds " / <label>"; the line is
+    // ambiguous, so refuse it rather than let the last match win.
+    if (segment.startsWith("候選：")) {
+      if (candidateField !== undefined) return null;
+      candidateField = segment.slice("候選：".length);
+    } else if (segment.startsWith("搜尋摘要：")) {
+      if (snippetField !== undefined) return null;
+      snippetField = segment.slice("搜尋摘要：".length);
+    }
+  }
+  if (candidateField === undefined) return null;
+
+  const candidates: NameCandidate[] = [];
+  if (candidateField !== "無") {
+    for (const entry of candidateField.split(CANDIDATE_SPLIT_RE)) {
+      const candidate = parseCandidate(entry);
+      if (!candidate) return null;
+      candidates.push(candidate);
+    }
+  }
+
+  return {
+    slug: head[1] ?? "",
+    storedName: storedName ?? "",
+    candidates,
+    snippets: snippetField ? snippetField.split("；") : [],
+  };
+}
+
+/**
+ * Parses a rendered single-item name-arbiter user message: the item when exactly
+ * one line parses as an item line, else null (zero or several items).
+ */
+export function parseSingleNameArbiterUser(user: string): ParsedNameArbiterItem | null {
+  const parsed = user
+    .split("\n")
+    .map((line) => parseNameArbiterItemLine(line))
+    .filter((item): item is ParsedNameArbiterItem => item !== null);
+  return parsed.length === 1 ? (parsed[0] ?? null) : null;
 }
 
 function parseNameVerdict(value: unknown): NameVerdict | null {
@@ -175,62 +286,13 @@ function verdictSelectsSuppliedCandidate(
   );
 }
 
-function parseArbiterResponse(
-  content: string,
-  items: NameArbiterItem[],
-): Map<string, NameVerdict> | null {
-  const parsed = parseBatchEntries(content, batchParseShape);
-  if (!parsed.success) {
-    if (parsed.issues) {
-      console.error(`  → name arbiter batch validation: ${formatRetryInstruction(parsed.issues)}`);
-    }
-    return null;
-  }
-
-  const validSlugs = new Set(items.map((item) => item.slug));
-  const results = new Map<string, NameVerdict>();
-
-  parsed.entries.forEach((entry, index) => {
-    const validated = nameVerdictItemShape.safeParse(entry);
-    if (!validated.success) return;
-
-    const chosen = validated.data.chosen.trim();
-    if (chosen.length === 0) return;
-
-    const verdict: NameVerdict = {
-      chosen,
-      confidence: validated.data.confidence,
-      reason: validated.data.reason.trim(),
-    };
-
-    // parseBatchClassification lacks this positional fallback. We deliberately
-    // follow the detect side because a numbered list must survive a model that
-    // omits or mangles one join key.
-    const slug = validSlugs.has(validated.data.slug)
-      ? validated.data.slug
-      : items[index]?.slug;
-
-    if (!slug) return;
-
-    const requestedItem = items.find((candidate) => candidate.slug === slug);
-    if (
-      requestedItem &&
-      verdictSelectsSuppliedCandidate(verdict, requestedItem)
-    ) {
-      results.set(slug, verdict);
-    }
-  });
-
-  return results;
-}
-
 function parseSingleArbiterResponse(
   content: string,
   item: NameArbiterItem,
 ): NameVerdict | null {
-  // The fan-out path sends one brand but the contract is still a `results`
-  // array, so unwrap it and take the first entry.
-  const parsed = parseBatchEntries(content, batchParseShape);
+  // One brand per call, but the contract is still a `results` array, so unwrap
+  // it and take the first entry.
+  const parsed = parseBatchEntries(content, resultsParseShape);
   if (!parsed.success) {
     if (parsed.issues) {
       console.error(`  → name arbiter validation: ${formatRetryInstruction(parsed.issues)}`);
@@ -243,7 +305,18 @@ function parseSingleArbiterResponse(
     : null;
 }
 
-async function arbitrateBrandName(
+/** One name-arbiter call for one brand (DEV-1886). */
+export async function arbitrateBrandName(
+  item: NameArbiterItem,
+  jobId?: string,
+): Promise<LlmCallOutcome<NameVerdict>> {
+  return auditedCall(
+    { provider: "enrich", operation: "arbitrateBrandName", kind: "service" },
+    () => arbitrateBrandNameCall(item, jobId),
+  );
+}
+
+async function arbitrateBrandNameCall(
   item: NameArbiterItem,
   jobId?: string,
 ): Promise<LlmCallOutcome<NameVerdict>> {
@@ -253,7 +326,7 @@ async function arbitrateBrandName(
   try {
     const { text: nameArbiterPrompt, prompt: namePromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter");
 
-    const client = createNameArbiterClient(token, "names", item.target, jobId, namePromptMeta);
+    const client = createNameArbiterClient(token, item.target, jobId, namePromptMeta);
 
     const { response, data, content } = await client.chat({
       system: nameArbiterPrompt,
@@ -290,105 +363,4 @@ async function arbitrateBrandName(
     );
     return contentFailed();
   }
-}
-
-async function arbitrateBrandNamesChunk(
-  items: NameArbiterItem[],
-  jobId?: string,
-): Promise<LlmCallOutcome<Map<string, NameVerdict>>> {
-  const token = process.env.OPENAI_API_KEY;
-  if (!token) return notAttempted();
-
-  try {
-    const { text: nameArbiterBatchPrompt, prompt: nameBatchPromptMeta } = await fetchLangfusePromptWithMeta("name-arbiter");
-
-    const client = createNameArbiterClient(
-      token,
-      "namesBatch",
-      items.at(0)?.target,
-      jobId,
-      nameBatchPromptMeta,
-    );
-
-    const { response, data, content } = await client.chat({
-      system: nameArbiterBatchPrompt,
-      user: buildNameArbiterUserContent(items),
-      json: true,
-      schema: NAME_ARBITRATION_SCHEMA,
-      ...profileChatParams("namesBatch"),
-    });
-
-    if (!response.ok) {
-      console.error(
-        `  → name arbitration batch failed: HTTP ${response.status}`,
-      );
-      return providerFailed();
-    }
-
-    if (!content) {
-      console.error(
-        `  → name arbitration batch: empty response, data=${JSON.stringify(data).slice(0, 200)}`,
-      );
-      return contentFailed();
-    }
-
-    const results = parseArbiterResponse(content, items);
-    if (!results) {
-      console.error(
-        `  → name arbitration batch: invalid response: ${content.slice(0, 200)}`,
-      );
-      return contentFailed();
-    }
-
-    return { value: results, calls: { attempted: 1, providerFailed: 0 } };
-  } catch (err) {
-    console.error(
-      `  → name arbitration batch failed: ${err instanceof Error ? err.message : err}`,
-    );
-    return contentFailed();
-  }
-}
-
-export async function arbitrateBrandNames(
-  items: NameArbiterItem[],
-  jobId?: string,
-): Promise<LlmBatchOutcome<Map<string, NameVerdict>>> {
-  return auditedCall(
-    { provider: "enrich", operation: "arbitrateBrandNames", kind: "service" },
-    async () => {
-  const results = new Map<string, NameVerdict>();
-  let calls = noLlmCalls();
-
-  for (let i = 0; i < items.length; i += LLM_BATCH_CHUNK_SIZE) {
-    const batch = items.slice(i, i + LLM_BATCH_CHUNK_SIZE);
-    const chunk = await arbitrateBrandNamesChunk(batch, jobId);
-    calls = addLlmCalls(calls, chunk.calls);
-
-    if (chunk.value) {
-      for (const [slug, verdict] of chunk.value) {
-        results.set(slug, verdict);
-      }
-      continue;
-    }
-
-    // A provider-level chunk failure means the account, not the payload, is
-    // the problem — on 2026-08-02, fan-out would have turned one dead batch
-    // call into 20 more doomed calls per chunk. No-key pre-flight is also not
-    // content failure, so it should not manufacture per-item retries.
-    if (isLlmProviderFailure(chunk.calls) || chunk.calls.attempted === 0) {
-      continue;
-    }
-
-    for (const item of batch) {
-      const single = await arbitrateBrandName(item, jobId);
-      calls = addLlmCalls(calls, single.calls);
-      if (single.value) {
-        results.set(item.slug, single.value);
-      }
-    }
-  }
-
-  return { results, calls };
-    },
-  );
 }

@@ -332,7 +332,7 @@ export type ClassifiedImage = {
   imageUrl?: string | null;
 };
 
-const imageClassificationShape = z.object({
+export const imageClassificationShape = z.object({
   classifications: z.array(
     z.object({
       id: z.string(),

@@ -61,6 +61,9 @@ check_deps() {
 
 # ── Environment file ─────────────────────────────────────────────────────────
 check_env() {
+  if [ "${E2E_LOCAL_APP:-}" = "true" ]; then
+    echo "INFO: E2E_LOCAL_APP uses a loopback app and staging DB; Playwright validates identities before seeding"
+  fi
   if [ ! -f ".env.local" ]; then
     echo "ERROR: .env.local missing. Run: cp .env.example .env.local"
     ERRORS=$((ERRORS + 1))
@@ -78,6 +81,9 @@ check_env() {
     fi
     if ! grep -q "RESEND_API_KEY=" .env.local 2>/dev/null; then
       echo "WARN: RESEND_API_KEY may not be set (optional transactional owner emails will no-op)"
+    fi
+    if ! grep -q "TYPESAFE_API_KEY=" .env.local 2>/dev/null; then
+      echo "WARN: TYPESAFE_API_KEY may not be set (optional, TypeSafe AI Jev model for the eval only)"
     fi
     if ! grep -q "NEXT_PUBLIC_SENTRY_DSN=https://" .env.local 2>/dev/null; then
       echo "WARN: NEXT_PUBLIC_SENTRY_DSN may not be set — Sentry error monitoring disabled (check .env.local)"
@@ -161,6 +167,11 @@ check_env() {
       echo "OK: OPENAI_API_KEY"
     else
       echo "WARN: OPENAI_API_KEY not set (the entire enrichment pipeline will fail — descriptions, reputation, category classification, brand detection, and image classification)"
+    fi
+    if grep -q "OPENAI_ADMIN_KEY=." .env.local; then
+      echo "OK: OPENAI_ADMIN_KEY"
+    else
+      echo "WARN: OPENAI_ADMIN_KEY not set (optional — the spend report falls back to prod-derived OpenAI spend instead of the billed Costs API)"
     fi
     if pnpm exec node -e "const {chromium}=require('@playwright/test');process.exit(require('fs').existsSync(chromium.executablePath())?0:1)" 2>/dev/null; then
       echo "OK: Playwright Chromium installed"
@@ -327,8 +338,11 @@ check_e2e() {
 has_env_value() {
   local var="$1"
 
-  if [ -n "${!var:-}" ]; then
-    return 0
+  # A variable set in the environment is authoritative, even when empty;
+  # .env.local is only a fallback for an unset one.
+  if [ -n "${!var+x}" ]; then
+    [ -n "${!var}" ]
+    return
   fi
 
   grep -Eq "^${var}=.+" .env.local 2>/dev/null
@@ -387,7 +401,7 @@ check_ops_agent_vars() {
   if [ ! -f ".env.local" ]; then
     return
   fi
-  for var in SLACK_BOT_TOKEN SLACK_SIGNING_SECRET OPS_AGENT OPS_AGENT_OPERATORS OPS_AGENT_DAILY_CAP OPS_AGENT_RAILWAY_TOKEN OPS_ROUTINE_TOKEN OPS_ROUTINE_ID E2E_DISPATCH_SECRET; do
+  for var in SLACK_BOT_TOKEN SLACK_SIGNING_SECRET OPS_AGENT OPS_AGENT_OPERATORS OPS_AGENT_DAILY_CAP OPS_AGENT_RAILWAY_TOKEN OPS_ROUTINE_TOKEN OPS_ROUTINE_ID OPS_ROUTINE_CALLBACK_TOKEN E2E_DISPATCH_SECRET; do
     if [ -z "${!var:-}" ] && ! grep -q "^${var}=." .env.local 2>/dev/null; then
       echo "WARN: ${var} not set (optional — needed for the ops agent)"
     fi

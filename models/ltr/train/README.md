@@ -5,7 +5,7 @@ Train a LambdaMART model on graded search relevance data and export to ONNX for 
 ## Setup
 
 ```bash
-uv sync --project scripts/ltr
+uv sync --project models/ltr/train
 ```
 
 ## Usage
@@ -13,13 +13,19 @@ uv sync --project scripts/ltr
 ### Train a model
 
 ```bash
-pnpm ltr:train -- --features-dir <path-to-csvs> --version v1 --grid small --seed 1736
+pnpm search:eval export-features --dataset v3 --split train,val,holdout
+mkdir -p /tmp/formoria-ltr-v2-train
+cp scripts/enrichment/eval/search-eval/runs/situation-search-v3-features-{train,val}.csv /tmp/formoria-ltr-v2-train/
+pnpm ltr:train --features-dir /tmp/formoria-ltr-v2-train --version v2 --grid small --seed 1900
 ```
+
+The trainer reads every CSV in its feature directory. Keep the holdout export
+out of that directory.
 
 ### Generate smoke model (synthetic data)
 
 ```bash
-pnpm ltr:train -- --write-smoke --seed 1736
+pnpm ltr:train --write-smoke --seed 1900
 ```
 
 ### Run tests
@@ -39,7 +45,7 @@ The `featureSpecHash` must match across all CSVs and corresponds to `featureSpec
 
 ## Output
 
-Models are written to the repo root `models/` directory:
-- `ltr-<version>.onnx` — the ONNX model
-- `ltr-<version>.meta.json` — training metadata
-- `ltr-<version>.parity.json` — parity fixture for Node.js tests
+Models are written to `models/ltr/`:
+- `<version>.onnx` — the ONNX model
+- `<version>.meta.json` — training metadata
+- `<version>.parity.json` — parity fixture for Node.js tests

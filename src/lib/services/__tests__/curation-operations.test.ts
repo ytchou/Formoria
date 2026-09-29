@@ -22,7 +22,7 @@ vi.mock("../category-classifier", async (importOriginal) => {
     await importOriginal<typeof import("../category-classifier")>();
   return {
     ...actual,
-    detectBrandsBatch: vi.fn(),
+    detectBrand: vi.fn(),
   };
 });
 

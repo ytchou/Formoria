@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
-import type { PromptMeta } from '@/lib/langfuse/prompt'
+import { parsePromptVersionPins, type PromptMeta } from '@/lib/langfuse/prompt'
 import type { PhaseAdapter } from './phase-adapters'
 import type { AuditCollector } from './zero-write'
 import { runName as makeRunName, traceName as makeTraceName } from './langfuse-runs'
-import { p95, mean } from './scorers'
+import { p95, mean, thresholdSweep, expectedCalibrationError, type CalibrationPoint } from './scorers'
+import { listPriceCost } from './list-prices'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +25,8 @@ export type ExperimentArm = {
   name: string
   type: 'model' | 'prompt' | 'custom'
   value: string
+  /** Custom arms only: a `LANGFUSE_PROMPT_VERSIONS` pin (e.g. `detect:4`) held for the arm's items. */
+  promptVersions?: string
 }
 
 export type ItemResult = {
@@ -32,16 +35,30 @@ export type ItemResult = {
   ok: boolean
   scores: Record<string, number>
   error?: string
-  costUsd: number
+  /** Null when any of the item's calls has an unknown price. */
+  costUsd: number | null
   latencyMs: number
+  /** Token counts summed over the item's audited calls (D15); absent when the item never ran. */
+  promptTokens?: number
+  cachedPromptTokens?: number
+  cacheWriteTokens?: number
+  completionTokens?: number
   output?: unknown
   expected?: unknown
   promptMeta?: PromptMeta['prompt']
+  /** Jev arms only: every raw answer (probabilities included), for offline threshold tuning. */
+  answers?: Record<string, unknown>
 }
 
 type ArmSummary = {
   scorerMeans: Record<string, number>
-  costPerItem: number
+  /** Null when any item's cost is unknown. */
+  costPerItem: number | null
+  /**
+   * Model arms only: cost per item at eval list prices (`list-prices.ts`),
+   * set when `costPerItem` is null and the arm's model has a list price.
+   */
+  listCostPerItem?: number
   p95LatencyMs: number
 }
 
@@ -143,6 +160,7 @@ type RunItemsParams = {
     output: unknown
     error?: string
     promptMeta?: PromptMeta['prompt']
+    answers?: Record<string, unknown>
   }>
   adapter: PhaseAdapter
   concurrency: number
@@ -150,6 +168,35 @@ type RunItemsParams = {
   runWithAuditContext: ExperimentDeps['runWithAuditContext']
   /** Creates a Langfuse trace per item for generation linking. */
   createItemTrace?: (itemId: string, itemRunId: string) => unknown
+  /**
+   * The model a model-type arm is testing (D19). When set, an item any of
+   * whose audited calls went to another model fails as off-slot.
+   */
+  armModel?: string
+}
+
+/**
+ * Scores for a failed item: 0 on every scorer except nullable ones, which stay
+ * absent (n/a) so an origin-only mean is not diluted by the failure rate.
+ */
+function zeroScoresFor(adapter: PhaseAdapter): Record<string, number> {
+  const zeroScores: Record<string, number> = {}
+  for (const scorer of adapter.scorers) {
+    if (!scorer.nullable) zeroScores[scorer.name] = 0
+  }
+  return zeroScores
+}
+
+/**
+ * The user message for a default-task item. Golden items store the exact
+ * production user text as `{user, promptName}`; sending the whole object as
+ * JSON gave the model a payload production never sends. Other object inputs
+ * have no user text of their own and stay JSON.
+ */
+function userMessageOf(input: unknown): string {
+  if (typeof input === 'string') return input
+  const user = (input as { user?: unknown } | null)?.user
+  return typeof user === 'string' ? user : JSON.stringify(input)
 }
 
 export async function runItems({
@@ -160,6 +207,7 @@ export async function runItems({
   collector,
   runWithAuditContext,
   createItemTrace,
+  armModel,
 }: RunItemsParams): Promise<ItemResult[]> {
   const limit = createLimiter(concurrency)
 
@@ -169,7 +217,13 @@ export async function runItems({
         const itemRunId = randomUUID()
 
         let lastError: string | undefined
-        let taskResult: { ok: boolean; output: unknown; error?: string; promptMeta?: PromptMeta['prompt'] } | null = null
+        let taskResult: {
+          ok: boolean
+          output: unknown
+          error?: string
+          promptMeta?: PromptMeta['prompt']
+          answers?: Record<string, unknown>
+        } | null = null
 
         // Create a Langfuse trace for this item so emitLangfuseGeneration can link to it
         const langfuseTrace = createItemTrace?.(item.id, itemRunId) ?? undefined
@@ -194,22 +248,44 @@ export async function runItems({
 
         const wallMs = Date.now() - wallStart
 
-        // Join cost/latency from collector by correlationId
+        // Join cost/latency from collector by correlationId. An explicit null
+        // costUsd is a priced call whose price is unknown, so the item's cost is
+        // unknown too; an absent one (started rows, unpriced calls) adds nothing.
         const auditRecords = collector.byCorrelation(itemRunId)
-        const totalCost = auditRecords.reduce(
-          (sum, r) => sum + (r.costUsd ?? 0),
-          0,
-        )
+        const totalCost = auditRecords.some((r) => r.costUsd === null)
+          ? null
+          : auditRecords.reduce((sum, r) => sum + (r.costUsd ?? 0), 0)
         const totalLatency = auditRecords.length > 0
           ? auditRecords.reduce((sum, r) => sum + (r.latencyMs ?? 0), 0)
           : wallMs
+        const tokens = {
+          promptTokens: sumOf(auditRecords, (r) => r.promptTokens),
+          cachedPromptTokens: sumOf(auditRecords, (r) => r.cachedPromptTokens),
+          cacheWriteTokens: sumOf(auditRecords, (r) => r.cacheWriteTokens),
+          completionTokens: sumOf(auditRecords, (r) => r.completionTokens),
+        }
 
-        if (taskResult?.ok) {
+        // Slot assertion (D19): the model override is process-global, so a
+        // model arm must prove every call it paid for hit the model under
+        // test. Records without a model (started rows) carry no claim.
+        const offSlot = armModel === undefined
+          ? undefined
+          : auditRecords.find((r) => typeof r.model === 'string' && r.model !== armModel)?.model ?? undefined
+        if (offSlot !== undefined) {
+          // Appended, not replaced: a task that already failed keeps its own
+          // error. A succeeded task (even after a failed first attempt) drops it.
+          const note = `off-slot call: ${offSlot}`
+          lastError = taskResult?.ok || lastError === undefined ? note : `${lastError}; ${note}`
+        }
+
+        if (taskResult?.ok && offSlot === undefined) {
           // Score against expected
           const expected = adapter.expectedOf(item)
           const scores: Record<string, number> = {}
           for (const scorer of adapter.scorers) {
-            scores[scorer.name] = scorer.fn(taskResult.output, expected)
+            const score = scorer.fn(taskResult.output, expected)
+            // null = n/a for this item: leave the key absent
+            if (score !== null) scores[scorer.name] = score
           }
 
           return {
@@ -219,17 +295,16 @@ export async function runItems({
             scores,
             costUsd: totalCost,
             latencyMs: totalLatency,
+            ...tokens,
             output: taskResult.output,
             expected,
             ...(taskResult.promptMeta !== undefined ? { promptMeta: taskResult.promptMeta } : {}),
+            ...(taskResult.answers !== undefined ? { answers: taskResult.answers } : {}),
           }
         }
 
-        // Failed: score 0 on every evaluator
-        const zeroScores: Record<string, number> = {}
-        for (const scorer of adapter.scorers) {
-          zeroScores[scorer.name] = 0
-        }
+        // Failed: score 0 on every non-nullable evaluator
+        const zeroScores = zeroScoresFor(adapter)
 
         return {
           itemId: item.id,
@@ -239,6 +314,7 @@ export async function runItems({
           error: lastError,
           costUsd: totalCost,
           latencyMs: totalLatency,
+          ...tokens,
           ...(taskResult?.promptMeta !== undefined ? { promptMeta: taskResult.promptMeta } : {}),
         }
       }),
@@ -246,6 +322,10 @@ export async function runItems({
   )
 
   return results
+}
+
+function sumOf<T>(records: T[], pick: (r: T) => number | null | undefined): number {
+  return records.reduce((sum, r) => sum + (pick(r) ?? 0), 0)
 }
 
 // ---------------------------------------------------------------------------
@@ -281,6 +361,14 @@ export async function runExperiment({
     }
   }
 
+  // Unique arm names per run, so results, traces and the run file never collide.
+  const runArms = uniqueArmNames(arms)
+
+  // Fail before any model call when a jev arm has nowhere to go.
+  if (runArms.some(isJevArm) && !adapter.decide) {
+    throw new Error(`adapter for ${dataset} has no decide hook`)
+  }
+
   const since = deps.now()
   const iso = since.toISOString()
 
@@ -291,7 +379,7 @@ export async function runExperiment({
   try {
     const armResults: ArmResult[] = []
 
-    for (const arm of arms) {
+    for (const arm of runArms) {
       // Set per-arm environment
       const prevModel = process.env.OPENAI_MODEL_OVERRIDE
       const prevPromptVersions = process.env.LANGFUSE_PROMPT_VERSIONS
@@ -302,7 +390,10 @@ export async function runExperiment({
         } else if (arm.type === 'prompt') {
           process.env.LANGFUSE_PROMPT_VERSIONS = arm.value
         } else if (arm.type === 'custom') {
-          // Custom arms manage their own execution — no env setup
+          // Custom arms manage their own execution; a prompt pin is the only env they take.
+          if (arm.promptVersions !== undefined) {
+            process.env.LANGFUSE_PROMPT_VERSIONS = arm.promptVersions
+          }
         } else {
           throw new Error(`Unknown arm type: ${(arm as { type: string }).type}`)
         }
@@ -313,12 +404,17 @@ export async function runExperiment({
           : { text: '', prompt: { name: '', version: 0, source: 'snapshot' as const } }
 
         // Pin check: a prompt arm requires Langfuse as the source —
-        // the snapshot fallback ignores version pins.
-        if (arm.type === 'prompt' && promptResult.prompt.source !== 'langfuse') {
-          const zeroScores: Record<string, number> = {}
-          for (const scorer of adapter.scorers) {
-            zeroScores[scorer.name] = 0
-          }
+        // the snapshot fallback ignores version pins. A pinned custom (jev)
+        // arm also requires exactly the pinned version, so it can never run
+        // on rules other than the ones its name claims.
+        const pinError =
+          arm.type === 'prompt' && promptResult.prompt.source !== 'langfuse'
+            ? `prompt pin ${arm.value} resolved from ${promptResult.prompt.source}, not langfuse`
+            : arm.type === 'custom' && arm.promptVersions !== undefined
+              ? customPinError(arm.promptVersions, promptResult.prompt)
+              : null
+        if (pinError !== null) {
+          const zeroScores = zeroScoresFor(adapter)
           armResults.push({
             arm: arm.name,
             items: items.map((item) => ({
@@ -326,7 +422,7 @@ export async function runExperiment({
               itemRunId: randomUUID(),
               ok: false,
               scores: { ...zeroScores },
-              error: `prompt pin ${arm.value} resolved from ${promptResult.prompt.source}, not langfuse`,
+              error: pinError,
               costUsd: 0,
               latencyMs: 0,
               promptMeta: promptResult.prompt,
@@ -349,7 +445,7 @@ export async function runExperiment({
           const result = await deps.callModel(
             {
               system: promptResult.text,
-              user: typeof item.input === 'string' ? item.input : JSON.stringify(item.input),
+              user: userMessageOf(item.input),
               phase: adapter.profileKey,
               prompt: promptResult.prompt,
             },
@@ -374,11 +470,20 @@ export async function runExperiment({
           return { ok: true, output: unwrapped, promptMeta: promptResult.prompt }
         }
 
-        // Use adapter.task when present, otherwise fall back to default callModel path
-        const task = adapter.task
-          ? (item: ExperimentItem, itemRunId: string) =>
-              adapter.task!(item, arm, { itemRunId, model: arm.type === 'model' ? arm.value : undefined })
-          : defaultTask
+        // A jev arm goes to adapter.decide. Otherwise use adapter.task when
+        // present, and fall back to the default callModel path. A decide hook
+        // that reads prompt rules gets the arm's prompt, resolved once above
+        // (never per item), and every item records which version it ran on.
+        const jevPrompt = adapter.decideUsesPrompt && adapter.promptName ? promptResult : undefined
+        const task = isJevArm(arm)
+          ? async (item: ExperimentItem, itemRunId: string) => ({
+              ...(await adapter.decide!(item, { itemRunId, ...(jevPrompt ? { prompt: jevPrompt } : {}) })),
+              ...(jevPrompt ? { promptMeta: jevPrompt.prompt } : {}),
+            })
+          : adapter.task
+            ? (item: ExperimentItem, itemRunId: string) =>
+                adapter.task!(item, arm, { itemRunId, model: arm.type === 'model' ? arm.value : undefined })
+            : defaultTask
 
         // Build per-item trace factory for Langfuse generation linking
         const createItemTrace = deps.createTrace
@@ -402,17 +507,46 @@ export async function runExperiment({
           collector,
           runWithAuditContext: deps.runWithAuditContext,
           createItemTrace,
+          ...(arm.type === 'model' ? { armModel: arm.value } : {}),
         })
 
         // Aggregate per-arm metrics
         const scorerMeans: Record<string, number> = {}
         for (const scorer of adapter.scorers) {
-          const values = itemResults.map((r) => r.scores[scorer.name] ?? 0)
-          scorerMeans[scorer.name] = mean(values)
+          // n/a items (key absent) are excluded; an all-n/a scorer has no mean
+          // and the markdown table prints n/a for it.
+          const values = itemResults.flatMap((r) => r.scores[scorer.name] ?? [])
+          if (values.length > 0) {
+            scorerMeans[scorer.name] = mean(values)
+          }
         }
 
         const costs = itemResults.map((r) => r.costUsd)
+        const knownCosts = costs.filter((c): c is number => c !== null)
         const latencies = itemResults.map((r) => r.latencyMs)
+
+        const costPerItem =
+          knownCosts.length < costs.length ? null : costs.length > 0 ? mean(knownCosts) : 0
+        // A model with no DB price row yet (D15) is priced at its list price,
+        // shown separately so it is never mistaken for a DB-priced cost.
+        // Off-slot items' tokens were billed at another model's price, so they
+        // are excluded from both the sum and the denominator.
+        const listCosts = costPerItem === null && arm.type === 'model'
+          ? itemResults.filter((r) => !r.error?.includes('off-slot call')).map((r) =>
+              listPriceCost(
+                {
+                  promptTokens: r.promptTokens ?? 0,
+                  cachedPromptTokens: r.cachedPromptTokens,
+                  cacheWriteTokens: r.cacheWriteTokens,
+                  completionTokens: r.completionTokens ?? 0,
+                },
+                arm.value,
+              ),
+            )
+          : []
+        const listCostPerItem = listCosts.length > 0 && listCosts.every((c) => c !== null)
+          ? mean(listCosts as number[])
+          : undefined
 
         // Derive promptMeta for the arm from the first item that has one
         const armPromptMeta = itemResults.find((r) => r.promptMeta !== undefined)?.promptMeta
@@ -422,7 +556,8 @@ export async function runExperiment({
           items: itemResults,
           summary: {
             scorerMeans,
-            costPerItem: costs.length > 0 ? mean(costs) : 0,
+            costPerItem,
+            ...(listCostPerItem !== undefined ? { listCostPerItem } : {}),
             p95LatencyMs: p95(latencies),
           },
           ...(armPromptMeta !== undefined ? { promptMeta: armPromptMeta } : {}),
@@ -475,11 +610,17 @@ export async function runExperiment({
       }
     }
 
+    // Threshold sweep for arms whose outputs carry a probability (jev arms)
+    const sweeps = buildThresholdSweeps(armResults, adapter)
+    if (sweeps) {
+      markdown += '\n\n' + sweeps
+    }
+
     // Write run JSON
-    const rn = makeRunName(dataset, arms.map((a) => a.name).join('+'), iso)
+    const rn = makeRunName(dataset, runArms.map((a) => a.name).join('+'), iso)
     const runData = {
       dataset,
-      arms: arms.map((a) => ({
+      arms: runArms.map((a) => ({
         name: a.name,
         type: a.type,
         value: a.value,
@@ -489,14 +630,19 @@ export async function runExperiment({
       })),
       items: armResults.flatMap((ar) =>
         ar.items.map((ir) => {
-          // Reduce output to {evaluations, selected, agentOutcome} for JSON
-          const reducedOutput = ir.output && typeof ir.output === 'object'
-            ? {
-                evaluations: (ir.output as Record<string, unknown>).evaluations,
-                selected: (ir.output as Record<string, unknown>).selected,
-                agentOutcome: (ir.output as Record<string, unknown>).agentOutcome,
-              }
+          // A products-agent output (it carries `evaluations`) is reduced to
+          // {evaluations, selected, agentOutcome} to keep the file small; every
+          // other output is kept whole so predictions and probabilities survive.
+          const out = ir.output && typeof ir.output === 'object'
+            ? (ir.output as Record<string, unknown>)
             : undefined
+          const reducedOutput = out && 'evaluations' in out
+            ? {
+                evaluations: out.evaluations,
+                selected: out.selected,
+                agentOutcome: out.agentOutcome,
+              }
+            : out
           return {
             arm: ar.arm,
             itemId: ir.itemId,
@@ -506,6 +652,7 @@ export async function runExperiment({
             costUsd: ir.costUsd,
             latencyMs: ir.latencyMs,
             ...(reducedOutput ? { output: reducedOutput } : {}),
+            ...(ir.answers ? { answers: ir.answers } : {}),
           }
         }),
       ),
@@ -535,6 +682,67 @@ export async function runExperiment({
 }
 
 // ---------------------------------------------------------------------------
+// Arm names and threshold sweeps
+// ---------------------------------------------------------------------------
+
+function isJevArm(arm: ExperimentArm): boolean {
+  return arm.type === 'custom' && arm.value.startsWith('jev:')
+}
+
+/**
+ * Null when a custom arm's `promptVersions` pin resolved to exactly the pinned
+ * version from Langfuse; otherwise the arm's error. An adapter without a
+ * prompt resolves to the empty snapshot placeholder, so its pin always fails.
+ */
+function customPinError(pin: string, resolved: PromptMeta['prompt']): string | null {
+  const pinned = resolved.name ? parsePromptVersionPins({ LANGFUSE_PROMPT_VERSIONS: pin })[resolved.name] : undefined
+  if (resolved.source === 'langfuse' && pinned !== undefined && resolved.version === pinned) return null
+  return `prompt pin ${pin} resolved to ${resolved.name || '(no prompt)'} v${resolved.version} from ${resolved.source}; a pinned arm needs exactly that version from langfuse`
+}
+
+/** Suffixes repeated arm names with `#2`, `#3`, ... in order of appearance. */
+function uniqueArmNames(arms: ExperimentArm[]): ExperimentArm[] {
+  const used = new Set<string>()
+  return arms.map((arm) => {
+    let name = arm.name
+    for (let n = 2; used.has(name); n++) name = `${arm.name}#${n}`
+    used.add(name)
+    return name === arm.name ? arm : { ...arm, name }
+  })
+}
+
+/**
+ * One threshold sweep, plus its ECE, per arm whose successful outputs carry a
+ * numeric `probability`. `correct` is the adapter's first (primary agreement)
+ * scorer above 0; items where that scorer is n/a are skipped.
+ */
+function buildThresholdSweeps(armResults: ArmResult[], adapter: PhaseAdapter): string {
+  const primary = adapter.scorers[0]?.name
+  if (!primary) return ''
+  const sections: string[] = []
+  for (const ar of armResults) {
+    const points: CalibrationPoint[] = []
+    for (const ir of ar.items) {
+      if (!ir.ok || !ir.output || typeof ir.output !== 'object') continue
+      const p = (ir.output as Record<string, unknown>).probability
+      const score = ir.scores[primary]
+      if (typeof p !== 'number' || score === undefined) continue
+      // Above 0, not === 1: 0.5 from categoryAgreement means the L1 matched
+      // and the L2 did not. The swept probability is P(L1), so an L1 match is
+      // the event it predicts. Binary scorers (decisionAgreement) are 0 or 1.
+      points.push({ p, correct: score > 0 })
+    }
+    if (points.length > 0) {
+      const ece = expectedCalibrationError(points)
+      sections.push(
+        `### Threshold sweep: ${ar.arm} (correct = ${primary} > 0)\n\n${thresholdSweep(points)}\n\nECE: ${ece === null ? 'n/a' : ece.toFixed(3)}`,
+      )
+    }
+  }
+  return sections.join('\n\n')
+}
+
+// ---------------------------------------------------------------------------
 // Markdown table builder
 // ---------------------------------------------------------------------------
 
@@ -552,7 +760,12 @@ function buildMarkdownTable(
     const scoreCols = scorerNames.map(
       (name) => ar.summary.scorerMeans[name]?.toFixed(3) ?? 'n/a',
     )
-    return `| ${ar.arm} | ${scoreCols.join(' | ')} | $${ar.summary.costPerItem.toFixed(4)} | ${ar.summary.p95LatencyMs.toFixed(0)} |`
+    const cost = ar.summary.costPerItem !== null
+      ? `$${ar.summary.costPerItem.toFixed(4)}`
+      : ar.summary.listCostPerItem !== undefined
+        ? `$${ar.summary.listCostPerItem.toFixed(4)} (list)`
+        : 'n/a'
+    return `| ${ar.arm} | ${scoreCols.join(' | ')} | ${cost} | ${ar.summary.p95LatencyMs.toFixed(0)} |`
   })
 
   return [header, separator, ...rows].join('\n')

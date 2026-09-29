@@ -13,7 +13,11 @@ import {
   TAIWAN_USAGE_RULES,
 } from "@/lib/prompts/shared";
 import type { EnrichBrand, EnrichPhase } from "../types";
-import { runProductsPhase, validateProductProposals } from "../products";
+import {
+  formatOriginExcerptLine,
+  runProductsPhase,
+  validateProductProposals,
+} from "../products";
 import type { ProductCandidate } from "../product-candidates";
 
 /**
@@ -25,8 +29,8 @@ import type { ProductCandidate } from "../product-candidates";
  * `@/lib/services/` alias spelling only, so the relative path below passes the
  * gate. That is a gap in the gate, filed separately, and NOT the licence this
  * test relies on: the reason the mock is legitimate is that the mocked export
- * is the adapter, and `site-identity.test.ts` stubs `../../site-identity-arbiter`
- * on the same ground.
+ * is the adapter, and `names.test.ts` stubs `../../name-arbiter` on the same
+ * ground.
  *
  * Supabase is INJECTED rather than mocked, which is also what lets the
  * zero-writes assertion below observe every table the phase touches.
@@ -135,10 +139,14 @@ function singleCallEvaluation(url: string): RawProposal {
   };
 }
 
-function modelReturnsRawContent(content: string) {
+function modelReturnsRawContent(
+  content: string,
+  signals: { finishReason?: string; refusal?: string } = {},
+) {
   const chat = vi.fn().mockResolvedValue({
     response: { ok: true },
     content,
+    ...signals,
   });
   createClient.mockReturnValue({ chat });
   return chat;
@@ -1351,6 +1359,48 @@ describe("validateProductProposals", () => {
   });
 });
 
+describe("single-call abnormal completion", () => {
+  it.each([
+    ["model_truncated", { finishReason: "length" }],
+    ["model_filtered", { finishReason: "content_filter" }],
+    ["model_refused", { refusal: "I cannot" }],
+  ] as const)(
+    "single_call_%s_skips_retry_and_keeps_previous_proposals",
+    async (code, signals) => {
+      const chat = modelReturnsRawContent('{"products": [', signals);
+
+      const result = await runProductsPhase({
+        brand: BRAND,
+        phases: PHASES,
+        scrapedData: SCRAPED,
+        target: { type: "submission", id: SUBMISSION_ID },
+      });
+
+      expect(chat).toHaveBeenCalledTimes(1);
+      expect(result.phaseResult.status).toBe("skipped");
+      expect(result.patch).toEqual({});
+      expect(result.proposals).toHaveLength(0);
+      expect(result.phaseResult.detail).toContain(code);
+    },
+  );
+
+  it("single_call_invalid_json_with_stop_still_retries_once", async () => {
+    const chat = modelReturnsRawContent("this is not valid JSON {{{{", {
+      finishReason: "stop",
+    });
+
+    const result = await runProductsPhase({
+      brand: BRAND,
+      phases: PHASES,
+      scrapedData: SCRAPED,
+      target: { type: "submission", id: SUBMISSION_ID },
+    });
+
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(result.phaseResult.status).toBe("succeeded");
+  });
+});
+
 describe("rawCount and productsParseError in runProductsPhase", () => {
   it("parseJson returning null sets productsParseError true and productsFromModel 0", async () => {
     modelReturnsRawContent("this is not valid JSON {{{{");
@@ -1677,7 +1727,13 @@ function agentEvaluation(
 
 function agentProduct(url: string, overrides: RawProposal = {}): RawProposal {
   return {
-    ...rawProposal({ official_url: url, image_source_url: url }),
+    ...rawProposal({
+      official_url: url,
+      image_source_url: url,
+      // The agent's product page states "made in Taiwan"; a description that
+      // omitted it would spend the soft origin repair turn (DEV-1856).
+      product_description_zh: "台灣南投陶土手拉坏，直徑 21 公分，適合日常盛裝主餐。",
+    }),
     sources: [{ url, source_type: "official", claim_zh: "商品頁列出陶土與尺寸" }],
     ...overrides,
   };
@@ -1953,13 +2009,28 @@ describe("products agent path", () => {
       jobId: "job-77",
     });
 
-    // `jsonObject: true` reaches the wire as a forced JSON body, and the turn
+    // DEV-1864: the propose turn reaches the wire as a strict json_schema
+    // (`curated_product_proposals`), not a loose `json: true` body, and the turn
     // is plain `{ role, content }` messages rather than a `system`/`user` pair.
     const request = chat.mock.calls[0]![0];
-    expect(request).toMatchObject({ json: true });
+    expect(request).toMatchObject({
+      schema: { name: "curated_product_proposals" },
+    });
+    expect(request).not.toHaveProperty("json");
     expect(request.messages?.map((message) => message.role)).toEqual([
       "system",
       "user",
     ]);
+  });
+});
+
+describe("formatOriginExcerptLine", () => {
+  it("renders url | excerpt_id | text, matching the origin excerpts header", () => {
+    expect(
+      formatOriginExcerptLine("https://example.tw/p/1", {
+        id: "c1:origin:0",
+        text: "商品產地 台灣",
+      }),
+    ).toBe("- https://example.tw/p/1 | c1:origin:0 | 商品產地 台灣");
   });
 });

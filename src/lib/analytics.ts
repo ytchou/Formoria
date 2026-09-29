@@ -371,6 +371,28 @@ export function trackProductSearchExecuted(
   });
 }
 
+export function trackProductSearchEmpty(query: string, searchId?: string) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_EMPTY, {
+    query_length: query.length,
+    ...searchTermProperty(query),
+    ...(searchId !== undefined && { search_id: searchId }),
+  });
+}
+
+export function trackProductSearchBrandClicked(opts: {
+  searchId: string;
+  position: number;
+  brandSlug: string;
+  query: string;
+}) {
+  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SEARCH_BRAND_CLICKED, {
+    search_id: opts.searchId,
+    position: opts.position,
+    brand_slug: opts.brandSlug,
+    ...searchTermProperty(opts.query),
+  });
+}
+
 export function trackProductSearchResultClicked(opts: {
   searchId: string;
   position: number;

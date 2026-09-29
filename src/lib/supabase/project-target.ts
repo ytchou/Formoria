@@ -124,6 +124,7 @@ export type StagingTarget = {
  */
 export function validateStagingTarget(
   environment: Environment = process.env,
+  options: { allowLocalApp?: boolean } = {},
 ): StagingTarget {
   const declaredEnvironment = required(
     environment,
@@ -140,7 +141,25 @@ export function validateStagingTarget(
   if (!appValue?.trim()) {
     throw new Error("STAGING_BASE_URL is required for staging E2E");
   }
-  const appUrl = parseHttpsUrl(appValue.trim(), "STAGING_BASE_URL");
+  const parseAppUrl = (value: string, name: string): URL => {
+    if (!options.allowLocalApp) return parseHttpsUrl(value, name);
+    const url = new URL(value);
+    if (
+      !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== "/"
+    ) {
+      throw new Error(
+        `${name} must be a loopback origin without credentials, path or query`,
+      );
+    }
+    return url;
+  };
+  const appUrl = parseAppUrl(appValue.trim(), "STAGING_BASE_URL");
   for (const name of [
     "BASE_URL",
     "PLAYWRIGHT_BASE_URL",
@@ -150,14 +169,17 @@ export function validateStagingTarget(
     const declaredOrigin = environment[name]?.trim();
     if (
       declaredOrigin &&
-      parseHttpsUrl(declaredOrigin, name).toString() !== appUrl.toString()
+      parseAppUrl(declaredOrigin, name).toString() !== appUrl.toString()
     ) {
       throw new Error(
         `${name} and STAGING_BASE_URL must identify the same staging origin`,
       );
     }
   }
-  if (appUrl.hostname.toLowerCase() !== STAGING_HOSTNAME) {
+  if (
+    !options.allowLocalApp &&
+    appUrl.hostname.toLowerCase() !== STAGING_HOSTNAME
+  ) {
     throw new Error(
       `STAGING_BASE_URL must use ${STAGING_HOSTNAME}, not ${appUrl.hostname}`,
     );
@@ -200,6 +222,17 @@ export function validateStagingTarget(
     projectRef,
     "service_role",
   );
+
+  if (options.allowLocalApp) {
+    const databaseRef = projectRefFromDatabaseUrl(
+      required(environment, "SUPABASE_DB_URL", STAGING_E2E_CONTEXT),
+    );
+    if (databaseRef !== STAGING_PROJECT_REF) {
+      throw new Error(
+        "SUPABASE_DB_URL must identify the staging project for local E2E",
+      );
+    }
+  }
 
   return {
     appUrl: appUrl.toString().replace(/\/$/, ""),

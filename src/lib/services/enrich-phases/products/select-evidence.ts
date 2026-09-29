@@ -13,11 +13,11 @@ export const MAX_MAIN_TEXT_CHARS = 4096
 /** Approximate size of the always-kept lead (first non-chrome blocks). */
 export const LEAD_CHARS = 600
 /** A block shorter than this is never treated as a cross-page repeat. */
-export const REPEAT_MIN_CHARS = 120
+const REPEAT_MIN_CHARS = 120
 /** A repeat must appear on at least this many pages... */
-export const REPEAT_MIN_PAGES = 3
+const REPEAT_MIN_PAGES = 3
 /** ...and on at least this share of the pages that carry blocks. */
-export const REPEAT_MIN_SHARE = 0.5
+const REPEAT_MIN_SHARE = 0.5
 /**
  * A fact-less block matching `CHROME_PATTERN` is dropped as boilerplate only
  * up to this length (cleaned text). Longer ones are real prose that mentions
@@ -28,7 +28,7 @@ export const CHROME_MAX_CHARS = 60
  * A fact-tier block this short (cleaned text) is a bare label, e.g. a line
  * ending in a colon before a br; the block after it carries the value.
  */
-export const LABEL_MAX_CHARS = 24
+const LABEL_MAX_CHARS = 24
 
 export type TextStats = {
   /** Length of the unfiltered text, `blocks.join(' ')`. */

@@ -24,7 +24,7 @@ import type { RenderProvider } from '../scraper/render/types'
 import { needsRendering } from '../catalog-discovery'
 import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { assertBudget, type BudgetKind, type BudgetState } from './budget'
-import { AcquisitionPlan, boundedPlan, type AcquisitionPlanType } from './plan'
+import { AcquisitionPlan, boundedPlan, MAX_FETCH_TARGETS, type AcquisitionPlanType } from './plan'
 
 const MAX_SUMMARY_BYTES = 1536 // 1.5 KB
 
@@ -82,6 +82,9 @@ function spend(budget: BudgetState, kind: BudgetKind): ToolResult | null {
   return null
 }
 
+/** Links a probe summary carries. Named because the tool descriptions state it. */
+const SUMMARY_LINK_CAP = 20
+
 /**
  * Extracts a bounded summary from HTML. Includes title, textLength,
  * scriptCount, needsRendering, platform hints, and discovered links.
@@ -118,7 +121,7 @@ function summarizeHtml(html: string, url: string): ToolResult {
     scriptCount,
     needsRendering: needsRendering(html),
     platform: ogSiteName || generator,
-    links: links.slice(0, 20),
+    links: links.slice(0, SUMMARY_LINK_CAP),
   }
 
   // Ensure we stay under the byte limit
@@ -142,6 +145,14 @@ const urlArg = z.object({
 
 const URL_PARAMETERS = toStrictJsonSchema(urlArg)
 
+/** Links `extract_links` returns. Named because its description states it. */
+const EXTRACT_LINK_CAP = 30
+
+/** The refusals every URL tool shares, stated once so the three cannot drift. */
+function urlToolRefusals(budgetKind: 'probe' | 'render'): string {
+  return `The URL must be in the provenance allowlist; otherwise returns {error:"not_in_allowlist"}. A spent ${budgetKind} budget returns {error:"budget_exhausted", kind}.`
+}
+
 /**
  * The four model-callable tools, bound to injected dependencies and a shared
  * provenance allowlist. The allowlist grows as `extract_links` discovers URLs.
@@ -154,7 +165,7 @@ export function createAcquisitionTools(
     definition: {
       name: 'probe_static',
       description:
-        'Fetches a URL statically and returns a bounded summary (title, text length, scripts, links). The URL must be in the provenance allowlist.',
+        `Fetches a URL statically and returns a bounded summary (title, text length, scripts, needsRendering, platform, up to ${SUMMARY_LINK_CAP} links). Costs one probe from the budget. Do not call it for a URL that already has an entry in probeResults — that URL was probed before planning. Links in the summary do NOT join the allowlist — use extract_links for that. A failed fetch returns {error, status} (status may be absent). ${urlToolRefusals('probe')}`,
       parameters: URL_PARAMETERS,
     },
     async run(args) {
@@ -182,7 +193,7 @@ export function createAcquisitionTools(
     definition: {
       name: 'probe_rendered',
       description:
-        'Renders a URL with a headless browser and returns a bounded summary. Costs one render from the budget. The URL must be in the provenance allowlist.',
+        `Renders a URL with a headless browser and returns the same bounded summary as probe_static. Costs one render from the budget. Use it only for a URL whose probe result reports needsRendering: true — its entry in probeResults, or a probe_static summary for a URL probeResults does not cover. Render such a URL directly; do not probe it again first. A failed render returns {error}. {error:"no_render_provider"} means rendering is unavailable for this whole run — do not call probe_rendered again. ${urlToolRefusals('render')}`,
       parameters: URL_PARAMETERS,
     },
     async run(args) {
@@ -210,7 +221,7 @@ export function createAcquisitionTools(
     definition: {
       name: 'extract_links',
       description:
-        'Extracts navigation and content links from a page. Discovered links become probeable (they join the provenance allowlist).',
+        `Fetches a page statically and returns {links} — up to ${EXTRACT_LINK_CAP} absolute http(s) links from it. Costs one probe from the budget. Every link found joins the provenance allowlist, so it becomes probeable. A failed fetch returns {error, links: []}. ${urlToolRefusals('probe')}`,
       parameters: URL_PARAMETERS,
     },
     async run(args) {
@@ -239,7 +250,7 @@ export function createAcquisitionTools(
             // invalid URL
           }
         })
-        return JSON.stringify({ links: links.slice(0, 30) })
+        return JSON.stringify({ links: links.slice(0, EXTRACT_LINK_CAP) })
       } catch (err) {
         return JSON.stringify({
           error: err instanceof Error ? err.message : 'extract_failed',
@@ -251,8 +262,8 @@ export function createAcquisitionTools(
 
   /**
    * The plan's own schema is the tool's argument schema. The plan additionally
-   * carries a cross-field refinement (total fetch targets ≤ 6) that JSON Schema
-   * cannot express, so `run` parses with Zod and answers a violation with
+   * carries a cross-field refinement (total fetch targets ≤ MAX_FETCH_TARGETS)
+   * that JSON Schema cannot express, so `run` parses with Zod and answers a violation with
    * `invalid_plan` — the model gets a message it can act on, and the plan node
    * can tell a rejected payload from a crashed tool.
    */
@@ -260,7 +271,7 @@ export function createAcquisitionTools(
     definition: {
       name: 'submit_plan',
       description:
-        'Submits the final acquisition plan. Call this exactly once, after any probing, to end the planning step.',
+        `Submits the final acquisition plan and ends the planning step; call it once, after any probing. Total fetch targets (surfaces whose fetch is not "skip", plus fanOut) must be at most ${MAX_FETCH_TARGETS}. Success returns {accepted:true, surfaces, fanOut}. A violation returns {error:"invalid_plan", reason} — fix the plan and call again.`,
       parameters: toStrictJsonSchema(AcquisitionPlan),
     },
     async run(args) {

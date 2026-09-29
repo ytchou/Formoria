@@ -3,6 +3,7 @@ import type { SentryIssue } from '@/lib/adapters/sentry/issues'
 import type { SentryClassification } from '../../classifiers/sentry-classify'
 import type { DetectorContext } from '../../types'
 import { sentryDetector, sentryIssueToFinding } from '../sentry'
+import { routeOf } from '../../contracts'
 
 function issue(overrides: Partial<SentryIssue> = {}): SentryIssue {
   return {
@@ -47,6 +48,7 @@ describe('sentry detector', () => {
         title: 'TypeError: Cannot read cart total',
         severity: 'medium',
         mergePolicy: 'human',
+        route: 'auto_fix',
         sentryIssueId: '123456',
         evidence: {
           count: 7,
@@ -159,5 +161,26 @@ describe('sentry detector', () => {
 
     expect(classify).toHaveBeenCalledTimes(8)
     expect(maxConcurrent).toBeLessThanOrEqual(4)
+  })
+
+  it('routes Sentry issues to auto-fix, classified or not', async () => {
+    const classification: SentryClassification = {
+      severity: 'medium',
+      rootCause: 'Null reference in cart handler',
+      confidence: 0.95,
+      fixability: 'high',
+      mergePolicy: 'automatic',
+      changedFiles: ['src/app/api/cart/route.ts'],
+    }
+    const listIssues = vi.fn(async () => [issue()])
+
+    const basic = await sentryDetector({ listIssues }).run(context)
+    const classified = await sentryDetector({
+      listIssues,
+      classify: vi.fn(async () => classification),
+    }).run(context)
+
+    expect(basic.map(routeOf)).toEqual(['auto_fix'])
+    expect(classified.map(routeOf)).toEqual(['auto_fix'])
   })
 })

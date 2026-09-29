@@ -10,6 +10,7 @@ vi.mock("@/lib/audit", () => ({
 }));
 
 import { createOpsTools, type OpsTool, type OpsToolDeps, type OpsToolContext } from "../tools";
+import { OpsProposalSchema } from "../proposals";
 
 function makeDeps(overrides: Partial<OpsToolDeps> = {}): OpsToolDeps {
   return {
@@ -269,6 +270,35 @@ describe("propose_action", () => {
     expect(onProposed).not.toHaveBeenCalled();
   });
 
+  it("has no instruction property and describes every property", () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+    const params = tool.definition.parameters as {
+      properties: Record<string, { description?: string }>;
+    };
+    expect(params.properties).not.toHaveProperty("instruction");
+    expect(Object.keys(params.properties)).toEqual([
+      "kind",
+      "slug",
+      "jobId",
+      "mode",
+      "workflow",
+    ]);
+    for (const [name, prop] of Object.entries(params.properties)) {
+      expect(prop.description, name).toBeTruthy();
+    }
+  });
+
+  it("description names the confirm step and the real return shapes", () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+    const description = tool.definition.description ?? "";
+    expect(description).toContain("nothing runs until they confirm");
+    expect(description).toContain("{ok:true}");
+    expect(description).toContain('"invalid_args"');
+    expect(description).toContain('"unknown_brand"');
+  });
+
   it("has 3 kinds (no code_fix)", () => {
     const tools = createOpsTools(makeDeps(), makeCtx());
     const tool = tools.find((t) => t.definition.name === "propose_action")!;
@@ -280,5 +310,30 @@ describe("propose_action", () => {
       "rerun_job",
       "dispatch_workflow",
     ]);
+  });
+
+  it("flat tool-schema enums match OpsProposalSchema (#1175 drift guard)", () => {
+    const tools = createOpsTools(makeDeps(), makeCtx());
+    const tool = tools.find((t) => t.definition.name === "propose_action")!;
+    const params = tool.definition.parameters as {
+      properties: {
+        kind: { enum: string[] };
+        mode: { enum: string[] };
+        workflow: { enum: string[] };
+      };
+    };
+    const variants = OpsProposalSchema.options;
+    const byKind = (kind: string) =>
+      variants.find((v) => v.shape.kind.value === kind)!;
+    const rerunJob = byKind("rerun_job") as (typeof variants)[1];
+    const dispatchWorkflow = byKind("dispatch_workflow") as (typeof variants)[2];
+
+    expect(params.properties.kind.enum).toEqual(
+      variants.map((v) => v.shape.kind.value),
+    );
+    expect(params.properties.mode.enum).toEqual(rerunJob.shape.mode.options);
+    expect(params.properties.workflow.enum).toEqual(
+      dispatchWorkflow.shape.workflow.options,
+    );
   });
 });

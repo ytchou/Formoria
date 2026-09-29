@@ -1,9 +1,12 @@
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
+  draftPrelabels,
+  selectDraftCandidates,
   parseCliArgs,
   parseArm,
   applyEnvFile,
@@ -13,8 +16,26 @@ import {
   isReviewed,
   isAdmittedProductsItem,
   LANGFUSE_SNAPSHOT_PATH,
+  cmdRun,
+  checkRunArms,
+  cmdSweepNames,
+  seedIntentDataset,
+  readSituationQueries,
+  INTENT_PARSE_DATASET,
+  cmdDatasetValidate,
+  cmdDatasetSplit,
+  writeGoldenItems,
+  type GoldenWriteApi,
+  type GoldenWriteBody,
+  type SplitDatasetItem,
+  type SplitWriteBody,
 } from '../llm-eval'
+import { assertCensusTarget } from '../../enrichment/eval/production-guard'
+import { PRODUCTION_PROJECT_REF } from '@/lib/supabase/project-target'
+import { adapterFor } from '@/lib/services/eval/phase-adapters'
+import type { GoldenItemBody } from '@/lib/services/eval/golden-capture'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
+import { buildNameArbiterUserContent } from '@/lib/services/name-arbiter'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -106,6 +127,10 @@ describe('parseArm', () => {
       kind: 'model',
       model: 'gpt-4o-mini',
     })
+  })
+
+  it('trims the value after the colon', () => {
+    expect(parseArm('model:gpt-6-luna ')).toEqual({ kind: 'model', model: 'gpt-6-luna' })
   })
 
   it('throws on a malformed arm spec', () => {
@@ -240,6 +265,153 @@ describe('parseCliArgs — dataset record / prelabel', () => {
       file: '/tmp/expected.json',
     })
   })
+
+  it('parses dataset prelabel --dataset --draft [--limit] (DEV-1880)', () => {
+    expect(
+      parseCliArgs(['dataset', 'prelabel', '--dataset', 'acquisition-critique-golden', '--draft', '--limit', '5']),
+    ).toEqual({ command: 'dataset-prelabel-draft', dataset: 'acquisition-critique-golden', limit: 5 })
+    expect(parseCliArgs(['dataset', 'prelabel', '--dataset', 'acquisition-critique-golden', '--draft'])).toEqual({
+      command: 'dataset-prelabel-draft',
+      dataset: 'acquisition-critique-golden',
+      limit: undefined,
+    })
+  })
+
+  it('rejects --draft combined with --item or --file, and a bad --limit', () => {
+    const base = ['dataset', 'prelabel', '--dataset', 'acquisition-critique-golden', '--draft']
+    expect(() => parseCliArgs([...base, '--item', 'item-1'])).toThrow('--draft')
+    expect(() => parseCliArgs([...base, '--file', '/tmp/x.json'])).toThrow('--draft')
+    expect(() => parseCliArgs([...base, '--limit', '0'])).toThrow('--limit must be a positive integer')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// dataset prelabel --draft (DEV-1880)
+// ---------------------------------------------------------------------------
+
+describe('selectDraftCandidates', () => {
+  const adapter = { expectedSchema: z.object({ verdict: z.enum(['sufficient', 'thin', 'fail']) }) }
+  const pending = { humanApproval: { status: 'pending' } }
+  const reviewed = { humanApproval: { status: 'approved', reviewedVia: { queueId: 'q', scoreId: 's' } } }
+
+  it('keeps only ACTIVE, unreviewed items without a usable expected output', () => {
+    const items = [
+      { id: 'draft-me', status: 'ACTIVE', expectedOutput: null, metadata: pending },
+      { id: 'draft-me-too', status: 'ACTIVE', expectedOutput: {}, metadata: undefined },
+      { id: 'reviewed', status: 'ACTIVE', expectedOutput: null, metadata: reviewed },
+      { id: 'has-verdict', status: 'ACTIVE', expectedOutput: { verdict: 'thin' }, metadata: pending },
+      { id: 'archived', status: 'ARCHIVED', expectedOutput: null, metadata: pending },
+    ]
+    expect(selectDraftCandidates(items, adapter).map((i) => i.id)).toEqual(['draft-me', 'draft-me-too'])
+  })
+
+  it('applies --limit after filtering', () => {
+    const items = [
+      { id: 'reviewed', status: 'ACTIVE', expectedOutput: null, metadata: reviewed },
+      { id: 'a', status: 'ACTIVE', expectedOutput: null, metadata: pending },
+      { id: 'b', status: 'ACTIVE', expectedOutput: null, metadata: pending },
+    ]
+    expect(selectDraftCandidates(items, adapter, 1).map((i) => i.id)).toEqual(['a'])
+  })
+})
+
+describe('draftPrelabels', () => {
+  const critique = adapterFor('acquisition-critique-golden')
+  const item = (id: string) => ({ id, status: 'ACTIVE', input: { user: 'u' }, expectedOutput: null, metadata: {} })
+  const output = (verdict: string, reason = 'why') => ({ verdict, reason, recoveryAction: null, urlVerdicts: null })
+
+  it('writes the schema-valid { verdict } with a model-draft prelabel and counts per value', async () => {
+    const write = vi.fn(async () => {})
+    const report = await draftPrelabels({
+      dataset: 'acquisition-critique-golden',
+      adapter: critique,
+      candidates: [item('a'), item('b'), item('c')],
+      replay: async () => [
+        { itemId: 'a', ok: true, output: output('thin', 'homepage only') },
+        { itemId: 'b', ok: true, output: output('sufficient') },
+        { itemId: 'c', ok: true, output: output('thin') },
+      ],
+      write,
+    })
+    expect(write).toHaveBeenCalledTimes(3)
+    expect(write).toHaveBeenCalledWith({
+      item: expect.objectContaining({ id: 'a' }),
+      expectedOutput: { verdict: 'thin' },
+      prelabel: { author: 'cli', method: 'model-draft', status: 'prelabeled', rationale: 'homepage only' },
+    })
+    expect(report.drafted).toEqual([
+      { itemId: 'a', value: 'thin' },
+      { itemId: 'b', value: 'sufficient' },
+      { itemId: 'c', value: 'thin' },
+    ])
+    expect(report.counts).toEqual({ thin: 2, sufficient: 1 })
+    expect(report).toMatchObject({ written: 3, failed: [], skipped: [] })
+  })
+
+  it('writes nothing for a replay failure or a schema-invalid output', async () => {
+    const write = vi.fn(async () => {})
+    const report = await draftPrelabels({
+      dataset: 'acquisition-critique-golden',
+      adapter: critique,
+      candidates: [item('broken'), item('invalid'), item('missing')],
+      replay: async () => [
+        { itemId: 'broken', ok: false, error: 'Model call failed' },
+        { itemId: 'invalid', ok: true, output: output('maybe') },
+      ],
+      write,
+    })
+    expect(write).not.toHaveBeenCalled()
+    expect(report.written).toBe(0)
+    expect(report.failed).toEqual([])
+    expect(report.skipped.map((s) => s.itemId)).toEqual(['broken', 'invalid', 'missing'])
+    expect(report.skipped[0]!.reason).toContain('Model call failed')
+  })
+
+  it('omits the rationale when the output has no reason', async () => {
+    const write = vi.fn(async () => {})
+    await draftPrelabels({
+      dataset: 'acquisition-critique-golden',
+      adapter: critique,
+      candidates: [item('a')],
+      replay: async () => [{ itemId: 'a', ok: true, output: { verdict: 'fail', recoveryAction: null, urlVerdicts: null } }],
+      write,
+    })
+    expect(write).toHaveBeenCalledWith(
+      expect.objectContaining({ prelabel: { author: 'cli', method: 'model-draft', status: 'prelabeled' } }),
+    )
+  })
+
+  it('reports an unconfirmed write as failed without stopping the run', async () => {
+    const write = vi.fn(async ({ item: { id } }: { item: { id: string } }) => {
+      if (id === 'a') throw new Error('write not confirmed')
+    })
+    const report = await draftPrelabels({
+      dataset: 'acquisition-critique-golden',
+      adapter: critique,
+      candidates: [item('a'), item('b')],
+      replay: async () => [
+        { itemId: 'a', ok: true, output: output('thin') },
+        { itemId: 'b', ok: true, output: output('fail') },
+      ],
+      write,
+    })
+    expect(report.written).toBe(1)
+    expect(report.failed).toEqual(['a'])
+  })
+
+  it('errors for a dataset whose adapter cannot draft, before replaying', async () => {
+    const replay = vi.fn(async () => [])
+    await expect(
+      draftPrelabels({
+        dataset: 'acquisition-plan-golden',
+        adapter: adapterFor('acquisition-plan-golden'),
+        candidates: [item('a')],
+        replay,
+        write: vi.fn(async () => {}),
+      }),
+    ).rejects.toThrow('draft not supported for acquisition-plan-golden')
+    expect(replay).not.toHaveBeenCalled()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -356,6 +528,18 @@ describe('parseCliArgs — prompt promote', () => {
       command: 'prompt-promote',
       name: 'detect',
       version: 4,
+      allowVariableChange: false,
+    })
+  })
+
+  it('parses --allow-variable-change on prompt promote', () => {
+    expect(
+      parseCliArgs(['prompt', 'promote', 'sentry-classify', '2', '--allow-variable-change']),
+    ).toEqual({
+      command: 'prompt-promote',
+      name: 'sentry-classify',
+      version: 2,
+      allowVariableChange: true,
     })
   })
 
@@ -485,6 +669,46 @@ describe('handlePromptPull', () => {
     })
     expect(checkExitCode).toBe(1)
     expect(checkDeps.writeFile).not.toHaveBeenCalled()
+  })
+
+  it('writes the prompts that fetched, logs fetch errors, and exits 1', async () => {
+    const snapshot: SnapshotFile = {
+      prompts: {
+        descriptions: { version: 1, text: ['old'] },
+        'sentry-classify': { version: 1, text: ['old classify'] },
+      },
+    }
+
+    const api: PromptApi = {
+      promptsGet: vi.fn(async ({ promptName }) => {
+        if (promptName === 'sentry-classify') throw new Error('No production label')
+        return { version: 5, prompt: 'new desc', labels: ['production'] }
+      }),
+      promptsCreate: vi.fn(),
+      promptVersionUpdate: vi.fn(),
+    }
+
+    const logs: string[] = []
+    let writtenContent = ''
+    const exitCode = await handlePromptPull({
+      add: [],
+      check: false,
+      allowVariableChange: false,
+      deps: {
+        api,
+        log: (msg: string) => logs.push(msg),
+        readFile: () => JSON.stringify(snapshot),
+        writeFile: (_path: string, content: string) => {
+          writtenContent = content
+        },
+      },
+    })
+
+    expect(exitCode).toBe(1)
+    expect(logs).toContain('fetch error: sentry-classify (No production label)')
+    const parsed = JSON.parse(writtenContent)
+    expect(parsed.prompts.descriptions.version).toBe(5)
+    expect(parsed.prompts['sentry-classify'].version).toBe(1)
   })
 })
 
@@ -636,5 +860,1051 @@ describe('isAdmittedProductsItem', () => {
     }
     expect(isAdmittedProductsItem(item, false)).toBe(false)
     expect(isAdmittedProductsItem(item, true)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1824: jev arms and run guards
+// ---------------------------------------------------------------------------
+
+describe('jev arms', () => {
+  it("parseArm('jev:jev-1.13.0') returns a jev spec; parseArm('jev:jev-latest') throws", () => {
+    expect(parseArm('jev:jev-1.13.0')).toEqual({ kind: 'jev', version: 'jev-1.13.0' })
+    expect(() => parseArm('jev:jev-latest')).toThrow(/jev-1\.13\.0/)
+    expect(() => parseArm('jev:')).toThrow()
+  })
+
+  it('parses_jev_arm_with_prompt_pin', () => {
+    expect(parseArm('jev:jev-1.13.0@4')).toEqual({ kind: 'jev', version: 'jev-1.13.0', promptVersion: 4 })
+    expect(() => parseArm('jev:jev-1.13.0@x')).toThrow(/Malformed arm spec/)
+    expect(() => parseArm('jev:jev-1.13.0@0')).toThrow(/Malformed arm spec/)
+  })
+
+  it('jev_arm_without_pin_unchanged', () => {
+    const spec = parseArm('jev:jev-1.13.0')
+    expect(spec).toEqual({ kind: 'jev', version: 'jev-1.13.0' })
+    expect(spec).not.toHaveProperty('promptVersion')
+  })
+
+  it('run accepts a jev arm', () => {
+    expect(
+      parseCliArgs(['run', '--dataset', 'detect-confidence-golden', '--arm', 'jev:jev-1.13.0']),
+    ).toMatchObject({ command: 'run', arms: [{ kind: 'jev', version: 'jev-1.13.0' }] })
+  })
+
+  it('pairwise run rejects jev arm at parse time', () => {
+    expect(() =>
+      parseCliArgs([
+        'pairwise',
+        'run',
+        '--phase',
+        'descriptions',
+        '--arm',
+        'prompt:1',
+        '--arm',
+        'jev:jev-1.13.0',
+      ]),
+    ).toThrow(/pairwise.*jev|jev.*pairwise/i)
+  })
+})
+
+describe('checkRunArms (DEV-1894 prompt pins on jev arms)', () => {
+  const jev = { kind: 'jev' as const, version: 'jev-1.13.0' }
+
+  it('accepts a pinned jev arm where the jev candidate reads the prompt rules', () => {
+    expect(() =>
+      checkRunArms('detect-confidence-golden', adapterFor('detect-confidence-golden'), [
+        { kind: 'prompt', version: 4 },
+        { ...jev, promptVersion: 4 },
+      ]),
+    ).not.toThrow()
+  })
+
+  it.each(['name-arbiter-confidence-golden', 'intent-parse-golden', 'descriptions'])(
+    'rejects jev:<ver>@N on %s, whose jev candidate reads no prompt rules',
+    (dataset) => {
+      expect(() => checkRunArms(dataset, adapterFor(dataset), [{ ...jev, promptVersion: 2 }])).toThrow(
+        /jev-1\.13\.0@2.*does not read prompt rules/,
+      )
+    },
+  )
+
+  it('rejects an unpinned jev arm next to a prompt arm when the jev candidate reads the prompt rules', () => {
+    expect(() =>
+      checkRunArms('detect-confidence-golden', adapterFor('detect-confidence-golden'), [
+        { kind: 'prompt', version: 4 },
+        jev,
+      ]),
+    ).toThrow(/pin the jev arm.*jev:jev-1\.13\.0@4/)
+  })
+
+  it('an unpinned jev arm alone, or beside a model arm, still runs', () => {
+    const adapter = adapterFor('detect-confidence-golden')
+    expect(() => checkRunArms('detect-confidence-golden', adapter, [jev])).not.toThrow()
+    expect(() =>
+      checkRunArms('detect-confidence-golden', adapter, [{ kind: 'model', model: 'gpt-5.6-luna' }, jev]),
+    ).not.toThrow()
+    expect(() =>
+      checkRunArms('name-arbiter-confidence-golden', adapterFor('name-arbiter-confidence-golden'), [
+        { kind: 'prompt', version: 3 },
+        jev,
+      ]),
+    ).not.toThrow()
+  })
+
+  it('cmdRun refuses before reading the dataset', async () => {
+    const getDataset = vi.fn()
+    await expect(
+      cmdRun('name-arbiter-confidence-golden', [{ ...jev, promptVersion: 2 }], false, {}, { getDataset }),
+    ).rejects.toThrow(/does not read prompt rules/)
+    expect(getDataset).not.toHaveBeenCalled()
+  })
+})
+
+describe('cmdRun', () => {
+  it('run on a dataset with zero ACTIVE items exits 1 with message', async () => {
+    const errors: string[] = []
+    const errSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.map(String).join(' '))
+    })
+    const getDataset = vi.fn().mockResolvedValue({
+      items: [
+        { id: 'x', status: 'ARCHIVED', input: {}, expectedOutput: null, metadata: {} },
+      ],
+    })
+    const prevExitCode = process.exitCode
+    try {
+      await cmdRun('detect-confidence-golden', [{ kind: 'jev', version: 'jev-1.13.0' }], false, {}, { getDataset })
+      expect(getDataset).toHaveBeenCalledWith('detect-confidence-golden')
+      expect(process.exitCode).toBe(1)
+      expect(errors.join('\n')).toMatch(/detect-confidence-golden.*0 ACTIVE items/)
+    } finally {
+      process.exitCode = prevExitCode
+      errSpy.mockRestore()
+    }
+  })
+
+  // DEV-1896: --split keeps the holdout out of tuning runs.
+  const reviewed = { reviewedVia: 'fixture-review', at: '2026-09-28' }
+  const splitItems = [
+    { id: 'item-train', status: 'ACTIVE', input: {}, expectedOutput: null, metadata: { split: 'train', humanApproval: reviewed } },
+    { id: 'item-val', status: 'ACTIVE', input: {}, expectedOutput: null, metadata: { split: 'val', humanApproval: reviewed } },
+    { id: 'item-holdout', status: 'ACTIVE', input: {}, expectedOutput: null, metadata: { split: 'holdout', humanApproval: reviewed } },
+    { id: 'item-none', status: 'ACTIVE', input: {}, expectedOutput: null, metadata: { humanApproval: reviewed } },
+  ]
+
+  async function runWithSplit(split: ('train' | 'val' | 'holdout')[] | undefined): Promise<string[]> {
+    const getDataset = vi.fn().mockResolvedValue({ items: splitItems })
+    const runExperiment = vi.fn(async (input: { items: { id: string }[] }) => ({
+      summary: { succeeded: input.items.length, total: input.items.length },
+      armResults: [],
+      markdown: '',
+      exitCode: 0,
+    }))
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const prevExitCode = process.exitCode
+    try {
+      await cmdRun(
+        'detect-confidence-golden',
+        [{ kind: 'jev', version: 'jev-1.13.0' }],
+        false,
+        { split },
+        { getDataset, runExperiment: runExperiment as never },
+      )
+      expect(runExperiment).toHaveBeenCalledTimes(1)
+      return runExperiment.mock.calls[0]![0].items.map((i) => i.id)
+    } finally {
+      process.exitCode = prevExitCode
+      logSpy.mockRestore()
+    }
+  }
+
+  it('cmdRun with split keeps only items whose metadata.split is listed', async () => {
+    expect(await runWithSplit(['train', 'val'])).toEqual(['item-train', 'item-val'])
+  })
+
+  it('cmdRun without --split keeps all items', async () => {
+    expect(await runWithSplit(undefined)).toEqual(['item-train', 'item-val', 'item-holdout', 'item-none'])
+  })
+})
+
+describe('parseCliArgs — run --split (DEV-1896)', () => {
+  const base = ['run', '--dataset', 'name-arbiter-confidence-golden', '--arm', 'jev:jev-1.13.0']
+
+  it("parses --split train,val into ['train','val']", () => {
+    expect(parseCliArgs([...base, '--split', 'train,val'])).toMatchObject({
+      command: 'run',
+      split: ['train', 'val'],
+    })
+  })
+
+  it('leaves split undefined when --split is absent', () => {
+    expect(parseCliArgs(base)).toMatchObject({ command: 'run', split: undefined })
+  })
+
+  it('rejects an unknown split value', () => {
+    expect(() => parseCliArgs([...base, '--split', 'train,test'])).toThrow(/Unknown --split value: test/)
+  })
+})
+
+describe('sweep-names (DEV-1896)', () => {
+  const user = buildNameArbiterUserContent([
+    {
+      slug: 'adela-shop',
+      storedName: 'ADELA shop',
+      candidates: [
+        { source: 'stored', value: 'ADELA shop' },
+        { source: 'cleaned', value: 'ADELA' },
+        { source: 'detected', value: 'Adela Atelier' },
+      ],
+    },
+  ])
+  const datasetItem = (id: string, split: string, acceptedNames: string[]) => ({
+    id,
+    status: 'ACTIVE',
+    input: { system: 'sys', user },
+    expectedOutput: { confidence: 'high', acceptedNames },
+    metadata: { split },
+  })
+  const items = [
+    datasetItem('item-train', 'train', ['Adela Atelier']),
+    datasetItem('item-val', 'val', ['ADELA']),
+    datasetItem('item-holdout', 'holdout', ['ADELA']),
+  ]
+  const jevOutput = (itemId: string, probability: number) => ({
+    arm: 'jev-1.13.0',
+    itemId,
+    ok: true,
+    output: { chosen: 'Adela Atelier', confidence: 'high', probability },
+  })
+  const runFile = {
+    dataset: 'name-arbiter-confidence-golden',
+    arms: [
+      { name: 'gpt-5.6-luna', type: 'model', value: 'gpt-5.6-luna' },
+      { name: 'jev-1.13.0', type: 'custom', value: 'jev:jev-1.13.0' },
+    ],
+    items: [
+      { arm: 'gpt-5.6-luna', itemId: 'item-train', ok: true, output: { chosen: 'ADELA', confidence: 'high' } },
+      jevOutput('item-train', 0.8),
+      jevOutput('item-val', 0.6),
+      jevOutput('item-holdout', 0.99),
+    ],
+  }
+
+  async function sweep(file: unknown, split: ('train' | 'val' | 'holdout')[]) {
+    const logs: string[] = []
+    const getDataset = vi.fn().mockResolvedValue({ items })
+    await cmdSweepNames('runs/fixture.json', 'name-arbiter-confidence-golden', split, {
+      readFile: () => JSON.stringify(file),
+      getDataset,
+      log: (msg) => logs.push(msg),
+    })
+    expect(getDataset).toHaveBeenCalledWith('name-arbiter-confidence-golden')
+    return logs.join('\n')
+  }
+
+  it('parses sweep-names <runfile> --dataset --split', () => {
+    expect(
+      parseCliArgs(['sweep-names', 'runs/x.json', '--dataset', 'name-arbiter-confidence-golden', '--split', 'train,val']),
+    ).toEqual({ command: 'sweep-names', runFile: 'runs/x.json', dataset: 'name-arbiter-confidence-golden', split: ['train', 'val'] })
+    expect(() => parseCliArgs(['sweep-names', 'runs/x.json', '--dataset', 'name-arbiter-confidence-golden'])).toThrow(
+      /--split is required/,
+    )
+  })
+
+  it('sweep-names joins run-file jev outputs to dataset items by id and prints the grid + best', async () => {
+    const out = await sweep(runFile, ['train', 'val'])
+    expect(out).toMatch(/jev-1\.13\.0, split=train,val, n=2/)
+    expect(out).toContain('| NAMES_HIGH_MIN | NAMES_MEDIUM_MIN | agreed | agreement |')
+    // 0.8 must ship (high <= 0.80) and 0.6 must fall back (high > 0.60).
+    expect(out).toContain('| 0.80 | 0.75 | 2/2 | 1.000 |')
+    expect(out).toContain('| 0.95 | 0.90 | 1/2 | 0.500 |')
+    expect(out).toMatch(/Best: NAMES_HIGH_MIN=0\.80 NAMES_MEDIUM_MIN=0\.75/)
+  })
+
+  it('sweep-names ignores items outside --split', async () => {
+    // The holdout point (p=0.99, wrong rename) would cap agreement below 1.
+    const out = await sweep(runFile, ['train'])
+    expect(out).toMatch(/n=1/)
+    expect(out).toMatch(/Best: NAMES_HIGH_MIN=0\.80 NAMES_MEDIUM_MIN=0\.75 \(agreement 1\.000/)
+  })
+
+  it('sweep-names errors when the run file has no jev arm', async () => {
+    const noJev = { ...runFile, arms: [runFile.arms[0]], items: [runFile.items[0]] }
+    await expect(sweep(noJev, ['train', 'val'])).rejects.toThrow(/has no jev arm/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1824: dataset seed-intent
+// ---------------------------------------------------------------------------
+
+describe('dataset seed-intent', () => {
+  const noSleep = vi.fn(async (_ms: number) => {})
+  /** A Langfuse client that confirms each upsert by echoing the item id. */
+  const echoItem = () => vi.fn(async (body: Record<string, unknown>) => ({ id: body.id }))
+  /** A dataset with no listed items (Langfuse omits ARCHIVED ones from the list). */
+  const emptyDataset = () => vi.fn().mockResolvedValue({ items: [] })
+
+  // withRetry jitters each wait by up to 100%; pin it so the 2s/4s/8s schedule is exact.
+  beforeEach(() => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('parseCliArgs accepts dataset seed-intent', () => {
+    expect(parseCliArgs(['dataset', 'seed-intent'])).toEqual({ command: 'dataset-seed-intent' })
+  })
+
+  it("seed-intent builds 156 items with deterministic ids intent-<query id>, status ACTIVE, metadata {split, humanApproval:{status:'pending'}}", async () => {
+    const source = readSituationQueries()
+    const runOnce = async () => {
+      const createDataset = vi.fn().mockResolvedValue({})
+      const createDatasetItem = echoItem()
+      const result = await seedIntentDataset({ createDataset, createDatasetItem, getDataset: emptyDataset() }, undefined, { sleep: noSleep })
+      return { createDataset, createDatasetItem, result }
+    }
+
+    const first = await runOnce()
+    const second = await runOnce()
+
+    expect(first.createDataset).toHaveBeenCalledWith(expect.objectContaining({ name: 'intent-parse-golden' }))
+    expect(first.result).toEqual({ seeded: 156, kept: 0 })
+    expect(first.createDatasetItem).toHaveBeenCalledTimes(156)
+
+    const bodies = first.createDatasetItem.mock.calls.map((c) => c[0] as Record<string, unknown>)
+    const ids = bodies.map((b) => b.id)
+    expect(new Set(ids).size).toBe(156)
+    // Stable across runs: the upsert-by-id is what makes a rerun safe.
+    expect(second.createDatasetItem.mock.calls.map((c) => (c[0] as { id: string }).id)).toEqual(ids)
+
+    source.forEach((q, i) => {
+      expect(bodies[i]).toEqual({
+        datasetName: INTENT_PARSE_DATASET,
+        id: `intent-${q.id}`,
+        input: { query: q.query },
+        expectedOutput: null,
+        status: 'ACTIVE',
+        // split is copied from the source item, never recomputed.
+        metadata: { split: q.split, humanApproval: { status: 'pending' } },
+      })
+    })
+  })
+
+  it('paces writes between items to stay under the 100/min rate limit', async () => {
+    const sleep = vi.fn(async (_ms: number) => {})
+    const queries = [
+      { id: 'q1', query: 'a', split: 'train' },
+      { id: 'q2', query: 'b', split: 'train' },
+      { id: 'q3', query: 'c', split: 'val' },
+    ]
+    await seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: echoItem(), getDataset: emptyDataset() }, queries, { sleep })
+    expect(sleep).toHaveBeenCalledTimes(2)
+    for (const [ms] of sleep.mock.calls) expect(ms).toBeGreaterThanOrEqual(600)
+  })
+
+  it('an unconfirmed upsert (the SDK resolves undefined on a 429) is retried and counted once confirmed', async () => {
+    const source = readSituationQueries()
+    const flakyId = `intent-${source[10]!.id}`
+    let failedOnce = false
+    const createDatasetItem = vi.fn(async (body: Record<string, unknown>) => {
+      if (body.id === flakyId && !failedOnce) {
+        failedOnce = true
+        return undefined
+      }
+      return { id: body.id }
+    })
+    const sleep = vi.fn(async (_ms: number) => {})
+
+    const result = await seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem, getDataset: emptyDataset() }, undefined, { sleep })
+
+    expect(result).toEqual({ seeded: 156, kept: 0 })
+    expect(createDatasetItem).toHaveBeenCalledTimes(157)
+    expect(sleep).toHaveBeenCalledWith(2000)
+  })
+
+  it('an item that never confirms throws naming that id, after backoff retries', async () => {
+    const queries = [
+      { id: 'q1', query: 'a', split: 'train' },
+      { id: 'q2', query: 'b', split: 'train' },
+    ]
+    const createDatasetItem = vi.fn(async (body: Record<string, unknown>) =>
+      body.id === 'intent-q2' ? undefined : { id: body.id },
+    )
+    const sleep = vi.fn(async (_ms: number) => {})
+
+    await expect(
+      seedIntentDataset({ createDataset: vi.fn().mockResolvedValue({}), createDatasetItem, getDataset: emptyDataset() }, queries, { sleep }),
+    ).rejects.toThrow(/1\/2 upserts confirmed.*intent-q2/)
+    // 1 attempt + 3 retries for the failing item
+    expect(createDatasetItem.mock.calls.filter((c) => c[0].id === 'intent-q2')).toHaveLength(4)
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual(expect.arrayContaining([2000, 4000, 8000]))
+  })
+
+  it('an existing dataset is not an error; any other createDataset failure is', async () => {
+    const queries = [{ id: 'q1', query: 'a query', split: 'train' }]
+
+    await expect(
+      seedIntentDataset(
+        { createDataset: vi.fn().mockRejectedValue(new Error('Dataset already exists')), createDatasetItem: echoItem(), getDataset: emptyDataset() },
+        queries,
+        { sleep: noSleep },
+      ),
+    ).resolves.toEqual({ seeded: 1, kept: 0 })
+
+    await expect(
+      seedIntentDataset(
+        { createDataset: vi.fn().mockRejectedValue(new Error('401 unauthorized')), createDatasetItem: vi.fn(), getDataset: emptyDataset() },
+        queries,
+        { sleep: noSleep },
+      ),
+    ).rejects.toThrow(/401/)
+  })
+
+  it('a rerun keeps labelled, reviewed and rejected items; re-upserts pending unlabelled ones', async () => {
+    const pending = { humanApproval: { status: 'pending' } }
+    const queries = ['q1', 'q2', 'q3', 'q4', 'q5', 'q6'].map((id) => ({ id, query: id, split: 'train' }))
+    const getDataset = vi.fn().mockResolvedValue({
+      items: [
+        // labelled by prelabel, still pending review
+        { id: 'intent-q1', status: 'ACTIVE', expectedOutput: { situation: 'x' }, metadata: pending },
+        // reviewed (approved) — carries reviewedVia
+        {
+          id: 'intent-q2',
+          status: 'ACTIVE',
+          expectedOutput: null,
+          metadata: { humanApproval: { status: 'pending', reviewedVia: { queueId: 'q', scoreId: 's' } } },
+        },
+        // rejected; defensive — the listing normally omits ARCHIVED items
+        { id: 'intent-q3', status: 'ARCHIVED', expectedOutput: null, metadata: { humanApproval: { status: 'rejected' } } },
+        // a verdict status other than pending
+        { id: 'intent-q4', status: 'ACTIVE', expectedOutput: null, metadata: { humanApproval: { status: 'approved' } } },
+        // pending and unlabelled — a rerun upserts it again
+        { id: 'intent-q5', status: 'ACTIVE', expectedOutput: null, metadata: pending },
+        // intent-q6 is absent (new, or ARCHIVED from an earlier seed and so unlisted)
+      ],
+    })
+    const createDatasetItem = echoItem()
+
+    const result = await seedIntentDataset(
+      { createDataset: vi.fn().mockResolvedValue({}), createDatasetItem, getDataset },
+      queries,
+      { sleep: noSleep },
+    )
+
+    expect(getDataset).toHaveBeenCalledTimes(1)
+    expect(getDataset).toHaveBeenCalledWith(INTENT_PARSE_DATASET)
+    expect(result).toEqual({ seeded: 2, kept: 4 })
+    expect(createDatasetItem.mock.calls.map((c) => c[0].id)).toEqual(['intent-q5', 'intent-q6'])
+    for (const [body] of createDatasetItem.mock.calls) {
+      expect(body).toMatchObject({ status: 'ACTIVE', expectedOutput: null, metadata: pending })
+    }
+  })
+
+  it('rejects a source item without id, query or split', async () => {
+    const client = { createDataset: vi.fn().mockResolvedValue({}), createDatasetItem: vi.fn(), getDataset: emptyDataset() }
+    await expect(
+      seedIntentDataset(client, [{ id: 'q1', query: 'a query' } as never], { sleep: noSleep }),
+    ).rejects.toThrow(/q1/)
+    expect(client.createDatasetItem).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// dataset validate — a registered dataset that was never seeded
+// ---------------------------------------------------------------------------
+
+describe('cmdDatasetValidate', () => {
+  it('reports a missing dataset as not seeded and continues with the rest', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getDataset = vi.fn(async (name: string) => {
+      if (name === INTENT_PARSE_DATASET) {
+        throw new Error('HTTP error while fetching Langfuse: 404 and body: {"message":"Dataset not found"}')
+      }
+      return { items: [] }
+    })
+    try {
+      await cmdDatasetValidate(false, { getDataset })
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines.some((l) => l.startsWith(INTENT_PARSE_DATASET) && l.includes('not seeded'))).toBe(true)
+      expect(getDataset.mock.calls.length).toBeGreaterThan(1)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('validate reports a missing dataset and continues', async () => {
+    // The Langfuse SDK swallows the 404 on the dataset lookup, then fails on
+    // the items page: `items.push(...itemsResponse.data)` with data undefined.
+    // A status-visible probe confirms the 404.
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getDataset = vi.fn(async (name: string) => {
+      if (name === INTENT_PARSE_DATASET) throw new TypeError('itemsResponse.data is not iterable')
+      return { items: [] }
+    })
+    const probeDataset = vi.fn().mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }))
+    try {
+      await cmdDatasetValidate(false, { getDataset, probeDataset })
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines.some((l) => l.startsWith(INTENT_PARSE_DATASET) && l.includes('not seeded'))).toBe(true)
+      expect(probeDataset).toHaveBeenCalledWith(INTENT_PARSE_DATASET)
+      expect(getDataset.mock.calls.length).toBeGreaterThan(1)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('a rate-limited items page fails validate instead of reporting not seeded', async () => {
+    // langfuse-core swallows a 429 on the items page too, then throws the same TypeError.
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const getDataset = async (name: string) => {
+      if (name === INTENT_PARSE_DATASET) throw new TypeError('itemsResponse.data is not iterable')
+      return { items: [] }
+    }
+    try {
+      // The dataset exists, so the items page failed for another reason.
+      await expect(
+        cmdDatasetValidate(false, { getDataset, probeDataset: vi.fn().mockResolvedValue({ name: INTENT_PARSE_DATASET }) }),
+      ).rejects.toThrow(/refusing to report it as not seeded/)
+      // The probe itself is rate-limited.
+      const limited = Object.assign(new Error('Too Many Requests'), { status: 429 })
+      await expect(
+        cmdDatasetValidate(false, { getDataset, probeDataset: vi.fn().mockRejectedValue(limited) }),
+      ).rejects.toBe(limited)
+      // No probe: fail closed.
+      await expect(cmdDatasetValidate(false, { getDataset })).rejects.toThrow(/refusing to report it as not seeded/)
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines.some((l) => l.includes('not seeded'))).toBe(false)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('rethrows an unrelated TypeError', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await expect(
+        cmdDatasetValidate(false, {
+          getDataset: vi.fn().mockRejectedValue(new TypeError('foo.bar is not iterable')),
+        }),
+      ).rejects.toThrow(/foo\.bar/)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('rethrows any error other than a missing dataset', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    try {
+      await expect(
+        cmdDatasetValidate(false, { getDataset: vi.fn().mockRejectedValue(new Error('401 unauthorized')) }),
+      ).rejects.toThrow(/401/)
+    } finally {
+      log.mockRestore()
+    }
+  })
+})
+
+describe('parseCliArgs — dataset harvest / capture (DEV-1873)', () => {
+  it('parses dataset harvest --dataset --since --limit', () => {
+    expect(
+      parseCliArgs([
+        'dataset', 'harvest',
+        '--dataset', 'acquisition-plan-golden',
+        '--since', '2026-09-07',
+        '--limit', '20',
+      ]),
+    ).toEqual({
+      command: 'dataset-harvest',
+      dataset: 'acquisition-plan-golden',
+      since: '2026-09-07',
+      limit: 20,
+      confirm: false,
+    })
+  })
+
+  it('parses dataset harvest with only --dataset', () => {
+    expect(parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden'])).toEqual({
+      command: 'dataset-harvest',
+      dataset: 'products-repair-golden',
+      since: undefined,
+      limit: undefined,
+      confirm: false,
+    })
+  })
+
+  it('rejects a harvest without --dataset, an unknown dataset, or a bad --limit or --since', () => {
+    expect(() => parseCliArgs(['dataset', 'harvest'])).toThrow('--dataset is required')
+    expect(() => parseCliArgs(['dataset', 'harvest', '--dataset', 'detect-confidence-golden'])).toThrow(
+      'not a capture/harvest golden dataset',
+    )
+    expect(() =>
+      parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden', '--limit', '0']),
+    ).toThrow('--limit must be a positive integer')
+    expect(() =>
+      parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden', '--since', 'soon']),
+    ).toThrow('--since must be a date')
+  })
+
+  it('parses dataset capture --brands a,b --datasets x,y', () => {
+    expect(
+      parseCliArgs([
+        'dataset', 'capture',
+        '--brands', 'brand-a,brand-b',
+        '--datasets', 'acquisition-plan-golden,acquisition-critique-golden',
+      ]),
+    ).toEqual({
+      command: 'dataset-capture',
+      brands: ['brand-a', 'brand-b'],
+      datasets: ['acquisition-plan-golden', 'acquisition-critique-golden'],
+      confirm: false,
+    })
+  })
+
+  it('parses dataset capture without --datasets', () => {
+    expect(parseCliArgs(['dataset', 'capture', '--brands', 'brand-a'])).toEqual({
+      command: 'dataset-capture',
+      brands: ['brand-a'],
+      datasets: undefined,
+      confirm: false,
+    })
+  })
+
+  it('rejects a capture without --brands or with an unknown dataset', () => {
+    expect(() => parseCliArgs(['dataset', 'capture'])).toThrow('--brands is required')
+    expect(() =>
+      parseCliArgs(['dataset', 'capture', '--brands', 'a', '--datasets', 'descriptions']),
+    ).toThrow('not a capture/harvest golden dataset')
+  })
+})
+
+describe('dataset harvest / capture production guard (DEV-1873 G17)', () => {
+  const productionUrl = `https://${PRODUCTION_PROJECT_REF}.supabase.co`
+
+  it('parses --confirm for harvest and capture', () => {
+    expect(
+      parseCliArgs(['dataset', 'harvest', '--dataset', 'products-repair-golden', '--confirm']),
+    ).toMatchObject({ command: 'dataset-harvest', confirm: true })
+    expect(parseCliArgs(['dataset', 'capture', '--brands', 'a', '--confirm'])).toMatchObject({
+      command: 'dataset-capture',
+      confirm: true,
+    })
+  })
+
+  it('refuses a production target without --confirm', () => {
+    for (const args of [
+      ['dataset', 'harvest', '--dataset', 'products-repair-golden'],
+      ['dataset', 'capture', '--brands', 'a'],
+    ]) {
+      const parsed = parseCliArgs(args) as { confirm: boolean }
+      expect(() =>
+        assertCensusTarget({ supabaseUrl: productionUrl, target: 'production', confirmed: parsed.confirm }),
+      ).toThrow('without --confirm')
+    }
+  })
+
+  it('lets a confirmed production run through', () => {
+    const parsed = parseCliArgs(['dataset', 'capture', '--brands', 'a', '--confirm']) as { confirm: boolean }
+    expect(() =>
+      assertCensusTarget({ supabaseUrl: productionUrl, target: 'production', confirmed: parsed.confirm }),
+    ).not.toThrow()
+  })
+})
+
+describe('writeGoldenItems (DEV-1873 G2/S1a)', () => {
+  const item = (id: string, datasetName = 'acquisition-plan-golden'): GoldenItemBody => ({
+    datasetName,
+    id,
+    input: 'user text',
+    expectedOutput: null,
+    status: 'ACTIVE',
+    metadata: {
+      source: 'harvest',
+      brandSlug: 'brand-a',
+      jobId: null,
+      context: null,
+      humanApproval: { status: 'pending' },
+    },
+  })
+  const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status })
+  const noSleep = async () => {}
+
+  /** `existing` maps an id to the item Langfuse returns for it; absent ids 404. */
+  function fakeApi(existing: Record<string, unknown> = {}, overrides: Partial<GoldenWriteApi> = {}) {
+    const created: string[] = []
+    const bodies: GoldenWriteBody[] = []
+    const api: GoldenWriteApi = {
+      getDataset: vi.fn(async () => ({})),
+      createDataset: vi.fn(async () => ({})),
+      getItem: vi.fn(async (id: string) => {
+        if (!(id in existing)) throw httpError(404)
+        return existing[id]
+      }),
+      createItem: vi.fn(async (body) => {
+        created.push(body.id)
+        bodies.push(body)
+        return { id: body.id }
+      }),
+      ...overrides,
+    }
+    return { api, created, bodies }
+  }
+
+  const rejected = {
+    id: 'kept',
+    status: 'ARCHIVED',
+    metadata: { humanApproval: { status: 'rejected', reviewedVia: { queueId: 'q', scoreId: 's' } } },
+  }
+
+  it('skips an item that already exists as rejected (per-id lookup, not the list)', async () => {
+    const { api, created } = fakeApi({ kept: rejected })
+    const result = await writeGoldenItems([item('kept'), item('new')], { api, sleep: noSleep, minIntervalMs: 0 })
+    expect(result).toEqual({ written: 1, reactivated: 0, existing: 1, failed: [] })
+    expect(created).toEqual(['new'])
+  })
+
+  it('skips existing reviewed and ACTIVE items without re-writing them', async () => {
+    const { api, created } = fakeApi({
+      reviewed: {
+        id: 'reviewed',
+        status: 'ACTIVE',
+        metadata: { humanApproval: { status: 'approved', reviewedVia: { queueId: 'q', scoreId: 's' } } },
+      },
+      'archived-reviewed': {
+        id: 'archived-reviewed',
+        status: 'ARCHIVED',
+        metadata: { humanApproval: { status: 'pending', reviewedVia: { queueId: 'q', scoreId: 's' } } },
+      },
+      'active-pending': {
+        id: 'active-pending',
+        status: 'ACTIVE',
+        metadata: { humanApproval: { status: 'pending' } },
+      },
+      'archived-bare': { id: 'archived-bare', status: 'ARCHIVED' },
+    })
+    const result = await writeGoldenItems(
+      [item('reviewed'), item('archived-reviewed'), item('active-pending'), item('archived-bare')],
+      { api, sleep: noSleep, minIntervalMs: 0 },
+    )
+    expect(result).toEqual({ written: 0, reactivated: 0, existing: 4, failed: [] })
+    expect(created).toEqual([])
+  })
+
+  it('reactivates an ARCHIVED pending item as ACTIVE, keeping its stored input, expectedOutput and metadata', async () => {
+    const stored = {
+      id: 'legacy',
+      datasetId: 'ds-1',
+      status: 'ARCHIVED',
+      input: 'stored user text',
+      expectedOutput: { decisions: [{ candidateUrl: 'https://shop.com/a' }] },
+      metadata: {
+        source: 'capture',
+        prelabel: { author: 'system', status: 'draft' },
+        humanApproval: { status: 'pending' },
+      },
+    }
+    const { api, bodies } = fakeApi({ legacy: stored })
+    const result = await writeGoldenItems([item('legacy')], { api, sleep: noSleep, minIntervalMs: 0 })
+    expect(result).toEqual({ written: 0, reactivated: 1, existing: 0, failed: [] })
+    expect(bodies).toEqual([
+      {
+        datasetName: 'acquisition-plan-golden',
+        id: 'legacy',
+        input: 'stored user text',
+        expectedOutput: stored.expectedOutput,
+        status: 'ACTIVE',
+        metadata: stored.metadata,
+      },
+    ])
+  })
+
+  it('reports an unconfirmed reactivation as failed', async () => {
+    const { api } = fakeApi(
+      { legacy: { id: 'legacy', status: 'ARCHIVED', input: 'x', metadata: { humanApproval: { status: 'pending' } } } },
+      { createItem: vi.fn(async () => ({})) },
+    )
+    const result = await writeGoldenItems([item('legacy')], { api, sleep: noSleep, minIntervalMs: 0, retries: 2 })
+    expect(result).toEqual({ written: 0, reactivated: 0, existing: 0, failed: ['legacy'] })
+  })
+
+  it('creates the dataset only on a genuine 404', async () => {
+    const { api } = fakeApi({}, { getDataset: vi.fn(async () => Promise.reject(httpError(404))) })
+    await writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 })
+    expect(api.createDataset).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts without writing when the dataset read fails for any other reason', async () => {
+    const { api, created } = fakeApi({}, {
+      getDataset: vi.fn(async () => Promise.reject(httpError(500))),
+    })
+    await expect(
+      writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 }),
+    ).rejects.toThrow('HTTP 500')
+    expect(api.createDataset).not.toHaveBeenCalled()
+    expect(created).toEqual([])
+  })
+
+  it('aborts when an item lookup fails with a non-404 error', async () => {
+    const { api, created } = fakeApi({}, {
+      getItem: vi.fn(async () => Promise.reject(httpError(500))),
+    })
+    await expect(
+      writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 }),
+    ).rejects.toThrow('HTTP 500')
+    expect(created).toEqual([])
+  })
+
+  it('retries a create that resolved without an id (the SDK swallows 429) and counts only confirmed writes', async () => {
+    let calls = 0
+    const { api } = fakeApi({}, {
+      createItem: vi.fn(async (body) => {
+        calls += 1
+        if (body.id === 'flaky' && calls === 1) return 'Rate limit exceeded'
+        if (body.id === 'dead') return {}
+        return { id: body.id }
+      }),
+    })
+    const sleep = vi.fn(async () => {})
+    const result = await writeGoldenItems([item('flaky'), item('dead')], {
+      api,
+      sleep,
+      minIntervalMs: 0,
+      retries: 3,
+    })
+    expect(result).toEqual({ written: 1, reactivated: 0, existing: 0, failed: ['dead'] })
+    expect(sleep).toHaveBeenCalled()
+  })
+
+  it('retries a lookup that hit 429', async () => {
+    let calls = 0
+    const { api, created } = fakeApi({}, {
+      getItem: vi.fn(async () => {
+        calls += 1
+        throw httpError(calls === 1 ? 429 : 404)
+      }),
+    })
+    const result = await writeGoldenItems([item('a')], { api, sleep: noSleep, minIntervalMs: 0 })
+    expect(result.written).toBe(1)
+    expect(created).toEqual(['a'])
+  })
+
+  it('paces calls at least minIntervalMs apart', async () => {
+    const { api } = fakeApi()
+    const waits: number[] = []
+    let clock = 0
+    await writeGoldenItems([item('a'), item('b')], {
+      api,
+      minIntervalMs: 700,
+      now: () => clock,
+      sleep: async (ms: number) => {
+        waits.push(ms)
+        clock += ms
+      },
+    })
+    // datasetGet, then get+create per item: 5 calls, 4 paced gaps.
+    expect(waits.filter((ms) => ms === 700)).toHaveLength(4)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1898: dataset split and split counts
+// ---------------------------------------------------------------------------
+
+describe('dataset split (DEV-1898 D9a)', () => {
+  it('parses dataset split', () => {
+    expect(
+      parseCliArgs(['dataset', 'split', '--dataset', 'acquisition-plan-golden', '--seed', 's1', '--pin', 'a,b', '--apply']),
+    ).toEqual({ command: 'dataset-split', dataset: 'acquisition-plan-golden', seed: 's1', apply: true, pin: ['a', 'b'] })
+    expect(parseCliArgs(['dataset', 'split', '--dataset', 'x'])).toEqual({
+      command: 'dataset-split',
+      dataset: 'x',
+      seed: 'dev-1898',
+      apply: false,
+      pin: [],
+    })
+    expect(() => parseCliArgs(['dataset', 'split'])).toThrow('--dataset is required')
+  })
+
+  it('validate prints split counts', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const reviewed = { humanApproval: { reviewedVia: { queueId: 'q', scoreId: 's' } } }
+    const items = [
+      ...['train', 'train', 'train', 'val'].map((split) => ({ status: 'ACTIVE', metadata: { ...reviewed, split } })),
+      { status: 'ACTIVE', metadata: reviewed },
+      { status: 'ARCHIVED', metadata: { split: 'holdout' } },
+    ]
+    try {
+      await cmdDatasetValidate(false, {
+        getDataset: async (name) => ({ items: name === 'detect-confidence-golden' ? items : [] }),
+      })
+      const lines = log.mock.calls.map((c) => String(c[0]))
+      expect(lines[0]).toMatch(/Train \| Val +\| Holdout \| None$/)
+      const row = lines.find((l) => l.startsWith('detect-confidence-golden'))!
+      // ACTIVE items only: 3 train, 1 val, 0 holdout, 1 with no split.
+      expect(row).toMatch(/\| 3 +\| 1 +\| 0 +\| 1$/)
+    } finally {
+      log.mockRestore()
+    }
+  })
+
+  it('--apply merges only metadata.split into unsplit items and re-reads each one', async () => {
+    const stored = new Map<string, SplitWriteBody>()
+    const items: SplitDatasetItem[] = [
+      { id: 'old', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: { split: 'holdout', keep: 1 } },
+      ...Array.from({ length: 4 }, (_, i) => ({
+        id: `new-${i}`,
+        status: 'ACTIVE',
+        input: `in-${i}`,
+        expectedOutput: { output: i },
+        metadata: { humanApproval: { status: 'pending' } },
+      })),
+    ]
+    const api = {
+      createItem: vi.fn(async (body: SplitWriteBody) => {
+        stored.set(body.id, body)
+        return { id: body.id }
+      }),
+      // Before the write the fresh read returns the listed item; after it, the stored body.
+      getItem: vi.fn(async (id: string) => stored.get(id) ?? items.find((item) => item.id === id)),
+    }
+
+    const result = await cmdDatasetSplit({
+      dataset: 'acquisition-plan-golden',
+      seed: 's',
+      apply: true,
+      pin: ['new-0'],
+      getDataset: async () => ({ items }),
+      api,
+      sleep: async () => {},
+      minIntervalMs: 0,
+      log: () => {},
+    })
+
+    expect(result).toEqual({ written: 4, unchanged: 1 })
+    expect(stored.has('old')).toBe(false)
+    expect(stored.get('new-0')!.metadata).toEqual({ humanApproval: { status: 'pending' }, split: 'train' })
+    expect(stored.get('new-1')).toMatchObject({ input: 'in-1', expectedOutput: { output: 1 }, status: 'ACTIVE' })
+    // One fresh read before each write, one confirming read after.
+    expect(api.getItem).toHaveBeenCalledTimes(8)
+  })
+
+  /** An in-memory write API: `fresh` overrides what the pre-write read returns per id. */
+  function memoryApi(items: SplitDatasetItem[], fresh: Record<string, unknown> = {}) {
+    const stored = new Map<string, SplitWriteBody>()
+    const api = {
+      createItem: vi.fn(async (body: SplitWriteBody) => {
+        stored.set(body.id, body)
+        return { id: body.id }
+      }),
+      getItem: vi.fn(async (id: string) => stored.get(id) ?? (id in fresh ? fresh[id] : items.find((item) => item.id === id))),
+    }
+    return { stored, api }
+  }
+
+  const splitRun = (dataset: string, items: SplitDatasetItem[], api: ReturnType<typeof memoryApi>['api'], apply = true, log: (message: string) => void = () => {}) =>
+    cmdDatasetSplit({
+      dataset,
+      seed: 's',
+      apply,
+      pin: [],
+      getDataset: async () => ({ items }),
+      api,
+      sleep: async () => {},
+      minIntervalMs: 0,
+      log,
+    })
+
+  it('--apply writes from the fresh read, carrying every create field and a concurrent change', async () => {
+    const items: SplitDatasetItem[] = [
+      { id: 'a', status: 'ACTIVE', input: 'listed-in', expectedOutput: null, metadata: { humanApproval: { status: 'pending' } } },
+    ]
+    const { stored, api } = memoryApi(items, {
+      a: {
+        id: 'a',
+        status: 'ACTIVE',
+        input: 'fresh-in',
+        expectedOutput: { output: 9 },
+        metadata: { humanApproval: { status: 'pending' }, note: 'added after the listing' },
+        sourceTraceId: 'trace-1',
+        sourceObservationId: 'obs-1',
+      },
+    })
+
+    await splitRun('acquisition-plan-golden', items, api)
+
+    expect(stored.get('a')).toEqual({
+      datasetName: 'acquisition-plan-golden',
+      id: 'a',
+      input: 'fresh-in',
+      expectedOutput: { output: 9 },
+      metadata: { humanApproval: { status: 'pending' }, note: 'added after the listing', split: 'train' },
+      status: 'ACTIVE',
+      sourceTraceId: 'trace-1',
+      sourceObservationId: 'obs-1',
+    })
+  })
+
+  it('--apply refuses and reports an item whose fresh metadata is not a plain object', async () => {
+    const items: SplitDatasetItem[] = [
+      { id: 'a', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: {} },
+      { id: 'b', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: {} },
+    ]
+    const { stored, api } = memoryApi(items, { a: { id: 'a', status: 'ACTIVE', input: 'i', metadata: ['not', 'an', 'object'] } })
+
+    await expect(splitRun('acquisition-plan-golden', items, api)).rejects.toThrow(
+      /refused: a \(metadata is not a plain object\)/,
+    )
+    expect(stored.has('a')).toBe(false)
+    expect(stored.get('b')!.metadata).toHaveProperty('split')
+  })
+
+  it('an unrecognised stored split is listed in the dry run and refuses --apply', async () => {
+    const items: SplitDatasetItem[] = [
+      { id: 'a', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: { split: 'test' } },
+      { id: 'b', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: { split: 'Holdout' } },
+      { id: 'c', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: {} },
+    ]
+    const { api } = memoryApi(items)
+    const lines: string[] = []
+
+    await splitRun('acquisition-plan-golden', items, api, false, (line: string) => lines.push(line))
+    expect(lines.join('\n')).toContain('2 item(s) carry an unrecognised split: a="test", b="Holdout"')
+
+    await expect(splitRun('acquisition-plan-golden', items, api)).rejects.toThrow(/refusing --apply.*a="test", b="Holdout"/)
+    expect(api.createItem).not.toHaveBeenCalled()
+  })
+
+  it('leaves unlabelled items unsplit and reports their count', async () => {
+    const labelled = Array.from({ length: 5 }, (_, i) => ({
+      id: `l-${i}`,
+      status: 'ACTIVE',
+      input: 'i',
+      expectedOutput: { confidence: 'high' },
+      metadata: {},
+    }))
+    const items: SplitDatasetItem[] = [
+      ...labelled,
+      { id: 'u-null', status: 'ACTIVE', input: 'i', expectedOutput: null, metadata: {} },
+      { id: 'u-missing', status: 'ACTIVE', input: 'i', expectedOutput: {}, metadata: {} },
+    ]
+    const { stored, api } = memoryApi(items)
+    const lines: string[] = []
+
+    const result = await splitRun('detect-confidence-golden', items, api, true, (line: string) => lines.push(line))
+
+    expect(result).toEqual({ written: 5, unchanged: 0 })
+    expect(stored.has('u-null')).toBe(false)
+    expect(stored.has('u-missing')).toBe(false)
+    expect(lines.join('\n')).toContain('2 unlabelled item(s) left unsplit; re-run after review')
+  })
+
+  it('refuses the names dataset, whose splits the harvest script owns', async () => {
+    const getDataset = vi.fn()
+    await expect(
+      cmdDatasetSplit({ dataset: 'name-arbiter-confidence-golden', seed: 's', apply: false, pin: [], getDataset, log: () => {} }),
+    ).rejects.toThrow(/harvest-name-arbiter-golden/)
+    expect(getDataset).not.toHaveBeenCalled()
   })
 })

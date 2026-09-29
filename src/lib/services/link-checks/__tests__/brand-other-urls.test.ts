@@ -122,4 +122,27 @@ describe('brand-other-urls link checker', () => {
     expect(result.blocked).toBe(1)
     expect(result.findings).toHaveLength(0)
   })
+
+  it('skips blank entries instead of probing an empty URL', async () => {
+    const client = fakeClient('brands', [
+      brandRow({
+        other_urls: [
+          { label: '', url: '' },
+          { label: 'Shop', url: 'https://shop.example.com' },
+        ],
+      }),
+    ])
+    const check = mockCheckUrl({
+      '': { status: 'broken', statusCode: null, resolvedUrl: null },
+    })
+
+    const result = await checkBrandOtherUrls({
+      supabase: client,
+      checkUrl: check,
+    })
+    expect(check).toHaveBeenCalledTimes(1)
+    expect(result.checked).toBe(1)
+    expect(result.dead).toBe(0)
+    expect(result.findings).toHaveLength(0)
+  })
 })

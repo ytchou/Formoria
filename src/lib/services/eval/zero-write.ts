@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import {
   setAuditWriteSeam,
   resetAuditEmitterForTests,
@@ -49,6 +51,11 @@ export function installSeams({ sinkPath }: { sinkPath: string }): {
   collector: AuditCollector
   restore: () => void
 } {
+  // The sink writer appends without creating its directory; in a fresh
+  // worktree `scripts/llm-eval/runs/` does not exist and every write ENOENTs.
+  // Created before any seam goes in, so a mkdir failure leaves none installed.
+  mkdirSync(dirname(sinkPath), { recursive: true })
+
   const collector = createCollector()
 
   setAuditWriteSeam(async (record) => {
@@ -118,6 +125,11 @@ async function defaultCount(
  *   escaped). This cannot see a row with a NULL `audit_span_id`, which is why
  *   the static insert-site guard test exists.
  *
+ * - `brand_search_results` and `curated_product_candidates` are scoped by
+ *   `submission_id ∈ submissionIds`, only when `submissionIds` is passed.
+ *   Neither table carries a correlation id; a caller that runs phases against
+ *   synthetic submission ids (golden capture) opts in with those ids.
+ *
  * The `count` parameter injects the query function so tests avoid hitting
  * Supabase. Defaults to a real `createServiceClient()` query.
  */
@@ -125,16 +137,23 @@ export async function assertNoNewAuditRows({
   since,
   correlationIds,
   spanIds,
+  submissionIds,
   count = defaultCount,
 }: {
   since: Date
   correlationIds: string[]
   spanIds: string[]
+  submissionIds?: string[]
   count?: RowCounter
 }): Promise<void> {
   if (correlationIds.length === 0) {
     throw new Error(
       'assertNoNewAuditRows: correlationIds is empty — cannot verify a run with no correlation ids',
+    )
+  }
+  if (submissionIds !== undefined && submissionIds.length === 0) {
+    throw new Error(
+      'assertNoNewAuditRows: submissionIds is empty — pass the run\'s submission ids or omit the option',
     )
   }
 
@@ -156,6 +175,15 @@ export async function assertNoNewAuditRows({
       violations.push(
         `brand_ai_results has ${aiCount} new row(s) since ${since.toISOString()}`,
       )
+    }
+  }
+
+  if (submissionIds) {
+    for (const table of ['brand_search_results', 'curated_product_candidates']) {
+      const rows = await count(table, since, submissionIds, 'submission_id')
+      if (rows > 0) {
+        violations.push(`${table} has ${rows} new row(s) since ${since.toISOString()}`)
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stableFingerprint } from '../contracts'
+import { routeOf, stableFingerprint, type HealthFinding } from '../contracts'
 import { stableFingerprint as scriptsStableFingerprint } from '../../../../../scripts/health-agent/contracts'
 
 /**
@@ -34,4 +34,29 @@ describe('stableFingerprint output is byte-identical to the scripts implementati
       expect(serviceResult).toBe(scriptsResult)
     },
   )
+})
+
+describe('routeOf', () => {
+  const base: HealthFinding = {
+    source: 'directory',
+    fingerprint: 'directory:test:a',
+    title: 'A finding',
+    severity: 'medium',
+    evidence: {},
+    mergePolicy: 'human',
+  }
+
+  it('defaults to ticket when the finding does not opt in', () => {
+    expect(routeOf(base)).toBe('ticket')
+  })
+
+  it('routes to auto-fix only when the finding opts in', () => {
+    expect(routeOf({ ...base, route: 'auto_fix' })).toBe('auto_fix')
+  })
+
+  it('report_only forces a ticket even when the finding opts in', () => {
+    expect(
+      routeOf({ ...base, route: 'auto_fix', disposition: 'report_only' }),
+    ).toBe('ticket')
+  })
 })

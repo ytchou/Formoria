@@ -11,6 +11,7 @@ import {
   bandAgreement,
   withinPoolOrderingAgreement,
   selectionAgreement,
+  originWhenSourced,
   precisionAtK,
   recallAtK,
   mrr,
@@ -20,6 +21,16 @@ import {
   bootstrapCI,
   pairedBootstrapCI,
   ndcgAt,
+  expectedCalibrationError,
+  acceptedAccuracyAt,
+  coverageAt,
+  thresholdSweep,
+  bandFromProbability,
+  JEV_BAND_CUTOFFS,
+  planFetchCapOk,
+  planSchemaValid,
+  recoveryActionConsistent,
+  verdictAgreement,
   type GradedItem,
 } from './scorers'
 import { expect, it, describe } from 'vitest'
@@ -326,6 +337,53 @@ describe('selectionAgreement', () => {
   })
 })
 
+describe('originWhenSourced', () => {
+  const proposal = (officialUrl: string, productDescriptionZh: string) =>
+    ({ officialUrl, productDescriptionZh }) as ProductsReplayOutput['proposals'][number]
+
+  it('scores the share of origin-stated proposals whose description mentions Taiwan', () => {
+    const output: ProductsReplayOutput = {
+      evaluations: {},
+      selected: [],
+      proposals: [
+        proposal('https://a.com/p1', '在台灣製作的木湯匙。'),
+        proposal('https://a.com/p2', '手工木湯匙。'),
+      ],
+      agentOutcome: 'ok',
+      originStatedUrls: ['https://a.com/p1', 'https://a.com/p2'],
+    }
+    expect(originWhenSourced(output)).toBe(0.5)
+  })
+
+  it('is n/a (null, not 1) when originStatedUrls is undefined or empty', () => {
+    const base: ProductsReplayOutput = {
+      evaluations: {},
+      selected: [],
+      proposals: [proposal('https://a.com/p1', '手工木湯匙。')],
+      agentOutcome: 'ok',
+    }
+    expect(originWhenSourced(base)).toBeNull()
+    expect(originWhenSourced({ ...base, originStatedUrls: [] })).toBeNull()
+  })
+
+  it('ignores proposals on pages without stated origin', () => {
+    const output: ProductsReplayOutput = {
+      evaluations: {},
+      selected: [],
+      proposals: [
+        proposal('https://a.com/p1', '臺灣製造的陶杯。'),
+        proposal('https://a.com/p2', '手工陶杯。'),
+      ],
+      agentOutcome: 'ok',
+      originStatedUrls: ['https://a.com/p1'],
+    }
+    expect(originWhenSourced(output)).toBe(1)
+    expect(
+      originWhenSourced({ ...output, originStatedUrls: ['https://a.com/other'] }),
+    ).toBeNull()
+  })
+})
+
 // ---------------------------------------------------------------------------
 // IR scorers (migrated from metrics.ts + new)
 // ---------------------------------------------------------------------------
@@ -475,5 +533,134 @@ describe('pairedBootstrapCI', () => {
     const zeros = Array.from({ length: 20 }, () => 0)
     const ci2 = pairedBootstrapCI(ones, zeros, { seed: 1 })
     expect(ci2.signTestP).toBeLessThan(0.05)
+  })
+})
+
+describe('calibration scorers', () => {
+  // Hand-computed: bin 9 {0.95 ok, 0.95 miss} -> acc 0.5, conf 0.95, gap 0.45, n 2
+  //                bin 2 {0.25 miss}          -> acc 0,   conf 0.25, gap 0.25, n 1
+  //                bin 6 {0.65 ok}            -> acc 1,   conf 0.65, gap 0.35, n 1
+  // ECE = 2/4*0.45 + 1/4*0.25 + 1/4*0.35 = 0.375
+  const fixture = [
+    { p: 0.95, correct: true },
+    { p: 0.95, correct: false },
+    { p: 0.25, correct: false },
+    { p: 0.65, correct: true },
+  ]
+
+  it('expectedCalibrationError on a hand-computed fixture', () => {
+    expect(Math.abs((expectedCalibrationError(fixture) as number) - 0.375)).toBeLessThan(1e-9)
+    expect(expectedCalibrationError([])).toBeNull()
+  })
+
+  it('acceptedAccuracyAt(threshold)', () => {
+    // p >= 0.6: {0.95 ok, 0.95 miss, 0.65 ok} -> 2/3
+    expect(acceptedAccuracyAt(fixture, 0.6)).toBeCloseTo(2 / 3, 9)
+    // boundary is inclusive
+    expect(acceptedAccuracyAt(fixture, 0.65)).toBeCloseTo(2 / 3, 9)
+    expect(acceptedAccuracyAt(fixture, 0.99)).toBeNull()
+  })
+
+  it('coverageAt(threshold)', () => {
+    expect(coverageAt(fixture, 0.6)).toBe(0.75)
+    expect(coverageAt(fixture, 0.95)).toBe(0.5)
+    expect(coverageAt(fixture, 0.99)).toBe(0)
+  })
+
+  it('thresholdSweep renders a markdown table for 0.50..0.95 step 0.05', () => {
+    const lines = thresholdSweep(fixture).trim().split('\n')
+    expect(lines[0]).toBe('| threshold | coverage | accepted accuracy |')
+    expect(lines[1]).toMatch(/^\|[-\s|]+\|$/)
+    const rows = lines.slice(2)
+    expect(rows).toHaveLength(10)
+    expect(rows[0]).toMatch(/^\| 0\.50 \|/)
+    expect(rows[9]).toMatch(/^\| 0\.95 \|/)
+    // 0.95 threshold must include p = 0.95 exactly (no float drift)
+    expect(rows[9]).toContain('| 0.500 |')
+  })
+
+  it('bandFromProbability uses JEV_BAND_CUTOFFS', () => {
+    expect(JEV_BAND_CUTOFFS).toEqual({ high: 0.9, medium: 0.7 })
+    expect(bandFromProbability(0.95)).toBe('high')
+    expect(bandFromProbability(0.8)).toBe('medium')
+    expect(bandFromProbability(0.5)).toBe('low')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1873 golden-set scorers
+// ---------------------------------------------------------------------------
+
+function planWith(fetches: number, fanOut = 0) {
+  const surfaces = Array.from({ length: fetches - fanOut }, (_, i) => ({
+    url: `https://brand.example/p${i}`,
+    fetch: 'static' as const,
+    reason: 'product page',
+  }))
+  return {
+    surfaces: [
+      ...surfaces,
+      { url: 'https://brand.example/skipped', fetch: 'skip' as const, reason: 'not the brand' },
+    ],
+    fanOut: Array.from({ length: fanOut }, (_, i) => `https://brand.example/f${i}`),
+    catalog: { entryUrls: [], priorityProductUrls: [] },
+    socialBios: {},
+    decisions: [],
+  }
+}
+
+describe('planFetchCapOk', () => {
+  it('is 1 for 6 fetches and 0 for 7, counting non-skip surfaces plus fanOut', () => {
+    expect(planFetchCapOk(planWith(6))).toBe(1)
+    expect(planFetchCapOk(planWith(6, 2))).toBe(1)
+    expect(planFetchCapOk(planWith(7))).toBe(0)
+    expect(planFetchCapOk(planWith(7, 3))).toBe(0)
+  })
+
+  it('is 0 for a null plan', () => {
+    expect(planFetchCapOk(null)).toBe(0)
+  })
+
+  it('is 0, not a throw, when surfaces or fanOut is not an array', () => {
+    expect(planFetchCapOk({ surfaces: 'nope', fanOut: [] })).toBe(0)
+    expect(planFetchCapOk({ surfaces: [], fanOut: { url: 'x' } })).toBe(0)
+    expect(planFetchCapOk({ surfaces: [null], fanOut: [] })).toBe(1)
+  })
+})
+
+describe('planSchemaValid', () => {
+  it('is 1 for a valid plan', () => {
+    expect(planSchemaValid(planWith(3))).toBe(1)
+  })
+
+  it('is 0 for a plan that fails AcquisitionPlan.safeParse (including the refine)', () => {
+    expect(planSchemaValid({ surfaces: [] })).toBe(0)
+    expect(planSchemaValid(planWith(7))).toBe(0)
+  })
+
+  it('is 0 for a null plan', () => {
+    expect(planSchemaValid(null)).toBe(0)
+  })
+})
+
+describe('recoveryActionConsistent', () => {
+  it('is 1 when recoveryAction is non-null exactly when the verdict is thin', () => {
+    expect(recoveryActionConsistent({ verdict: 'thin', recoveryAction: 'fanout' })).toBe(1)
+    expect(recoveryActionConsistent({ verdict: 'sufficient', recoveryAction: null })).toBe(1)
+    expect(recoveryActionConsistent({ verdict: 'fail', recoveryAction: null })).toBe(1)
+  })
+
+  it('is 0 otherwise', () => {
+    expect(recoveryActionConsistent({ verdict: 'thin', recoveryAction: null })).toBe(0)
+    expect(recoveryActionConsistent({ verdict: 'sufficient', recoveryAction: 'search' })).toBe(0)
+    expect(recoveryActionConsistent({ verdict: 'fail', recoveryAction: 'render' })).toBe(0)
+  })
+})
+
+describe('verdictAgreement', () => {
+  it('reuses decisionAgreement on verdict', () => {
+    expect(verdictAgreement({ verdict: 'thin' }, { verdict: 'thin' })).toBe(1)
+    expect(verdictAgreement({ verdict: 'thin' }, { verdict: 'fail' })).toBe(0)
+    expect(verdictAgreement({}, { verdict: 'fail' })).toBe(0)
   })
 })

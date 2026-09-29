@@ -14,21 +14,42 @@ import { parseArgs as nodeParseArgs } from 'node:util'
 
 import { config as dotenvConfig } from 'dotenv'
 
+import { assertCensusTarget } from '../enrichment/eval/production-guard'
 import { loadScriptTarget } from '../shared/target'
+import {
+  LANGFUSE_PACE_MS,
+  LANGFUSE_RETRY_POLICY,
+  httpStatusOf,
+  pacedLangfuseWriter,
+  realSleep,
+} from '../shared/langfuse-paced-write'
 
 // @/ imports — available after loadScriptTarget() sets up env
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
 import {
   adapterFor,
   registeredDatasets,
+  type PhaseAdapter,
 } from '@/lib/services/eval/phase-adapters'
-import { enqueueDataset, applyVerdicts } from '@/lib/services/eval/golden-review'
+import { enqueueDataset, applyVerdicts, type PrelabelDeps } from '@/lib/services/eval/golden-review'
 import { runExperiment, type ExperimentArm } from '@/lib/services/eval/run-experiment'
+import { shippedNameSweep } from '@/lib/services/eval/names-shipped'
+import { SPLITS, assignSplits, readSplit, splitOf, type Split } from '@/lib/services/eval/splits'
 import {
   type ProductsReplayOutput,
   driftRate,
 } from '@/lib/services/eval/products-calibration'
 import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
+import { JEV_MODEL } from '@/lib/constants/llm-models'
+import { withRetry } from '@/lib/retry'
+import {
+  promptForDataset,
+  type GoldenItemBody,
+  type HarvestRow,
+  type PromptTexts,
+  type TimedCapturedCall,
+} from '@/lib/services/eval/golden-capture'
+import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/types'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -37,6 +58,10 @@ import type { SnapshotFile, PromptApi } from '@/lib/services/eval/prompt-sync'
 export type ArmSpec =
   | { kind: 'prompt'; version: number }
   | { kind: 'model'; model: string }
+  | { kind: 'jev'; version: string; promptVersion?: number }
+
+/** Pairwise runs compare generated text; jev arms are rejected at parse time. */
+export type PairwiseArmSpec = Exclude<ArmSpec, { kind: 'jev' }>
 
 export type ParsedCommand =
   | { command: 'dataset-validate'; allowUnreviewed: boolean }
@@ -44,27 +69,45 @@ export type ParsedCommand =
   | { command: 'dataset-review-push'; dataset: string; approvedBy: string }
   | { command: 'dataset-record'; dataset: string; brand: string; urls?: string[] }
   | { command: 'dataset-prelabel'; dataset: string; item: string; file: string }
+  | { command: 'dataset-prelabel-draft'; dataset: string; limit?: number }
+  | { command: 'dataset-seed-intent' }
+  | { command: 'dataset-harvest'; dataset: string; since?: string; limit?: number; confirm: boolean }
+  | { command: 'dataset-capture'; brands: string[]; datasets?: string[]; confirm: boolean }
+  | { command: 'dataset-split'; dataset: string; seed: string; apply: boolean; pin: string[] }
   | {
       command: 'run'
       dataset: string
       arms: ArmSpec[]
       envFile?: string
       allowUnreviewed: boolean
+      split?: Split[]
     }
   | { command: 'prompt-push'; name: string; file?: string; label?: string; allowVariableChange: boolean }
   | { command: 'prompt-pull'; add: string[]; check: boolean; allowVariableChange: boolean }
-  | { command: 'prompt-promote'; name: string; version: number }
+  | { command: 'prompt-promote'; name: string; version: number; allowVariableChange: boolean }
   | {
       command: 'pairwise-run'
       phase: string
       target: string
       sample: number
-      arms: ArmSpec[]
+      arms: PairwiseArmSpec[]
       envFile?: string
       noEnqueue: boolean
       allowUnreviewed: boolean
     }
   | { command: 'pairwise-report'; runName: string }
+  | { command: 'sweep-names'; runFile: string; dataset: string; split: Split[] }
+
+function parseSplit(value: string): Split[] {
+  const parts = splitList(value)
+  if (parts.length === 0) throw new Error(`--split needs at least one of ${SPLITS.join(', ')}`)
+  for (const part of parts) {
+    if (!(SPLITS as readonly string[]).includes(part)) {
+      throw new Error(`Unknown --split value: ${part} (expected ${SPLITS.join(', ')})`)
+    }
+  }
+  return parts as Split[]
+}
 
 export function parseArm(spec: string): ArmSpec {
   const colon = spec.indexOf(':')
@@ -75,7 +118,8 @@ export function parseArm(spec: string): ArmSpec {
   }
 
   const kind = spec.slice(0, colon)
-  const value = spec.slice(colon + 1)
+  // Trimmed: OPENAI_MODEL_OVERRIDE is trimmed, and the off-slot check compares exactly.
+  const value = spec.slice(colon + 1).trim()
 
   if (kind === 'prompt') {
     const version = Number(value)
@@ -92,9 +136,46 @@ export function parseArm(spec: string): ArmSpec {
     return { kind: 'model', model: value }
   }
 
+  if (kind === 'jev') {
+    // `jev:<version>@<promptVersion>` also pins the adapter's prompt (DEV-1894).
+    const at = value.indexOf('@')
+    const version = at === -1 ? value : value.slice(0, at)
+    // Only the pinned version: a floating tag would make runs irreproducible.
+    if (version !== JEV_MODEL) {
+      throw new Error(`Malformed arm spec: ${spec} (jev version must be ${JEV_MODEL})`)
+    }
+    if (at === -1) return { kind: 'jev', version }
+    const pin = value.slice(at + 1)
+    const promptVersion = Number(pin)
+    if (!/^\d+$/.test(pin) || promptVersion < 1) {
+      throw new Error(`Malformed arm spec: ${spec} (prompt version must be a positive integer)`)
+    }
+    return { kind: 'jev', version, promptVersion }
+  }
+
   throw new Error(
-    `Malformed arm spec: ${spec} (expected prompt:<version> or model:<name>)`,
+    `Malformed arm spec: ${spec} (expected prompt:<version>, model:<name> or jev:<version>)`,
   )
+}
+
+function splitList(value: string): string[] {
+  return value.split(',').map((part) => part.trim()).filter(Boolean)
+}
+
+function parseLimit(value: string | undefined): number | undefined {
+  const limit = value !== undefined ? Number(value) : undefined
+  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
+    throw new Error('--limit must be a positive integer')
+  }
+  return limit
+}
+
+const DEFAULT_SPLIT_SEED = 'dev-1898'
+
+function assertGoldenCaptureDataset(dataset: string): void {
+  if (!promptForDataset(dataset)) {
+    throw new Error(`"${dataset}" is not a capture/harvest golden dataset`)
+  }
 }
 
 export function parseCliArgs(args: string[]): ParsedCommand {
@@ -120,6 +201,16 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       check: { type: 'boolean', default: false },
       label: { type: 'string' },
       'allow-variable-change': { type: 'boolean', default: false },
+      since: { type: 'string' },
+      limit: { type: 'string' },
+      brands: { type: 'string' },
+      datasets: { type: 'string' },
+      confirm: { type: 'boolean', default: false },
+      draft: { type: 'boolean', default: false },
+      split: { type: 'string' },
+      seed: { type: 'string' },
+      apply: { type: 'boolean', default: false },
+      pin: { type: 'string' },
     },
   })
 
@@ -143,8 +234,50 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         urls: values.urls ? values.urls.split(',') : undefined,
       }
     }
+    if (sub2 === 'harvest') {
+      if (!values.dataset) throw new Error('--dataset is required')
+      assertGoldenCaptureDataset(values.dataset)
+      if (values.since !== undefined && Number.isNaN(new Date(values.since).getTime())) {
+        throw new Error('--since must be a date (YYYY-MM-DD)')
+      }
+      const limit = parseLimit(values.limit)
+      return {
+        command: 'dataset-harvest',
+        dataset: values.dataset,
+        since: values.since,
+        limit,
+        confirm: values.confirm ?? false,
+      }
+    }
+    if (sub2 === 'capture') {
+      if (!values.brands) throw new Error('--brands is required')
+      const datasets = values.datasets ? splitList(values.datasets) : undefined
+      datasets?.forEach(assertGoldenCaptureDataset)
+      return {
+        command: 'dataset-capture',
+        brands: splitList(values.brands),
+        datasets,
+        confirm: values.confirm ?? false,
+      }
+    }
+    if (sub2 === 'split') {
+      if (!values.dataset) throw new Error('--dataset is required')
+      return {
+        command: 'dataset-split',
+        dataset: values.dataset,
+        seed: values.seed ?? DEFAULT_SPLIT_SEED,
+        apply: values.apply ?? false,
+        pin: values.pin ? splitList(values.pin) : [],
+      }
+    }
     if (sub2 === 'prelabel') {
       if (!values.dataset) throw new Error('--dataset is required')
+      if (values.draft) {
+        if (values.item !== undefined || values.file !== undefined) {
+          throw new Error('--draft cannot be combined with --item or --file')
+        }
+        return { command: 'dataset-prelabel-draft', dataset: values.dataset, limit: parseLimit(values.limit) }
+      }
       if (!values.item) throw new Error('--item is required')
       if (!values.file) throw new Error('--file is required')
       return {
@@ -153,6 +286,9 @@ export function parseCliArgs(args: string[]): ParsedCommand {
         item: values.item,
         file: values.file,
       }
+    }
+    if (sub2 === 'seed-intent') {
+      return { command: 'dataset-seed-intent' }
     }
     if (sub2 === 'review') {
       const sub3 = positionals[2]
@@ -185,7 +321,17 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       arms,
       envFile: values['env-file'],
       allowUnreviewed: values['allow-unreviewed'] ?? false,
+      split: values.split !== undefined ? parseSplit(values.split) : undefined,
     }
+  }
+
+  if (sub === 'sweep-names') {
+    const runFile = positionals[1]
+    if (!runFile) throw new Error('run file argument is required')
+    if (!values.dataset) throw new Error('--dataset is required')
+    // Required, not defaulted: a sweep over every split would tune on the holdout.
+    if (values.split === undefined) throw new Error('--split is required (e.g. train,val)')
+    return { command: 'sweep-names', runFile, dataset: values.dataset, split: parseSplit(values.split) }
   }
 
   if (sub === 'prompt') {
@@ -222,7 +368,12 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       if (!Number.isInteger(version) || version < 1) {
         throw new Error('version must be a positive integer')
       }
-      return { command: 'prompt-promote', name, version }
+      return {
+        command: 'prompt-promote',
+        name,
+        version,
+        allowVariableChange: values['allow-variable-change'] ?? false,
+      }
     }
   }
 
@@ -233,7 +384,12 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       const sample = values.sample ? Number(values.sample) : 20
       if (!Number.isFinite(sample) || sample < 1)
         throw new Error('--sample must be a positive integer')
-      const arms = (values.arm ?? []).map(parseArm)
+      const arms = (values.arm ?? []).map(parseArm).map((arm): PairwiseArmSpec => {
+        if (arm.kind === 'jev') {
+          throw new Error('pairwise run does not support jev arms (jev returns decisions, not text)')
+        }
+        return arm
+      })
       return {
         command: 'pairwise-run',
         phase: values.phase,
@@ -258,14 +414,20 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval dataset validate [--allow-unreviewed]\n' +
       '  llm-eval dataset record --dataset <name> --brand <slug> [--urls url1,url2,...]\n' +
       '  llm-eval dataset prelabel --dataset <name> --item <id> --file <json-path>\n' +
+      '  llm-eval dataset prelabel --dataset <name> --draft [--limit <n>]\n' +
+      '  llm-eval dataset seed-intent\n' +
+      '  llm-eval dataset harvest --dataset <name> [--since <YYYY-MM-DD>] [--limit <n>] [--target production --confirm]\n' +
+      '  llm-eval dataset capture --brands <slug,slug,...> [--datasets <name,name,...>] [--target production --confirm]\n' +
+      '  llm-eval dataset split --dataset <name> [--seed <s>] [--pin <id,id,...>] [--apply]\n' +
       '  llm-eval dataset review enqueue --dataset <name>\n' +
       '  llm-eval dataset review push --dataset <name> --approved-by <user>\n' +
-      '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed]\n' +
+      '  llm-eval run --dataset <name> --arm <spec> [--arm <spec>] [--env-file <path>] [--allow-unreviewed] [--split train,val,holdout]\n' +
       '  llm-eval prompt push <name> [--file <path>] [--label production] [--allow-variable-change]\n' +
       '  llm-eval prompt pull [--add <name>]... [--check] [--allow-variable-change]\n' +
-      '  llm-eval prompt promote <name> <version>\n' +
+      '  llm-eval prompt promote <name> <version> [--allow-variable-change]\n' +
       '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue] [--allow-unreviewed]\n' +
-      '  llm-eval pairwise report <runName>',
+      '  llm-eval pairwise report <runName>\n' +
+      '  llm-eval sweep-names <runfile> --dataset <name> --split train,val',
   )
 }
 
@@ -388,6 +550,12 @@ export async function handlePromptPull({
     warn: (msg: string) => logFn(`[warn] ${msg}`),
   })
 
+  if (result.fetchErrors) {
+    for (const e of result.fetchErrors) {
+      logFn(`fetch error: ${e.name} (${e.error})`)
+    }
+  }
+
   if (!result.ok) {
     if (result.drift) {
       for (const d of result.drift) {
@@ -404,9 +572,9 @@ export async function handlePromptPull({
         logFn(`placeholder drift: ${d.name} +${d.added.join(',')} -${d.removed.join(',')}`)
       }
     }
-    return 1
   }
 
+  // A partial pull (fetch errors only) still writes the prompts that succeeded
   if (result.snapshot && !check) {
     writeFileFn(
       LANGFUSE_SNAPSHOT_PATH,
@@ -415,16 +583,18 @@ export async function handlePromptPull({
     logFn('Snapshot updated')
   }
 
-  return 0
+  return result.ok ? 0 : 1
 }
 
 export async function handlePromptPromote({
   name,
   version,
+  allowVariableChange = false,
   deps,
 }: {
   name: string
   version: number
+  allowVariableChange?: boolean
   deps?: Partial<PromptHandlerDeps>
 }): Promise<number> {
   const { promotePrompt } = await import(
@@ -447,11 +617,16 @@ export async function handlePromptPromote({
     version,
     snapshot,
     knownNames,
+    allowVariableChange,
   })
 
   if (!result.ok) {
     logFn(`promote failed: ${result.error}`)
     return 1
+  }
+
+  for (const e of result.fetchErrors ?? []) {
+    logFn(`[warn] fetch error: ${e.name} (${e.error}), snapshot entry kept`)
   }
 
   if (result.snapshot) {
@@ -501,12 +676,68 @@ export function isAdmittedProductsItem(
 // Subcommand handlers
 // ---------------------------------------------------------------------------
 
-async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
-  const client = getLangfuse()
-  if (!client) {
-    console.error('[validate] Langfuse not configured')
-    process.exitCode = 1
-    return
+/** A Langfuse 404 on a dataset lookup: `LangfuseFetchHttpError` carries the response. */
+export function isDatasetNotFound(e: unknown): boolean {
+  const status = (e as { response?: { status?: unknown } } | null)?.response?.status
+  if (status === 404) return true
+  const message = e instanceof Error ? e.message : String(e)
+  return /\b404\b|not found/i.test(message)
+}
+
+/**
+ * `client.getDataset` (langfuse-core 3.38.20) swallows ANY failed response on
+ * the dataset lookup and the items page — a 404, but also a 429, a 5xx or a
+ * 401 — and then fails with `TypeError: itemsResponse.data is not iterable`.
+ * The error alone cannot tell a missing dataset from an outage. Matched on the
+ * SDK's own variable name so an unrelated "is not iterable" still surfaces;
+ * re-check if the SDK is upgraded and renames it.
+ */
+function isSwallowedItemsPageError(e: unknown): boolean {
+  return e instanceof TypeError && /\bitemsResponse\.data is not iterable\b/.test(e.message)
+}
+
+export type ValidateDeps = {
+  /** Injectable for tests; defaults to the Langfuse client's getDataset. */
+  getDataset?: (name: string) => Promise<{ items: Array<{ status: string; metadata?: unknown }> }>
+  /**
+   * A dataset lookup whose HTTP status is visible (`GET /api/public/v2/datasets/{name}`):
+   * it rejects with an object carrying `status`. Defaults to `client.api.datasetsGet`.
+   * Without one, a swallowed items-page failure fails validate.
+   */
+  probeDataset?: (name: string) => Promise<unknown>
+}
+
+/**
+ * Disambiguates a swallowed items-page failure: true only when the probe
+ * returns a real 404. A probe that succeeds (the dataset exists, so the items
+ * page failed for another reason) returns false; any other probe failure
+ * propagates.
+ */
+async function probeSaysMissing(name: string, probe: ValidateDeps['probeDataset']): Promise<boolean> {
+  if (!probe) return false
+  try {
+    await probe(name)
+  } catch (error) {
+    if (httpStatusOf(error) === 404) return true
+    throw error
+  }
+  return false
+}
+
+export async function cmdDatasetValidate(
+  allowUnreviewed: boolean,
+  deps: ValidateDeps = {},
+): Promise<void> {
+  let { getDataset, probeDataset } = deps
+  if (!getDataset) {
+    const client = getLangfuse()
+    if (!client) {
+      console.error('[validate] Langfuse not configured')
+      process.exitCode = 1
+      return
+    }
+    getDataset = (name) => client.getDataset(name)
+    probeDataset ??= (name) => client.api.datasetsGet(name)
   }
 
   const names = registeredDatasets().filter(
@@ -515,11 +746,27 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
 
   let hasUnreviewed = false
 
-  console.log('Dataset                             | Reviewed | Unreviewed | Archived')
-  console.log('------------------------------------|----------|------------|--------')
+  console.log('Dataset                             | Reviewed | Unreviewed | Archived | Train | Val   | Holdout | None')
+  console.log('------------------------------------|----------|------------|----------|-------|-------|---------|-----')
 
   for (const name of names) {
-    const { items } = await client.getDataset(name)
+    let items: Array<{ status: string; metadata?: unknown }>
+    try {
+      ;({ items } = await getDataset(name))
+    } catch (e) {
+      if (isSwallowedItemsPageError(e)) {
+        if (!(await probeSaysMissing(name, probeDataset))) {
+          throw new Error(
+            `[validate] ${name}: reading the items failed (the Langfuse SDK swallowed a non-404 response: ` +
+              `rate limit, outage or auth); refusing to report it as not seeded`,
+          )
+        }
+      } else if (!isDatasetNotFound(e)) {
+        throw e
+      }
+      console.log(`${name.padEnd(36)}| not seeded`)
+      continue
+    }
     const active = items.filter((i) => i.status === 'ACTIVE')
     const archived = items.filter((i) => i.status === 'ARCHIVED')
     const reviewed = active.filter((i) => isReviewed(i))
@@ -528,15 +775,298 @@ async function cmdDatasetValidate(allowUnreviewed: boolean): Promise<void> {
     if (unreviewed > 0) hasUnreviewed = true
 
     console.log(
-      `${name.padEnd(36)}| ${String(reviewed.length).padEnd(9)}| ${String(unreviewed).padEnd(11)}| ${archived.length}`,
+      `${name.padEnd(36)}| ${String(reviewed.length).padEnd(9)}| ${String(unreviewed).padEnd(11)}| ` +
+        `${String(archived.length).padEnd(9)}| ${formatSplitRow(splitCounts(active))}`,
     )
   }
 
-  await flushLangfuse()
+  if (!deps.getDataset) await flushLangfuse()
 
   if (hasUnreviewed && !allowUnreviewed) {
     console.error('[validate] Unreviewed items found. Pass --allow-unreviewed to proceed.')
     process.exitCode = 1
+  }
+}
+
+// ---------------------------------------------------------------------------
+// dataset split (DEV-1898 D9a/D21)
+// ---------------------------------------------------------------------------
+
+type SplitRow = Record<Split | 'none', number>
+
+const emptySplitRow = (): SplitRow => ({ train: 0, val: 0, holdout: 0, none: 0 })
+
+/** The `Train | Val | Holdout | None` cells of one table row. */
+function formatSplitRow(row: SplitRow): string {
+  return `${String(row.train).padEnd(6)}| ${String(row.val).padEnd(6)}| ${String(row.holdout).padEnd(8)}| ${row.none}`
+}
+
+/** Train/val/holdout counts, plus `none` for items with no (or an unknown) split. */
+export function splitCounts(items: ReadonlyArray<{ metadata?: unknown }>): SplitRow {
+  const counts = emptySplitRow()
+  for (const item of items) counts[splitOf(item.metadata) ?? 'none'] += 1
+  return counts
+}
+
+export type SplitDatasetItem = {
+  id: string
+  status: string
+  input: unknown
+  expectedOutput: unknown
+  metadata?: unknown
+}
+
+/** An item's stratum; `undefined` means the item has no label yet. */
+export type Stratum = (item: SplitDatasetItem) => string | undefined
+
+/** A label field of `expectedOutput` as the stratum; `undefined` when the item is unlabelled. */
+function labelStratum(field: string): Stratum {
+  return (item) => {
+    const value = (item.expectedOutput as Record<string, unknown> | null | undefined)?.[field]
+    return value === undefined || value === null ? undefined : String(value)
+  }
+}
+
+/**
+ * Strata per dataset (D21): the label where the set has one — the detect
+ * confidence band, the critique verdict, the intent L1 — otherwise one stratum.
+ */
+export const SPLIT_STRATA: Readonly<Record<string, Stratum>> = {
+  'detect-confidence-golden': labelStratum('confidence'),
+  'acquisition-critique-golden': labelStratum('verdict'),
+  'intent-parse-golden': labelStratum('category'),
+}
+
+/**
+ * Datasets whose splits another script owns; `dataset split` refuses them.
+ * Names: the harvest stratifies by hard-tag set and pins prompt-leak items to
+ * train, which it computes from the live prompt; a deal here would do neither.
+ */
+export const SPLIT_OWNERS: Readonly<Record<string, string>> = {
+  'name-arbiter-confidence-golden': 'scripts/harvest-name-arbiter-golden.ts',
+}
+
+export function strataOf(dataset: string): Stratum {
+  return SPLIT_STRATA[dataset] ?? (() => 'all')
+}
+
+/** A split × stratum table: one row per stratum, then the total. */
+export function formatSplitTable(
+  items: ReadonlyArray<SplitDatasetItem & { split?: Split }>,
+  stratum: Stratum,
+): string {
+  const rows = new Map<string, SplitRow>()
+  for (const item of items) {
+    const key = stratum(item) ?? 'unlabelled'
+    const row = rows.get(key) ?? emptySplitRow()
+    row[item.split ?? 'none'] += 1
+    rows.set(key, row)
+  }
+  const total = emptySplitRow()
+  for (const row of rows.values()) for (const key of Object.keys(total) as Array<keyof SplitRow>) total[key] += row[key]
+  const line = (name: string, row: SplitRow) => `${name.padEnd(24)}| ${formatSplitRow(row)}`
+  return [
+    'Stratum                 | Train | Val   | Holdout | None',
+    '------------------------|-------|-------|---------|-----',
+    ...[...rows.keys()].sort().map((key) => line(key, rows.get(key)!)),
+    line('all', total),
+  ].join('\n')
+}
+
+export type SplitWriteApi = {
+  getItem: (id: string) => Promise<unknown>
+  createItem: (body: SplitWriteBody) => Promise<unknown>
+}
+
+/** Every field the dataset-item create API accepts; the upsert replaces the whole item. */
+export type SplitWriteBody = {
+  datasetName: string
+  id: string
+  input: unknown
+  expectedOutput: unknown
+  metadata: Record<string, unknown>
+  status: 'ACTIVE' | 'ARCHIVED'
+  sourceTraceId: string | null
+  sourceObservationId: string | null
+}
+
+export type SplitOptions = {
+  dataset: string
+  seed: string
+  apply: boolean
+  pin: readonly string[]
+  /** Injectable for tests; defaults to the Langfuse client's getDataset. */
+  getDataset?: (name: string) => Promise<{ items: SplitDatasetItem[] }>
+  api?: SplitWriteApi
+  sleep?: (ms: number) => Promise<void>
+  minIntervalMs?: number
+  log?: (message: string) => void
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
+
+/**
+ * The upsert body for one split write, built from a FRESH read of the item:
+ * every field the create API accepts is carried as stored now, and only
+ * `split` is merged into metadata. Returns the reason instead when the item
+ * must not be written: it could not be re-read, its metadata is not a plain
+ * object, or its split changed since the listing.
+ */
+function splitWriteBody(
+  datasetName: string,
+  id: string,
+  fresh: unknown,
+  split: Split,
+  listed: ReturnType<typeof readSplit>,
+): SplitWriteBody | string {
+  const item = fresh as {
+    id?: unknown
+    input?: unknown
+    expectedOutput?: unknown
+    metadata?: unknown
+    status?: unknown
+    sourceTraceId?: string | null
+    sourceObservationId?: string | null
+  } | null | undefined
+  if (!item || item.id !== id) return 'could not be re-read'
+  if (item.status !== 'ACTIVE' && item.status !== 'ARCHIVED') return `unknown status ${String(item.status)}`
+  const metadata = item.metadata ?? {}
+  if (!isPlainObject(metadata)) return 'metadata is not a plain object'
+  const now = readSplit(metadata)
+  if (now.split !== listed.split || now.unrecognised !== listed.unrecognised) return 'split changed since listing'
+  return {
+    datasetName,
+    id,
+    input: item.input,
+    expectedOutput: item.expectedOutput ?? null,
+    metadata: { ...metadata, split },
+    status: item.status,
+    sourceTraceId: item.sourceTraceId ?? null,
+    sourceObservationId: item.sourceObservationId ?? null,
+  }
+}
+
+/**
+ * `dataset split`: deals every listed item without a split into train/val/
+ * holdout through the shared `assignSplits` (seeded, stratified 60/20/20;
+ * pinned ids go to train). An item that already has a split keeps it. An
+ * unlabelled item in a label-stratified set is left unsplit (a split is frozen
+ * once written, so it waits for review). A dataset whose splits another script
+ * owns (`SPLIT_OWNERS`) is refused. A dry run prints the split × stratum table
+ * and any item with an unrecognised stored split; `--apply` refuses while one
+ * exists. `--apply` re-reads each changed item just before its write and
+ * upserts it from that fresh read with only `metadata.split` merged, paced and
+ * confirmed by returned id, then re-read per id, because the SDK resolves a
+ * 429 as if it had succeeded. The dataset listing omits ARCHIVED (rejected)
+ * items, so they are not split.
+ */
+export async function cmdDatasetSplit(options: SplitOptions): Promise<{ written: number; unchanged: number }> {
+  const { dataset, seed, apply, pin, log = console.log } = options
+  const owner = SPLIT_OWNERS[dataset]
+  if (owner) throw new Error(`[split] ${dataset} splits are owned by ${owner}; run it instead of dataset split`)
+  let getDataset = options.getDataset
+  if (!getDataset) {
+    const client = getLangfuse()
+    if (!client) throw new Error('[split] Langfuse not configured')
+    getDataset = async (name) => ({ items: (await client.getDataset(name)).items as unknown as SplitDatasetItem[] })
+  }
+  const { items } = await getDataset(dataset)
+  const stratum = strataOf(dataset)
+  const pinnedToTrain = new Set(pin)
+  const unknownPins = pin.filter((id) => !items.some((item) => item.id === id))
+  if (unknownPins.length > 0) throw new Error(`[split] --pin ids not in ${dataset}: ${unknownPins.join(', ')}`)
+
+  // The stored split per id, read once before the deal.
+  const stored = new Map(items.map((item) => [item.id, readSplit(item.metadata)]))
+  const storedOf = (id: string) => stored.get(id) ?? {}
+  const unrecognised = items
+    .filter((item) => storedOf(item.id).unrecognised !== undefined)
+    .map((item) => `${item.id}=${JSON.stringify(storedOf(item.id).unrecognised)}`)
+  const unlabelled = new Set(
+    items
+      .filter((item) => !storedOf(item.id).split && !pinnedToTrain.has(item.id) && stratum(item) === undefined)
+      .map((item) => item.id),
+  )
+
+  const dealt = assignSplits(
+    items.filter((item) => !unlabelled.has(item.id)).map((item) => ({ ...item, split: storedOf(item.id).split })),
+    // Only labelled, unsplit, unpinned items reach strataOf, so the fallback never applies.
+    { seed, strataOf: (item) => stratum(item) ?? 'unlabelled', pinnedToTrain },
+  )
+  log(formatSplitTable(dealt, stratum))
+  if (unlabelled.size > 0) {
+    log(`\n[split] ${dataset}: ${unlabelled.size} unlabelled item(s) left unsplit; re-run after review`)
+  }
+  if (unrecognised.length > 0) {
+    log(`\n[split] ${dataset}: ${unrecognised.length} item(s) carry an unrecognised split: ${unrecognised.join(', ')}`)
+  }
+
+  const changed = dealt.filter((item) => item.split !== storedOf(item.id).split)
+  if (!apply) {
+    log(`\n[split] ${dataset}: ${changed.length} item(s) would change; dry run, pass --apply to write`)
+    return { written: 0, unchanged: dealt.length - changed.length }
+  }
+  if (unrecognised.length > 0) {
+    throw new Error(
+      `[split] refusing --apply: ${unrecognised.length} item(s) carry an unrecognised split (${unrecognised.join(', ')}); ` +
+        'fix or clear their metadata.split first',
+    )
+  }
+
+  const api = options.api ?? langfuseSplitWriteApi()
+  const { withRetry, confirmedWrite } = pacedLangfuseWriter<SplitWriteBody>({
+    createItem: (body) => api.createItem(body),
+    ...(options.sleep ? { sleep: options.sleep } : {}),
+    ...(options.minIntervalMs !== undefined ? { minIntervalMs: options.minIntervalMs } : {}),
+  })
+  const written: SplitWriteBody[] = []
+  const failed: string[] = []
+  const refused: string[] = []
+  for (const item of changed) {
+    // Re-read right before the write: the listing is a snapshot, and the upsert replaces the whole item.
+    let fresh: unknown
+    try {
+      fresh = await withRetry(async () => (await api.getItem(item.id)) ?? undefined)
+    } catch (error) {
+      if (httpStatusOf(error) !== 404) throw error
+    }
+    const body = splitWriteBody(dataset, item.id, fresh, item.split!, storedOf(item.id))
+    if (typeof body === 'string') refused.push(`${item.id} (${body})`)
+    else if (await confirmedWrite(body)) written.push(body)
+    else failed.push(item.id)
+  }
+  const unverified: string[] = []
+  for (const body of written) {
+    const ok = await withRetry(async () => {
+      const readBack = (await api.getItem(body.id)) as { id?: unknown; metadata?: { split?: unknown } | null } | null
+      return readBack?.id === body.id && readBack.metadata?.split === body.metadata.split ? true : undefined
+    })
+    if (ok !== true) unverified.push(body.id)
+  }
+  const problems = [
+    failed.length > 0 ? `unconfirmed: ${failed.join(', ')}` : '',
+    refused.length > 0 ? `refused: ${refused.join(', ')}` : '',
+    unverified.length > 0 ? `did not read back with their split: ${unverified.join(', ')}` : '',
+  ].filter(Boolean)
+  if (problems.length > 0) {
+    throw new Error(
+      `[split] ${written.length - unverified.length}/${changed.length} writes verified; ${problems.join('; ')}`,
+    )
+  }
+  log(`\n[split] ${dataset}: ${written.length} written and verified, ${dealt.length - changed.length} unchanged`)
+  return { written: written.length, unchanged: dealt.length - changed.length }
+}
+
+function langfuseSplitWriteApi(): SplitWriteApi {
+  const client = getLangfuse()
+  if (!client) throw new Error('Langfuse not configured')
+  return {
+    getItem: (id) => client.api.datasetItemsGet(id),
+    createItem: (body) => client.api.datasetItemsCreate(body),
   }
 }
 
@@ -547,8 +1077,9 @@ async function cmdDatasetReviewEnqueue(dataset: string): Promise<void> {
     queueName: 'golden-review',
     reviewView: adapter.reviewView,
   })
-  console.log(`[enqueue] ${result.enqueued} items enqueued to queue "${result.queueName}"`)
-  await flushLangfuse()
+  console.log(
+    `[enqueue] ${result.enqueued} items enqueued to queue "${result.queueName}" (${result.skipped} already queued, skipped)`,
+  )
 }
 
 async function cmdDatasetReviewPush(
@@ -563,24 +1094,118 @@ async function cmdDatasetReviewPush(
   await flushLangfuse()
 }
 
-async function cmdRun(
+type RunDatasetItem = {
+  id: string
+  status?: string
+  input: unknown
+  expectedOutput: unknown
+  metadata?: unknown
+}
+
+/** True when the item's `metadata.split` is one of `split`; an item with no split is in none. */
+function inSplit(item: { metadata?: unknown }, split: readonly string[]): boolean {
+  const itemSplit = splitOf(item.metadata)
+  return itemSplit !== undefined && split.includes(itemSplit)
+}
+
+export type RunDeps = {
+  /** Injectable for tests; defaults to the Langfuse client's getDataset. */
+  getDataset?: (name: string) => Promise<{ items: RunDatasetItem[] }>
+  /** Injectable for tests; when set, the script experiment deps are not built. */
+  runExperiment?: (
+    input: Omit<Parameters<typeof runExperiment>[0], 'deps'>,
+  ) => ReturnType<typeof runExperiment>
+}
+
+export type RunOptions = {
+  /** Keep only items whose metadata.split is listed; undefined keeps all items. */
+  split?: Split[]
+}
+
+/** Dataset items from the injected loader, else Langfuse; null when Langfuse is not configured. */
+async function loadDatasetItems(
+  dataset: string,
+  getDataset: RunDeps['getDataset'],
+): Promise<RunDatasetItem[] | null> {
+  if (getDataset) return (await getDataset(dataset)).items
+  const client = getLangfuse()
+  if (!client) return null
+  return (await client.getDataset(dataset)).items.map((i) => ({
+    id: i.id,
+    status: i.status,
+    input: i.input,
+    expectedOutput: i.expectedOutput,
+    metadata: i.metadata,
+  }))
+}
+
+/**
+ * Refuses arm sets that would compare a jev arm and the incumbent on different
+ * rules (DEV-1894 D13). A `jev:<ver>@N` pin is only meaningful where the jev
+ * candidate reads the adapter's prompt as its rules; elsewhere it is inert.
+ * Where it does read them, a prompt arm beside an unpinned jev arm would give
+ * Jev the production-labelled version instead of the version under test.
+ */
+export function checkRunArms(dataset: string, adapter: PhaseAdapter, armSpecs: ArmSpec[]): void {
+  const readsRules = adapter.promptName !== null && adapter.decideUsesPrompt === true
+  const jevArms = armSpecs.filter((spec): spec is Extract<ArmSpec, { kind: 'jev' }> => spec.kind === 'jev')
+  for (const spec of jevArms) {
+    if (spec.promptVersion !== undefined && !readsRules) {
+      throw new Error(
+        `[run] arm jev:${spec.version}@${spec.promptVersion}: the ${dataset} jev candidate does not read prompt rules, so a prompt pin would be inert; drop the @${spec.promptVersion}`,
+      )
+    }
+  }
+  const promptArm = armSpecs.find((spec): spec is Extract<ArmSpec, { kind: 'prompt' }> => spec.kind === 'prompt')
+  const unpinned = jevArms.find((spec) => spec.promptVersion === undefined)
+  if (readsRules && promptArm && unpinned) {
+    throw new Error(
+      `[run] ${dataset}: arm jev:${unpinned.version} is unpinned beside prompt:${promptArm.version}, so Jev would run on different rules than the incumbent; pin the jev arm, e.g. jev:${unpinned.version}@${promptArm.version}`,
+    )
+  }
+}
+
+export async function cmdRun(
   dataset: string,
   armSpecs: ArmSpec[],
   allowUnreviewed: boolean,
+  options: RunOptions = {},
+  runDeps: RunDeps = {},
 ): Promise<void> {
   const adapter = adapterFor(dataset)
+  checkRunArms(dataset, adapter, armSpecs)
 
-  const client = getLangfuse()
-  if (!client) {
+  const rawItems = await loadDatasetItems(dataset, runDeps.getDataset)
+  if (!rawItems) {
     console.error('[run] Langfuse not configured')
     process.exitCode = 1
     return
   }
 
-  const { items: rawItems } = await client.getDataset(dataset)
+  const activeItems = rawItems.filter(
+    (i): i is RunDatasetItem & { status: string } => i.status === 'ACTIVE',
+  )
+  if (activeItems.length === 0) {
+    console.error(`[run] dataset ${dataset} has 0 ACTIVE items — nothing to run`)
+    process.exitCode = 1
+    return
+  }
 
-  const items = rawItems
-    .filter((i) => i.status === 'ACTIVE')
+  // Golden items awaiting review are ACTIVE (DEV-1879), so admit only reviewed
+  // ones unless --allow-unreviewed — the same gate the products run applies.
+  const admitted = activeItems.filter((i) => isAdmittedProductsItem(i, allowUnreviewed))
+  const skipped = activeItems.length - admitted.length
+  if (skipped > 0) {
+    console.log(`[run] ${skipped} unreviewed item(s) skipped; pass --allow-unreviewed to include them`)
+  }
+
+  const { split } = options
+  const selected = split ? admitted.filter((i) => inSplit(i, split)) : admitted
+  if (split) {
+    console.log(`[run] kept ${selected.length} of ${admitted.length} items for split=${split.join(',')}`)
+  }
+
+  const items = selected
     .map((i) => ({
       id: i.id,
       input: i.input,
@@ -599,22 +1224,31 @@ async function cmdRun(
         value: `${adapter.promptName}:${spec.version}`,
       }
     }
+    if (spec.kind === 'jev') {
+      if (spec.promptVersion !== undefined) {
+        return {
+          name: `${spec.version}@${spec.promptVersion}`,
+          type: 'custom' as const,
+          value: `jev:${spec.version}`,
+          promptVersions: `${adapter.promptName}:${spec.promptVersion}`,
+        }
+      }
+      return { name: spec.version, type: 'custom' as const, value: `jev:${spec.version}` }
+    }
     return { name: spec.model, type: 'model' as const, value: spec.model }
   })
 
-  const { createScriptExperimentDeps } = await import(
-    '@/lib/services/eval/script-experiment-deps'
-  )
-  const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
-
-  const result = await runExperiment({
-    dataset,
-    arms,
-    adapter,
-    items,
-    allowUnreviewed,
-    deps,
-  })
+  const experimentInput = { dataset, arms, adapter, items, allowUnreviewed }
+  let result: Awaited<ReturnType<typeof runExperiment>>
+  if (runDeps.runExperiment) {
+    result = await runDeps.runExperiment(experimentInput)
+  } else {
+    const { createScriptExperimentDeps } = await import(
+      '@/lib/services/eval/script-experiment-deps'
+    )
+    const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
+    result = await runExperiment({ ...experimentInput, deps })
+  }
 
   console.log(result.markdown)
   if (result.provisional) {
@@ -624,6 +1258,85 @@ async function cmdRun(
     `\nSummary: ${result.summary.succeeded}/${result.summary.total} succeeded`,
   )
   process.exitCode = result.exitCode
+}
+
+// ---------------------------------------------------------------------------
+// sweep-names (DEV-1896 D10)
+// ---------------------------------------------------------------------------
+
+type RunFileArm = { name: string; type: string; value: string }
+type RunFileItem = { arm: string; itemId: string; ok: boolean; output?: unknown }
+type RunFile = { dataset?: string; arms: RunFileArm[]; items: RunFileItem[] }
+
+export type SweepNamesDeps = {
+  readFile?: (path: string) => string
+  getDataset?: RunDeps['getDataset']
+  log?: (msg: string) => void
+}
+
+/**
+ * Tunes the Jev names band cutoffs from a finished run: joins the run file's jev
+ * outputs to the dataset items by id (the run file stores no inputs), keeps the
+ * listed splits, and prints the shipped-name agreement grid. Loads, joins and
+ * prints only; the sweep itself is `shippedNameSweep`.
+ */
+export async function cmdSweepNames(
+  runFile: string,
+  dataset: string,
+  split: Split[],
+  deps: SweepNamesDeps = {},
+): Promise<void> {
+  const readFileFn = deps.readFile ?? ((p: string) => readFileSync(p, 'utf8'))
+  const log = deps.log ?? console.log
+
+  const run = JSON.parse(readFileFn(runFile)) as RunFile
+  if (run.dataset !== undefined && run.dataset !== dataset) {
+    throw new Error(`run file ${runFile} is for dataset ${run.dataset}, not ${dataset}`)
+  }
+  const jevArms = run.arms.filter((arm) => arm.type === 'custom' && arm.value.startsWith('jev:'))
+  const jevArm = jevArms[0]
+  if (!jevArm) throw new Error(`run file ${runFile} has no jev arm`)
+  if (jevArms.length > 1) log(`[sweep-names] ${jevArms.length} jev arms; sweeping the first, ${jevArm.name}`)
+
+  const datasetItems = await loadDatasetItems(dataset, deps.getDataset)
+  if (!datasetItems) throw new Error('Langfuse not configured')
+  const byId = new Map(datasetItems.map((item) => [item.id, item]))
+
+  const points = run.items.flatMap((runItem) => {
+    if (runItem.arm !== jevArm.name || !runItem.ok) return []
+    const output = runItem.output as { chosen?: unknown; probability?: unknown } | undefined
+    if (typeof output?.probability !== 'number') return []
+    const item = byId.get(runItem.itemId)
+    if (!item || !inSplit(item, split)) return []
+    const user = (item.input as { user?: unknown } | undefined)?.user
+    const acceptedNames = (item.expectedOutput as { acceptedNames?: unknown } | undefined)?.acceptedNames
+    if (typeof user !== 'string' || !Array.isArray(acceptedNames)) return []
+    return [{
+      user,
+      chosen: typeof output.chosen === 'string' ? output.chosen : null,
+      probability: output.probability,
+      acceptedNames: acceptedNames as string[],
+    }]
+  })
+  if (points.length === 0) {
+    throw new Error(`run file ${runFile} has no scorable ${jevArm.name} items for split=${split.join(',')}`)
+  }
+
+  const { rows, best, skipped } = shippedNameSweep(points)
+  const lines = [
+    `Shipped-name agreement, ${jevArm.name}, split=${split.join(',')}, n=${points.length - skipped}`,
+    '',
+    '| NAMES_HIGH_MIN | NAMES_MEDIUM_MIN | agreed | agreement |',
+    '|---|---|---|---|',
+    ...rows.map((row) =>
+      `| ${row.high.toFixed(2)} | ${row.medium.toFixed(2)} | ${row.agreed}/${row.total} | ${row.agreement.toFixed(3)} |`,
+    ),
+    '',
+    `Best: NAMES_HIGH_MIN=${best.high.toFixed(2)} NAMES_MEDIUM_MIN=${best.medium.toFixed(2)} ` +
+      `(agreement ${best.agreement.toFixed(3)}; ties go to the higher cutoff)`,
+    ...(skipped > 0 ? [`skipped ${skipped} unparseable items`] : []),
+  ]
+  log(lines.join('\n'))
 }
 
 async function cmdDatasetRecord(
@@ -779,11 +1492,846 @@ async function cmdDatasetPrelabel(
   console.log(`[prelabel] Item "${itemId}" prelabeled in dataset "${dataset}"`)
 }
 
+// ---------------------------------------------------------------------------
+// dataset prelabel --draft (DEV-1880)
+// ---------------------------------------------------------------------------
+
+/**
+ * Items a draft may label: ACTIVE, never reviewed, and without an expected
+ * output the adapter's schema accepts. `limit` applies after filtering.
+ */
+export function selectDraftCandidates<T extends { status: string; expectedOutput?: unknown; metadata?: unknown }>(
+  items: T[],
+  adapter: Pick<PhaseAdapter, 'expectedSchema'>,
+  limit?: number,
+): T[] {
+  const candidates = items.filter(
+    (item) =>
+      item.status === 'ACTIVE' && !isReviewed(item) && !adapter.expectedSchema.safeParse(item.expectedOutput).success,
+  )
+  return limit === undefined ? candidates : candidates.slice(0, limit)
+}
+
+export type DraftReplayResult = { itemId: string; ok: boolean; output?: unknown; error?: string }
+
+export type DraftPrelabel = {
+  author: 'cli'
+  method: 'model-draft'
+  status: 'prelabeled'
+  rationale?: string
+}
+
+export type DraftReport = {
+  /** Confirmed writes, one per item, with the value printed for it. */
+  drafted: Array<{ itemId: string; value: string }>
+  counts: Record<string, number>
+  written: number
+  /** Items whose drafted label was valid but whose write was not confirmed. */
+  failed: string[]
+  /** Items with nothing written: replay failure, no output, or a schema-invalid draft. */
+  skipped: Array<{ itemId: string; reason: string }>
+}
+
+/** A single-field label prints as its value (`thin`); anything else as JSON. */
+function draftLabel(expectedOutput: unknown): string {
+  const values = expectedOutput && typeof expectedOutput === 'object' ? Object.values(expectedOutput) : []
+  return values.length === 1 && typeof values[0] === 'string' ? values[0] : JSON.stringify(expectedOutput)
+}
+
+/**
+ * Replays the candidates once, maps each output to a draft label through the
+ * adapter's `draftExpected`, validates it against `expectedSchema`, and writes
+ * it with a `model-draft` prelabel. A failed replay or an invalid draft writes
+ * nothing for that item; a failed write is reported and the run continues.
+ */
+export async function draftPrelabels<T extends { id: string }>({
+  dataset,
+  adapter,
+  candidates,
+  replay,
+  write,
+}: {
+  dataset: string
+  adapter: Pick<PhaseAdapter, 'expectedSchema' | 'draftExpected'>
+  candidates: T[]
+  replay: (candidates: T[]) => Promise<DraftReplayResult[]>
+  write: (draft: { item: T; expectedOutput: unknown; prelabel: DraftPrelabel }) => Promise<void>
+}): Promise<DraftReport> {
+  const draftExpected = adapter.draftExpected
+  if (!draftExpected) throw new Error(`draft not supported for ${dataset}`)
+
+  const results = new Map((await replay(candidates)).map((result) => [result.itemId, result]))
+  const report: DraftReport = { drafted: [], counts: {}, written: 0, failed: [], skipped: [] }
+
+  for (const item of candidates) {
+    const result = results.get(item.id)
+    if (!result?.ok || result.output === undefined) {
+      report.skipped.push({ itemId: item.id, reason: `replay failed: ${result?.error ?? 'no result'}` })
+      continue
+    }
+    const { expectedOutput, rationale } = draftExpected(result.output)
+    const validation = adapter.expectedSchema.safeParse(expectedOutput)
+    if (!validation.success) {
+      report.skipped.push({ itemId: item.id, reason: `draft does not match schema: ${validation.error.message}` })
+      continue
+    }
+    const prelabel: DraftPrelabel = {
+      author: 'cli',
+      method: 'model-draft',
+      status: 'prelabeled',
+      ...(rationale ? { rationale } : {}),
+    }
+    try {
+      await write({ item, expectedOutput: validation.data, prelabel })
+    } catch (error) {
+      console.error(`[prelabel] ${item.id}: write failed:`, error instanceof Error ? error.message : error)
+      report.failed.push(item.id)
+      continue
+    }
+    const value = draftLabel(validation.data)
+    report.written += 1
+    report.drafted.push({ itemId: item.id, value })
+    report.counts[value] = (report.counts[value] ?? 0) + 1
+  }
+  return report
+}
+
+/** Runs the adapter's task with the prompt's production label: no version pin, no model override. */
+const PRODUCTION_ARM: ExperimentArm = { name: 'production', type: 'custom', value: 'production' }
+
+async function cmdDatasetPrelabelDraft(dataset: string, limit?: number): Promise<void> {
+  const adapter = adapterFor(dataset)
+  if (!adapter.draftExpected) throw new Error(`draft not supported for ${dataset}`)
+
+  const client = getLangfuse()
+  if (!client) {
+    console.error('[prelabel] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+
+  const { items: rawItems } = await client.getDataset(dataset)
+  const candidates = selectDraftCandidates(rawItems, adapter, limit)
+  console.log(`[prelabel] ${candidates.length} candidate(s) of ${rawItems.length} item(s) in "${dataset}"`)
+  if (candidates.length === 0) return
+
+  const { prelabelItem } = await import('@/lib/services/eval/golden-review')
+  const { createScriptExperimentDeps } = await import('@/lib/services/eval/script-experiment-deps')
+  const deps = await createScriptExperimentDeps({ adapter, profileKey: adapter.profileKey })
+  const pacer = goldenWritePacer({})
+
+  const report = await draftPrelabels({
+    dataset,
+    adapter,
+    candidates,
+    replay: async (items) => {
+      const result = await runExperiment({
+        dataset,
+        arms: [PRODUCTION_ARM],
+        adapter,
+        items: items.map((i) => ({ id: i.id, input: i.input, expectedOutput: i.expectedOutput, humanApproval: {} })),
+        allowUnreviewed: true,
+        deps,
+      })
+      const arm = result.armResults[0]
+      if (arm?.promptMeta) {
+        console.log(`[prelabel] prompt ${arm.promptMeta.name} v${arm.promptMeta.version} (${arm.promptMeta.source})`)
+      }
+      return arm?.items ?? []
+    },
+    // prelabelItem re-validates and keeps the item ACTIVE + pending; its write
+    // goes through the paced path and throws unless Langfuse confirms the id.
+    write: ({ item, expectedOutput, prelabel }) =>
+      prelabelItem(
+        {
+          dataset,
+          itemId: item.id,
+          expectedOutput,
+          prelabel,
+          boundaryTags: ((item.metadata as { boundaryTags?: string[] } | null)?.boundaryTags) ?? [],
+        },
+        {
+          getDataset: async () => ({
+            items: [{ id: item.id, status: item.status, input: item.input, expectedOutput: item.expectedOutput ?? null, metadata: item.metadata }],
+          }),
+          adapterFor: () => adapter as unknown as ReturnType<PrelabelDeps['adapterFor']>,
+          createDatasetItem: async (body) => {
+            if (!(await pacer.confirmedWrite(body as GoldenWriteBody))) {
+              throw new Error(`write not confirmed after retries`)
+            }
+          },
+        },
+      ),
+  })
+
+  for (const { itemId, value } of report.drafted) console.log(`${itemId}\t${value}`)
+  for (const { itemId, reason } of report.skipped) console.error(`${itemId}\tskipped: ${reason}`)
+  const counts = Object.entries(report.counts)
+    .map(([value, count]) => `${value}=${count}`)
+    .join(' ')
+  console.log(
+    `[prelabel] drafted: ${counts || 'none'} | written=${report.written} failed=${report.failed.length} skipped=${report.skipped.length}`,
+  )
+  await flushLangfuse()
+  reportFailedWrites('prelabel', report.failed)
+}
+
+// ---------------------------------------------------------------------------
+// dataset seed-intent (DEV-1824)
+// ---------------------------------------------------------------------------
+
+export const INTENT_PARSE_DATASET = 'intent-parse-golden'
+export const SITUATION_SEARCH_SOURCE = 'scripts/enrichment/eval/search-eval/situation-search-v2.json'
+
+export type SituationQuery = { id: string; query: string; split: string }
+
+export type SeedIntentClient = {
+  createDataset: (body: { name: string; description?: string }) => Promise<unknown>
+  createDatasetItem: (body: Record<string, unknown>) => Promise<unknown>
+  /** Langfuse omits ARCHIVED items from this list, so every item returned is non-ARCHIVED. */
+  getDataset: (
+    name: string,
+  ) => Promise<{ items: Array<{ id: string; status: string; expectedOutput?: unknown; metadata?: unknown }> }>
+}
+
+export function readSituationQueries(path: string = SITUATION_SEARCH_SOURCE): SituationQuery[] {
+  return JSON.parse(readFileSync(path, 'utf8')) as SituationQuery[]
+}
+
+export type SeedIntentOptions = { sleep?: (ms: number) => Promise<void> }
+
+/**
+ * Seeds one unlabelled item per situation query. Items are written ACTIVE with
+ * a null `expectedOutput` and a pending `humanApproval`, the same state
+ * `golden-review.ts#prelabelItem` keeps: the dataset listing omits ARCHIVED
+ * items (ARCHIVED means rejected), and a run admits only items carrying
+ * `humanApproval.reviewedVia`, so none reaches a run before review.
+ * Ids are `intent-<query id>`, so a rerun upserts in place. `split` is copied
+ * from the source item, never recomputed.
+ *
+ * A rerun must never wipe labels or verdicts: an existing item is kept untouched
+ * when it has an `expectedOutput`, a `humanApproval.reviewedVia`, a
+ * `humanApproval.status` other than pending, or a status other than ACTIVE.
+ * Only new ids and ACTIVE + pending + unlabelled items are upserted. ARCHIVED
+ * items are absent from `getDataset(...).items`, so a never-reviewed item left
+ * ARCHIVED by an earlier seed is upserted back to ACTIVE + pending.
+ *
+ * The Langfuse SDK logs a 429 and resolves instead of rejecting, so an upsert
+ * counts only when the call returns the item with the expected `id`. Unconfirmed
+ * items are retried with backoff; any still unconfirmed make the seed throw.
+ */
+export async function seedIntentDataset(
+  client: SeedIntentClient,
+  queries: SituationQuery[] = readSituationQueries(),
+  { sleep = realSleep }: SeedIntentOptions = {},
+): Promise<{ seeded: number; kept: number }> {
+  for (const q of queries) {
+    if (typeof q?.id !== 'string' || typeof q.query !== 'string' || typeof q.split !== 'string') {
+      throw new Error(`[seed-intent] source item ${JSON.stringify(q?.id)} needs string id, query and split`)
+    }
+  }
+
+  try {
+    await client.createDataset({
+      name: INTENT_PARSE_DATASET,
+      description: `DEV-1824 intent-parse labels for ${SITUATION_SEARCH_SOURCE}`,
+    })
+  } catch (e) {
+    if (!/exist/i.test(e instanceof Error ? e.message : String(e))) throw e
+  }
+
+  const { items: existing } = await client.getDataset(INTENT_PARSE_DATASET)
+  const keep = new Set(
+    existing
+      .filter((item) => {
+        const ha = (item.metadata as { humanApproval?: { status?: unknown; reviewedVia?: unknown } } | null | undefined)
+          ?.humanApproval
+        return (
+          item.expectedOutput != null ||
+          ha?.reviewedVia != null ||
+          ha?.status !== 'pending' ||
+          item.status !== 'ACTIVE'
+        )
+      })
+      .map((item) => item.id),
+  )
+
+  let confirmed = 0
+  let kept = 0
+  const failed: string[] = []
+  let written = 0
+  for (const q of queries) {
+    const id = `intent-${q.id}`
+    if (keep.has(id)) {
+      kept++
+      continue
+    }
+    if (written++ > 0) await sleep(LANGFUSE_PACE_MS)
+    const body = {
+      datasetName: INTENT_PARSE_DATASET,
+      id,
+      input: { query: q.query },
+      expectedOutput: null,
+      status: 'ACTIVE',
+      metadata: { split: q.split, humanApproval: { status: 'pending' } },
+    }
+    const ok = await withRetry(
+      LANGFUSE_RETRY_POLICY,
+      async () => {
+        try {
+          const result = (await client.createDatasetItem(body)) as { id?: unknown } | null | undefined
+          return result?.id === id
+        } catch {
+          return false
+        }
+      },
+      {
+        classify: (confirmedUpsert) =>
+          confirmedUpsert ? { retryable: false, reason: 'terminal' } : { retryable: true, reason: 'rate_limit' },
+        service: 'langfuse-seed-intent',
+        sleep,
+      },
+    )
+    if (ok) confirmed++
+    else failed.push(id)
+  }
+
+  if (failed.length > 0) {
+    throw new Error(
+      `[seed-intent] ${confirmed}/${queries.length - kept} upserts confirmed; unconfirmed after retries: ${failed.join(', ')}`,
+    )
+  }
+  return { seeded: confirmed, kept }
+}
+
+async function cmdDatasetSeedIntent(): Promise<void> {
+  const client = getLangfuse()
+  if (!client) {
+    console.error('[seed-intent] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  try {
+    const { seeded, kept } = await seedIntentDataset({
+      createDataset: (body) => client.createDataset(body),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createDatasetItem: (body) => client.createDatasetItem(body as any),
+      getDataset: (name) => client.getDataset(name),
+    })
+    console.log(
+      `[seed-intent] ${seeded} items confirmed (ACTIVE, pending review), ${kept} labelled/reviewed items kept in "${INTENT_PARSE_DATASET}"`,
+    )
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e)
+    process.exitCode = 1
+  } finally {
+    await flushLangfuse()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Golden capture / harvest (DEV-1873)
+// ---------------------------------------------------------------------------
+
+/** Parallel version reads per prompt; prompts run one after another. */
+const VERSION_FETCH_CONCURRENCY = 5
+
+/**
+ * Every known resolved text per golden prompt, for classifying a call by its
+ * system message. Harvest also needs older versions: stored rows carry the
+ * version that ran then, not the current one.
+ */
+async function resolveGoldenPromptTexts({
+  allVersions,
+}: {
+  allVersions: boolean
+}): Promise<PromptTexts> {
+  const { GOLDEN_PROMPTS, GOLDEN_DATASETS } = await import('@/lib/services/eval/golden-capture')
+  const { fetchLangfusePromptWithMeta } = await import('@/lib/langfuse/prompt')
+  const client = getLangfuse()
+  const texts = {} as Record<(typeof GOLDEN_PROMPTS)[number], string[]>
+
+  for (const name of GOLDEN_PROMPTS) {
+    // The same variables production compiles into the prompt (the adapter owns them).
+    const variables = adapterFor(GOLDEN_DATASETS[name]).variables
+    const known = new Set<string>([(await fetchLangfusePromptWithMeta(name, variables)).text])
+    if (allVersions && client) {
+      try {
+        const latest = await client.getPrompt(name, undefined, { label: 'latest' })
+        const versions: (typeof latest | null)[] = [latest]
+        // `latest` is already in hand, so only the older versions are read.
+        const older = Array.from({ length: latest.version - 1 }, (_, index) => index + 1)
+        for (let start = 0; start < older.length; start += VERSION_FETCH_CONCURRENCY) {
+          versions.push(
+            ...(await Promise.all(
+              older.slice(start, start + VERSION_FETCH_CONCURRENCY).map((version) =>
+                // A deleted version: nothing to match against.
+                client.getPrompt(name, version).catch(() => null),
+              ),
+            )),
+          )
+        }
+        for (const prompt of versions) {
+          if (!prompt || typeof prompt.prompt !== 'string') continue
+          known.add(variables ? (prompt.compile(variables) as string) : prompt.prompt)
+        }
+      } catch (error) {
+        console.warn(`[harvest] could not list versions of "${name}"; matching the current text only:`, error)
+      }
+    }
+    texts[name] = [...known]
+  }
+  return texts
+}
+
+/**
+ * The Langfuse public-API calls `writeGoldenItems` makes. Each rejects with an
+ * object carrying the HTTP `status` (the SDK's `client.api.*` client throws its
+ * Response), which is how a 404 is told apart from a 429 or an outage.
+ */
+export type GoldenWriteApi = {
+  getDataset: (name: string) => Promise<unknown>
+  createDataset: (body: { name: string; description: string }) => Promise<unknown>
+  getItem: (id: string) => Promise<unknown>
+  createItem: (item: GoldenWriteBody) => Promise<unknown>
+}
+
+/** A dataset-item upsert: a fresh golden item, or a stored one re-written ACTIVE. */
+export type GoldenWriteBody = {
+  datasetName: string
+  id: string
+  input: unknown
+  expectedOutput: unknown
+  status: 'ACTIVE'
+  metadata: unknown
+}
+
+/**
+ * A stored item written before DEV-1879: ARCHIVED while still pending, so the
+ * dataset listing hid it from prelabel, enqueue and validate. Rejected
+ * (ARCHIVED, status rejected) and reviewed (reviewedVia set) items never match.
+ */
+function isArchivedPending(stored: unknown): stored is { input?: unknown; expectedOutput?: unknown; metadata?: unknown } {
+  const record = stored as { status?: unknown; metadata?: unknown } | null
+  if (record?.status !== 'ARCHIVED') return false
+  const approval = (record.metadata as { humanApproval?: { status?: unknown; reviewedVia?: unknown } } | null)
+    ?.humanApproval
+  return approval?.status === 'pending' && approval.reviewedVia == null
+}
+
+function langfuseGoldenWriteApi(): GoldenWriteApi {
+  const client = getLangfuse()
+  if (!client) throw new Error('Langfuse not configured')
+  return {
+    getDataset: (name) => client.api.datasetsGet(name),
+    createDataset: (body) => client.api.datasetsCreate(body),
+    getItem: (id) => client.api.datasetItemsGet(id),
+    createItem: (item) => client.api.datasetItemsCreate(item),
+  }
+}
+
+export type GoldenWriteOptions = {
+  api?: GoldenWriteApi
+  sleep?: (ms: number) => Promise<void>
+  now?: () => number
+  minIntervalMs?: number
+  retries?: number
+  backoffMs?: number
+}
+
+/**
+ * The paced, 429-retrying Langfuse call path shared by `writeGoldenItems` and
+ * `dataset prelabel --draft`. See `writeGoldenItems` for the pacing budget.
+ */
+function goldenWritePacer({ api = langfuseGoldenWriteApi(), ...pacing }: GoldenWriteOptions) {
+  const { withRetry, orThrow, confirmedWrite } = pacedLangfuseWriter<GoldenWriteBody>({
+    createItem: (body) => api.createItem(body),
+    ...pacing,
+  })
+  return { api, withRetry, orThrow, confirmedWrite }
+}
+
+/**
+ * Writes items ACTIVE and pending, skipping ids Langfuse already holds:
+ * re-writing one would reset a reviewed or rejected item to pending. The one
+ * exception is an ARCHIVED item still pending review (written before
+ * DEV-1879): it is re-written ACTIVE with its stored input, expectedOutput and
+ * metadata, so a prelabel survives, and counted in `reactivated`.
+ *
+ * Existence is read per id (`GET /dataset-items/<id>`), never from the dataset
+ * listing — the listing omits ARCHIVED items, which is every rejected and
+ * every pre-DEV-1879 pending golden item. Only a 404 means "absent"; any other
+ * failure aborts the write rather than being mistaken for it.
+ *
+ * Calls are paced `minIntervalMs` apart (default 700ms, ~85/min, under the
+ * 100/min Langfuse Cloud limit). A 429, or a create that resolves without the
+ * item's id, is retried with exponential backoff; a create still unconfirmed
+ * after `retries` attempts is reported in `failed`, not counted as written.
+ * Ceiling: two calls per item, so ~40 items a minute. Upgrade path: list the
+ * ACTIVE ids once and look up only the rest, or batch through the ingestion API.
+ */
+export async function writeGoldenItems(
+  items: GoldenItemBody[],
+  options: GoldenWriteOptions = {},
+): Promise<{ written: number; reactivated: number; existing: number; failed: string[] }> {
+  const { api, withRetry, orThrow, confirmedWrite } = goldenWritePacer(options)
+
+  let written = 0
+  let reactivated = 0
+  let existing = 0
+  const failed: string[] = []
+  for (const dataset of [...new Set(items.map((item) => item.datasetName))]) {
+    const found = await withRetry(async () => {
+      try {
+        await api.getDataset(dataset)
+        return true
+      } catch (error) {
+        if (httpStatusOf(error) === 404) return false
+        throw error
+      }
+    })
+    if (!orThrow(found, `reading dataset "${dataset}"`)) {
+      orThrow(
+        await withRetry(async () => {
+          await api.createDataset({ name: dataset, description: 'DEV-1873 golden set' })
+          return true
+        }),
+        `creating dataset "${dataset}"`,
+      )
+    }
+
+    for (const item of items.filter((i) => i.datasetName === dataset)) {
+      const lookup = orThrow(
+        await withRetry(async () => {
+          try {
+            return { present: true, stored: await api.getItem(item.id) }
+          } catch (error) {
+            if (httpStatusOf(error) === 404) return { present: false, stored: null }
+            throw error
+          }
+        }),
+        `looking up item "${item.id}"`,
+      )
+      if (lookup.present && isArchivedPending(lookup.stored)) {
+        const { input, expectedOutput, metadata } = lookup.stored
+        const body = { datasetName: dataset, id: item.id, input, expectedOutput, status: 'ACTIVE' as const, metadata }
+        if (await confirmedWrite(body)) reactivated += 1
+        else failed.push(item.id)
+        continue
+      }
+      if (lookup.present) {
+        existing += 1
+        continue
+      }
+      if (await confirmedWrite(item)) written += 1
+      else failed.push(item.id)
+    }
+  }
+  return { written, reactivated, existing, failed }
+}
+
+function reportFailedWrites(tag: string, failed: string[]): void {
+  if (failed.length === 0) return
+  console.error(`[${tag}] ${failed.length} item(s) not confirmed written: ${failed.join(', ')}`)
+  process.exitCode = 1
+}
+
+/**
+ * A PostgREST embed as one row. supabase-js types an embedded relation as an
+ * array even when the foreign key makes it many-to-one (an object at runtime),
+ * so both shapes are accepted.
+ */
+function embedOne<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
+/** Refuses production unless `--target production --confirm` were both given. */
+function assertGoldenTarget(target: string, confirm: boolean): void {
+  assertCensusTarget({
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    target,
+    confirmed: confirm,
+  })
+}
+
+async function cmdDatasetHarvest(
+  dataset: string,
+  target: string,
+  confirm: boolean,
+  since?: string,
+  limit?: number,
+): Promise<void> {
+  assertGoldenTarget(target, confirm)
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { GOLDEN_PROMPT_PHASES, GOLDEN_PROMPTS, classifyCapturedCall, harvestRowsToItems } =
+    await import('@/lib/services/eval/golden-capture')
+
+  if (!getLangfuse()) {
+    console.error('[harvest] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  const prompt = promptForDataset(dataset)!
+  const texts = await resolveGoldenPromptTexts({ allVersions: true })
+  const supabase = createServiceClient()
+  const toItems = (from: HarvestRow[]) =>
+    harvestRowsToItems(from, { prompt, texts, ...(since ? { since } : {}) })
+
+  // Read-only. Paged until an empty page: PostgREST caps a page (1,000 rows by
+  // default, possibly lower), so a short page is not proof of the end.
+  // Rows arrive newest first, so a --limit stops paging once it is met.
+  const PAGE = 1000
+  const rows: HarvestRow[] = []
+  for (let from = 0; ; ) {
+    let query = supabase
+      .from('brand_ai_results')
+      .select('created_at, job_id, input, brands(slug), brand_submissions(brands(slug))')
+      .in('phase', [...GOLDEN_PROMPT_PHASES[prompt]])
+      .not('input', 'is', null)
+    if (since) query = query.gte('created_at', new Date(since).toISOString())
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`[harvest] brand_ai_results read failed: ${error.message}`)
+    const page = data ?? []
+    if (page.length === 0) break
+    for (const row of page) {
+      const submission = embedOne(row.brand_submissions)
+      rows.push({
+        created_at: row.created_at,
+        job_id: row.job_id,
+        input: row.input,
+        brand_slug: embedOne(row.brands)?.slug ?? embedOne(submission?.brands)?.slug ?? null,
+      })
+    }
+    from += page.length
+    if (limit !== undefined && toItems(rows).length >= limit) break
+  }
+
+  // Why rows did not become items. Historical rows are matched against every
+  // prompt version compiled with TODAY's variables, so a version whose
+  // variables have since changed lands in `unclassified`.
+  const tally: Record<string, number> = { malformed: 0, unclassified: 0 }
+  for (const name of GOLDEN_PROMPTS) tally[name] = 0
+  for (const row of rows) {
+    const input = row.input as { system?: unknown; user?: unknown } | null
+    if (typeof input?.system !== 'string' || typeof input.user !== 'string') {
+      tally.malformed += 1
+      continue
+    }
+    tally[classifyCapturedCall({ system: input.system }, texts) ?? 'unclassified'] += 1
+  }
+
+  const all = toItems(rows)
+  // Items come back oldest first; a limit keeps the newest.
+  const items = limit !== undefined ? all.slice(-limit) : all
+  const { written, reactivated, existing, failed } = await writeGoldenItems(items)
+  await flushLangfuse()
+  console.log(
+    `[harvest] ${dataset}: ${rows.length} rows read — ` +
+      Object.entries(tally)
+        .map(([reason, count]) => `${reason} ${count}`)
+        .join(', '),
+  )
+  console.log(
+    `[harvest] ${dataset}: ${all.length} usable (after dedupe), ${items.length} selected, ` +
+      `${written} written (ACTIVE, pending review), ${reactivated} reactivated, ${existing} already present, ` +
+      `${failed.length} failed`,
+  )
+  reportFailedWrites('harvest', failed)
+}
+
+async function cmdDatasetCapture(
+  brandSlugs: string[],
+  target: string,
+  confirm: boolean,
+  datasets?: string[],
+): Promise<void> {
+  assertGoldenTarget(target, confirm)
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { installSeams, assertNoNewAuditRows } = await import('@/lib/services/eval/zero-write')
+  const { setChatCaptureSeam } = await import('@/lib/services/llm-audit')
+  const { runWithAuditContext } = await import('@/lib/audit/context')
+  const { runAcquirePhase } = await import('@/lib/services/enrich-phases/acquire')
+  const { runProductsPhase } = await import('@/lib/services/enrich-phases/products')
+  const { loadCachedSearchResults } = await import('@/lib/services/enrich-phases/discover')
+  const { searchBrandUrls, batchSearchBrandImages } = await import(
+    '@/lib/services/enrich-phases/scraper/search'
+  )
+  const { collectKnownUrls, uniqueUrls } = await import('@/lib/services/curation-operations')
+  const { GOLDEN_DATASETS, capturedCallsToItems } = await import('@/lib/services/eval/golden-capture')
+
+  if (!getLangfuse()) {
+    console.error('[capture] Langfuse not configured')
+    process.exitCode = 1
+    return
+  }
+  // products-repair never runs here (PRODUCTS_AGENT is forced off below), so
+  // it is not a default; its items come from `dataset harvest`.
+  const repairDataset = GOLDEN_DATASETS['products-repair']
+  if (datasets?.includes(repairDataset)) {
+    console.warn(
+      `[capture] warning: capture never calls products-repair; "${repairDataset}" items come from \`dataset harvest\``,
+    )
+  }
+  const selected = datasets ?? Object.values(GOLDEN_DATASETS).filter((d) => d !== repairDataset)
+  const prompts = selected.map((d) => promptForDataset(d)!)
+  const texts = await resolveGoldenPromptTexts({ allVersions: false })
+  const supabase = createServiceClient()
+
+  // Brand reads happen before the seams go in, so an early return needs no restore().
+  const { data: brandRows, error: brandError } = await supabase
+    .from('brands')
+    .select('*')
+    .in('slug', brandSlugs)
+  if (brandError) throw new Error(`[capture] brands read failed: ${brandError.message}`)
+  const bySlug = new Map((brandRows ?? []).map((row) => [row.slug, row as EnrichBrand]))
+  const brands: EnrichBrand[] = []
+  for (const slug of brandSlugs) {
+    const brand = bySlug.get(slug)
+    if (brand) brands.push(brand)
+    else console.error(`[capture] Brand "${slug}" not found`)
+  }
+  if (brands.length === 0) {
+    process.exitCode = 1
+    return
+  }
+  const cachedSearches = await loadCachedSearchResults(
+    brands.map((brand) => brand.id),
+    'brand',
+  )
+
+  const phases: EnrichPhase[] = ['acquire', 'products']
+  // No candidate row may be written; the products phase persists its pool even on a dry run.
+  const noCandidateWrites = { insert: async () => ({ data: null, error: null }) }
+  // Every zero-write count is scoped by this run's own correlation, span and
+  // synthetic submission ids, so the time bound is only a secondary filter. It
+  // is backdated 5 minutes so a local clock running ahead of the database's
+  // `created_at` cannot hide a leaked row.
+  const since = new Date(Date.now() - 5 * 60_000)
+  const correlationIds: string[] = []
+  const submissionIds: string[] = []
+  const captured: TimedCapturedCall[] = []
+  const items: GoldenItemBody[] = []
+  const previousProductsAgent = process.env.PRODUCTS_AGENT
+  const { collector, restore } = installSeams({
+    sinkPath: 'scripts/llm-eval/runs/capture-sink.jsonl',
+  })
+
+  try {
+    // The single-call products body only runs with the agent off.
+    process.env.PRODUCTS_AGENT = 'off'
+    setChatCaptureSeam((call) => {
+      captured.push({ ...call, capturedAt: new Date().toISOString() })
+    })
+
+    for (const brand of brands) {
+      const correlationId = randomUUID()
+      correlationIds.push(correlationId)
+      // A synthetic submission: the products phase runs only for submission
+      // targets, and any row that did escape would fail its foreign key
+      // instead of attaching to a real submission.
+      const target = { type: 'submission' as const, id: randomUUID() }
+      submissionIds.push(target.id)
+      // Same derivation as curation-operations' acquire step.
+      const knownUrls = collectKnownUrls(brand)
+      const discoveredUrls = uniqueUrls(
+        (cachedSearches.get(brand.id)?.urls ?? []).filter((url) => !knownUrls.includes(url)),
+      )
+
+      try {
+        await runWithAuditContext({ correlationId }, async () => {
+          // Known divergences from curation-operations' acquire call (a
+          // deliberate shortcut): no renderProvider (JS-only pages are not
+          // rendered, so the agent sees less than production), no jobId
+          // (nothing joins to a job), no linkExpansion (the pre-acquire
+          // expansion step is not run) and no budgetScale (production sets it
+          // only on reruns, so a first run matches). Ceiling: captured inputs
+          // for render-dependent brands differ from production's. Upgrade
+          // path: extract curation-operations' per-brand acquire setup into a
+          // shared builder and call it here.
+          const acquire = await runAcquirePhase({
+            brand,
+            phases,
+            discoveredUrls,
+            knownUrls,
+            dryRun: true,
+            target,
+            // A dry run still writes search-audit rows; the synthetic target
+            // would fail their foreign key and abort the phase. The searches
+            // run unaudited and the scrape audit is a no-op.
+            deps: {
+              startSearchAudit: async () => 'capture-no-audit',
+              finishSearchAudit: async () => {},
+              searchBrandUrls: (query, template) => searchBrandUrls(query, template),
+              batchSearchBrandImages: (inputs, concurrency, template) =>
+                batchSearchBrandImages(inputs, concurrency, template),
+            },
+          })
+          await runProductsPhase({
+            brand,
+            phases,
+            scrapedData: acquire.scrapedData,
+            dryRun: true,
+            target,
+            imagePool: acquire.imagePool,
+            catalogResult: acquire.catalogResult,
+            acquisitionPageUrls: acquire.acquisitionPageUrls,
+            priorityProductUrls: acquire.priorityProductUrls,
+            candidateWriter: noCandidateWrites,
+          })
+        })
+      } catch (error) {
+        console.error(
+          `[capture] ${brand.slug}: phase run failed: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+
+      const brandItems = capturedCallsToItems(captured.splice(0), {
+        brandSlug: brand.slug,
+        jobId: correlationId,
+        texts,
+        prompts,
+      })
+      items.push(...brandItems)
+      console.log(`[capture] ${brand.slug}: ${brandItems.length} items`)
+    }
+
+    // Before any item leaves the process: a run that leaked a row writes nothing.
+    await assertNoNewAuditRows({
+      since,
+      correlationIds,
+      spanIds: collector.all().map((r) => r.spanId),
+      submissionIds,
+    })
+
+    const { written, reactivated, existing, failed } = await writeGoldenItems(items)
+    await flushLangfuse()
+
+    for (const dataset of selected) {
+      const count = items.filter((item) => item.datasetName === dataset).length
+      console.log(`[capture] ${dataset}: ${count} items`)
+    }
+    console.log(
+      `[capture] ${written} items written (ACTIVE, pending review), ${reactivated} reactivated, ` +
+      `${existing} already present, ${failed.length} failed`,
+    )
+    reportFailedWrites('capture', failed)
+  } finally {
+    setChatCaptureSeam(null)
+    restore()
+    if (previousProductsAgent === undefined) delete process.env.PRODUCTS_AGENT
+    else process.env.PRODUCTS_AGENT = previousProductsAgent
+  }
+}
+
 async function cmdPairwiseRun(
   phase: string,
   _target: string,
   sample: number,
-  armSpecs: ArmSpec[],
+  armSpecs: PairwiseArmSpec[],
   noEnqueue: boolean = false,
   allowUnreviewed: boolean = false,
 ): Promise<void> {
@@ -947,7 +2495,7 @@ async function cmdPairwiseRun(
 }
 
 async function cmdPairwiseRunProducts(
-  armSpecs: ArmSpec[],
+  armSpecs: PairwiseArmSpec[],
   noEnqueue: boolean,
   sample: number = 0,
   allowUnreviewed: boolean = false,
@@ -1016,7 +2564,7 @@ async function cmdPairwiseRunProducts(
   const [armA, armB] = armLabels
 
   async function runArmTask(
-    armSpec: ArmSpec,
+    armSpec: PairwiseArmSpec,
     item: { id: string; input: unknown; expectedOutput: unknown },
     taskFn: typeof task,
     armLabel: string,
@@ -1191,8 +2739,8 @@ async function cmdPromptPull(add: string[], check: boolean, allowVariableChange:
   process.exitCode = exitCode
 }
 
-async function cmdPromptPromote(name: string, version: number): Promise<void> {
-  const exitCode = await handlePromptPromote({ name, version })
+async function cmdPromptPromote(name: string, version: number, allowVariableChange: boolean): Promise<void> {
+  const exitCode = await handlePromptPromote({ name, version, allowVariableChange })
   await flushLangfuse()
   process.exitCode = exitCode
 }
@@ -1211,7 +2759,7 @@ async function main() {
     applyEnvFile(envFile)
   }
 
-  const { argv: remainingArgv } = loadScriptTarget()
+  const { target, argv: remainingArgv } = loadScriptTarget()
   const parsed = parseCliArgs(remainingArgv)
 
   switch (parsed.command) {
@@ -1224,6 +2772,22 @@ async function main() {
     case 'dataset-prelabel':
       await cmdDatasetPrelabel(parsed.dataset, parsed.item, parsed.file)
       break
+    case 'dataset-prelabel-draft':
+      await cmdDatasetPrelabelDraft(parsed.dataset, parsed.limit)
+      break
+    case 'dataset-seed-intent':
+      await cmdDatasetSeedIntent()
+      break
+    case 'dataset-harvest':
+      await cmdDatasetHarvest(parsed.dataset, target, parsed.confirm, parsed.since, parsed.limit)
+      break
+    case 'dataset-capture':
+      await cmdDatasetCapture(parsed.brands, target, parsed.confirm, parsed.datasets)
+      break
+    case 'dataset-split':
+      await cmdDatasetSplit({ dataset: parsed.dataset, seed: parsed.seed, apply: parsed.apply, pin: parsed.pin })
+      await flushLangfuse()
+      break
     case 'dataset-review-enqueue':
       await cmdDatasetReviewEnqueue(parsed.dataset)
       break
@@ -1231,7 +2795,7 @@ async function main() {
       await cmdDatasetReviewPush(parsed.dataset, parsed.approvedBy)
       break
     case 'run':
-      await cmdRun(parsed.dataset, parsed.arms, parsed.allowUnreviewed)
+      await cmdRun(parsed.dataset, parsed.arms, parsed.allowUnreviewed, { split: parsed.split })
       break
     case 'prompt-push':
       await cmdPromptPush(parsed.name, parsed.file, parsed.label)
@@ -1240,13 +2804,16 @@ async function main() {
       await cmdPromptPull(parsed.add, parsed.check, parsed.allowVariableChange)
       break
     case 'prompt-promote':
-      await cmdPromptPromote(parsed.name, parsed.version)
+      await cmdPromptPromote(parsed.name, parsed.version, parsed.allowVariableChange)
       break
     case 'pairwise-run':
       await cmdPairwiseRun(parsed.phase, parsed.target, parsed.sample, parsed.arms, parsed.noEnqueue, parsed.allowUnreviewed)
       break
     case 'pairwise-report':
       await cmdPairwiseReport(parsed.runName)
+      break
+    case 'sweep-names':
+      await cmdSweepNames(parsed.runFile, parsed.dataset, parsed.split)
       break
   }
 }

@@ -4,14 +4,25 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { FilterToken } from "@/components/filters";
-import { updateDirectoryUrl } from "@/lib/directory-filter-url";
+import {
+  updateDirectoryUrl,
+  type DirectoryFilterUpdates,
+} from "@/lib/directory-filter-url";
 import { parseCommaParam } from "@/lib/seo/directory-filters";
-import { hrefWithoutQuery } from "@/lib/products/discover-search-params";
+import {
+  discoverClearAllKeys,
+  hrefWithoutQuery,
+} from "@/lib/products/discover-search-params";
 
-type ActiveFilter = {
-  type: "subcategory" | "material";
+export type ActiveFilter = {
+  type: "category" | "subcategory" | "material";
   slug: string;
   label: string;
+  /**
+   * Filled in by the search rather than chosen by the visitor. Set by the
+   * server so the 自動判斷 badge is in the first HTML, before any URL sync.
+   */
+  inferred?: boolean;
 };
 
 type ProductActiveFiltersProps = {
@@ -32,6 +43,10 @@ export function ProductActiveFilters({
   if (activeFilters.length === 0 && !hasQuery) return null;
 
   function removeHref(filter: ActiveFilter): string {
+    // Also clears `sub`, which is scoped to the category.
+    if (filter.type === "category") {
+      return updateDirectoryUrl(pathname, searchParams, { category: null });
+    }
     if (filter.type === "subcategory") {
       const currentSubs = parseCommaParam(
         searchParams.get("sub") ?? undefined,
@@ -49,20 +64,17 @@ export function ProductActiveFilters({
     });
   }
 
-  // Clear all: drop sub, material, and q
-  const clearAllBase = updateDirectoryUrl(pathname, searchParams, {
-    sub: null,
-    material: null,
-  });
-  // If q is present, also strip it from the cleared URL
-  const clearAllHref = hasQuery
-    ? hrefWithoutQuery(
-        pathname,
-        new URLSearchParams(
-          clearAllBase.includes("?") ? clearAllBase.split("?")[1]! : "",
-        ),
-      )
-    : clearAllBase;
+  // Clear all: drop sub and material; in search mode also category, the
+  // inferred marker and q, so the visitor is back to an unfiltered page.
+  const clearAllUpdates: DirectoryFilterUpdates = { sub: null, material: null };
+  for (const key of discoverClearAllKeys(searchParams)) {
+    clearAllUpdates[key] = null;
+  }
+  const clearAllHref = updateDirectoryUrl(
+    pathname,
+    searchParams,
+    clearAllUpdates,
+  );
 
   const queryDismissHref = hasQuery
     ? hrefWithoutQuery(pathname, searchParams)
@@ -85,22 +97,29 @@ export function ProductActiveFilters({
           variant="chip"
         />
       )}
-      {activeFilters.map((filter) => (
-        <FilterToken
-          key={`${filter.type}-${filter.slug}`}
-          href={removeHref(filter)}
-          label={
-            filter.type === "subcategory" ? t("subcategory") : t("material")
-          }
-          removeLabel={t("removeFilter", {
-            label:
-              filter.type === "subcategory" ? t("subcategory") : t("material"),
-            value: filter.label,
-          })}
-          value={filter.label}
-          variant="chip"
-        />
-      ))}
+      {activeFilters.map((filter) => {
+        const label = t(filter.type);
+        const badge = filter.inferred ? t("inferred") : undefined;
+        return (
+          <FilterToken
+            key={`${filter.type}-${filter.slug}`}
+            href={removeHref(filter)}
+            label={label}
+            removeLabel={
+              badge
+                ? t("removeFilterInferred", {
+                    label,
+                    value: filter.label,
+                    badge,
+                  })
+                : t("removeFilter", { label, value: filter.label })
+            }
+            value={filter.label}
+            variant="chip"
+            badge={badge}
+          />
+        );
+      })}
       {totalTokens > 1 && (
         <Link
           href={clearAllHref}

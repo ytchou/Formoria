@@ -7,7 +7,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { LLM_MODELS } from "@/lib/constants/llm-models";
+import { JEV_MODEL, LLM_MODELS } from "@/lib/constants/llm-models";
 
 const DORMANT_MODELS = new Set<string>([
 ]);
@@ -45,6 +45,10 @@ describe("LLM price migration coverage", () => {
     expect(
       modelsWithoutSeed(Object.values(LLM_MODELS), seededModels()),
     ).toEqual([]);
+  });
+
+  it("JEV_MODEL has a seeded price row", () => {
+    expect(seededModels()).toContain(JEV_MODEL);
   });
 
   it("fails when a model has no seeded price", () => {

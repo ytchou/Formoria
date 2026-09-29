@@ -1,3 +1,6 @@
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import type { AuditRecord } from '@/lib/audit/emit'
 import { installSeams, assertNoNewAuditRows } from '../zero-write'
@@ -67,6 +70,18 @@ describe('installSeams', () => {
 
     // After restore, env var is cleared
     expect(process.env.CURATION_EVAL_SINK).toBeUndefined()
+  })
+
+  it('installSeams creates the sink directory', () => {
+    const root = mkdtempSync(join(tmpdir(), 'zero-write-'))
+    const sinkDir = join(root, 'runs', 'nested')
+    const { restore } = installSeams({ sinkPath: join(sinkDir, 'capture-sink.jsonl') })
+    try {
+      expect(existsSync(sinkDir)).toBe(true)
+    } finally {
+      restore()
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it('the installed seam intercepts emitAuditRecord', async () => {
@@ -212,5 +227,33 @@ describe('assertNoNewAuditRows', () => {
         count: counter,
       }),
     ).rejects.toThrow(/external_call_audit.*1/)
+  })
+
+  // Golden capture (DEV-1873) runs acquire + products against a synthetic
+  // submission id; those phases write brand_search_results and
+  // curated_product_candidates, which carry no correlation or span id.
+  it('counts brand_search_results and curated_product_candidates by submission_id when opted in', async () => {
+    const counter = vi.fn<(table: string, since: Date, ids: string[], idColumn: string) => Promise<number>>()
+      .mockImplementation(async (table) => (table === 'curated_product_candidates' ? 2 : 0))
+    const since = new Date()
+
+    await expect(
+      assertNoNewAuditRows({ since, ...baseArgs, submissionIds: ['sub-1'], count: counter }),
+    ).rejects.toThrow(/curated_product_candidates has 2/)
+    expect(counter).toHaveBeenCalledWith('brand_search_results', since, ['sub-1'], 'submission_id')
+    expect(counter).toHaveBeenCalledWith('curated_product_candidates', since, ['sub-1'], 'submission_id')
+  })
+
+  it('does not query the submission-scoped tables for existing callers', async () => {
+    const counter = vi.fn<(table: string, since: Date, ids: string[], idColumn: string) => Promise<number>>()
+      .mockResolvedValue(0)
+    await assertNoNewAuditRows({ since: new Date(), ...baseArgs, count: counter })
+    expect(counter.mock.calls.map((c) => c[0])).toEqual(['external_call_audit', 'brand_ai_results'])
+  })
+
+  it('throws when submissionIds is passed empty', async () => {
+    await expect(
+      assertNoNewAuditRows({ since: new Date(), ...baseArgs, submissionIds: [], count: vi.fn() }),
+    ).rejects.toThrow(/submissionIds is empty/)
   })
 })

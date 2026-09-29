@@ -42,7 +42,7 @@ import {
 } from '@/lib/prompts/shared'
 import type { CuratedProductProposal } from '@/lib/types/enriched-data'
 import type { RenderProvider } from '../scraper/render/types'
-import type { ProductCandidate } from '../product-candidates'
+import { productUrlKey, type ProductCandidate } from '../product-candidates'
 import type { CandidateImage } from '../candidate-pool'
 import { rankForProduct, type RankableImage } from '../image-ranking'
 import type {
@@ -52,11 +52,13 @@ import type {
 } from '../products'
 import {
   PRODUCTS_PROPOSAL_SHAPE,
+  PRODUCTS_SCHEMA,
   validateCandidateEvaluations,
   validateProductProposals,
 } from '../products'
 import {
   assessDeterministicOrigin,
+  descriptionMentionsTaiwan,
   type OriginExcerpt,
   type RegistryOriginAssessment,
 } from '@/lib/services/curated-products/origin-qualification'
@@ -71,6 +73,7 @@ import {
   verifyProposal,
   verifyClosedSets,
   verifyDescription,
+  checkDescriptionOrigin,
   type ImageVerificationStatus,
 } from './verify'
 import {
@@ -82,20 +85,20 @@ import {
 } from './budget'
 import { BudgetExhausted } from '../acquisition/budget'
 import {
+  abnormalCompletion,
+  abnormalDetail,
+  abnormalErrorCode,
   contentText,
   extractJson,
   withNodeSpan,
-  withSchema,
   withSignal,
   type AgentModel,
   type AgentModelResponse,
 } from '../agents/runtime'
-import type { ChatMessage } from '@/lib/services/openai-client'
+import type { ChatMessage, OpenAIJsonSchema } from '@/lib/services/openai-client'
+import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { readProductPage, type ProductPageEvidence, type ReadPageDeps } from './read-page'
 import { selectAcrossPages } from './select-evidence'
-import {
-  PRODUCTS_SCHEMA_TRAILER,
-} from '@/lib/prompts/products-agent'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -116,6 +119,16 @@ const MAX_PROPOSE_ATTEMPTS = 2
 
 /** Images pulled off one product page for the decision-#35 classify batch. */
 const MAX_PAGE_IMAGES_PER_PRODUCT = 6
+
+/**
+ * The repair turn answers with `products` only (the `products-repair` prompt
+ * forbids `evaluations`), so strict mode gets the same shape minus that key.
+ * The propose turn sends `PRODUCTS_SCHEMA`, the contract `products.ts` sends.
+ */
+export const REPAIR_SCHEMA: OpenAIJsonSchema = {
+  name: 'curated_product_repair',
+  schema: toStrictJsonSchema(PRODUCTS_PROPOSAL_SHAPE.pick({ products: true })),
+}
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -160,6 +173,11 @@ type ProductsVerification = {
   imageVerified: number
   imageUnverified: number
   originQualified: number
+  /**
+   * Published proposals whose page states Taiwan manufacture but whose
+   * description still omits it after repair (DEV-1856). A warning, never a drop.
+   */
+  originOmitted: number
   /** Images stored and classified by the in-products batch (decision #35). */
   pageImagesClassified: number
 }
@@ -217,7 +235,12 @@ type RunOptions = {
 
 type Decision = ProductsOutput['decisions'][number]
 
-type Repairable = { proposal: CuratedProductProposal; failures: string[] }
+/**
+ * `soft` marks an entry that already passed verification and is published as
+ * is; the repair turn may only replace it (origin omission, DEV-1856). A soft
+ * entry is never a drop.
+ */
+type Repairable = { proposal: CuratedProductProposal; failures: string[]; soft?: boolean }
 
 // ---------------------------------------------------------------------------
 // Run context
@@ -240,11 +263,16 @@ export type ProductsRunContext = {
   pageImageBatchDone: boolean
   /** Last graph state observed by a node, for counter recovery after an abort. */
   lastState: unknown
+  /**
+   * Set when an origin-only repair turn failed and was skipped: the verified
+   * result stands, so an abort raised after it must not discard that result.
+   */
+  originRepairSkipped: boolean
   wallClockStart: number
   signal: AbortSignal | undefined
   record: (step: string, action: string, reason: string, startedAt: number) => void
   wallClockExhausted: () => boolean
-  invokeModel: (messages: ChatMessage[]) => Promise<AgentModelResponse>
+  invokeModel: (messages: ChatMessage[], schema?: OpenAIJsonSchema) => Promise<AgentModelResponse>
 }
 
 /**
@@ -276,6 +304,7 @@ export function createProductsRunContext(
     candidateIds,
     pageImageBatchDone: false,
     lastState: null,
+    originRepairSkipped: false,
     wallClockStart: Date.now(),
     // The hard deadline is the CEILING; `wallClockExhausted` enforces the
     // computed allowance gracefully, one node boundary at a time.
@@ -296,11 +325,11 @@ export function createProductsRunContext(
     // Every turn — propose and repair alike — goes through the one model the
     // caller built. Its audit context is bound at construction, so there is
     // nothing left to wrap here.
-    async invokeModel(messages) {
-      return options.model!.invoke(
-        messages,
-        ctx.signal ? { signal: ctx.signal } : undefined,
-      )
+    async invokeModel(messages, schema) {
+      return options.model!.invoke(messages, {
+        ...(ctx.signal ? { signal: ctx.signal } : {}),
+        ...(schema ? { schema } : {}),
+      })
     },
   }
   return ctx
@@ -483,7 +512,12 @@ function validationOptionsFor(ctx: ProductsRunContext): ProductProposalValidatio
 }
 
 function brandUrlOf(ctx: ProductsRunContext): string {
-  return ctx.input.brand.url ?? `https://${ctx.input.brand.slug}.com`
+  return brandSiteUrl(ctx.input.brand)
+}
+
+/** The brand's site URL, or the `https://<slug>.com` guess when it has none. */
+export function brandSiteUrl(brand: { slug: string; url?: string }): string {
+  return brand.url ?? `https://${brand.slug}.com`
 }
 
 function ownedHostsOf(ctx: ProductsRunContext): readonly string[] {
@@ -524,12 +558,6 @@ async function proposeNode(
     `prompt=${meta.name}@${meta.version} source=${meta.source}`,
     start,
   )
-  const systemPrompt = withSchema(
-    compiledPrompt,
-    'Curated Product Proposals',
-    PRODUCTS_PROPOSAL_SHAPE,
-    PRODUCTS_SCHEMA_TRAILER,
-  )
   const userContent = JSON.stringify({
     brand: ctx.input.brand,
     candidates: state.selectedUrls,
@@ -538,12 +566,24 @@ async function proposeNode(
   })
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: compiledPrompt },
     { role: 'user', content: userContent },
   ]
 
-  const response = await ctx.invokeModel(messages)
+  // The reply shape travels as a strict json_schema on the request (DEV-1864),
+  // not as schema text appended to the prompt.
+  const response = await ctx.invokeModel(messages, PRODUCTS_SCHEMA)
   ctx.budget.used.turns += 1
+
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) {
+    ctx.record('propose', abnormal, abnormalDetail(abnormal, response), start)
+    return {
+      proposeAttempts: attempts,
+      agentOutcome: 'fallback',
+      error: abnormalErrorCode(abnormal),
+    }
+  }
 
   let parsed: ProductsModelResult
   try {
@@ -737,6 +777,15 @@ async function verifyNode(
         ctx.candidateIds.get(proposal.officialUrl) ?? proposal.officialUrl,
       )?.assessment ?? NO_REGISTRY_MATCH
 
+    // An unread page has no evidence to hold the description to.
+    const originFailure = page
+      ? checkDescriptionOrigin({
+          productDescriptionZh: proposal.productDescriptionZh,
+          originExcerpts: page.originExcerpts,
+          mainText: page.mainText,
+        })
+      : null
+
     const result = verifyProposal(
       {
         url: proposal.officialUrl,
@@ -769,8 +818,12 @@ async function verifyNode(
 
     if (result.ok) {
       verified.push(proposal)
+      if (originFailure) repairable.push({ proposal, failures: [originFailure], soft: true })
     } else if (result.repairable) {
-      repairable.push({ proposal, failures: result.failures })
+      repairable.push({
+        proposal,
+        failures: originFailure ? [...result.failures, originFailure] : result.failures,
+      })
     } else {
       dropped += 1
       for (const failure of result.failures) {
@@ -819,6 +872,39 @@ async function verifyNode(
 // repair
 // ---------------------------------------------------------------------------
 
+/**
+ * Re-verify the checks a repair turn was allowed to touch: closed sets, host,
+ * and description. A repair that "fixes" a proposal into a different host is
+ * not a repair. A soft entry only counts as fixed when the origin omission is
+ * gone too; a hard entry is not held to origin, so a partial repair still
+ * publishes. Shared by `repairNode` and the golden-set eval scorer so the two
+ * cannot drift. The per-check details (`closedSetFailures`, `hostOk`,
+ * `descFailures`) are returned so callers can attribute drop reasons without
+ * re-running any check.
+ */
+export function repairedProposalPasses(
+  proposal: CuratedProductProposal,
+  options: { brandUrl: string; ownedHosts: readonly string[]; soft: boolean },
+): { passes: boolean; closedSetFailures: string[]; hostOk: boolean; descFailures: string[] } {
+  const closedSet = verifyClosedSets({
+    category: proposal.category,
+    subcategory: proposal.subcategory ?? undefined,
+    material: proposal.material,
+  })
+  const descFailures = verifyDescription({
+    nameZh: proposal.nameZh,
+    productDescriptionZh: proposal.productDescriptionZh,
+  })
+  const hostOk = verifySameHost(proposal.officialUrl, options.brandUrl, options.ownedHosts).ok
+  const passes = closedSet.ok && hostOk && descFailures.length === 0
+  return {
+    passes: options.soft ? passes && descriptionMentionsTaiwan(proposal.productDescriptionZh) : passes,
+    closedSetFailures: closedSet.failures,
+    hostOk,
+    descFailures,
+  }
+}
+
 async function repairNode(
   ctx: ProductsRunContext,
   state: ProductsStateType,
@@ -826,14 +912,8 @@ async function repairNode(
   ctx.lastState = state
   const start = Date.now()
 
-  const basePrompt = await fetchLangfusePrompt(
+  const systemPrompt = await fetchLangfusePrompt(
     'products-repair',
-  )
-  const systemPrompt = withSchema(
-    basePrompt,
-    'Curated Product Proposals',
-    PRODUCTS_PROPOSAL_SHAPE,
-    PRODUCTS_SCHEMA_TRAILER,
   )
   const userContent = JSON.stringify({
     brand: ctx.input.brand,
@@ -857,58 +937,82 @@ async function repairNode(
     { role: 'user', content: userContent },
   ]
 
-  const response = await ctx.invokeModel(messages)
+  // Soft entries are already in `verified`; only hard entries can be dropped.
+  // Keyed by the normalized URL `validateProductProposals` matches candidates
+  // on, so a re-spelled URL (www., tracking params, trailing slash) still
+  // resolves to its soft entry and never counts as a hard repair.
+  const urlKey = productUrlKey
+  const softUrls = new Set(
+    state.repairable.filter((entry) => entry.soft).map((entry) => urlKey(entry.proposal.officialUrl)),
+  )
+  const isSoft = (proposal: CuratedProductProposal): boolean => softUrls.has(urlKey(proposal.officialUrl))
+  const hardCount = state.repairable.filter((entry) => !entry.soft).length
+
+  let response: AgentModelResponse
+  try {
+    response = await ctx.invokeModel(messages, REPAIR_SCHEMA)
+  } catch (error) {
+    // An origin-only turn is an improvement to a result that already verified;
+    // its failure (provider error, abort, timeout) must not discard that result.
+    if (hardCount > 0) throw error
+    ctx.originRepairSkipped = true
+    ctx.record(
+      'repair',
+      'origin_repair_skipped',
+      error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+      start,
+    )
+    return {}
+  }
   ctx.budget.used.turns += 1
+
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) {
+    ctx.record('repair', abnormal, abnormalDetail(abnormal, response), start)
+    return { dropped: state.dropped + state.repairable.length }
+  }
 
   let parsed: ProductsModelResult
   try {
     parsed = JSON.parse(extractJson(contentText(response))) as ProductsModelResult
   } catch {
     ctx.record('repair', 'parse_failed', 'model returned non-JSON', start)
-    return { dropped: state.dropped + state.repairable.length }
+    return { dropped: state.dropped + hardCount }
   }
 
   const brandUrl = brandUrlOf(ctx)
   const validation = validateProductProposals(parsed, validationOptionsFor(ctx))
 
-  // Re-verify the checks the repair was allowed to touch. A repair that
-  // "fixes" a proposal into a different host is not a repair.
-  // Cache description results to avoid calling verifyDescription twice.
-  const reVerifyDescCache = new Map<string, string[]>()
+  // Re-verify via the shared predicate. Results are kept per proposal so the
+  // drop-reason tally below reads them instead of re-running any check.
+  const ownedHosts = ownedHostsOf(ctx)
+  const reVerifyResults = new Map<CuratedProductProposal, ReturnType<typeof repairedProposalPasses>>()
   const reVerified = validation.proposals.filter((proposal) => {
-    const closedSet = verifyClosedSets({
-      category: proposal.category,
-      subcategory: proposal.subcategory ?? undefined,
-      material: proposal.material,
-    })
-    const descFailures = verifyDescription({
-      nameZh: proposal.nameZh,
-      productDescriptionZh: proposal.productDescriptionZh,
-    })
-    reVerifyDescCache.set(proposal.officialUrl, descFailures)
-    return closedSet.ok && verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok && descFailures.length === 0
+    const result = repairedProposalPasses(proposal, { brandUrl, ownedHosts, soft: isSoft(proposal) })
+    reVerifyResults.set(proposal, result)
+    return result.passes
   })
+  const hardRepaired = reVerified.filter((proposal) => !isSoft(proposal))
+  const softFixed = new Map(
+    reVerified
+      .filter(isSoft)
+      .map((proposal) => [urlKey(proposal.officialUrl), proposal.productDescriptionZh]),
+  )
 
   const reVerifyDropReasons: Record<string, number> = {}
   for (const proposal of validation.proposals) {
-    if (reVerified.includes(proposal)) continue
-    const closedSet = verifyClosedSets({
-      category: proposal.category,
-      subcategory: proposal.subcategory ?? undefined,
-      material: proposal.material,
-    })
-    for (const f of closedSet.failures) {
+    // A soft entry that stays unfixed keeps its published original: no drop.
+    if (reVerified.includes(proposal) || isSoft(proposal)) continue
+    const result = reVerifyResults.get(proposal)
+    if (!result) continue // unreachable: every proposal went through the filter above
+    for (const f of result.closedSetFailures) {
       const key = f.split(':')[0] ?? f
       reVerifyDropReasons[key] = (reVerifyDropReasons[key] ?? 0) + 1
     }
-    if (!verifySameHost(proposal.officialUrl, brandUrl, ownedHostsOf(ctx)).ok) {
+    if (!result.hostOk) {
       reVerifyDropReasons['host_mismatch'] = (reVerifyDropReasons['host_mismatch'] ?? 0) + 1
     }
-    const descFailures = reVerifyDescCache.get(proposal.officialUrl) ?? verifyDescription({
-      nameZh: proposal.nameZh,
-      productDescriptionZh: proposal.productDescriptionZh,
-    })
-    for (const f of descFailures) {
+    for (const f of result.descFailures) {
       const key = f.split(':')[0] ?? f
       reVerifyDropReasons[key] = (reVerifyDropReasons[key] ?? 0) + 1
     }
@@ -916,7 +1020,7 @@ async function repairNode(
 
   ctx.record(
     'repair',
-    `repaired ${reVerified.length} of ${state.repairable.length}`,
+    `repaired ${hardRepaired.length} of ${hardCount}, origin fixed ${softFixed.size} of ${softUrls.size}`,
     `${validation.dropped} dropped during repair validation, ${validation.proposals.length - reVerified.length} failed re-verification`,
     start,
   )
@@ -927,10 +1031,20 @@ async function repairNode(
   }
 
   return {
-    repaired: reVerified,
-    dropped: state.dropped + (state.repairable.length - reVerified.length),
+    // A fixed soft entry keeps its verified proposal (key, name, category,
+    // sources) and takes only the repaired description; it never appends.
+    ...(softFixed.size > 0
+      ? {
+          verified: state.verified.map((proposal) => {
+            const description = softFixed.get(urlKey(proposal.officialUrl))
+            return description === undefined ? proposal : { ...proposal, productDescriptionZh: description }
+          }),
+        }
+      : {}),
+    repaired: hardRepaired,
+    dropped: state.dropped + (hardCount - hardRepaired.length),
     dropReasons: mergedDropReasons,
-    ...(reVerified.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
+    ...(hardRepaired.length > 0 ? { agentOutcome: 'repaired' as const } : {}),
   }
 }
 
@@ -1037,6 +1151,7 @@ const EMPTY_VERIFICATION: ProductsVerification = {
   imageVerified: 0,
   imageUnverified: 0,
   originQualified: 0,
+  originOmitted: 0,
   pageImagesClassified: 0,
 }
 
@@ -1052,6 +1167,18 @@ function outputFrom(
   const originQualified = [
     ...(state?.originDecisions ?? new Map<string, CandidateOriginDecision>()).values(),
   ].filter((decision) => decision.mitQualified).length
+  const published = state ? [...state.verified, ...state.repaired] : []
+  const evidenceByUrl = new Map((state?.evidence ?? []).map((page) => [page.url, page]))
+  const originOmitted = published.filter((proposal) => {
+    const page = evidenceByUrl.get(proposal.officialUrl)
+    return page
+      ? checkDescriptionOrigin({
+          productDescriptionZh: proposal.productDescriptionZh,
+          originExcerpts: page.originExcerpts,
+          mainText: page.mainText,
+        }) !== null
+      : false
+  }).length
 
   const verification: ProductsVerification = state
     ? {
@@ -1073,13 +1200,14 @@ function outputFrom(
         imageVerified,
         imageUnverified,
         originQualified,
+        originOmitted,
         pageImagesClassified: state.pageImagesClassified,
       }
     : { ...EMPTY_VERIFICATION }
 
   return {
     agentOutcome: state?.agentOutcome ?? 'fallback',
-    proposals: state ? [...state.verified, ...state.repaired] : [],
+    proposals: published,
     verification,
     decisions: ctx.decisions,
     originDecisions: state?.originDecisions ?? new Map(),
@@ -1157,6 +1285,9 @@ export async function runProductsAgent(
         (error.name === 'AbortError' || error.name === 'TimeoutError'))
     if (aborted) {
       ctx.record('graph', 'stopped', 'aborted', ctx.wallClockStart)
+      // The abort landed on a skipped origin-only repair: verify already
+      // finished, so its result stands as if repair had never run.
+      if (ctx.originRepairSkipped && recovered) return outputFrom(recovered, ctx)
       return outputFrom(recovered, ctx, { agentOutcome: 'fallback', error: 'aborted' })
     }
     throw error

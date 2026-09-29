@@ -1,6 +1,6 @@
 const PROVIDERS = {
   serper: ["search", "images", "maps"],
-  openai: ["chat_completions", "embeddings", "codex_exec"],
+  openai: ["chat_completions", "embeddings", "codex_exec", "organization_costs"],
   resend: ["send_email"],
   upstash: ["get_database", "get_stats"],
   sentry: ["get_error_events", "list_issues"],
@@ -11,14 +11,16 @@ const PROVIDERS = {
   cloudflare: ["origin_probe", "zone_egress_by_day"],
   linear: ["create_ticket"],
   turnstile: ["siteverify"],
-  slack: ["post_slack_alert", "post_message", "update_message", "add_reaction"],
+  slack: ["post_slack_alert", "post_message", "update_message", "add_reaction", "read_message_metadata"],
   posthog: ["run_query"],
   playwright: ["fetch_rendered"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
-  railway: ["run_cron_now"],
+  railway: ["run_cron_now", "get_customer_usage"],
   // DEV-1854: staging e2e agent claims/completes ops-bot dispatches on prod.
   "ops-dispatch": ["claim_dispatch", "complete_dispatch"],
   github: ["list_dependabot_alerts"],
+  // DEV-1824: TypeSafe AI's Jev decision model, eval-only (typesafe-audit.ts).
+  typesafe: ["decide"],
   scraper: ["scrape_url"],
   catalog: ["discover_catalog"],
   http: [
@@ -60,6 +62,7 @@ const PROVIDERS = {
     "upsertEnrichedStockists",
   ],
   cache: [
+    "getCachedBrandNameIndex",
     "getCachedExploreBrandPool",
     "getCachedMetrics",
     "getCachedRecentBrandCount",
@@ -118,13 +121,16 @@ const PROVIDERS = {
     "unsubscribeNewsletterByEmail",
   ],
   enrich: [
-    "arbitrateBrandNames",
+    "arbitrateBrandName",
     "arbitrateSiteIdentity",
-    "classifyCategoryBatch",
-    "detectBrandsBatch",
+    "detectBrand",
     "persistEnrichmentResults",
     "persistSubmissionEnrichmentResults",
     "rewriteBrandDescription",
+    // Batched helpers retired by DEV-1886, kept for historical audit rows:
+    "arbitrateBrandNames",
+    "classifyCategoryBatch",
+    "detectBrandsBatch",
     // Retired phase runners kept for historical audit rows:
     "runBrandImagePhase",
     "runClassifyImagesPhase",
@@ -226,6 +232,7 @@ const PROVIDERS = {
     "probe_sentry_write",
     "probe_sentry_capture_trigger",
     "probe_sentry_capture_poll",
+    "probe_sentry_capture_quota",
     "probe_surface",
     "probe_trail_supply",
   ],

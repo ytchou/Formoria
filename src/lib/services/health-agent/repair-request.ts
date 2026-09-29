@@ -6,6 +6,8 @@
  * message, parses it, and dispatches the appropriate repair workflow.
  */
 
+import type { TimelineRef } from '@/lib/services/run-timeline/types'
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -28,4 +30,25 @@ export type RepairRequest = {
   traceUrl?: string
   scope: string[]
   findings: RepairFinding[]
+  /** Slack parent message of the run timeline; absent on old-format requests. */
+  timeline?: TimelineRef
+}
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
+/**
+ * Slack definitively rejected the repair-trigger post (`{ ok: false }`, e.g.
+ * `msg_too_long` or `not_in_channel`): the ops-agent never saw it. Any other
+ * error from the trigger is ambiguous: the post may have been delivered.
+ */
+export class RepairPostRejectedError extends Error {
+  readonly slackError: string
+
+  constructor(slackError: string) {
+    super(`repair trigger post rejected by Slack: ${slackError}`)
+    this.name = 'RepairPostRejectedError'
+    this.slackError = slackError
+  }
 }

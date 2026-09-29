@@ -344,6 +344,103 @@ describe('productsTask', () => {
     expect(result.ok).toBe(false)
     expect(result.error).toContain('fallback')
   })
+
+  it('fills originStatedUrls from frozen evidence that states Taiwan origin', async () => {
+    const { productsTask } = await import('../products-replay')
+
+    const fakeRunProductsAgent = vi.fn<() => Promise<ProductsOutput>>().mockResolvedValue({
+      agentOutcome: 'proposed',
+      proposals: [{ officialUrl: 'https://test.com/p1', nameZh: '測試', nameEn: 'Test', category: 'beauty', productDescriptionZh: '描述', sources: [] }] as never,
+      verification: {} as never,
+      decisions: [],
+      originDecisions: new Map(),
+      evaluations: new Map([['https://test.com/p1', { score: 80, searchPosition: 1 }]]) as never,
+      imagePool: [],
+      budget: { allowed: { reads: 12, renders: 0, turns: 6, wallClockMs: 120000 }, used: { reads: 1, renders: 0, turns: 1, wallClockMs: 5000 } },
+    })
+    const fakeCreateAgentModel = vi.fn().mockResolvedValue({ invoke: vi.fn() })
+
+    const task = productsTask({
+      createAgentModel: fakeCreateAgentModel,
+      runProductsAgent: fakeRunProductsAgent,
+    })
+
+    const item = {
+      id: 'item-1',
+      input: {
+        brand: { id: 'b1', slug: 'test', name: 'Test' },
+        pool: [
+          { url: 'https://test.com/p1', normalizedUrl: 'https://test.com/p1', supplier: 'search', urlClass: 'product-detail' },
+          { url: 'https://test.com/p2', normalizedUrl: 'https://test.com/p2', supplier: 'search', urlClass: 'product-detail' },
+        ],
+        candidateIdsByUrl: { 'https://test.com/p1': 'cid-1', 'https://test.com/p2': 'cid-2' },
+        priorityProductUrls: ['https://test.com/p1', 'https://test.com/p2'],
+        evidence: {
+          'https://test.com/p1': makeEvidence('https://test.com/p1', {
+            originExcerpts: [{ id: 'cid-1:origin:1', text: '規格 商品產地 台灣 容量 300ml' }],
+          }),
+          'https://test.com/p2': makeEvidence('https://test.com/p2', {
+            originExcerpts: [{ id: 'cid-2:origin:1', text: '材質 不鏽鋼 容量 300ml' }],
+          }),
+        },
+      },
+      expectedOutput: { decisions: [] },
+      humanApproval: { reviewedVia: 'langfuse-queue' },
+    }
+
+    const result = await task(item as never, { name: 'arm-1', type: 'model' as const, value: 'gpt-5.6' }, { itemRunId: 'run-1' })
+
+    expect(result.ok).toBe(true)
+    expect((result.output as { originStatedUrls?: string[] }).originStatedUrls).toEqual(['https://test.com/p1'])
+  })
+
+  it('ignores an origin sentence the runtime drops as a cross-page repeated block', async () => {
+    const { productsTask } = await import('../products-replay')
+
+    const fakeRunProductsAgent = vi.fn<() => Promise<ProductsOutput>>().mockResolvedValue({
+      agentOutcome: 'proposed',
+      proposals: [],
+      verification: {} as never,
+      decisions: [],
+      originDecisions: new Map(),
+      evaluations: new Map() as never,
+      imagePool: [],
+      budget: { allowed: { reads: 12, renders: 0, turns: 6, wallClockMs: 120000 }, used: { reads: 3, renders: 0, turns: 1, wallClockMs: 5000 } },
+    })
+    const task = productsTask({
+      createAgentModel: vi.fn().mockResolvedValue({ invoke: vi.fn() }),
+      runProductsAgent: fakeRunProductsAgent,
+    })
+
+    // Brand story repeated on every page: long, carries no fact-tier label, so
+    // selectAcrossPages drops it at runtime and the checker never sees it.
+    const story = '我們是一個小小的團隊，從二零一五年開始，堅持在台灣生產每一件作品。'.repeat(5)
+    const urls = ['https://test.com/p1', 'https://test.com/p2', 'https://test.com/p3']
+    const evidence = Object.fromEntries(
+      urls.map((url, i) => {
+        const blocks = [`第 ${i + 1} 號作品，線條簡潔俐落`, story]
+        return [url, { ...makeEvidence(url, { mainText: blocks.join('\n\n') }), blocks }]
+      }),
+    )
+
+    const item = {
+      id: 'item-1',
+      input: {
+        brand: { id: 'b1', slug: 'test', name: 'Test' },
+        pool: urls.map((url) => ({ url, normalizedUrl: url, supplier: 'search', urlClass: 'product-detail' })),
+        candidateIdsByUrl: Object.fromEntries(urls.map((url, i) => [url, `cid-${i + 1}`])),
+        priorityProductUrls: urls,
+        evidence,
+      },
+      expectedOutput: { decisions: [] },
+      humanApproval: { reviewedVia: 'langfuse-queue' },
+    }
+
+    const result = await task(item as never, { name: 'arm-1', type: 'model' as const, value: 'gpt-5.6' }, { itemRunId: 'run-1' })
+
+    expect(result.ok).toBe(true)
+    expect((result.output as { originStatedUrls?: string[] }).originStatedUrls).toEqual([])
+  })
 })
 
 describe('adapter.summarize', () => {

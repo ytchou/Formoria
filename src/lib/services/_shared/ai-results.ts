@@ -136,6 +136,7 @@ export async function insertAiCallResult(input: AiCallInput): Promise<void> {
       model: input.model,
       latencyMs: input.latencyMs,
       rawResponse: input.rawResponse,
+      input: input.input,
     });
     return;
   }

@@ -15,7 +15,7 @@ test.describe("Discover situation search", () => {
     });
 
     await expect(
-      page.getByLabel("搜尋情境"),
+      page.getByLabel("搜尋商品"),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
 
     const resultsHeading = page.getByRole("heading", {
@@ -24,7 +24,7 @@ test.describe("Discover situation search", () => {
     await expect(resultsHeading).toBeVisible({ timeout: BUDGET.RENDERED });
 
     const mainContent = page.locator("main");
-    const productGrid = mainContent.locator("ul.grid");
+    const productGrid = mainContent.locator("ul.grid").filter({ has: page.getByRole("heading", { level: 3 }) });
     const emptyState = mainContent.getByText("找不到符合的商品");
 
     await expect(
@@ -35,7 +35,7 @@ test.describe("Discover situation search", () => {
   test("search form submits and navigates with query", async ({ page }) => {
     await page.goto("/discover", { timeout: BUDGET.NAVIGATION });
 
-    const input = page.getByLabel("搜尋情境");
+    const input = page.getByLabel("搜尋商品");
     await expect(input).toBeVisible({ timeout: BUDGET.RENDERED });
     await input.fill("送禮");
     await page.getByRole("button", { name: "搜尋" }).click();

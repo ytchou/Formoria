@@ -243,7 +243,7 @@ export function buildWebSiteJsonLd(locale: Locale = "zh-TW"): JsonLdObject {
       "@type": "SearchAction",
       target: {
         "@type": "EntryPoint",
-        urlTemplate: `${siteUrl}/brands?search={search_term_string}`,
+        urlTemplate: `${siteUrl}/discover?q={search_term_string}`,
       },
       "query-input": "required name=search_term_string",
     },

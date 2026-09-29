@@ -11,6 +11,7 @@ import type {
   RepairFinding,
   RepairRequest,
 } from '@/lib/services/health-agent/repair-request'
+import type { TimelineRef } from '@/lib/services/run-timeline/types'
 import { canonicalKey, freezeFailures } from './freeze'
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,8 @@ export type E2eRepairRequestInput = {
   unexpectedSkips: readonly UnexpectedSkip[]
   runId: string
   stagingSha: string
+  /** Slack parent message of the run timeline; counted inside the size cap. */
+  timeline?: TimelineRef
 }
 
 export type E2eRepairRequestResult = {
@@ -179,6 +182,7 @@ export function buildE2eRepairRequest(
       ),
     ],
     findings: kept.map((item) => item.finding),
+    ...(input.timeline ? { timeline: input.timeline } : {}),
   })
 
   // Linear re-serialization per drop; fine for a nightly run's failure count.

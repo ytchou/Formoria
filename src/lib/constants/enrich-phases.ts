@@ -53,8 +53,9 @@ export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
  *   skipped while `descriptions` runs.
  * - `founding_facts` and `founding_facts_verify` are the cited extraction and
  *   separate verification calls inside `descriptions` and the one-time audit.
- * - `classification` is the standalone category classifier that backs
- *   `tags` when `descriptions` did not already decide the category.
+ * - `classification` is HISTORICAL ONLY: the standalone category classifier
+ *   was removed (DEV-1886) because the descriptions call decides the category.
+ *   The value stays because `brand_ai_results` rows carry it.
  * - `image-search` is HISTORICAL ONLY: it was the batched serper /images call
  *   backing `images`, and `images` is DEFERRED, so nothing writes this string
  *   any more. The value stays because `brand_ai_results` rows carry it and the

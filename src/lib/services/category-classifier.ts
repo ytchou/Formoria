@@ -1,65 +1,60 @@
-import {
-  CATEGORY_LIST,
-} from "@/lib/prompts";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import { auditedCall } from "@/lib/audit";
 import {
   createProfiledOpenAIClient,
   profileChatParams,
 } from "@/lib/services/llm-audit";
-import {
-  LLM_BATCH_CHUNK_SIZE,
-  type LlmProfileKey,
-} from "@/lib/constants/llm-models";
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { z } from "zod";
 import {
   parseAndValidate,
-  parseBatchEntries,
   toStrictJsonSchema,
   formatRetryInstruction,
 } from "./_shared/zod-schema";
 import {
-  addLlmCalls,
   contentFailed,
-  isLlmProviderFailure,
-  noLlmCalls,
   notAttempted,
   providerFailed,
-  type LlmCallCounts,
   type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
+import {
+  DETECT_MESSAGE_LABELS as L,
+  MAX_PROBE_URLS,
+  MAX_RESULT_LINES,
+} from "@/lib/prompts/detect-message";
+import { pageKeyHost } from "./link-enrichment";
+import {
+  hasHeadText,
+  isUsableProbe,
+  type DetectResultLine,
+} from "./enrich-phases/detect-evidence";
+import type { ProbeEvidence } from "./enrich-phases/gather";
 
-export type ClassificationResult = {
-  categorySlug: string;
-  confidence: "high" | "medium" | "low";
-};
-export type BatchClassificationItem = {
-  slug: string;
-  name: string;
-  description: string | null;
-  target?: EnrichmentTarget;
-};
-export type DetectBatchItem = {
+// Re-exported: the orchestrator and tests read the probe cap from here.
+export { MAX_PROBE_URLS };
+
+export type DetectItem = {
   slug: string;
   name: string;
   description: string | null;
   website: string | null;
-  snippets?: string[];
+  /** The `website_url` the brand was submitted with. */
+  submittedWebsite?: string | null;
+  /**
+   * Gather's SERP results for the brand name, each tagged with whether the
+   * link sits on one of the brand's own URLs (`enrich-phases/detect-evidence.ts`).
+   */
+  results?: DetectResultLine[];
   /**
    * What a free HTTP GET on the brand's own known URLs found in each `<head>`
-   * (`enrich-phases/gather.ts`). SERP snippets describe what the web says about
-   * the brand; a probe is the brand's own page saying what it is, which is the
-   * cheapest evidence available for the non-brand call and the only one a
-   * search-less brand has. Capped and rendered by `probeLines`.
+   * (`enrich-phases/gather.ts`). Search results describe what the web says
+   * about the brand; a probe is the brand's own page saying what it is, which
+   * is the cheapest evidence available for the non-brand call and the only one
+   * a search-less brand has. A failed probe without head text renders as
+   * unreachable, with its HTTP status when one came back. Filtered, ordered and
+   * capped by `detectProbes` (`enrich-phases/detect-evidence.ts`).
    */
-  probes?: Array<{
-    url: string;
-    title?: string;
-    description?: string;
-    platform?: string;
-  }>;
+  probes?: ProbeEvidence[];
   target?: EnrichmentTarget;
 };
 export type DetectResult = {
@@ -86,8 +81,6 @@ export type ExtractionResult = {
   categoryMismatch: boolean;
 };
 
-const L1_SLUGS = L1_CATEGORIES.map((c) => c.slug);
-
 // ---------------------------------------------------------------------------
 // Zod schemas — single source of truth for both validation and wire format
 // ---------------------------------------------------------------------------
@@ -103,95 +96,30 @@ export const detectSingleShape = z.object({
   confidence: confidenceShape,
 });
 
-const detectBatchItemShape = detectSingleShape.extend({ slug: z.string() });
-
-export const detectBatchShape = z.object({
-  results: z.array(detectBatchItemShape),
-});
-
-export const classifySingleShape = z.object({
-  reasoning: z.string(),
-  category: z.enum(L1_SLUGS as [string, ...string[]]),
-  confidence: confidenceShape,
-});
-
-const classifyBatchItemShape = classifySingleShape.extend({
-  slug: z.string(),
-});
-
-export const classifyBatchShape = z.object({
-  results: z.array(classifyBatchItemShape),
-});
-
 // Wire-format schemas for OpenAI structured output
 const DETECT_SCHEMA = {
   name: "detect_single",
   schema: toStrictJsonSchema(detectSingleShape),
 };
 
-const DETECT_BATCH_SCHEMA = {
-  name: "detect_batch",
-  schema: toStrictJsonSchema(detectBatchShape),
-};
-
-const CLASSIFY_SCHEMA = {
-  name: "classify_single",
-  schema: toStrictJsonSchema(classifySingleShape),
-};
-
-const CLASSIFY_BATCH_SCHEMA = {
-  name: "classify_batch",
-  schema: toStrictJsonSchema(classifyBatchShape),
-};
-
-// Lenient wrapper for batch parsing — validates structure, not item contents.
-// Per-entry validation uses the strict item shapes, so one malformed entry
-// does not invalidate the entire batch.
-const batchParseShape = z.object({
-  results: z.array(z.unknown()),
-});
-
 type UnknownRecord = Record<string, unknown>;
 
-/**
- * What a whole batch (chunk calls plus any per-brand fallbacks) did. `results`
- * is always a map — partial results from a partly-healthy run are still usable
- * — and `calls` is what the phase reads to decide `succeeded` vs `failed`.
- */
-export type LlmBatchOutcome<T> = {
-  results: T;
-  calls: LlmCallCounts;
-};
-
-function createClassifierClient(
+function createDetectClient(
   apiKey: string,
-  phase: "classification" | "detect",
-  profileKey: LlmProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
   prompt?: { name: string; version: number; source: "langfuse" | "snapshot" },
 ) {
   return createProfiledOpenAIClient(
-    profileKey,
+    "detect",
     {
       target,
-      phase,
+      phase: "detect",
       ...(jobId ? { jobId } : {}),
       ...(prompt ? { prompt } : {}),
     },
     { apiKey },
   );
-}
-
-function parseClassification(content: string): ClassificationResult | null {
-  const result = parseAndValidate(content, classifySingleShape);
-  if (!result.success) {
-    if (result.issues) {
-      console.error(`  → classify validation: ${formatRetryInstruction(result.issues)}`);
-    }
-    return null;
-  }
-  return { categorySlug: result.data.category, confidence: result.data.confidence };
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -328,33 +256,6 @@ export function parseExtractionResult(content: string): ExtractionResult {
   }
 }
 
-function parseBatchClassification(
-  content: string,
-  validSlugs: Set<string>,
-): Map<string, ClassificationResult> | null {
-  const parsed = parseBatchEntries(content, batchParseShape);
-  if (!parsed.success) {
-    if (parsed.issues) {
-      console.error(`  → classify batch validation: ${formatRetryInstruction(parsed.issues)}`);
-    }
-    return null;
-  }
-
-  const results = new Map<string, ClassificationResult>();
-
-  for (const entry of parsed.entries) {
-    const validated = classifyBatchItemShape.safeParse(entry);
-    if (!validated.success) continue;
-
-    const { slug, category, confidence } = validated.data;
-    if (!validSlugs.has(slug)) continue;
-
-    results.set(slug, { categorySlug: category, confidence });
-  }
-
-  return results;
-}
-
 /**
  * Map a validated detect entry to a DetectResult. The detect prompt no longer
  * asks for a category, so categorySlug is always null.
@@ -374,36 +275,6 @@ function mapDetectEntry(
   };
 }
 
-function parseTriageResponse(
-  content: string,
-  brands: DetectBatchItem[],
-): Map<string, DetectResult> | null {
-  const parsed = parseBatchEntries(content, batchParseShape);
-  if (!parsed.success) {
-    if (parsed.issues) {
-      console.error(`  → detect batch validation: ${formatRetryInstruction(parsed.issues)}`);
-    }
-    return null;
-  }
-
-  const validSlugs = new Set(brands.map((brand) => brand.slug));
-  const results = new Map<string, DetectResult>();
-
-  parsed.entries.forEach((entry, index) => {
-    const validated = detectBatchItemShape.safeParse(entry);
-    if (!validated.success) return;
-
-    const slug = validSlugs.has(validated.data.slug)
-      ? validated.data.slug
-      : brands[index]?.slug;
-    if (!slug) return;
-
-    results.set(slug, mapDetectEntry(validated.data, slug));
-  });
-
-  return results;
-}
-
 function parseSingleTriageResponse(
   content: string,
   slug: string,
@@ -419,233 +290,102 @@ function parseSingleTriageResponse(
   return mapDetectEntry(result.data, slug);
 }
 
-async function classifyCategory(
-  brand: BatchClassificationItem,
-  jobId?: string,
-): Promise<LlmCallOutcome<ClassificationResult>> {
-  const token = process.env.OPENAI_API_KEY;
-  if (!token) return notAttempted();
+/** Each probe line's head text is capped at 160 characters. */
+const PROBE_LINE_CHARS = 160;
 
-  const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}`;
-
-  // The 300-token budget and why it is not 100 live with the profile in
-  // `@/lib/constants/llm-models`.
-  try {
-    const { text: classifyPrompt, prompt } = await fetchLangfusePromptWithMeta(
-      "category-classify",
-      { category_list: CATEGORY_LIST },
-    );
-
-    const client = createClassifierClient(
-      token,
-      "classification",
-      "classification",
-      brand.target,
-      jobId,
-      prompt,
-    );
-
-    const { response, data, content } = await client.chat({
-      system: classifyPrompt,
-      user: userContent,
-      json: true,
-      schema: CLASSIFY_SCHEMA,
-      ...profileChatParams("classification"),
-    });
-
-    if (!response.ok) {
-      console.error(
-        `  → category classification failed: HTTP ${response.status}`,
-      );
-      return providerFailed();
-    }
-
-    if (!content) {
-      console.error(
-        `  → category classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`,
-      );
-      return contentFailed();
-    }
-
-    const result = parseClassification(content);
-    if (!result) {
-      console.error(
-        `  → category classification: invalid response: ${content.slice(0, 200)}`,
-      );
-      return contentFailed();
-    }
-
-    return { value: result, calls: { attempted: 1, providerFailed: 0 } };
-  } catch (err) {
-    console.error(
-      `  → category classification failed: ${err instanceof Error ? err.message : err}`,
-    );
-    return contentFailed();
-  }
+function headText(probe: ProbeEvidence): string {
+  return [probe.title, probe.description]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join(" — ");
 }
 
-async function classifyCategoryBatchChunk(
-  brands: BatchClassificationItem[],
-  jobId?: string,
-): Promise<LlmCallOutcome<Map<string, ClassificationResult>>> {
-  const token = process.env.OPENAI_API_KEY;
-  if (!token) return notAttempted();
-
-  const validSlugs = new Set(brands.map((brand) => brand.slug));
-  const list = brands
-    .map((brand, index) => {
-      return `${index + 1}. [${brand.slug}] 品牌名：${brand.name} / 描述：${brand.description ?? "無"}`;
-    })
-    .join("\n");
-  const userContent = `請將以下品牌分類：\n${list}`;
-
-  try {
-    const { text: classifyBatchPrompt, prompt: classifyBatchPromptMeta } = await fetchLangfusePromptWithMeta(
-      "category-classify",
-      { category_list: CATEGORY_LIST },
-    );
-
-    const client = createClassifierClient(
-      token,
-      "classification",
-      "classificationBatch",
-      brands.at(0)?.target,
-      jobId,
-      classifyBatchPromptMeta,
-    );
-
-    const { response, data, content } = await client.chat({
-      system: classifyBatchPrompt,
-      user: userContent,
-      json: true,
-      schema: CLASSIFY_BATCH_SCHEMA,
-      ...profileChatParams("classificationBatch"),
-    });
-
-    if (!response.ok) {
-      console.error(
-        `  → category batch classification failed: HTTP ${response.status}`,
-      );
-      return providerFailed();
-    }
-
-    if (!content) {
-      console.error(
-        `  → category batch classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`,
-      );
-      return contentFailed();
-    }
-
-    const results = parseBatchClassification(content, validSlugs);
-    if (!results) {
-      console.error(
-        `  → category batch classification: invalid response: ${content.slice(0, 200)}`,
-      );
-      return contentFailed();
-    }
-
-    return { value: results, calls: { attempted: 1, providerFailed: 0 } };
-  } catch (err) {
-    console.error(
-      `  → category batch classification failed: ${err instanceof Error ? err.message : err}`,
-    );
-    return contentFailed();
-  }
+function resultLine(result: DetectResultLine): string {
+  const title = result.title.trim();
+  const snippet = result.snippet?.trim();
+  // A title-less result leads with its snippet, with no leading " — ".
+  const head = title && snippet ? `${title} — ${snippet}` : title || snippet || "";
+  const tag =
+    result.match === "site"
+      ? `，${L.tagSite}`
+      : result.match === "instagram"
+        ? `，${L.tagInstagram}`
+        : "";
+  return `${L.searchResult}：${head}（${result.host}${tag}）`;
 }
 
-export async function classifyCategoryBatch(
-  brands: BatchClassificationItem[],
+function probeLine(probe: ProbeEvidence): string {
+  if (!hasHeadText(probe)) {
+    const status =
+      probe.status !== undefined ? `（HTTP ${probe.status}）` : "";
+    return `${L.probe}：${pageKeyHost(probe.url)} — ${L.unreachable}${status}`;
+  }
+  // Cap the head text first so the platform and follower suffix survive it.
+  let value = headText(probe).slice(0, PROBE_LINE_CHARS);
+  if (probe.platform) value += ` (${probe.platform})`;
+  if (probe.instagramFollowers !== undefined) {
+    const followers = probe.instagramFollowers.toLocaleString("en-US");
+    value += `，${L.igFollowers} ${followers}`;
+  }
+  return `${L.probe}：${value}`;
+}
+
+/**
+ * The detect user message for one brand. Pure, and the only template: the
+ * production call and the golden-set regenerate script both render through it,
+ * so the model sees byte-identical messages in both.
+ *
+ * `detectProbes` owns the probe policy. The renderer re-applies it (same
+ * predicates, same cap) because eval fixtures (`jev-questions.test.ts`,
+ * `scripts/jev/smoke.ts`) hand it probes that never passed through there;
+ * on `detectProbes` output it is a no-op.
+ */
+export function renderDetectUserMessage(item: DetectItem): string {
+  const probes = (item.probes ?? [])
+    .filter(isUsableProbe)
+    .sort((a, b) => Number(!hasHeadText(a)) - Number(!hasHeadText(b)))
+    .slice(0, MAX_PROBE_URLS);
+
+  return [
+    `${L.brandSlug}：${item.slug}`,
+    `${L.brandName}：${item.name}`,
+    `${L.description}：${item.description ?? L.missing}`,
+    `${L.website}：${item.website ?? L.missing}`,
+    `${L.submittedWebsite}：${item.submittedWebsite ?? L.missing}`,
+    ...(item.results ?? []).slice(0, MAX_RESULT_LINES).map(resultLine),
+    ...probes.map(probeLine),
+  ].join("\n");
+}
+
+/**
+ * One detect call for one brand. Every brand gets its own call (DEV-1886): the
+ * batched path averaged 5.5 brands per call on staging for ~3% of LLM spend, so
+ * batching bought little and split the pipeline into two shapes. The prompt
+ * judges each entity from its own name, sites, search results and probes only.
+ */
+export async function detectBrand(
+  brand: DetectItem,
   jobId?: string,
-): Promise<LlmBatchOutcome<Map<string, ClassificationResult>>> {
+): Promise<LlmCallOutcome<DetectResult>> {
   return auditedCall(
-    { provider: "enrich", operation: "classifyCategoryBatch", kind: "service" },
-    async () => {
-      const results = new Map<string, ClassificationResult>();
-      let calls = noLlmCalls();
-
-      for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
-        const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
-        const chunk = await classifyCategoryBatchChunk(batch, jobId);
-        calls = addLlmCalls(calls, chunk.calls);
-
-        if (chunk.value) {
-          for (const [slug, result] of chunk.value) {
-            results.set(slug, result);
-          }
-          continue;
-        }
-
-        // The per-brand fallback only makes sense when the model answered and we
-        // could not use the answer. If the chunk call itself never reached the
-        // provider, every single-brand retry will die the same way — on 2026-08-02
-        // that turned one dead batch call into 20 more doomed calls per chunk, each
-        // paying its own retry backoff.
-        if (isLlmProviderFailure(chunk.calls)) {
-          continue;
-        }
-
-        for (const brand of batch) {
-          const single = await classifyCategory(brand, jobId);
-          calls = addLlmCalls(calls, single.calls);
-          if (single.value) {
-            results.set(brand.slug, single.value);
-          }
-        }
-      }
-
-      return { results, calls };
-    },
+    { provider: "enrich", operation: "detectBrand", kind: "service" },
+    () => detectBrandCall(brand, jobId),
   );
 }
 
-/** At most four probed URLs reach the prompt, at most 160 characters each. */
-export const MAX_PROBE_URLS = 4;
-const PROBE_LINE_CHARS = 160;
-
-/**
- * One line per probed URL, rendered after the SERP snippets at BOTH detect
- * prompt sites (the batch call and its single-brand retry) so a brand judged by
- * the fallback sees the same evidence as one judged in the batch.
- *
- * A probe with neither title nor description falls back to its URL: the
- * orchestrator only forwards probes that carry head text, but a caller passing
- * a bare one must not render an empty field pair.
- */
-function probeLines(probes: DetectBatchItem["probes"]): string[] {
-  if (!probes?.length) return [];
-
-  return probes.slice(0, MAX_PROBE_URLS).map((probe) => {
-    const head =
-      [probe.title, probe.description]
-        .filter((part): part is string => Boolean(part?.trim()))
-        .join(" — ") || probe.url;
-    const value = probe.platform ? `${head} (${probe.platform})` : head;
-    return `探測：${value.slice(0, PROBE_LINE_CHARS)}`;
-  });
-}
-
-async function detectBrand(
-  brand: DetectBatchItem,
+async function detectBrandCall(
+  brand: DetectItem,
   jobId?: string,
 ): Promise<LlmCallOutcome<DetectResult>> {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return notAttempted();
 
-  const snippetLine = brand.snippets?.length
-    ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join("；")}`
-    : "";
-  const probeLine = probeLines(brand.probes)
-    .map((line) => `\n${line}`)
-    .join("");
-  const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? "無"}\n網站：${brand.website ?? "無"}${snippetLine}${probeLine}`;
+  const userContent = renderDetectUserMessage(brand);
 
   try {
     const { text: detectPrompt, prompt: detectPromptMeta } = await fetchLangfusePromptWithMeta("detect");
 
-    const client = createClassifierClient(
+    const client = createDetectClient(
       token,
-      "detect",
-      "detect",
       brand.target,
       jobId,
       detectPromptMeta,
@@ -686,119 +426,4 @@ async function detectBrand(
     );
     return contentFailed();
   }
-}
-
-async function detectBrandsBatchChunk(
-  brands: DetectBatchItem[],
-  jobId?: string,
-): Promise<LlmCallOutcome<Map<string, DetectResult>>> {
-  const token = process.env.OPENAI_API_KEY;
-  if (!token) return notAttempted();
-
-  const list = brands
-    .map((brand, index) => {
-      const base = `${index + 1}. [${brand.slug}] 品牌名：${brand.name} / 描述：${brand.description ?? "無"} / 網站：${brand.website ?? "無"}`;
-      const snippetStr = brand.snippets?.length
-        ? ` / 搜尋摘要：${brand.snippets.slice(0, 10).join("；")}`
-        : "";
-      // Indented continuation lines rather than ` / ` fragments: four probes
-      // inline would bury the item's own identity line.
-      const probeStr = probeLines(brand.probes)
-        .map((line) => `\n   ${line}`)
-        .join("");
-      return base + snippetStr + probeStr;
-    })
-    .join("\n");
-  const userContent = `請判斷以下項目是否為實際品牌：\n${list}`;
-
-  try {
-    const { text: detectBatchPrompt, prompt: detectBatchPromptMeta } = await fetchLangfusePromptWithMeta("detect");
-
-    const client = createClassifierClient(
-      token,
-      "detect",
-      "detectBatch",
-      brands.at(0)?.target,
-      jobId,
-      detectBatchPromptMeta,
-    );
-
-    const { response, data, content } = await client.chat({
-      system: detectBatchPrompt,
-      user: userContent,
-      json: true,
-      schema: DETECT_BATCH_SCHEMA,
-      ...profileChatParams("detectBatch"),
-    });
-
-    if (!response.ok) {
-      console.error(`  → brand triage batch failed: HTTP ${response.status}`);
-      return providerFailed();
-    }
-
-    if (!content) {
-      console.error(
-        `  → brand triage batch: empty response, data=${JSON.stringify(data).slice(0, 200)}`,
-      );
-      return contentFailed();
-    }
-
-    const results = parseTriageResponse(content, brands);
-    if (!results) {
-      console.error(
-        `  → brand triage batch: invalid response: ${content.slice(0, 200)}`,
-      );
-      return contentFailed();
-    }
-
-    return { value: results, calls: { attempted: 1, providerFailed: 0 } };
-  } catch (err) {
-    console.error(
-      `  → brand triage batch failed: ${err instanceof Error ? err.message : err}`,
-    );
-    return contentFailed();
-  }
-}
-
-export async function detectBrandsBatch(
-  brands: DetectBatchItem[],
-  jobId?: string,
-): Promise<LlmBatchOutcome<Map<string, DetectResult>>> {
-  return auditedCall(
-    { provider: "enrich", operation: "detectBrandsBatch", kind: "service" },
-    async () => {
-      const results = new Map<string, DetectResult>();
-      let calls = noLlmCalls();
-
-      for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
-        const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
-        const chunk = await detectBrandsBatchChunk(batch, jobId);
-        calls = addLlmCalls(calls, chunk.calls);
-
-        if (chunk.value) {
-          for (const [slug, result] of chunk.value) {
-            results.set(slug, result);
-          }
-          continue;
-        }
-
-        // Same rule as the classifier above: a provider-level chunk failure means
-        // the account, not the payload, is the problem — 20 single-brand retries
-        // would only multiply the outage.
-        if (isLlmProviderFailure(chunk.calls)) {
-          continue;
-        }
-
-        for (const brand of batch) {
-          const single = await detectBrand(brand, jobId);
-          calls = addLlmCalls(calls, single.calls);
-          if (single.value) {
-            results.set(brand.slug, single.value);
-          }
-        }
-      }
-
-      return { results, calls };
-    },
-  );
 }

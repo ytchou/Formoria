@@ -22,7 +22,7 @@ from ltr.model import train
 from ltr.export import export_onnx
 
 # The real 20-feature spec hash (computed from the TS module's FEATURE_SPEC)
-FEATURE_SPEC_HASH = "a3745c54e2a4ed40323f1eefbf04a7a95f441cc7aef135a27f14d95d2d3bdf69"
+FEATURE_SPEC_HASH = "00cf793006d9cc151b06e06b41e53f0c32ea8070bed18b14bd59d424db1298e7"
 
 SMOKE_FEATURE_COUNT = 20
 SMOKE_N_QUERIES = 30

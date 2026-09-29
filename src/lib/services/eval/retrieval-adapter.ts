@@ -3,8 +3,7 @@ import { z } from 'zod'
 import type { PhaseAdapter } from './phase-adapters'
 import type { ExperimentItem, ExperimentArm } from './run-experiment'
 import { ndcgAt, precisionAtK, recallAtK, mrr as mrrFn, type GradedItem } from './scorers'
-import type { SearchMode } from '@/lib/services/product-situation-search'
-import { buildRerankDocument } from '@/lib/services/product-rerank'
+import type { SearchMode, LexicalParams } from '@/lib/services/product-situation-search'
 
 // ---------------------------------------------------------------------------
 // Dependency injection
@@ -18,20 +17,18 @@ export type RetrievalAdapterDeps = {
     pageSize: number
     category?: string | null
     enableIntentParse?: boolean
+    lexicalParams?: LexicalParams
   }) => Promise<{ products: Array<{ id: string; key: string; brandSlug: string }> }>
   category?: (opts: {
     category: string
     pageSize?: number
   }) => Promise<{ products: Array<{ id: string; key: string; brandSlug: string }> }>
-  rerank?: (
-    query: string,
-    candidates: Array<{ id: string; document: string }>,
-  ) => Promise<Array<{ id: string }>>
   rank?: (opts: {
     query: string
     version: string
     category?: string | null
   }) => Promise<string[]>
+  lexicalParams?: LexicalParams
 }
 
 // ---------------------------------------------------------------------------
@@ -114,41 +111,13 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
         return { ok: true, output: result.products.map(compositeKey) }
       }
 
-      if (arm.value === 'rerank') {
-        const result = await deps.search({
-          query: input.query,
-          locale,
-          mode: 'hybrid',
-          pageSize: 100,
-          category: input.category ?? null,
-          enableIntentParse: false,
-        })
-        if (!deps.rerank) {
-          return { ok: true, output: result.products.map(compositeKey) }
-        }
-        const candidates = result.products.map((p) => ({
-          id: p.id,
-          document: buildRerankDocument(p),
-        }))
-        const reranked = await deps.rerank(input.query, candidates)
-        const byId = new Map(result.products.map((p) => [p.id, p]))
-        return {
-          ok: true,
-          output: reranked
-            .map((r) => {
-              const p = byId.get(r.id)
-              return p ? compositeKey(p) : ''
-            })
-            .filter(Boolean),
-        }
-      }
-
-      // hybrid / vector / lexical
+      // hybrid / vector / lexical, optionally with a scorer override
+      const scorerMatch = arm.value.match(/^(lexical|hybrid):(bm25f|tsrank|idf)$/)
       const VALID_MODES: readonly string[] = ['hybrid', 'vector', 'lexical'] satisfies SearchMode[]
-      if (!VALID_MODES.includes(arm.value)) {
+      if (!scorerMatch && !VALID_MODES.includes(arm.value)) {
         throw new Error(`Unknown arm value: "${arm.value}"`)
       }
-      const mode = arm.value as SearchMode
+      const mode = (scorerMatch?.[1] ?? arm.value) as SearchMode
       const result = await deps.search({
         query: input.query,
         locale,
@@ -156,6 +125,7 @@ export function createRetrievalAdapter(deps: RetrievalAdapterDeps): PhaseAdapter
         pageSize: 100,
         category: input.category ?? null,
         enableIntentParse: false,
+        ...(scorerMatch ? { lexicalParams: { ...deps.lexicalParams, scorer: scorerMatch[2] as LexicalParams['scorer'] } } : {}),
       })
       return { ok: true, output: result.products.map(compositeKey) }
     },

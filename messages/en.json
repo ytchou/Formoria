@@ -12,9 +12,10 @@
     "loading": "Loading…"
   },
   "nav": {
+    "searchAria": "Site product search",
     "faq": "FAQ",
     "submitBrand": "Recommend a Brand",
-    "searchPlaceholder": "Search brands...",
+    "searchPlaceholder": "Search products, brands or needs…",
     "openMenu": "Open menu",
     "navigation": "Navigation",
     "signIn": "Sign in",
@@ -70,6 +71,7 @@
     "exploreMore": "Explore More"
   },
   "products": {
+    "brandRow": { "heading": "Brands" },
     "metaTitle": "Products — Formoria",
     "metaDescription": "Explore Formoria's curated products — everyday objects and design selections for a life that feels more like yours.",
     "heading": "Curated Products",
@@ -85,16 +87,19 @@
       "showResults": "Show {count, plural, one {# product} other {# products}}",
       "clearAll": "Clear all",
       "removeFilter": "Remove {label}: {value}",
+      "removeFilterInferred": "Remove {label}: {value} ({badge})",
       "sortNewest": "Newest",
       "sortAlphabetical": "Sort by name",
       "sortRelevance": "Relevance",
       "resultCount": "{count, plural, one {# product} other {# products}}",
       "sortLabel": "Sort",
-      "query": "Situation"
+      "query": "Search",
+      "category": "Category",
+      "inferred": "Auto-detected"
     },
     "search": {
-      "label": "Search by situation",
-      "placeholder": "e.g. moving in, gifting, camping",
+      "label": "Search products",
+      "placeholder": "Search products, brands or needs…",
       "submit": "Search",
       "resultsHeading": "Products matching \"{query}\"",
       "count": "{count, plural, one {# result} other {# results}}",
@@ -132,8 +137,8 @@
     "hero": {
       "headline": "Life can look a little more like you.",
       "subheadline": "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
-      "searchLabel": "Search Taiwanese brands and products",
-      "searchPlaceholder": "Find a specific brand or product",
+      "searchLabel": "Search Taiwanese products",
+      "searchPlaceholder": "Try: tea sets for elders, canvas bags, Spring Pool",
       "browseCta": "Start from a style",
       "eyebrow": "Taiwanese brand discovery and curation",
       "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",

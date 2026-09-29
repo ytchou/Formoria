@@ -23,6 +23,7 @@ import {
   type EditorialInput,
   type EditorialDeps,
 } from '../graph'
+import { AbnormalCompletionError } from '../../agents/runtime'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -203,6 +204,31 @@ describe('editorial agent graph', () => {
     ])
     expect(deps.runStockists).toHaveBeenCalledOnce()
     expect(deps.runFaq).toHaveBeenCalledOnce()
+  })
+
+  it('repair_abnormal_keeps_generated_copy_and_records_kind', async () => {
+    const deps = makeDeps({
+      validateCrossOutput: vi.fn().mockReturnValue([
+        { field: 'description', reason: 'contains AI artifact "as a brand"' },
+      ]),
+      repairCrossOutput: vi
+        .fn()
+        .mockRejectedValue(new AbnormalCompletionError('truncated', 'finish_reason=length')),
+    })
+
+    const output = await runEditorialAgent(makeInput(), deps)
+
+    expect(deps.repairCrossOutput).toHaveBeenCalledOnce()
+    expect(output.agentOutcome).not.toBe('repaired')
+    expect(output.patch).toEqual({
+      description: 'A brand description',
+      description_en: 'A brand description EN',
+      blurb: 'blurb',
+      blurb_en: 'blurb en',
+    })
+    expect(output.decisions).toContainEqual(
+      expect.objectContaining({ step: 'repair', action: 'truncated', reason: 'finish_reason=length' }),
+    )
   })
 
   it('editorial_repair_fixes_issue — repaired output replaces original in finalize', async () => {

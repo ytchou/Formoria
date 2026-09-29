@@ -110,3 +110,55 @@ export function renderAnswer(text: string): SlackBlock[] {
     },
   ];
 }
+
+/** Escapes the three characters Slack mrkdwn treats as control characters. */
+export function escapeSlackMrkdwn(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+type ThreadNoticeInput = {
+  title: string;
+  body: string;
+  context?: string;
+};
+
+const HEADER_TEXT_LIMIT = 150;
+
+export function truncatePlain(text: string, limit: number): string {
+  const characters = Array.from(text);
+  if (characters.length <= limit) return text;
+  return characters.slice(0, limit - 1).join("") + "…";
+}
+
+export function renderThreadNotice(input: ThreadNoticeInput): {
+  text: string;
+  blocks: SlackBlock[];
+} {
+  const { title, body, context } = input;
+
+  const blocks: SlackBlock[] = [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: truncatePlain(title, HEADER_TEXT_LIMIT),
+        emoji: true,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: boundedSlackText(body),
+      },
+    },
+  ];
+  if (context) {
+    blocks.push({
+      type: "context",
+      elements: [{ type: "mrkdwn", text: boundedSlackText(context) }],
+    });
+  }
+
+  return { text: `${title}\n${body}`, blocks };
+}

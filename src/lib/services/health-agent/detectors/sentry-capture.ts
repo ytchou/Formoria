@@ -39,6 +39,52 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
+interface StatsGroup {
+  by: { outcome?: string; reason?: string }
+  totals: Record<string, number>
+}
+
+/**
+ * Error events Sentry rate-limited in the last day, keyed by reason.
+ * Returns null when the stats API is unreachable, so the caller falls back
+ * to the plain round-trip finding.
+ */
+async function fetchRateLimitedErrors(
+  ctx: DetectorContext,
+  fetchFn: FetchFn,
+  baseUrl: string,
+  organization: string,
+  token: string,
+): Promise<Record<string, number> | null> {
+  const statsUrl = `${baseUrl}/api/0/organizations/${encodeURIComponent(organization)}/stats_v2/?field=sum(quantity)&groupBy=outcome&groupBy=reason&category=error&statsPeriod=1d`
+  try {
+    const response = await auditedCall(
+      {
+        provider: 'health-agent',
+        operation: 'probe_sentry_capture_quota',
+        kind: 'external',
+        meta: { endpoint: statsUrl, method: 'GET' },
+      },
+      async () => fetchFn(statsUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: ctx.signal,
+      }),
+    )
+    if (!response.ok) return null
+    const body = (await response.json()) as { groups?: StatsGroup[] }
+    const rateLimited: Record<string, number> = {}
+    for (const group of body.groups ?? []) {
+      const count = group.totals['sum(quantity)'] ?? 0
+      if (group.by.outcome === 'rate_limited' && count > 0) {
+        rateLimited[group.by.reason ?? 'unknown'] = count
+      }
+    }
+    return rateLimited
+  } catch {
+    return null
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Detector
 // ---------------------------------------------------------------------------
@@ -141,6 +187,22 @@ export const sentryCaptureDetector: Detector = {
           return [] // Found the canary event
         }
       }
+    }
+
+    // A missing canary most often means the org quota is spent and Sentry is
+    // dropping every error (DEV-1851, DEV-1862), not that capture is broken.
+    const rateLimited = await fetchRateLimitedErrors(ctx, fetchFn, baseUrl, organization, token)
+    if (rateLimited && Object.keys(rateLimited).length > 0) {
+      return [
+        {
+          source: 'credential',
+          fingerprint: stableFingerprint('credential', 'sentry-capture', 'quota-exhausted'),
+          title: 'Sentry is rate-limiting errors (quota exhausted?); canary event was dropped',
+          severity: 'high',
+          evidence: { canaryToken, rateLimited },
+          mergePolicy: 'human',
+        },
+      ]
     }
 
     return [

@@ -249,3 +249,11 @@ describe('cmdApplyGrades', () => {
     expect(q.humanApproval!.reviewedVia).toBe('agreement-kappa')
   })
 })
+
+describe('export-grades output (rerank arm deleted, DEV-1898)', () => {
+  it('CSV header has no rerank_rank column', async () => {
+    const { CSV_COLUMNS } = await import('../label-grade-holdout')
+    expect(CSV_COLUMNS).not.toContain('rerank_rank')
+    expect(CSV_COLUMNS).toContain('hybrid_rank')
+  })
+})

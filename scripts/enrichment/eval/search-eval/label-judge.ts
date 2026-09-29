@@ -8,13 +8,16 @@ import {
   searchProductsBySituation,
 } from '@/lib/services/product-situation-search'
 import { getPublishedCuratedProducts } from '@/lib/services/curated-products-catalog'
-import { judgeRelevance } from '@/lib/services/eval/search-relevance-judge'
+import { judgeRelevance, judgeRelevanceBatch } from '@/lib/services/eval/search-relevance-judge'
+import type { DecideFn } from '@/lib/services/eval/jev-questions'
+import { decide } from '@/lib/services/typesafe-audit'
 import { fetchLangfusePromptWithMeta } from '@/lib/langfuse/prompt'
 import {
   LABELS_DIR,
   QUERIES_PATH,
   CANDIDATES_PATH,
   JUDGED_PAIRS_PATH,
+  JEV_JUDGED_PAIRS_PATH,
   HAND_LABEL_SHEET_PATH,
   sampleDeep,
   stratifiedSheet,
@@ -30,6 +33,7 @@ import {
 type Query = {
   id: string
   query: string
+  queryType?: string
   category?: string
   source: string
 }
@@ -124,13 +128,27 @@ export async function cmdJudge(
 ): Promise<void> {
   if (values.help) {
     console.log(
-      'Usage: pnpm search:eval judge [--model gpt-4o-mini] [--samples 3] [--temperature 0.7] [--force]',
+      'Usage: pnpm search:eval judge [--judge openai|jev] [--batch] [--samples 3] [--temperature 0.7] [--force]',
     )
     console.log(
       '  Runs LLM judge (multi-sample) on (query, product) pairs, outputs 0-3 grade',
     )
+    console.log(
+      '  --judge jev: one Jev score call per pair; writes labels/judged-pairs.jev.json and leaves the hand-label sheet alone',
+    )
     return
   }
+
+  const judge = String(values.judge ?? 'openai')
+  if (judge !== 'openai' && judge !== 'jev') {
+    console.error(`[judge] Unknown --judge "${judge}". Use openai or jev.`)
+    process.exitCode = 1
+    return
+  }
+  const isJev = judge === 'jev'
+  // The Jev arm keeps its own output and resume file so it never overwrites the OpenAI labels.
+  const outPath = isJev ? JEV_JUDGED_PAIRS_PATH : JUDGED_PAIRS_PATH
+  const jevDecide: DecideFn | undefined = isJev ? decide : undefined
 
   const samples = parseInt(String(values.samples ?? '3'), 10)
   const temperature = parseFloat(String(values.temperature ?? '0.7'))
@@ -150,8 +168,8 @@ export async function cmdJudge(
 
   // Load existing judged pairs for resume
   let existing: JudgedPair[] = []
-  if (existsSync(JUDGED_PAIRS_PATH) && !force) {
-    existing = JSON.parse(readFileSync(JUDGED_PAIRS_PATH, 'utf8'))
+  if (existsSync(outPath) && !force) {
+    existing = JSON.parse(readFileSync(outPath, 'utf8'))
     console.log(`[judge] Resuming from ${existing.length} existing judged pairs`)
   }
 
@@ -175,6 +193,7 @@ export async function cmdJudge(
   const productMap = new Map<string, {
     nameZh: string
     nameEn: string | null
+    brandName: string
     category: string
     subcategory: string
     materials: string[]
@@ -189,6 +208,7 @@ export async function cmdJudge(
       productMap.set(p.id, {
         nameZh: p.nameZh,
         nameEn: p.nameEn,
+        brandName: p.brandName,
         category: p.category,
         subcategory: p.subcategory,
         materials: p.material,
@@ -198,10 +218,12 @@ export async function cmdJudge(
     }
   }
 
-  // Fetch prompt once
-  const promptMeta = await fetchLangfusePromptWithMeta('search-relevance-judge')
+  // Fetch prompt once (the Jev arm carries its own instructions)
+  const promptMeta = isJev ? null : await fetchLangfusePromptWithMeta('search-relevance-judge')
 
   const judgedPairs = [...existing]
+  // Jev pairs with no grade are not written, so --resume retries them.
+  let jevUngraded = 0
 
   for (const [queryId, queryCandidates] of byQuery) {
     const q = queryMap.get(queryId)
@@ -214,52 +236,122 @@ export async function cmdJudge(
 
     console.log(`[judge] ${queryId}: judging ${pending.length} candidates...`)
 
-    for (const c of pending) {
-      const product = productMap.get(c.productId)
-      if (!product) {
-        console.warn(`  ${c.productId}: product not found, skipping`)
-        continue
-      }
-
-      const result = await judgeRelevance(
-        {
-          query: q.query,
-          product: {
-            name_zh: product.nameZh,
-            name_en: product.nameEn,
-            category_zh: product.category,
-            subcategory_zh: product.subcategory,
-            materials_zh: product.materials.join(', '),
-            description_zh: product.descriptionZh,
-          },
+    if (!isJev && values.batch) {
+      const available = pending
+        .map(candidate => ({ candidate, product: productMap.get(candidate.productId) }))
+        .filter((item): item is { candidate: Candidate; product: NonNullable<typeof item.product> } => Boolean(item.product))
+        .sort((a, b) => `${a.candidate.brandSlug}|${a.candidate.productKey}`.localeCompare(`${b.candidate.brandSlug}|${b.candidate.productKey}`))
+      const batchInput = available.map(({ candidate, product }) => ({
+        id: `${candidate.brandSlug}|${candidate.productKey}`,
+        product: {
+          name_zh: product.nameZh,
+          name_en: product.nameEn,
+          ...(q.queryType === 'brand_name' ? { brand_name: product.brandName } : {}),
+          category_zh: product.category,
+          subcategory_zh: product.subcategory,
+          materials_zh: product.materials.join(', '),
+          description_zh: product.descriptionZh,
         },
-        {
-          fetchPrompt: async () => promptMeta,
-          samples,
-          temperature,
-        },
+      }))
+      const batchGrades = await judgeRelevanceBatch(
+        { query: q.query, queryType: q.queryType, products: batchInput },
+        { fetchPrompt: promptMeta ? async () => promptMeta : undefined, samples, temperature },
       )
+      for (const { candidate, product } of available) {
+        const id = `${candidate.brandSlug}|${candidate.productKey}`
+        const result = batchGrades.get(id)
+        if (!result || result.grade == null || result.votes.length !== samples) {
+          console.warn(`  ${candidate.productKey}: incomplete batch vote, retried on --resume`)
+          continue
+        }
+        judgedPairs.push({
+          queryId: candidate.queryId,
+          query: q.query,
+          brandSlug: candidate.brandSlug,
+          productKey: candidate.productKey,
+          nameZh: product.nameZh,
+          descriptionZh: product.descriptionZh,
+          officialUrl: product.officialUrl,
+          categoryZh: product.category,
+          votes: result.votes,
+          grade: result.grade,
+          split: result.split,
+        })
+      }
+      writeFileSync(outPath, JSON.stringify(judgedPairs, null, 2))
+      continue
+    }
 
-      judgedPairs.push({
-        queryId: c.queryId,
-        query: q.query,
-        brandSlug: c.brandSlug,
-        productKey: c.productKey,
-        nameZh: product.nameZh,
-        descriptionZh: product.descriptionZh,
-        officialUrl: product.officialUrl,
-        categoryZh: product.category,
-        votes: result.votes,
-        grade: result.grade ?? 0,
-        split: result.split,
-      })
+    for (let index = 0; index < pending.length; index += 4) {
+      const batch = pending.slice(index, index + 4)
+      const graded = await Promise.all(batch.map(async c => {
+        const product = productMap.get(c.productId)
+        if (!product) {
+          console.warn(`  ${c.productId}: product not found, skipping`)
+          return null
+        }
+
+        const result = await judgeRelevance(
+          {
+            query: q.query,
+            queryType: q.queryType,
+            product: {
+              name_zh: product.nameZh,
+              name_en: product.nameEn,
+              ...(q.queryType === 'brand_name' ? { brand_name: product.brandName } : {}),
+              category_zh: product.category,
+              subcategory_zh: product.subcategory,
+              materials_zh: product.materials.join(', '),
+              description_zh: product.descriptionZh,
+            },
+          },
+          jevDecide
+            ? { decide: jevDecide }
+            : {
+                fetchPrompt: promptMeta ? async () => promptMeta : undefined,
+                samples,
+                temperature,
+              },
+        )
+
+        if (result.grade == null) {
+          if (isJev) jevUngraded++
+          console.warn(`  ${c.productKey}: judge returned no grade, not written (retried on --resume)`)
+          return null
+        }
+
+        return {
+          queryId: c.queryId,
+          query: q.query,
+          brandSlug: c.brandSlug,
+          productKey: c.productKey,
+          nameZh: product.nameZh,
+          descriptionZh: product.descriptionZh,
+          officialUrl: product.officialUrl,
+          categoryZh: product.category,
+          votes: result.votes,
+          grade: result.grade,
+          split: result.split,
+          ...(isJev && result.probabilities ? { probabilities: result.probabilities } : {}),
+        }
+      }))
+      judgedPairs.push(...graded.filter(pair => pair !== null))
     }
 
     // Write after each query for resume safety
-    writeFileSync(JUDGED_PAIRS_PATH, JSON.stringify(judgedPairs, null, 2))
+    writeFileSync(outPath, JSON.stringify(judgedPairs, null, 2))
   }
 
   console.log(`[judge] Total judged pairs: ${judgedPairs.length}`)
+  if (isJev && jevUngraded > 0) {
+    console.warn(`[judge] ${jevUngraded} Jev pairs returned no grade and were not written; rerun to retry them`)
+  }
+
+  // The hand-label sheet is built from the OpenAI labels only.
+  if (isJev) {
+    console.log(`[judge] Wrote Jev labels to ${outPath}; hand-label sheet left unchanged`)
+    return
+  }
 
   // Emit hand-label sheet
   const existingSheet = existsSync(HAND_LABEL_SHEET_PATH)

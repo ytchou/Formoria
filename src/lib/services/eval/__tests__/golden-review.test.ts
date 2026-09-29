@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { enqueueDataset, applyVerdicts, prelabelItem } from '../golden-review'
+import { enqueueDataset, applyVerdicts, prelabelItem, type EnqueueDeps } from '../golden-review'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,11 +51,14 @@ describe('enqueueDataset', () => {
         trace: traceFn,
         findQueueByName: vi.fn().mockResolvedValue('queue-abc'),
         enqueueTrace: enqueueFn,
+        listQueuedTraceIds: async () => new Set<string>(),
+        flush: async () => undefined,
+        sleep: async () => undefined,
       },
     })
 
     // Only 2 ACTIVE items enqueued
-    expect(result).toEqual({ enqueued: 2, queueName: 'golden-review' })
+    expect(result).toEqual({ enqueued: 2, skipped: 0, queueName: 'golden-review' })
     expect(traceFn).toHaveBeenCalledTimes(2)
     expect(enqueueFn).toHaveBeenCalledTimes(2)
 
@@ -86,7 +89,7 @@ describe('enqueueDataset', () => {
     })
   })
 
-  it('includes ARCHIVED items with humanApproval.status pending and excludes rejected/bare archived', async () => {
+  it('includes ACTIVE pending items and excludes every ARCHIVED item', async () => {
     const traceFn = vi
       .fn()
       .mockReturnValueOnce({ id: 'trace-1' })
@@ -95,6 +98,10 @@ describe('enqueueDataset', () => {
 
     const items = [
       makeItem({ id: 'active-1' }),
+      makeItem({
+        id: 'active-pending',
+        metadata: { humanApproval: { status: 'pending' } },
+      }),
       makeItem({
         id: 'archived-pending',
         status: 'ARCHIVED',
@@ -119,6 +126,9 @@ describe('enqueueDataset', () => {
         trace: traceFn,
         findQueueByName: vi.fn().mockResolvedValue('queue-abc'),
         enqueueTrace: enqueueFn,
+        listQueuedTraceIds: async () => new Set<string>(),
+        flush: async () => undefined,
+        sleep: async () => undefined,
       },
     })
 
@@ -126,7 +136,7 @@ describe('enqueueDataset', () => {
     const tracedIds = traceFn.mock.calls.map(
       (c) => (c[0] as { metadata: { itemId: string } }).metadata.itemId,
     )
-    expect(tracedIds).toEqual(['active-1', 'archived-pending'])
+    expect(tracedIds).toEqual(['active-1', 'active-pending'])
   })
 
   it('uses reviewView for the trace input when provided', async () => {
@@ -149,6 +159,9 @@ describe('enqueueDataset', () => {
         trace: traceFn,
         findQueueByName: vi.fn().mockResolvedValue('queue-abc'),
         enqueueTrace: enqueueFn,
+        listQueuedTraceIds: async () => new Set<string>(),
+        flush: async () => undefined,
+        sleep: async () => undefined,
       },
     })
 
@@ -156,7 +169,106 @@ describe('enqueueDataset', () => {
     const traceInput = (traceFn.mock.calls[0]![0] as { input: unknown }).input
     expect(traceInput).toEqual({ projected: true })
   })
+
+  // DEV-1881: a 156-item enqueue hit the 100/min limit, enqueued traces that were
+  // never flushed, and a rerun would have duplicated every queued item.
+  it('flushes every trace before the first enqueue', async () => {
+    const calls: string[] = []
+    await enqueueDataset({
+      dataset: 'intent-parse-golden',
+      queueName: 'golden-review',
+      deps: fakeDeps({
+        items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+        trace: (body) => (calls.push(`trace:${body.metadata.itemId}`), { id: body.id }),
+        flush: async () => void calls.push('flush'),
+        enqueueTrace: async () => void calls.push('enqueue'),
+      }),
+    })
+    expect(calls).toEqual(['trace:a', 'trace:b', 'flush', 'enqueue', 'enqueue'])
+  })
+
+  it('uses a stable trace id per item and skips items already in the queue', async () => {
+    const traced: string[] = []
+    const enqueued: string[] = []
+    const run = (queued: Set<string>) =>
+      enqueueDataset({
+        dataset: 'intent-parse-golden',
+        queueName: 'golden-review',
+        deps: fakeDeps({
+          items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+          trace: (body) => (traced.push(body.id), { id: body.id }),
+          listQueuedTraceIds: async () => queued,
+          enqueueTrace: async ({ traceId }) => void enqueued.push(traceId),
+        }),
+      })
+
+    const first = await run(new Set())
+    expect(first).toEqual({ enqueued: 2, skipped: 0, queueName: 'golden-review' })
+    const [idA, idB] = traced
+    expect(idA).toMatch(/^[0-9a-f]{32}$/)
+    expect(idA).not.toBe(idB)
+
+    traced.length = 0
+    enqueued.length = 0
+    const rerun = await run(new Set([idA!]))
+    expect(rerun).toEqual({ enqueued: 1, skipped: 1, queueName: 'golden-review' })
+    expect(traced).toEqual([idB])
+    expect(enqueued).toEqual([idB])
+  })
+
+  it('paces enqueues and retries a rejected enqueue until it succeeds', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined)
+    const enqueueTrace = vi
+      .fn()
+      .mockRejectedValueOnce(new Response('rate limited', { status: 429 }))
+      .mockResolvedValue(undefined)
+    const result = await enqueueDataset({
+      dataset: 'intent-parse-golden',
+      queueName: 'golden-review',
+      deps: fakeDeps({ items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })], enqueueTrace, sleep }),
+    })
+    expect(result.enqueued).toBe(2)
+    expect(enqueueTrace).toHaveBeenCalledTimes(3)
+    const waits = sleep.mock.calls.map((c) => c[0] as number)
+    expect(waits.some((ms) => ms >= 2_000)).toBe(true) // retry backoff
+    expect(waits.filter((ms) => ms === 700)).toHaveLength(1) // pace between the two items
+  })
+
+  it('attempts every item, then throws naming the ones that never enqueued', async () => {
+    const enqueueTrace = vi.fn(async ({ traceId }: { traceId: string }) => {
+      if (traceId === failingId) throw new Response('rate limited', { status: 429 })
+    })
+    let failingId = ''
+    const deps = fakeDeps({
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      trace: (body) => {
+        if (body.metadata.itemId === 'a') failingId = body.id
+        return { id: body.id }
+      },
+      enqueueTrace,
+    })
+    await expect(
+      enqueueDataset({ dataset: 'intent-parse-golden', queueName: 'golden-review', deps }),
+    ).rejects.toThrow(/1\/2 enqueued; not enqueued after retries: a/)
+    expect(enqueueTrace.mock.calls.some(([p]) => p.traceId !== failingId)).toBe(true)
+  })
 })
+
+function fakeDeps(
+  overrides: Partial<EnqueueDeps> & { items: ReturnType<typeof makeItem>[] },
+): EnqueueDeps {
+  const { items, ...rest } = overrides
+  return {
+    getDataset: async () => ({ items }),
+    trace: (body) => ({ id: body.id }),
+    findQueueByName: async () => 'queue-abc',
+    enqueueTrace: async () => undefined,
+    listQueuedTraceIds: async () => new Set<string>(),
+    flush: async () => undefined,
+    sleep: async () => undefined,
+    ...rest,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // applyVerdicts
@@ -180,14 +292,15 @@ describe('applyVerdicts', () => {
           itemId: 'item-1',
         },
       }),
-      createDatasetItem: vi.fn().mockResolvedValue({}),
+      createDatasetItem: vi.fn(async (b: Record<string, unknown>) => ({ id: b.id })),
       adapterFor: vi.fn().mockReturnValue({ expectedSchema }),
+      sleep: vi.fn().mockResolvedValue(undefined),
       ...overrides,
     }
   }
 
   it('maps approve → ACTIVE with reviewedVia', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -226,7 +339,7 @@ describe('applyVerdicts', () => {
 
   it('maps edit → merged expectedOutput validated by adapter.expectedSchema', async () => {
     // --- Part 1: valid edit merges fields ---
-    const createOk = vi.fn().mockResolvedValue({})
+    const createOk = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -264,7 +377,7 @@ describe('applyVerdicts', () => {
     expect(ha.status).toBe('approved')
 
     // --- Part 2: invalid JSON aborts the whole push ---
-    const createBad = vi.fn().mockResolvedValue({})
+    const createBad = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await expect(
       applyVerdicts({
@@ -297,7 +410,7 @@ describe('applyVerdicts', () => {
   })
 
   it('maps reject → status ARCHIVED', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -333,7 +446,7 @@ describe('applyVerdicts', () => {
   })
 
   it('items with no verdict are left untouched and reported pending', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     const result = await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -376,8 +489,44 @@ describe('applyVerdicts', () => {
     })
   })
 
+  it('applies the newest verdict when an item has scores on two traces', async () => {
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        // Listed newest-first, so a last-seen-wins map would keep the old approve.
+        listScores: vi.fn().mockResolvedValue([
+          {
+            id: 'score-stable',
+            name: 'golden_verdict',
+            value: 0,
+            traceId: 'trace-stable',
+            timestamp: '2026-09-28T10:00:00.000Z',
+          },
+          {
+            id: 'score-legacy',
+            name: 'golden_verdict',
+            value: 1,
+            traceId: 'trace-legacy',
+            timestamp: '2026-09-01T10:00:00.000Z',
+          },
+        ]),
+        createDatasetItem,
+      }),
+    })
+
+    expect(createDatasetItem).toHaveBeenCalledTimes(1)
+    const body = createDatasetItem.mock.calls[0]![0] as Record<string, unknown>
+    expect(body.status).toBe('ARCHIVED')
+    const ha = (body.metadata as Record<string, unknown>).humanApproval as Record<string, unknown>
+    expect(ha.status).toBe('rejected')
+  })
+
   it('sets status ACTIVE on approve and on edit', async () => {
-    const createDatasetItem = vi.fn().mockResolvedValue({})
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
 
     await applyVerdicts({
       dataset: 'detect-confidence-golden',
@@ -428,6 +577,99 @@ describe('applyVerdicts', () => {
     >
     expect(editBody.status).toBe('ACTIVE')
   })
+
+  const approveScore = (id: string, traceId: string) => ({
+    id, name: 'golden_verdict', value: 1, traceId, queueId: 'q-1',
+  })
+
+  it('retries a write the SDK resolved without the item id, then throws naming it', async () => {
+    // The Langfuse SDK resolves (not rejects) on 429, so only the returned id proves the write landed.
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => (b.id === 'item-2' ? {} : { id: b.id }))
+    const sleep = vi.fn().mockResolvedValue(undefined)
+
+    await expect(
+      applyVerdicts({
+        dataset: 'detect-confidence-golden',
+        queueName: 'golden-review',
+        approvedBy: 'patrick',
+        deps: baseDeps({
+          listScores: vi.fn().mockResolvedValue([approveScore('s-1', 't-1'), approveScore('s-2', 't-2')]),
+          getTrace: vi.fn(async (traceId: string) => ({
+            metadata: { itemId: traceId === 't-1' ? 'item-1' : 'item-2' },
+          })),
+          createDatasetItem,
+          sleep,
+        }),
+      }),
+    ).rejects.toThrow(/1\/2 written.*item-2/)
+
+    // item-1 once; item-2 on every retry attempt.
+    expect(createDatasetItem.mock.calls.filter(([b]) => b.id === 'item-2')).toHaveLength(4)
+    expect(createDatasetItem.mock.calls.filter(([b]) => b.id === 'item-1')).toHaveLength(1)
+  })
+
+  it('paces writes with the injected sleep', async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined)
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        listScores: vi.fn().mockResolvedValue([approveScore('s-1', 't-1'), approveScore('s-2', 't-2')]),
+        getTrace: vi.fn(async (traceId: string) => ({
+          metadata: { itemId: traceId === 't-1' ? 'item-1' : 'item-2' },
+        })),
+        sleep,
+      }),
+    })
+
+    expect(sleep).toHaveBeenCalledWith(700)
+  })
+
+  it('resolves a score on the deterministic review trace id without reading the trace', async () => {
+    const { createHash } = await import('node:crypto')
+    const traceId = createHash('sha256').update('golden-review:detect-confidence-golden:item-2').digest('hex').slice(0, 32)
+    const getTrace = vi.fn()
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        listScores: vi.fn().mockResolvedValue([approveScore('s-2', traceId)]),
+        getTrace,
+        createDatasetItem,
+      }),
+    })
+
+    expect(getTrace).not.toHaveBeenCalled()
+    expect(createDatasetItem.mock.calls[0]![0].id).toBe('item-2')
+  })
+
+  it('skips a score whose metadata names another dataset without reading its trace', async () => {
+    const getTrace = vi.fn()
+    const createDatasetItem = vi.fn(async (b: Record<string, unknown>) => ({ id: b.id }))
+
+    await applyVerdicts({
+      dataset: 'detect-confidence-golden',
+      queueName: 'golden-review',
+      approvedBy: 'patrick',
+      deps: baseDeps({
+        listScores: vi.fn().mockResolvedValue([
+          { ...approveScore('s-9', 't-9'), metadata: { datasetName: 'intent-parse-golden', itemId: 'x' } },
+          { ...approveScore('s-1', 't-1'), metadata: { datasetName: 'detect-confidence-golden', itemId: 'item-1' } },
+        ]),
+        getTrace,
+        createDatasetItem,
+      }),
+    })
+
+    expect(getTrace).not.toHaveBeenCalled()
+    expect(createDatasetItem).toHaveBeenCalledTimes(1)
+    expect(createDatasetItem.mock.calls[0]![0].id).toBe('item-1')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -446,10 +688,10 @@ describe('prelabelItem', () => {
     ),
   })
 
-  it('upserts expectedOutput + prelabel + boundaryTags on the stable id, keeps ARCHIVED + pending, rejects absent candidateUrl', async () => {
+  it('upserts expectedOutput + prelabel + boundaryTags on the stable id, writes ACTIVE + pending, rejects absent candidateUrl', async () => {
     const existingItem = {
       id: 'item-1',
-      status: 'ARCHIVED',
+      status: 'ACTIVE',
       input: {
         pool: [
           { url: 'https://shop.com/a', title: 'A' },
@@ -493,7 +735,7 @@ describe('prelabelItem', () => {
     >
 
     expect(body.id).toBe('item-1')
-    expect(body.status).toBe('ARCHIVED')
+    expect(body.status).toBe('ACTIVE')
     expect(body.expectedOutput).toEqual({
       decisions: [{ candidateUrl: 'https://shop.com/a', selected: true }],
     })

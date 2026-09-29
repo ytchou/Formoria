@@ -1,66 +1,25 @@
 import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
-import { seedBrand, type SeededBrand } from "../helpers/seed";
 
-test.describe("Directory search compatibility", () => {
-  let seeded: SeededBrand;
-
-  test.beforeAll(async ({}, workerInfo) => {
-    seeded = await seedBrand({
-      name: "cross-browser-search",
-      workerIndex: workerInfo.workerIndex,
-    });
-  });
-
-  test.afterAll(async () => {
-    await seeded.cleanup();
-  });
-
-  test("@cross-browser directory search reaches sortable matching results", async ({
-    page,
-  }) => {
-    await page.goto("/brands");
-
-    await expect(
-      page.getByRole("heading", {
-        level: 1,
-        name: "台灣品牌目錄",
-      }),
-    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-
-    const searchbox = page.locator(
-      'header form[role="search"] input[role="searchbox"]:visible',
-    );
-    await expect(searchbox).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    await searchbox.pressSequentially(seeded.brand.name, { delay: 10 });
-    await searchbox.press("Enter");
-
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname === "/brands" &&
-        url.searchParams.get("search") === seeded.brand.name,
-      {
-        timeout: BUDGET.SERVER_RENDER,
-      },
-    );
-    const matchingResult = page.locator(
-      `main a[href="/brands/${seeded.slug}"]`,
-    );
-    await expect(matchingResult).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-
-    const sortSelect = page.getByRole("combobox", { name: "排序方式" });
-    await expect(sortSelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    await expect(sortSelect).toHaveValue("random");
-    await sortSelect.selectOption("name");
-
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname === "/brands" &&
-        url.searchParams.get("search") === seeded.brand.name &&
-        url.searchParams.get("sort") === "name",
-      { timeout: BUDGET.SERVER_RENDER },
-    );
-    await expect(sortSelect).toHaveValue("name");
-    await expect(matchingResult).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-  });
+test("@cross-browser header search reaches product results from stories", async ({
+  page,
+}) => {
+  await page.goto("/stories");
+  const search = page
+    .getByRole("search", { name: "全站商品搜尋" })
+    .getByRole("searchbox", { name: "全站商品搜尋" });
+  await expect(search).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+  await search.fill("帆布包");
+  await search.press("Enter");
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === "/discover" && url.searchParams.get("q") === "帆布包",
+    { timeout: BUDGET.NAVIGATION },
+  );
+  await expect(
+    page.getByRole("heading", { name: "符合「帆布包」的商品" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("main").getByRole("heading", { level: 3 }).first(),
+  ).toBeVisible();
 });

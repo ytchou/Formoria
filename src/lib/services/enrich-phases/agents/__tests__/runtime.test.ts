@@ -3,8 +3,13 @@ import { z } from 'zod'
 import { setAuditWriteSeam, type AuditRecord } from '@/lib/audit/emit'
 import { resolveProfileModel } from '@/lib/constants/llm-models'
 import type { ChatMessage } from '@/lib/services/openai-client'
+import { toStrictJsonSchema } from '@/lib/services/_shared/zod-schema'
 
 import {
+  abnormalCompletion,
+  abnormalDetail,
+  abnormalErrorCode,
+  AbnormalCompletionError,
   contentText,
   createAgentModel,
   extractJson,
@@ -70,6 +75,24 @@ const TOOLS = [
   { name: 'fetch_page', description: 'Fetch a page', parameters: { type: 'object' } },
 ]
 
+/** A products-repair reply shape, precomputed the way the products graph does. */
+const REPAIR_SCHEMA = {
+  name: 'curated_product_repair',
+  schema: toStrictJsonSchema(
+    z.object({
+      products: z.array(
+        z.object({ name_zh: z.string(), source_url: z.string(), product_description: z.string() }),
+      ),
+    }),
+  ),
+}
+
+const REPAIRED_PRODUCT = {
+  name_zh: '手工柴燒茶杯',
+  source_url: 'https://www.yingge-pottery.com.tw/products/wood-fired-teacup',
+  product_description: '鶯歌窯場以柴燒製成，杯面保留落灰的自然釉色。',
+}
+
 const TARGET = { type: 'brand' as const, id: '00000000-0000-4000-8000-000000000001' }
 
 function audit(inserts: InsertedRow[]) {
@@ -105,7 +128,7 @@ describe('agents runtime — createAgentModel', () => {
     const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('{"ok":true}')))
     vi.stubGlobal('fetch', fetchSpy)
 
-    const model = await createAgentModel('products_agent', audit([]), { jsonObject: true })
+    const model = await createAgentModel('products_agent', audit([]))
     const response = await model.invoke(MESSAGES)
 
     expect(response.content).toBe('{"ok":true}')
@@ -115,16 +138,18 @@ describe('agents runtime — createAgentModel', () => {
     expect(body.model).toBe(resolveProfileModel('products_agent'))
     expect(body.temperature).toBe(0.1)
     expect(body.reasoning_effort).toBe('none')
-    expect(body.response_format).toEqual({ type: 'json_object' })
+    // DEV-1864 R4: a tool-less turn without a schema is plain text — the
+    // runtime has no json_object mode of its own.
+    expect(body.response_format).toBeUndefined()
     expect(body.messages).toEqual(MESSAGES)
     expect(body.tools).toBeUndefined()
   })
 
-  it('createAgentModel_omits_json_mode_when_tools_are_passed', async () => {
+  it('createAgentModel_omits_response_format_when_tools_are_passed', async () => {
     const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('plan')))
     vi.stubGlobal('fetch', fetchSpy)
 
-    const model = await createAgentModel('acquisition', audit([]), { jsonObject: true })
+    const model = await createAgentModel('acquisition', audit([]))
     await model.invoke(MESSAGES, { tools: TOOLS })
 
     const body = requestBody(fetchSpy)
@@ -141,6 +166,38 @@ describe('agents runtime — createAgentModel', () => {
     ])
   })
 
+  // DEV-1864 F2/R-SCHEMA. A tool-less turn with a schema is enforced by the API
+  // (strict json_schema), not by a prose "output only JSON" instruction. The
+  // caller precomputes the schema; the runtime forwards it untouched.
+  it('createAgentModel_sends_the_precomputed_schema_as_strict_json_schema_without_tools', async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValue(okResponse(chatBody(JSON.stringify({ products: [REPAIRED_PRODUCT] }))))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const model = await createAgentModel('products_agent', audit([]))
+    const response = await model.invoke(MESSAGES, { schema: REPAIR_SCHEMA })
+
+    const body = requestBody(fetchSpy)
+    expect(body.response_format).toEqual({
+      type: 'json_schema',
+      json_schema: { name: 'curated_product_repair', strict: true, schema: REPAIR_SCHEMA.schema },
+    })
+    expect(JSON.parse(contentText(response))).toEqual({ products: [REPAIRED_PRODUCT] })
+  })
+
+  it('createAgentModel_sends_no_response_format_when_schema_and_tools_are_both_passed', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(okResponse(chatBody('plan')))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const model = await createAgentModel('acquisition', audit([]))
+    await model.invoke(MESSAGES, { tools: TOOLS, schema: REPAIR_SCHEMA })
+
+    const body = requestBody(fetchSpy)
+    expect(body.response_format).toBeUndefined()
+    expect(body.tools).toBeDefined()
+  })
+
   it('createAgentModel_writes_an_audit_row_with_usage_and_cost', async () => {
     const records = captureAuditRecords()
     vi.stubGlobal(
@@ -154,7 +211,7 @@ describe('agents runtime — createAgentModel', () => {
     )
 
     const inserts: InsertedRow[] = []
-    const model = await createAgentModel('products_agent', audit(inserts), { jsonObject: true })
+    const model = await createAgentModel('products_agent', audit(inserts))
     await model.invoke(MESSAGES)
 
     expect(inserts).toHaveLength(1)
@@ -191,7 +248,7 @@ describe('agents runtime — createAgentModel', () => {
     )
 
     const inserts: InsertedRow[] = []
-    const model = await createAgentModel('products_agent', audit(inserts), { jsonObject: true })
+    const model = await createAgentModel('products_agent', audit(inserts))
 
     await expect(model.invoke(MESSAGES)).rejects.toThrow(/500/)
 
@@ -255,6 +312,25 @@ describe('agents runtime — createAgentModel', () => {
     expect(response.usage?.prompt_tokens).toBe(12)
     expect(contentText(response)).toBe('')
   })
+
+  // DEV-1866: a refusal or a truncated reply must reach the agent graph, so it
+  // can stop instead of spending a reparse turn on a payload that cannot parse.
+  it('createAgentModel_passes_finish_reason_and_refusal_through', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        okResponse({
+          choices: [{ message: { content: null, refusal: 'no' }, finish_reason: 'length' }],
+        }),
+      ),
+    )
+
+    const model = await createAgentModel('products_agent', audit([]))
+    const response = await model.invoke(MESSAGES)
+
+    expect(response.finishReason).toBe('length')
+    expect(response.refusal).toBe('no')
+  })
 })
 
 describe('agents runtime — helpers', () => {
@@ -274,6 +350,18 @@ describe('agents runtime — helpers', () => {
     expect(prompt).toContain('Output only a JSON object')
   })
 
+  it('withSchema_replaces_the_default_trailer_when_one_is_passed', () => {
+    const schema = z
+      .object({ url: z.string(), fetch: z.enum(['static', 'render', 'skip']) })
+      .strict()
+    const trailer = 'Submit the plan by calling submit_plan; its arguments must match this schema.'
+    const prompt = withSchema('Plan evidence acquisition for 鶯歌陶瓷.', 'AcquisitionPlan', schema, trailer)
+
+    expect(prompt).toContain('## AcquisitionPlan JSON Schema')
+    expect(prompt.endsWith(trailer)).toBe(true)
+    expect(prompt).not.toContain('Output only a JSON object')
+  })
+
   it('withSignal_combines_signals_and_returns_undefined_when_empty', () => {
     expect(withSignal()).toBeUndefined()
     expect(withSignal(undefined, undefined)).toBeUndefined()
@@ -291,3 +379,47 @@ describe('agents runtime — helpers', () => {
 })
 
 // withNodeSpan tests moved to src/lib/tracing/__tests__/span.test.ts
+
+describe('agents runtime — abnormal completion', () => {
+  it('abnormal_completion_classifies_refused_truncated_filtered', () => {
+    expect(abnormalCompletion({ refusal: 'I cannot', finishReason: 'stop' })).toBe('refused')
+    expect(abnormalCompletion({ refusal: 'I cannot', finishReason: 'length' })).toBe('refused')
+    expect(abnormalCompletion({ finishReason: 'length' })).toBe('truncated')
+    expect(abnormalCompletion({ finishReason: 'content_filter' })).toBe('filtered')
+  })
+
+  it('abnormal_completion_is_null_for_stop_and_tool_calls', () => {
+    expect(abnormalCompletion({ finishReason: 'stop' })).toBeNull()
+    expect(abnormalCompletion({ finishReason: 'tool_calls' })).toBeNull()
+    expect(abnormalCompletion({})).toBeNull()
+    expect(abnormalCompletion({ finishReason: null, refusal: null })).toBeNull()
+    expect(abnormalCompletion({ refusal: '' })).toBeNull()
+  })
+
+  it('abnormal_detail_truncates_refusal_to_200_chars', () => {
+    const refusal = 'x'.repeat(250)
+    expect(abnormalDetail('refused', { refusal })).toBe(`refusal=${'x'.repeat(200)}`)
+    expect(abnormalDetail('truncated', { finishReason: 'length' })).toBe('finish_reason=length')
+    expect(abnormalDetail('filtered', { finishReason: 'content_filter' })).toBe(
+      'finish_reason=content_filter',
+    )
+    expect(abnormalDetail('truncated', {})).toBe('finish_reason=none')
+  })
+
+  it('abnormal_error_code_maps_each_kind', () => {
+    expect(abnormalErrorCode('refused')).toBe('model_refused')
+    expect(abnormalErrorCode('truncated')).toBe('model_truncated')
+    expect(abnormalErrorCode('filtered')).toBe('model_filtered')
+  })
+
+  it('abnormal_completion_error_carries_kind_and_detail', () => {
+    const error = new AbnormalCompletionError('filtered', 'finish_reason=content_filter')
+
+    expect(error).toBeInstanceOf(AbnormalCompletionError)
+    expect(error).toBeInstanceOf(Error)
+    expect(error.name).toBe('AbnormalCompletionError')
+    expect(error.kind).toBe('filtered')
+    expect(error.detail).toBe('finish_reason=content_filter')
+    expect(error.message).toBe('model reply filtered: finish_reason=content_filter')
+  })
+})

@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 
 import { getLangfuse, flushLangfuse } from '@/lib/langfuse/client'
+import { loadDatasetV2, resolveDataset, V3_ADDITIONS_PATH, type DatasetV2Item } from './dataset-v2'
 import {
   LABELS_DIR,
   QUERIES_PATH,
@@ -9,6 +10,7 @@ import {
   AGREEMENT_PATH,
   DATASET_V2_PATH,
   splitByQuery,
+  labelDatasetPath,
   fromCsv,
   type JudgedPair,
 } from './label-shared'
@@ -31,6 +33,53 @@ type DatasetItem = {
   category?: string
 }
 
+type DiscoveryQuery = { id: string; query: string; category?: string; queryType?: DatasetV2Item['queryType'] }
+type GradedPair = { queryId: string; brandSlug: string; productKey: string; grade: number }
+
+export function approvalSourceFromAgreement(agreement: { kappa_w?: number; reviewer?: string }): string | undefined {
+  if (typeof agreement.kappa_w !== 'number' || agreement.kappa_w < 0.6) return undefined
+  return agreement.reviewer === 'blind-llm-panel' ? 'blind-llm-panel' : 'agreement-kappa'
+}
+
+export function buildV3Dataset(
+  original: DatasetV2Item[],
+  queries: DiscoveryQuery[],
+  pairs: GradedPair[],
+  ratios: [number, number, number],
+  seed: number,
+  approval?: DatasetV2Item['humanApproval'],
+): DatasetV2Item[] {
+  const originalIds = new Set(original.map(item => item.id))
+  const byQuery = new Map<string, DatasetV2Item>()
+  for (const query of queries) {
+    if (originalIds.has(query.id)) continue
+    if (!['brand_name', 'keyword', 'english'].includes(query.queryType ?? '')) {
+      throw new Error(`Discovery query ${query.id} has no valid queryType`)
+    }
+    byQuery.set(query.id, {
+      id: query.id, query: query.query, queryType: query.queryType,
+      ...(query.category ? { category: query.category } : {}), split: 'train', expected: [],
+      ...(approval ? { humanApproval: approval } : {}),
+    })
+  }
+  for (const pair of pairs) {
+    const item = byQuery.get(pair.queryId)
+    if (item) item.expected.push({ brandSlug: pair.brandSlug, productKey: pair.productKey, grade: pair.grade })
+  }
+  const newItems = [...byQuery.values()]
+  for (const item of newItems) {
+    if (!item.expected.some(expected => expected.grade >= 1)) {
+      throw new Error(`Discovery query ${item.id} has no relevant judged product`)
+    }
+  }
+  const splits = splitByQuery(newItems.map(item => ({ id: item.id, category: item.category ?? undefined })), ratios, seed)
+  const byId = new Map(newItems.map(item => [item.id, item]))
+  for (const split of ['train', 'val', 'holdout'] as const) {
+    for (const item of splits[split]) byId.get(item.id)!.split = split
+  }
+  return [...original, ...newItems]
+}
+
 // ---------------------------------------------------------------------------
 // cmdBuildDataset
 // ---------------------------------------------------------------------------
@@ -39,15 +88,16 @@ export async function cmdBuildDataset(
   values: Record<string, unknown>,
 ): Promise<void> {
   if (values.help) {
-    console.log('Usage: pnpm search:eval build-dataset [--split 60/20/20] [--seed 1736]')
+    console.log('Usage: pnpm search:eval build-dataset [--dataset v2|v3] [--split 60/20/20] [--seed 1736]')
     console.log(
-      '  Reads all labels, splits queries into train/val/holdout, uploads to Langfuse as situation-search-v2',
+      '  Reads labels, splits queries into train/val/holdout, and mirrors the selected dataset to Langfuse',
     )
     return
   }
 
   const splitStr = String(values.split ?? '60/20/20')
-  const seed = parseInt(String(values.seed ?? '1736'), 10)
+  const selected = resolveDataset(values.dataset ? String(values.dataset) : undefined)
+  const seed = parseInt(String(values.seed ?? (selected.version === 'v3' ? '1900' : '1736')), 10)
 
   const splitParts = splitStr.split('/').map(Number)
   if (splitParts.length !== 3 || splitParts.some(n => Number.isNaN(n))) {
@@ -66,7 +116,7 @@ export async function cmdBuildDataset(
   }
 
   const judgedPairs: JudgedPair[] = JSON.parse(readFileSync(JUDGED_PAIRS_PATH, 'utf8'))
-  const queries: Array<{ id: string; query: string; category?: string }> = existsSync(QUERIES_PATH)
+  const queries: DiscoveryQuery[] = existsSync(QUERIES_PATH)
     ? JSON.parse(readFileSync(QUERIES_PATH, 'utf8'))
     : []
 
@@ -85,18 +135,19 @@ export async function cmdBuildDataset(
         }
       }
     }
-    console.log(`[build-dataset] Loaded ${humanGrades.size} human grades`)
+    console.log(`[build-dataset] Loaded ${humanGrades.size} reviewed grades`)
   }
 
   // Load agreement for humanApproval stamp
-  let humanApproval = false
+  let approvalSource: string | undefined
   if (existsSync(AGREEMENT_PATH)) {
     const agreement = JSON.parse(readFileSync(AGREEMENT_PATH, 'utf8'))
-    humanApproval = typeof agreement.kappa_w === 'number' && agreement.kappa_w >= 0.6
+    approvalSource = approvalSourceFromAgreement(agreement)
     console.log(
-      `[build-dataset] Agreement kappa_w=${agreement.kappa_w?.toFixed(4)}, humanApproval=${humanApproval}`,
+      `[build-dataset] Agreement kappa_w=${agreement.kappa_w?.toFixed(4)}, reviewer=${approvalSource ?? 'unapproved'}`,
     )
   }
+  const humanApproval = approvalSource !== undefined
 
   // Filter out pairs with empty votes
   let droppedCount = 0
@@ -159,6 +210,41 @@ export async function cmdBuildDataset(
     humanApproval,
     ...(item.category ? { category: item.category } : {}),
   }))
+
+  if (selected.version === 'v3') {
+    const original = loadDatasetV2(resolveDataset('v2').path)
+    const approval = approvalSource
+      ? { reviewedVia: approvalSource, at: new Date().toISOString().slice(0, 10) }
+      : undefined
+    const v3 = buildV3Dataset(original, queries, items, ratios, seed, approval)
+    writeFileSync(V3_ADDITIONS_PATH, JSON.stringify(v3.slice(original.length), null, 2))
+    writeFileSync(labelDatasetPath('v3'), JSON.stringify(v3, null, 2))
+    console.log(`[build-dataset] Wrote ${v3.length - original.length} new queries to ${V3_ADDITIONS_PATH}`)
+    const langfuse = getLangfuse()
+    if (langfuse) {
+      try {
+        await langfuse.createDataset({ name: selected.name, description: 'DEV-1900 search relevance golden set v3' })
+      } catch (error) {
+        if (!/exist|409/i.test(error instanceof Error ? error.message : String(error))) throw error
+      }
+      for (let start = 0; start < v3.length; start += 20) {
+        await Promise.all(v3.slice(start, start + 20).map(item => langfuse.createDatasetItem({
+          datasetName: selected.name,
+          id: item.id,
+          input: { query: item.query, category: item.category ?? null, queryType: item.queryType },
+          expectedOutput: item.expected,
+          metadata: { split: item.split, humanApproval: item.humanApproval ?? null },
+        })))
+        await flushLangfuse()
+        if (start + 20 < v3.length) await new Promise(resolve => setTimeout(resolve, 15_000))
+      }
+      const mirrored = new Set((await langfuse.getDataset(selected.name)).items.map(item => item.id))
+      if (v3.some(item => !mirrored.has(item.id))) {
+        throw new Error(`Langfuse dataset ${selected.name} is missing mirrored query items`)
+      }
+    }
+    return
+  }
 
   // Write local file first
   writeFileSync(DATASET_V2_PATH, JSON.stringify(dataset, null, 2))

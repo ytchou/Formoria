@@ -140,6 +140,17 @@ const operations = {
     window: null,
     subject: null,
   },
+  railway: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 11,
+    limit: 40,
+    percentage: 0.275,
+    projection: null,
+    message: null,
+    window: null,
+    subject: null,
+  },
 };
 
 function environment(
@@ -213,7 +224,7 @@ describe("spend-watch report", () => {
     const body = responseBody(fetchImpl, 1);
     expect(body.blocks).toBeDefined();
     expect(Array.isArray(body.blocks)).toBe(true);
-    expect(body.text).toContain("$1.23 LLM");
+    expect(body.text).toContain("$1.23 prod enrichment (derived)");
     expect(body.text).toContain("$6.72 cycle");
     const blockJson = allBlockText(body.blocks!);
     expect(blockJson).toContain("$1.23");
@@ -518,6 +529,34 @@ describe("spend-watch report", () => {
   });
 });
 
+describe("Railway usage meter", () => {
+  it("renders Railway usage in dollars against the soft limit", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ ...report, operations }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await runSpendReport({ clock: () => AT, env: environment(), fetchImpl });
+
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).toContain("Railway");
+    expect(blockJson).toContain("$11.00/$40.00");
+  });
+
+  it("omits Railway when the endpoint predates the field", async () => {
+    const { railway: _railway, ...withoutRailway } = operations;
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ ...report, operations: withoutRailway }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await runSpendReport({ clock: () => AT, env: environment(), fetchImpl });
+
+    const blockJson = allBlockText(responseBody(fetchImpl, 1).blocks!);
+    expect(blockJson).not.toContain("Railway");
+  });
+});
+
 describe("humanNumber", () => {
   it.each([
     [268568, "268.6K"],
@@ -590,5 +629,172 @@ describe("buildSpendBlocks", () => {
     const blocks = buildSpendBlocks(reportWithOps);
     const blockJson = JSON.stringify(blocks);
     expect(blockJson).toContain("Resend usage is a lower bound");
+  });
+});
+
+describe("OpenAI billed and Jev spend lines", () => {
+  const billed = {
+    dayUsd: 4.56,
+    cycleUsd: 20.5,
+    dayStart: "2026-08-09T00:00:00.000Z",
+    dayEnd: "2026-08-10T00:00:00.000Z",
+  };
+
+  function spendFields(value: SpendWatchReport): string[] {
+    const section = buildSpendBlocks(value).find(
+      (block) => Array.isArray(block.fields) && JSON.stringify(block).includes("Yesterday"),
+    );
+    return (section?.fields as Array<{ text: string }>).map((field) => field.text);
+  }
+
+  // Bug caught: the report presented production-derived spend as the OpenAI
+  // figure, hiding staging and eval spend.
+  it("shows the billed OpenAI figure with prod enrichment as attribution", () => {
+    const [yesterday, cycle] = spendFields({
+      ...report,
+      operations,
+      openaiBilled: billed,
+      jev: { dayUsd: 0.4, cycleUsd: 1.1, unpricedCalls: 0 },
+    });
+
+    expect(yesterday).toBe("*Yesterday*\n$4.56 OpenAI billed (UTC day)\n$0.40 Jev (derived, last 24h)");
+    expect(cycle).toBe(
+      "*Cycle to date*\n$20.50 OpenAI billed · $1.10 Jev (derived)\nof which prod enrichment $6.72 (derived) · ~$75.00 fixed",
+    );
+    const blockJson = JSON.stringify(
+      buildSpendBlocks({ ...report, operations, openaiBilled: billed }),
+    );
+    expect(blockJson).toContain("*OpenAI budget*");
+    expect(blockJson).not.toContain("Costs API unavailable");
+  });
+
+  it("falls back to the labelled derived figure and warns when billed spend is null", () => {
+    const value = { ...report, operations, openaiBilled: null, jev: null };
+    const [yesterday, cycle] = spendFields(value);
+
+    expect(yesterday).toBe(
+      "*Yesterday*\n$1.23 prod enrichment (derived — OpenAI Costs API unavailable)",
+    );
+    expect(cycle).toBe("*Cycle to date*\n$6.72 prod enrichment (derived) · ~$75.00 fixed");
+    const blockJson = JSON.stringify(buildSpendBlocks(value));
+    expect(blockJson).toContain("*OpenAI budget (derived, prod only)*");
+    expect(blockJson).toContain(
+      "OpenAI Costs API unavailable — showing prod-derived spend",
+    );
+  });
+
+  it("warns about Jev calls without a price row", () => {
+    const value = {
+      ...report,
+      openaiBilled: billed,
+      jev: { dayUsd: 0.4, cycleUsd: 1.1, unpricedCalls: 3 },
+    };
+    const [yesterday] = spendFields(value);
+
+    expect(yesterday).toContain("$0.40 Jev (derived, last 24h) · 3 unpriced");
+    expect(JSON.stringify(buildSpendBlocks(value))).toContain(
+      "Jev calls without a price row — add a llm_model_prices row for the new model version",
+    );
+  });
+
+  it("uses the billed figure in the Slack fallback text and notification", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({ ...report, openaiBilled: billed, jev: null }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("success");
+    expect(responseBody(fetchImpl, 1).text).toContain(
+      "$4.56 OpenAI billed · $20.50 cycle",
+    );
+    expect(result.notification.summary[0]).toBe(
+      "• Yesterday: $4.56 OpenAI billed (UTC day)",
+    );
+  });
+
+  it("still renders a payload from an endpoint that predates the new fields", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(report))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("success");
+    const blockJson = JSON.stringify(responseBody(fetchImpl, 1).blocks);
+    expect(blockJson).toContain("$1.23 prod enrichment (derived)");
+    expect(blockJson).not.toContain("Jev");
+    expect(blockJson).not.toContain("Costs API unavailable");
+  });
+
+  // Bug caught: an unset OPENAI_ADMIN_KEY (optional, not yet configured)
+  // raised "OpenAI Costs API unavailable" in every daily report.
+  it("shows the derived figure without a warning when billed spend is absent", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...report,
+          operations,
+          jev: { dayUsd: 0.4, cycleUsd: 1.1, unpricedCalls: 0 },
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("success");
+    const body = responseBody(fetchImpl, 1);
+    const blockJson = JSON.stringify(body.blocks);
+    expect(blockJson).toContain(
+      "*Yesterday*\\n$1.23 prod enrichment (derived)\\n$0.40 Jev (derived, last 24h)",
+    );
+    expect(blockJson).toContain(
+      "*Cycle to date*\\n$6.72 prod enrichment (derived) · $1.10 Jev (derived) · ~$75.00 fixed",
+    );
+    expect(blockJson).toContain("*OpenAI budget (derived, prod only)*");
+    expect(blockJson).not.toContain("Costs API unavailable");
+    expect(body.text).toContain("$1.23 prod enrichment (derived) · $6.72 cycle");
+    expect(result.notification.summary).toEqual(
+      expect.arrayContaining([
+        "• Yesterday: $1.23 prod enrichment (derived) · $0.40 Jev (derived, last 24h)",
+      ]),
+    );
+    expect(result.notification.summary.join("\n")).not.toContain(
+      "Costs API unavailable",
+    );
+  });
+
+  it("rejects a malformed billed block as an invalid report", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({ ...report, openaiBilled: { dayUsd: "4.56" } }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("failed");
   });
 });

@@ -1,5 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 
+import { argmaxGrade } from '@/lib/services/eval/jev-questions'
+
 import {
   HAND_LABEL_SHEET_PATH,
   JUDGED_PAIRS_PATH,
@@ -18,15 +20,31 @@ export async function cmdAgreement(
 ): Promise<void> {
   if (values.help) {
     console.log(
-      'Usage: pnpm search:eval agreement [--human labels/hand-label-sheet.csv]',
+      'Usage: pnpm search:eval agreement [--human labels/hand-label-sheet.csv] [--judged labels/judged-pairs.json] [--grade-mode stored|argmax] [--reviewer human|blind-llm-panel]',
     )
     console.log(
-      '  Computes Cohen\'s kappa between LLM grades and hand-labeled pairs',
+      '  --grade-mode argmax: re-grade each pair as its most probable level (needs stored Jev probabilities)',
+    )
+    console.log(
+      '  Computes Cohen\'s kappa between LLM grades and review grades',
     )
     return
   }
 
   const humanPath = String(values.human ?? HAND_LABEL_SHEET_PATH)
+  const judgedPath = String(values.judged ?? JUDGED_PAIRS_PATH)
+  const gradeMode = String(values['grade-mode'] ?? 'stored')
+  const reviewer = String(values.reviewer ?? 'human')
+  if (gradeMode !== 'stored' && gradeMode !== 'argmax') {
+    console.error(`[agreement] Unknown --grade-mode "${gradeMode}". Use stored or argmax.`)
+    process.exitCode = 1
+    return
+  }
+  if (reviewer !== 'human' && reviewer !== 'blind-llm-panel') {
+    console.error(`[agreement] Unknown --reviewer "${reviewer}". Use human or blind-llm-panel.`)
+    process.exitCode = 1
+    return
+  }
 
   if (!existsSync(humanPath)) {
     console.error(`[agreement] File not found: ${humanPath}`)
@@ -34,21 +52,22 @@ export async function cmdAgreement(
     return
   }
 
-  if (!existsSync(JUDGED_PAIRS_PATH)) {
-    console.error('[agreement] No judged-pairs.json found. Run judge first.')
+  if (!existsSync(judgedPath)) {
+    console.error(`[agreement] File not found: ${judgedPath}. Run judge first.`)
     process.exitCode = 1
     return
   }
 
   // Load hand-label sheet
   const sheetRows = fromCsv(readFileSync(humanPath, 'utf8'))
-  const judgedPairs: JudgedPair[] = JSON.parse(readFileSync(JUDGED_PAIRS_PATH, 'utf8'))
+  const judgedPairs: JudgedPair[] = JSON.parse(readFileSync(judgedPath, 'utf8'))
 
   // Build LLM grade lookup by composite key
   const llmGrades = new Map<string, number>()
   for (const pair of judgedPairs) {
     const key = `${pair.queryId}|${pair.brandSlug}|${pair.productKey}`
-    llmGrades.set(key, pair.grade)
+    const grade = gradeMode === 'argmax' ? argmaxGrade(pair.probabilities) : pair.grade
+    if (grade !== null) llmGrades.set(key, grade)
   }
 
   // Join on composite key - only rows with human_grade
@@ -89,7 +108,7 @@ export async function cmdAgreement(
   console.log(`Quadratic-weighted kappa: ${kappaW.toFixed(4)}`)
 
   // Print confusion matrix
-  console.log('\nConfusion matrix (rows=LLM, cols=Human):')
+  console.log(`\nConfusion matrix (rows=LLM, cols=${reviewer === 'human' ? 'Human' : 'Panel'}):`)
   console.log('     0    1    2    3')
   for (let i = 0; i < 4; i++) {
     const row = matrix[i]!.map(v => String(v).padStart(4)).join(' ')
@@ -99,6 +118,7 @@ export async function cmdAgreement(
   // Write agreement.json
   const agreement = {
     timestamp: new Date().toISOString(),
+    reviewer,
     pairs: pairs.length,
     accuracy,
     kappa,

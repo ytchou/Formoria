@@ -27,7 +27,13 @@
  */
 
 import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
-import type { ChatMessage, ChatToolDefinition, OpenAIToolCall } from '@/lib/services/openai-client'
+import type {
+  ChatMessage,
+  ChatToolDefinition,
+  OpenAIJsonSchema,
+  OpenAIToolCall,
+} from '@/lib/services/openai-client'
+import { toStrictJsonSchema } from '../../_shared/zod-schema'
 import { fetchLangfusePrompt } from '@/lib/langfuse/prompt'
 import type { FetchMetadata } from '../scraper/fetch-guards'
 import type { RenderProvider } from '../scraper/render/types'
@@ -76,11 +82,15 @@ import {
   type SearchResult,
 } from './tools'
 import {
+  abnormalCompletion,
+  abnormalDetail,
+  abnormalErrorCode,
   contentText,
   extractJson,
   withNodeSpan,
   withSchema,
   withSignal,
+  type AbnormalCompletionKind,
   type AgentModel,
   type AgentModelResponse,
 } from '../agents/runtime'
@@ -98,6 +108,21 @@ export const ACQUISITION_RECURSION_LIMIT = 12
 
 /** Rejected `submit_plan` payloads before the loop gives up on tool calling. */
 const MAX_BAD_SUBMITS = 2
+
+/** The critique's reply, enforced by the API as a strict json_schema (DEV-1864). */
+const CRITIQUE_SCHEMA: OpenAIJsonSchema = {
+  name: 'critique_verdict',
+  schema: toStrictJsonSchema(CritiqueVerdictSchema),
+}
+
+/**
+ * Appended as a user turn to the tool-less plan fallback. The system prompt's
+ * trailer asks for a submit_plan call; this turn has no tools, so it says so.
+ * The plan cannot travel as a strict json_schema: its optional `strategy` and
+ * `adapter` and its `socialBios` record are not strict-compatible.
+ */
+const PLAN_FALLBACK_NOTE =
+  'Tools are unavailable for this turn. Reply with only the plan as a JSON object.'
 
 /** Gallery slots after the hero. */
 const MAX_GALLERY = 9
@@ -133,7 +158,7 @@ export type AcquisitionOutput = {
   /** Ranked pool for downstream consumers (products agent). Capped at 16 KB. */
   imagePool?: RankableImage[]
   /** Per-URL ownership verdicts from the critique; drives quarantine revocation. */
-  urlVerdicts?: CritiqueVerdict['urlVerdicts']
+  urlVerdicts?: NonNullable<CritiqueVerdict['urlVerdicts']>
   /** Page titles from fetched first-party pages, for the names phase. */
   nameCandidates?: string[]
   /** Pages that yielded at least one image candidate. */
@@ -218,6 +243,8 @@ type RunContext = {
   pageTitles: Map<string, string>
   submittedPlan: AcquisitionPlanType | null
   badSubmits: number
+  /** A plan-loop reply that asking again cannot fix (DEV-1866); ends the plan stage. */
+  abnormalPlan: { kind: AbnormalCompletionKind; detail: string } | null
   planModelCalls: number
   providerThrew: boolean
   wallClockStart: number
@@ -231,6 +258,7 @@ type RunContext = {
     messages: ChatMessage[],
     nodeSignalOverride?: AbortSignal,
     tools?: ChatToolDefinition[],
+    schema?: OpenAIJsonSchema,
   ) => Promise<AgentModelResponse>
 }
 
@@ -260,6 +288,7 @@ function createRunContext(
     pageTitles: new Map(),
     submittedPlan: null,
     badSubmits: 0,
+    abnormalPlan: null,
     planModelCalls: 0,
     providerThrew: false,
     wallClockStart,
@@ -337,11 +366,12 @@ function createRunContext(
       }
       return withSignal(options.signal, AbortSignal.timeout(Math.max(1, allowance)))
     },
-    async invokeModel(model, messages, nodeSignalOverride, tools) {
+    async invokeModel(model, messages, nodeSignalOverride, tools, schema) {
       const sig = nodeSignalOverride ?? ctx.signal
       return model.invoke(messages, {
         ...(sig ? { signal: sig } : {}),
         ...(tools ? { tools } : {}),
+        ...(schema ? { schema } : {}),
       })
     },
   }
@@ -399,6 +429,30 @@ function titleOf(html: string): string | null {
   return title ? title.slice(0, 120) : null
 }
 
+/** Adopts the probe results and sizes the run budget from them. */
+function applyProbeResults(ctx: RunContext, probeResults: ProbeResult[]): void {
+  const pack: EvidencePack = { knownUrls: ctx.input.knownUrls, probeResults }
+  ctx.probeResults = probeResults
+  ctx.budget.allowed = ctx.options.budgetOverride
+    ? { ...ctx.options.budgetOverride }
+    : budgetFor(pack, { scale: ctx.scale })
+  ctx.budget.used = {
+    probes: probeResults.length,
+    renders: 0,
+    search: 0,
+    turns: 0,
+    wallClockMs: 0,
+  }
+
+  // The remaining wall clock is now known; tighten the deadline from the ceiling.
+  // A zero allowance means "no deadline of its own" (same guard as
+  // `wallClockExhausted`), so the ceiling signal set at construction stands.
+  const remaining = ctx.budget.allowed.wallClockMs - (Date.now() - ctx.wallClockStart)
+  if (ctx.budget.allowed.wallClockMs > 0) {
+    ctx.signal = withSignal(ctx.options.signal, AbortSignal.timeout(Math.max(1, remaining)))
+  }
+}
+
 async function gatherNode(ctx: RunContext): Promise<AcquisitionUpdate> {
   const start = Date.now()
   const probeResults: ProbeResult[] = []
@@ -422,26 +476,7 @@ async function gatherNode(ctx: RunContext): Promise<AcquisitionUpdate> {
     }
   }
 
-  const pack: EvidencePack = { knownUrls: ctx.input.knownUrls, probeResults }
-  ctx.probeResults = probeResults
-  ctx.budget.allowed = ctx.options.budgetOverride
-    ? { ...ctx.options.budgetOverride }
-    : budgetFor(pack, { scale: ctx.scale })
-  ctx.budget.used = {
-    probes: probeResults.length,
-    renders: 0,
-    search: 0,
-    turns: 0,
-    wallClockMs: 0,
-  }
-
-  // The remaining wall clock is now known; tighten the deadline from the ceiling.
-  // A zero allowance means "no deadline of its own" (same guard as
-  // `wallClockExhausted`), so the ceiling signal set at construction stands.
-  const remaining = ctx.budget.allowed.wallClockMs - (Date.now() - ctx.wallClockStart)
-  if (ctx.budget.allowed.wallClockMs > 0) {
-    ctx.signal = withSignal(ctx.options.signal, AbortSignal.timeout(Math.max(1, remaining)))
-  }
+  applyProbeResults(ctx, probeResults)
 
   ctx.record(
     'gather',
@@ -559,6 +594,8 @@ function buildPlanLoopGraph(
     .addNode('model', async (state) => {
       const response = await ctx.invokeModel(model, state.messages, planSignal, definitions)
       ctx.planModelCalls += 1
+      const kind = abnormalCompletion(response)
+      if (kind) ctx.abnormalPlan = { kind, detail: abnormalDetail(kind, response) }
       return { messages: [toAssistantMessage(response)] }
     })
     // Sequential on purpose: every tool spends from one shared budget, so two
@@ -591,6 +628,9 @@ function buildPlanLoopGraph(
     })
     .addEdge(START, 'model')
     .addConditionalEdges('model', (state): 'tools' | typeof END => {
+      // A refused, cut-off, or filtered reply is not a plan in prose: stop here
+      // and let planNode report it instead of parsing it.
+      if (ctx.abnormalPlan) return END
       if (ctx.submittedPlan) return END
       const last = lastAssistant(state.messages)
       if (toolCallsOf(last).length > 0) return 'tools'
@@ -612,11 +652,17 @@ function buildPlanLoopGraph(
     .compile()
 }
 
+const PLAN_SCHEMA_TRAILER =
+  'Submit the plan by calling submit_plan; its arguments must match this schema. If tools are unavailable, output only this JSON object.'
+
 async function planPrompt(): Promise<string> {
+  // The plan ends on a submit_plan call, so the trailer asks for the call and
+  // names bare JSON only as the no-tools fallback (DEV-1864 F3).
   return withSchema(
     await fetchLangfusePrompt('acquisition-plan'),
     'AcquisitionPlan',
     AcquisitionPlan,
+    PLAN_SCHEMA_TRAILER,
   )
 }
 
@@ -684,17 +730,33 @@ async function planNode(ctx: RunContext): Promise<AcquisitionUpdate> {
     )
   }
 
-  // 2. Single-call fallback — one free-text call, parsed with `extractJson`
-  //    and adopted by `adoptPlanFromText`, tried at most once. Json mode is NOT
-  //    enabled on the acquisition model: the client refuses a forced JSON
-  //    response_format alongside tools (see acquire.ts, model construction). It
-  //    spends NO further turn: the plan STAGE is one turn, charged above,
-  //    however many model calls it takes to produce a plan. Charging this call
+  // A refused, cut-off, or filtered loop reply would get the same answer from
+  // the single call on the same input, so the stage ends here (DEV-1866).
+  if (ctx.abnormalPlan) {
+    const { kind, detail } = ctx.abnormalPlan
+    ctx.record('plan', kind, detail, start)
+    return { agentOutcome: 'fallback', error: abnormalErrorCode(kind) }
+  }
+
+  // 2. Single-call fallback — one tool-less free-text call, parsed with
+  //    `extractJson` and adopted by `adoptPlanFromText`, tried at most once.
+  //    PLAN_FALLBACK_NOTE overrides the system trailer's submit_plan request
+  //    for this turn (DEV-1864 A1). It spends NO further turn: the plan STAGE
+  //    is one turn, charged above, however many model calls it takes to
+  //    produce a plan. Charging this call
   //    a second turn spent the static-site allowance entirely on planning, and
   //    the critique then skipped as `budget_exhausted` on every such brand.
   if (!ctx.submittedPlan) {
-    const response = await ctx.invokeModel(model, messages)
+    const response = await ctx.invokeModel(model, [
+      ...messages,
+      { role: 'user', content: PLAN_FALLBACK_NOTE },
+    ])
     ctx.planModelCalls += 1
+    const kind = abnormalCompletion(response)
+    if (kind) {
+      ctx.record('plan', kind, abnormalDetail(kind, response), start)
+      return { agentOutcome: 'fallback', error: abnormalErrorCode(kind) }
+    }
     const adopted = adoptPlanFromText(ctx, contentText(response))
     ctx.record(
       'plan',
@@ -988,11 +1050,9 @@ async function critiqueNode(
     return { verdict: { verdict: 'sufficient', reason: 'budget exhausted, accepting results' } }
   }
 
-  const systemPrompt = withSchema(
-    await fetchLangfusePrompt('acquisition-critique'),
-    'CritiqueVerdict',
-    CritiqueVerdictSchema,
-  )
+  // The shape travels as a strict json_schema on the request (DEV-1864), not as
+  // schema text appended to the prompt.
+  const systemPrompt = await fetchLangfusePrompt('acquisition-critique')
 
   const userContent = JSON.stringify({
     brand: ctx.input.brand,
@@ -1014,6 +1074,8 @@ async function critiqueNode(
         { role: 'user', content: userContent },
       ],
       critiqueSignal,
+      undefined,
+      CRITIQUE_SCHEMA,
     )
   } catch (error) {
     // Critique timeout/abort → treat as budget exhausted, never rethrow.
@@ -1036,14 +1098,19 @@ async function critiqueNode(
     return { verdict: { verdict: 'sufficient', reason: 'critique error, accepting results' } }
   }
 
+  // A refused, cut-off, or filtered verdict is accepted like an unparseable
+  // one, but the decision names the real cause (DEV-1866).
+  const abnormal = abnormalCompletion(response)
+  if (abnormal) {
+    ctx.record('critique', abnormal, abnormalDetail(abnormal, response), start)
+    return { verdict: PARSE_FAILED_VERDICT }
+  }
+
   let verdict: CritiqueVerdict
   try {
-    const parsed = CritiqueVerdictSchema.safeParse(JSON.parse(extractJson(contentText(response))))
-    verdict = parsed.success
-      ? parsed.data
-      : { verdict: 'sufficient', reason: 'verdict parse failed, accepting results' }
+    verdict = parseCritiqueVerdict(contentText(response)) ?? PARSE_FAILED_VERDICT
   } catch {
-    verdict = { verdict: 'sufficient', reason: 'verdict parse failed, accepting results' }
+    verdict = PARSE_FAILED_VERDICT
   }
 
   ctx.record('critique', verdict.verdict, verdict.reason.slice(0, 100), start)
@@ -1052,6 +1119,24 @@ async function critiqueNode(
     return { verdict, agentOutcome: 'blocked', error: `critique_failed: ${verdict.reason}` }
   }
   return { verdict }
+}
+
+const PARSE_FAILED_VERDICT: CritiqueVerdict = {
+  verdict: 'sufficient',
+  reason: 'verdict parse failed, accepting results',
+}
+
+/**
+ * A missing situational key reads as `null`. Strict json_schema always sends
+ * both, but the client falls back to json_object (appending the schema text as
+ * a system message) when a model does not support json_schema, and a verdict
+ * that merely omits an unused key is still a verdict.
+ */
+function parseCritiqueVerdict(text: string): CritiqueVerdict | null {
+  const raw: unknown = JSON.parse(extractJson(text))
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const parsed = CritiqueVerdictSchema.safeParse({ recoveryAction: null, urlVerdicts: null, ...raw })
+  return parsed.success ? parsed.data : null
 }
 
 // ---------------------------------------------------------------------------
@@ -1518,5 +1603,30 @@ export async function runAcquisition(
     const message = error instanceof Error ? error.message : String(error)
     ctx.record('graph', 'threw', message.slice(0, 160), ctx.wallClockStart)
     return outputFrom(ctx.lastState, ctx, { agentOutcome: lastOutcome as AcquisitionOutput['agentOutcome'], error: `threw: ${message.slice(0, 180)}` })
+  }
+}
+
+/**
+ * Runs only the plan stage on probe results the caller already holds, so an
+ * eval can replay an `acquisition-plan` item without re-probing. The budget is
+ * sized from those probes exactly as `gather` would size it. Unlike
+ * `runAcquisition`, an aborted signal propagates as a throw.
+ */
+export async function runPlanStage(
+  input: AcquisitionInput & { probeResults: ProbeResult[] },
+  deps: AcquisitionDeps,
+  options: RunOptions = {},
+): Promise<{ plan: AcquisitionPlanType | null; decisions: Decision[]; error?: string }> {
+  const { probeResults, ...acquisitionInput } = input
+  const ctx = createRunContext(acquisitionInput, deps, options)
+  applyProbeResults(ctx, probeResults)
+  const update = await planNode(ctx)
+  // planNode's update is typed with LangGraph reducer wrappers; its error is always a plain string.
+  const error = typeof update.error === 'string' ? update.error : undefined
+  return {
+    // planNode returns `plan` only as ctx.submittedPlan, and only when it has no error.
+    plan: error ? null : (ctx.submittedPlan ?? null),
+    decisions: ctx.decisions,
+    ...(error ? { error } : {}),
   }
 }

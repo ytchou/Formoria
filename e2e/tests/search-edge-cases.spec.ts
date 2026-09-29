@@ -209,9 +209,7 @@ test.describe.serial('Public brand search edge cases', () => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await page.goto('/brands');
-    const directorySearch = page.locator(
-      'header form[role="search"] input[role="searchbox"]:visible',
-    );
+    const directorySearch = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
     await directorySearch.fill(exactQuery);
     await expect(page).toHaveURL((url) =>
       url.pathname === '/brands' && url.searchParams.get('search') === exactQuery,
@@ -219,32 +217,29 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page.getByRole('link', { name: exactName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     await page.goto('/about');
-    const desktopNavSearch = page.locator('header form[role="search"] input[role="searchbox"]:visible');
+    const desktopNavSearch = page.getByRole("search", { name: "全站商品搜尋" }).getByRole("searchbox", { name: "全站商品搜尋" });
     await desktopNavSearch.fill(englishToken);
-    await expect(page.getByRole('option', { name: bilingualName })).toBeVisible();
-    await desktopNavSearch.press('ArrowDown');
     await desktopNavSearch.press('Enter');
-    await expect(page).toHaveURL(new RegExp(`/brands/${bilingualSlug}$`));
+    await expect(page).toHaveURL(url => url.pathname === '/discover' && url.searchParams.get('q') === englishToken);
+    await expect(page.getByRole('heading', { name: `符合「${englishToken}」的商品` })).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/en');
     await page.getByRole('button', { name: 'Open menu' }).click();
-    const mobileSearch = page.locator('[role="dialog"] form[role="search"] input[role="searchbox"]');
+    const mobileSearch = page.getByRole("dialog").getByRole("search", { name: "Site product search" }).getByRole("searchbox", { name: "Site product search" });
     await mobileSearch.fill(englishToken);
     await mobileSearch.press('Enter');
     await expect(page).toHaveURL((url) =>
-      url.pathname === '/en/brands' && url.searchParams.get('search') === englishToken,
+      url.pathname === '/en/discover' && url.searchParams.get('q') === englishToken,
     );
-    await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(page.getByRole('heading', { name: `Products matching "${englishToken}"` })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
-  test('header search preserves filters, resets pagination, synchronizes the URL, and clears', async ({ page }) => {
+  test('directory search preserves filters, resets pagination, synchronizes the URL, and clears', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await page.goto('/brands?category=home&sort=name&page=2');
-    const headerSearch = page.locator(
-      'header form[role="search"] input[role="searchbox"]:visible',
-    );
+    const headerSearch = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
     await headerSearch.fill(exactQuery);
 
     await expect(page).toHaveURL(
@@ -311,8 +306,8 @@ test.describe.serial('Public brand search edge cases', () => {
       });
     });
 
-    await page.goto('/about');
-    const search = page.locator('header form[role="search"] input[role="searchbox"]:visible');
+    await page.goto('/brands');
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
     await search.fill(slowQuery);
     await slowSeen;
     await search.fill(fastQuery);
@@ -358,7 +353,7 @@ test.describe.serial('Public brand search edge cases', () => {
     // did was removed. The search box is now the only place the raw string is
     // rendered, so that is where the escaping guard has to point.
     await expect(
-      page.locator('form[role="search"] input[role="searchbox"]:visible').first(),
+      page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" }),
     ).toHaveValue(missingQuery);
     await expect(page.locator('img[src="x"]')).toHaveCount(0);
     await expect(emptyState.getByRole('heading', { name: '類似的選擇' })).toBeVisible();

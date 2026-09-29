@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto'
 import type { ZodObject, ZodRawShape } from 'zod'
 
-import { getLangfuse } from '@/lib/langfuse/client'
+import { flushLangfuse, getLangfuse } from '@/lib/langfuse/client'
+import { withRetry, type RetryPolicy } from '@/lib/retry'
 import {
   findQueueByName as findQueue,
   enqueueTrace as enqueue,
+  listQueueObjectIds,
   listQueueScores,
 } from './langfuse-runs'
 import { adapterFor as defaultAdapterFor } from './phase-adapters'
@@ -21,6 +24,7 @@ type DatasetItemLike = {
 }
 
 type TraceBody = {
+  id: string
   name: string
   input: unknown
   metadata: Record<string, unknown>
@@ -34,6 +38,8 @@ type VerdictScore = {
   traceId: string
   comment?: string | null
   queueId?: string | null
+  metadata?: Record<string, unknown> | null
+  timestamp?: string | null
 }
 
 export type EnqueueDeps = {
@@ -41,6 +47,9 @@ export type EnqueueDeps = {
   trace: (body: TraceBody) => { id: string }
   findQueueByName: (name: string) => Promise<string>
   enqueueTrace: (params: { queueId: string; traceId: string }) => Promise<void>
+  listQueuedTraceIds: (queueId: string) => Promise<Set<string>>
+  flush: () => Promise<void>
+  sleep: (ms: number) => Promise<void>
 }
 
 export type ApplyVerdictsDeps = {
@@ -49,6 +58,7 @@ export type ApplyVerdictsDeps = {
   getTrace: (traceId: string) => Promise<{ metadata?: Record<string, unknown> }>
   createDatasetItem: (body: Record<string, unknown>) => Promise<unknown>
   adapterFor: (name: string) => { expectedSchema: ZodObject<ZodRawShape> }
+  sleep: (ms: number) => Promise<void>
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +88,7 @@ export async function enqueueDataset({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   reviewView?: (item: any) => unknown
   deps?: EnqueueDeps
-}): Promise<{ enqueued: number; queueName: string }> {
+}): Promise<{ enqueued: number; skipped: number; queueName: string }> {
   const getDatasetFn =
     deps?.getDataset ??
     (async (name: string) => {
@@ -101,31 +111,76 @@ export async function enqueueDataset({
   const enqueueFn =
     deps?.enqueueTrace ?? ((params: { queueId: string; traceId: string }) => enqueue(params))
 
+  const listQueuedFn = deps?.listQueuedTraceIds ?? ((queueId: string) => listQueueObjectIds({ queueId }))
+  const flushFn = deps?.flush ?? flushLangfuse
+  const sleep = deps?.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+
   const { items } = await getDatasetFn(dataset)
   const queueId = await findQueueFn(queueName)
+  const queued = await listQueuedFn(queueId)
 
-  const eligible = items.filter((item) => {
-    if (item.status === 'ACTIVE') return true
-    if (item.status === 'ARCHIVED') {
-      const meta = item.metadata as Record<string, unknown> | undefined
-      const ha = meta?.humanApproval as Record<string, unknown> | undefined
-      return ha?.status === 'pending'
-    }
-    return false
-  })
+  // Pending items are ACTIVE; ARCHIVED means rejected (and the listing omits it).
+  const eligible = items.filter((item) => item.status === 'ACTIVE')
+  // A stable trace id per item makes a rerun idempotent: an item whose trace is
+  // already queued is skipped.
+  const todo = eligible.filter((item) => !queued.has(reviewTraceId(dataset, item.id)))
 
-  for (const item of eligible) {
-    const trace = traceFn({
+  // Every trace is flushed before any queue item points at it, so a failure
+  // mid-enqueue never leaves queue items referencing traces that were not sent.
+  const traced = todo.map((item) => ({
+    itemId: item.id,
+    traceId: traceFn({
+      id: reviewTraceId(dataset, item.id),
       name: `golden-review:${dataset}:${item.id}`,
       input: reviewView ? reviewView(item) : item.input,
       metadata: { datasetName: dataset, itemId: item.id },
       output: { expectedOutput: item.expectedOutput },
-    })
+    }).id,
+  }))
+  await flushFn()
 
-    await enqueueFn({ queueId, traceId: trace.id })
+  let enqueued = 0
+  const failed: string[] = []
+  for (const [index, { itemId, traceId }] of traced.entries()) {
+    if (index > 0) await sleep(ENQUEUE_PACE_MS)
+    const ok = await withRetry(
+      ENQUEUE_RETRY_POLICY,
+      async () => {
+        try {
+          await enqueueFn({ queueId, traceId })
+          return true
+        } catch {
+          // The SDK rejects with a raw Response (429 included), so any rejection retries.
+          return false
+        }
+      },
+      {
+        classify: (done) => (done ? { retryable: false, reason: 'terminal' } : { retryable: true, reason: 'rate_limit' }),
+        service: 'langfuse-review-enqueue',
+        sleep,
+      },
+    )
+    if (ok) enqueued++
+    else failed.push(itemId)
   }
 
-  return { enqueued: eligible.length, queueName }
+  if (failed.length > 0) {
+    throw new Error(
+      `[enqueue] ${enqueued}/${traced.length} enqueued; not enqueued after retries: ${failed.join(', ')}. Rerun to retry only these.`,
+    )
+  }
+  return { enqueued, skipped: eligible.length - todo.length, queueName }
+}
+
+// Serial writes paced under Langfuse cloud's 100 req/min limit (~86/min); the ceiling is
+// one writer at the Hobby-plan rate — read the limit from 429 headers if queues grow past ~1k.
+const ENQUEUE_PACE_MS = 700
+/** 1 attempt + 3 retries, ~2s/4s/8s (withRetry adds jitter, capped at 8s). */
+const ENQUEUE_RETRY_POLICY: RetryPolicy = { attempts: 4, baseMs: 2_000, factor: 2, capMs: 8_000 }
+
+/** Stable 32-hex trace id for an item's review trace. */
+function reviewTraceId(dataset: string, itemId: string): string {
+  return createHash('sha256').update(`golden-review:${dataset}:${itemId}`).digest('hex').slice(0, 32)
 }
 
 // ---------------------------------------------------------------------------
@@ -164,12 +219,23 @@ export async function applyVerdicts({
       return listQueueScores(params) as unknown as Promise<VerdictScore[]>
     })
 
+  // Langfuse limits GET /traces to 15 requests per fixed one-minute window. Only
+  // scores on legacy (pre-DEV-1881, random-id) traces need this lookup; a 429
+  // waits out the window and retries. Ceiling: ~15 legacy verdicts a minute.
   const getTraceFn =
     deps?.getTrace ??
     (async (traceId: string) => {
       const client = getLangfuse()
       if (!client) throw new Error('Langfuse client not available')
-      return client.api.traceGet(traceId)
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return await client.api.traceGet(traceId)
+        } catch (error) {
+          const status = (error as { status?: number }).status
+          if (status !== 429 || attempt >= 4) throw error
+          await new Promise((resolve) => setTimeout(resolve, 61_000))
+        }
+      }
     })
 
   const createDatasetItemFn =
@@ -185,13 +251,30 @@ export async function applyVerdicts({
     deps?.adapterFor ??
     ((name: string) => defaultAdapterFor(name) as unknown as { expectedSchema: ZodObject<ZodRawShape> })
 
+  const sleep = deps?.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)))
+
   const adapter = adapterForFn(dataset)
   const { items } = await getDatasetFn(dataset)
   const scores = await listScoresFn({ name: 'golden_verdict' })
 
-  // Build traceId → itemId map (verdict lookup by trace metadata, not position)
+  // Build traceId → itemId map. Traces enqueued since DEV-1881 carry a stable id
+  // derived from the item, so they resolve without a trace read; older traces
+  // fall back to reading the trace metadata.
+  const stableTraceToItem = new Map(items.map((item) => [reviewTraceId(dataset, item.id), item.id]))
   const traceToItem = new Map<string, string>()
   for (const score of scores) {
+    const stableItemId = stableTraceToItem.get(score.traceId)
+    if (stableItemId) {
+      traceToItem.set(score.traceId, stableItemId)
+      continue
+    }
+    // A score that names its dataset (panel writeback does) needs no trace read.
+    const scoreDataset = score.metadata?.datasetName
+    if (typeof scoreDataset === 'string') {
+      const scoreItemId = score.metadata?.itemId
+      if (scoreDataset === dataset && typeof scoreItemId === 'string') traceToItem.set(score.traceId, scoreItemId)
+      continue
+    }
     const trace = await getTraceFn(score.traceId)
     const meta = trace.metadata as Record<string, unknown> | undefined
     const itemId = meta?.itemId as string | undefined
@@ -200,14 +283,18 @@ export async function applyVerdicts({
     }
   }
 
-  // Build itemId → verdict map
+  // Build itemId → verdict map. An item reviewed before DEV-1881 has scores on
+  // both a legacy and a stable trace; the newest timestamp wins, whatever order
+  // the listing returns them in.
+  const scoreTime = (score: VerdictScore) => (score.timestamp ? Date.parse(score.timestamp) : 0) || 0
   const itemVerdicts = new Map<
     string,
     { score: VerdictScore; verdict: Verdict }
   >()
   for (const score of scores) {
     const itemId = traceToItem.get(score.traceId)
-    if (itemId) {
+    const current = itemId ? itemVerdicts.get(itemId) : undefined
+    if (itemId && (!current || scoreTime(score) >= scoreTime(current.score))) {
       itemVerdicts.set(itemId, {
         score,
         verdict: verdictFromValue(score.value),
@@ -326,9 +413,33 @@ export async function applyVerdicts({
     throw new Error(`Validation failed:\n${errors.join('\n')}`)
   }
 
-  // Phase 2: Write all items
-  for (const write of writes) {
-    await createDatasetItemFn(write.body)
+  // Phase 2: Write all items, paced like enqueue. The SDK resolves (not rejects)
+  // on 429, so a write counts only when the returned item carries its id.
+  const unconfirmed: string[] = []
+  for (const [index, write] of writes.entries()) {
+    if (index > 0) await sleep(ENQUEUE_PACE_MS)
+    const ok = await withRetry(
+      ENQUEUE_RETRY_POLICY,
+      async () => {
+        try {
+          const result = (await createDatasetItemFn(write.body)) as { id?: unknown } | null | undefined
+          return result?.id === write.itemId
+        } catch {
+          return false
+        }
+      },
+      {
+        classify: (done) => (done ? { retryable: false, reason: 'terminal' } : { retryable: true, reason: 'rate_limit' }),
+        service: 'langfuse-review-push',
+        sleep,
+      },
+    )
+    if (!ok) unconfirmed.push(write.itemId)
+  }
+  if (unconfirmed.length > 0) {
+    throw new Error(
+      `[push] ${writes.length - unconfirmed.length}/${writes.length} written; not confirmed after retries: ${unconfirmed.join(', ')}. Rerun to retry; writes are upserts.`,
+    )
   }
 
   // Count pending (ACTIVE items with no verdict)
@@ -440,7 +551,8 @@ export async function prelabelItem(
     }
   }
 
-  // 4. Upsert the item — keep ARCHIVED + humanApproval.status pending
+  // 4. Upsert the item — ACTIVE + humanApproval.status pending: the dataset
+  //    listing omits ARCHIVED items, and a run admits only reviewed ones.
   const existingMeta =
     (item.metadata as Record<string, unknown> | null) ?? {}
 
@@ -449,7 +561,7 @@ export async function prelabelItem(
     id: itemId,
     input: item.input,
     expectedOutput,
-    status: 'ARCHIVED',
+    status: 'ACTIVE',
     metadata: {
       ...existingMeta,
       prelabel,

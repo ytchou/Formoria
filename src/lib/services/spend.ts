@@ -1,4 +1,7 @@
-import { LLM_MODELS } from "@/lib/constants/llm-models";
+import {
+  LLM_MODELS,
+  RETIRED_OPENAI_MODELS,
+} from "@/lib/constants/llm-models";
 import {
   SERVICE_REGISTRY,
   type ServiceEntry,
@@ -132,8 +135,13 @@ export async function loadAllPages<T>(
   return rows.concat(...remaining);
 }
 
+/** Live plus retired OpenAI models, so a model swap keeps its spend history. */
+export function openaiModels(): string[] {
+  return [...new Set([...Object.values(LLM_MODELS), ...RETIRED_OPENAI_MODELS])];
+}
+
 function modelsForService(id: string): readonly string[] {
-  if (id === "openai") return [...new Set(Object.values(LLM_MODELS))];
+  if (id === "openai") return openaiModels();
   return [];
 }
 
@@ -342,9 +350,7 @@ export async function loadSpendWindow(
   billableCallsByModel: Record<string, number>;
   auditSpans: AuditSpanRow[];
 }> {
-  const models = [
-    ...new Set(Object.values(LLM_MODELS)),
-  ];
+  const models = openaiModels();
   const pricedRowsRequest = loadAllPages<LlmSpendRow>(
     (from, to, includeCount) =>
       supabase
@@ -405,6 +411,66 @@ export async function loadSpendWindow(
     billableCallsByModel: Object.fromEntries(billableEntries),
     auditSpans,
   };
+}
+
+export type JevSpend = { usd: number; calls: number; unpricedCalls: number };
+
+/**
+ * Derived TypeSafe (Jev) spend from the audit trail. Each Jev call writes a
+ * `started` row (cost null) and a terminal `succeeded` row carrying cost_usd,
+ * so only succeeded rows are counted.
+ *
+ * Reads once over the union of `windows` ([earliest start, latest end)) and
+ * returns one sum per window, in order, split by created_at.
+ */
+export async function loadJevSpend(
+  supabase: SpendClient,
+  windows: readonly { start: string; end: string }[],
+): Promise<JevSpend[]> {
+  if (windows.length === 0) return [];
+  const bounds = windows.map((window) => ({
+    start: Date.parse(window.start),
+    end: Date.parse(window.end),
+  }));
+  const start = new Date(
+    Math.min(...bounds.map((window) => window.start)),
+  ).toISOString();
+  const end = new Date(
+    Math.max(...bounds.map((window) => window.end)),
+  ).toISOString();
+  const rows = await loadAllPages<{
+    cost_usd: number | string | null;
+    created_at: string;
+  }>(
+    (from, to, includeCount) =>
+      supabase
+        .from("external_call_audit")
+        .select(
+          "id, cost_usd, created_at",
+          includeCount ? { count: "exact" } : {},
+        )
+        .eq("provider", "typesafe")
+        .eq("status", "succeeded")
+        .gte("created_at", start)
+        .lt("created_at", end)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
+  const totals = bounds.map(() => ({ usd: 0, calls: 0, unpricedCalls: 0 }));
+  // Documented shortcut: JS aggregation; move to a Postgres RPC above ~50k rows/cycle.
+  for (const row of rows) {
+    const createdAt = Date.parse(row.created_at);
+    bounds.forEach((window, index) => {
+      if (createdAt < window.start || createdAt >= window.end) return;
+      const total = totals[index];
+      if (!total) return;
+      total.calls += 1;
+      if (row.cost_usd === null) total.unpricedCalls += 1;
+      else total.usd += Number(row.cost_usd);
+    });
+  }
+  return totals;
 }
 
 async function loadSpendSnapshot(

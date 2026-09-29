@@ -39,9 +39,17 @@ export type HealthLedgerClient = {
     }
     update: (data: Record<string, unknown>) => {
       eq: (column: string, value: unknown) => {
+        eq: (column: string, value: unknown) => {
+          select: () => Promise<{ data: unknown[] | null; error: unknown }>
+        }
         select: () => Promise<{ data: unknown[] | null; error: unknown }>
       }
       in: (column: string, values: unknown[]) => {
+        in: (column: string, values: unknown[]) => {
+          is: (column: string, value: unknown) => {
+            select: () => Promise<{ data: unknown[] | null; error: unknown }>
+          }
+        }
         is: (column: string, value: unknown) => {
           select: () => Promise<{ data: unknown[] | null; error: unknown }>
         }
@@ -229,6 +237,90 @@ export async function reserveTickets(
 }
 
 /**
+ * Reserve a still-firing, already-ticketed finding for a follow-up ticket by
+ * moving `ticketed_at` forward. Optimistic like `reserveTickets`: the update
+ * only lands while `ticketed_at` still equals the value this run read, so a
+ * concurrent writer makes it throw instead of filing a duplicate.
+ */
+export async function reserveFollowUp(
+  client: HealthLedgerClient,
+  id: string,
+  previousTicketedAt: string,
+): Promise<void> {
+  const { data, error } = await client
+    .from('health_fix_queue')
+    .update({ ticketed_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('ticketed_at', previousTicketedAt)
+    .select()
+
+  if (error) throw error
+
+  const updated = (data as unknown[] | null)?.length ?? 0
+  if (updated === 0) {
+    throw new Error(
+      `reserveFollowUp: ticketed_at for ${id} changed since it was read`,
+    )
+  }
+}
+
+/**
+ * Put back the previous ticket link after a follow-up ticket could not be
+ * created, so the earlier Linear identifier is not lost.
+ */
+export async function restoreTicket(
+  client: HealthLedgerClient,
+  id: string,
+  previous: { ticketedAt: string; linearIdentifier: string | null },
+): Promise<void> {
+  const { error } = await client
+    .from('health_fix_queue')
+    .update({
+      ticketed_at: previous.ticketedAt,
+      linear_identifier: previous.linearIdentifier,
+    })
+    .eq('id', id)
+    .select()
+
+  if (error) throw error
+}
+
+/** A queue row's ticket link before this run reserved it for a follow-up. */
+type PreviousTicket = { ticketedAt: string; linearIdentifier: string | null }
+
+/**
+ * Reserve one finding for ticket creation: a follow-up when `previous` is
+ * given, a first ticket otherwise. Pair with `undoReservation`.
+ */
+export async function reserveTicket(
+  client: HealthLedgerClient,
+  id: string,
+  previous?: PreviousTicket,
+): Promise<void> {
+  if (previous) {
+    await reserveFollowUp(client, id, previous.ticketedAt)
+  } else {
+    await reserveTickets(client, [id])
+  }
+}
+
+/**
+ * Undo a `reserveTicket` whose ticket was never created: restore the earlier
+ * ticket link for a follow-up, release the reservation otherwise.
+ */
+export async function undoReservation(
+  client: HealthLedgerClient,
+  id: string,
+  previous?: PreviousTicket,
+): Promise<void> {
+  if (previous) {
+    await restoreTicket(client, id, previous)
+  } else {
+    await releaseFailedReservations(client, [id])
+  }
+}
+
+/**
  * Finalize ticket creation by writing the Linear identifier.
  * Called after the ticket was successfully created in Linear.
  */
@@ -267,6 +359,48 @@ export async function releaseFailedReservations(
     .select()
 
   if (error) throw error
+}
+
+/**
+ * Record tickets the ops routine filed out-of-band (reported through the
+ * run-timeline relay). Sets `linear_identifier` and `ticketed_at` on the
+ * active, still-unticketed queue row for each fingerprint. Matching by
+ * fingerprint is unambiguous because `health_fix_queue_active_fingerprint_idx`
+ * is a partial unique index over the same active statuses. Fingerprints with
+ * no such row (e2e findings have no queue row, or the row is already
+ * ticketed) are no-ops. One UPDATE per identifier: a ticket covering several
+ * fingerprints writes them in a single round trip. Returns the number of rows
+ * updated.
+ */
+export async function recordTickets(
+  client: HealthLedgerClient,
+  tickets: Array<{ fingerprint: string; identifier: string }>,
+): Promise<number> {
+  const byIdentifier = new Map<string, string[]>()
+  for (const ticket of tickets) {
+    const fingerprints = byIdentifier.get(ticket.identifier) ?? []
+    fingerprints.push(ticket.fingerprint)
+    byIdentifier.set(ticket.identifier, fingerprints)
+  }
+
+  let updated = 0
+  for (const [identifier, fingerprints] of byIdentifier) {
+    const { data, error } = await client
+      .from('health_fix_queue')
+      .update({
+        linear_identifier: identifier,
+        ticketed_at: new Date().toISOString(),
+      })
+      .in('fingerprint', fingerprints)
+      .in('status', [...ACTIVE_FIX_STATUSES])
+      .is('ticketed_at', null)
+      .select()
+
+    if (error) throw error
+    updated += (data as unknown[] | null)?.length ?? 0
+  }
+
+  return updated
 }
 
 // ---------------------------------------------------------------------------

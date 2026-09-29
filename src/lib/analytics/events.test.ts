@@ -37,6 +37,8 @@ const EVENT_NAME_SNAPSHOT = [
   'recommendation_section_viewed',
   'brand_search_executed',
   'product_search_executed',
+  'product_search_empty',
+  'product_search_brand_clicked',
   'brand_search_empty',
   'search_result_clicked',
   'search_suggestion_selected',

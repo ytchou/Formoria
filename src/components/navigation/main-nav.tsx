@@ -71,16 +71,8 @@ export function MainNav() {
           Formoria
         </Link>
 
-        {/* THE HEADER SEARCH IS UNCONDITIONAL, INCLUDING ON `/`.
-            It used to be hidden on the homepage until an IntersectionObserver
-            reported the hero photograph had left the viewport — a state
-            machine, a sentinel element in another component, and a documented
-            "the search must never be unreachable" hazard, all to avoid showing
-            two search fields in one viewport. The opener is editorial now and
-            the approved mock draws both, so the whole mechanism is deleted
-            rather than re-tuned. The two fields carry different accessible
-            names (`landing.hero.searchLabel` and `brands.search.aria`), so they
-            are distinguishable to a screen reader. */}
+        {/* NavSearchInput hides on /brands and /discover, which own their forms.
+            Homepage nav and hero have distinct accessible names. */}
         <div className="hidden flex-1 md:block">
           <NavSearchInput />
         </div>

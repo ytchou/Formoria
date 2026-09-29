@@ -5,24 +5,15 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import Script from 'next/script'
 
 import { isPublicAnalyticsPath } from '@/lib/analytics'
+import {
+  shouldSkipPageview,
+  toAnalyticsPagePath,
+  toAnalyticsQuery,
+} from '@/lib/analytics/pageview-skip'
 import { deferNoncritical } from '@/lib/browser/defer-noncritical'
 
 interface PublicGoogleAnalyticsProps {
   gaId: string
-}
-
-// Params carrying raw user-typed text. Search terms ARE captured deliberately as of
-// DEV-1408 — but only as the `search_term` property on PostHog's search events, where the
-// value is guarded and truncated at the call site. A query smuggled through a URL gets none
-// of that: GA derives `dl`/`dr` from whatever we hand it, so these must still be stripped
-// before they reach `page_location`/`page_referrer`. Filter/sort/page params are
-// deliberately kept: they are a closed vocabulary and carry no user text.
-const FREE_TEXT_PARAMS = ['search']
-
-function toAnalyticsQuery(search: string): string {
-  const params = new URLSearchParams(search)
-  for (const key of FREE_TEXT_PARAMS) params.delete(key)
-  return params.toString()
 }
 
 // Referrer leaks the previous page's query string, so it needs the same scrubbing.
@@ -43,9 +34,10 @@ export function PublicGoogleAnalytics({ gaId }: PublicGoogleAnalyticsProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const initializedRef = useRef(false)
+  const lastSentPathRef = useRef<string | null>(null)
   const [loadScript, setLoadScript] = useState(false)
   const isPublicPath = isPublicAnalyticsPath(pathname)
-  const query = toAnalyticsQuery(searchParams.toString())
+  const pagePath = toAnalyticsPagePath(pathname, searchParams.toString())
 
   useEffect(() => {
     if (!isPublicPath || loadScript) return
@@ -71,14 +63,34 @@ export function PublicGoogleAnalytics({ gaId }: PublicGoogleAnalyticsProps) {
       initializedRef.current = true
     }
 
-    const pagePath = query ? `${pathname}?${query}` : pathname
+    // Page-view accounting, on scrubbed page paths (see pageview-skip.ts):
+    // - The first page_view of a document always sends. DiscoverUrlSync renders
+    //   before this component, so its effect may already have registered a rewrite.
+    //   The skip check still runs for its side effect: the skip stays pending only
+    //   while this path is the rewrite's `from` (the router has not yet reported the
+    //   rewritten URL); a first path equal to `to` or unrelated clears it.
+    // - A path equal to the last one sent or skipped is a no-op (dedupe): a URL change
+    //   that only touches stripped params (q, infer, inferred) is not a new page.
+    // - A path matching the pending rewrite target is skipped but remembered.
+    const lastSentPath = lastSentPathRef.current
+    if (lastSentPath !== null) {
+      if (pagePath === lastSentPath) return
+      if (shouldSkipPageview(pagePath)) {
+        lastSentPathRef.current = pagePath
+        return
+      }
+    } else {
+      shouldSkipPageview(pagePath)
+    }
+    lastSentPathRef.current = pagePath
+
     window.gtag?.('event', 'page_view', {
       page_location: `${window.location.origin}${pagePath}`,
       page_path: pagePath,
       page_title: document.title,
       page_referrer: toAnalyticsReferrer(document.referrer),
     })
-  }, [gaId, isPublicPath, pathname, query])
+  }, [gaId, isPublicPath, pagePath])
 
   if (!isPublicPath || !loadScript) return null
 

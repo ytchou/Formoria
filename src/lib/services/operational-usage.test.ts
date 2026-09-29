@@ -6,6 +6,7 @@ import {
   fetchUpstashUsage,
   loadOperationalSnapshot,
   parseLangfuseObservationCount,
+  parseRailwayCustomerUsage,
   parseSentryAcceptedCount,
   parseUpstashDatabase,
   parseUpstashStats,
@@ -50,6 +51,8 @@ function clearProviderEnvironment() {
     "GITHUB_APP_ID",
     "GITHUB_APP_PRIVATE_KEY",
     "GITHUB_APP_INSTALLATION_ID",
+    "OPS_AGENT_RAILWAY_TOKEN",
+    "RAILWAY_PROJECT_ID",
   ]) {
     vi.stubEnv(name, "");
   }
@@ -703,6 +706,99 @@ describe("operational usage risk", () => {
     });
   });
 
+  describe("OpenAI budget meter source", () => {
+    const derivedSpend = () =>
+      Promise.resolve({
+        schemaVersion: 1 as const,
+        generatedAt: NOW.toISOString(),
+        cycles: [
+          {
+            resetsOnDay: 1,
+            start: "2026-08-01T00:00:00.000Z",
+            end: "2026-09-01T00:00:00.000Z",
+          },
+        ],
+        services: [
+          {
+            id: "openai",
+            provenance: "derived" as const,
+            amountUsd: 2,
+            units: 10,
+            unitLabel: "tokens",
+            quotaUsedRatio: null,
+            asOf: null,
+            pricingCoverage: 1,
+          },
+        ],
+        totals: { declaredMonthlyUsd: 0, derivedCycleUsd: 2 },
+        coverage: {
+          unmeteredServices: 0,
+          unpricedCalls: 0,
+          inFlightCalls: 0,
+          nonLlmDollarsAvailable: false as const,
+        },
+      });
+
+    // Bug caught: the budget meter read production brand_ai_results only, so
+    // staging and eval spend never counted against the OpenAI budget.
+    it("uses the billed Costs API total when it is available", async () => {
+      clearProviderEnvironment();
+      const snapshot = await loadOperationalSnapshot({
+        now: NOW,
+        health: healthyHealth(),
+        supabase: null,
+        posthog: null,
+        spend: derivedSpend(),
+        openaiBilledCycleUsd: 7.5,
+      });
+      expect(row(snapshot, "openai").usage).toMatchObject({
+        state: "ready",
+        primary: expect.objectContaining({
+          value: 7.5,
+          limit: 25,
+          source: "OpenAI Costs API",
+        }),
+      });
+    });
+
+    it("falls back to the labelled derived value when billed spend is unavailable", async () => {
+      clearProviderEnvironment();
+      vi.stubEnv("OPENAI_API_KEY", "openai-key");
+      for (const billed of [null, undefined, Number.NaN]) {
+        const snapshot = await loadOperationalSnapshot({
+          now: NOW,
+          health: healthyHealth(),
+          supabase: null,
+          posthog: null,
+          spend: derivedSpend(),
+          openaiBilledCycleUsd: billed,
+        });
+        expect(row(snapshot, "openai").usage).toMatchObject({
+          state: "ready",
+          primary: expect.objectContaining({
+            value: 2,
+            source: "Formoria brand_ai_results (derived, prod only)",
+          }),
+        });
+      }
+    });
+
+    it("is unconfigured with neither a billed total nor OPENAI_API_KEY", async () => {
+      clearProviderEnvironment();
+      const snapshot = await loadOperationalSnapshot({
+        now: NOW,
+        health: healthyHealth(),
+        supabase: null,
+        posthog: null,
+        spend: derivedSpend(),
+        openaiBilledCycleUsd: null,
+      });
+      expect(row(snapshot, "openai").usage).toMatchObject({
+        state: "unconfigured",
+      });
+    });
+  });
+
   it("keeps a valid Sentry count exact but without an unverified limit", async () => {
     clearProviderEnvironment();
     vi.stubEnv("SENTRY_BASE_URL", "https://sentry.example");
@@ -727,6 +823,55 @@ describe("operational usage risk", () => {
         completeness: "exact",
         risk: "normal",
       }),
+    });
+  });
+
+  describe("parseRailwayCustomerUsage", () => {
+    const customer = (overrides: Record<string, unknown> = {}) => ({
+      data: {
+        project: {
+          workspace: {
+            customer: {
+              currentUsage: 10.99,
+              usageLimit: { softLimit: 40 },
+              billingPeriod: {
+                start: "2026-09-23T03:28:40.000Z",
+                end: "2026-10-23T03:28:40.000Z",
+              },
+              ...overrides,
+            },
+          },
+        },
+      },
+    });
+
+    it("reads usage, soft limit and the billing period", () => {
+      expect(parseRailwayCustomerUsage(customer())).toEqual({
+        usageUsd: 10.99,
+        softLimitUsd: 40,
+        window: {
+          start: "2026-09-23T03:28:40.000Z",
+          end: "2026-10-23T03:28:40.000Z",
+        },
+      });
+    });
+
+    it("treats a missing usage limit as no cap", () => {
+      expect(
+        parseRailwayCustomerUsage(customer({ usageLimit: null })).softLimitUsd,
+      ).toBeNull();
+    });
+
+    it("rejects GraphQL errors and malformed bodies", () => {
+      expect(() =>
+        parseRailwayCustomerUsage({ errors: [{ message: "Not Authorized" }] }),
+      ).toThrow("Railway usage response was malformed.");
+      expect(() =>
+        parseRailwayCustomerUsage(customer({ currentUsage: "10" })),
+      ).toThrow("Railway usage response was malformed.");
+      expect(() => parseRailwayCustomerUsage({ data: { project: { workspace: null } } })).toThrow(
+        "Railway usage response was malformed.",
+      );
     });
   });
 
@@ -848,5 +993,6 @@ describe("operational usage risk", () => {
     expect(alerts).toHaveProperty("resend");
     expect(alerts).toHaveProperty("langfuse");
     expect(alerts).toHaveProperty("github");
+    expect(alerts).toHaveProperty("railway");
   });
 });

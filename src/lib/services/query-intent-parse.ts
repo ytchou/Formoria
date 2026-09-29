@@ -1,13 +1,19 @@
 /**
- * LLM-based query intent extraction for /discover?q= search.
+ * Query intent extraction for /discover?q= search.
  *
  * Parses a free-text situation query into structured filters (category,
- * subcategory, materials). Uses the closed taxonomy from ontology.ts as the
- * extraction vocabulary.
+ * subcategory, materials) over the closed taxonomy from ontology.ts. Since
+ * DEV-1889 the parse runs on Jev (`intent-parse-jev.ts`) through the audited
+ * `decide`. `INTENT_PARSE_SYSTEM_PROMPT` and `INTENT_PARSE_JSON_SCHEMA` remain
+ * only for the eval's gpt-4o-mini comparison arm (`eval/phase-adapters.ts`).
  */
 
 import { z } from "zod";
-import { createProfiledOpenAIClient, profileChatParams } from "./llm-audit";
+import { decide as typesafeDecide } from "./typesafe-audit";
+import { createTypesafeClient } from "./typesafe-client";
+import { profileChatParams } from "./llm-audit";
+import { intentParseJev } from "./intent-parse-jev";
+import type { DecideFn } from "./jev-candidate";
 import { parseAndValidate, toStrictJsonSchema } from "./_shared/zod-schema";
 import {
   L1_CATEGORIES,
@@ -35,7 +41,7 @@ const MATERIAL_SLUGS = MATERIALS.map((m) => m.slug);
 // Schema
 // ---------------------------------------------------------------------------
 
-const intentParseShape = z.object({
+export const intentParseShape = z.object({
   category: z
     .enum(L1_SLUGS as unknown as [string, ...string[]])
     .nullable(),
@@ -45,7 +51,7 @@ const intentParseShape = z.object({
   ),
 });
 
-const INTENT_PARSE_JSON_SCHEMA = {
+export const INTENT_PARSE_JSON_SCHEMA = {
   name: "intent_parse_response",
   schema: toStrictJsonSchema(intentParseShape),
 };
@@ -60,18 +66,6 @@ export type IntentParseOutcome = {
   parsed: IntentParseResult;
   cacheHit: boolean;
 } | null;
-
-type ChatFn = {
-  chat: (input: {
-    system: string;
-    user: string;
-    schema?: { name: string; schema: Record<string, unknown> };
-    json?: boolean;
-    temperature?: number;
-    maxTokens?: number;
-    timeoutMs?: number;
-  }) => Promise<{ ok: boolean; content: string | null }>;
-};
 
 // ---------------------------------------------------------------------------
 // System prompt
@@ -93,7 +87,7 @@ function buildSystemPrompt(): string {
   ].join("\n");
 }
 
-const SYSTEM_PROMPT = buildSystemPrompt();
+export const INTENT_PARSE_SYSTEM_PROMPT = buildSystemPrompt();
 
 // ---------------------------------------------------------------------------
 // Subcategory validation — shared between cache-hit and post-LLM paths
@@ -106,7 +100,7 @@ const SYSTEM_PROMPT = buildSystemPrompt();
  *     belong to that category.
  * Returns a new object with subcategory nulled out if invalid.
  */
-function validateSubcategory(data: IntentParseResult): IntentParseResult {
+export function validateSubcategory(data: IntentParseResult): IntentParseResult {
   if (!data.subcategory) return data;
 
   const sub = subcategoryBySlug(data.subcategory);
@@ -141,8 +135,15 @@ export function shouldAttemptIntentParse(query: string): boolean {
 // Core
 // ---------------------------------------------------------------------------
 
+/** The audited `decide`, on a Jev client bounded by the intentParse profile timeout. */
+function defaultIntentDecide(): DecideFn {
+  const client = createTypesafeClient({ timeoutMs: profileChatParams("intentParse").timeoutMs });
+  return (profileKey, state, questions) => typesafeDecide(profileKey, state, questions, { client });
+}
+
 type ParseOptions = {
-  client?: ChatFn;
+  /** Jev `decide()`; defaults to typesafe-audit's audited `decide`. */
+  decide?: DecideFn;
   cache?: IntentParseCache;
 };
 
@@ -160,44 +161,26 @@ export async function parseQueryIntent(
       if (parsed.success) {
         return { parsed: validateSubcategory(parsed.data), cacheHit: true };
       }
-      // Stale/corrupt cache entry — fall through to LLM
+      // Stale/corrupt cache entry — fall through to Jev
     }
   } catch {
-    // cache error — fall through to LLM (fail-open)
+    // cache error — fall through to Jev (fail-open)
   }
 
-  // 2. Call LLM
-  const client =
-    options?.client ??
-    createProfiledOpenAIClient("intentParse", { phase: "intentParse" });
-
-  const profile = profileChatParams("intentParse");
+  // 2. Call Jev with the intentParse profile's per-attempt deadline, as the gpt
+  // call had. The caller (product-situation-search) also races this against its
+  // own intent deadline and treats a late answer as null.
+  const decide = options?.decide ?? defaultIntentDecide();
 
   try {
-    const result = await client.chat({
-      system: SYSTEM_PROMPT,
-      user: query,
-      schema: INTENT_PARSE_JSON_SCHEMA,
-      json: true,
-      temperature: profile.temperature,
-      maxTokens: profile.maxTokens,
-      timeoutMs: profile.timeoutMs,
-    });
-
-    if (!result.ok) {
-      return null;
-    }
-    if (!result.content) {
-      return null;
-    }
-
-    const parsed = parseAndValidate(result.content, intentParseShape);
-    if (!parsed.success) {
-      return null;
-    }
+    const { output } = await intentParseJev.run(decide, { query });
 
     // 3. Validate subcategory against closed taxonomy
-    const data = validateSubcategory(parsed.data);
+    const data = validateSubcategory({
+      category: output.category,
+      subcategory: output.subcategory,
+      materials: output.materials,
+    });
 
     // 4. Cache on success
     try {
@@ -208,7 +191,7 @@ export async function parseQueryIntent(
 
     return { parsed: data, cacheHit: false };
   } catch {
-    // AbortError from timeout, network errors, etc. — all return null
+    // Timeout, API error, unusable answer — all return null (fail-open)
     return null;
   }
 }

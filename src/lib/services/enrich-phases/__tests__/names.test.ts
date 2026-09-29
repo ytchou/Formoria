@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { NameCandidate } from "../../name-arbiter";
+import type { NameArbiterItem, NameCandidate } from "../../name-arbiter";
 import {
   applyNamesResult,
   runNamesPhase,
@@ -7,16 +7,19 @@ import {
 import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from "../types";
 
 /**
- * The batch helper is mocked (rather than spied) because vitest cannot
+ * The single-brand helper is mocked (rather than spied) because vitest cannot
  * redefine a live ESM export binding. `importOriginal` keeps the parser and
  * the rest of the arbiter module real.
  */
-const mocks = vi.hoisted(() => ({ arbitrateBrandNames: vi.fn() }));
+const mocks = vi.hoisted(() => ({ arbitrateBrandName: vi.fn() }));
 
 vi.mock("../../name-arbiter", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../name-arbiter")>()),
-  arbitrateBrandNames: mocks.arbitrateBrandNames,
+  arbitrateBrandName: mocks.arbitrateBrandName,
 }));
+
+const answered = { attempted: 1, providerFailed: 0 };
+const providerDown = { value: null, calls: { attempted: 1, providerFailed: 1 } };
 
 const brand = (
   id: string,
@@ -52,7 +55,7 @@ function context(
 
 describe("runNamesPhase", () => {
   beforeEach(() => {
-    mocks.arbitrateBrandNames.mockReset();
+    mocks.arbitrateBrandName.mockReset();
   });
 
   it("filters unanimous normalized candidates without an LLM call", async () => {
@@ -72,28 +75,23 @@ describe("runNamesPhase", () => {
       ]),
     );
 
-    expect(mocks.arbitrateBrandNames).not.toHaveBeenCalled();
+    expect(mocks.arbitrateBrandName).not.toHaveBeenCalled();
     expect(result.phaseResult.status).toBe("skipped");
     expect(result.phaseResult.detail).toBe("no disagreeing candidates");
     expect(result.verdicts).toEqual(new Map());
   });
 
-  it("makes one batch call and re-keys verdicts by target id", async () => {
+  it("makes one arbiter call per disagreeing brand and keys verdicts by target id", async () => {
     const first = brand("brand-74ounce", "74ounce", "74OUNCE");
     const second = brand("brand-adela", "adela", "ADELA");
-    mocks.arbitrateBrandNames.mockResolvedValue({
-      results: new Map([
-        [
-          first.slug,
-          { chosen: "74OUNCE", confidence: "high", reason: "保留品牌名" },
-        ],
-        [
-          second.slug,
-          { chosen: "Adela 愛德拉", confidence: "high", reason: "採用雙語名" },
-        ],
-      ]),
-      calls: { attempted: 1, providerFailed: 0 },
-    });
+    const verdictBySlug = new Map([
+      [first.slug, { chosen: "74OUNCE", confidence: "high", reason: "保留品牌名" }],
+      [second.slug, { chosen: "Adela 愛德拉", confidence: "high", reason: "採用雙語名" }],
+    ]);
+    mocks.arbitrateBrandName.mockImplementation(async (item: NameArbiterItem) => ({
+      value: verdictBySlug.get(item.slug) ?? null,
+      calls: answered,
+    }));
 
     const result = await runNamesPhase(
       context([first, second], ["names"] as EnrichPhase[], "job-dev-1321"),
@@ -120,26 +118,89 @@ describe("runNamesPhase", () => {
       ]),
     );
 
-    expect(mocks.arbitrateBrandNames).toHaveBeenCalledTimes(1);
-    const [items, jobId] = mocks.arbitrateBrandNames.mock.calls[0] ?? [];
+    expect(mocks.arbitrateBrandName).toHaveBeenCalledTimes(2);
+    const [item, jobId] = mocks.arbitrateBrandName.mock.calls[0] ?? [];
     expect(jobId).toBe("job-dev-1321");
-    expect(items).toHaveLength(2);
-    expect(items[0]).toMatchObject({
+    expect(item).toMatchObject({
       slug: first.slug,
       storedName: "74OUNCE",
       snippets: ["74OUNCE official site"],
+      target: { type: "brand", id: first.id },
+    });
+    expect(mocks.arbitrateBrandName.mock.calls[1]?.[0]).toMatchObject({
+      slug: second.slug,
     });
     expect(result.verdicts.get(first.id)?.chosen).toBe("74OUNCE");
     expect(result.verdicts.get(second.id)?.chosen).toBe("Adela 愛德拉");
     expect(result.verdicts.has(first.slug)).toBe(false);
   });
 
+  it("keeps the other brands' verdicts when one brand's call fails", async () => {
+    const first = brand("brand-74ounce", "74ounce", "74OUNCE");
+    const second = brand("brand-adela", "adela", "ADELA");
+    mocks.arbitrateBrandName.mockImplementation(async (item: NameArbiterItem) =>
+      item.slug === first.slug
+        ? providerDown
+        : {
+            value: { chosen: "Adela 愛德拉", confidence: "high", reason: "採用雙語名" },
+            calls: answered,
+          },
+    );
+
+    const result = await runNamesPhase(
+      context([first, second]),
+      new Map([
+        [
+          first.id,
+          {
+            candidates: [
+              candidate("stored", "74OUNCE"),
+              candidate("detected", "74OUNCE BAGSMART"),
+            ],
+          },
+        ],
+        [
+          second.id,
+          {
+            candidates: [
+              candidate("stored", "ADELA"),
+              candidate("scraped", "Adela 愛德拉"),
+            ],
+          },
+        ],
+      ]),
+    );
+
+    // One of two calls died at the provider: not every call, so the phase
+    // succeeds; the failed brand has no verdict and takes the fallback.
+    expect(result.phaseResult.status).toBe("succeeded");
+    expect(result.providerFailure).toBe(false);
+    expect(result.verdicts.has(first.id)).toBe(false);
+    expect(result.verdicts.get(second.id)?.chosen).toBe("Adela 愛德拉");
+  });
+
+  it("fails the phase only when every brand's call died at the provider", async () => {
+    const first = brand("brand-74ounce", "74ounce", "74OUNCE");
+    const second = brand("brand-adela", "adela", "ADELA");
+    mocks.arbitrateBrandName.mockResolvedValue(providerDown);
+
+    const result = await runNamesPhase(
+      context([first, second]),
+      new Map([
+        [first.id, { candidates: [candidate("stored", "74OUNCE"), candidate("detected", "74OUNCE BAGSMART")] }],
+        [second.id, { candidates: [candidate("stored", "ADELA"), candidate("scraped", "Adela 愛德拉")] }],
+      ]),
+    );
+
+    expect(mocks.arbitrateBrandName).toHaveBeenCalledTimes(2);
+    expect(result.phaseResult.status).toBe("failed");
+    expect(result.phaseResult.error).toContain("all 2 name arbitration call(s)");
+    expect(result.providerFailure).toBe(true);
+  });
+
   it("carries the pre-cleanup database name into the arbiter", async () => {
     const target = brand("brand-adela", "adela", "Adela 愛德拉");
-    mocks.arbitrateBrandNames.mockResolvedValue({
-      results: new Map(),
-      calls: { attempted: 1, providerFailed: 1 },
-    });
+    mocks.arbitrateBrandName.mockResolvedValue(providerDown);
 
     await runNamesPhase(
       context([target]),
@@ -156,9 +217,9 @@ describe("runNamesPhase", () => {
       ]),
     );
 
-    const [items] = mocks.arbitrateBrandNames.mock.calls[0] ?? [];
-    expect(items[0]?.storedName).toBe("adela愛德拉 ｜守護家人，為愛研發");
-    expect(items[0]?.candidates[0]).toEqual({
+    const [item] = mocks.arbitrateBrandName.mock.calls[0] ?? [];
+    expect(item?.storedName).toBe("adela愛德拉 ｜守護家人，為愛研發");
+    expect(item?.candidates[0]).toEqual({
       source: "stored",
       value: "adela愛德拉 ｜守護家人，為愛研發",
     });
@@ -166,10 +227,7 @@ describe("runNamesPhase", () => {
 
   it("marks an all-provider failure while applyNamesResult keeps the cleaned fallback", async () => {
     const target = brand("brand-hsiao-chu", "hsiao-chu", "首頁 - 小朱甜點");
-    mocks.arbitrateBrandNames.mockResolvedValue({
-      results: new Map(),
-      calls: { attempted: 1, providerFailed: 1 },
-    });
+    mocks.arbitrateBrandName.mockResolvedValue(providerDown);
 
     const result = await runNamesPhase(
       context([target]),
@@ -203,18 +261,13 @@ describe("runNamesPhase", () => {
 
   it("rejects a low-confidence verdict and falls back to cleaned", async () => {
     const target = brand("brand-74ounce", "74ounce", "74OUNCE");
-    mocks.arbitrateBrandNames.mockResolvedValue({
-      results: new Map([
-        [
-          target.slug,
-          {
-            chosen: "74OUNCE BAGSMART",
-            confidence: "low",
-            reason: "候選互相衝突",
-          },
-        ],
-      ]),
-      calls: { attempted: 1, providerFailed: 0 },
+    mocks.arbitrateBrandName.mockResolvedValue({
+      value: {
+        chosen: "74OUNCE BAGSMART",
+        confidence: "low",
+        reason: "候選互相衝突",
+      },
+      calls: answered,
     });
 
     const result = await runNamesPhase(
@@ -252,18 +305,13 @@ describe("runNamesPhase", () => {
       "aromase",
       "AROMASE 艾瑪絲 頭皮療癒永續品牌",
     );
-    mocks.arbitrateBrandNames.mockResolvedValue({
-      results: new Map([
-        [
-          target.slug,
-          {
-            chosen: "AROMASE 艾瑪絲",
-            confidence: "medium",
-            reason: "尾段是行銷文案",
-          },
-        ],
-      ]),
-      calls: { attempted: 1, providerFailed: 0 },
+    mocks.arbitrateBrandName.mockResolvedValue({
+      value: {
+        chosen: "AROMASE 艾瑪絲",
+        confidence: "medium",
+        reason: "尾段是行銷文案",
+      },
+      calls: answered,
     });
 
     const result = await runNamesPhase(
@@ -295,18 +343,13 @@ describe("runNamesPhase", () => {
 
   it("rejects a medium verdict that adds text the stored name lacks", async () => {
     const target = brand("brand-adela", "adela", "ADELA");
-    mocks.arbitrateBrandNames.mockResolvedValue({
-      results: new Map([
-        [
-          target.slug,
-          {
-            chosen: "Adela 愛德拉",
-            confidence: "medium",
-            reason: "候選較完整",
-          },
-        ],
-      ]),
-      calls: { attempted: 1, providerFailed: 0 },
+    mocks.arbitrateBrandName.mockResolvedValue({
+      value: {
+        chosen: "Adela 愛德拉",
+        confidence: "medium",
+        reason: "候選較完整",
+      },
+      calls: answered,
     });
 
     const result = await runNamesPhase(
@@ -347,7 +390,7 @@ describe("runNamesPhase", () => {
       ]),
     );
 
-    expect(mocks.arbitrateBrandNames).not.toHaveBeenCalled();
+    expect(mocks.arbitrateBrandName).not.toHaveBeenCalled();
     expect(result.phaseResult.status).toBe("skipped");
     expect(result.phaseResult.detail).toBe("names phase not requested");
     expect(result.verdicts).toEqual(new Map());
@@ -356,7 +399,7 @@ describe("runNamesPhase", () => {
   it("returns skipped for an empty batch", async () => {
     const result = await runNamesPhase(context([]), new Map());
 
-    expect(mocks.arbitrateBrandNames).not.toHaveBeenCalled();
+    expect(mocks.arbitrateBrandName).not.toHaveBeenCalled();
     expect(result.phaseResult.status).toBe("skipped");
     expect(result.phaseResult.detail).toBe("empty batch");
   });
@@ -385,6 +428,20 @@ describe("applyNamesResult guards", () => {
     );
 
     expect(applied.patch).toEqual({ name: "74OUNCE" });
+  });
+
+  it("keeps the stored name when a low verdict chose it, instead of the truncated cleaned candidate", () => {
+    const stored = "02 編織工作室 02's crochet";
+    const candidates = [candidate("stored", stored), candidate("cleaned", "02")];
+
+    const applied = applyNamesResult(
+      { chosen: stored, confidence: "low", reason: "僅有清理候選，無法確認" },
+      brand("brand-crochet-02", "crochet-02", stored),
+      candidates,
+    );
+
+    expect(applied.patch).toEqual({});
+    expect(applied.phaseResult.changedFields).toEqual([]);
   });
 
   it("rejects a high verdict that shares no word with the stored name", () => {

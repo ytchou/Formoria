@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DetectorContext } from '../../types'
 import { sentryCaptureDetector } from '../sentry-capture'
+import { routeOf } from '../../contracts'
 
 function makeCtx(
   deps: Record<string, unknown> = {},
@@ -117,6 +118,72 @@ describe('sentry-capture detector', () => {
     })
     const findings = await sentryCaptureDetector.run(ctx)
     expect(findings).toHaveLength(0)
+  })
+
+  it('reports quota exhaustion instead of a capture failure when Sentry is dropping errors', async () => {
+    const requests: string[] = []
+    const fakeFetch = async (url: string) => {
+      requests.push(url)
+      if (url.includes('/api/internal/sentry-canary')) return new Response(null, { status: 500 })
+      if (url.includes('/stats_v2/')) {
+        return Response.json({
+          groups: [
+            { by: { outcome: 'accepted', reason: 'none' }, totals: { 'sum(quantity)': 0 } },
+            {
+              by: { outcome: 'rate_limited', reason: 'error_usage_exceeded' },
+              totals: { 'sum(quantity)': 1570 },
+            },
+          ],
+        })
+      }
+      return Response.json([])
+    }
+
+    const findings = await sentryCaptureDetector.run(makeCtx({
+      fetch: fakeFetch,
+      env: {
+        SENTRY_AUTH_TOKEN: 'test-sentry-token',
+        SENTRY_ORGANIZATION: 'formoria',
+        SENTRY_PROJECT: 'formoria',
+        FORMORIA_RAILWAY_URL: 'https://formoria.railway.internal',
+      },
+      pollIntervalMs: 0,
+      maxPollAttempts: 1,
+    }))
+
+    const stats = new URL(requests.find((u) => u.includes('/stats_v2/'))!)
+    expect(stats.pathname).toBe('/api/0/organizations/formoria/stats_v2/')
+    expect(stats.searchParams.get('category')).toBe('error')
+    expect(findings).toHaveLength(1)
+    expect(findings[0].title).toMatch(/quota/i)
+    expect(findings[0].evidence).toMatchObject({
+      rateLimited: { error_usage_exceeded: 1570 },
+    })
+    // A credential/quota problem cannot be fixed with a code PR.
+    expect(routeOf(findings[0])).toBe('ticket')
+  })
+
+  it('keeps the round-trip finding when the quota check itself fails', async () => {
+    const fakeFetch = async (url: string) => {
+      if (url.includes('/api/internal/sentry-canary')) return new Response(null, { status: 500 })
+      if (url.includes('/stats_v2/')) return new Response(null, { status: 403 })
+      return Response.json([])
+    }
+
+    const findings = await sentryCaptureDetector.run(makeCtx({
+      fetch: fakeFetch,
+      env: {
+        SENTRY_AUTH_TOKEN: 'test-sentry-token',
+        SENTRY_ORGANIZATION: 'formoria',
+        SENTRY_PROJECT: 'formoria',
+        FORMORIA_RAILWAY_URL: 'https://formoria.railway.internal',
+      },
+      pollIntervalMs: 0,
+      maxPollAttempts: 1,
+    }))
+
+    expect(findings).toHaveLength(1)
+    expect(findings[0].title).toMatch(/round-trip/i)
   })
 
   it('returns no findings when not configured', async () => {

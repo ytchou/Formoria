@@ -207,6 +207,32 @@ describe("host_resolution_failure", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Rule 8 — catalog_discovery_failure
+// ---------------------------------------------------------------------------
+
+describe("catalog_discovery_failure", () => {
+  it("rule8_catalog_on_acquisition_model_refused", () => {
+    const result = classify(
+      makeInput({
+        targetRow: {
+          status: "completed",
+          phase_results: [
+            {
+              phase: "acquire",
+              status: "succeeded",
+              acquisitionPlan: { error: "model_refused" },
+            },
+          ],
+        },
+      }),
+    );
+    expect(result.observed).toBe("catalog_discovery_failure");
+    expect(result.stage).toBe("catalog");
+    expect(result.evidence).toContain("acquisition model_refused");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Rule 9 — zero:no_catalog (taiwan-dye style)
 // ---------------------------------------------------------------------------
 
@@ -317,6 +343,33 @@ describe("extraction_failure", () => {
     expect(result.observed).toBe("extraction_failure");
     expect(result.stage).toBe("products");
   });
+
+  it.each(["model_refused", "model_truncated", "model_filtered"])(
+    "rule12_extraction_failure_on_%s",
+    (reason) => {
+      const detail = `${reason}: products agent fell back`;
+      const result = classify(
+        makeInput({
+          targetRow: {
+            status: "completed",
+            phase_results: [
+              { phase: "acquire", status: "succeeded" },
+              {
+                phase: "products",
+                status: "succeeded",
+                productsProposed: 0,
+                agentOutcome: "fallback",
+                detail,
+              },
+            ],
+          },
+        }),
+      );
+      expect(result.observed).toBe("extraction_failure");
+      expect(result.stage).toBe("products");
+      expect(result.evidence).toContain(`products fallback: ${detail}`);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

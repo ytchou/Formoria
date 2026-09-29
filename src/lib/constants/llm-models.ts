@@ -21,6 +21,19 @@ export const LLM_MODELS = {
   text_mini: "gpt-4o-mini",
 } as const;
 
+/**
+ * Every model that ever sat in LLM_MODELS. Add the outgoing model on every
+ * swap, or the spend report drops its history.
+ */
+export const RETIRED_OPENAI_MODELS: readonly string[] = [];
+
+/**
+ * TypeSafe AI's Jev decision model (DEV-1824), eval-only. Pinned to a dated
+ * version — never jev-latest — so eval rows and the price row name the model
+ * that actually ran. Not in LLM_MODELS: it is not an OpenAI chat model.
+ */
+export const JEV_MODEL = "jev-1.13.0";
+
 export const EMBEDDING_MODEL = "text-embedding-3-small";
 export const EMBEDDING_BATCH_SIZE = 100;
 
@@ -60,16 +73,6 @@ export type LlmProfile = {
 };
 
 const CLASSIFY_TIMEOUT_MS = 30_000;
-const BATCH_CLASSIFY_TIMEOUT_MS = 60_000;
-
-/**
- * How many brands go into one batched LLM call. Shared by every batch helper —
- * the detect batch, the classification batch and the name arbiter — because the
- * per-call token budgets in LLM_PROFILES are all sized against this number.
- * Was three inlined `20` literals; changing one without the others silently
- * overflows the matching profile's maxTokens.
- */
-export const LLM_BATCH_CHUNK_SIZE = 20;
 
 /**
  * Every phase is extraction or closed-set classification against a fixed rubric,
@@ -137,65 +140,13 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: CLASSIFY_TIMEOUT_MS,
   },
-  /** Batched triage — up to 20 brands per call. */
-  detectBatch: {
-    model: "text",
-    maxTokens: 4000,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
-  },
-  /** Single-brand name arbitration — the per-item fallback after a batch content failure. */
+  /** Single-brand name arbitration. */
   names: {
     model: "text",
     maxTokens: 400,
     temperature: 0.1,
     reasoningEffort: "none",
     timeoutMs: CLASSIFY_TIMEOUT_MS,
-  },
-  /** Batched name arbitration — up to LLM_BATCH_CHUNK_SIZE brands per call. */
-  namesBatch: {
-    model: "text",
-    maxTokens: 2500,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
-  },
-  /** Single-site identity arbitration — the per-item fallback after a batch content failure. */
-  siteIdentity: {
-    model: "text",
-    maxTokens: 400,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: CLASSIFY_TIMEOUT_MS,
-  },
-  /** Batched site identity arbitration — up to LLM_BATCH_CHUNK_SIZE candidates per call. */
-  siteIdentityBatch: {
-    model: "text",
-    maxTokens: 2500,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
-  },
-  /**
-   * Single-brand category classification. 300, not 100: maxTokens is
-   * max_completion_tokens on gpt-5, so any preamble the model emits before the
-   * JSON eats the same budget and truncates the answer.
-   */
-  classification: {
-    model: "text",
-    maxTokens: 300,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: CLASSIFY_TIMEOUT_MS,
-  },
-  /** Batched category classification — up to 20 brands per call. */
-  classificationBatch: {
-    model: "text",
-    maxTokens: 1500,
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
   },
   /**
    * Image classification. No `maxTokens` here: the budget is 250 per image in
@@ -215,13 +166,6 @@ export const LLM_PROFILES = {
   },
   /** Acquisition agent — plans evidence retrieval per brand. */
   acquisition: {
-    model: "text",
-    temperature: 0.1,
-    reasoningEffort: "none",
-    timeoutMs: 30_000,
-  },
-  /** Acquire phase — the top-level phase wrapping the acquisition agent (DEV-1644). */
-  acquire: {
     model: "text",
     temperature: 0.1,
     reasoningEffort: "none",
@@ -248,13 +192,7 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 90_000,
   },
-  /** Rerank candidates against a query for retrieval. */
-  rerank: {
-    model: "text",
-    temperature: 0,
-    maxTokens: 400,
-  },
-  /** Lightweight query intent extraction for /discover?q= search. */
+  /** Query intent extraction, gpt arm. Live /discover?q= runs on Jev since DEV-1889; only the eval comparison arm uses this. */
   intentParse: {
     model: "text_mini",
     maxTokens: 200,

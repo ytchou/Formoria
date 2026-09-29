@@ -6,6 +6,9 @@ import {
   stratifiedSheet,
   toCsv,
   fromCsv,
+  JUDGED_PAIRS_PATH,
+  JEV_JUDGED_PAIRS_PATH,
+  HAND_LABEL_SHEET_PATH,
   type JudgedPair,
   type SheetRow,
 } from '../label-shared'
@@ -136,6 +139,20 @@ describe('stratifiedSheet', () => {
     const row2 = sheet.find(r => r.brand_slug === 'b-2' && r.product_key === 'p-2')
     expect(row2?.human_grade).toBe('')
   })
+
+  it('retains an early human review when later judged pairs refill the sheet', () => {
+    const judgedPairs: JudgedPair[] = ['canvas-tote', 'linen-pouch', 'ceramic-cup'].map(productKey => ({
+      queryId: 'gift-for-maría', query: 'Gift for María', brandSlug: 'marcia-studio', productKey,
+      nameZh: productKey, descriptionZh: 'Handmade in Taiwan', officialUrl: 'https://example.com/item',
+      categoryZh: 'home', votes: [2, 2, 2], grade: 2, split: false,
+    }))
+    const reviewed: SheetRow = {
+      query_id: 'gift-for-maría', query: 'Gift for María', brand_slug: 'marcia-studio', product_key: 'ceramic-cup',
+      name_zh: 'ceramic-cup', description_zh: 'Handmade in Taiwan', official_url: 'https://example.com/item',
+      llm_grade: 2, human_grade: '3',
+    }
+    expect(stratifiedSheet(judgedPairs, 1, [reviewed])).toContainEqual(reviewed)
+  })
 })
 
 describe('toCsv/fromCsv', () => {
@@ -150,5 +167,13 @@ describe('toCsv/fromCsv', () => {
     const csv = toCsv(rows)
     const parsed = fromCsv(csv)
     expect(parsed[0]).toEqual(rows[0])
+  })
+})
+
+describe('judged-pairs paths', () => {
+  it('JEV_JUDGED_PAIRS_PATH differs from JUDGED_PAIRS_PATH', () => {
+    expect(JEV_JUDGED_PAIRS_PATH).not.toBe(JUDGED_PAIRS_PATH)
+    expect(JEV_JUDGED_PAIRS_PATH).not.toBe(HAND_LABEL_SHEET_PATH)
+    expect(JEV_JUDGED_PAIRS_PATH.endsWith('labels/judged-pairs.jev.json')).toBe(true)
   })
 })

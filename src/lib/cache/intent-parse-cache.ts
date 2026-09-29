@@ -4,6 +4,12 @@ import { L1_CATEGORIES, L2_SUBCATEGORIES, MATERIALS } from "@/lib/taxonomy/ontol
 const TTL_SECONDS = 604800; // 7 days
 
 /**
+ * Which parser wrote the entry. Bump it when the parser or its thresholds
+ * change, so answers from the old parser are never served (DEV-1889: gpt -> Jev).
+ */
+const PARSER_VERSION = "jev1";
+
+/**
  * Taxonomy hash: first 8 hex chars of SHA-256 over the sorted L1 + L2 +
  * material slugs. Busts the cache when the taxonomy vocabulary changes.
  */
@@ -40,12 +46,12 @@ function normalizeForKey(query: string): string {
 }
 
 /**
- * Builds the cache key: `intent:<TAXONOMY_HASH_8>:<sha256(stripped_query)>`
+ * Builds the cache key: `intent:<PARSER_VERSION>:<TAXONOMY_HASH_8>:<sha256(stripped_query)>`
  */
 export function cacheKey(query: string): string {
   const normalized = normalizeForKey(query);
   const hash = createHash("sha256").update(normalized).digest("hex");
-  return `intent:${TAXONOMY_HASH}:${hash}`;
+  return `intent:${PARSER_VERSION}:${TAXONOMY_HASH}:${hash}`;
 }
 
 export interface IntentParseCache {

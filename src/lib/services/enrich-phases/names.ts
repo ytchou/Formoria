@@ -1,6 +1,14 @@
 import type { PhaseResult } from "@/lib/types/curation";
 import { auditedCall } from "@/lib/audit";
-import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
+import {
+  addLlmCalls,
+  isLlmProviderFailure,
+  noLlmCalls,
+} from "../_shared/llm-call-outcome";
+import {
+  ENRICH_BRAND_CONCURRENCY,
+  mapWithConcurrency,
+} from "../_shared/concurrency";
 import {
   isBilingualBrandName,
   isTaiwanFirstBilingualBrandName,
@@ -11,7 +19,7 @@ import type {
   BrandNameProposal,
 } from "@/lib/types/enriched-data";
 import {
-  arbitrateBrandNames,
+  arbitrateBrandName,
   type NameArbiterItem,
   type NameCandidate,
   type NameVerdict,
@@ -25,7 +33,7 @@ import {
 } from "./types";
 
 /**
- * Per-brand input to the batch, keyed by target id by the caller.
+ * Per-brand input to the phase, keyed by target id by the caller.
  *
  * `candidates` are the competing proposals collected during wave A — one each
  * from the phases that used to write `name` themselves. `snippets` are the
@@ -43,9 +51,7 @@ export type NamesPhaseOutput = {
    *
    * The same rule `runImageSearchPhase` follows, for the same reason: this phase
    * runs after `clean`/`detect`, either of which can rewrite a brand's name, and
-   * a mismatched key in a Map is a silent empty result rather than an error. The
-   * slug is only the wire key the model echoes back; it is re-keyed here so no
-   * caller ever sees it.
+   * a mismatched key in a Map is a silent empty result rather than an error.
    */
   verdicts: Map<string, NameVerdict>;
   providerFailure: boolean;
@@ -56,7 +62,8 @@ type NamesApplication = {
   patch: EnrichPatch;
 };
 
-function normalizeCandidates(
+/** Exported so golden-eval inputs carry the same candidate list production sends. */
+export function normalizeCandidates(
   storedName: string,
   candidates: NameCandidate[],
 ): NameCandidate[] {
@@ -83,7 +90,7 @@ function normalizeCandidates(
   return [...byValue.values()];
 }
 
-function normalizeCandidateValue(value: string): string {
+export function normalizeCandidateValue(value: string): string {
   return value
     .normalize("NFC")
     .trim()
@@ -177,8 +184,9 @@ function isAcceptedConfidence(
  * Extracted so the DEV-1321 offline evaluation can score the exact bytes
  * production would ship rather than a re-typed copy of this condition that can
  * silently drift.
+ * Exported for eval: `eval/names-shipped.ts` scores this shipped name (DEV-1896).
  */
-function resolveArbitratedName(
+export function resolveArbitratedName(
   verdict: NameVerdict | undefined,
   normalizedCandidates: NameCandidate[],
   storedName: string,
@@ -188,6 +196,10 @@ function resolveArbitratedName(
   const selected = normalizedCandidates.find(
     (candidate) => candidate.value === normalizedChosen,
   );
+  // Choosing the stored name is not a rename, so no confidence gate applies. A
+  // low "keep it" verdict must not fall through to the cleaned candidate, which
+  // is how `02 編織工作室 02's crochet` would have shipped as `02`.
+  if (selected?.source === "stored") return storedName;
   if (
     !selected ||
     !isAcceptedConfidence(verdict, storedName, selected) ||
@@ -239,12 +251,13 @@ function skippedBatch(detail: string): NamesPhaseOutput {
 }
 
 /**
- * DEV-1321 name arbitration, batched across a whole chunk.
+ * DEV-1321 name arbitration across a whole chunk.
  *
- * Exactly ONE `arbitrateBrandNames` call for every brand in `ctx.chunk` that has
- * competing candidates — it is not a per-brand phase and must not be called from
- * inside a per-brand wave. `applyNamesResult` is the per-brand half, exactly as
- * `applyDetectResult` is the per-brand half of `runDetectPhase`.
+ * One `arbitrateBrandName` call per brand in `ctx.chunk` that has competing
+ * candidates (DEV-1886), fanned out here. It is a chunk barrier, not a per-brand
+ * phase, and must not be called from inside a per-brand wave. `applyNamesResult`
+ * is the per-brand half, exactly as `applyDetectResult` is the per-brand half of
+ * `runDetectPhase`.
  *
  * SINGLE-WRITER INVARIANT: this phase is the only writer of `name` in the
  * pipeline. `detect`, `clean` and `links` each used to write it and clobbered
@@ -266,10 +279,7 @@ export async function runNamesPhase(
   return auditedCall(
     { provider: "enrich", operation: "runNamesPhase", kind: "service" },
     async () => {
-  const items: NameArbiterItem[] = [];
-  // Built from the same `ctx.chunk` snapshot as the items themselves, so the
-  // re-key below cannot drift from the keys the model was asked about.
-  const brandIdBySlug = new Map<string, string>();
+  const items: Array<{ brandId: string; item: NameArbiterItem }> = [];
 
   for (const brand of ctx.chunk) {
     const input = candidatesByBrandId.get(brand.id);
@@ -282,13 +292,15 @@ export async function runNamesPhase(
     // request payload at all.
     if (normalized.length < 2) continue;
 
-    brandIdBySlug.set(brand.slug, brand.id);
     items.push({
-      slug: brand.slug,
-      storedName,
-      candidates: normalized,
-      ...(input.snippets ? { snippets: input.snippets } : {}),
-      target: { type: ctx.targetType ?? "brand", id: brand.id },
+      brandId: brand.id,
+      item: {
+        slug: brand.slug,
+        storedName,
+        candidates: normalized,
+        ...(input.snippets ? { snippets: input.snippets } : {}),
+        target: { type: ctx.targetType ?? "brand", id: brand.id },
+      },
     });
   }
 
@@ -299,21 +311,24 @@ export async function runNamesPhase(
     return skippedBatch("no disagreeing candidates");
   }
 
-  const { result: outcome, durationMs } = await timePhase(() =>
-    arbitrateBrandNames(items, ctx.jobId),
+  // One call per brand. Each call owns its own outcome, so one brand's failure
+  // leaves the others' verdicts intact; a brand without a verdict takes the
+  // `applyNamesResult` fallback.
+  const { result: outcomes, durationMs } = await timePhase(() =>
+    mapWithConcurrency(items, ENRICH_BRAND_CONCURRENCY, ({ item }) =>
+      arbitrateBrandName(item, ctx.jobId),
+    ),
   );
 
-  // `arbitrateBrandNames` keys its results by the item's slug, which is only the
-  // wire identifier the model echoes back. Re-key to the target id before
-  // anything downstream sees the map — the same move `runImageSearchPhase`
-  // makes, because a rename by `clean` or `detect` turns every name-keyed
-  // `map.get(...)` into a silent miss.
+  // Keyed by target id, never by slug or name: a rename by `clean` or `detect`
+  // turns every name-keyed `map.get(...)` into a silent miss.
   const verdicts = new Map<string, NameVerdict>();
-  for (const [slug, verdict] of outcome.results) {
-    const brandId = brandIdBySlug.get(slug);
-    if (!brandId) continue;
-    verdicts.set(brandId, verdict);
-  }
+  let calls = noLlmCalls();
+  outcomes.forEach((outcome, index) => {
+    calls = addLlmCalls(calls, outcome.calls);
+    const brandId = items[index]?.brandId;
+    if (outcome.value && brandId) verdicts.set(brandId, outcome.value);
+  });
 
   // Every arbitration call died at the provider: the empty result map says
   // nothing about these brands, so the phase must NOT report success. Reporting
@@ -321,9 +336,9 @@ export async function runNamesPhase(
   // green on 2026-08-02. `applyNamesResult` still runs for each brand — with no
   // verdict it falls back to the `cleaned` candidate, which is the whole point
   // of the fallback existing.
-  if (isLlmProviderFailure(outcome.calls)) {
+  if (isLlmProviderFailure(calls)) {
     ctx.onProgress?.(
-      `  [NAMES] FAILED — every one of ${outcome.calls.attempted} call(s) failed at the provider`,
+      `  [NAMES] FAILED — every one of ${calls.attempted} call(s) failed at the provider`,
     );
     return {
       phaseResult: {
@@ -332,7 +347,7 @@ export async function runNamesPhase(
           "failed",
           [],
           durationMs,
-          `LLM provider failed all ${outcome.calls.attempted} name arbitration call(s)`,
+          `LLM provider failed all ${calls.attempted} name arbitration call(s)`,
         ),
         providerFailure: true,
       },
@@ -345,7 +360,7 @@ export async function runNamesPhase(
     `  [NAMES] OK — ${verdicts.size} verdict(s) across ${items.length} disagreeing brand(s)`,
   );
 
-  // `changedFields` is empty on the BATCH result on purpose: the per-brand
+  // `changedFields` is empty on the chunk result on purpose: the per-brand
   // `applyNamesResult` owns `["name"]`, so the field is attributed once per
   // target rather than once for the whole chunk.
   return {
@@ -368,7 +383,7 @@ export async function runNamesPhase(
 /**
  * The per-brand half of the names phase: turn one verdict into the patch that
  * persists it. Mirrors `applyDetectResult`, including the zero `durationMs` —
- * the batch above owns the wall clock.
+ * the chunk barrier above owns the wall clock.
  *
  * `verdict === undefined` is the normal path for a brand whose candidates all
  * agreed, and it is also the path a provider failure takes. Either way

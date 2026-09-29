@@ -29,7 +29,7 @@ function makeUnreviewedItem(id = 'unreviewed-1'): ExperimentItem {
 function makeAdapter(overrides: Partial<PhaseAdapter> = {}): PhaseAdapter {
   return {
     promptName: 'detect',
-    profileKey: 'detectBatch',
+    profileKey: 'detect',
     outputSchema: { safeParse: () => ({ success: true }) } as never,
     requestSchema: { name: 'detect', schema: {} },
     parseOutput: (content: string) => {
@@ -138,6 +138,37 @@ describe('runExperiment', () => {
     expect(result.provisional).toBe(true)
   })
 
+  it('sends a {user} input as the bare user text, and other objects as JSON', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [
+        makeItem({ id: 'golden', input: { user: '請裁決以下品牌的正式名稱', promptName: 'name-arbiter' } }),
+        makeItem({ id: 'structured', input: { brand: 'test' } }),
+      ],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-26'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const users = callModel.mock.calls.map(([input]) => (input as { user: string }).user).sort()
+    expect(users).toEqual(['{"brand":"test"}', '請裁決以下品牌的正式名稱'])
+  })
+
   it('runs each arm over each item with concurrency 4 and one retry', async () => {
     let concurrent = 0
     let maxConcurrent = 0
@@ -243,6 +274,64 @@ describe('runExperiment', () => {
     expect(itemResult.ok).toBe(false)
     expect(itemResult.scores.decisionAgreement).toBe(0)
     expect(itemResult.scores.confidenceBand).toBe(0)
+  })
+
+  it('a failed item leaves nullable scorers absent so their mean excludes failures', async () => {
+    const callModel = vi.fn().mockRejectedValue(new Error('boom'))
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter({
+        scorers: [
+          { name: 'decisionAgreement', fn: () => 1 },
+          { name: 'originWhenSourced', fn: () => null, nullable: true },
+        ],
+      }),
+      items: [makeItem({ id: 'fail-1' })],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items[0]!.ok).toBe(false)
+    expect(arm.items[0]!.scores).toEqual({ decisionAgreement: 0 })
+    expect(arm.summary.scorerMeans.decisionAgreement).toBe(0)
+    expect(arm.summary.scorerMeans).not.toHaveProperty('originWhenSourced')
+    expect(result.summary.failed).toBe(1)
+  })
+
+  it('an empty arm reports no scorer means (n/a), not 0', async () => {
+    const callModel = vi.fn()
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    expect(result.armResults[0]!.summary.scorerMeans).toEqual({})
   })
 
   it('per-arm env is set and restored', async () => {
@@ -516,6 +605,43 @@ describe('runExperiment', () => {
     expect(typeof armSummary.p95LatencyMs).toBe('number')
   })
 
+  it('excludes n/a (null) scores from item scores and scorer means', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+
+    const adapter = makeAdapter({
+      scorers: [
+        { name: 'score_a', fn: () => 0.8 },
+        { name: 'score_na', fn: () => null },
+      ],
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter,
+      items: [makeItem({ id: 'i1' })],
+      deps: {
+        callModel,
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items[0]!.scores).toEqual({ score_a: 0.8 })
+    expect(arm.summary.scorerMeans.score_a).toBe(0.8)
+    expect(arm.summary.scorerMeans).not.toHaveProperty('score_na')
+  })
+
   it('writes run JSON with items, arms, scores via injected writeFile', async () => {
     const writeFile = vi.fn()
 
@@ -551,6 +677,34 @@ describe('runExperiment', () => {
     expect(parsed).toHaveProperty('arms')
     expect(parsed).toHaveProperty('items')
     expect(parsed).toHaveProperty('scores')
+    // A non-products output is persisted whole, so predictions and probabilities survive.
+    expect(parsed.items[0].output).toEqual({ isNonBrand: false, confidence: 'high' })
+  })
+
+  it('run JSON reduces a products-agent output to evaluations, selected and agentOutcome', async () => {
+    const writeFile = vi.fn()
+    const output = { evaluations: { u: { score: 1 } }, selected: ['u'], agentOutcome: 'ok', trace: 'large' }
+
+    await runExperiment({
+      dataset: 'products-agent-ranking-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter({ task: vi.fn().mockResolvedValue({ ok: true, output }) }),
+      items: [makeItem()],
+      deps: {
+        callModel: vi.fn(),
+        writeFile,
+        now: () => new Date('2026-09-04T12:00:00.000Z'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const parsed = JSON.parse(writeFile.mock.calls[0]![1] as string)
+    expect(parsed.items[0].output).toEqual({ evaluations: { u: { score: 1 } }, selected: ['u'], agentOutcome: 'ok' })
   })
 
   it('uses adapter.task instead of callModel when present', async () => {
@@ -758,6 +912,38 @@ describe('runExperiment', () => {
     expect(result.summary.failed).toBe(1)
   })
 
+  it('prompt pin error leaves nullable scorers absent on items and summary', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ name: 'prompt-v3', type: 'prompt', value: 'detect:3' }],
+      adapter: makeAdapter({
+        scorers: [
+          { name: 'decisionAgreement', fn: () => 1 },
+          { name: 'originWhenSourced', fn: () => null, nullable: true },
+        ],
+      }),
+      items: [makeItem()],
+      deps: {
+        callModel: vi.fn(),
+        writeFile: vi.fn(),
+        now: () => new Date('2026-09-04'),
+        flushLangfuse: vi.fn(),
+        fetchPrompt: vi.fn().mockResolvedValue({
+          text: 'prompt text',
+          prompt: { name: 'detect', version: 1, source: 'snapshot' },
+        }),
+        installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+        assertNoNewAuditRows: vi.fn(),
+        runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+        getAuditContext: () => ({ correlationId: null }),
+      },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items[0]!.scores).toEqual({ decisionAgreement: 0 })
+    expect(arm.summary.scorerMeans).toEqual({ decisionAgreement: 0 })
+  })
+
   it('prompt_arm_accepts_langfuse_source', async () => {
     const callModel = vi.fn().mockResolvedValue({
       ok: true,
@@ -963,5 +1149,486 @@ describe('runItems', () => {
 
     // Audit records exist, so audit sum (100) should be used, not wall-clock
     expect(results[0]!.latencyMs).toBe(100)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1824: jev arm, unique arm names, threshold sweep
+// ---------------------------------------------------------------------------
+
+function makeJevDeps(callModel = vi.fn()) {
+  return {
+    callModel,
+    writeFile: vi.fn(),
+    now: () => new Date('2026-09-26'),
+    flushLangfuse: vi.fn(),
+    fetchPrompt: vi.fn().mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 1, source: 'langfuse' } }),
+    installSeams: () => ({ collector: makeCollector(), restore: vi.fn() }),
+    assertNoNewAuditRows: vi.fn(),
+    runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+    getAuditContext: () => ({ correlationId: null }),
+  }
+}
+
+const jevArm: ExperimentArm = { name: 'jev-1.13.0', type: 'custom', value: 'jev:jev-1.13.0' }
+
+describe('runExperiment — jev arms', () => {
+  afterEach(() => {
+    delete process.env.LANGFUSE_PROMPT_VERSIONS
+    delete process.env.OPENAI_MODEL_OVERRIDE
+  })
+
+  it('jev arm dispatches to adapter.decide and scores its output', async () => {
+    const callModel = vi.fn()
+    const task = vi.fn()
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'high' } })
+    const decisionFn = vi.fn(() => 1)
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({
+        decide,
+        task,
+        scorers: [{ name: 'decisionAgreement', fn: decisionFn }],
+      }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: makeJevDeps(callModel),
+    })
+
+    expect(decide).toHaveBeenCalledTimes(2)
+    expect(task).not.toHaveBeenCalled()
+    expect(callModel).not.toHaveBeenCalled()
+    expect(decisionFn).toHaveBeenCalledWith({ isNonBrand: false, confidence: 'high' }, expect.anything())
+    expect(result.armResults[0]!.summary.scorerMeans.decisionAgreement).toBe(1)
+    expect(result.exitCode).toBe(0)
+  })
+
+  it('jev arm writes the raw Jev answers to the run file, so thresholds can be re-tuned offline', async () => {
+    const answers = { isNonBrand: { type: 'noul', noul: 0.42 } }
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'low' }, answers })
+    const deps = makeJevDeps()
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' })],
+      deps,
+    })
+
+    const written = JSON.parse(deps.writeFile.mock.calls[0]![1] as string)
+    expect(written.items[0].answers).toEqual(answers)
+  })
+
+  it('jev arm without adapter.decide throws a named error', async () => {
+    await expect(
+      runExperiment({
+        dataset: 'test-golden',
+        arms: [jevArm],
+        adapter: makeAdapter(),
+        items: [makeItem()],
+        deps: makeJevDeps(),
+      }),
+    ).rejects.toThrow('adapter for test-golden has no decide hook')
+  })
+
+  it('custom_arm_pin_sets_and_restores_env', async () => {
+    const envCaptures: string[] = []
+    const decide = vi.fn().mockImplementation(async () => {
+      envCaptures.push(process.env.LANGFUSE_PROMPT_VERSIONS ?? 'unset')
+      return { ok: true, output: { isNonBrand: false, confidence: 'high' } }
+    })
+    process.env.LANGFUSE_PROMPT_VERSIONS = 'names:2'
+    const deps = makeJevDeps()
+    deps.fetchPrompt.mockResolvedValue({ text: 'prompt', prompt: { name: 'detect', version: 4, source: 'langfuse' } })
+
+    await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ ...jevArm, name: 'jev-1.13.0@4', promptVersions: 'detect:4' }],
+      adapter: makeAdapter({ decide, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps,
+    })
+
+    expect(envCaptures).toEqual(['detect:4', 'detect:4'])
+    expect(process.env.LANGFUSE_PROMPT_VERSIONS).toBe('names:2')
+  })
+
+  it('pinned jev arm resolves the prompt once per arm and hands it to decide', async () => {
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'high' } })
+    const deps = makeJevDeps()
+    const pinned = { text: 'RULES v4', prompt: { name: 'detect', version: 4, source: 'langfuse' as const } }
+    deps.fetchPrompt.mockImplementation(async () => {
+      // The fetch sees the arm's pin, so fetchLangfusePromptWithMeta resolves that version.
+      expect(process.env.LANGFUSE_PROMPT_VERSIONS).toBe('detect:4')
+      return pinned
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ ...jevArm, name: 'jev-1.13.0@4', promptVersions: 'detect:4' }],
+      adapter: makeAdapter({ decide, decideUsesPrompt: true, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' }), makeItem({ id: 'c' })],
+      deps,
+    })
+
+    expect(deps.fetchPrompt).toHaveBeenCalledTimes(1)
+    expect(decide).toHaveBeenCalledTimes(3)
+    for (const call of decide.mock.calls) expect(call[1]).toMatchObject({ prompt: pinned })
+    const arm = result.armResults[0]!
+    expect(arm.promptMeta).toEqual(pinned.prompt)
+    expect(arm.items.every((i) => i.ok && i.promptMeta?.version === 4)).toBe(true)
+    const written = JSON.parse(deps.writeFile.mock.calls[0]![1] as string)
+    expect(written.arms[0].promptMeta).toEqual(pinned.prompt)
+  })
+
+  it('unpinned jev arm on a prompt-rules adapter records the prompt it ran on', async () => {
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'high' } })
+    const deps = makeJevDeps()
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide, decideUsesPrompt: true, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' })],
+      deps,
+    })
+
+    expect(decide.mock.calls[0]![1]).toMatchObject({ prompt: { text: 'prompt' } })
+    expect(result.armResults[0]!.promptMeta).toEqual({ name: 'detect', version: 1, source: 'langfuse' })
+  })
+
+  it('jev arm on an adapter whose decide ignores the prompt gets no prompt', async () => {
+    const decide = vi.fn().mockResolvedValue({ ok: true, output: { isNonBrand: false, confidence: 'high' } })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' })],
+      deps: makeJevDeps(),
+    })
+
+    expect(decide.mock.calls[0]![1]).not.toHaveProperty('prompt')
+    expect(result.armResults[0]!.promptMeta).toBeUndefined()
+  })
+
+  it.each([
+    ['a snapshot source', { name: 'detect', version: 4, source: 'snapshot' as const }],
+    ['a different version', { name: 'detect', version: 3, source: 'langfuse' as const }],
+  ])('pinned jev arm fails loudly when the pin resolves to %s', async (_label, prompt) => {
+    const decide = vi.fn()
+    const deps = makeJevDeps()
+    deps.fetchPrompt.mockResolvedValue({ text: 'RULES', prompt })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [{ ...jevArm, name: 'jev-1.13.0@4', promptVersions: 'detect:4' }],
+      adapter: makeAdapter({ decide, decideUsesPrompt: true, scorers: [{ name: 'decisionAgreement', fn: () => 1 }] }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps,
+    })
+
+    expect(decide).not.toHaveBeenCalled()
+    const arm = result.armResults[0]!
+    expect(arm.items.every((i) => !i.ok && /pin detect:4/.test(i.error ?? ''))).toBe(true)
+    expect(arm.promptMeta).toEqual(prompt)
+    expect(result.exitCode).toBe(1)
+  })
+
+  it('duplicate arm names get #2 suffix and separate results', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+    const deps = makeJevDeps(callModel)
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ name: 'dup' }), makeArm({ name: 'dup' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps,
+    })
+
+    expect(result.armResults.map((a) => a.arm)).toEqual(['dup', 'dup#2'])
+    expect(result.armResults[0]!.items).toHaveLength(1)
+    expect(result.armResults[1]!.items).toHaveLength(1)
+    expect(result.markdown).toContain('| dup#2 |')
+    const written = JSON.parse(deps.writeFile.mock.calls[0]![1] as string) as { arms: Array<{ name: string }> }
+    expect(written.arms.map((a) => a.name)).toEqual(['dup', 'dup#2'])
+  })
+
+  it('summary includes a threshold sweep when outputs carry probability', async () => {
+    const probs: Record<string, number> = { a: 0.95, b: 0.6 }
+    const decide = vi.fn(async (item: ExperimentItem) => ({
+      ok: true,
+      output: { isNonBrand: false, confidence: 'high', probability: probs[item.id] },
+    }))
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: makeJevDeps(),
+    })
+
+    expect(result.markdown).toContain('| threshold | coverage | accepted accuracy |')
+    expect(result.markdown).toContain('jev-1.13.0')
+  })
+
+  it('no threshold sweep when outputs carry no probability', async () => {
+    const callModel = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ isNonBrand: false, confidence: 'high' }),
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: makeJevDeps(callModel),
+    })
+
+    expect(result.markdown).not.toContain('| threshold |')
+  })
+})
+
+describe('runExperiment — calibration and unknown cost', () => {
+  afterEach(() => {
+    delete process.env.LANGFUSE_PROMPT_VERSIONS
+    delete process.env.OPENAI_MODEL_OVERRIDE
+  })
+
+  it('counts an L1 match with an L2 mismatch (score 0.5) as correct and reports ECE', async () => {
+    const decide = vi.fn(async () => ({
+      ok: true,
+      output: { category: 'home', subcategory: null, confidence: 'high', probability: 0.95 },
+    }))
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({
+        decide,
+        scorers: [{ name: 'categoryAgreement', fn: () => 0.5 }],
+      }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: makeJevDeps(),
+    })
+
+    // Both items accepted at 0.95 and both correct.
+    expect(result.markdown).toContain('| 0.95 | 1.000 | 1.000 |')
+    // Two points at p = 0.95, both correct: |1 - 0.95| = 0.05.
+    expect(result.markdown).toContain('ECE: 0.050')
+  })
+
+  it('keeps cost unknown (n/a) when a call has an unknown price, and priced arms unchanged', async () => {
+    const collector = makeCollector()
+    const deps = {
+      ...makeJevDeps(),
+      installSeams: () => ({ collector, restore: vi.fn() }),
+    }
+    const decide = vi.fn(async (item: ExperimentItem, ctx: { itemRunId: string }) => {
+      // One priced call, and on item b a second call with an unknown price.
+      collector.push({ correlationId: ctx.itemRunId, costUsd: 0.01, latencyMs: 10 } as never)
+      if (item.id === 'b') {
+        collector.push({ correlationId: ctx.itemRunId, costUsd: null, latencyMs: 10 } as never)
+      }
+      return { ok: true, output: { isNonBrand: false, confidence: 'high' } }
+    })
+
+    const unknown = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide }),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps,
+    })
+
+    const items = unknown.armResults[0]!.items
+    expect(items.find((i) => i.itemId === 'a')!.costUsd).toBeCloseTo(0.01)
+    expect(items.find((i) => i.itemId === 'b')!.costUsd).toBeNull()
+    expect(unknown.armResults[0]!.summary.costPerItem).toBeNull()
+    expect(unknown.markdown).toMatch(/\| jev-1\.13\.0 \|.*\| n\/a \| \d+ \|/)
+
+    const priced = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide }),
+      items: [makeItem({ id: 'a' })],
+      deps,
+    })
+    // Every call priced: the cost is summed and printed in dollars, as before.
+    expect(priced.armResults[0]!.summary.costPerItem).toBeCloseTo(0.01)
+    expect(priced.markdown).toContain('$0.0100')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DEV-1898: token counts (D15) and the slot assertion (D19)
+// ---------------------------------------------------------------------------
+
+describe('runExperiment — token counts and slot assertion', () => {
+  afterEach(() => {
+    delete process.env.OPENAI_MODEL_OVERRIDE
+  })
+
+  /** Deps whose callModel records the given audited calls under the item's correlation id. */
+  function depsRecording(calls: Array<Record<string, unknown>>) {
+    const collector = makeCollector()
+    const callModel = vi.fn(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      for (const call of calls) collector.push({ correlationId: itemRunId, ...call } as never)
+      return { ok: true, content: JSON.stringify({ isNonBrand: false, confidence: 'high' }) }
+    })
+    return {
+      ...makeJevDeps(callModel),
+      installSeams: () => ({ collector, restore: vi.fn() }),
+    }
+  }
+
+  it('sums token counts across an item\'s calls', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm()],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: depsRecording([
+        { model: 'gpt-5.6-luna', costUsd: 0.001, promptTokens: 100, cachedPromptTokens: 20, cacheWriteTokens: 5, completionTokens: 50 },
+        { model: 'gpt-5.6-luna', costUsd: 0.001, promptTokens: 10, cachedPromptTokens: 0, cacheWriteTokens: 0, completionTokens: 5 },
+      ]),
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item).toMatchObject({
+      promptTokens: 110,
+      cachedPromptTokens: 20,
+      cacheWriteTokens: 5,
+      completionTokens: 55,
+    })
+  })
+
+  it('fails an item whose calls hit a model other than the arm\'s', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: depsRecording([
+        { model: 'gpt-6-luna', costUsd: 0.001 },
+        { model: 'gpt-5.6-luna', costUsd: 0.001 },
+      ]),
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item.ok).toBe(false)
+    expect(item.error).toBe('off-slot call: gpt-5.6-luna')
+    expect(item.scores).toEqual({ decisionAgreement: 0, confidenceBand: 0 })
+    expect(result.summary.failed).toBe(1)
+  })
+
+  it('keeps the task error when an item is both failed and off-slot', async () => {
+    const collector = makeCollector()
+    const callModel = vi.fn(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      collector.push({ correlationId: itemRunId, model: 'gpt-5.6-luna', costUsd: 0.001 } as never)
+      throw new Error('boom')
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: { ...makeJevDeps(callModel), installSeams: () => ({ collector, restore: vi.fn() }) },
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item.ok).toBe(false)
+    expect(item.error).toContain('boom')
+    expect(item.error).toMatch(/; off-slot call: gpt-5\.6-luna$/)
+  })
+
+  it('excludes off-slot items from the list-priced cost', async () => {
+    const collector = makeCollector()
+    let invocation = 0
+    const callModel = vi.fn(async (_input: unknown, _opts: unknown, itemRunId: string) => {
+      invocation += 1
+      const tokens = { promptTokens: 1_000_000, cachedPromptTokens: 0, cacheWriteTokens: 0, completionTokens: 1_000_000 }
+      collector.push({ correlationId: itemRunId, model: 'gpt-6-luna', costUsd: null, ...tokens } as never)
+      if (invocation === 2) {
+        // Off-slot tokens must not be priced at gpt-6-luna's list price.
+        collector.push({ correlationId: itemRunId, model: 'gpt-5.6-luna', costUsd: 0.001, ...tokens } as never)
+      }
+      return { ok: true, content: JSON.stringify({ isNonBrand: false, confidence: 'high' }) }
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ name: 'gpt-6', value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem({ id: 'a' }), makeItem({ id: 'b' })],
+      deps: { ...makeJevDeps(callModel), installSeams: () => ({ collector, restore: vi.fn() }) },
+    })
+
+    const arm = result.armResults[0]!
+    expect(arm.items.filter((i) => i.error?.includes('off-slot call'))).toHaveLength(1)
+    expect(arm.summary.costPerItem).toBeNull()
+    expect(arm.summary.listCostPerItem).toBeCloseTo(0.6, 6)
+  })
+
+  it('passes when every call matches the arm model', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: depsRecording([
+        { model: 'gpt-6-luna', costUsd: 0.001 },
+        { model: 'gpt-6-luna', costUsd: 0.001 },
+      ]),
+    })
+
+    const item = result.armResults[0]!.items[0]!
+    expect(item.ok).toBe(true)
+    expect(item.error).toBeUndefined()
+    expect(result.summary.failed).toBe(0)
+  })
+
+  it('labels a list-priced cost when the arm model has no DB price', async () => {
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [makeArm({ name: 'gpt-6', value: 'gpt-6-luna' })],
+      adapter: makeAdapter(),
+      items: [makeItem()],
+      deps: depsRecording([
+        { model: 'gpt-6-luna', costUsd: null, promptTokens: 1_000_000, cachedPromptTokens: 0, cacheWriteTokens: 0, completionTokens: 1_000_000 },
+      ]),
+    })
+
+    const summary = result.armResults[0]!.summary
+    expect(summary.costPerItem).toBeNull()
+    expect(summary.listCostPerItem).toBeCloseTo(0.6, 6)
+    expect(result.markdown).toContain('$0.6000 (list)')
+  })
+
+  it('does not check the model on custom arms', async () => {
+    const collector = makeCollector()
+    const decide = vi.fn(async (_item: ExperimentItem, ctx: { itemRunId: string }) => {
+      collector.push({ correlationId: ctx.itemRunId, model: 'gpt-5.6-luna', costUsd: 0.001 } as never)
+      return { ok: true, output: { isNonBrand: false, confidence: 'high' } }
+    })
+
+    const result = await runExperiment({
+      dataset: 'test-golden',
+      arms: [jevArm],
+      adapter: makeAdapter({ decide }),
+      items: [makeItem()],
+      deps: { ...makeJevDeps(), installSeams: () => ({ collector, restore: vi.fn() }) },
+    })
+
+    expect(result.armResults[0]!.items[0]!.ok).toBe(true)
   })
 })

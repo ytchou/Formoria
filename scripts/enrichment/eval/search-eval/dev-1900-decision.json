@@ -1,0 +1,16 @@
+{
+  "dataset": "situation-search-v3",
+  "sweepWinner": {
+    "id": "bm25f-k0.9-b0.5-w1-1-0.5-0.25",
+    "params": {
+      "scorer": "bm25f",
+      "k1": 0.9,
+      "b": 0.5,
+      "wA": 1,
+      "wB": 1,
+      "wC": 0.5,
+      "wD": 0.25
+    }
+  },
+  "holdoutGatePassed": false
+}

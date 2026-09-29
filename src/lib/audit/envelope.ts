@@ -26,8 +26,14 @@ import type { AuditSpec, AuditStatus } from "./types";
 export type AuditCallContext = {
   summary: Record<string, unknown>;
   promptTokens?: number | null;
+  /** Portion of `promptTokens` served from the provider's prompt cache. */
+  cachedPromptTokens?: number | null;
+  /** Prompt tokens written to the provider's prompt cache on this call. */
+  cacheWriteTokens?: number | null;
   completionTokens?: number | null;
   costUsd?: number | null;
+  /** The model the call was sent to; read by eval slot assertions. */
+  model?: string | null;
 };
 
 export type AuditedCallOptions<T> = {
@@ -52,8 +58,11 @@ type AuditCommon = {
   logTag: string | null;
 };
 
-/** Providers whose LLM calls are recorded as Langfuse generations in llm-audit.ts. */
-const LLM_PROVIDERS = ["openai"];
+/**
+ * Providers whose LLM calls are recorded as Langfuse generations instead of
+ * spans: openai in llm-audit.ts, typesafe in typesafe-audit.ts.
+ */
+const LLM_PROVIDERS = ["openai", "typesafe"];
 
 /**
  * Fire-and-forget Langfuse span for external non-LLM calls.
@@ -174,8 +183,11 @@ async function runAfterStart<T>(
         latencyMs,
         summary: finishSummary(),
         promptTokens: callContext.promptTokens,
+        cachedPromptTokens: callContext.cachedPromptTokens,
+        cacheWriteTokens: callContext.cacheWriteTokens,
         completionTokens: callContext.completionTokens,
         costUsd: callContext.costUsd,
+        model: callContext.model,
       }, options.wait);
     } catch {
       return result;
@@ -197,8 +209,11 @@ async function runAfterStart<T>(
         summary: finishSummary(),
         errorMessage: errorMessage(error),
         promptTokens: callContext.promptTokens,
+        cachedPromptTokens: callContext.cachedPromptTokens,
+        cacheWriteTokens: callContext.cacheWriteTokens,
         completionTokens: callContext.completionTokens,
         costUsd: callContext.costUsd,
+        model: callContext.model,
       }, options.wait);
     } catch {
       return Promise.reject(error);

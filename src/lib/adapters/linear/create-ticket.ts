@@ -6,7 +6,7 @@ const TIMEOUT_MS = 10_000;
 const ISSUE_CREATE_MUTATION = `
 mutation IssueCreate($input: IssueCreateInput!) {
   issueCreate(input: $input) {
-    issue { identifier }
+    issue { identifier url }
   }
 }
 `;
@@ -26,6 +26,7 @@ export type TicketSpec = TicketContent &
 
 export type TicketResult = {
   identifier: string;
+  url?: string;
 };
 
 function resolveLabel(label: string): string {
@@ -93,14 +94,15 @@ export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
 
       const json = (await response.json()) as {
         errors?: Array<{ message: string }>;
-        data: { issueCreate: { issue: { identifier: string } } };
+        data: { issueCreate: { issue: { identifier: string; url?: string } } };
       };
 
       if (json.errors?.length) {
         throw new Error(`Linear GraphQL error: ${json.errors[0].message}`);
       }
 
-      return { identifier: json.data.issueCreate.issue.identifier };
+      const { identifier, url } = json.data.issueCreate.issue;
+      return { identifier, ...(url ? { url } : {}) };
     },
   );
 }

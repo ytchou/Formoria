@@ -29,6 +29,26 @@ const SOCIAL_COLUMNS = [
 
 type SocialColumn = (typeof SOCIAL_COLUMNS)[number]
 
+/**
+ * Login-wall paths the platforms redirect an anonymous probe to. Facebook
+ * answers a scripted HEAD with a redirect to `/login/?next=...` and then a
+ * 400, so the status code alone reads as dead even though the profile is
+ * live. A probe that ends on one of these paths is blocked, never dead.
+ */
+const LOGIN_WALL_PATHS = ['/login', '/accounts/login']
+
+function isLoginWall(resolvedUrl: string | null): boolean {
+  if (!resolvedUrl) return false
+  try {
+    const { pathname } = new URL(resolvedUrl)
+    return LOGIN_WALL_PATHS.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    )
+  } catch {
+    return false
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Row shape
 // ---------------------------------------------------------------------------
@@ -121,7 +141,7 @@ export async function checkSocialLinks(
 
   await mapWithConcurrency(tasks, LINK_CHECK_CONCURRENCY, async (task) => {
     const result = await deps.checkUrl(task.url)
-    if (result.status === 'blocked') {
+    if (result.status === 'blocked' || isLoginWall(result.resolvedUrl)) {
       blocked += 1
     } else if (result.status === 'broken') {
       dead += 1

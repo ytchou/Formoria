@@ -173,6 +173,7 @@ describe("searchProductsBySituation", () => {
       filter_subcategories: ["tea"],
       filter_materials: ["ceramic"],
     });
+    expect(rpcArgs[1]).not.toHaveProperty("lexical_params");
 
     // Hydrated in RPC order (p1 first, then p2)
     expect(result.products.map((p) => p.id)).toEqual(["p1", "p2"]);
@@ -801,6 +802,158 @@ describe("searchProductsBySituation — intent parse", () => {
     );
 
     expect(result.intentParsed).toBe("failed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// appliedInference
+// ---------------------------------------------------------------------------
+
+describe("searchProductsBySituation — appliedInference", () => {
+  const outcome = {
+    parsed: {
+      category: "home" as const,
+      subcategory: "tea-and-coffee-ware",
+      materials: ["metal"],
+    },
+    cacheHit: false,
+  };
+
+  function depsWithRows(parseIntent: SearchDeps["parseIntent"]) {
+    return createDeps({
+      parseIntent,
+      rpc: vi.fn().mockResolvedValue({ data: [rpcRow("p1", 0.9)], error: null }),
+      hydrate: vi.fn().mockResolvedValue([product("p1", "Product A")]),
+    });
+  }
+
+  it("returns appliedInference with inferred category, subcategory and materials when no manual filters are set", async () => {
+    const deps = depsWithRows(vi.fn().mockResolvedValue(outcome));
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    const rpcParams = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(result.products).toHaveLength(1);
+    expect(result.appliedInference).toEqual({
+      category: rpcParams.filter_category,
+      subcategory: rpcParams.filter_subcategories[0],
+      materials: rpcParams.filter_materials,
+    });
+    expect(result.appliedInference).toEqual({
+      category: "home",
+      subcategory: "tea-and-coffee-ware",
+      materials: ["metal"],
+    });
+  });
+
+  it("manual filters win and are excluded from appliedInference", async () => {
+    const deps = depsWithRows(vi.fn().mockResolvedValue(outcome));
+
+    const result = await searchProductsBySituation(
+      {
+        query: "送禮推薦",
+        locale: "zh-TW",
+        enableIntentParse: true,
+        materials: ["wood"],
+      },
+      deps,
+    );
+
+    const rpcParams = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(rpcParams.filter_materials).toEqual(["wood"]);
+    expect(result.appliedInference.materials).toEqual([]);
+    expect(result.appliedInference.category).toBe("home");
+  });
+
+  it("inferred materials are dropped when the resolved category has no materials", async () => {
+    const deps = depsWithRows(
+      vi.fn().mockResolvedValue({
+        parsed: { category: "beauty", subcategory: null, materials: ["ceramic"] },
+        cacheHit: false,
+      }),
+    );
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    const rpcParams = (deps.rpc as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(rpcParams.filter_category).toBe("beauty");
+    expect(rpcParams.filter_materials).toBeNull();
+    expect(result.appliedInference.materials).toEqual([]);
+  });
+
+  it("hidden category is not reported", async () => {
+    const deps = depsWithRows(
+      vi.fn().mockResolvedValue({
+        parsed: { category: "food-drink", subcategory: "tea", materials: [] },
+        cacheHit: false,
+      }),
+    );
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    expect(result.appliedInference.category).toBeNull();
+    expect(result.appliedInference.subcategory).toBeNull();
+  });
+
+  it("subcategory dropped when manual category differs", async () => {
+    const deps = depsWithRows(vi.fn().mockResolvedValue(outcome));
+
+    const result = await searchProductsBySituation(
+      {
+        query: "送禮推薦",
+        locale: "zh-TW",
+        enableIntentParse: true,
+        category: "beauty",
+      },
+      deps,
+    );
+
+    expect(result.appliedInference.category).toBeNull();
+    expect(result.appliedInference.subcategory).toBeNull();
+  });
+
+  it("skipped or failed parse returns empty appliedInference", async () => {
+    const empty = { category: null, subcategory: null, materials: [] };
+
+    const skipped = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      depsWithRows(vi.fn().mockResolvedValue(outcome)),
+    );
+    expect(skipped.appliedInference).toEqual(empty);
+
+    const failed = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      depsWithRows(vi.fn().mockResolvedValue(null)),
+    );
+    expect(failed.appliedInference).toEqual(empty);
+  });
+
+  it("empty-result return path also carries appliedInference", async () => {
+    const deps = createDeps({
+      parseIntent: vi.fn().mockResolvedValue(outcome),
+      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", enableIntentParse: true },
+      deps,
+    );
+
+    expect(result.products).toEqual([]);
+    expect(result.appliedInference).toEqual({
+      category: "home",
+      subcategory: "tea-and-coffee-ware",
+      materials: ["metal"],
+    });
   });
 });
 

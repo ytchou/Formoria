@@ -28,7 +28,7 @@ import {
   EDITORIAL_REPAIR_AUDIT_PHASE,
   EDITORIAL_REPAIR_PROFILE,
 } from '../validators'
-import type { AgentModel } from '../../agents/runtime'
+import { AbnormalCompletionError, type AgentModel } from '../../agents/runtime'
 import type { ChatMessage, ChatToolDefinition } from '@/lib/services/openai-client'
 
 // ---------------------------------------------------------------------------
@@ -60,13 +60,20 @@ const AUDIT = {
   target: { type: 'brand' as const, id: '00000000-0000-4000-8000-000000000001' },
 }
 
-function fakeModel(responses: string[]) {
+type FakeReply = { content: string | null; refusal?: string; finishReason?: string }
+
+function fakeModel(responses: Array<string | FakeReply>) {
   let index = 0
   const invoke = vi.fn(
     async (
       _messages: ChatMessage[],
       _options?: { signal?: AbortSignal; tools?: ChatToolDefinition[] },
-    ) => ({ content: responses[Math.min(index++, responses.length - 1)] ?? null }),
+    ) => {
+      const reply = responses[Math.min(index++, responses.length - 1)]
+      return typeof reply === 'string' || reply === undefined
+        ? { content: reply ?? null }
+        : reply
+    },
   )
   return { model: { invoke } as AgentModel, invoke }
 }
@@ -139,6 +146,9 @@ describe('editorial cross-output validators', () => {
   // -------------------------------------------------------------------------
 
   it('repair_sends_system_and_user_as_plain_messages', async () => {
+    // The repair prompt is fetched without a fallback, so the beforeEach
+    // fallback-echo mock would yield undefined here.
+    mocks.fetchLangfusePrompt.mockResolvedValueOnce('mock-repair-prompt')
     const controller = new AbortController()
     const { model, invoke } = fakeModel([
       JSON.stringify({
@@ -165,13 +175,23 @@ describe('editorial cross-output validators', () => {
     const [messages, options] = invoke.mock.calls[0]!
     expect(messages).toHaveLength(2)
     expect(messages[0]!.role).toBe('system')
-    expect(messages[0]!.content).toContain('EditorialRepair JSON Schema')
+    // DEV-1864: the shape travels as a strict json_schema, not as prompt text.
+    expect(messages[0]!.content).toBe('mock-repair-prompt')
+    expect(messages[0]!.content).not.toContain('EditorialRepair JSON Schema')
     expect(messages[1]!.role).toBe('user')
     expect(JSON.parse(messages[1]!.content as string)).toMatchObject({
       fieldsToFix: ['description_en'],
       evidence: 'Founded in 2014 by two designers.',
     })
-    expect(options).toEqual({ signal: controller.signal })
+    expect(options).toEqual({
+      signal: controller.signal,
+      schema: {
+        name: 'editorial_repair',
+        schema: expect.objectContaining({
+          required: ['description', 'description_en', 'blurb', 'blurb_en'],
+        }),
+      },
+    })
 
     expect(repaired).toEqual({ description_en: CLEAN_EN })
   })
@@ -196,6 +216,45 @@ describe('editorial cross-output validators', () => {
     ])
 
     expect(repaired).toEqual({})
+  })
+
+  it('repair_refusal_throws_abnormal_completion', async () => {
+    const { model } = fakeModel([{ content: null, refusal: 'I cannot help with that.' }])
+
+    const attempt = repairEditorialCrossOutput({
+      patch: { description_en: ARTIFACT_EN },
+      failures: [{ field: 'description_en', reason: 'ai_artifact:^in a world where\\b' }],
+      model,
+    })
+
+    await expect(attempt).rejects.toBeInstanceOf(AbnormalCompletionError)
+    await expect(attempt).rejects.toMatchObject({ kind: 'refused' })
+  })
+
+  it('deps_repair_rethrows_abnormal_but_swallows_other_errors', async () => {
+    const failures = [{ field: 'description_en', reason: 'ai_artifact:^in a world where\\b' }]
+    const build = (model: AgentModel) =>
+      buildEditorialDeps({
+        runDescriptions: vi.fn(),
+        runStockists: vi.fn(),
+        runFaq: vi.fn(),
+        audit: AUDIT,
+        brandName: 'Test Brand',
+        model,
+        requestEvidence: vi.fn().mockResolvedValue(''),
+      })
+
+    const truncated = fakeModel([{ content: '{"description_en":"In a', finishReason: 'length' }])
+    await expect(
+      build(truncated.model).repairCrossOutput({ description_en: ARTIFACT_EN }, failures),
+    ).rejects.toMatchObject({ kind: 'truncated', detail: 'finish_reason=length' })
+
+    const broken = {
+      invoke: vi.fn().mockRejectedValue(new Error('openai 500: server exploded')),
+    } as unknown as AgentModel
+    await expect(
+      build(broken).repairCrossOutput({ description_en: ARTIFACT_EN }, failures),
+    ).resolves.toEqual({})
   })
 
   it('repair_keeps_original_when_model_output_still_fails', async () => {

@@ -1,15 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   parseExtractionResult,
-  detectBrandsBatch,
-  type DetectBatchItem,
-  type DetectResult,
+  detectBrand,
+  type DetectItem,
   detectSingleShape,
-  detectBatchShape,
-  classifySingleShape,
-  classifyBatchShape,
+  renderDetectUserMessage,
+  MAX_PROBE_URLS,
 } from "../category-classifier";
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 const promptMeta = { name: "detect", version: 2, source: "langfuse" as const };
 vi.mock("@/lib/langfuse/prompt", () => ({
@@ -20,11 +17,24 @@ vi.mock("@/lib/langfuse/prompt", () => ({
 }));
 
 const mockFetch = vi.fn();
-void (null as DetectResult | null);
 
-describe("detectBrandsBatch", () => {
+function modelAnswer(content: string) {
+  return {
+    ok: true,
+    json: async () => ({ choices: [{ message: { content } }] }),
+  };
+}
+
+function requestUserMessage(callIndex = 0): string | undefined {
+  const body = JSON.parse(
+    (mockFetch.mock.calls[callIndex][1] as { body: string }).body,
+  ) as { messages: Array<{ role: string; content: string }> };
+  return body.messages.find((m) => m.role === "user")?.content;
+}
+
+describe("detectBrand", () => {
   beforeEach(() => {
-    mockFetch.mockClear();
+    mockFetch.mockReset();
     vi.stubGlobal("fetch", mockFetch);
     vi.stubEnv("OPENAI_API_KEY", "test-key");
   });
@@ -32,224 +42,113 @@ describe("detectBrandsBatch", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
-  const brands: DetectBatchItem[] = [
-    {
+  const brand: DetectItem = {
+    slug: "my-brand",
+    name: "My Brand",
+    description: "Handmade soap",
+    website: "https://mybrand.com",
+  };
+
+  it("maps a single detect answer that omits categorySlug", async () => {
+    // The detect prompt no longer asks for a category, so the key is absent.
+    // The triage result must still carry the non-brand gate and the name/slug.
+    mockFetch.mockResolvedValueOnce(
+      modelAnswer(
+        JSON.stringify({
+          reasoning: "Clearly a product brand",
+          isNonBrand: false,
+          nonBrandReason: null,
+          brand_name: " My Brand ",
+          slug_generated: "my-brand",
+          confidence: "high",
+        }),
+      ),
+    );
+
+    const { value, calls } = await detectBrand(brand);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual({ attempted: 1, providerFailed: 0 });
+    expect(value).toEqual({
+      isNonBrand: false,
+      nonBrandReason: null,
+      brandName: "My Brand",
       slug: "my-brand",
-      name: "My Brand",
-      description: "Handmade soap",
-      website: "https://mybrand.com",
-    },
-    {
+      slugGenerated: "my-brand",
+      categorySlug: null,
+      confidence: "high",
+    });
+  });
+
+  it("carries a non-brand verdict and its reason", async () => {
+    mockFetch.mockResolvedValueOnce(
+      modelAnswer(
+        JSON.stringify({
+          reasoning: "This is a reseller",
+          isNonBrand: true,
+          nonBrandReason: "代購 (reseller)",
+          brand_name: null,
+          slug_generated: null,
+          confidence: "high",
+        }),
+      ),
+    );
+
+    const { value } = await detectBrand({
       slug: "some-reseller",
       name: "代購小舖",
       description: null,
       website: null,
-    },
-  ];
-
-  it("parses a detect response that omits categorySlug", async () => {
-    // The detect prompt no longer asks for a category, so the key is absent.
-    // The triage result must still carry the non-brand gate and the name/slug.
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "my-brand",
-                    reasoning: "Clearly a product brand",
-                    isNonBrand: false,
-                    nonBrandReason: null,
-                    brand_name: "My Brand",
-                    slug_generated: "my-brand",
-                    confidence: "high",
-                  },
-                  {
-                    slug: "some-reseller",
-                    reasoning: "This is a reseller",
-                    isNonBrand: true,
-                    nonBrandReason: "代購 (reseller)",
-                    brand_name: null,
-                    slug_generated: "some-reseller",
-                    confidence: "high",
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
     });
 
-    const { results } = await detectBrandsBatch(brands);
-
-    expect(results.size).toBe(2);
-    expect(results.get("my-brand")!.categorySlug).toBeNull();
-    expect(results.get("my-brand")!.brandName).toBe("My Brand");
-    expect(results.get("some-reseller")!.isNonBrand).toBe(true);
+    expect(value?.isNonBrand).toBe(true);
+    expect(value?.nonBrandReason).toBe("代購 (reseller)");
+    expect(value?.brandName).toBeNull();
+    expect(value?.slug).toBe("some-reseller");
   });
 
-  it("returns detect results for each brand in the batch", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "my-brand",
-                    reasoning: "A product brand",
-                    isNonBrand: false,
-                    nonBrandReason: null,
-                    brand_name: "My Brand",
-                    slug_generated: "my-brand",
-                    confidence: "high",
-                  },
-                  {
-                    slug: "some-reseller",
-                    reasoning: "This is a reseller",
-                    isNonBrand: true,
-                    nonBrandReason: "代購 (reseller)",
-                    brand_name: null,
-                    slug_generated: "some-reseller",
-                    confidence: "high",
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    });
+  it("reports a content failure, not a provider failure, when the model answers with junk", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockFetch.mockResolvedValueOnce(modelAnswer("not json at all"));
 
-    const { results } = await detectBrandsBatch(brands);
+    const { value, calls } = await detectBrand(brand);
 
-    expect(results.size).toBe(2);
-
-    const myBrand = results.get("my-brand");
-    expect(myBrand).toBeDefined();
-    expect(myBrand!.isNonBrand).toBe(false);
-    // Detect prompt no longer asks for category; always null
-    expect(myBrand!.categorySlug).toBeNull();
-    expect(myBrand!.slug).toBe("my-brand");
-    expect(myBrand!.slugGenerated).toBe("my-brand");
-    expect(myBrand!.confidence).toBe("high");
-
-    const reseller = results.get("some-reseller");
-    expect(reseller).toBeDefined();
-    expect(reseller!.isNonBrand).toBe(true);
-    expect(reseller!.nonBrandReason).toBe("代購 (reseller)");
-    expect(reseller!.slugGenerated).toBe("some-reseller");
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(value).toBeNull();
+    expect(calls).toEqual({ attempted: 1, providerFailed: 0 });
   });
 
-  // Content failure, not transport failure: a batch the model answered
-  // unusably is still worth retrying one brand at a time. A batch that never
-  // reached the provider is not — see the provider-failure test below.
-  it("falls back to individual calls when the batch response is unusable", async () => {
-    mockFetch
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: '{"not":"an array"}' } }],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [
+  it("rejects a batch-shaped answer instead of reading its first entry", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockFetch.mockResolvedValueOnce(
+      modelAnswer(
+        JSON.stringify({
+          results: [
             {
-              message: {
-                content: JSON.stringify({
-                  reasoning: "A product brand",
-                  isNonBrand: false,
-                  nonBrandReason: null,
-                  brand_name: "My Brand",
-                  slug_generated: "my-brand",
-                  confidence: "high",
-                }),
-              },
+              slug: "my-brand",
+              reasoning: "A product brand",
+              isNonBrand: false,
+              nonBrandReason: null,
+              brand_name: "My Brand",
+              slug_generated: "my-brand",
+              confidence: "high",
             },
           ],
         }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  reasoning: "This is a reseller",
-                  isNonBrand: true,
-                  nonBrandReason: "reseller",
-                  brand_name: null,
-                  slug_generated: "some-reseller",
-                  confidence: "high",
-                }),
-              },
-            },
-          ],
-        }),
-      });
-
-    const { results } = await detectBrandsBatch(brands);
-    expect(results.size).toBe(2);
-  });
-
-  it("chunks brands into batches of 20", async () => {
-    const largeBatch: DetectBatchItem[] = Array.from(
-      { length: 25 },
-      (_, i) => ({
-        slug: `brand-${i}`,
-        name: `Brand ${i}`,
-        description: null,
-        website: null,
-      }),
+      ),
     );
 
-    const makeResponse = (count: number) => ({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: Array.from({ length: count }, (_, i) => ({
-                  slug: `brand-${i}`,
-                  reasoning: "A brand",
-                  isNonBrand: false,
-                  nonBrandReason: null,
-                  brand_name: `Brand ${i}`,
-                  slug_generated: `brand-${i}`,
-                  confidence: "medium",
-                })),
-              }),
-            },
-          },
-        ],
-      }),
-    });
+    const { value, calls } = await detectBrand(brand);
 
-    mockFetch
-      .mockResolvedValueOnce(makeResponse(20))
-      .mockResolvedValueOnce(makeResponse(5));
-
-    const { results } = await detectBrandsBatch(largeBatch);
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(results.size).toBe(25);
+    expect(value).toBeNull();
+    expect(calls).toEqual({ attempted: 1, providerFailed: 0 });
   });
 
-  it("reports a provider failure and skips the per-brand fallback", async () => {
+  it("reports a provider failure on a non-2xx answer", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    // A spent account answers 429 to the batch call and would answer 429 to
-    // every single-brand retry too. One call, not one plus twenty.
     mockFetch.mockResolvedValue({
       ok: false,
       status: 429,
@@ -260,100 +159,256 @@ describe("detectBrandsBatch", () => {
       headers: new Headers(),
     });
 
-    const { results, calls } = await detectBrandsBatch(brands);
+    const { value, calls } = await detectBrand(brand);
 
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(results.size).toBe(0);
+    expect(value).toBeNull();
     expect(calls).toEqual({ attempted: 1, providerFailed: 1 });
+  });
+
+  it("issues no call without an API key", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+
+    const { value, calls } = await detectBrand(brand);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(value).toBeNull();
+    expect(calls).toEqual({ attempted: 0, providerFailed: 0 });
   });
 
   /**
    * DEV-1644 F10. `probeStatic` reads each known URL's <head>; before this the
    * result was collected and dropped, so a live site whose title says what the
-   * brand sells never reached the model. Both prompt sites render it — the
-   * batch one here, the single-brand retry below.
+   * brand sells never reached the model. DEV-1894 adds search results with
+   * ownership tags, the submitted website and failed probes.
    */
   it("probe_evidence_reaches_detect_prompt", async () => {
-    // Persistent, not `Once`: the assertion is on the REQUEST, and an empty
-    // result set is allowed to trigger the per-brand retry without the test
-    // caring which path it took.
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: JSON.stringify({ results: [] }) } }],
-      }),
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockFetch.mockResolvedValue(modelAnswer("{}"));
+
+    await detectBrand({
+      ...brand,
+      submittedWebsite: "https://mybrand.tw",
+      results: [
+        {
+          title: "My Brand",
+          snippet: "handmade soap in Taipei",
+          host: "mybrand.com",
+          match: "site",
+        },
+      ],
+      probes: [
+        {
+          url: "https://mybrand.com",
+          title: "My Brand Official Store",
+          description: "Handmade soap made in Taipei",
+          platform: "shopee",
+        },
+        { url: "https://mybrand.tw/", status: 404 },
+      ],
     });
 
-    await detectBrandsBatch([
-      {
-        ...brands[0],
-        probes: [
-          {
-            url: "https://mybrand.com",
-            title: "My Brand Official Store",
-            description: "Handmade soap made in Taipei",
-            platform: "shopee",
-          },
-        ],
-      },
-    ]);
-
-    const body = JSON.parse(
-      (mockFetch.mock.calls[0][1] as { body: string }).body,
-    ) as { messages: Array<{ role: string; content: string }> };
-    const userMessage = body.messages.find((m) => m.role === "user")?.content;
-
+    const userMessage = requestUserMessage();
+    expect(userMessage).toContain("品牌 slug：my-brand");
+    expect(userMessage).toContain("提交網址：https://mybrand.tw");
+    expect(userMessage).toContain(
+      "搜尋結果：My Brand — handmade soap in Taipei（mybrand.com，官網）",
+    );
     expect(userMessage).toContain(
       "探測：My Brand Official Store — Handmade soap made in Taipei (shopee)",
     );
+    expect(userMessage).toContain("探測：mybrand.tw — 無法連線（HTTP 404）");
   });
 
-  it("probe_evidence_reaches_the_single_brand_prompt", async () => {
-    // The per-brand retry runs on a content failure, so the batch answer is
-    // junk and the single call carries the same probe line.
+  it("detect_call_sends_rendered_message", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: "not json at all" } }],
-      }),
-    });
+    mockFetch.mockResolvedValue(modelAnswer("{}"));
+    const item: DetectItem = {
+      ...brand,
+      submittedWebsite: null,
+      results: [
+        { title: "Result", snippet: "text", host: "example.com", match: null },
+      ],
+      probes: [{ url: "https://mybrand.com", title: "Home" }],
+    };
 
-    await detectBrandsBatch([
-      {
-        ...brands[0],
-        probes: [{ url: "https://mybrand.com", title: "My Brand Official Store" }],
-      },
-    ]);
+    await detectBrand(item);
 
-    const singleBody = JSON.parse(
-      (mockFetch.mock.calls[1][1] as { body: string }).body,
-    ) as { messages: Array<{ role: string; content: string }> };
-    const userMessage = singleBody.messages.find(
-      (m) => m.role === "user",
-    )?.content;
-
-    expect(userMessage).toContain("探測：My Brand Official Store");
+    expect(requestUserMessage()).toBe(renderDetectUserMessage(item));
   });
 
-  it("does not report a provider failure when the model answers with junk", async () => {
+  it("audit context carries prompt meta from fetchLangfusePromptWithMeta", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    // Content failure, so the per-brand fallback is still worth paying for:
-    // the account is alive and a smaller prompt may parse.
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: "not json at all" } }],
-      }),
+    mockFetch.mockResolvedValueOnce(modelAnswer("{}"));
+
+    await detectBrand(brand);
+
+    const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
+    expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith("detect");
+  });
+});
+
+describe("renderDetectUserMessage", () => {
+  const base: DetectItem = {
+    slug: "my-brand",
+    name: "My Brand",
+    description: null,
+    website: null,
+  };
+
+  it("render_full_item_exact", () => {
+    const message = renderDetectUserMessage({
+      slug: "my-brand",
+      name: "My Brand",
+      description: "Handmade soap",
+      website: "https://shop.mybrand.com",
+      submittedWebsite: "https://mybrand.com",
+      results: [
+        {
+          title: "My Brand Official",
+          snippet: "Handmade soap from Taipei",
+          host: "mybrand.com",
+          match: "site",
+        },
+        {
+          title: "My Brand (@mybrand)",
+          snippet: "1,234 followers",
+          host: "instagram.com",
+          match: "instagram",
+        },
+        { title: "Soap roundup", host: "blog.example.com", match: null },
+      ],
+      probes: [
+        { url: "https://mybrand.com/gone", status: 404 },
+        {
+          url: "https://shop.mybrand.com",
+          title: "My Brand Shop",
+          description: "Soap and candles",
+          platform: "shopline",
+          instagramFollowers: 1234,
+        },
+      ],
     });
 
-    const { results, calls } = await detectBrandsBatch(brands);
+    expect(message).toBe(
+      [
+        "品牌 slug：my-brand",
+        "品牌名稱：My Brand",
+        "描述：Handmade soap",
+        "網站：https://shop.mybrand.com",
+        "提交網址：https://mybrand.com",
+        "搜尋結果：My Brand Official — Handmade soap from Taipei（mybrand.com，官網）",
+        "搜尋結果：My Brand (@mybrand) — 1,234 followers（instagram.com，IG 相符）",
+        "搜尋結果：Soap roundup（blog.example.com）",
+        "探測：My Brand Shop — Soap and candles (shopline)，IG 追蹤者 1,234",
+        "探測：mybrand.com — 無法連線（HTTP 404）",
+      ].join("\n"),
+    );
+  });
 
-    // 1 batch chunk + 1 single retry per brand.
-    expect(mockFetch).toHaveBeenCalledTimes(3);
-    expect(results.size).toBe(0);
-    expect(calls.providerFailed).toBe(0);
-    expect(calls.attempted).toBe(3);
+  it("render_missing_fields_use_无", () => {
+    const withEmpty = renderDetectUserMessage({
+      ...base,
+      submittedWebsite: null,
+      results: [],
+      probes: [],
+    });
+    const withAbsent = renderDetectUserMessage(base);
+
+    for (const message of [withEmpty, withAbsent]) {
+      expect(message).toBe(
+        [
+          "品牌 slug：my-brand",
+          "品牌名稱：My Brand",
+          "描述：無",
+          "網站：無",
+          "提交網址：無",
+        ].join("\n"),
+      );
+      expect(message).not.toContain("搜尋結果：");
+      expect(message).not.toContain("探測：");
+    }
+  });
+
+  it("render_caps_results_and_probes", () => {
+    const long = "x".repeat(400);
+    const message = renderDetectUserMessage({
+      ...base,
+      results: Array.from({ length: 15 }, (_, i) => ({
+        title: `Result ${i}`,
+        host: "example.com",
+        match: null,
+      })),
+      probes: Array.from({ length: 8 }, (_, i) => ({
+        url: `https://example${i}.com`,
+        title: long,
+        description: long,
+      })),
+    });
+    const lines = message.split("\n");
+    const resultLines = lines.filter((l) => l.startsWith("搜尋結果："));
+    const probeLines = lines.filter((l) => l.startsWith("探測："));
+
+    expect(resultLines).toHaveLength(10);
+    expect(probeLines).toHaveLength(MAX_PROBE_URLS);
+    // The 160-character cap bounds the head text; the platform and follower
+    // suffix is appended after it (none here).
+    for (const line of probeLines) {
+      expect(line.slice("探測：".length).length).toBeLessThanOrEqual(160);
+    }
+  });
+
+  it("render_long_ig_head_keeps_follower_count", () => {
+    const message = renderDetectUserMessage({
+      ...base,
+      probes: [
+        {
+          url: "https://www.instagram.com/mybrand/",
+          title: "t".repeat(300),
+          platform: "instagram",
+          instagramFollowers: 1234567,
+        },
+      ],
+    });
+    const probeLine = message
+      .split("\n")
+      .find((l) => l.startsWith("探測："));
+
+    expect(probeLine).toBe(
+      `探測：${"t".repeat(160)} (instagram)，IG 追蹤者 1,234,567`,
+    );
+  });
+
+  it("render_title_less_result_uses_snippet", () => {
+    const message = renderDetectUserMessage({
+      ...base,
+      results: [{ title: "", snippet: "Brand X opens", host: "news.tw", match: "site" }],
+    });
+
+    expect(message.split("\n")).toContain("搜尋結果：Brand X opens（news.tw，官網）");
+  });
+
+  it("render_reachable_headless_probe_is_not_unreachable", () => {
+    const message = renderDetectUserMessage({
+      ...base,
+      probes: [
+        { url: "https://spa.mybrand.com/", status: 200 },
+        { url: "https://gone.mybrand.com/", status: 404 },
+      ],
+    });
+
+    expect(message).not.toContain("HTTP 200");
+    expect(message.split("\n")).toContain("探測：gone.mybrand.com — 無法連線（HTTP 404）");
+  });
+
+  it("render_unreachable_without_status", () => {
+    const message = renderDetectUserMessage({
+      ...base,
+      probes: [{ url: "https://www.mybrand.com/" }],
+    });
+
+    // Probe hosts use the same bare-host form as result hosts.
+    expect(message.split("\n")).toContain("探測：mybrand.com — 無法連線");
+    expect(message).not.toContain("HTTP");
   });
 });
 
@@ -391,137 +446,5 @@ describe("structured output schemas", () => {
     for (const field of requiredFields) {
       expect(shapeKeys).toContain(field);
     }
-
-    // Batch shape wraps single fields in { results: [...] }
-    const batchShapeKeys = Object.keys(detectBatchShape.shape);
-    expect(batchShapeKeys).toContain("results");
-  });
-
-  it("classify_schema_has_enum_categories", () => {
-    // classifySingleShape must include a category field with L1 slugs
-    const shapeKeys = Object.keys(classifySingleShape.shape);
-    expect(shapeKeys).toContain("category");
-
-    const expectedSlugs = L1_CATEGORIES.map((c) => c.slug);
-    expect(classifySingleShape.shape.category.options).toEqual(expectedSlugs);
-
-    // Batch shape wraps in { results: [...] }
-    const batchShapeKeys = Object.keys(classifyBatchShape.shape);
-    expect(batchShapeKeys).toContain("results");
-  });
-
-  it("batch_triage_response_unwraps_results", async () => {
-    // parseTriageResponse must handle { results: [...] } wrapper from
-    // structured output
-    mockFetch.mockClear();
-    vi.stubGlobal("fetch", mockFetch);
-    vi.stubEnv("OPENAI_API_KEY", "test-key");
-
-    const testBrands: DetectBatchItem[] = [
-      {
-        slug: "test-brand",
-        name: "Test Brand",
-        description: "A test brand",
-        website: null,
-      },
-    ];
-
-    // Model returns { results: [...] } wrapper
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "test-brand",
-                    reasoning: "Clearly a product brand",
-                    isNonBrand: false,
-                    nonBrandReason: null,
-                    brand_name: "Test Brand",
-                    slug_generated: "test-brand",
-                    confidence: "high" as const,
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    });
-
-    const { results } = await detectBrandsBatch(testBrands);
-    expect(results.size).toBe(1);
-    expect(results.get("test-brand")!.isNonBrand).toBe(false);
-
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
-  });
-
-  it("batch_classification_unwraps_results", async () => {
-    // parseBatchClassification must handle { results: [...] } wrapper
-    // We test via the public classifyCategoryBatch function
-    const { classifyCategoryBatch } = await import("../category-classifier");
-
-    mockFetch.mockClear();
-    vi.stubGlobal("fetch", mockFetch);
-    vi.stubEnv("OPENAI_API_KEY", "test-key");
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    slug: "test-brand",
-                    reasoning: "Home goods brand",
-                    category: "home",
-                    confidence: "high",
-                  },
-                ],
-              }),
-            },
-          },
-        ],
-      }),
-    });
-
-    const { results } = await classifyCategoryBatch([
-      {
-        slug: "test-brand",
-        name: "Test Brand",
-        description: "Sells home goods",
-      },
-    ]);
-    expect(results.size).toBe(1);
-    expect(results.get("test-brand")!.categorySlug).toBe("home");
-
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
-  });
-
-  it("audit context carries prompt meta from fetchLangfusePromptWithMeta", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: JSON.stringify({ results: [{ slug: "test-brand", reasoning: "test", isNonBrand: false, nonBrandReason: null, brand_name: "Test", slug_generated: "test-brand", confidence: "high" }] }) } }],
-      }),
-    });
-    vi.stubGlobal("fetch", mockFetch);
-    vi.stubEnv("OPENAI_API_KEY", "test-key");
-
-    await detectBrandsBatch([{ slug: "test-brand", name: "Test", description: null, website: null }]);
-
-    const _body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    const { fetchLangfusePromptWithMeta } = await import("@/lib/langfuse/prompt");
-    expect(fetchLangfusePromptWithMeta).toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 });
