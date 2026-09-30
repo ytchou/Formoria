@@ -13,7 +13,7 @@ export function sanitizeDispatchError(error: unknown): string {
  */
 export async function dispatchCurationJob(
   jobId: string,
-): Promise<{ accepted: true; status: string }> {
+): Promise<void> {
   return auditedCall(
     { provider: "curation", operation: "dispatchCurationJob", kind: "service" },
     async (ctx) => {
@@ -31,8 +31,6 @@ export async function dispatchCurationJob(
           `Worker run request failed: ${sanitizeDispatchError(run.error)}`,
         );
       }
-
-      return { accepted: true as const, status: "requested" };
     },
   );
 }

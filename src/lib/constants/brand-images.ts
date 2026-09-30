@@ -26,16 +26,17 @@ export const MAX_BRAND_ACTIVE_SORT_ORDER = MAX_BRAND_ACTIVE_IMAGES - 1
 // Retire this once no brand exceeds MAX_BRAND_ACTIVE_IMAGES:
 //   select brand_id, count(*) from brand_images where status = 'active'
 //     group by brand_id having count(*) > 10;
-//
-// Also the parking `sort_order` for staged draft rows not yet placed in the
-// gallery (`stageAdminBrandReviewImage`). Invariant: the parking slot MUST sort
-// above every active row the table can hold, so a parked draft can never
-// collide with a real gallery position. It uses this value rather than
-// MAX_BRAND_ACTIVE_IMAGES because the display cap is 10 but legacy brands hold
-// active rows up to sort_order 13 — parking at the display cap lands *inside*
-// the occupied range for exactly the brands most likely to be re-edited.
-// Retiring this constant means giving the parking slot its own value first.
 export const MAX_BRAND_IMAGE_SELECTION = 24
+
+// Parking slot for staged draft rows that have not been placed in the gallery
+// yet. Invariant: this MUST sort above every active row the table can hold, so
+// a parked draft can never collide with a real gallery position.
+//
+// Above MAX_BRAND_ACTIVE_IMAGES on purpose: the display cap is 10, but legacy
+// brands hold active rows up to sort_order 13, so parking at the display cap
+// lands *inside* the occupied range for exactly the brands most likely to be
+// re-edited. Its own literal (not an alias) so knip reports no duplicate export.
+export const DRAFT_PARK_SORT_ORDER = 24
 
 // Over-cap images scoring at or above this threshold become candidates rather
 // than rejected. Derived from the staging p10 of active-image scores (73);

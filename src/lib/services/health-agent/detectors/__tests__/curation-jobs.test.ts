@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { curationJobsDetector } from '../curation-jobs'
 import { stableFingerprint } from '../../contracts'
 import type { DetectorContext } from '../../types'
@@ -269,6 +269,52 @@ describe('curation-jobs detector', () => {
         ctx({ deps: { supabase: fakeSupabase(jobs, []) } }),
       )
       expect(findings.some((f) => f.fingerprint === cronMissedFp)).toBe(false)
+    })
+  })
+
+  describe('staging', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('skips cron-missed and stranded-pending in staging, where the worker does not run', async () => {
+      vi.stubEnv('FORMORIA_DEPLOYMENT_ENV', 'staging')
+      const jobs: JobRow[] = [
+        {
+          id: 'p-stranded',
+          status: 'pending',
+          dispatch_status: 'dispatched',
+          dispatch_error: null,
+          heartbeat_at: null,
+          completed_at: null,
+          created_at: new Date(Date.now() - 2 * HOUR).toISOString(),
+          succeeded_count: 0,
+          failed_count: 0,
+          trigger: 'admin',
+          run_after: new Date(Date.now() - 2 * HOUR).toISOString(),
+        },
+        {
+          id: 'p-dispatch-failed',
+          status: 'pending',
+          dispatch_status: 'failed',
+          dispatch_error: 'worker unreachable',
+          heartbeat_at: null,
+          completed_at: null,
+          created_at: new Date(Date.now() - 2 * HOUR).toISOString(),
+          succeeded_count: 0,
+          failed_count: 0,
+          trigger: 'admin',
+          run_after: new Date(Date.now() - 2 * HOUR).toISOString(),
+        },
+      ]
+
+      const findings = await curationJobsDetector.run(
+        ctx({ deps: { supabase: fakeSupabase(jobs, []) } }),
+      )
+      expect(findings.some((f) => f.fingerprint.includes('cron-missed'))).toBe(false)
+      expect(findings.some((f) => f.fingerprint.includes('stranded-pending'))).toBe(false)
+      // The other checks still run in staging.
+      expect(findings.some((f) => f.fingerprint.includes('dispatch-failed'))).toBe(true)
     })
   })
 

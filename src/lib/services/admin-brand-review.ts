@@ -2,6 +2,7 @@ import type { Brand } from "@/lib/types";
 import { auditedCall } from "@/lib/audit";
 import { ValidationError } from "@/lib/errors";
 import {
+  DRAFT_PARK_SORT_ORDER,
   isLogoImageTags,
   MAX_BRAND_IMAGE_SELECTION,
 } from "@/lib/constants/brand-images";
@@ -159,8 +160,8 @@ export async function stageAdminBrandReviewImage(input: {
           status: "draft",
           // Parked above every active row until the reviewer places the image, so
           // it can never collide with a real gallery position. See
-          // MAX_BRAND_IMAGE_SELECTION for the invariant.
-          sort_order: MAX_BRAND_IMAGE_SELECTION,
+          // DRAFT_PARK_SORT_ORDER for the invariant.
+          sort_order: DRAFT_PARK_SORT_ORDER,
           width: input.width,
           height: input.height,
         })

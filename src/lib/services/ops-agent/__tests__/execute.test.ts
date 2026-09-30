@@ -59,7 +59,7 @@ describe("refresh_brand kind", () => {
         { slug: "test-brand", name: "Test Brand", submissionId: "sub-1", error: null },
       ]),
       enqueueAdminCurationJob: vi.fn().mockResolvedValue({ id: "job-1" }),
-      dispatchCurationJob: vi.fn().mockResolvedValue({ accepted: true, status: "accepted" }),
+      dispatchCurationJob: vi.fn().mockResolvedValue(undefined),
     });
 
     const result = await executeProposal(
@@ -131,7 +131,7 @@ describe("rerun_job kind", () => {
   it("rerun returns the recovery child and target counts", async () => {
     const deps = makeDeps({
       enqueueCurationRecovery: vi.fn().mockResolvedValue({ job: { id: "job-rerun-1" }, counts: { total: 2, failed: 1, cancelled: 1 } }),
-      dispatchCurationJob: vi.fn().mockResolvedValue({ accepted: true, status: "accepted" }),
+      dispatchCurationJob: vi.fn().mockResolvedValue(undefined),
     });
 
     const result = await executeProposal(
@@ -156,7 +156,7 @@ describe("rerun_job kind", () => {
   it("resume returns one recovery child and target counts", async () => {
     const deps = makeDeps({
       enqueueCurationRecovery: vi.fn().mockResolvedValue({ job: { id: "job-resume-1" }, counts: { total: 3, failed: 2, cancelled: 1 } }),
-      dispatchCurationJob: vi.fn().mockResolvedValue({ accepted: true, status: "accepted" }),
+      dispatchCurationJob: vi.fn().mockResolvedValue(undefined),
     });
 
     const result = await executeProposal(

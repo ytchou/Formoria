@@ -9,6 +9,11 @@ import {
   CURATION_CRON_MAX_GAP_MS,
   CURATION_STRANDED_PENDING_MS,
 } from '@/lib/constants/curation'
+import { isStagingEnvironment } from '@/lib/deployment-environment'
+import {
+  cronAgeHours,
+  readLatestCronJob,
+} from '@/lib/services/curation-cron-freshness'
 import { stableFingerprint, type HealthFinding } from '../contracts'
 import type { Detector, DetectorContext } from '../types'
 import { pagedRead, type PageableQuery } from '../paged-read'
@@ -206,22 +211,17 @@ export const curationJobsDetector: Detector = {
       }
     }
 
-    // 5. Cron missed: the newest scheduled job is too old (or none exists)
-    const { data: latestCron, error: latestCronError } = await supabase
-      .from('curation_jobs')
-      .select('id, created_at')
-      .eq('trigger', 'cron')
-      .order('created_at', { ascending: false })
-      .range(0, 0)
-    if (latestCronError) throw latestCronError
+    // No curation worker is deployed in staging, so checks 5 and 6 would
+    // report its absence as a fault on every run.
+    if (isStagingEnvironment()) return findings
 
-    const latest = (latestCron as Array<Pick<JobRow, 'id' | 'created_at'>> | null)?.at(0)
+    // 5. Cron missed: the newest scheduled job is too old (or none exists)
+    const latest = await readLatestCronJob(supabase)
     const latestAgeMs = latest?.created_at
       ? now - new Date(latest.created_at).getTime()
       : null
     if (latestAgeMs === null || latestAgeMs > CURATION_CRON_MAX_GAP_MS) {
-      const ageHours =
-        latestAgeMs === null ? null : Math.round(latestAgeMs / 3_600_000)
+      const ageHours = latestAgeMs === null ? null : cronAgeHours(latestAgeMs)
       findings.push({
         source: 'pipeline',
         fingerprint: stableFingerprint('pipeline', 'cron-missed', 'curation-worker'),

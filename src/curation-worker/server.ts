@@ -92,14 +92,18 @@ await bootWorker({
 // ---------------------------------------------------------------------------
 
 // Stop claiming new jobs after 4h so a run ends well before the next 6h slot.
-// Ceiling: a job claimed just before 4h may itself run long (max observed
-// 223 min, 2026-10). Upgrade path: make this env-configurable if a legitimate
-// queue ever needs longer than one slot to drain.
 const SOFT_DEADLINE_MS = 4 * 60 * 60_000;
 
-// 5h45m keeps a hung run from skipping the next 6h slot; raise both constants
-// if a legitimate job ever exceeds ~4h (max observed 223 min, 2026-10).
+// 5h45m keeps a hung run from skipping the next 6h slot.
+// Ceiling: the soft deadline is not derived from the cap. A job claimed later
+// than HARD_CAP_MS minus the longest job (~2h with the 223-min max observed
+// 2026-10) can be cut off by the cap and cancelled mid-run. Upgrade path: if
+// long jobs become common, derive SOFT_DEADLINE_MS as HARD_CAP_MS minus the
+// max expected job duration.
 const HARD_CAP_MS = 5 * 60 * 60_000 + 45 * 60_000;
+
+// Bounds the hard-cap exit path: cancel, report, and flush are unbounded awaits.
+const HARD_CAP_EXIT_BACKSTOP_MS = 60_000;
 
 const WALL_CLOCK_CAP_REASON = "Worker wall-clock cap reached";
 
@@ -108,9 +112,14 @@ const WALL_CLOCK_CAP_REASON = "Worker wall-clock cap reached";
 // ---------------------------------------------------------------------------
 
 let currentJobId: string | null = null;
-let hardCapRun: Promise<never> | null = null;
+// Set by the first exit; every later exit request is a no-op.
+let exiting = false;
+// Once the cap fires it owns the exit, the cancellation, and the report.
+let hardCapFired = false;
 
-async function flushAndExit(code: number): Promise<never> {
+async function flushAndExit(code: number): Promise<void> {
+  if (exiting) return;
+  exiting = true;
   try {
     await flushLangfuse();
   } catch {
@@ -120,7 +129,11 @@ async function flushAndExit(code: number): Promise<never> {
   process.exit(code);
 }
 
-async function onHardCap(): Promise<never> {
+async function onHardCap(): Promise<void> {
+  // Not unref'd: it must fire even if a cancel, report, or flush below hangs.
+  setTimeout(() => process.exit(1), HARD_CAP_EXIT_BACKSTOP_MS);
+  if (exiting) return;
+  hardCapFired = true;
   console.error(
     `[curation-worker] wall-clock cap reached after ${HARD_CAP_MS / 60_000} min — cancelling job ${currentJobId ?? "(none)"} and exiting`,
   );
@@ -139,10 +152,10 @@ async function onHardCap(): Promise<never> {
   } catch {
     /* reporting must not block the exit */
   }
-  return flushAndExit(1);
+  await flushAndExit(1);
 }
 
-async function main(): Promise<never> {
+async function main(): Promise<void> {
   logWorkerBuildInfo("curation-worker");
   // Which database this worker will actually write to, verified at boot rather
   // than inferred from the environment name.
@@ -151,9 +164,8 @@ async function main(): Promise<never> {
   );
 
   const startedAt = Date.now();
-  setTimeout(() => {
-    hardCapRun = onHardCap();
-  }, HARD_CAP_MS).unref();
+  // Not unref'd: a hung job must still hit the cap.
+  setTimeout(() => void onHardCap(), HARD_CAP_MS);
 
   let exitCode = 0;
   try {
@@ -162,6 +174,9 @@ async function main(): Promise<never> {
         softDeadlineAt: startedAt + SOFT_DEADLINE_MS,
         onJobClaimed: (job) => {
           currentJobId = job.id;
+        },
+        onJobSettled: () => {
+          currentJobId = null;
         },
       }),
     );
@@ -174,17 +189,19 @@ async function main(): Promise<never> {
   } catch (error) {
     console.error("[curation-cron]", sanitizeJobError(error));
     exitCode = 1;
-    try {
-      await reportWorkerFailure("cron", error);
-    } catch {
-      /* reporting must not block the exit */
+    // The cap already reported; this failure is its cancellation.
+    if (!hardCapFired) {
+      try {
+        await reportWorkerFailure("cron", error);
+      } catch {
+        /* reporting must not block the exit */
+      }
     }
-  } finally {
-    // The hard cap owns the exit once it fires: it must finish cancelling
-    // and reporting before the process goes away.
-    if (hardCapRun) await hardCapRun;
   }
-  return flushAndExit(exitCode);
+  // The cap owns the exit once it fires: it must finish cancelling and
+  // reporting before the process goes away.
+  if (hardCapFired) return;
+  await flushAndExit(exitCode);
 }
 
 void main();

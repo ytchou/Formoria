@@ -228,7 +228,7 @@ function targetSlugs(argv: readonly string[], cohort: Cohort): string[] {
 }
 
 async function main(): Promise<void> {
-  const { argv } = loadScriptTarget();
+  const { argv, target } = loadScriptTarget();
   const cohort = await loadCohort();
   const logPath = resolve(
     snapshotDir(cohort),
@@ -236,14 +236,21 @@ async function main(): Promise<void> {
   );
   const dryRun = hasFlag(argv, "--dry-run");
   const viaWorker = hasFlag(argv, "--via-worker");
+  // Checked before any enqueue or write: the worker reads production, so a
+  // staging-targeted run would enqueue on staging and dispatch production.
+  if (viaWorker && target !== "production") {
+    throw new Error(
+      "--via-worker starts the production curation-worker; pass --target production, or omit --via-worker to run in-process.",
+    );
+  }
   const task = targetTask(argv);
   // Recorded alongside the task so a log stays readable after CURATION_TASKS
   // changes shape — the task name alone would not say what actually ran.
   const phases = phasesForTask(task);
-  // Enqueue and stop. The deployed worker's drain loop claims the next pending
-  // job as soon as it finishes its current one (runQueuedJobs -> claimNextCurationJob),
-  // so leaving a job pending IS the queue — no dispatch, no poller, nothing on
-  // this machine to keep alive. The trade is that step 4 never runs for these
+  // Enqueue and stop. The jobs wait as `pending` for the next scheduled
+  // curation-worker run (0 4,10,16,22 UTC) or an active run's drain, so leaving
+  // a job pending IS the queue — no dispatch, no poller, nothing on this
+  // machine to keep alive. The trade is that step 4 never runs for these
   // jobs: the refresh submissions wait in the admin review queue and are
   // applied from there once the job reaches `completed`.
   const enqueueOnly = hasFlag(argv, "--enqueue-only");

@@ -1,6 +1,11 @@
 import { auditedCall } from "@/lib/audit";
 import { CURATION_CRON_MAX_GAP_MS } from "@/lib/constants/curation";
+import { isStagingEnvironment } from "@/lib/deployment-environment";
 import { createServiceClient } from "@/lib/supabase/service";
+import {
+  cronAgeHours,
+  readLatestCronJob,
+} from "@/lib/services/curation-cron-freshness";
 import { checkMitRegistryHealth } from "@/lib/services/mit-registry";
 import {
   SERVICE_REGISTRY,
@@ -246,15 +251,7 @@ async function turnstileHealthResult(response: Response): Promise<CheckResult> {
 }
 
 async function readLatestCronJobCreatedAt(): Promise<string | null> {
-  const { data, error } = await createServiceClient()
-    .from("curation_jobs")
-    .select("created_at")
-    .eq("trigger", "cron")
-    .order("created_at", { ascending: false })
-    .limit(1);
-  if (error) throw error;
-  return (data as Array<{ created_at: string | null }> | null)?.at(0)
-    ?.created_at ?? null;
+  return (await readLatestCronJob(createServiceClient()))?.created_at ?? null;
 }
 
 /**
@@ -269,12 +266,19 @@ export async function checkCurationWorkerHealth({
   readLatestCronCreatedAt?: () => Promise<string | null>;
   now?: () => number;
 } = {}): Promise<CheckResult> {
+  // No curation worker is deployed in staging, so a stale cron there is expected.
+  if (isStagingEnvironment()) {
+    return {
+      status: "unconfigured",
+      message: "Curation worker runs in production only",
+    };
+  }
   const createdAt = await readLatestCronCreatedAt();
   if (!createdAt) {
     return { status: "down", message: "No scheduled run on record" };
   }
   const ageMs = now() - new Date(createdAt).getTime();
-  const ageHours = Math.floor(ageMs / 3_600_000);
+  const ageHours = cronAgeHours(ageMs);
   return ageMs > CURATION_CRON_MAX_GAP_MS
     ? {
         status: "down",

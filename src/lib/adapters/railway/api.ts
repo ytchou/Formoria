@@ -8,6 +8,9 @@ const E2E_NIGHTLY_SERVICE_NAME = "e2e-nightly-agent";
 
 // Production environment. curation-worker exists only in production; staging
 // runs curation in-process (scripts/enrichment/run/refresh.ts).
+// Ceiling: hardcoded to production because no other environment has a worker.
+// Upgrade path: read a per-environment variable if staging ever gets one.
+// Callers must go through dispatchCurationJob, which carries the staging guard.
 const CURATION_WORKER_ENVIRONMENT_ID = "d2c107d8-95e4-4467-a972-fbf719593dc3";
 const CURATION_WORKER_SERVICE_NAME = "curation-worker";
 

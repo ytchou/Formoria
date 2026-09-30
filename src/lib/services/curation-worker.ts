@@ -22,13 +22,11 @@ export type ScheduledCurationRun = {
 
 /** Injectable seams, defaulting to the real services (see ops-agent ExecuteDeps). */
 export type CurationWorkerDeps = {
-  recoverStaleJobs: () => Promise<unknown>;
-  ensureAutomaticRetries: () => Promise<unknown>;
-  enqueueScheduledSubmissionJob: (
-    scheduledFor: Date,
-  ) => Promise<CurationJob | null>;
-  claimNextCurationJob: (workerToken: string) => Promise<CurationJob | null>;
-  runJob: (job: CurationJob, workerToken: string) => Promise<EnrichmentSummary>;
+  recoverStaleJobs: typeof recoverStaleJobs;
+  ensureAutomaticRetries: typeof ensureAutomaticRetries;
+  enqueueScheduledSubmissionJob: typeof enqueueScheduledSubmissionJob;
+  claimNextCurationJob: typeof claimNextCurationJob;
+  runJob: typeof runJob;
 };
 
 const defaultDeps: CurationWorkerDeps = {
@@ -44,6 +42,8 @@ type ScheduledCurationOptions = {
   softDeadlineAt: number;
   /** Called right after each successful claim, before the job runs. */
   onJobClaimed: (job: CurationJob) => void;
+  /** Called once each claimed job's run resolves or rejects. */
+  onJobSettled: (job: CurationJob) => void;
   deps?: CurationWorkerDeps;
 };
 
@@ -77,10 +77,15 @@ export async function runScheduledCuration(
 
         // Each job gets its own correlation id so its audit rows group apart
         // from the sweep's and from the next job's.
-        const summary = await runWithAuditContext(
-          { correlationId: workerToken },
-          () => deps.runJob(job, workerToken),
-        );
+        let summary: EnrichmentSummary;
+        try {
+          summary = await runWithAuditContext(
+            { correlationId: workerToken },
+            () => deps.runJob(job, workerToken),
+          );
+        } finally {
+          options.onJobSettled(job);
+        }
         processed += 1;
 
         // The breaker only trips when every LLM call fails at the provider,

@@ -37,10 +37,7 @@ describe('dispatchCurationJob', () => {
       .mockResolvedValueOnce(lookupResponse())
       .mockResolvedValueOnce(Response.json({ data: { deploymentInstanceExecutionCreate: true } }))
 
-    await expect(dispatchCurationJob(JOB_ID)).resolves.toEqual({
-      accepted: true,
-      status: 'requested',
-    })
+    await expect(dispatchCurationJob(JOB_ID)).resolves.toBeUndefined()
 
     expect(fetch).toHaveBeenCalledTimes(2)
     const mutation = JSON.parse(vi.mocked(fetch).mock.calls[1]![1]!.body as string) as {

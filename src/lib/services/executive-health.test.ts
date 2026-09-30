@@ -299,6 +299,22 @@ describe("executive health", () => {
       expect(result.message).toContain("9h");
     });
 
+    it("curation worker check is unconfigured in staging, where the worker does not run", async () => {
+      vi.stubEnv("FORMORIA_DEPLOYMENT_ENV", "staging");
+      const readLatestCronCreatedAt = vi.fn(async () => null);
+      try {
+        await expect(
+          checkCurationWorkerHealth({ readLatestCronCreatedAt, now: () => now }),
+        ).resolves.toEqual({
+          status: "unconfigured",
+          message: "Curation worker runs in production only",
+        });
+        expect(readLatestCronCreatedAt).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
     it("curation worker check is down when no cron job exists", async () => {
       await expect(
         checkCurationWorkerHealth({

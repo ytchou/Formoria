@@ -36,7 +36,7 @@ export type ExecuteDeps = {
     dryRun: boolean;
     startedBy: string;
   }) => Promise<{ id: string }>;
-  dispatchCurationJob: (jobId: string) => Promise<unknown>;
+  dispatchCurationJob: (jobId: string) => Promise<void>;
   enqueueCurationRecovery: (input: CurationRecoveryInput) => Promise<{ job: { id: string }; counts: CurationRecoveryCounts }>;
   dispatchWorkflow: () => Promise<{ ok: true } | { ok: false; error: string }>;
   findInFlightDispatch: () => Promise<OpsDispatch | null>;
