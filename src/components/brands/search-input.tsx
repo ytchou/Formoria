@@ -7,6 +7,8 @@ import { localizePath } from '@/i18n/locale-preference'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
 import { SearchFieldShell } from '@/components/search/search-field-shell'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import {
   trackSearchExecuted,
   trackSearchResultClicked,
@@ -26,6 +28,10 @@ interface SearchInputProps {
   formAriaLabel?: string
   showAutocomplete?: boolean
   announceLoading?: boolean
+  /** Visible label above the field. The searchbox keeps its own accessible name. */
+  label: string
+  /** Visible primary submit button beside the field. */
+  submitLabel: string
 }
 
 function SearchInput({
@@ -35,7 +41,9 @@ function SearchInput({
   formAriaLabel,
   showAutocomplete = true,
   announceLoading = true,
-}: SearchInputProps = {}) {
+  label,
+  submitLabel,
+}: SearchInputProps) {
   const t = useTranslations('brands')
   const locale = useLocale()
   const { filters, isPending, setSearch } = useFilterParams()
@@ -48,16 +56,26 @@ function SearchInput({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputVersionRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
+  // Whether the field holds an edit the visitor typed since the value was last
+  // applied to the URL — by a submit, or because the page opened (or navigated)
+  // with `?search=`. Suggestions only open for typed edits, so neither a
+  // debounce re-run (e.g. `setSearch` changing identity after the URL update)
+  // nor a link to a search page opens the dropdown uninvited.
+  const [hasEdits, setHasEdits] = useState(false)
   const containerRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
   // Per-instance, not a module constant: the homepage renders this field twice
   // at `md+` (hero and nav), and one shared listbox id pointed `aria-controls`
   // at whichever list happened to be first in the DOM.
   const suggestionsId = useId()
+  const inputId = useId()
 
   if (filters.search !== lastUrlSearch) {
     setLastUrlSearch(filters.search)
     setValue(filters.search)
+    // A URL-driven value (back/forward, a chip removal, clear-all) is already
+    // applied; it must not open suggestions either.
+    setHasEdits(false)
   }
 
   const fetchSuggestions = useCallback(async (q: string) => {
@@ -105,6 +123,7 @@ function SearchInput({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!hasEdits) return
 
     debounceRef.current = setTimeout(() => {
       if (!redirectTo) {
@@ -127,7 +146,7 @@ function SearchInput({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [fetchSuggestions, redirectTo, setSearch, showAutocomplete, value])
+  }, [fetchSuggestions, hasEdits, redirectTo, setSearch, showAutocomplete, value])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -149,6 +168,7 @@ function SearchInput({
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     inputVersionRef.current += 1
+    setHasEdits(true)
     setValue(e.target.value)
     setIsFetchingSuggestions(showAutocomplete && e.target.value.trim().length >= 2)
   }
@@ -156,6 +176,7 @@ function SearchInput({
   function handleClear() {
     abortRef.current?.abort()
     inputVersionRef.current += 1
+    setHasEdits(false)
     setValue('')
     if (!redirectTo) {
       setSearch('')
@@ -189,18 +210,33 @@ function SearchInput({
       handleSelect(suggestions[selectedIndex].slug, selectedIndex)
       return
     }
+    if (!redirectTo) {
+      // This page's results follow the field after a 200ms debounce; a submit
+      // (Enter or the submit button) applies the pending value now instead.
+      // The submit also ends any suggestion work: the pending fetch is aborted
+      // and invalidated, and the busy state it set in handleChange is reset
+      // here, because setSearch is a no-op when the term is already in the URL.
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      abortRef.current?.abort()
+      inputVersionRef.current += 1
+      setHasEdits(false)
+      setSearch(value)
+      setSuggestions([])
+      setShowDropdown(false)
+      setSelectedIndex(-1)
+      setIsFetchingSuggestions(false)
+      return
+    }
     const q = (new FormData(e.currentTarget).get('q') as string)?.trim() ?? ''
     if (q) {
       // No search event here. This form only knows `suggestions` — the typeahead's
       // list, which answers a different query, caps at 5, and is still empty inside
       // the 200ms debounce. SearchResultsTracker emits from the results page, where
       // the real total is known (DEV-1412).
-      if (redirectTo) {
-        // Use native navigation for cross-page redirects — router.push
-        // intermittently fails in WebKit when navigating from / to /brands.
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-        window.location.href = `${localizePath(redirectTo, locale)}?search=${encodeURIComponent(q)}`
-      }
+      // Use native navigation for cross-page redirects — router.push
+      // intermittently fails in WebKit when navigating from / to /brands.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = `${localizePath(redirectTo, locale)}?search=${encodeURIComponent(q)}`
     }
   }
 
@@ -233,7 +269,7 @@ function SearchInput({
       aria-label={formAriaLabel ?? t('search.aria')}
       aria-busy={isBusy}
       onSubmit={handleSubmit}
-      className={cn('relative w-full max-w-md', className)}
+      className={cn('w-full space-y-2', className)}
       data-ph-no-autocapture
     >
       {announceLoading ? (
@@ -242,36 +278,46 @@ function SearchInput({
         </span>
       ) : null}
 
-      <SearchFieldShell
-        value={value}
-        onChange={handleChange}
-        onClear={handleClear}
-        busy={isBusy}
-        clearLabel={t('search.clear')}
-        inputProps={{
-          name: 'q', type: 'search',
-          'aria-label': t('search.aria'),
-          'aria-autocomplete': 'list',
-          'aria-controls': showDropdown ? suggestionsId : undefined,
-          'aria-activedescendant': showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
-            ? searchSuggestionOptionId(suggestionsId, suggestions[selectedIndex].id) : undefined,
-          placeholder: placeholder ?? t('search.placeholder'),
-          maxLength: 100, onKeyDown: handleKeyDown,
-        }}
-      />
+      <Label htmlFor={inputId} className="type-label">
+        {label}
+      </Label>
 
-      {/* Hidden submit button ensures implicit form submission works in all browsers (WebKit) */}
-      <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+      <div className="flex items-center gap-2">
+        {/* The dropdown anchors to the field, not to the field plus the button. */}
+        <div className="relative min-w-0 flex-1">
+          <SearchFieldShell
+            value={value}
+            onChange={handleChange}
+            onClear={handleClear}
+            busy={isBusy}
+            clearLabel={t('search.clear')}
+            inputProps={{
+              id: inputId, name: 'q', type: 'search',
+              'aria-label': t('search.aria'),
+              'aria-autocomplete': 'list',
+              'aria-controls': showDropdown ? suggestionsId : undefined,
+              'aria-activedescendant': showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
+                ? searchSuggestionOptionId(suggestionsId, suggestions[selectedIndex].id) : undefined,
+              placeholder: placeholder ?? t('search.placeholder'),
+              maxLength: 100, onKeyDown: handleKeyDown,
+            }}
+          />
 
-      {showDropdown && (
-        <SearchSuggestions
-          id={suggestionsId}
-          suggestions={suggestions}
-          selectedIndex={selectedIndex}
-          onSelect={handleSelect}
-          query={value}
-        />
-      )}
+          {showDropdown && (
+            <SearchSuggestions
+              id={suggestionsId}
+              suggestions={suggestions}
+              selectedIndex={selectedIndex}
+              onSelect={handleSelect}
+              query={value}
+            />
+          )}
+        </div>
+
+        <Button type="submit" variant="primary">
+          {submitLabel}
+        </Button>
+      </div>
     </form>
   )
 }

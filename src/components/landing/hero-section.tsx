@@ -31,7 +31,8 @@ export default async function HeroSection() {
             rotating brand blurb as the homepage snippet. */}
         <span className="block type-eyebrow text-ink-soft">{t("eyebrow")}</span>
 
-        {/* The consumer promise, verbatim. `type-display` from `md` up; the
+        {/* The consumer promise, in its display form (no closing 。, per
+            brand-voice.md). `type-display` from `md` up; the
             page-title role below it, because 46px zh-TW characters overflow a
             390px viewport at this string's length. */}
         <h1 className="mt-4 type-page-title md:type-display text-balance">
@@ -50,7 +51,6 @@ export default async function HeroSection() {
           >
             <ProductSearchBoxCompact
               src="hero"
-              visibleLabel
               placeholder={t("searchPlaceholder")}
               label={t("searchLabel")}
               className="max-w-none flex-1"

@@ -77,7 +77,7 @@
     "heading": "精選商品",
     "subheading": "為日常找到更適合的選擇",
     "emptyState": "目前還沒有符合條件的商品",
-    "resultCount": "{count} 件商品",
+    "resultCount": "共 {count} 件商品",
     "moreComingSoon": "更多商品持續收錄中",
     "filters": {
       "subcategory": "子分類",
@@ -92,17 +92,20 @@
       "sortAlphabetical": "依名稱排序",
       "sortRelevance": "相關度",
       "resultCount": "{count} 件商品",
-      "sortLabel": "排序",
+      "sortLabel": "排序方式",
       "query": "搜尋",
       "category": "分類",
-      "inferred": "自動判斷"
+      "inferred": "自動判斷",
+      "showMore": "再顯示 {count} 項",
+      "showLess": "顯示較少"
     },
     "search": {
       "label": "搜尋商品",
       "placeholder": "搜尋商品、品牌或需求…",
       "submit": "搜尋",
+      "clear": "清除搜尋",
       "resultsHeading": "符合「{query}」的商品",
-      "count": "{count} 件",
+      "count": "找到 {count} 件商品",
       "empty": "找不到符合的商品，試試其他關鍵字"
     }
   },
@@ -135,13 +138,13 @@
       "description": "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣品牌探索與選物平台，從生活出發認識產品與品牌。"
     },
     "hero": {
-      "headline": "生活可以更像自己一點。",
-      "subheadline": "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
+      "headline": "生活可以更像自己一點",
+      "subheadline": "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌",
       "searchLabel": "搜尋台灣商品",
       "searchPlaceholder": "例：送長輩的茶具、帆布包、春池",
       "browseCta": "從風格開始",
       "eyebrow": "台灣品牌探索與選物",
-      "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
+      "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方",
       "browsePrefix": "或",
       "allBrands": "全部品牌"
     },
@@ -157,7 +160,7 @@
     "submitBand": {
       "headline": "發現了不該被錯過的品牌嗎？",
       "body": "告訴我們，通過審核後就會收錄進目錄。推薦不需要和品牌有關係。",
-      "cta": "推薦一個品牌"
+      "cta": "推薦品牌"
     },
     "latestStories": {
       "heading": "主題",
@@ -166,7 +169,7 @@
     },
     "trails": {
       "heading": "風格",
-      "note": "一個情境、一組選物。從你正在過的日子開始，而不是從品牌名開始。",
+      "note": "一個角落，一段日常",
       "linkText": "看全部風格",
       "eyebrow": "風格",
       "cta": "探索這個風格 →",
@@ -174,8 +177,8 @@
       "next": "下一個"
     },
     "selection": {
-      "headline": "每一件，都說得出選它的理由。",
-      "subtitle": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品。",
+      "headline": "每一件，都說得出選它的理由",
+      "subtitle": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品",
       "cta": "探索所有選物",
       "allCategories": "全部"
     },
@@ -238,7 +241,9 @@
       "removeFilter": "移除{label}：{value}",
       "clearAll": "清除全部",
       "showResults": "顯示 {count} 個結果",
-      "subcategory": "子分類"
+      "subcategory": "子分類",
+      "showMore": "再顯示 {count} 項",
+      "showLess": "顯示較少"
     },
     "sort": {
       "random": "隨機",
@@ -249,6 +254,7 @@
     "search": {
       "aria": "搜尋品牌",
       "placeholder": "搜尋品牌...",
+      "submit": "搜尋",
       "clear": "清除搜尋",
       "loading": "正在搜尋品牌…"
     },

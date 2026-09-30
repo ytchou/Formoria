@@ -1,9 +1,13 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { Link, usePathname } from "@/i18n/navigation";
-import { FilterToken } from "@/components/filters";
+import { useLocale, useTranslations } from "next-intl";
+import { usePathname } from "@/i18n/navigation";
+import { localizePath } from "@/i18n/locale-preference";
+import {
+  ActiveFilterChips,
+  type ActiveFilterChip,
+} from "@/components/filters";
 import {
   updateDirectoryUrl,
   type DirectoryFilterUpdates,
@@ -36,6 +40,7 @@ export function ProductActiveFilters({
   query,
 }: ProductActiveFiltersProps) {
   const t = useTranslations("products.filters");
+  const locale = useLocale();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -80,57 +85,38 @@ export function ProductActiveFilters({
     ? hrefWithoutQuery(pathname, searchParams)
     : null;
 
-  const totalTokens = activeFilters.length + (hasQuery ? 1 : 0);
+  const chips: ActiveFilterChip[] = [];
+  if (hasQuery && queryDismissHref) {
+    chips.push({
+      id: "query",
+      href: queryDismissHref,
+      label: t("query"),
+      removeLabel: t("removeFilter", { label: t("query"), value: query! }),
+      value: query!,
+    });
+  }
+  for (const filter of activeFilters) {
+    const label = t(filter.type);
+    const badge = filter.inferred ? t("inferred") : undefined;
+    chips.push({
+      id: `${filter.type}-${filter.slug}`,
+      href: removeHref(filter),
+      label,
+      removeLabel: badge
+        ? t("removeFilterInferred", { label, value: filter.label, badge })
+        : t("removeFilter", { label, value: filter.label }),
+      value: filter.label,
+      badge,
+    });
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {hasQuery && queryDismissHref && (
-        <FilterToken
-          key="query"
-          href={queryDismissHref}
-          label={t("query")}
-          removeLabel={t("removeFilter", {
-            label: t("query"),
-            value: query!,
-          })}
-          value={query!}
-          variant="chip"
-        />
-      )}
-      {activeFilters.map((filter) => {
-        const label = t(filter.type);
-        const badge = filter.inferred ? t("inferred") : undefined;
-        return (
-          <FilterToken
-            key={`${filter.type}-${filter.slug}`}
-            href={removeHref(filter)}
-            label={label}
-            removeLabel={
-              badge
-                ? t("removeFilterInferred", {
-                    label,
-                    value: filter.label,
-                    badge,
-                  })
-                : t("removeFilter", { label, value: filter.label })
-            }
-            value={filter.label}
-            variant="chip"
-            badge={badge}
-          />
-        );
-      })}
-      {totalTokens > 1 && (
-        <Link
-          href={clearAllHref}
-          replace
-          scroll={false}
-          prefetch={false}
-          className="type-body-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline"
-        >
-          {t("clearAll")}
-        </Link>
-      )}
-    </div>
+    <ActiveFilterChips
+      chips={chips}
+      // `pathname` is unprefixed (next-intl), and the shared row renders a
+      // plain `next/link`, so the locale prefix is added here.
+      clearAllHref={localizePath(clearAllHref, locale)}
+      clearAllLabel={t("clearAll")}
+    />
   );
 }

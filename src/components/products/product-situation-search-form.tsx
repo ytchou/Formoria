@@ -5,7 +5,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { SearchFieldShell } from "@/components/search/search-field-shell";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { routes } from "@/lib/routes";
 
@@ -16,6 +15,7 @@ type ProductSituationSearchFormProps = {
     label: string;
     placeholder: string;
     submit: string;
+    clear: string;
   };
 };
 
@@ -34,31 +34,45 @@ export function ProductSituationSearchForm({
   labels,
 }: ProductSituationSearchFormProps) {
   const inputId = useId();
+  const [value, setValue] = useState(query ?? "");
+  // Follow the URL when it changes under a mounted form (a dismissed query
+  // chip or clear-all is a client navigation, not a reload).
+  const [lastQuery, setLastQuery] = useState(query);
+  if (query !== lastQuery) {
+    setLastQuery(query);
+    setValue(query ?? "");
+  }
   return (
     <form
       method="get"
       action={`/${locale}${routes.discover()}`}
-      className="flex items-end gap-3"
+      className="space-y-2"
     >
       <input type="hidden" name="infer" value="1" />
 
-      <div className="flex-1">
-        <Label htmlFor={inputId} className="text-ink-muted mb-1">
-          {labels.label}
-        </Label>
-        <Input
-          id={inputId}
-          type="search"
-          name="q"
-          defaultValue={query ?? ""}
-          placeholder={labels.placeholder}
-          autoComplete="off"
-        />
+      <Label htmlFor={inputId} className="type-label">
+        {labels.label}
+      </Label>
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <SearchFieldShell
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            onClear={() => setValue("")}
+            clearLabel={labels.clear}
+            inputProps={{
+              id: inputId,
+              type: "search",
+              name: "q",
+              placeholder: labels.placeholder,
+              autoComplete: "off",
+            }}
+          />
+        </div>
+        <Button type="submit" variant="primary">
+          {labels.submit}
+        </Button>
       </div>
-
-      <Button type="submit" variant="primary" className="shrink-0">
-        {labels.submit}
-      </Button>
     </form>
   );
 }
@@ -68,14 +82,12 @@ export function ProductSearchBoxCompact({
   query = "",
   label,
   placeholder,
-  visibleLabel = false,
   className,
 }: {
   src: "nav" | "hero";
   query?: string;
   label: string;
   placeholder: string;
-  visibleLabel?: boolean;
   className?: string;
 }) {
   const locale = useLocale();
@@ -91,12 +103,7 @@ export function ProductSearchBoxCompact({
       className={cn("w-full max-w-md", className)}
       data-ph-no-autocapture
     >
-      <Label
-        htmlFor={inputId}
-        className={
-          visibleLabel ? "mb-1 block type-label text-ink-soft" : "sr-only"
-        }
-      >
+      <Label htmlFor={inputId} className="sr-only">
         {label}
       </Label>
       <input type="hidden" name="infer" value="1" />

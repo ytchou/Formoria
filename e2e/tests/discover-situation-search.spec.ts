@@ -18,7 +18,9 @@ test.describe("Discover situation search", () => {
       page.getByLabel("搜尋商品"),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
 
+    // Search mode titles the page by the query (the page is noindex).
     const resultsHeading = page.getByRole("heading", {
+      level: 1,
       name: /符合「茶壺」的商品/,
     });
     await expect(resultsHeading).toBeVisible({ timeout: BUDGET.RENDERED });
@@ -38,12 +40,52 @@ test.describe("Discover situation search", () => {
     const input = page.getByLabel("搜尋商品");
     await expect(input).toBeVisible({ timeout: BUDGET.RENDERED });
     await input.fill("送禮");
-    await page.getByRole("button", { name: "搜尋" }).click();
+    // exact: the field's clear button (清除搜尋) also contains 搜尋 once it has text.
+    await page.getByRole("button", { name: "搜尋", exact: true }).click();
 
     await page.waitForURL(/[?&]q=/, { timeout: BUDGET.INTERACTIVE });
 
     await expect(
       page.getByRole("heading", { name: /符合「送禮」的商品/ }),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
+  });
+
+  test("search mode states the result count once; browse mode keeps its total", async ({
+    page,
+  }) => {
+    await page.goto("/discover", { timeout: BUDGET.NAVIGATION });
+    const main = page.locator("main");
+
+    // Browse mode: the catalog total.
+    await expect(main.getByText(/共 \d+ 件商品/)).toBeVisible({
+      timeout: BUDGET.SERVER_RENDER,
+    });
+
+    // A 子分類 label is a real product noun, so it searches to results without
+    // pinning a term to the stale staging catalog.
+    const firstOption = page
+      .getByRole("navigation", { name: "篩選商品", exact: true })
+      .getByRole("group", { name: "子分類", exact: true })
+      .locator("label")
+      .filter({ visible: true })
+      .first();
+    await expect(firstOption).toBeVisible({ timeout: BUDGET.RENDERED });
+    const term = (await firstOption.innerText())
+      .split("\n")[0]
+      .replace(/\s*\d+\s*$/, "")
+      .trim();
+
+    await page.goto(`/discover?q=${encodeURIComponent(term)}`, {
+      timeout: BUDGET.NAVIGATION,
+    });
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: `符合「${term}」的商品`,
+        exact: true,
+      }),
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(main.getByText(/找到 \d+ 件商品/)).toHaveCount(1);
+    await expect(main.getByText(/共 \d+ 件商品/)).toHaveCount(0);
   });
 });

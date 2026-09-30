@@ -1,7 +1,31 @@
 import { VISIBLE_L1_CATEGORIES } from "../../src/lib/taxonomy/ontology";
 import zhTW from "../../messages/zh-TW.json";
-import { BUDGET } from "../budgets";
-import { test, expect, type Page } from "@playwright/test";
+import { BUDGET, POLL } from "../budgets";
+import { test, expect, type Locator, type Page } from "@playwright/test";
+
+/**
+ * How long the suggestion listbox must stay closed after a submit. Must exceed
+ * the search field's 200ms suggestion debounce with margin: a debounced fetch
+ * started by typing can resolve after the submit and reopen the listbox.
+ */
+const SUGGESTION_SETTLE_MS = 1_500;
+
+/**
+ * Asserts `locator` stays hidden for `windowMs`, polled on POLL.UI. Fails as
+ * soon as one poll sees it visible — a listbox that flashes open and closes
+ * again between polls is not caught, but one left open over the results is.
+ */
+async function expectStaysHidden(locator: Locator, windowMs: number) {
+  const start = Date.now();
+  let sawVisible = false;
+  await expect
+    .poll(async () => {
+      sawVisible = sawVisible || (await locator.isVisible());
+      if (sawVisible) return "visible";
+      return Date.now() - start >= windowMs ? "settled" : "waiting";
+    }, POLL.UI)
+    .toBe("settled");
+}
 
 /**
  * Three named L1 categories, resolved from the taxonomy the sidebar itself renders.
@@ -133,6 +157,54 @@ test.describe("Directory deep", () => {
     expect(announced).toBeGreaterThan(0);
     await expect(
       page.locator('main [role="list"] [role="listitem"]').first(),
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+  });
+
+  test("搜尋 button submits the term and leaves no suggestion list open", async ({
+    page,
+  }) => {
+    await page.goto("/brands");
+    // A brand the directory itself lists, so the term is real on any snapshot.
+    const firstBrand = page
+      .locator('main [role="list"] [role="listitem"]')
+      .first()
+      .getByRole("heading", { level: 3 });
+    await expect(firstBrand).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    const term = (await firstBrand.innerText()).trim();
+
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" });
+    await search.getByRole("searchbox", { name: "搜尋品牌" }).fill(term);
+    // exact: the clear button (清除搜尋) also contains 搜尋 once the field has text.
+    await search.getByRole("button", { name: "搜尋", exact: true }).click();
+
+    await expect(page).toHaveURL(
+      (url) => url.pathname === "/brands" && url.searchParams.get("search") === term,
+      { timeout: BUDGET.INTERACTIVE },
+    );
+    await expectStaysHidden(page.getByRole("listbox"), SUGGESTION_SETTLE_MS);
+  });
+
+  test("opening a shared search link shows results without a suggestion list", async ({
+    page,
+  }) => {
+    await page.goto("/brands");
+    const firstBrand = page
+      .locator('main [role="list"] [role="listitem"]')
+      .first()
+      .getByRole("heading", { level: 3 });
+    await expect(firstBrand).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    const term = (await firstBrand.innerText()).trim();
+
+    // A link someone shared, not a search the visitor typed: the listbox used
+    // to open unfocused over the toolbar and ignore Escape.
+    await page.goto(`/brands?search=${encodeURIComponent(term)}`);
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" });
+    await expect(search.getByRole("searchbox", { name: "搜尋品牌" })).toHaveValue(term, {
+      timeout: BUDGET.SERVER_RENDER,
+    });
+    await expectStaysHidden(page.getByRole("listbox"), SUGGESTION_SETTLE_MS);
+    await expect(
+      page.getByRole("main").getByRole("link", { name: "清除全部" }),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 

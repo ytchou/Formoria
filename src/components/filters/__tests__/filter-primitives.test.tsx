@@ -44,39 +44,16 @@ const { FilterToken } = await import("../filter-token");
 const { FilterDrawer } = await import("../filter-sidebar");
 
 describe("FilterSection", () => {
-  it("test_filter_section_renders_collapsed_by_default", () => {
+  it("renders a group labelled by its heading, always open", () => {
     render(
       <FilterSection title="Test Section">
         <p>Panel content</p>
       </FilterSection>,
     );
 
-    const toggle = screen.getByRole("button", { name: /Test Section/ });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-
-    const panelId = toggle.getAttribute("aria-controls")!;
-    const panel = document.getElementById(panelId)!;
-    expect(panel).toHaveAttribute("inert");
-  });
-
-  it("test_filter_section_toggles_open", () => {
-    render(
-      <FilterSection title="Toggle Me">
-        <p>Content</p>
-      </FilterSection>,
-    );
-
-    const toggle = screen.getByRole("button", { name: /Toggle Me/ });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-
-    const panelId = toggle.getAttribute("aria-controls")!;
-    const panel = document.getElementById(panelId)!;
-    expect(panel).toHaveAttribute("inert");
-
-    fireEvent.click(toggle);
-
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(panel).not.toHaveAttribute("inert");
+    const group = screen.getByRole("group", { name: "Test Section" });
+    expect(group).toHaveTextContent("Panel content");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
 
@@ -85,6 +62,24 @@ describe("FilterCheckboxGroup", () => {
     { value: "ceramic", label: "Ceramic", count: 29 },
     { value: "wood", label: "Wood", count: 12 },
   ];
+  const labels = {
+    showMoreLabel: (count: number) => `再顯示 ${count} 項`,
+    showLessLabel: "顯示較少",
+  };
+
+  function manyOptions(n: number) {
+    return Array.from({ length: n }, (_, i) => ({
+      value: `opt-${i}`,
+      label: `Option ${i}`,
+      count: 100 - i,
+    }));
+  }
+
+  function visibleCheckboxes() {
+    return screen
+      .getAllByRole("checkbox", { hidden: true })
+      .filter((box) => box.closest("label")?.hidden !== true);
+  }
 
   it("test_filter_checkbox_group_renders_options_with_counts", () => {
     render(
@@ -92,6 +87,7 @@ describe("FilterCheckboxGroup", () => {
         options={options}
         activeValues={new Set()}
         onToggle={vi.fn()}
+        {...labels}
       />,
     );
 
@@ -113,11 +109,71 @@ describe("FilterCheckboxGroup", () => {
         options={options}
         activeValues={new Set()}
         onToggle={onToggle}
+        {...labels}
       />,
     );
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Ceramic/ }));
     expect(onToggle).toHaveBeenCalledWith("ceramic", true);
+  });
+
+  it("collapses after 10 options, keeping hidden rows in the markup", () => {
+    render(
+      <FilterCheckboxGroup
+        options={manyOptions(12)}
+        activeValues={new Set()}
+        onToggle={vi.fn()}
+        {...labels}
+      />,
+    );
+
+    expect(visibleCheckboxes()).toHaveLength(10);
+    expect(screen.getAllByRole("checkbox", { hidden: true })).toHaveLength(12);
+    expect(screen.getByText("Option 11").closest("label")).not.toBeVisible();
+
+    const toggle = screen.getByRole("button", { name: "再顯示 2 項" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    const listId = toggle.getAttribute("aria-controls")!;
+    expect(document.getElementById(listId)).toContainElement(
+      screen.getByText("Option 11"),
+    );
+
+    fireEvent.click(toggle);
+
+    expect(visibleCheckboxes()).toHaveLength(12);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAccessibleName("顯示較少");
+  });
+
+  it("never hides a checked option past the limit", () => {
+    render(
+      <FilterCheckboxGroup
+        options={manyOptions(13)}
+        activeValues={new Set(["opt-11"])}
+        onToggle={vi.fn()}
+        {...labels}
+      />,
+    );
+
+    expect(screen.getByRole("checkbox", { name: /Option 11/ })).toBeVisible();
+    expect(visibleCheckboxes()).toHaveLength(11);
+    expect(
+      screen.getByRole("button", { name: "再顯示 2 項" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not collapse a single overflowing option", () => {
+    render(
+      <FilterCheckboxGroup
+        options={manyOptions(11)}
+        activeValues={new Set()}
+        onToggle={vi.fn()}
+        {...labels}
+      />,
+    );
+
+    expect(visibleCheckboxes()).toHaveLength(11);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
 
@@ -204,7 +260,14 @@ describe("FilterDrawer clearAll", () => {
     allLabel: "全部",
     totalCount: 10,
     categoryHref: (slug: string | null) => (slug ? `/brands/${slug}` : "/brands"),
-    labels: { title: "篩選", subcategory: "子分類", material: "材質" },
+    labels: {
+      title: "篩選",
+      category: "分類",
+      subcategory: "子分類",
+      material: "材質",
+      showMore: (count: number) => `再顯示 ${count} 項`,
+      showLess: "顯示較少",
+    },
     triggerLabel: "篩選",
     showResultsLabel: "顯示結果",
     clearAllLabel: "清除全部",

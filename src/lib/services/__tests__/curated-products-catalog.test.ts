@@ -11,11 +11,12 @@ describe("aggregateProductFacetRows", () => {
   it("counts each canonical scalar subcategory once per product", () => {
     expect(
       aggregateProductFacetRows([
-        { subcategory: "candles", material: ["wax", "ceramic"] },
-        { subcategory: "candles", material: ["wax"] },
-        { subcategory: "tableware", material: ["ceramic"] },
+        { category: "home", subcategory: "candles", material: ["wax", "ceramic"] },
+        { category: "home", subcategory: "candles", material: ["wax"] },
+        { category: "home", subcategory: "tableware", material: ["ceramic"] },
       ]),
     ).toEqual({
+      categoryCounts: [{ slug: "home", count: 3 }],
       subcategoryCounts: [
         { slug: "candles", count: 2 },
         { slug: "tableware", count: 1 },
@@ -25,6 +26,23 @@ describe("aggregateProductFacetRows", () => {
         { slug: "ceramic", count: 2 },
       ],
     });
+  });
+
+  it("counts products per category across the corpus, sorted by count desc", () => {
+    const { categoryCounts } = aggregateProductFacetRows([
+      { category: "home", subcategory: "candles", material: null },
+      { category: "food", subcategory: null, material: null },
+      { category: "food", subcategory: null, material: null },
+      { category: "home", subcategory: "tableware", material: null },
+      { category: "food", subcategory: null, material: null },
+      { category: "fashion", subcategory: null, material: null },
+      { category: null, subcategory: null, material: null },
+    ]);
+    expect(categoryCounts).toEqual([
+      { slug: "food", count: 3 },
+      { slug: "home", count: 2 },
+      { slug: "fashion", count: 1 },
+    ]);
   });
 });
 
