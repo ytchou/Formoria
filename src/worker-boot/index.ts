@@ -5,8 +5,9 @@
  * repo-worker can reuse the same env-load → target-assertion → crash-handler
  * → build-SHA logging pattern without duplicating it.
  *
- * Each worker calls `bootWorker({ agent: '<name>' })` at startup. The
- * curation worker passes its own service loader; future workers supply theirs.
+ * Each worker calls `bootWorker({ agent: '<name>' })` at startup and passes
+ * its own service loader. Cron one-shots (curation worker, health-agent) then
+ * run once and exit; repo-worker serves HTTP.
  */
 
 import { config } from "dotenv";

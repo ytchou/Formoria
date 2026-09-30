@@ -406,6 +406,8 @@ check_ops_agent_vars() {
       echo "WARN: ${var} not set (optional — needed for the ops agent)"
     fi
   done
+  # OPS_AGENT_RAILWAY_TOKEN also gates admin/Slack curation dispatch: it
+  # requests the production curation-worker cron run ("Run now").
 }
 
 # ── Run checks ───────────────────────────────────────────────────────────────

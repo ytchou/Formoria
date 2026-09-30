@@ -29,7 +29,12 @@ ENV PATH="/app/node_modules/.bin:$PATH"
 #   railway up --service curation-worker --ci
 # Then confirm the deploy actually rolled:
 #   railway logs --service curation-worker | grep "build sha"
+# (The curation worker is a cron one-shot, so the line appears once per
+# execution, not once per deploy.)
 ARG GIT_COMMIT_SHA=unknown
 ENV WORKER_BUILD_SHA=$GIT_COMMIT_SHA
+# Three services build from this image. curation-worker (this CMD) and
+# health-agent (its own start command) are cron one-shots that listen on no
+# port; repo-worker serves HTTP on 8080, so EXPOSE stays.
 EXPOSE 8080
 CMD ["pnpm", "curation:worker"]

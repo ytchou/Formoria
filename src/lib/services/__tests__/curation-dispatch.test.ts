@@ -1,70 +1,72 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetAuditEmitterForTests, setAuditWriteSeam } from '@/lib/audit'
 import { dispatchCurationJob } from '../curation-dispatch'
 
-describe('dispatchCurationJob', () => {
-  const originalUrl = process.env.CURATION_WORKER_URL
-  const originalToken = process.env.CURATION_WORKER_CONTROL_TOKEN
+const JOB_ID = '550e8400-e29b-41d4-a716-446655440000'
 
+function lookupResponse(): Response {
+  return Response.json({
+    data: {
+      environment: {
+        serviceInstances: {
+          edges: [{ node: { id: 'si-curation-worker', serviceName: 'curation-worker' } }],
+        },
+      },
+    },
+  })
+}
+
+describe('dispatchCurationJob', () => {
   beforeEach(() => {
-    process.env.CURATION_WORKER_URL = 'https://worker.example.com/'
-    process.env.CURATION_WORKER_CONTROL_TOKEN = 'worker-control-secret'
+    setAuditWriteSeam(async () => null)
+    vi.stubEnv('OPS_AGENT_RAILWAY_TOKEN', 'rw_test_token')
+    vi.stubEnv('FORMORIA_DEPLOYMENT_ENV', 'production')
+    vi.stubEnv('RAILWAY_ENVIRONMENT_NAME', 'production')
+    vi.stubEnv('NEXT_PUBLIC_DEPLOYMENT_ENV', 'production')
     vi.stubGlobal('fetch', vi.fn())
   })
 
   afterEach(() => {
+    resetAuditEmitterForTests()
     vi.unstubAllGlobals()
-    if (originalUrl === undefined) delete process.env.CURATION_WORKER_URL
-    else process.env.CURATION_WORKER_URL = originalUrl
-    if (originalToken === undefined) delete process.env.CURATION_WORKER_CONTROL_TOKEN
-    else process.env.CURATION_WORKER_CONTROL_TOKEN = originalToken
+    vi.unstubAllEnvs()
   })
 
-  it('accepts an authenticated worker-control response without waiting for the job', async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ accepted: true, status: 'started' }), {
-        status: 202,
-        headers: { 'content-type': 'application/json' },
-      }),
-    )
+  it('dispatchCurationJob_requests_a_worker_run_via_railway', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(lookupResponse())
+      .mockResolvedValueOnce(Response.json({ data: { deploymentInstanceExecutionCreate: true } }))
 
-    await expect(dispatchCurationJob('550e8400-e29b-41d4-a716-446655440000')).resolves.toEqual({
+    await expect(dispatchCurationJob(JOB_ID)).resolves.toEqual({
       accepted: true,
-      status: 'started',
+      status: 'requested',
     })
 
-    expect(fetch).toHaveBeenCalledWith(
-      'https://worker.example.com/run',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ jobId: '550e8400-e29b-41d4-a716-446655440000' }),
-        headers: expect.objectContaining({
-          authorization: 'Bearer worker-control-secret',
-        }),
-      }),
-    )
+    expect(fetch).toHaveBeenCalledTimes(2)
+    const mutation = JSON.parse(vi.mocked(fetch).mock.calls[1]![1]!.body as string) as {
+      query: string
+      variables: { input: unknown }
+    }
+    expect(mutation.query).toContain('deploymentInstanceExecutionCreate')
+    expect(mutation.variables.input).toEqual({ serviceInstanceId: 'si-curation-worker' })
   })
 
-  it('returns a sanitized dispatch error for a rejected worker request', async () => {
-    vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({
-        error: 'Bearer provider-secret; postgresql://worker:db-password@db.example.com/formoria',
-      }), {
-        status: 503,
+  it('dispatchCurationJob_throws_when_railway_refuses', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        errors: [{ message: 'Bearer provider-secret rejected' }],
       }),
     )
 
-    await expect(
-      dispatchCurationJob('550e8400-e29b-41d4-a716-446655440000'),
-    ).rejects.toThrow(
-      'Worker dispatch was rejected: Bearer [REDACTED]; postgresql://worker:[REDACTED]@db.example.com/formoria',
+    await expect(dispatchCurationJob(JOB_ID)).rejects.toThrow(
+      'Worker run request failed: Bearer [REDACTED] rejected',
     )
   })
 
-  it('fails clearly when the worker endpoint is not configured', async () => {
-    delete process.env.CURATION_WORKER_URL
+  it('dispatchCurationJob_refuses_in_staging', async () => {
+    vi.stubEnv('FORMORIA_DEPLOYMENT_ENV', 'staging')
 
-    await expect(dispatchCurationJob('550e8400-e29b-41d4-a716-446655440000')).rejects.toThrow(
-      'CURATION_WORKER_URL and CURATION_WORKER_CONTROL_TOKEN are required',
-    )
+    await expect(dispatchCurationJob(JOB_ID)).rejects.toThrow('production only')
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

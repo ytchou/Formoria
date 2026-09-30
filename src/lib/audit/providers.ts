@@ -85,7 +85,6 @@ const PROVIDERS = {
   ],
   curation: [
     "cancelCurationJob",
-    "claimCurationDispatchWork",
     "claimCurationJob",
     "claimNextCurationJob",
     "dispatchCurationJob",
@@ -227,7 +226,6 @@ const PROVIDERS = {
     "probe_langfuse_traces",
     "probe_langfuse_prompt",
     "probe_slack_events",
-    "probe_worker_chromium",
     "probe_resend_domain",
     "probe_sentry_write",
     "probe_sentry_capture_trigger",

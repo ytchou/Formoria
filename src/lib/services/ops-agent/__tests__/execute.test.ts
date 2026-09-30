@@ -74,7 +74,7 @@ describe("refresh_brand kind", () => {
         submissionId: "sub-1",
         jobId: "job-1",
         adminUrl: "/admin/jobs/job-1",
-        summary: "Refresh started for Test Brand — job <https://formoria.com/admin/jobs/job-1|job-1>",
+        summary: "Refresh requested for Test Brand — job <https://formoria.com/admin/jobs/job-1|job-1>",
       },
     });
 

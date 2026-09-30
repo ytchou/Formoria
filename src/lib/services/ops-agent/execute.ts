@@ -92,7 +92,7 @@ async function executeRefreshBrand(
       submissionId,
       jobId: job.id,
       adminUrl: `/admin/jobs/${job.id}`,
-      summary: `Refresh started for ${escapeSlackMrkdwn(outcome.name)} — job ${adminJobLink(job.id)}`,
+      summary: `Refresh requested for ${escapeSlackMrkdwn(outcome.name)} — job ${adminJobLink(job.id)}`,
     },
   };
 }

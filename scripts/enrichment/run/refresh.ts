@@ -30,8 +30,10 @@
  *
  * Step 2 runs IN-PROCESS by default: this checkout claims the job and calls
  * `runJob` itself, so the pipeline that executes is the code you are looking
- * at. `--via-worker` instead dispatches the job to the deployed Railway
- * curation worker and polls until it finishes — that runs whatever SHA the
+ * at. `--via-worker` instead requests a Railway "Run now" of the deployed
+ * curation-worker cron (needs `OPS_AGENT_RAILWAY_TOKEN` and `--target
+ * production` — the worker exists only in production) and polls the job row
+ * until it finishes. The run drains pending jobs in order and runs whatever SHA the
  * service happens to have deployed, which is not necessarily this branch. The
  * curation-worker service has no GitHub source connected (see the DEV-1260
  * note in `Dockerfile.curation-worker`: builds are pushed manually with
@@ -45,7 +47,7 @@
  *
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --dry-run
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --confirm
- *   pnpm exec tsx scripts/enrichment/run/refresh.ts --cohort batch1-never-curated --confirm --via-worker
+ *   pnpm exec tsx scripts/enrichment/run/refresh.ts --cohort batch1-never-curated --target production --confirm --via-worker
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --confirm
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --no-apply --confirm
  *
@@ -120,8 +122,9 @@ async function countTargets(
 }
 
 /**
- * Dispatches the job to the deployed Railway worker and polls the job row until
- * it reaches a terminal state. Returns the same shape `runJob` does so the
+ * Requests a Railway "Run now" of the production curation-worker cron
+ * (`OPS_AGENT_RAILWAY_TOKEN` required) and polls the job row until it reaches a
+ * terminal state. Returns the same shape `runJob` does so the
  * caller's [4/4] apply step is identical on both paths.
  */
 async function runViaWorker(
@@ -130,7 +133,7 @@ async function runViaWorker(
 ): Promise<RunSummary> {
   await dispatchCurationJob(jobId);
   console.log(
-    `  dispatched to the deployed worker — polling every ${POLL_INTERVAL_MS / 1_000}s`,
+    `  worker run requested — polling every ${POLL_INTERVAL_MS / 1_000}s`,
   );
 
   const deadline = Date.now() + POLL_TIMEOUT_MS;

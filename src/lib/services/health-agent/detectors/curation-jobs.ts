@@ -1,9 +1,14 @@
 /**
  * Curation jobs detector — monitors curation_jobs, curation_job_targets,
  * and curation_phase_outputs for dispatch failures, stale heartbeats,
- * high failure rates, and unpersisted phase outputs.
+ * high failure rates, unpersisted phase outputs, missed cron runs, and
+ * stranded pending jobs.
  */
 
+import {
+  CURATION_CRON_MAX_GAP_MS,
+  CURATION_STRANDED_PENDING_MS,
+} from '@/lib/constants/curation'
 import { stableFingerprint, type HealthFinding } from '../contracts'
 import type { Detector, DetectorContext } from '../types'
 import { pagedRead, type PageableQuery } from '../paged-read'
@@ -57,6 +62,8 @@ export const curationJobsDetector: Detector = {
   thresholds: {
     heartbeatStaleMs: HEARTBEAT_STALE_MS,
     unpersistedThresholdMs: UNPERSISTED_THRESHOLD_MS,
+    cronMaxGapMs: CURATION_CRON_MAX_GAP_MS,
+    strandedPendingMs: CURATION_STRANDED_PENDING_MS,
   },
 
   async run(ctx: DetectorContext): Promise<HealthFinding[]> {
@@ -193,6 +200,74 @@ export const curationJobsDetector: Detector = {
             phaseOutputId: po.id,
             jobId: po.job_id,
             createdAt: po.created_at,
+          },
+          mergePolicy: 'human',
+        })
+      }
+    }
+
+    // 5. Cron missed: the newest scheduled job is too old (or none exists)
+    const { data: latestCron, error: latestCronError } = await supabase
+      .from('curation_jobs')
+      .select('id, created_at')
+      .eq('trigger', 'cron')
+      .order('created_at', { ascending: false })
+      .range(0, 0)
+    if (latestCronError) throw latestCronError
+
+    const latest = (latestCron as Array<Pick<JobRow, 'id' | 'created_at'>> | null)?.at(0)
+    const latestAgeMs = latest?.created_at
+      ? now - new Date(latest.created_at).getTime()
+      : null
+    if (latestAgeMs === null || latestAgeMs > CURATION_CRON_MAX_GAP_MS) {
+      const ageHours =
+        latestAgeMs === null ? null : Math.round(latestAgeMs / 3_600_000)
+      findings.push({
+        source: 'pipeline',
+        fingerprint: stableFingerprint('pipeline', 'cron-missed', 'curation-worker'),
+        title:
+          ageHours === null
+            ? 'Curation worker has no scheduled cron run on record'
+            : `Curation worker last scheduled run was ${ageHours}h ago`,
+        severity: 'high',
+        evidence: {
+          lastCronJobId: latest?.id ?? 'none',
+          lastCronCreatedAt: latest?.created_at ?? 'none',
+          ageHours: ageHours ?? 'none',
+        },
+        mergePolicy: 'human',
+      })
+    }
+
+    // 6. Stranded pending: due jobs nobody claimed while nothing is running.
+    // A running job means the drain loop is live and will reach them.
+    if (runningJobs.length === 0) {
+      const strandedCutoff = new Date(
+        now - CURATION_STRANDED_PENDING_MS,
+      ).toISOString()
+      const duePending = await pagedRead<JobRow>(supabase, 'curation_jobs', {
+        orderBy: [{ column: 'id' }],
+        select:
+          'id, status, dispatch_status, dispatch_error, heartbeat_at, completed_at, created_at, succeeded_count, failed_count',
+        filters: [{ column: 'status', value: 'pending' }],
+        rangeFilters: [
+          { column: 'run_after', op: 'lte', value: new Date(now).toISOString() },
+          { column: 'created_at', op: 'lte', value: strandedCutoff },
+        ],
+      })
+
+      for (const job of duePending) {
+        // pending + dispatch failed is already reported by check 1.
+        if (job.dispatch_status === 'failed') continue
+        findings.push({
+          source: 'pipeline',
+          fingerprint: stableFingerprint('pipeline', 'stranded-pending', job.id),
+          title: `Curation job ${job.id} is due but unclaimed with no job running`,
+          severity: 'high',
+          evidence: {
+            jobId: job.id,
+            dispatchStatus: job.dispatch_status,
+            createdAt: job.created_at ?? 'unknown',
           },
           mergePolicy: 'human',
         })

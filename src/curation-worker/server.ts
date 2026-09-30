@@ -1,42 +1,59 @@
-import { timingSafeEqual, randomUUID } from "node:crypto";
-import {
-  createServer,
-  type IncomingMessage,
-  type ServerResponse,
-} from "node:http";
-import {
-  drainJobQueue,
-  runInCronScope,
-  startStaleJobMaintenance,
-} from "./loop";
-import { isStagingEnvironment } from "@/lib/deployment-environment";
-import { assertDatabaseTarget } from "@/lib/supabase/project-target";
-import { isCurationWorkerHealthPath } from "./health-paths";
-import { bootWorker, logWorkerBuildInfo } from "@/worker-boot";
-import type { WorkerTarget } from "@/lib/supabase/project-target";
+/**
+ * Curation worker entry point — a Railway cron one-shot.
+ *
+ * Railway starts this process on the cron schedule (0 4,10,16,22 * * * UTC,
+ * a dashboard setting documented in railway/curation-worker.json) and on a
+ * manual "Run now" requested by `dispatchCurationJob`. Each execution:
+ *
+ *   1. `bootWorker` — env, target assertion, then the service imports.
+ *   2. `runScheduledCuration` — recovers stale jobs, queues the scheduled slot,
+ *      and drains the single-runner queue until it is empty or the soft
+ *      deadline passes.
+ *   3. Flushes Langfuse and Sentry, then `process.exit`.
+ *
+ * Railway never kills a hung cron execution and skips every later slot while
+ * one is Active, so a hard-cap timer cancels the in-flight job and exits 1.
+ */
 
-let claimCurationDispatchWork: Awaited<
-  typeof import("@/lib/services/curation-jobs")
->["claimCurationDispatchWork"];
-let claimNextCurationJob: Awaited<
-  typeof import("@/lib/services/curation-jobs")
->["claimNextCurationJob"];
-let recoverStaleJobs: Awaited<
-  typeof import("@/lib/services/curation-jobs")
->["recoverStaleJobs"];
-let runJob: Awaited<typeof import("@/lib/services/job-runner")>["runJob"];
-let sanitizeJobError: Awaited<
-  typeof import("@/lib/services/job-runner")
->["sanitizeJobError"];
+import { bootWorker, logWorkerBuildInfo } from "@/worker-boot";
+import {
+  assertDatabaseTarget,
+  type WorkerTarget,
+} from "@/lib/supabase/project-target";
+import { isStagingEnvironment } from "@/lib/deployment-environment";
+
+// ---------------------------------------------------------------------------
+// Dynamic imports — populated after bootWorker
+// ---------------------------------------------------------------------------
+
 let runScheduledCuration: Awaited<
   typeof import("@/lib/services/curation-worker")
 >["runScheduledCuration"];
+let cancelCurationJob: Awaited<
+  typeof import("@/lib/services/curation-jobs")
+>["cancelCurationJob"];
+let sanitizeJobError: Awaited<
+  typeof import("@/lib/services/job-runner")
+>["sanitizeJobError"];
 let reportWorkerFailure: Awaited<
   typeof import("@/lib/services/job-alerts")
 >["reportWorkerFailure"];
+let runWithAuditContext: Awaited<
+  typeof import("@/lib/audit/context")
+>["runWithAuditContext"];
+let flushLangfuse: Awaited<
+  typeof import("@/lib/langfuse/client")
+>["flushLangfuse"];
+let flushAlerts: Awaited<
+  typeof import("@/lib/adapters/alerting/sentry")
+>["flushAlerts"];
 
 // Populated by assertTarget inside bootWorker, after env is loaded.
 let target: WorkerTarget;
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
 
 await bootWorker({
   agent: "curation",
@@ -51,15 +68,15 @@ await bootWorker({
     );
   },
   async loadServices() {
-    ({ claimCurationDispatchWork, claimNextCurationJob, recoverStaleJobs } =
-      await import("@/lib/services/curation-jobs"));
-    ({ runJob, sanitizeJobError } = await import(
-      "@/lib/services/job-runner"
-    ));
     ({ runScheduledCuration } = await import(
       "@/lib/services/curation-worker"
     ));
+    ({ cancelCurationJob } = await import("@/lib/services/curation-jobs"));
+    ({ sanitizeJobError } = await import("@/lib/services/job-runner"));
     ({ reportWorkerFailure } = await import("@/lib/services/job-alerts"));
+    ({ runWithAuditContext } = await import("@/lib/audit/context"));
+    ({ flushLangfuse } = await import("@/lib/langfuse/client"));
+    ({ flushAlerts } = await import("@/lib/adapters/alerting/sentry"));
   },
   async reportFailure(context, error) {
     if (reportWorkerFailure) {
@@ -70,269 +87,104 @@ await bootWorker({
     sanitizeJobError ? sanitizeJobError(e) : String(e),
 });
 
-const MAX_BODY_BYTES = 16 * 1024;
-const CRON_SCHEDULE = process.env.CURATION_CRON_SCHEDULE ?? "";
-const controlToken = process.env.CURATION_WORKER_CONTROL_TOKEN?.trim();
-const port = parsePort(process.env.PORT);
-const activeJobs = new Set<string>();
+// ---------------------------------------------------------------------------
+// Deadlines
+// ---------------------------------------------------------------------------
 
-if (!controlToken) {
-  throw new Error(
-    "CURATION_WORKER_CONTROL_TOKEN is required for the curation worker",
-  );
+// Stop claiming new jobs after 4h so a run ends well before the next 6h slot.
+// Ceiling: a job claimed just before 4h may itself run long (max observed
+// 223 min, 2026-10). Upgrade path: make this env-configurable if a legitimate
+// queue ever needs longer than one slot to drain.
+const SOFT_DEADLINE_MS = 4 * 60 * 60_000;
+
+// 5h45m keeps a hung run from skipping the next 6h slot; raise both constants
+// if a legitimate job ever exceeds ~4h (max observed 223 min, 2026-10).
+const HARD_CAP_MS = 5 * 60 * 60_000 + 45 * 60_000;
+
+const WALL_CLOCK_CAP_REASON = "Worker wall-clock cap reached";
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+let currentJobId: string | null = null;
+let hardCapRun: Promise<never> | null = null;
+
+async function flushAndExit(code: number): Promise<never> {
+  try {
+    await flushLangfuse();
+  } catch {
+    /* flush failure must not mask exit */
+  }
+  await flushAlerts(); // never throws
+  process.exit(code);
 }
 
-// Re-bound as non-optional: `handleRequest` is a hoisted declaration, so the
-// throw above does not narrow `controlToken` inside it.
-const requiredControlToken: string = controlToken;
-
-const server = createServer((request, response) => {
-  void handleRequest(request, response).catch((error) => {
-    if (!response.headersSent) {
-      sendJson(response, 500, { error: "Worker request failed" });
+async function onHardCap(): Promise<never> {
+  console.error(
+    `[curation-worker] wall-clock cap reached after ${HARD_CAP_MS / 60_000} min — cancelling job ${currentJobId ?? "(none)"} and exiting`,
+  );
+  if (currentJobId) {
+    try {
+      await cancelCurationJob(currentJobId, WALL_CLOCK_CAP_REASON);
+    } catch (error) {
+      console.error("[curation-worker:hard-cap]", sanitizeJobError(error));
     }
-    console.error("[curation-worker]", sanitizeJobError(error));
-  });
-});
+  }
+  try {
+    await reportWorkerFailure(
+      "wall-clock-cap",
+      new Error(`${WALL_CLOCK_CAP_REASON} (${HARD_CAP_MS / 60_000} min)`),
+    );
+  } catch {
+    /* reporting must not block the exit */
+  }
+  return flushAndExit(1);
+}
 
-server.listen(port, "0.0.0.0", () => {
+async function main(): Promise<never> {
   logWorkerBuildInfo("curation-worker");
-  console.log(`[curation-worker] listening on port ${port}`);
   // Which database this worker will actually write to, verified at boot rather
   // than inferred from the environment name.
   console.log(
     `[curation-worker] target env=${target.deploymentEnvironment} project=${target.projectRef}`,
   );
-  startStaleJobMaintenance({
-    recoverStaleJobs,
-    onError: (error) => {
-      console.error(
-        "[curation-worker:stale-maintenance]",
-        sanitizeJobError(error),
-      );
-    },
-  });
-  if (CRON_SCHEDULE) {
-    startCronScheduler(CRON_SCHEDULE);
-  }
-});
 
-// ---------------------------------------------------------------------------
-// Cron scheduler — runs runScheduledCuration() at the configured times
-// ---------------------------------------------------------------------------
+  const startedAt = Date.now();
+  setTimeout(() => {
+    hardCapRun = onHardCap();
+  }, HARD_CAP_MS).unref();
 
-function startCronScheduler(schedule: string) {
-  const hours = parseCronHours(schedule);
-  if (hours.length === 0) {
-    console.warn(
-      `[curation-cron] invalid schedule "${schedule}", cron disabled`,
-    );
-    return;
-  }
-  console.log(
-    `[curation-cron] enabled — will run at UTC hours: ${hours.join(", ")}`,
-  );
-  // Check every minute if it's time to run
-  let lastRunHour = -1;
-  setInterval(() => {
-    const now = new Date();
-    const currentHour = now.getUTCHours();
-    const currentMinute = now.getUTCMinutes();
-    if (
-      currentMinute === 0 &&
-      hours.includes(currentHour) &&
-      lastRunHour !== currentHour
-    ) {
-      lastRunHour = currentHour;
-      void runCron();
-    }
-    // Reset lastRunHour when the minute changes past 0
-    if (currentMinute > 0 && lastRunHour === currentHour) {
-      lastRunHour = -1;
-    }
-  }, 30_000);
-}
-
-function parseCronHours(schedule: string): number[] {
-  // Parse "0 4,10,16,22 * * *" → [4, 10, 16, 22]
-  const parts = schedule.trim().split(/\s+/);
-  if (parts.length < 5) return [];
-  const hourPart = parts[1];
-  return hourPart
-    .split(",")
-    .map((h) => Number.parseInt(h, 10))
-    .filter((h) => Number.isInteger(h) && h >= 0 && h < 24);
-}
-
-async function runCron(): Promise<void> {
-  console.log("[curation-cron] starting scheduled run");
+  let exitCode = 0;
   try {
-    const result = await runInCronScope(() => runScheduledCuration());
+    const result = await runWithAuditContext({}, () =>
+      runScheduledCuration(new Date(startedAt), {
+        softDeadlineAt: startedAt + SOFT_DEADLINE_MS,
+        onJobClaimed: (job) => {
+          currentJobId = job.id;
+        },
+      }),
+    );
     const scheduled = result.scheduledJob
       ? `queued ${result.scheduledJob.id} for ${result.scheduledJob.scheduled_for}; `
       : "";
     console.log(
-      `[curation-cron] ${scheduled}processed ${result.processed} ${result.processed === 1 ? "job" : "jobs"}`,
+      `[curation-cron] ${scheduled}processed ${result.processed} ${result.processed === 1 ? "job" : "jobs"} deadlineHit=${result.deadlineHit}`,
     );
   } catch (error) {
-    console.error(
-      "[curation-cron]",
-      error instanceof Error ? error.message : JSON.stringify(error, null, 2),
-    );
-    await reportWorkerFailure("cron", error);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// HTTP handler — manual dispatch from admin UI
-// ---------------------------------------------------------------------------
-
-async function handleRequest(
-  request: IncomingMessage,
-  response: ServerResponse,
-): Promise<void> {
-  if (request.method === "GET" && isCurationWorkerHealthPath(request.url)) {
-    sendJson(response, 200, {
-      ok: true,
-      environment: target.deploymentEnvironment,
-    });
-    return;
-  }
-
-  if (request.method !== "POST" || request.url !== "/run") {
-    sendJson(response, 404, { error: "Not found" });
-    return;
-  }
-
-  if (!isAuthorized(request.headers.authorization, requiredControlToken)) {
-    sendJson(response, 401, { error: "Unauthorized" });
-    return;
-  }
-
-  let body: unknown;
-  try {
-    body = await readJson(request);
-  } catch (error) {
-    sendJson(response, 400, {
-      error: sanitizeJobError(error),
-    });
-    return;
-  }
-  const jobId = parseJobId(body);
-  if (!jobId) {
-    sendJson(response, 400, { error: "jobId must be a UUID" });
-    return;
-  }
-
-  if (activeJobs.has(jobId)) {
-    sendJson(response, 202, { accepted: true, status: "running" });
-    return;
-  }
-
-  const workerToken = randomUUID();
-  const dispatch = await claimCurationDispatchWork(jobId, workerToken);
-  if (!dispatch) {
-    sendJson(response, 404, { error: "Job not found" });
-    return;
-  }
-
-  if (!dispatch.claimedJob) {
-    if (dispatch.requestedJob.status === "running") {
-      sendJson(response, 202, { accepted: true, status: "running" });
-      return;
+    console.error("[curation-cron]", sanitizeJobError(error));
+    exitCode = 1;
+    try {
+      await reportWorkerFailure("cron", error);
+    } catch {
+      /* reporting must not block the exit */
     }
-
-    if (dispatch.requestedJob.status === "pending") {
-      sendJson(response, 202, { accepted: true, status: "queued" });
-      return;
-    }
-
-    sendJson(response, 409, { error: "Job is no longer pending" });
-    return;
+  } finally {
+    // The hard cap owns the exit once it fires: it must finish cancelling
+    // and reporting before the process goes away.
+    if (hardCapRun) await hardCapRun;
   }
-
-  const claimed = dispatch.claimedJob;
-  activeJobs.add(claimed.id);
-  sendJson(response, 202, {
-    accepted: true,
-    status: claimed.id === jobId ? "started" : "queued",
-  });
-
-  void drainJobQueue({
-    initialJob: claimed,
-    workerToken,
-    runJob,
-    claimNextJob: claimNextCurationJob,
-    onJobClaimed: (job) => activeJobs.add(job.id),
-    onJobSettled: (job) => activeJobs.delete(job.id),
-  }).catch(async (error) => {
-    console.error("[curation-worker:run]", sanitizeJobError(error));
-    await reportWorkerFailure("runQueuedJobs", error);
-  });
+  return flushAndExit(exitCode);
 }
 
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
-
-function parsePort(value: string | undefined): number {
-  const parsed = Number.parseInt(value ?? "8080", 10);
-  return Number.isInteger(parsed) && parsed > 0 && parsed < 65_536
-    ? parsed
-    : 8080;
-}
-
-function isAuthorized(value: string | undefined, expected: string): boolean {
-  if (!value?.startsWith("Bearer ")) return false;
-  const received = Buffer.from(value.slice("Bearer ".length));
-  const expectedBuffer = Buffer.from(expected);
-  return (
-    received.length === expectedBuffer.length &&
-    timingSafeEqual(received, expectedBuffer)
-  );
-}
-
-function parseJobId(value: unknown): string | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const jobId =
-    "jobId" in value && typeof value.jobId === "string"
-      ? value.jobId.trim()
-      : "";
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    jobId,
-  )
-    ? jobId
-    : null;
-}
-
-async function readJson(request: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    size += buffer.length;
-    if (size > MAX_BODY_BYTES) {
-      throw new Error("Request body is too large");
-    }
-    chunks.push(buffer);
-  }
-
-  const raw = Buffer.concat(chunks).toString("utf8");
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw new Error("Request body must be valid JSON");
-  }
-}
-
-function sendJson(
-  response: ServerResponse,
-  status: number,
-  body: Record<string, unknown>,
-): void {
-  response.writeHead(status, {
-    "content-type": "application/json; charset=utf-8",
-  });
-  response.end(JSON.stringify(body));
-}
+void main();

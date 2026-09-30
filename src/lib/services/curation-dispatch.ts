@@ -1,84 +1,38 @@
 import { sanitizeJobError } from "./job-errors";
 import { auditedCall } from "@/lib/audit";
-
-const DISPATCH_TIMEOUT_MS = 10_000;
+import { runCurationWorkerNow } from "@/lib/adapters/railway/api";
+import { isStagingEnvironment } from "@/lib/deployment-environment";
 
 export function sanitizeDispatchError(error: unknown): string {
   return sanitizeJobError(error, 1_000);
 }
 
+/**
+ * Requests one run of the curation-worker Railway cron ("Run now"). The run
+ * drains every pending job in order, so `jobId` is only recorded for tracing.
+ */
 export async function dispatchCurationJob(
   jobId: string,
 ): Promise<{ accepted: true; status: string }> {
   return auditedCall(
     { provider: "curation", operation: "dispatchCurationJob", kind: "service" },
-    async () => {
-      const workerUrl = process.env.CURATION_WORKER_URL?.trim().replace(/\/+$/, "");
-      const controlToken = process.env.CURATION_WORKER_CONTROL_TOKEN?.trim();
+    async (ctx) => {
+      ctx.summary.jobId = jobId;
 
-      if (!workerUrl || !controlToken) {
+      if (isStagingEnvironment()) {
         throw new Error(
-          "Immediate enrichment is not configured: CURATION_WORKER_URL and CURATION_WORKER_CONTROL_TOKEN are required",
+          "Curation worker runs in production only; staging runs curation in-process (scripts/enrichment/run/refresh.ts)",
         );
       }
 
-      const endpoint = workerUrl.endsWith("/run") ? workerUrl : `${workerUrl}/run`;
-      let response: Response;
-
-      try {
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${controlToken}`,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ jobId }),
-          cache: "no-store",
-          signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
-        });
-      } catch (error) {
+      const run = await runCurationWorkerNow();
+      if (!run.ok) {
         throw new Error(
-          `Worker dispatch request failed: ${sanitizeDispatchError(error)}`,
+          `Worker run request failed: ${sanitizeDispatchError(run.error)}`,
         );
       }
 
-      const responseBody = await response.text();
-      let payload: unknown = null;
-      try {
-        payload = responseBody ? JSON.parse(responseBody) : null;
-      } catch {
-        payload = null;
-      }
-
-      if (!response.ok) {
-        const detail =
-          payload &&
-          typeof payload === "object" &&
-          "error" in payload &&
-          typeof payload.error === "string"
-            ? payload.error
-            : `HTTP ${response.status}`;
-        throw new Error(
-          `Worker dispatch was rejected: ${sanitizeDispatchError(detail)}`,
-        );
-      }
-
-      if (
-        !payload ||
-        typeof payload !== "object" ||
-        !("accepted" in payload) ||
-        payload.accepted !== true
-      ) {
-        throw new Error("Worker dispatch returned an invalid acceptance response");
-      }
-
-      return {
-        accepted: true,
-        status:
-          "status" in payload && typeof payload.status === "string"
-            ? payload.status
-            : "accepted",
-      };
+      return { accepted: true as const, status: "requested" };
     },
   );
 }
