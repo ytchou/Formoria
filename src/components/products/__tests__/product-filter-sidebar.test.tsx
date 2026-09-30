@@ -8,10 +8,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import enMessages from "../../../../messages/en.json";
 
-const { replace, push, searchParams } = vi.hoisted(() => ({
+const { replace, push, searchParams, trackSubcategory } = vi.hoisted(() => ({
   replace: vi.fn(),
   push: vi.fn(),
   searchParams: { current: new URLSearchParams() },
+  trackSubcategory: vi.fn(),
+}));
+
+vi.mock("@/lib/analytics", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/analytics")>()),
+  trackProductSubcategoryFilterApplied: trackSubcategory,
 }));
 
 vi.mock("@/i18n/navigation", () => ({
@@ -61,15 +67,8 @@ function renderSidebar(
   );
 }
 
-function sectionButton(name: string) {
-  return screen.getByRole("button", { name });
-}
-
-function sectionPanel(name: string) {
-  const id = sectionButton(name).getAttribute("aria-controls") ?? "";
-  const panel = document.getElementById(id);
-  if (!panel) throw new Error(`panel for "${name}" has no aria-controls target`);
-  return panel;
+function filterGroup(name: string) {
+  return screen.getByRole("group", { name });
 }
 
 describe("ProductFilterSidebar", () => {
@@ -105,8 +104,7 @@ describe("ProductFilterSidebar", () => {
       activeSubSlugs: [],
     });
 
-    fireEvent.click(sectionButton("Subcategory"));
-    const panel = sectionPanel("Subcategory");
+    const panel = filterGroup("Subcategory");
     const checkboxes = within(panel).getAllByRole("checkbox");
     expect(checkboxes).toHaveLength(2);
     expect(
@@ -114,17 +112,100 @@ describe("ProductFilterSidebar", () => {
     ).toBeInTheDocument();
   });
 
-  it("hides subcategory section when no category is active", () => {
+  it("renders the subcategory section with no active category when options exist", () => {
     renderSidebar({
       activeCategory: null,
       subcategoryOptions: [
-        { slug: "candles", label: "Candles", count: 5 },
+        { slug: "candles", label: "Candles", count: 5, category: "home" },
+        { slug: "tea", label: "Tea", count: 4, category: "food" },
       ],
     });
 
+    const panel = filterGroup("Subcategory");
+    expect(within(panel).getAllByRole("checkbox")).toHaveLength(2);
+  });
+
+  it("hides the subcategory section when there are no options", () => {
+    renderSidebar({ activeCategory: null, subcategoryOptions: [] });
+
     expect(
-      screen.queryByRole("button", { name: "Subcategory" }),
+      screen.queryByRole("group", { name: "Subcategory" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("checking a subcategory under All sets its parent category and the sub together, dropping material", () => {
+    renderSidebar(
+      {
+        activeCategory: null,
+        subcategoryOptions: [
+          { slug: "candles", label: "Candles", count: 5, category: "home" },
+        ],
+      },
+      "material=wood",
+    );
+
+    fireEvent.click(
+      within(filterGroup("Subcategory")).getByRole("checkbox", {
+        name: /Candles/,
+      }),
+    );
+
+    const target = replace.mock.calls.at(-1)?.[0] as string;
+    const params = new URL(target, "http://localhost").searchParams;
+    expect(params.get("category")).toBe("home");
+    expect(params.get("sub")).toBe("candles");
+    // Same as a category link: the new L1 may not offer the material facet,
+    // so keeping it would filter by a group the sidebar no longer shows.
+    expect(params.get("material")).toBeNull();
+    expect(trackSubcategory).toHaveBeenCalledWith("candles", "home", 5);
+  });
+
+  it("checking a subcategory inside a category reports that category", () => {
+    renderSidebar({
+      activeCategory: "home",
+      subcategoryOptions: [
+        { slug: "candles", label: "Candles", count: 5, category: "home" },
+      ],
+    });
+
+    fireEvent.click(
+      within(filterGroup("Subcategory")).getByRole("checkbox", {
+        name: /Candles/,
+      }),
+    );
+    expect(trackSubcategory).toHaveBeenCalledWith("candles", "home", 5);
+  });
+
+  it("category rows show counts, with All as the total, outside the link name", () => {
+    renderSidebar({
+      activeCategory: "home",
+      // `tech` is a deferred (hidden) L1: it has no row, so All excludes it.
+      categoryCounts: { home: 7, fashion: 3, tech: 5 },
+    });
+
+    const all = screen.getByRole("link", { name: "All" });
+    expect(all).toHaveTextContent("10");
+    expect(all).not.toHaveTextContent("15");
+    expect(all).not.toHaveAttribute("aria-current");
+
+    const active = screen
+      .getAllByRole("link")
+      .find((link) => link.getAttribute("aria-current") === "page")!;
+    expect(active).toHaveAttribute("href", "/discover?category=home");
+    expect(active).toHaveTextContent("7");
+    // The count is aria-hidden, so the name stays the label alone (the exact
+    // "All" match above depends on it).
+    expect(
+      within(active).getByText("7"),
+    ).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("category rows render no counts when categoryCounts is absent", () => {
+    renderSidebar({ activeCategory: null });
+
+    const all = screen.getByRole("link", { name: "All" });
+    expect(all).toHaveAttribute("aria-current", "page");
+    expect(all).toHaveTextContent(/^All$/);
   });
 
   it("renders material checkboxes", () => {
@@ -136,8 +217,7 @@ describe("ProductFilterSidebar", () => {
       activeMaterials: [],
     });
 
-    fireEvent.click(sectionButton("Material"));
-    const panel = sectionPanel("Material");
+    const panel = filterGroup("Material");
     expect(within(panel).getAllByRole("checkbox")).toHaveLength(2);
     expect(
       within(panel).getByRole("checkbox", { name: /Ceramic/ }),
@@ -153,9 +233,8 @@ describe("ProductFilterSidebar", () => {
       activeSubSlugs: [],
     });
 
-    fireEvent.click(sectionButton("Subcategory"));
     fireEvent.click(
-      within(sectionPanel("Subcategory")).getByRole("checkbox", {
+      within(filterGroup("Subcategory")).getByRole("checkbox", {
         name: /Candles/,
       }),
     );
@@ -173,9 +252,8 @@ describe("ProductFilterSidebar", () => {
       activeMaterials: [],
     });
 
-    fireEvent.click(sectionButton("Material"));
     fireEvent.click(
-      within(sectionPanel("Material")).getByRole("checkbox", {
+      within(filterGroup("Material")).getByRole("checkbox", {
         name: /Ceramic/,
       }),
     );

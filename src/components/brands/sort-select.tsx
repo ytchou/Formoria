@@ -17,8 +17,10 @@ export function SortSelect() {
   const prevSortRef = useRef(currentSort)
 
   return (
-    <Label className="inline-flex items-center gap-2 type-metadata">
-      {t('sortLabel')}
+    <Label className="inline-flex items-center gap-2">
+      {/* The text style sits on the span, not the Label, because the Label also
+          wraps the select: the select inherits the Label's font weight. */}
+      <span className="type-metadata shrink-0 text-ink-soft">{t('sortLabel')}</span>
       <NativeSelect
         value={currentSort}
         onChange={(e) => {
@@ -27,7 +29,7 @@ export function SortSelect() {
           prevSortRef.current = newSort
           setSort(newSort)
         }}
-        className="w-fit"
+        className="w-auto"
         data-ph-no-autocapture
       >
         {(Object.keys(BRAND_SORT_CONFIG) as BrandSortOption[]).map((key) => (

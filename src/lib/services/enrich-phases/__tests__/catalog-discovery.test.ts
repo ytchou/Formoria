@@ -7,6 +7,7 @@ import {
   isListingPatternUrl,
   type CatalogFetch,
 } from '../catalog-discovery'
+import { RenderBudgetExceeded } from '../scraper/render/render-budget'
 import type { RenderProvider } from '../scraper/render/types'
 
 const productHtml = (
@@ -74,6 +75,56 @@ describe('catalog discovery', () => {
       sources: [{ url: 'https://shop.example', channel: 'official' }],
       fetcher: fetcherFor({ 'https://shop.example': '<main></main>' }),
     })
+    expect(result.zeroReason).toBe('render_blocked')
+  })
+
+  // A render the budget refused never reached the site, so it proves nothing
+  // about whether the site can be rendered (DEV-1908).
+  it('reports a budget-refused listing render as truncated, not render_blocked', async () => {
+    const renderProvider: RenderProvider = {
+      fetchRendered: vi.fn(async () => {
+        throw new RenderBudgetExceeded('brand')
+      }),
+    }
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher: fetcherFor({ 'https://shop.example': '<main></main>' }),
+      renderProvider,
+    })
+    expect(result.attempts[0]?.renderOutcome).toBe('budget_capped')
+    expect(result.zeroReason).toBe('truncated')
+  })
+
+  it('reports a budget-refused detail render as truncated, not render_blocked', async () => {
+    const renderProvider: RenderProvider = {
+      fetchRendered: vi.fn(async () => {
+        throw new RenderBudgetExceeded('job')
+      }),
+    }
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher: fetcherFor({
+        'https://shop.example': '<a href="/products/cup">Cup</a>',
+        'https://shop.example/products/cup': '<main><h1>Cup</h1></main>',
+      }),
+      renderProvider,
+    })
+    expect(renderProvider.fetchRendered).toHaveBeenCalled()
+    expect(result.zeroReason).toBe('truncated')
+  })
+
+  it('still reports render_blocked when the render itself fails', async () => {
+    const renderProvider: RenderProvider = {
+      fetchRendered: vi.fn(async () => {
+        throw new Error('page.goto: Timeout 30000ms exceeded.')
+      }),
+    }
+    const result = await discoverCatalog({
+      sources: [{ url: 'https://shop.example', channel: 'official' }],
+      fetcher: fetcherFor({ 'https://shop.example': '<main></main>' }),
+      renderProvider,
+    })
+    expect(result.attempts[0]?.renderOutcome).toBe('failed')
     expect(result.zeroReason).toBe('render_blocked')
   })
 

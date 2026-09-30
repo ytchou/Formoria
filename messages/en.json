@@ -92,17 +92,20 @@
       "sortAlphabetical": "Sort by name",
       "sortRelevance": "Relevance",
       "resultCount": "{count, plural, one {# product} other {# products}}",
-      "sortLabel": "Sort",
+      "sortLabel": "Sort by",
       "query": "Search",
       "category": "Category",
-      "inferred": "Auto-detected"
+      "inferred": "Auto-detected",
+      "showMore": "Show {count} more",
+      "showLess": "Show less"
     },
     "search": {
       "label": "Search products",
       "placeholder": "Search products, brands or needs…",
       "submit": "Search",
+      "clear": "Clear search",
       "resultsHeading": "Products matching \"{query}\"",
-      "count": "{count, plural, one {# result} other {# results}}",
+      "count": "{count, plural, one {# product found} other {# products found}}",
       "empty": "No products found — try different keywords"
     }
   },
@@ -135,13 +138,13 @@
       "description": "Taiwanese brand discovery and curation: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path."
     },
     "hero": {
-      "headline": "Life can look a little more like you.",
-      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
+      "headline": "Life can look a little more like you",
+      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands",
       "searchLabel": "Search Taiwanese products",
       "searchPlaceholder": "Try: tea sets for elders, canvas bags, Spring Pool",
       "browseCta": "Start from a style",
       "eyebrow": "Taiwanese brand discovery and curation",
-      "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+      "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it",
       "browsePrefix": "or",
       "allBrands": "All Brands"
     },
@@ -166,7 +169,7 @@
     },
     "trails": {
       "heading": "Styles",
-      "note": "One situation, one set of things. Start from the days you are living, not from a brand name.",
+      "note": "A corner, a slice of everyday life",
       "linkText": "See every style",
       "eyebrow": "Style",
       "cta": "Explore this style →",
@@ -174,8 +177,8 @@
       "next": "Next"
     },
     "selection": {
-      "headline": "Every pick has a reason.",
-      "subtitle": "Moving in, setting up a shop, switching a lamp — these are the products we chose for those moments.",
+      "headline": "Every pick has a reason",
+      "subtitle": "Moving in, setting up a shop, switching a lamp — these are the products we chose for those moments",
       "cta": "Explore all selections",
       "allCategories": "All"
     },
@@ -238,7 +241,9 @@
       "removeFilter": "Remove {label}: {value}",
       "clearAll": "Clear all",
       "showResults": "Show {count} results",
-      "subcategory": "Subcategory"
+      "subcategory": "Subcategory",
+      "showMore": "Show {count} more",
+      "showLess": "Show less"
     },
     "sort": {
       "random": "Random",
@@ -249,6 +254,7 @@
     "search": {
       "aria": "Search brands",
       "placeholder": "Search brands...",
+      "submit": "Search",
       "clear": "Clear search",
       "loading": "Searching brands..."
     },

@@ -45,17 +45,21 @@ describe('createRenderProvider', () => {
 
     const bound = bindBrandKey(provider, 'my-brand')
 
-    // 3 renders succeed (perBrand default is 3)
+    // 60 renders succeed (perBrand default is 60)
     const results: RenderResult[] = []
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 60; i++) {
       results.push(await bound.fetchRendered(`https://example.com/${i}`))
     }
-    expect(results).toHaveLength(3)
+    expect(results).toHaveLength(60)
 
-    // 4th render for the same brand key is refused
-    await expect(bound.fetchRendered('https://example.com/4')).rejects.toThrow(
+    // 61st render for the same brand key is refused
+    await expect(bound.fetchRendered('https://example.com/61')).rejects.toThrow(
       RenderBudgetExceeded,
     )
+
+    // Another brand in the same job still renders: there is no per-job cap
+    const other = bindBrandKey(provider, 'other-brand')
+    await expect(other.fetchRendered('https://example.com/other')).resolves.toBeDefined()
   })
 
   it('close_closes_the_browser', async () => {

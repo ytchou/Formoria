@@ -40,7 +40,7 @@ type ClientOptions = {
 type ChatInput = Parameters<ReturnType<typeof createOpenAIClient>["chat"]>[0];
 
 /** What the model answered, as the capture seam records it. */
-export type CapturedResponse = {
+type CapturedResponse = {
   content: string | null;
   /** The content parsed as JSON; present only for JSON/schema calls whose content parses. */
   parsed?: unknown;

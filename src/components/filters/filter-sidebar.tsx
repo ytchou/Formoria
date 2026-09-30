@@ -4,11 +4,16 @@ import { useMemo, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { VISIBLE_L1_CATEGORIES, categoryLabel } from "@/lib/taxonomy/ontology";
-import { buttonVariants } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { FOCUS_RING } from "@/components/ui/control-surface";
 import { cn } from "@/lib/utils";
 import { FilterSection } from "./filter-section";
 import { FilterCheckboxGroup } from "./filter-checkbox-group";
+import {
+  FilterOptionCount,
+  FilterRadioIndicator,
+  filterOptionRowClassName,
+  FilterOptionLabel,
+} from "./filter-option-row";
 import { FilterDrawerShell } from "./filter-drawer-shell";
 import {
   updateDirectoryUrl,
@@ -16,10 +21,12 @@ import {
   type DirectoryFilterUpdates,
 } from "@/lib/directory-filter-url";
 
-type SubcategoryOption = {
+export type SubcategoryOption = {
   slug: string;
   label: string;
   count: number;
+  /** Parent L1. Required to check a subcategory while no category is active. */
+  category?: string;
 };
 
 type MaterialOption = {
@@ -32,6 +39,8 @@ export type FilterSidebarProps = {
   locale: string;
   activeCategory: string | null;
   allLabel: string;
+  /** Per-L1 counts, never narrowed to the active category. Omit for no counts. */
+  categoryCounts?: Record<string, number>;
   subcategoryOptions?: SubcategoryOption[];
   activeSubSlugs?: string[];
   materialOptions?: MaterialOption[];
@@ -42,8 +51,11 @@ export type FilterSidebarProps = {
   /** i18n labels for section headings and ARIA. */
   labels: {
     title: string;
+    category: string;
     subcategory: string;
     material: string;
+    showMore: (count: number) => string;
+    showLess: string;
   };
   /** Optional analytics callbacks. */
   onCategorySelect?: (slug: string) => void;
@@ -51,14 +63,39 @@ export type FilterSidebarProps = {
   onMaterialToggle?: (slug: string, count: number) => void;
 };
 
-function filterLinkClasses(isActive: boolean) {
-  return cn(
-    buttonVariants({
-      variant: isActive ? "primary" : "ghost",
-      size: "compact",
-    }),
-    "type-nav justify-start",
-    !isActive && "text-ink-muted",
+/**
+ * A category row is a text link, not a button: single-select, so each option
+ * is a real URL. It wears the checkbox rows' geometry with a decorative radio
+ * in the checkbox's place (see `filter-option-row.tsx`). The count is
+ * aria-hidden so the link's accessible name stays the category label.
+ */
+function CategoryRow({
+  href,
+  label,
+  count,
+  isActive,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  count: number | undefined;
+  isActive: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        filterOptionRowClassName,
+        FOCUS_RING,
+      )}
+      onClick={onClick}
+    >
+      <FilterRadioIndicator selected={isActive} />
+      <FilterOptionLabel selected={isActive}>{label}</FilterOptionLabel>
+      {count !== undefined && <FilterOptionCount count={count} aria-hidden />}
+    </Link>
   );
 }
 
@@ -66,6 +103,7 @@ export function FilterSidebar({
   locale,
   activeCategory,
   allLabel,
+  categoryCounts,
   subcategoryOptions = [],
   activeSubSlugs = [],
   materialOptions = [],
@@ -90,9 +128,18 @@ export function FilterSidebar({
     [activeMaterials],
   );
 
-  const hasSubcategories =
-    activeCategory !== null && subcategoryOptions.length > 0;
+  // With no active category both pages pass every visible L1's subcategories,
+  // but a page may pass none (e.g. a multi-category selection), so presence
+  // alone decides.
+  const hasSubcategories = subcategoryOptions.length > 0;
   const hasMaterials = materialOptions.length > 0;
+  // 全部 is the sum of the rows listed below it, so hidden L1s never count.
+  const allCount = categoryCounts
+    ? VISIBLE_L1_CATEGORIES.reduce(
+        (sum, category) => sum + (categoryCounts[category.slug] ?? 0),
+        0,
+      )
+    : undefined;
 
   const subCheckboxOptions = useMemo(
     () =>
@@ -105,24 +152,27 @@ export function FilterSidebar({
   );
 
   function toggleSubcategory(value: string, checked: boolean) {
+    const option = subcategoryOptions.find((o) => o.slug === value);
+    const parent = activeCategory ?? option?.category ?? null;
     const next = new Set(activeSubSet);
-    if (checked) {
-      next.add(value);
-      onSubcategoryToggle?.(
-        value,
-        activeCategory!,
-        subcategoryOptions.find((o) => o.slug === value)?.count ?? 0,
-      );
+    let updates: DirectoryFilterUpdates;
+    if (checked && activeCategory === null && parent) {
+      // Checking under 全部 scopes the URL to the sub's L1: category and sub
+      // move together in one patch (updateDirectoryUrl keeps an explicit sub).
+      // Material drops too, as on a category link: the new L1 may not offer it.
+      updates = { category: parent, sub: value, material: null };
     } else {
-      next.delete(value);
+      if (checked) next.add(value);
+      else next.delete(value);
+      updates = { sub: next.size > 0 ? Array.from(next).join(",") : null };
+    }
+    if (checked && parent) {
+      onSubcategoryToggle?.(value, parent, option?.count ?? 0);
     }
     startTransition(() => {
-      router.replace(
-        updateDirectoryUrl(pathname, searchParams, {
-          sub: next.size > 0 ? Array.from(next).join(",") : null,
-        }),
-        { scroll: false },
-      );
+      router.replace(updateDirectoryUrl(pathname, searchParams, updates), {
+        scroll: false,
+      });
     });
   }
 
@@ -148,67 +198,62 @@ export function FilterSidebar({
   }
 
   return (
-    <nav aria-label={labels.title}>
-      <ul className="flex flex-wrap gap-2 lg:flex-col lg:gap-1">
-        <li>
-          <Link
-            href={categoryHref(null)}
-            aria-current={activeCategory === null ? "page" : undefined}
-            className={filterLinkClasses(activeCategory === null)}
-          >
-            {allLabel}
-          </Link>
-        </li>
-        {VISIBLE_L1_CATEGORIES.map((category) => {
-          const isActive = activeCategory === category.slug;
-          const label = categoryLabel(category, locale);
-          return (
-            <li key={category.slug}>
-              <Link
-                href={categoryHref(category.slug)}
-                aria-current={isActive ? "page" : undefined}
-                className={filterLinkClasses(isActive)}
-                onClick={() => {
-                  if (!isActive) onCategorySelect?.(category.slug);
-                }}
-              >
-                {label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+    <nav aria-label={labels.title} className="space-y-6">
+      <FilterSection title={labels.category}>
+        <ul>
+          <li>
+            <CategoryRow
+              href={categoryHref(null)}
+              label={allLabel}
+              count={allCount}
+              isActive={activeCategory === null}
+            />
+          </li>
+          {VISIBLE_L1_CATEGORIES.map((category) => {
+            const isActive = activeCategory === category.slug;
+            return (
+              <li key={category.slug}>
+                <CategoryRow
+                  href={categoryHref(category.slug)}
+                  label={categoryLabel(category, locale)}
+                  count={
+                    categoryCounts
+                      ? (categoryCounts[category.slug] ?? 0)
+                      : undefined
+                  }
+                  isActive={isActive}
+                  onClick={() => {
+                    if (!isActive) onCategorySelect?.(category.slug);
+                  }}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </FilterSection>
 
       {hasSubcategories && (
-        <>
-          <Separator className="my-4" />
-          <FilterSection
-            title={labels.subcategory}
-            defaultOpen={activeSubSlugs.length > 0}
-          >
-            <FilterCheckboxGroup
-              options={subCheckboxOptions}
-              activeValues={activeSubSet}
-              onToggle={toggleSubcategory}
-            />
-          </FilterSection>
-        </>
+        <FilterSection title={labels.subcategory}>
+          <FilterCheckboxGroup
+            options={subCheckboxOptions}
+            activeValues={activeSubSet}
+            onToggle={toggleSubcategory}
+            showMoreLabel={labels.showMore}
+            showLessLabel={labels.showLess}
+          />
+        </FilterSection>
       )}
 
       {hasMaterials && (
-        <>
-          <Separator className="my-4" />
-          <FilterSection
-            title={labels.material}
-            defaultOpen={activeMaterials.length > 0}
-          >
-            <FilterCheckboxGroup
-              options={materialOptions}
-              activeValues={activeMaterialSet}
-              onToggle={toggleMaterial}
-            />
-          </FilterSection>
-        </>
+        <FilterSection title={labels.material}>
+          <FilterCheckboxGroup
+            options={materialOptions}
+            activeValues={activeMaterialSet}
+            onToggle={toggleMaterial}
+            showMoreLabel={labels.showMore}
+            showLessLabel={labels.showLess}
+          />
+        </FilterSection>
       )}
     </nav>
   );

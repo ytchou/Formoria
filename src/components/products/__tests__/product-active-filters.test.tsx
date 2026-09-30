@@ -30,6 +30,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "zh-TW",
   useTranslations: () => (key: string, params?: Record<string, string>) => {
     if (params) return `${key}(${JSON.stringify(params)})`;
     return key;
@@ -241,6 +242,16 @@ describe("ProductActiveFilters", () => {
 
     const href = screen.getByText("clearAll").closest("a")!.getAttribute("href")!;
     expect(href).toBe("/discover?category=home");
+  });
+
+  it("offers clear-all with a single chip, as /brands does", () => {
+    render(
+      <ProductActiveFilters
+        activeFilters={[{ type: "material", slug: "wood", label: "Wood" }]}
+      />,
+    );
+
+    expect(screen.getByText("clearAll").closest("a")).not.toBeNull();
   });
 
   it("test_active_filters_hidden_when_empty", () => {

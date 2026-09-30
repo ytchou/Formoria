@@ -5,7 +5,9 @@ import {
   directoryBrandCategoryFilter,
   getPublicBrandCards,
   getRandomBrands,
+  getSubcategoryCountsAcross,
   getSubcategorySummary,
+  type SubcategorySummary,
 } from "@/lib/services/brands";
 import {
   categoryLabel,
@@ -41,7 +43,10 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import type { Locale } from "@/lib/seo/alternates";
 import type { DirectoryViewFilters } from "@/lib/seo/directory-filters";
 import { localizePath } from "@/i18n/locale-preference";
-import { updateDirectoryUrl } from "@/lib/directory-filter-url";
+import {
+  clearDirectoryFilters,
+  updateDirectoryUrl,
+} from "@/lib/directory-filter-url";
 import {
   buildDirectoryUrlState,
   directoryCategoryChipSlugs,
@@ -52,7 +57,9 @@ import type { PublicBrandCard } from "@/lib/brands/contracts";
 import { DirectoryResultStatus } from "./directory-landing-head";
 import { routes } from "@/lib/routes";
 import { PageShell } from "@/components/ui/page-shell";
-import { FilterToken } from "@/components/filters";
+import { ActiveFilterChips, FilterAside } from "@/components/filters";
+import { DirectoryHeader } from "@/components/directory/directory-header";
+import { DirectoryToolbar } from "@/components/directory/directory-toolbar";
 import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
 import {
   RelatedStoryLink,
@@ -60,6 +67,10 @@ import {
 } from "@/components/stories/related-story-link";
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4;
+const EMPTY_TAXONOMY_SUMMARY: SubcategorySummary = {
+  counts: new Map(),
+  latestUpdatedAt: null,
+};
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(
   VISIBLE_L1_CATEGORIES.map((category) => category.slug),
 );
@@ -120,7 +131,30 @@ export async function DirectoryView({
     ? categoryLabel(categoryTag, safeLocale)
     : t("heading");
   const search = filters.search ?? "";
-  const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search;
+  // The 子分類 list shows during a search too, in every scope, with
+  // catalog-wide counts (never narrowed by the search), so search and panel
+  // filters combine as on /discover. Under 全部 it spans every visible L1.
+  // A multi-category selection gets none.
+  const subcategoryScope = singleValidCategory
+    ? [singleValidCategory]
+    : validCategoryFilter.length === 0
+      ? VISIBLE_L1_CATEGORIES.map((category) => category.slug)
+      : [];
+  // Only a single-L1 page without a search is dated: `latestUpdatedAt` comes
+  // from getSubcategorySummary alone; every other scope has no freshness date.
+  let taxonomySummaryPromise: Promise<SubcategorySummary>;
+  if (singleValidCategory && !search) {
+    taxonomySummaryPromise = getSubcategorySummary(
+      singleValidCategory,
+      activeSubcategory?.slug,
+    );
+  } else if (subcategoryScope.length > 0) {
+    taxonomySummaryPromise = getSubcategoryCountsAcross(subcategoryScope).then(
+      (counts) => ({ counts, latestUpdatedAt: null }),
+    );
+  } else {
+    taxonomySummaryPromise = Promise.resolve(EMPTY_TAXONOMY_SUMMARY);
+  }
 
   const [{ brands, totalCount }, taxonomySummary, editorialLinks] =
     await Promise.all([
@@ -131,12 +165,7 @@ export async function DirectoryView({
         sort,
         page,
       }),
-      shouldLoadTaxonomySummary && singleValidCategory
-        ? getSubcategorySummary(singleValidCategory, activeSubcategory?.slug)
-        : Promise.resolve({
-            counts: new Map<string, number>(),
-            latestUpdatedAt: null,
-          }),
+      taxonomySummaryPromise,
       isCategoryRoute && singleValidCategory
         ? getCategoryEditorialLinks(
             singleValidCategory,
@@ -144,20 +173,25 @@ export async function DirectoryView({
           )
         : Promise.resolve({ trails: [], stories: [] }),
     ]);
-  const subcategoriesWithCounts = singleValidCategory
-    ? L2_SUBCATEGORIES.filter(
-        (subcategory) => subcategory.category === singleValidCategory,
-      )
-        .map((subcategory) => ({
-          ...subcategory,
-          count: taxonomySummary.counts.get(subcategory.slug) ?? 0,
-        }))
-        .filter((subcategory) => subcategory.count > 0)
-    : [];
+  const subcategoriesWithCounts = L2_SUBCATEGORIES.filter((subcategory) =>
+    subcategoryScope.includes(subcategory.category),
+  )
+    .map((subcategory) => ({
+      ...subcategory,
+      count: taxonomySummary.counts.get(subcategory.slug) ?? 0,
+    }))
+    .filter((subcategory) => subcategory.count > 0);
+  // One L1 keeps ontology order; the cross-L1 list is count-desc so the top
+  // ten before 「再顯示」 are the ones that matter (same as /discover).
+  if (!singleValidCategory) {
+    subcategoriesWithCounts.sort((a, b) => b.count - a.count);
+  }
   const subcategoryOptions = subcategoriesWithCounts.map((subcategory) => ({
     slug: subcategory.slug,
     label: safeLocale === "zh-TW" ? subcategory.nameZh : subcategory.nameEn,
     count: subcategory.count,
+    // Lets the sidebar set the parent L1 when a 子分類 is picked under 全部.
+    category: subcategory.category,
   }));
 
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE);
@@ -251,6 +285,11 @@ export async function DirectoryView({
       }),
     });
   }
+  // Clear-all removes every chip this page shows (search, category, sub) and
+  // keeps sort — the chips' own remove links, applied together.
+  const clearAllHref = clearDirectoryFilters(directoryPath, normalizedParams, {
+    includeSearch: true,
+  });
   let recommendedBrands: PublicBrandCard[] = [];
   let recommendationsHref = directoryPath;
   if (totalCount === 0 && !isCategoryRoute) {
@@ -391,52 +430,55 @@ export async function DirectoryView({
       <SearchResultsTracker query={search} resultCount={totalCount} />
 
       <div className="space-y-stack">
-        <header className="prose-measure space-y-3">
-          <h1 className="type-page-title">{pageHeading}</h1>
-          <p className="type-body">{t("subheading")}</p>
-          <SearchInput />
-        </header>
-
-        {/* Mobile drawer trigger */}
-        <div className="lg:hidden">
-          <BrandFilterDrawer {...sidebarProps} />
-        </div>
+        <DirectoryHeader
+          title={pageHeading}
+          intro={t("subheading")}
+          search={
+            <SearchInput
+              label={t("search.aria")}
+              submitLabel={t("search.submit")}
+            />
+          }
+        />
 
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Desktop sidebar */}
-          <aside className="hidden shrink-0 lg:block lg:w-48" aria-label={t("filters.title")}>
+          <FilterAside aria-label={t("filters.title")}>
             <BrandFilterSidebar {...sidebarProps} />
-          </aside>
+          </FilterAside>
 
           <div className="min-w-0 flex-1">
-            {/* Toolbar: result count + sort */}
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <DirectoryResultStatus
-                locale={safeLocale}
-                totalCount={totalCount}
-                latestUpdatedAt={latestUpdatedAt}
-                announceLiveRegion={isCategoryRoute}
-              />
-              <Suspense fallback={null}>
-                <SortSelect />
-              </Suspense>
-            </div>
-
-            {/* Active filter chips */}
-            {activeFilters.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                {activeFilters.map((filter) => (
-                  <FilterToken
-                    key={filter.id}
-                    href={filter.removeHref}
-                    label={filter.label}
-                    removeLabel={filter.removeLabel}
-                    value={filter.value}
-                    variant="chip"
+            <DirectoryToolbar
+              filterTrigger={<BrandFilterDrawer {...sidebarProps} />}
+              count={
+                <DirectoryResultStatus
+                  locale={safeLocale}
+                  totalCount={totalCount}
+                  latestUpdatedAt={latestUpdatedAt}
+                  announceLiveRegion={isCategoryRoute}
+                />
+              }
+              chips={
+                activeFilters.length > 0 ? (
+                  <ActiveFilterChips
+                    chips={activeFilters.map((filter) => ({
+                      id: filter.id,
+                      href: filter.removeHref,
+                      label: filter.label,
+                      removeLabel: filter.removeLabel,
+                      value: filter.value,
+                    }))}
+                    clearAllHref={clearAllHref}
+                    clearAllLabel={t("filters.clearAll")}
                   />
-                ))}
-              </div>
-            )}
+                ) : undefined
+              }
+              sort={
+                <Suspense fallback={null}>
+                  <SortSelect />
+                </Suspense>
+              }
+            />
 
             <Suspense
               fallback={

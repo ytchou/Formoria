@@ -11,6 +11,7 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Grid } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
+import { displayBrandCount } from "@/lib/brands/display-brand-count";
 import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
 import type { StoryEntry } from "@/lib/services/stories";
@@ -43,9 +44,9 @@ export type LandingZonesProps = {
  *     hero      the editorial opener — eyebrow, promise, lede, search
  *     selection the justified product wall
  *     trails    the style zone — every indexable trail as an editorial card
+ *     directory one explore-style brand rail
  *     manifesto the photo band
  *     topics    stories
- *     directory one explore-style brand rail
  *     close     the CTA band — recommend · newsletter
  *
  * Every zone carries `data-landing-zone`, which is the structure's contract: a
@@ -72,6 +73,7 @@ export async function LandingZones({
   totalBrandCount,
 }: LandingZonesProps) {
   const t = await getTranslations({ locale, namespace: "landing" });
+  const shownBrandCount = displayBrandCount(totalBrandCount);
 
   return (
     <>
@@ -117,11 +119,22 @@ export async function LandingZones({
           </section>
         ) : null}
 
+        {brands.length > 0 && (
+          <div data-landing-zone="directory" className="py-section">
+            <PageShell measure="page">
+              <BrandStrip
+                brands={brands}
+                totalCount={shownBrandCount}
+              />
+            </PageShell>
+          </div>
+        )}
+
         {/* MissionCloser wraps its own PhotoBand and reads missionCloser.*
             keys internally. The trust statement (`trustSeam.line`) now ships
             only on /about, /faq, and the /og/trust card. */}
         <div data-landing-zone="manifesto">
-          <MissionCloser brandCount={totalBrandCount} />
+          <MissionCloser brandCount={shownBrandCount} />
         </div>
 
         {stories.length > 0 && (
@@ -152,17 +165,6 @@ export async function LandingZones({
               </Grid>
             </PageShell>
           </section>
-        )}
-
-        {brands.length > 0 && (
-          <div data-landing-zone="directory" className="py-section">
-            <PageShell measure="page">
-              <BrandStrip
-                brands={brands}
-                totalCount={totalBrandCount}
-              />
-            </PageShell>
-          </div>
         )}
       </SavedBrandsProvider>
 

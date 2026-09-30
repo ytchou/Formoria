@@ -348,9 +348,9 @@ describe("landing page zones", () => {
     expect(zoneOrder(container)).toEqual([
       "hero",
       "selection",
+      "directory",
       "manifesto",
       "topics",
-      "directory",
       "close",
     ]);
     expect(container.querySelector('[data-landing-zone="trust"]')).toBeNull();
@@ -436,9 +436,9 @@ describe("landing page zones", () => {
       "hero",
       "selection",
       "trails",
+      "directory",
       "manifesto",
       "topics",
-      "directory",
       "close",
     ]);
   });
@@ -476,15 +476,23 @@ describe("landing page zones", () => {
     ).toHaveAttribute("href", "/brands");
   });
 
-  it("renders the brand count in the directory zone", async () => {
-    const { container } = await renderZones({ totalBrandCount: 700 });
+  it.each([
+    [291, "Over 250 "],
+    [700, "Over 650 "],
+    [30, "Over 30 "],
+  ])(
+    "rounds brand count %i down to a 50 step that 'Over' keeps true",
+    async (totalBrandCount, expected) => {
+      const { container } = await renderZones({ totalBrandCount });
 
-    const directory = container.querySelector<HTMLElement>(
-      '[data-landing-zone="directory"]',
-    )!;
-    // BrandStrip now renders a count line — verify it appears.
-    expect(directory.textContent).toContain("700");
-  });
+      for (const zone of ["directory", "manifesto"]) {
+        const el = container.querySelector<HTMLElement>(
+          `[data-landing-zone="${zone}"]`,
+        )!;
+        expect(el.textContent).toContain(expected);
+      }
+    },
+  );
 
   it("keeps the degraded-render wiring intact", () => {
     const healthy = {

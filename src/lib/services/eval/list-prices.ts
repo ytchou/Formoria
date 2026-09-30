@@ -25,7 +25,7 @@ export const EVAL_LIST_PRICES: Readonly<Record<string, ListPrice>> = {
  * uncached remainder is prompt − cached − cacheWrite. An image-input call
  * reported no cache_write_tokens at all; absent counts are treated as 0.
  */
-export const CACHE_WRITE_INCLUDED_IN_PROMPT_TOKENS = true
+const CACHE_WRITE_INCLUDED_IN_PROMPT_TOKENS = true
 
 export type TokenCounts = {
   promptTokens: number
