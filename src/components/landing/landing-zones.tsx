@@ -43,9 +43,9 @@ export type LandingZonesProps = {
  *     hero      the editorial opener — eyebrow, promise, lede, search
  *     selection the justified product wall
  *     trails    the style zone — every indexable trail as an editorial card
+ *     directory one explore-style brand rail
  *     manifesto the photo band
  *     topics    stories
- *     directory one explore-style brand rail
  *     close     the CTA band — recommend · newsletter
  *
  * Every zone carries `data-landing-zone`, which is the structure's contract: a
@@ -72,6 +72,13 @@ export async function LandingZones({
   totalBrandCount,
 }: LandingZonesProps) {
   const t = await getTranslations({ locale, namespace: "landing" });
+  // Both count lines read "超過 {count}", so the count rounds down to the
+  // highest 50 step strictly below the total: 291 → 250, 300 → 250. Below 51
+  // the exact total is shown.
+  const displayBrandCount =
+    totalBrandCount > 50
+      ? Math.floor((totalBrandCount - 1) / 50) * 50
+      : totalBrandCount;
 
   return (
     <>
@@ -117,11 +124,22 @@ export async function LandingZones({
           </section>
         ) : null}
 
+        {brands.length > 0 && (
+          <div data-landing-zone="directory" className="py-section">
+            <PageShell measure="page">
+              <BrandStrip
+                brands={brands}
+                totalCount={displayBrandCount}
+              />
+            </PageShell>
+          </div>
+        )}
+
         {/* MissionCloser wraps its own PhotoBand and reads missionCloser.*
             keys internally. The trust statement (`trustSeam.line`) now ships
             only on /about, /faq, and the /og/trust card. */}
         <div data-landing-zone="manifesto">
-          <MissionCloser brandCount={totalBrandCount} />
+          <MissionCloser brandCount={displayBrandCount} />
         </div>
 
         {stories.length > 0 && (
@@ -152,17 +170,6 @@ export async function LandingZones({
               </Grid>
             </PageShell>
           </section>
-        )}
-
-        {brands.length > 0 && (
-          <div data-landing-zone="directory" className="py-section">
-            <PageShell measure="page">
-              <BrandStrip
-                brands={brands}
-                totalCount={totalBrandCount}
-              />
-            </PageShell>
-          </div>
         )}
       </SavedBrandsProvider>
 

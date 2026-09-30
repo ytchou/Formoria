@@ -12,6 +12,8 @@ type SubcategoryOption = {
   slug: string;
   label: string;
   count: number;
+  /** Parent L1; required for picking a 子分類 while no category is active. */
+  category?: string;
 };
 
 export type BrandFilterSidebarProps = {
@@ -36,8 +38,11 @@ export function BrandFilterSidebar(props: BrandFilterSidebarProps) {
       categoryHref={brandCategoryHref}
       labels={{
         title: t("title"),
+        category: t("category"),
         subcategory: t("subcategory"),
         material: "",
+        showMore: (count: number) => t("showMore", { count }),
+        showLess: t("showLess"),
       }}
       onCategorySelect={trackCategoryFilterApplied}
       onSubcategoryToggle={trackSubcategoryFilterApplied}
@@ -54,8 +59,11 @@ export function BrandFilterDrawer(props: BrandFilterSidebarProps) {
       categoryHref={brandCategoryHref}
       labels={{
         title: t("title"),
+        category: t("category"),
         subcategory: t("subcategory"),
         material: "",
+        showMore: (count: number) => t("showMore", { count }),
+        showLess: t("showLess"),
       }}
       triggerLabel={t("trigger")}
       showResultsLabel={t("showResults", { count: props.totalCount })}

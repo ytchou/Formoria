@@ -18,7 +18,9 @@ test.describe("Discover situation search", () => {
       page.getByLabel("搜尋商品"),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
 
+    // Search mode titles the page by the query (the page is noindex).
     const resultsHeading = page.getByRole("heading", {
+      level: 1,
       name: /符合「茶壺」的商品/,
     });
     await expect(resultsHeading).toBeVisible({ timeout: BUDGET.RENDERED });
@@ -38,7 +40,8 @@ test.describe("Discover situation search", () => {
     const input = page.getByLabel("搜尋商品");
     await expect(input).toBeVisible({ timeout: BUDGET.RENDERED });
     await input.fill("送禮");
-    await page.getByRole("button", { name: "搜尋" }).click();
+    // exact: the field's clear button (清除搜尋) also contains 搜尋 once it has text.
+    await page.getByRole("button", { name: "搜尋", exact: true }).click();
 
     await page.waitForURL(/[?&]q=/, { timeout: BUDGET.INTERACTIVE });
 

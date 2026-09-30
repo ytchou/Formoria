@@ -375,11 +375,13 @@ export function interleaveCatalogProducts(
 // ---------------------------------------------------------------------------
 
 export type FacetCounts = {
+  categoryCounts: { slug: string; count: number }[];
   subcategoryCounts: { slug: string; count: number }[];
   materialCounts: { slug: string; count: number }[];
 };
 
 type ProductFacetRow = {
+  category: string | null;
   subcategory: string | null;
   material: string[] | null;
 };
@@ -387,9 +389,13 @@ type ProductFacetRow = {
 export function aggregateProductFacetRows(
   rows: readonly ProductFacetRow[],
 ): FacetCounts {
+  const catCounts = new Map<string, number>();
   const subCounts = new Map<string, number>();
   const matCounts = new Map<string, number>();
   for (const row of rows) {
+    if (row.category) {
+      catCounts.set(row.category, (catCounts.get(row.category) ?? 0) + 1);
+    }
     if (row.subcategory) {
       subCounts.set(row.subcategory, (subCounts.get(row.subcategory) ?? 0) + 1);
     }
@@ -398,6 +404,9 @@ export function aggregateProductFacetRows(
     }
   }
   return {
+    categoryCounts: [...catCounts.entries()]
+      .map(([slug, count]) => ({ slug, count }))
+      .sort((a, b) => b.count - a.count),
     subcategoryCounts: [...subCounts.entries()]
       .map(([slug, count]) => ({ slug, count }))
       .sort((a, b) => b.count - a.count),
@@ -427,7 +436,7 @@ const getCachedProductFacetCounts = unstable_cache(
       let query = supabase
         .from("curated_products")
         .select(
-          "subcategory, material, curated_product_sources!inner(id), brands!inner(slug, name, status)",
+          "category, subcategory, material, curated_product_sources!inner(id), brands!inner(slug, name, status)",
         )
         .eq("visible", true)
         .not("official_url", "is", null)
@@ -451,6 +460,6 @@ const getCachedProductFacetCounts = unstable_cache(
 
     return aggregateProductFacetRows(rows);
   },
-  ["discover-facets-v1"],
+  ["discover-facets-v2"],
   { revalidate: 3600 },
 );

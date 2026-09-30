@@ -17,6 +17,7 @@ type SubcategoryOption = {
   slug: string;
   label: string;
   count: number;
+  category?: string;
 };
 
 type MaterialOption = {
@@ -29,6 +30,7 @@ export type ProductFilterSidebarProps = {
   locale: string;
   activeCategory: string | null;
   allLabel: string;
+  categoryCounts?: Record<string, number>;
   subcategoryOptions?: SubcategoryOption[];
   activeSubSlugs?: string[];
   materialOptions?: MaterialOption[];
@@ -62,8 +64,11 @@ export function ProductFilterSidebar(props: ProductFilterSidebarProps) {
       categoryHref={categoryHref}
       labels={{
         title: t("title"),
+        category: t("category"),
         subcategory: t("subcategory"),
         material: t("material"),
+        showMore: (count: number) => t("showMore", { count }),
+        showLess: t("showLess"),
       }}
       onSubcategoryToggle={trackProductSubcategoryFilterApplied}
       onMaterialToggle={trackProductMaterialFilterApplied}
@@ -81,8 +86,11 @@ export function ProductFilterDrawer(props: ProductFilterSidebarProps) {
       categoryHref={categoryHref}
       labels={{
         title: t("title"),
+        category: t("category"),
         subcategory: t("subcategory"),
         material: t("material"),
+        showMore: (count: number) => t("showMore", { count }),
+        showLess: t("showLess"),
       }}
       clearAllExtraKeys={discoverClearAllKeys(searchParams)}
       triggerLabel={t("trigger")}

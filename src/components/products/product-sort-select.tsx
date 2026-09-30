@@ -42,13 +42,14 @@ export function ProductSortSelect({ currentSort, showRelevance }: ProductSortSel
   }
 
   return (
-    <Label className="flex items-center gap-2 type-body-sm">
-      <span className="text-ink-muted shrink-0">{t("sortLabel")}</span>
+    <Label className="flex items-center gap-2">
+      {/* `type-*` on an inner span: cn cannot dedupe it against Label's own type class. */}
+      <span className="type-metadata shrink-0 text-ink-soft">{t("sortLabel")}</span>
       <NativeSelect
         value={currentSort}
         onChange={handleChange}
         disabled={isPending}
-        className="min-h-12 w-auto"
+        className="w-auto"
       >
         {showRelevance && (
           <option value="relevance">{t("sortRelevance")}</option>

@@ -51,7 +51,11 @@ export function SearchFieldShell({
         {...inputProps}
         value={value}
         onChange={onChange}
-        className={cn("w-full pl-9 pr-8", inputProps?.className)}
+        // Hide the native WebKit clear button; the shell renders its own.
+        className={cn(
+          "w-full pl-9 pr-8 [&::-webkit-search-cancel-button]:appearance-none",
+          inputProps?.className,
+        )}
       />
 
       {/* Clear button */}

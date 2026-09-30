@@ -7,6 +7,8 @@ import { localizePath } from '@/i18n/locale-preference'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
 import { SearchFieldShell } from '@/components/search/search-field-shell'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import {
   trackSearchExecuted,
   trackSearchResultClicked,
@@ -26,6 +28,10 @@ interface SearchInputProps {
   formAriaLabel?: string
   showAutocomplete?: boolean
   announceLoading?: boolean
+  /** Visible label above the field. The searchbox keeps its own accessible name. */
+  label?: string
+  /** Renders a visible primary submit button beside the field. */
+  submitLabel?: string
 }
 
 function SearchInput({
@@ -35,6 +41,8 @@ function SearchInput({
   formAriaLabel,
   showAutocomplete = true,
   announceLoading = true,
+  label,
+  submitLabel,
 }: SearchInputProps = {}) {
   const t = useTranslations('brands')
   const locale = useLocale()
@@ -54,6 +62,7 @@ function SearchInput({
   // at `md+` (hero and nav), and one shared listbox id pointed `aria-controls`
   // at whichever list happened to be first in the DOM.
   const suggestionsId = useId()
+  const inputId = useId()
 
   if (filters.search !== lastUrlSearch) {
     setLastUrlSearch(filters.search)
@@ -189,18 +198,24 @@ function SearchInput({
       handleSelect(suggestions[selectedIndex].slug, selectedIndex)
       return
     }
+    if (!redirectTo) {
+      // This page's results follow the field after a 200ms debounce; a submit
+      // (Enter or the 搜尋 button) applies the pending value now instead.
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      setSearch(value)
+      setShowDropdown(false)
+      return
+    }
     const q = (new FormData(e.currentTarget).get('q') as string)?.trim() ?? ''
     if (q) {
       // No search event here. This form only knows `suggestions` — the typeahead's
       // list, which answers a different query, caps at 5, and is still empty inside
       // the 200ms debounce. SearchResultsTracker emits from the results page, where
       // the real total is known (DEV-1412).
-      if (redirectTo) {
-        // Use native navigation for cross-page redirects — router.push
-        // intermittently fails in WebKit when navigating from / to /brands.
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-        window.location.href = `${localizePath(redirectTo, locale)}?search=${encodeURIComponent(q)}`
-      }
+      // Use native navigation for cross-page redirects — router.push
+      // intermittently fails in WebKit when navigating from / to /brands.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = `${localizePath(redirectTo, locale)}?search=${encodeURIComponent(q)}`
     }
   }
 
@@ -233,7 +248,7 @@ function SearchInput({
       aria-label={formAriaLabel ?? t('search.aria')}
       aria-busy={isBusy}
       onSubmit={handleSubmit}
-      className={cn('relative w-full max-w-md', className)}
+      className={cn('w-full', label && 'space-y-2', className)}
       data-ph-no-autocapture
     >
       {announceLoading ? (
@@ -242,36 +257,54 @@ function SearchInput({
         </span>
       ) : null}
 
-      <SearchFieldShell
-        value={value}
-        onChange={handleChange}
-        onClear={handleClear}
-        busy={isBusy}
-        clearLabel={t('search.clear')}
-        inputProps={{
-          name: 'q', type: 'search',
-          'aria-label': t('search.aria'),
-          'aria-autocomplete': 'list',
-          'aria-controls': showDropdown ? suggestionsId : undefined,
-          'aria-activedescendant': showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
-            ? searchSuggestionOptionId(suggestionsId, suggestions[selectedIndex].id) : undefined,
-          placeholder: placeholder ?? t('search.placeholder'),
-          maxLength: 100, onKeyDown: handleKeyDown,
-        }}
-      />
+      {label ? (
+        <Label htmlFor={inputId}>
+          {/* `type-*` on an inner span: cn cannot dedupe it against Label's own type class. */}
+          <span className="type-label">{label}</span>
+        </Label>
+      ) : null}
 
-      {/* Hidden submit button ensures implicit form submission works in all browsers (WebKit) */}
-      <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+      <div className="flex items-center gap-2">
+        {/* The dropdown anchors to the field, not to the field plus the button. */}
+        <div className="relative min-w-0 flex-1">
+          <SearchFieldShell
+            value={value}
+            onChange={handleChange}
+            onClear={handleClear}
+            busy={isBusy}
+            clearLabel={t('search.clear')}
+            inputProps={{
+              id: inputId, name: 'q', type: 'search',
+              'aria-label': t('search.aria'),
+              'aria-autocomplete': 'list',
+              'aria-controls': showDropdown ? suggestionsId : undefined,
+              'aria-activedescendant': showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
+                ? searchSuggestionOptionId(suggestionsId, suggestions[selectedIndex].id) : undefined,
+              placeholder: placeholder ?? t('search.placeholder'),
+              maxLength: 100, onKeyDown: handleKeyDown,
+            }}
+          />
 
-      {showDropdown && (
-        <SearchSuggestions
-          id={suggestionsId}
-          suggestions={suggestions}
-          selectedIndex={selectedIndex}
-          onSelect={handleSelect}
-          query={value}
-        />
-      )}
+          {showDropdown && (
+            <SearchSuggestions
+              id={suggestionsId}
+              suggestions={suggestions}
+              selectedIndex={selectedIndex}
+              onSelect={handleSelect}
+              query={value}
+            />
+          )}
+        </div>
+
+        {submitLabel ? (
+          <Button type="submit" variant="primary">
+            {submitLabel}
+          </Button>
+        ) : (
+          // Hidden submit button ensures implicit form submission works in all browsers (WebKit)
+          <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+        )}
+      </div>
     </form>
   )
 }

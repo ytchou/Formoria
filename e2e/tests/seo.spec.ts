@@ -38,9 +38,9 @@ test.describe("SEO deep", () => {
         title: "Formoria：台灣品牌探索與選物平台",
         description:
           "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
-        heading: "生活可以更像自己一點。",
+        heading: "生活可以更像自己一點",
         positioning:
-          "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
+          "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌",
         manifestoHeading: "讓好東西，被更多人遇見。",
       },
       {
@@ -54,9 +54,9 @@ test.describe("SEO deep", () => {
         // it because the suite only runs against deployed staging (DEV-1489).
         description:
           "Taiwanese brand discovery and curation: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path.",
-        heading: "Life can look a little more like you.",
+        heading: "Life can look a little more like you",
         positioning:
-          "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands.",
+          "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands",
         manifestoHeading: "Helping good things find more people.",
       },
     ] as const;

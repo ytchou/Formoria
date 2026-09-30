@@ -28,14 +28,19 @@ export function FilterToken({
   return (
     <Link
       aria-label={removeLabel}
-      className={cn(
-        buttonVariants({
-          variant: 'secondary',
-          shape: variant === 'chip' ? 'pill' : 'default',
-        }),
-        'h-auto min-h-12 min-w-0 max-w-full justify-between gap-3',
-        variant === 'row' ? 'w-full px-3 text-left' : 'px-4',
-      )}
+      className={
+        variant === 'chip'
+          ? // The 36px chip exception: render inside a `ChipRow`, which owns
+            // the 14px gap that makes 36px a legal target (see toggle-chip.tsx).
+            cn(
+              buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' }),
+              'min-w-0 max-w-full justify-between gap-2 border-rule bg-surface hover:border-ink hover:bg-surface',
+            )
+          : cn(
+              buttonVariants({ variant: 'secondary', shape: 'default' }),
+              'h-auto min-h-12 w-full min-w-0 max-w-full justify-between gap-3 px-3 text-left',
+            )
+      }
       href={href}
       prefetch={false}
       replace

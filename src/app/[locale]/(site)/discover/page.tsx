@@ -16,6 +16,7 @@ import {
   ProductFilterSidebar,
   ProductFilterDrawer,
 } from "@/components/products/product-filter-sidebar";
+import { FilterAside } from "@/components/filters";
 import { ProductSortSelect } from "@/components/products/product-sort-select";
 import {
   ProductActiveFilters,
@@ -29,6 +30,7 @@ import {
   getPublishedCuratedProducts,
   getProductFacetCounts,
   type CatalogProduct,
+  type FacetCounts,
 } from "@/lib/services/curated-products-catalog";
 import {
   searchProductsBySituation,
@@ -58,6 +60,8 @@ import {
   type InferredField,
 } from "@/lib/products/discover-search-params";
 import { ProductSituationSearchForm } from "@/components/products/product-situation-search-form";
+import { DirectoryHeader } from "@/components/directory/directory-header";
+import { DirectoryToolbar } from "@/components/directory/directory-toolbar";
 import { SearchResultsTracker } from "@/components/analytics/search-results-tracker";
 import { DiscoverSearchClickTracker } from "@/components/analytics/discover-search-click-tracker";
 
@@ -147,6 +151,7 @@ export default async function DiscoverPage({
     resolveDiscoverTaxonomy(rawParams);
   const t = await getTranslations({ locale, namespace: "products" });
   const commonT = await getTranslations({ locale, namespace: "common" });
+  const brandsT = await getTranslations({ locale, namespace: "brands" });
   const pageParam = firstParam(rawParams.page);
   const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
 
@@ -195,10 +200,8 @@ export default async function DiscoverPage({
   let ltrProductKeys: string[] | undefined;
   let rrfProductKeys: string[] | undefined;
   let armBySlot: ('rrf' | 'ltr')[] | undefined;
-  let facets: {
-    subcategoryCounts: { slug: string; count: number }[];
-    materialCounts: { slug: string; count: number }[];
-  } = {
+  let facets: FacetCounts = {
+    categoryCounts: [],
     subcategoryCounts: [],
     materialCounts: [],
   };
@@ -290,22 +293,44 @@ export default async function DiscoverPage({
     ...(appliedInference.materials.length ? (["material"] as const) : []),
   ];
 
-  // Build subcategory options for sidebar (only for active category, filter count > 0)
-  const subcategoryOptions = effectiveCategory
-    ? facets.subcategoryCounts
-        .filter((fc) => {
-          const node = subcategoryBySlug(fc.slug);
-          return node && node.category === effectiveCategory;
-        })
-        .map((fc) => {
-          const node = subcategoryBySlug(fc.slug)!;
-          return {
-            slug: fc.slug,
-            label: subcategoryLabel(node, locale),
-            count: fc.count,
-          };
-        })
-    : [];
+  // Subcategory options for the sidebar: the active category's subs, or every
+  // visible category's subs under 全部 (facets are unfiltered then). Each
+  // carries its parent so checking one with no category can scope the URL.
+  const subcategoryOptions = facets.subcategoryCounts.flatMap((fc) => {
+    const node = subcategoryBySlug(fc.slug);
+    if (!node) return [];
+    if (effectiveCategory
+      ? node.category !== effectiveCategory
+      : !isVisibleCategory(node.category)) {
+      return [];
+    }
+    return [
+      {
+        slug: fc.slug,
+        label: subcategoryLabel(node, locale),
+        count: fc.count,
+        category: node.category,
+      },
+    ];
+  });
+
+  // Category counts never narrow to the active category, so they come from
+  // the unfiltered facets. Shortcut: a second (cached) facet read whenever a
+  // category is active; upgrade path is one read that returns both scopes.
+  let unfilteredFacets = facets;
+  if (effectiveCategory) {
+    unfilteredFacets = await getProductFacetCounts(null).catch((err) => {
+      captureReadFailure("discover.facets")(err);
+      return { ...facets, categoryCounts: [] };
+    });
+  }
+  // Empty means the read failed: omit counts rather than show a column of 0s.
+  const categoryCounts =
+    unfilteredFacets.categoryCounts.length > 0
+      ? Object.fromEntries(
+          unfilteredFacets.categoryCounts.map((fc) => [fc.slug, fc.count]),
+        )
+      : undefined;
 
   // Build material options (filter count > 0, only for applicable L1s)
   const materialOptions = isMaterialApplicable(effectiveCategory)
@@ -369,14 +394,37 @@ export default async function DiscoverPage({
   ];
 
   const pageArmBySlot = armBySlot?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const hasChips = activeFilters.length > 0 || isSearchMode;
 
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
       <div className="space-y-stack">
-        <header className="prose-measure space-y-3">
-          <h1 className="type-page-title">{t("heading")}</h1>
-          <p className="type-body">{t("subheading")}</p>
-        </header>
+        {/* Search mode titles the page by the query. Safe as the h1 because
+            every `?q` page is noindex (`discoverMetadataFor`). */}
+        <DirectoryHeader
+          title={
+            isSearchMode
+              ? t("search.resultsHeading", { query: searchQuery })
+              : t("heading")
+          }
+          intro={
+            isSearchMode
+              ? t("search.count", { count: totalCount })
+              : t("subheading")
+          }
+          search={
+            <ProductSituationSearchForm
+              locale={locale}
+              query={searchQuery}
+              labels={{
+                label: t("search.label"),
+                placeholder: t("search.placeholder"),
+                submit: t("search.submit"),
+                clear: brandsT("search.clear"),
+              }}
+            />
+          }
+        />
 
         {/* Writes the effective filters into the address bar; also strips the
             one-time infer flag (any value, not only the parse trigger). */}
@@ -394,85 +442,56 @@ export default async function DiscoverPage({
           />
         )}
 
-        {/* Situation search form */}
-        <ProductSituationSearchForm
-          locale={locale}
-          query={searchQuery}
-          labels={{
-            label: t("search.label"),
-            placeholder: t("search.placeholder"),
-            submit: t("search.submit"),
-          }}
-        />
-
-        {/* Search results heading */}
-        {isSearchMode && (
-          <div className="space-y-1">
-            <h2 className="type-section">
-              {t("search.resultsHeading", { query: searchQuery })}
-            </h2>
-            <p className="type-metadata text-ink-muted">
-              {t("search.count", { count: totalCount })}
-            </p>
-          </div>
-        )}
-
-        {/* Mobile drawer trigger */}
-        <div className="lg:hidden">
-          <ProductFilterDrawer
-            locale={locale}
-            activeCategory={effectiveCategory}
-            allLabel={commonT("all")}
-            subcategoryOptions={subcategoryOptions}
-            activeSubSlugs={effectiveSubs}
-            materialOptions={materialOptions}
-            activeMaterials={effectiveMaterials}
-            totalCount={totalCount}
-          />
-        </div>
-
         <SavedProductsProvider>
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Desktop sidebar */}
-          <aside className="hidden shrink-0 lg:block lg:w-48">
+          <FilterAside>
             <ProductFilterSidebar
               locale={locale}
               activeCategory={effectiveCategory}
               allLabel={commonT("all")}
+              categoryCounts={categoryCounts}
               subcategoryOptions={subcategoryOptions}
               activeSubSlugs={effectiveSubs}
               materialOptions={materialOptions}
               activeMaterials={effectiveMaterials}
               totalCount={totalCount}
             />
-          </aside>
+          </FilterAside>
 
           <div className="min-w-0 flex-1">
-            {/* Toolbar: result count + sort */}
-            {totalCount > 0 && (
-              <div className="mb-4 flex items-center justify-between gap-4">
-                {!isSearchMode && (
-                  <p className="type-metadata text-ink-muted">
-                    {t("resultCount", { count: totalCount })}
-                  </p>
-                )}
-                {isSearchMode && <span />}
-                <ProductSortSelect
-                  currentSort={sort}
-                  showRelevance={isSearchMode}
+            <DirectoryToolbar
+              filterTrigger={
+                <ProductFilterDrawer
+                  locale={locale}
+                  activeCategory={effectiveCategory}
+                  allLabel={commonT("all")}
+                  categoryCounts={categoryCounts}
+                  subcategoryOptions={subcategoryOptions}
+                  activeSubSlugs={effectiveSubs}
+                  materialOptions={materialOptions}
+                  activeMaterials={effectiveMaterials}
+                  totalCount={totalCount}
                 />
-              </div>
-            )}
-
-            {/* Active filter chips */}
-            {(activeFilters.length > 0 || isSearchMode) && (
-              <div className="mb-4">
-                <ProductActiveFilters
-                  activeFilters={activeFilters}
-                  query={searchQuery}
-                />
-              </div>
-            )}
+              }
+              count={<p>{t("resultCount", { count: totalCount })}</p>}
+              chips={
+                hasChips ? (
+                  <ProductActiveFilters
+                    activeFilters={activeFilters}
+                    query={searchQuery}
+                  />
+                ) : undefined
+              }
+              sort={
+                totalCount > 0 ? (
+                  <ProductSortSelect
+                    currentSort={sort}
+                    showRelevance={isSearchMode}
+                  />
+                ) : undefined
+              }
+            />
 
             {isSearchMode && (
               <SearchResultsTracker

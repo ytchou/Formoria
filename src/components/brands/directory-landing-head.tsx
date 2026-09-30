@@ -37,11 +37,14 @@ export async function DirectoryResultStatus({
       {...(announceLiveRegion
         ? { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' }
         : {})}
-      className="flex flex-wrap gap-x-3 gap-y-1 tabular-nums type-body-sm"
+      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 tabular-nums"
     >
+      {/* The count inherits the toolbar's 黑體 label style. */}
       <span>{brandsT('count', { count: totalCount })}</span>
       {updatedDate ? (
-        <span>{categoryT('landing.updated', { date: updatedDate })}</span>
+        <span className="type-metadata">
+          {categoryT('landing.updated', { date: updatedDate })}
+        </span>
       ) : null}
     </div>
   )

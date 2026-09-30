@@ -8,6 +8,7 @@ import {
 import { isDirectoryTargetMember } from '@/lib/seo/directory-sitemap'
 import {
   directoryBrandCategoryFilter,
+  summarizeSubcategoryCountsAcross,
   summarizeSubcategoryRows,
   type SubcategorySummaryRow,
 } from '../brands'
@@ -73,6 +74,21 @@ describe('cross-L1 reads', () => {
         { categorySlug: 'bags-accessories' },
       ),
     ).toBe(false)
+  })
+
+  // /brands under 全部 lists every L2 with its count; the merge must equal the
+  // per-L1 counts, never double-count a brand across L1s.
+  it('merges_subcategory_counts_across_categories', () => {
+    const counts = summarizeSubcategoryCountsAcross(
+      [CROSS_L1_BRAND, NATIVE_BRAND],
+      ['fashion', 'bags-accessories'],
+    )
+
+    expect(counts.get('backpacks')).toBe(2)
+    expect(counts.get('tote-bags')).toBe(1)
+    expect(
+      summarizeSubcategoryCountsAcross([CROSS_L1_BRAND], ['fashion']).size,
+    ).toBe(0)
   })
 
   it('facet_counts_include_cross_l1_brands', () => {

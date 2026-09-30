@@ -1864,6 +1864,34 @@ export async function getSubcategorySummary(
   );
 }
 
+/**
+ * Every L2's brand count across several L1s — the /brands 子分類 list under 全部.
+ * Each L2 has exactly one parent, so merging the per-L1 maps cannot
+ * double-count a brand.
+ */
+export function summarizeSubcategoryCountsAcross(
+  rows: readonly SubcategorySummaryRow[],
+  categorySlugs: readonly string[],
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const categorySlug of categorySlugs) {
+    for (const [slug, count] of summarizeSubcategoryRows(rows, categorySlug)
+      .counts) {
+      counts.set(slug, count);
+    }
+  }
+  return counts;
+}
+
+export async function getSubcategoryCountsAcross(
+  categorySlugs: readonly string[],
+): Promise<Map<string, number>> {
+  return summarizeSubcategoryCountsAcross(
+    await getCachedSubcategoryRows(),
+    categorySlugs,
+  );
+}
+
 const BRANDS_PER_CATEGORY = 3;
 
 // Derived from the generated RPC signature rather than hand-written, so a

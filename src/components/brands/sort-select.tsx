@@ -17,8 +17,9 @@ export function SortSelect() {
   const prevSortRef = useRef(currentSort)
 
   return (
-    <Label className="inline-flex items-center gap-2 type-metadata">
-      {t('sortLabel')}
+    <Label className="inline-flex items-center gap-2">
+      {/* `type-*` on an inner span: cn cannot dedupe it against Label's own type class. */}
+      <span className="type-metadata shrink-0 text-ink-soft">{t('sortLabel')}</span>
       <NativeSelect
         value={currentSort}
         onChange={(e) => {
@@ -27,7 +28,7 @@ export function SortSelect() {
           prevSortRef.current = newSort
           setSort(newSort)
         }}
-        className="w-fit"
+        className="w-auto"
         data-ph-no-autocapture
       >
         {(Object.keys(BRAND_SORT_CONFIG) as BrandSortOption[]).map((key) => (

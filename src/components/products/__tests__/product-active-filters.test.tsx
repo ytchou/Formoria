@@ -243,6 +243,16 @@ describe("ProductActiveFilters", () => {
     expect(href).toBe("/discover?category=home");
   });
 
+  it("offers clear-all with a single chip, as /brands does", () => {
+    render(
+      <ProductActiveFilters
+        activeFilters={[{ type: "material", slug: "wood", label: "Wood" }]}
+      />,
+    );
+
+    expect(screen.getByText("clearAll").closest("a")).not.toBeNull();
+  });
+
   it("test_active_filters_hidden_when_empty", () => {
     const { container } = render(
       <ProductActiveFilters activeFilters={[]} />,

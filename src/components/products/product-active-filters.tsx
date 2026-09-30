@@ -4,6 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { FilterToken } from "@/components/filters";
+import { buttonVariants } from "@/components/ui/button";
+import { ChipRow } from "@/components/ui/toggle-chip";
 import {
   updateDirectoryUrl,
   type DirectoryFilterUpdates,
@@ -80,10 +82,8 @@ export function ProductActiveFilters({
     ? hrefWithoutQuery(pathname, searchParams)
     : null;
 
-  const totalTokens = activeFilters.length + (hasQuery ? 1 : 0);
-
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <ChipRow className="items-center">
       {hasQuery && queryDismissHref && (
         <FilterToken
           key="query"
@@ -120,17 +120,16 @@ export function ProductActiveFilters({
           />
         );
       })}
-      {totalTokens > 1 && (
-        <Link
-          href={clearAllHref}
-          replace
-          scroll={false}
-          prefetch={false}
-          className="type-body-sm text-ink-muted underline-offset-2 hover:text-ink hover:underline"
-        >
-          {t("clearAll")}
-        </Link>
-      )}
-    </div>
+      {/* Shown with any chip, matching /brands: one rule on both listings. */}
+      <Link
+        href={clearAllHref}
+        replace
+        scroll={false}
+        prefetch={false}
+        className={buttonVariants({ variant: "ghost", size: "compact" })}
+      >
+        {t("clearAll")}
+      </Link>
+    </ChipRow>
   );
 }

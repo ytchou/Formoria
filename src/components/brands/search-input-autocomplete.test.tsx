@@ -359,4 +359,20 @@ describe('SearchInput autocomplete', () => {
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
+
+  it('a visible submit button applies the typed search at once, as Enter does', async () => {
+    const user = userEvent.setup()
+    renderWithProvider(
+      <SearchInput label="Search brands" submitLabel="Search" showAutocomplete={false} />,
+    )
+
+    const form = screen.getByRole('search', { name: 'Search brands' })
+    const input = screen.getByRole('searchbox', { name: 'Search brands' })
+    expect(form).toContainElement(input)
+    await user.type(input, 'tea')
+    mockSetSearch.mockClear()
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(mockSetSearch).toHaveBeenCalledWith('tea')
+  })
 })
