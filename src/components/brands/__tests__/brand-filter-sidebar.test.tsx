@@ -126,4 +126,29 @@ describe("BrandFilterSidebar", () => {
     const body = document.querySelector('[data-slot="sheet-body"]');
     expect(body).not.toBeNull();
   });
+
+  // The toolbar's 清除全部 clears search, category, sub and material and keeps
+  // sort; the drawer's clear-all must clear exactly the same keys.
+  it("drawer clear-all clears the same keys as the toolbar's clear-all", () => {
+    searchParams.current = new URLSearchParams(
+      "search=tea&category=home&sub=candles&material=wood&sort=newest",
+    );
+    render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <BrandFilterDrawer
+          locale="en"
+          activeCategory="home"
+          allLabel="All"
+          totalCount={24}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+
+    expect(replace).toHaveBeenCalledWith("/brands?sort=newest", {
+      scroll: false,
+    });
+  });
 });

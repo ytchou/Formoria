@@ -43,7 +43,8 @@ export function ProductSortSelect({ currentSort, showRelevance }: ProductSortSel
 
   return (
     <Label className="flex items-center gap-2">
-      {/* `type-*` on an inner span: cn cannot dedupe it against Label's own type class. */}
+      {/* The text style sits on the span, not the Label, because the Label also
+          wraps the select: the select inherits the Label's font weight. */}
       <span className="type-metadata shrink-0 text-ink-soft">{t("sortLabel")}</span>
       <NativeSelect
         value={currentSort}

@@ -30,6 +30,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next-intl", () => ({
+  useLocale: () => "zh-TW",
   useTranslations: () => (key: string, params?: Record<string, string>) => {
     if (params) return `${key}(${JSON.stringify(params)})`;
     return key;

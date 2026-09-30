@@ -2,7 +2,11 @@
 
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { FilterSidebar, FilterDrawer } from "@/components/filters";
+import {
+  FilterSidebar,
+  FilterDrawer,
+  type SubcategoryOption,
+} from "@/components/filters";
 import { routes } from "@/lib/routes";
 import {
   discoverClearAllKeys,
@@ -12,13 +16,6 @@ import {
   trackProductSubcategoryFilterApplied,
   trackProductMaterialFilterApplied,
 } from "@/lib/analytics";
-
-type SubcategoryOption = {
-  slug: string;
-  label: string;
-  count: number;
-  category?: string;
-};
 
 type MaterialOption = {
   value: string;
@@ -54,22 +51,30 @@ function useProductCategoryHref() {
   };
 }
 
-export function ProductFilterSidebar(props: ProductFilterSidebarProps) {
+function useProductFilterLabels() {
   const t = useTranslations("products.filters");
+  return {
+    t,
+    labels: {
+      title: t("title"),
+      category: t("category"),
+      subcategory: t("subcategory"),
+      material: t("material"),
+      showMore: (count: number) => t("showMore", { count }),
+      showLess: t("showLess"),
+    },
+  };
+}
+
+export function ProductFilterSidebar(props: ProductFilterSidebarProps) {
+  const { labels } = useProductFilterLabels();
   const { categoryHref } = useProductCategoryHref();
 
   return (
     <FilterSidebar
       {...props}
       categoryHref={categoryHref}
-      labels={{
-        title: t("title"),
-        category: t("category"),
-        subcategory: t("subcategory"),
-        material: t("material"),
-        showMore: (count: number) => t("showMore", { count }),
-        showLess: t("showLess"),
-      }}
+      labels={labels}
       onSubcategoryToggle={trackProductSubcategoryFilterApplied}
       onMaterialToggle={trackProductMaterialFilterApplied}
     />
@@ -77,21 +82,14 @@ export function ProductFilterSidebar(props: ProductFilterSidebarProps) {
 }
 
 export function ProductFilterDrawer(props: ProductFilterSidebarProps) {
-  const t = useTranslations("products.filters");
+  const { t, labels } = useProductFilterLabels();
   const { searchParams, categoryHref } = useProductCategoryHref();
 
   return (
     <FilterDrawer
       {...props}
       categoryHref={categoryHref}
-      labels={{
-        title: t("title"),
-        category: t("category"),
-        subcategory: t("subcategory"),
-        material: t("material"),
-        showMore: (count: number) => t("showMore", { count }),
-        showLess: t("showLess"),
-      }}
+      labels={labels}
       clearAllExtraKeys={discoverClearAllKeys(searchParams)}
       triggerLabel={t("trigger")}
       showResultsLabel={t("showResults", { count: props.totalCount })}

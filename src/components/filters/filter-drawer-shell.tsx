@@ -68,7 +68,7 @@ export function FilterDrawerShell({
               onClearAll();
               setOpen(false);
             }}
-            className="mx-auto type-body-sm underline-offset-2 hover:text-ink hover:underline"
+            className="mx-auto underline-offset-2 hover:text-ink hover:underline"
             data-ph-no-autocapture
           >
             {clearAllLabel}

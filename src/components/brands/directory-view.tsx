@@ -7,6 +7,7 @@ import {
   getRandomBrands,
   getSubcategoryCountsAcross,
   getSubcategorySummary,
+  type SubcategorySummary,
 } from "@/lib/services/brands";
 import {
   categoryLabel,
@@ -56,10 +57,7 @@ import type { PublicBrandCard } from "@/lib/brands/contracts";
 import { DirectoryResultStatus } from "./directory-landing-head";
 import { routes } from "@/lib/routes";
 import { PageShell } from "@/components/ui/page-shell";
-import { FilterAside, FilterToken } from "@/components/filters";
-import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
-import { ChipRow } from "@/components/ui/toggle-chip";
+import { ActiveFilterChips, FilterAside } from "@/components/filters";
 import { DirectoryHeader } from "@/components/directory/directory-header";
 import { DirectoryToolbar } from "@/components/directory/directory-toolbar";
 import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
@@ -69,6 +67,10 @@ import {
 } from "@/components/stories/related-story-link";
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4;
+const EMPTY_TAXONOMY_SUMMARY: SubcategorySummary = {
+  counts: new Map(),
+  latestUpdatedAt: null,
+};
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(
   VISIBLE_L1_CATEGORIES.map((category) => category.slug),
 );
@@ -129,14 +131,30 @@ export async function DirectoryView({
     ? categoryLabel(categoryTag, safeLocale)
     : t("heading");
   const search = filters.search ?? "";
-  const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search;
-  // Under 全部 the 子分類 list spans every visible L1 (as on /discover). No
-  // freshness date there: `latestUpdatedAt` stays scoped to a single L1 page.
+  // The 子分類 list shows during a search too, in every scope, with
+  // catalog-wide counts (never narrowed by the search), so search and panel
+  // filters combine as on /discover. Under 全部 it spans every visible L1.
+  // A multi-category selection gets none.
   const subcategoryScope = singleValidCategory
     ? [singleValidCategory]
-    : validCategoryFilter.length === 0 && !search
+    : validCategoryFilter.length === 0
       ? VISIBLE_L1_CATEGORIES.map((category) => category.slug)
       : [];
+  // Only a single-L1 page without a search is dated: `latestUpdatedAt` comes
+  // from getSubcategorySummary alone; every other scope has no freshness date.
+  let taxonomySummaryPromise: Promise<SubcategorySummary>;
+  if (singleValidCategory && !search) {
+    taxonomySummaryPromise = getSubcategorySummary(
+      singleValidCategory,
+      activeSubcategory?.slug,
+    );
+  } else if (subcategoryScope.length > 0) {
+    taxonomySummaryPromise = getSubcategoryCountsAcross(subcategoryScope).then(
+      (counts) => ({ counts, latestUpdatedAt: null }),
+    );
+  } else {
+    taxonomySummaryPromise = Promise.resolve(EMPTY_TAXONOMY_SUMMARY);
+  }
 
   const [{ brands, totalCount }, taxonomySummary, editorialLinks] =
     await Promise.all([
@@ -147,17 +165,7 @@ export async function DirectoryView({
         sort,
         page,
       }),
-      shouldLoadTaxonomySummary && singleValidCategory
-        ? getSubcategorySummary(singleValidCategory, activeSubcategory?.slug)
-        : subcategoryScope.length > 0
-          ? getSubcategoryCountsAcross(subcategoryScope).then((counts) => ({
-              counts,
-              latestUpdatedAt: null,
-            }))
-          : Promise.resolve({
-              counts: new Map<string, number>(),
-              latestUpdatedAt: null,
-            }),
+      taxonomySummaryPromise,
       isCategoryRoute && singleValidCategory
         ? getCategoryEditorialLinks(
             singleValidCategory,
@@ -452,30 +460,17 @@ export async function DirectoryView({
               }
               chips={
                 activeFilters.length > 0 ? (
-                  <ChipRow className="items-center">
-                    {activeFilters.map((filter) => (
-                      <FilterToken
-                        key={filter.id}
-                        href={filter.removeHref}
-                        label={filter.label}
-                        removeLabel={filter.removeLabel}
-                        value={filter.value}
-                        variant="chip"
-                      />
-                    ))}
-                    <Link
-                      href={clearAllHref}
-                      prefetch={false}
-                      replace
-                      scroll={false}
-                      className={buttonVariants({
-                        variant: "ghost",
-                        size: "compact",
-                      })}
-                    >
-                      {t("filters.clearAll")}
-                    </Link>
-                  </ChipRow>
+                  <ActiveFilterChips
+                    chips={activeFilters.map((filter) => ({
+                      id: filter.id,
+                      href: filter.removeHref,
+                      label: filter.label,
+                      removeLabel: filter.removeLabel,
+                      value: filter.value,
+                    }))}
+                    clearAllHref={clearAllHref}
+                    clearAllLabel={t("filters.clearAll")}
+                  />
                 ) : undefined
               }
               sort={

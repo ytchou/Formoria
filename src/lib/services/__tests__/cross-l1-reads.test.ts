@@ -91,6 +91,33 @@ describe('cross-L1 reads', () => {
     ).toBe(0)
   })
 
+  // A brand whose tags span two L1s counts once in each L2, in both scopes, and
+  // the single pass still equals the per-L1 counts merged.
+  it('counts_a_brand_with_tags_in_two_l1s_once_per_l2', () => {
+    const twoL1Brand: SubcategorySummaryRow = {
+      category: 'fashion',
+      subcategories: ['backpacks', 'dresses', 'backpacks'],
+      updatedAt: '2026-08-19T00:00:00.000Z',
+    }
+    const rows = [CROSS_L1_BRAND, NATIVE_BRAND, twoL1Brand]
+    const scope = ['fashion', 'bags-accessories']
+
+    const counts = summarizeSubcategoryCountsAcross(rows, scope)
+
+    expect(counts.get('backpacks')).toBe(3)
+    expect(counts.get('dresses')).toBe(1)
+    expect(counts.get('tote-bags')).toBe(1)
+    const merged = new Map(
+      scope.flatMap((slug) => [...summarizeSubcategoryRows(rows, slug).counts]),
+    )
+    expect(counts).toEqual(merged)
+
+    // Out-of-scope parents are ignored.
+    expect(
+      summarizeSubcategoryCountsAcross(rows, ['bags-accessories']).has('dresses'),
+    ).toBe(false)
+  })
+
   it('facet_counts_include_cross_l1_brands', () => {
     const summary = summarizeSubcategoryRows(
       [CROSS_L1_BRAND, NATIVE_BRAND],

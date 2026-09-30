@@ -82,19 +82,14 @@ export function FilterCheckboxGroup({
           aria-expanded={expanded}
           aria-controls={listId}
           onClick={() => setExpanded((value) => !value)}
-          className="justify-start gap-2 px-2"
+          className="justify-start gap-2 px-2 type-nav"
         >
           {expanded ? (
             <Minus className="size-4" aria-hidden="true" />
           ) : (
             <Plus className="size-4" aria-hidden="true" />
           )}
-          {/* On the span for the same reason as the rows (see
-              filter-option-row.tsx): Button's base font-size utility is
-              emitted after the type-nav utility. */}
-          <span className="type-nav">
-            {expanded ? showLessLabel : showMoreLabel(overflowCount)}
-          </span>
+          {expanded ? showLessLabel : showMoreLabel(overflowCount)}
         </Button>
       )}
     </div>

@@ -133,7 +133,7 @@ describe("ProductFilterSidebar", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("checking a subcategory under All sets its parent category and the sub together", () => {
+  it("checking a subcategory under All sets its parent category and the sub together, dropping material", () => {
     renderSidebar(
       {
         activeCategory: null,
@@ -154,7 +154,9 @@ describe("ProductFilterSidebar", () => {
     const params = new URL(target, "http://localhost").searchParams;
     expect(params.get("category")).toBe("home");
     expect(params.get("sub")).toBe("candles");
-    expect(params.get("material")).toBe("wood");
+    // Same as a category link: the new L1 may not offer the material facet,
+    // so keeping it would filter by a group the sidebar no longer shows.
+    expect(params.get("material")).toBeNull();
     expect(trackSubcategory).toHaveBeenCalledWith("candles", "home", 5);
   });
 
@@ -177,11 +179,13 @@ describe("ProductFilterSidebar", () => {
   it("category rows show counts, with All as the total, outside the link name", () => {
     renderSidebar({
       activeCategory: "home",
-      categoryCounts: { home: 7, fashion: 3 },
+      // `tech` is a deferred (hidden) L1: it has no row, so All excludes it.
+      categoryCounts: { home: 7, fashion: 3, tech: 5 },
     });
 
     const all = screen.getByRole("link", { name: "All" });
     expect(all).toHaveTextContent("10");
+    expect(all).not.toHaveTextContent("15");
     expect(all).not.toHaveAttribute("aria-current");
 
     const active = screen

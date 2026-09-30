@@ -1,10 +1,14 @@
 import type { ReactNode } from "react";
+import { Separator } from "@/components/ui/separator";
 
 type DirectoryToolbarProps = {
   /** The mobile filter drawer trigger; hidden from `lg` up, where the sidebar shows. */
   filterTrigger?: ReactNode;
-  /** The result count. Rendered in the 黑體 label style; children may restyle their own parts. */
-  count: ReactNode;
+  /**
+   * The result count. Rendered in the 黑體 label style; children may restyle
+   * their own parts. Omit when the page states the count elsewhere.
+   */
+  count?: ReactNode;
   /** Applied-filter chips and their 清除全部. Omit when nothing is applied. */
   chips?: ReactNode;
   /** The sort control, pushed to the right edge. */
@@ -28,10 +32,17 @@ export function DirectoryToolbar({
   return (
     <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-3">
       {filterTrigger ? <div className="lg:hidden">{filterTrigger}</div> : null}
-      <div className="type-label tabular-nums">{count}</div>
+      {count ? <div className="type-label tabular-nums">{count}</div> : null}
       {chips ? (
         <>
-          <span aria-hidden="true" className="hidden h-5 w-px bg-rule lg:block" />
+          {count ? (
+            // 20px, centred: the primitive stretches a vertical rule by default.
+            <Separator
+              orientation="vertical"
+              aria-hidden="true"
+              className="hidden h-5 data-vertical:self-center lg:block"
+            />
+          ) : null}
           <div className="order-last w-full min-w-0 lg:order-none lg:w-auto">
             {chips}
           </div>

@@ -32,7 +32,14 @@ const CHIP_ROOTS = ["src/components", "src/app"];
  * rather than assumed, and the count has to be exact so a second chip added
  * beside it trips this test.
  */
-const LONE_CHIPS: Record<string, { allowed: number; why: string }> = {};
+const LONE_CHIPS: Record<string, { allowed: number; why: string }> = {
+  "src/components/filters/filter-token.tsx": {
+    allowed: 1,
+    why:
+      "A chip builder, not a render site: its chip variant is only rendered " +
+      "by active-filter-chips.tsx, which wraps every token in <ChipRow>.",
+  },
+};
 
 /** Ancestors that are structure, not layout — they never own a gap. */
 const TRANSPARENT_ANCESTORS = new Set(["li", "", "Fragment", "React.Fragment"]);

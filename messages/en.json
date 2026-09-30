@@ -103,6 +103,7 @@
       "label": "Search products",
       "placeholder": "Search products, brands or needs…",
       "submit": "Search",
+      "clear": "Clear search",
       "resultsHeading": "Products matching \"{query}\"",
       "count": "{count, plural, one {# product found} other {# products found}}",
       "empty": "No products found — try different keywords"

@@ -98,6 +98,14 @@ export const allowedMatches = [
     values: ["text-[0.85em]", "text-[0.8125rem]"],
   },
   {
+    // A test fixture, not rendered UI: it pins that `cn` drops `Button`'s
+    // built-in base size for a caller's type role, so it has to spell that
+    // built-in size.
+    file: "src/lib/utils/__tests__/type-tokens.test.ts",
+    names: ["direct text size"],
+    values: ["text-sm"],
+  },
+  {
     file: "src/components/brands/brand-image-fallback.tsx",
     names: ["direct text size", "raw-type-combo"],
     values: ["text-3xl", "text-5xl", "font-bold text-foreground"],

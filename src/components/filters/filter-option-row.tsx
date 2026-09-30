@@ -14,9 +14,10 @@ import { cn } from "@/lib/utils";
  * `grid` (not flex) keeps the category links out of the button-geometry gate:
  * these are list rows, not buttons. Columns: indicator, label, count.
  *
- * Text styling lives on {@link FilterOptionLabel}, not here: `<Label>` injects
- * `type-body-sm`, and `cn` cannot dedupe the custom type-* utilities, so on
- * the row itself whichever Tailwind emits last wins (type-body-sm, 明體 15px).
+ * Text styling lives on {@link FilterOptionLabel}, not here: the row also holds
+ * the indicator and the count, and the count keeps its own `type-metadata`.
+ * The same label span serves the checkbox rows (a `<Label>`) and the category
+ * links (an `<a>`), so the selected state is styled in one place.
  */
 export const filterOptionRowClassName =
   "group grid min-h-8 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-control px-2 hover:bg-surface";
@@ -24,8 +25,9 @@ export const filterOptionRowClassName =
 /**
  * The row's label. State goes on this span, beside `type-nav`: `type-nav`
  * sets its own weight and colour, so a weight or colour on the row would be
- * overridden here. The compiled CSS emits `font-semibold` and `text-ink-soft`
- * after `type-nav`, so they win on the same element.
+ * overridden here. `cn` keeps weight and colour classes placed after a type
+ * role, and the compiled CSS emits `font-semibold` and `text-ink-soft` after
+ * `type-nav`, so they win on the same element.
  */
 export function FilterOptionLabel({
   selected,

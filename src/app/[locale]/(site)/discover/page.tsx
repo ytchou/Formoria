@@ -151,7 +151,6 @@ export default async function DiscoverPage({
     resolveDiscoverTaxonomy(rawParams);
   const t = await getTranslations({ locale, namespace: "products" });
   const commonT = await getTranslations({ locale, namespace: "common" });
-  const brandsT = await getTranslations({ locale, namespace: "brands" });
   const pageParam = firstParam(rawParams.page);
   const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
 
@@ -205,6 +204,23 @@ export default async function DiscoverPage({
     subcategoryCounts: [],
     materialCounts: [],
   };
+  // Category counts never narrow to the active category, so they come from
+  // the unfiltered facets. Shortcut: a second facet read (all categories)
+  // whenever a category is active. Ceiling: fine while the unfiltered read is
+  // an `unstable_cache` hit (1h revalidate) over a corpus of a few thousand
+  // rows, aggregated in memory. Upgrade path, once cold-cache facet latency
+  // shows up on /discover: one read that returns both scopes.
+  // Failure omits the counts (null) rather than failing the page.
+  const readUnfilteredFacets = () =>
+    getProductFacetCounts(null).catch((err) => {
+      captureReadFailure("discover.facets")(err);
+      return null;
+    });
+  // A URL category is known now, so its unfiltered read runs beside the main
+  // reads. Only a category inferred by the search has to wait for it.
+  const urlCategoryUnfilteredFacets = category
+    ? readUnfilteredFacets()
+    : undefined;
   try {
     if (isSearchMode) {
       const [searchResult, facetResult, brandMatches] = await Promise.all([
@@ -314,19 +330,13 @@ export default async function DiscoverPage({
     ];
   });
 
-  // Category counts never narrow to the active category, so they come from
-  // the unfiltered facets. Shortcut: a second (cached) facet read whenever a
-  // category is active; upgrade path is one read that returns both scopes.
-  let unfilteredFacets = facets;
-  if (effectiveCategory) {
-    unfilteredFacets = await getProductFacetCounts(null).catch((err) => {
-      captureReadFailure("discover.facets")(err);
-      return { ...facets, categoryCounts: [] };
-    });
-  }
-  // Empty means the read failed: omit counts rather than show a column of 0s.
+  const unfilteredFacets = effectiveCategory
+    ? await (urlCategoryUnfilteredFacets ?? readUnfilteredFacets())
+    : facets;
+  // Null or empty means a read failed: omit counts rather than show a column
+  // of 0s.
   const categoryCounts =
-    unfilteredFacets.categoryCounts.length > 0
+    unfilteredFacets && unfilteredFacets.categoryCounts.length > 0
       ? Object.fromEntries(
           unfilteredFacets.categoryCounts.map((fc) => [fc.slug, fc.count]),
         )
@@ -420,7 +430,7 @@ export default async function DiscoverPage({
                 label: t("search.label"),
                 placeholder: t("search.placeholder"),
                 submit: t("search.submit"),
-                clear: brandsT("search.clear"),
+                clear: t("search.clear"),
               }}
             />
           }
@@ -474,7 +484,13 @@ export default async function DiscoverPage({
                   totalCount={totalCount}
                 />
               }
-              count={<p>{t("resultCount", { count: totalCount })}</p>}
+              // Search mode states the count in the intro (「找到 N 件商品」);
+              // a second one here would repeat it.
+              count={
+                isSearchMode ? undefined : (
+                  <p>{t("resultCount", { count: totalCount })}</p>
+                )
+              }
               chips={
                 hasChips ? (
                   <ProductActiveFilters

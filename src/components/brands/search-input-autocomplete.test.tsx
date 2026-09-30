@@ -2,19 +2,23 @@
  * @vitest-environment jsdom
  */
 import type { ComponentProps } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import en from '../../../messages/en.json'
 import zhTW from '../../../messages/zh-TW.json'
 
-// Mock useFilterParams
+// Mock useFilterParams. `unstableSetSearch` hands out a new `setSearch` on every
+// render, as the real hook does after a URL update, so the debounce effect re-runs.
 const mockSetSearch = vi.fn()
+const filterParamsMode = { unstableSetSearch: false }
 vi.mock('@/hooks/use-filter-params', () => ({
   useFilterParams: () => ({
     filters: { search: '' },
-    setSearch: mockSetSearch,
+    setSearch: filterParamsMode.unstableSetSearch
+      ? (value: string) => mockSetSearch(value)
+      : mockSetSearch,
   }),
 }))
 
@@ -37,6 +41,8 @@ const mockFetch = vi.fn()
 global.fetch = mockFetch
 
 const { default: SearchInput } = await import('./search-input')
+
+const fieldProps = { label: 'Search brands', submitLabel: 'Search' }
 
 /**
  * Typed to what the provider actually needs, NOT to `typeof en`. Inferring the
@@ -87,8 +93,13 @@ function searchResponse(name: string, id = name.toLowerCase().replaceAll(' ', '-
 }
 
 describe('SearchInput autocomplete', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
+    filterParamsMode.unstableSetSearch = false
     mockFetch.mockResolvedValue({
       ok: true,
       json: () =>
@@ -115,7 +126,7 @@ describe('SearchInput autocomplete', () => {
 
   it('shows suggestions dropdown after typing', async () => {
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'tea')
@@ -135,7 +146,7 @@ describe('SearchInput autocomplete', () => {
 
   it('localizes suggestion categories for the Traditional Chinese locale', async () => {
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />, 'zh-TW', zhTW)
+    renderWithProvider(<SearchInput {...fieldProps} />, 'zh-TW', zhTW)
 
     await user.type(screen.getByRole('searchbox'), 'tea')
 
@@ -146,7 +157,7 @@ describe('SearchInput autocomplete', () => {
 
   it('navigates suggestions with arrow keys', async () => {
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'tea')
@@ -180,7 +191,7 @@ describe('SearchInput autocomplete', () => {
 
   it('selects the active suggestion on Enter', async () => {
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
 
     await user.type(screen.getByRole('searchbox'), 'tea')
     await screen.findByRole('listbox')
@@ -192,7 +203,7 @@ describe('SearchInput autocomplete', () => {
 
   it('closes dropdown on Escape', async () => {
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'tea')
@@ -212,7 +223,7 @@ describe('SearchInput autocomplete', () => {
     })
 
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
 
     const input = screen.getByRole('searchbox')
     await user.type(input, 'xyznonexistent')
@@ -224,7 +235,7 @@ describe('SearchInput autocomplete', () => {
 
   it('does not request autocomplete when suggestions are disabled', async () => {
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput showAutocomplete={false} />)
+    renderWithProvider(<SearchInput {...fieldProps} showAutocomplete={false} />)
 
     await user.type(screen.getByRole('searchbox'), 'tea')
 
@@ -241,7 +252,7 @@ describe('SearchInput autocomplete', () => {
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
     const input = screen.getByRole('searchbox')
 
     await user.type(input, 'tea')
@@ -264,7 +275,7 @@ describe('SearchInput autocomplete', () => {
     const pending = deferred<ReturnType<typeof searchResponse>>()
     mockFetch.mockReturnValueOnce(pending.promise)
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
     const input = screen.getByRole('searchbox')
 
     await user.type(input, 'tea')
@@ -279,7 +290,7 @@ describe('SearchInput autocomplete', () => {
   it('clears prior suggestions when the latest request fails', async () => {
     const user = userEvent.setup()
     mockFetch.mockResolvedValueOnce(searchResponse('Prior Tea'))
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
     const input = screen.getByRole('searchbox')
 
     await user.type(input, 'tea')
@@ -296,7 +307,7 @@ describe('SearchInput autocomplete', () => {
   it('aborts the previous request when a new fetch starts', async () => {
     const abortSpy = vi.spyOn(AbortController.prototype, 'abort')
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
     const input = screen.getByRole('searchbox')
 
     await user.type(input, 'ab')
@@ -311,7 +322,7 @@ describe('SearchInput autocomplete', () => {
   it('aborts in-flight request on clear', async () => {
     const abortSpy = vi.spyOn(AbortController.prototype, 'abort')
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
 
     await user.type(screen.getByRole('searchbox'), 'tea')
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
@@ -326,7 +337,7 @@ describe('SearchInput autocomplete', () => {
   // Counting it here too would report one search twice, with two different counts.
   it('leaves the search event to the results page when it drives the URL', async () => {
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
 
     await user.type(screen.getByRole('searchbox'), 'tea')
     await screen.findByRole('listbox')
@@ -340,7 +351,7 @@ describe('SearchInput autocomplete', () => {
   // straight to the brand — so this is the only chance to count the search.
   it('counts the search itself when picking a suggestion skips the results page', async () => {
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput redirectTo="/brands" />)
+    renderWithProvider(<SearchInput {...fieldProps} redirectTo="/brands" />)
 
     await user.type(screen.getByRole('searchbox'), 'tea')
     await screen.findByRole('listbox')
@@ -352,7 +363,7 @@ describe('SearchInput autocomplete', () => {
   it('does not surface AbortError as an error state', async () => {
     mockFetch.mockRejectedValueOnce(new DOMException('Aborted', 'AbortError'))
     const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
+    renderWithProvider(<SearchInput {...fieldProps} />)
 
     await user.type(screen.getByRole('searchbox'), 'tea')
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
@@ -374,5 +385,105 @@ describe('SearchInput autocomplete', () => {
     await user.click(screen.getByRole('button', { name: 'Search' }))
 
     expect(mockSetSearch).toHaveBeenCalledWith('tea')
+  })
+
+  // Autocomplete ON (the default): a submit must end the suggestion work it
+  // interrupts — no stuck busy state, no dropdown reopening afterwards.
+  describe('submit with autocomplete on', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    function setupFakeTimers() {
+      vi.useFakeTimers()
+      // RTL's asyncWrapper (which wraps every user-event call) ends by awaiting
+      // a `setTimeout(0)`, and it advances fake timers only through a global
+      // `jest`. Under Vitest that global is absent, so the faked timeout never
+      // fires and every user-event call hangs. This shim is the hook RTL looks
+      // for; the debounce itself still moves only when a test advances it.
+      vi.stubGlobal('jest', {
+        advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms),
+      })
+      filterParamsMode.unstableSetSearch = true
+      return userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) })
+    }
+
+    async function passDebounce() {
+      // Async variant: flushes the fetch/json promises the debounce starts.
+      await act(() => vi.advanceTimersByTimeAsync(300))
+    }
+
+    it.each([
+      ['the submit button', 'button'],
+      ['Enter', 'enter'],
+    ] as const)('submitting inside the debounce via %s keeps suggestions closed', async (_name, via) => {
+      const user = setupFakeTimers()
+      renderWithProvider(<SearchInput {...fieldProps} />)
+      const form = screen.getByRole('search')
+      const input = screen.getByRole('searchbox')
+
+      await user.type(input, 'tea')
+      expect(form).toHaveAttribute('aria-busy', 'true')
+
+      mockSetSearch.mockClear()
+      if (via === 'button') await user.click(screen.getByRole('button', { name: 'Search' }))
+      else await user.keyboard('{Enter}')
+
+      expect(mockSetSearch).toHaveBeenCalledWith('tea')
+      expect(form).not.toHaveAttribute('aria-busy', 'true')
+
+      await passDebounce()
+
+      expect(mockFetch).not.toHaveBeenCalled()
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+      expect(form).not.toHaveAttribute('aria-busy', 'true')
+    })
+
+    it.each([
+      ['the submit button', 'button'],
+      ['Enter', 'enter'],
+    ] as const)('submitting via %s drops an in-flight suggestion fetch', async (_name, via) => {
+      const pending = deferred<ReturnType<typeof searchResponse>>()
+      mockFetch.mockReturnValueOnce(pending.promise)
+      const user = setupFakeTimers()
+      renderWithProvider(<SearchInput {...fieldProps} />)
+      const form = screen.getByRole('search')
+      const input = screen.getByRole('searchbox')
+
+      await user.type(input, 'tea')
+      await passDebounce()
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(form).toHaveAttribute('aria-busy', 'true')
+
+      mockSetSearch.mockClear()
+      if (via === 'button') await user.click(screen.getByRole('button', { name: 'Search' }))
+      else await user.keyboard('{Enter}')
+      await act(async () => pending.resolve(searchResponse('Late Tea')))
+      await passDebounce()
+
+      expect(mockSetSearch).toHaveBeenCalledWith('tea')
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+      expect(form).not.toHaveAttribute('aria-busy', 'true')
+    })
+
+    it('shows suggestions again once the visitor types after a submit', async () => {
+      const user = setupFakeTimers()
+      renderWithProvider(<SearchInput {...fieldProps} />)
+      const input = screen.getByRole('searchbox')
+
+      await user.type(input, 'tea')
+      await user.keyboard('{Enter}')
+      await passDebounce()
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+
+      await user.type(input, 's')
+      await passDebounce()
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/search?q=teas', {
+        signal: expect.any(AbortSignal),
+      })
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
+    })
   })
 })

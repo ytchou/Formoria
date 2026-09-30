@@ -21,7 +21,7 @@ import {
   type DirectoryFilterUpdates,
 } from "@/lib/directory-filter-url";
 
-type SubcategoryOption = {
+export type SubcategoryOption = {
   slug: string;
   label: string;
   count: number;
@@ -128,17 +128,18 @@ export function FilterSidebar({
     [activeMaterials],
   );
 
-  // With no active category the page passes every category's subcategories
-  // (/discover) or none (brands directory), so presence alone decides.
+  // With no active category both pages pass every visible L1's subcategories,
+  // but a page may pass none (e.g. a multi-category selection), so presence
+  // alone decides.
   const hasSubcategories = subcategoryOptions.length > 0;
   const hasMaterials = materialOptions.length > 0;
-  const allCount = useMemo(
-    () =>
-      categoryCounts
-        ? Object.values(categoryCounts).reduce((sum, n) => sum + n, 0)
-        : undefined,
-    [categoryCounts],
-  );
+  // 全部 is the sum of the rows listed below it, so hidden L1s never count.
+  const allCount = categoryCounts
+    ? VISIBLE_L1_CATEGORIES.reduce(
+        (sum, category) => sum + (categoryCounts[category.slug] ?? 0),
+        0,
+      )
+    : undefined;
 
   const subCheckboxOptions = useMemo(
     () =>
@@ -158,7 +159,8 @@ export function FilterSidebar({
     if (checked && activeCategory === null && parent) {
       // Checking under 全部 scopes the URL to the sub's L1: category and sub
       // move together in one patch (updateDirectoryUrl keeps an explicit sub).
-      updates = { category: parent, sub: value };
+      // Material drops too, as on a category link: the new L1 may not offer it.
+      updates = { category: parent, sub: value, material: null };
     } else {
       if (checked) next.add(value);
       else next.delete(value);

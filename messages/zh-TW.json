@@ -103,6 +103,7 @@
       "label": "搜尋商品",
       "placeholder": "搜尋商品、品牌或需求…",
       "submit": "搜尋",
+      "clear": "清除搜尋",
       "resultsHeading": "符合「{query}」的商品",
       "count": "找到 {count} 件商品",
       "empty": "找不到符合的商品，試試其他關鍵字"

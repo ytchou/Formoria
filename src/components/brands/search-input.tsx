@@ -29,9 +29,9 @@ interface SearchInputProps {
   showAutocomplete?: boolean
   announceLoading?: boolean
   /** Visible label above the field. The searchbox keeps its own accessible name. */
-  label?: string
-  /** Renders a visible primary submit button beside the field. */
-  submitLabel?: string
+  label: string
+  /** Visible primary submit button beside the field. */
+  submitLabel: string
 }
 
 function SearchInput({
@@ -43,7 +43,7 @@ function SearchInput({
   announceLoading = true,
   label,
   submitLabel,
-}: SearchInputProps = {}) {
+}: SearchInputProps) {
   const t = useTranslations('brands')
   const locale = useLocale()
   const { filters, isPending, setSearch } = useFilterParams()
@@ -56,6 +56,10 @@ function SearchInput({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputVersionRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
+  // The term last applied by a submit. Suggestions stay closed for it until the
+  // visitor types again, so a debounce re-run (e.g. `setSearch` changing
+  // identity after the URL update) cannot reopen the dropdown.
+  const submittedValueRef = useRef<string | null>(null)
   const containerRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
   // Per-instance, not a module constant: the homepage renders this field twice
@@ -114,6 +118,7 @@ function SearchInput({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (submittedValueRef.current === value) return
 
     debounceRef.current = setTimeout(() => {
       if (!redirectTo) {
@@ -158,6 +163,7 @@ function SearchInput({
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     inputVersionRef.current += 1
+    submittedValueRef.current = null
     setValue(e.target.value)
     setIsFetchingSuggestions(showAutocomplete && e.target.value.trim().length >= 2)
   }
@@ -165,6 +171,7 @@ function SearchInput({
   function handleClear() {
     abortRef.current?.abort()
     inputVersionRef.current += 1
+    submittedValueRef.current = null
     setValue('')
     if (!redirectTo) {
       setSearch('')
@@ -200,10 +207,19 @@ function SearchInput({
     }
     if (!redirectTo) {
       // This page's results follow the field after a 200ms debounce; a submit
-      // (Enter or the 搜尋 button) applies the pending value now instead.
+      // (Enter or the submit button) applies the pending value now instead.
+      // The submit also ends any suggestion work: the pending fetch is aborted
+      // and invalidated, and the busy state it set in handleChange is reset
+      // here, because setSearch is a no-op when the term is already in the URL.
       if (debounceRef.current) clearTimeout(debounceRef.current)
+      abortRef.current?.abort()
+      inputVersionRef.current += 1
+      submittedValueRef.current = value
       setSearch(value)
+      setSuggestions([])
       setShowDropdown(false)
+      setSelectedIndex(-1)
+      setIsFetchingSuggestions(false)
       return
     }
     const q = (new FormData(e.currentTarget).get('q') as string)?.trim() ?? ''
@@ -248,7 +264,7 @@ function SearchInput({
       aria-label={formAriaLabel ?? t('search.aria')}
       aria-busy={isBusy}
       onSubmit={handleSubmit}
-      className={cn('w-full', label && 'space-y-2', className)}
+      className={cn('w-full space-y-2', className)}
       data-ph-no-autocapture
     >
       {announceLoading ? (
@@ -257,12 +273,9 @@ function SearchInput({
         </span>
       ) : null}
 
-      {label ? (
-        <Label htmlFor={inputId}>
-          {/* `type-*` on an inner span: cn cannot dedupe it against Label's own type class. */}
-          <span className="type-label">{label}</span>
-        </Label>
-      ) : null}
+      <Label htmlFor={inputId} className="type-label">
+        {label}
+      </Label>
 
       <div className="flex items-center gap-2">
         {/* The dropdown anchors to the field, not to the field plus the button. */}
@@ -296,14 +309,9 @@ function SearchInput({
           )}
         </div>
 
-        {submitLabel ? (
-          <Button type="submit" variant="primary">
-            {submitLabel}
-          </Button>
-        ) : (
-          // Hidden submit button ensures implicit form submission works in all browsers (WebKit)
-          <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
-        )}
+        <Button type="submit" variant="primary">
+          {submitLabel}
+        </Button>
       </div>
     </form>
   )

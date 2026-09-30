@@ -1866,18 +1866,26 @@ export async function getSubcategorySummary(
 
 /**
  * Every L2's brand count across several L1s — the /brands 子分類 list under 全部.
- * Each L2 has exactly one parent, so merging the per-L1 maps cannot
- * double-count a brand.
+ * One pass over the rows: an L2 counts when its own parent (never the brand's
+ * L1, see `summarizeSubcategoryRows`) is in scope, at most once per brand.
+ * Each L2 has exactly one parent, so this equals merging the per-L1 counts.
  */
 export function summarizeSubcategoryCountsAcross(
   rows: readonly SubcategorySummaryRow[],
   categorySlugs: readonly string[],
 ): Map<string, number> {
+  const scope = new Set(categorySlugs);
   const counts = new Map<string, number>();
-  for (const categorySlug of categorySlugs) {
-    for (const [slug, count] of summarizeSubcategoryRows(rows, categorySlug)
-      .counts) {
-      counts.set(slug, count);
+  for (const brand of rows) {
+    const tagsInScope = new Set<string>();
+    for (const tag of brand.subcategories) {
+      const subcategory = subcategoryBySlug(tag);
+      if (subcategory && scope.has(subcategory.category)) {
+        tagsInScope.add(subcategory.slug);
+      }
+    }
+    for (const slug of tagsInScope) {
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
     }
   }
   return counts;

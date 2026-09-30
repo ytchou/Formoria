@@ -50,9 +50,8 @@ export function ProductSituationSearchForm({
     >
       <input type="hidden" name="infer" value="1" />
 
-      <Label htmlFor={inputId}>
-        {/* `type-*` on an inner span: cn cannot dedupe it against Label's own type class. */}
-        <span className="type-label">{labels.label}</span>
+      <Label htmlFor={inputId} className="type-label">
+        {labels.label}
       </Label>
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">

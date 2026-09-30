@@ -11,6 +11,7 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Grid } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
+import { displayBrandCount } from "@/lib/brands/display-brand-count";
 import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
 import type { StoryEntry } from "@/lib/services/stories";
@@ -72,13 +73,7 @@ export async function LandingZones({
   totalBrandCount,
 }: LandingZonesProps) {
   const t = await getTranslations({ locale, namespace: "landing" });
-  // Both count lines read "超過 {count}", so the count rounds down to the
-  // highest 50 step strictly below the total: 291 → 250, 300 → 250. Below 51
-  // the exact total is shown.
-  const displayBrandCount =
-    totalBrandCount > 50
-      ? Math.floor((totalBrandCount - 1) / 50) * 50
-      : totalBrandCount;
+  const shownBrandCount = displayBrandCount(totalBrandCount);
 
   return (
     <>
@@ -129,7 +124,7 @@ export async function LandingZones({
             <PageShell measure="page">
               <BrandStrip
                 brands={brands}
-                totalCount={displayBrandCount}
+                totalCount={shownBrandCount}
               />
             </PageShell>
           </div>
@@ -139,7 +134,7 @@ export async function LandingZones({
             keys internally. The trust statement (`trustSeam.line`) now ships
             only on /about, /faq, and the /og/trust card. */}
         <div data-landing-zone="manifesto">
-          <MissionCloser brandCount={displayBrandCount} />
+          <MissionCloser brandCount={shownBrandCount} />
         </div>
 
         {stories.length > 0 && (
