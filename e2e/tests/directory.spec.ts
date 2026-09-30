@@ -184,6 +184,30 @@ test.describe("Directory deep", () => {
     await expectStaysHidden(page.getByRole("listbox"), SUGGESTION_SETTLE_MS);
   });
 
+  test("opening a shared search link shows results without a suggestion list", async ({
+    page,
+  }) => {
+    await page.goto("/brands");
+    const firstBrand = page
+      .locator('main [role="list"] [role="listitem"]')
+      .first()
+      .getByRole("heading", { level: 3 });
+    await expect(firstBrand).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    const term = (await firstBrand.innerText()).trim();
+
+    // A link someone shared, not a search the visitor typed: the listbox used
+    // to open unfocused over the toolbar and ignore Escape.
+    await page.goto(`/brands?search=${encodeURIComponent(term)}`);
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" });
+    await expect(search.getByRole("searchbox", { name: "搜尋品牌" })).toHaveValue(term, {
+      timeout: BUDGET.SERVER_RENDER,
+    });
+    await expectStaysHidden(page.getByRole("listbox"), SUGGESTION_SETTLE_MS);
+    await expect(
+      page.getByRole("main").getByRole("link", { name: "清除全部" }),
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+  });
+
   test("empty search shows empty state not error", async ({ page }) => {
     await page.goto("/brands");
     const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });

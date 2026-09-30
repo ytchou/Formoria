@@ -12,10 +12,11 @@ import zhTW from '../../../messages/zh-TW.json'
 // Mock useFilterParams. `unstableSetSearch` hands out a new `setSearch` on every
 // render, as the real hook does after a URL update, so the debounce effect re-runs.
 const mockSetSearch = vi.fn()
-const filterParamsMode = { unstableSetSearch: false }
+// `urlSearch` is the term already in the URL, as on a page opened from a link.
+const filterParamsMode = { unstableSetSearch: false, urlSearch: '' }
 vi.mock('@/hooks/use-filter-params', () => ({
   useFilterParams: () => ({
-    filters: { search: '' },
+    filters: { search: filterParamsMode.urlSearch },
     setSearch: filterParamsMode.unstableSetSearch
       ? (value: string) => mockSetSearch(value)
       : mockSetSearch,
@@ -100,6 +101,7 @@ describe('SearchInput autocomplete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     filterParamsMode.unstableSetSearch = false
+    filterParamsMode.urlSearch = ''
     mockFetch.mockResolvedValue({
       ok: true,
       json: () =>
@@ -465,6 +467,25 @@ describe('SearchInput autocomplete', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
       expect(form).not.toHaveAttribute('aria-busy', 'true')
+    })
+
+    it('keeps suggestions closed on a page opened with a search in the URL', async () => {
+      filterParamsMode.urlSearch = 'tea'
+      const user = setupFakeTimers()
+      renderWithProvider(<SearchInput {...fieldProps} />)
+      const input = screen.getByRole('searchbox')
+      expect(input).toHaveValue('tea')
+
+      await passDebounce()
+
+      expect(mockFetch).not.toHaveBeenCalled()
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+      expect(screen.getByRole('search')).not.toHaveAttribute('aria-busy', 'true')
+
+      // Typing still opens suggestions for the edited term.
+      await user.type(input, 's')
+      await passDebounce()
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
     })
 
     it('shows suggestions again once the visitor types after a submit', async () => {

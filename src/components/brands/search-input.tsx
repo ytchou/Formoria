@@ -56,10 +56,12 @@ function SearchInput({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputVersionRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
-  // The term last applied by a submit. Suggestions stay closed for it until the
-  // visitor types again, so a debounce re-run (e.g. `setSearch` changing
-  // identity after the URL update) cannot reopen the dropdown.
-  const submittedValueRef = useRef<string | null>(null)
+  // Whether the field holds an edit the visitor typed since the value was last
+  // applied to the URL — by a submit, or because the page opened (or navigated)
+  // with `?search=`. Suggestions only open for typed edits, so neither a
+  // debounce re-run (e.g. `setSearch` changing identity after the URL update)
+  // nor a link to a search page opens the dropdown uninvited.
+  const [hasEdits, setHasEdits] = useState(false)
   const containerRef = useRef<HTMLFormElement>(null)
   const router = useRouter()
   // Per-instance, not a module constant: the homepage renders this field twice
@@ -71,6 +73,9 @@ function SearchInput({
   if (filters.search !== lastUrlSearch) {
     setLastUrlSearch(filters.search)
     setValue(filters.search)
+    // A URL-driven value (back/forward, a chip removal, clear-all) is already
+    // applied; it must not open suggestions either.
+    setHasEdits(false)
   }
 
   const fetchSuggestions = useCallback(async (q: string) => {
@@ -118,7 +123,7 @@ function SearchInput({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (submittedValueRef.current === value) return
+    if (!hasEdits) return
 
     debounceRef.current = setTimeout(() => {
       if (!redirectTo) {
@@ -141,7 +146,7 @@ function SearchInput({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [fetchSuggestions, redirectTo, setSearch, showAutocomplete, value])
+  }, [fetchSuggestions, hasEdits, redirectTo, setSearch, showAutocomplete, value])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -163,7 +168,7 @@ function SearchInput({
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     inputVersionRef.current += 1
-    submittedValueRef.current = null
+    setHasEdits(true)
     setValue(e.target.value)
     setIsFetchingSuggestions(showAutocomplete && e.target.value.trim().length >= 2)
   }
@@ -171,7 +176,7 @@ function SearchInput({
   function handleClear() {
     abortRef.current?.abort()
     inputVersionRef.current += 1
-    submittedValueRef.current = null
+    setHasEdits(false)
     setValue('')
     if (!redirectTo) {
       setSearch('')
@@ -214,7 +219,7 @@ function SearchInput({
       if (debounceRef.current) clearTimeout(debounceRef.current)
       abortRef.current?.abort()
       inputVersionRef.current += 1
-      submittedValueRef.current = value
+      setHasEdits(false)
       setSearch(value)
       setSuggestions([])
       setShowDropdown(false)
