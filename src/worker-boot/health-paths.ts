@@ -11,7 +11,7 @@
  * HTTP.
  */
 
-export const WORKER_HEALTH_PATHS = ["/health", "/api/health"] as const;
+const WORKER_HEALTH_PATHS = ["/health", "/api/health"] as const;
 
 export function isWorkerHealthPath(
   pathname: string | undefined,

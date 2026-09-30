@@ -1,4 +1,3 @@
-export { FilterToken } from "./filter-token";
 export { FilterSidebar, FilterDrawer } from "./filter-sidebar";
 export type { SubcategoryOption } from "./filter-sidebar";
 export { FilterAside } from "./filter-aside";
