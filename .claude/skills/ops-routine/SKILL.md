@@ -102,10 +102,11 @@ The run's parent message in Slack shows a timeline. You append these events to i
 |---|---|---|
 | `pr_opened` | right after `gh pr create` succeeds | `number`, `url`, `title`, and on the generic path `ticketId` (the PR ticket) and `fingerprints` (the findings the PR fixes) |
 | `tickets_filed` | after the Step 3 tickets are created and read back | `tickets`: `{id, url, title, fingerprints}` per new ticket |
+| `repair_summary` | after the Repair Summary post, before `completed` | `total`, `fixed`, `falsePositive`, `ticketed`, `pendingRelease` (all numbers), optional `pendingReleaseTickets` (ticket IDs, at most 20) and `notes` (at most 3, each 1–200 characters) |
 | `completed` | last, after the Repair Summary is posted | none |
 | `failed` | instead of `completed`, when you give up on the whole task | `outcome` (short slug, e.g. `verification_failed`), optional `reason` (one sentence) |
 
-The server sets the timestamp. Pass fingerprints as separate positional arguments so that no payload text is parsed as shell or JSON. An optional field must be left out of the event, never sent as an empty string: the relay answers 400 to `ticketId: ""`. The templates below drop an empty `ticketId` or `reason` for you:
+The server sets the timestamp. Pass fingerprints and notes as separate positional arguments so that no payload text is parsed as shell or JSON. Pass counts with `--argjson`, never `--arg`: the relay answers 400 to a count sent as a string. An optional field must be left out of the event, never sent as an empty string or an empty array: the relay answers 400 to `ticketId: ""`. The templates below drop an empty `ticketId`, `reason`, `pendingReleaseTickets`, or `notes` for you:
 
 ```bash
 # pr_opened (E2E path: --arg ticketId "" and no fingerprints after --args)
@@ -129,6 +130,23 @@ jq -s --arg channel "<repair.timeline.channel>" --arg ts "<repair.timeline.ts>" 
   /tmp/tickets.jsonl > /tmp/timeline-tickets.json
 source /tmp/relay.sh && relay /api/internal/run-timeline /tmp/timeline-tickets.json
 
+# repair_summary: the same counts as the Repair Summary post. pendingReleaseTickets is a
+# space-separated list of IDs, or "" for none. Notes go after --args (at most 3); pass
+# nothing after --args when there are none.
+jq -n \
+  --arg channel "<repair.timeline.channel>" --arg ts "<repair.timeline.ts>" \
+  --argjson total <N> --argjson fixed <N> --argjson falsePositive <N> \
+  --argjson ticketed <N> --argjson pendingRelease <N> \
+  --arg pendingReleaseTickets "<e.g. DEV-1201 DEV-1202, or empty>" \
+  '($pendingReleaseTickets | split(" ") | map(select(. != "")) | .[0:20]) as $ids
+   | ($ARGS.positional | map(select(. != "") | .[0:200]) | .[0:3]) as $notes
+   | {channel:$channel, ts:$ts, event:({kind:"repair_summary", total:$total, fixed:$fixed,
+       falsePositive:$falsePositive, ticketed:$ticketed, pendingRelease:$pendingRelease}
+       + (if $ids == [] then {} else {pendingReleaseTickets:$ids} end)
+       + (if $notes == [] then {} else {notes:$notes} end))}' \
+  --args "<note 1>" "<note 2>" > /tmp/timeline-summary.json
+source /tmp/relay.sh && relay /api/internal/run-timeline /tmp/timeline-summary.json
+
 # completed (or failed)
 jq -n --arg channel "<repair.timeline.channel>" --arg ts "<repair.timeline.ts>" \
   '{channel:$channel, ts:$ts, event:{kind:"completed"}}' > /tmp/timeline-done.json
@@ -140,6 +158,7 @@ source /tmp/relay.sh && relay /api/internal/run-timeline /tmp/timeline-done.json
 
 - On the E2E path the PR has no PR ticket: pass `--arg ticketId ""` so the template leaves `ticketId` out, and pass nothing after `--args`.
 - Send `tickets_filed` only when you created at least one new ticket. Leave out tickets that already existed.
+- Send `repair_summary` once per run, on both repair paths, right after the Repair Summary post. Its counts must match the post. Each `pendingReleaseTickets` entry is a bare ticket ID such as `DEV-1201`. Each note is one plain sentence of at most 200 characters; the template drops empty notes, truncates long ones, and keeps the first 3.
 - The fingerprints you send are written back to the findings ledger as the ticket ID. The health agent still re-sends every active auto-fix finding each night, but with its `ticketId` attached, so the next routine reuses the open ticket instead of filing a duplicate. If this session dies before it reports its tickets, the findings come back the next night without a `ticketId` and get triaged as new. That is the intended recovery.
 
 If `repair.agent === "e2e-agent"`, follow **Execution — E2E repair path** below instead of the generic repair path. Every other `repair` uses **Execution — Repair path**.
@@ -183,7 +202,16 @@ CI=true BASE_URL=$STAGING_BASE_URL pnpm exec playwright test <evidence.file> --p
 
 ### Step 5: Post aggregate summary
 
-Post ONE summary to the Slack thread in the format of **Step 4: Post aggregate summary** of the generic repair path. Count flakes as "False positive". **NEVER @mention the ops bot** in this summary or in any other message. Then send `completed`.
+Post ONE summary to the Slack thread in the format of **Step 4: Post aggregate summary** of the generic repair path. Count flakes as "False positive". **NEVER @mention the ops bot** in this summary or in any other message.
+
+Then send `repair_summary` (see **Run timeline events**) with the same counts. Map the Step 2 categories this way:
+
+- Flake → `falsePositive`
+- Test drift and app regression → `fixed`
+- Env/data → `ticketed`
+- `pendingRelease` is `0`, and leave out `pendingReleaseTickets`.
+
+Then send `completed`.
 
 ## Execution — Repair path (`repair` present)
 
@@ -299,11 +327,17 @@ jq -n \
 source /tmp/relay.sh && relay /api/internal/ops-summary /tmp/ops-summary.json
 ```
 
+Then send `repair_summary` (see **Run timeline events**) with the same counts as the post:
+
+- `total`, `fixed`, `falsePositive`, `ticketed`, and `pendingRelease` are the numbers on the post's lines ("findings triaged", "Fixed", "False positive", "Tickets", "Fix pending release"). A count with no line in the post is `0`.
+- The ticket IDs on the "Fix pending release" line → `pendingReleaseTickets`.
+- `notes`: each "Not in batch" line in the post (something you found or were told about that this batch did not cover, e.g. "Next.js advisory GHSA-vcvr-r3jv-pc5j not in batch"), and, when `gh` failed in Step 2, the branch compare URL (e.g. "No PR: gh failed. Compare: https://github.com/ytchou/Formoria/compare/staging...<branch>"). At most 3 notes.
+
 Then send `completed` (see **Run timeline events**). It is always the last event. If you gave up on the whole task, send `failed` instead.
 
 **Rules:**
 - Always use the relay helper for this message. Never use the Slack connector.
-- If `relay` prints `RELAY FAILED`, your final message must start with that line (see Step 0). Do not fall back to the Slack connector.
+- If `relay` prints `RELAY FAILED` for this message or for any timeline event, including `repair_summary`, your final message must start with that line (see Step 0). Do not fall back to the Slack connector.
 - Ticket IDs MUST be listed (e.g. `DEV-1844, DEV-1845`) — never leave the Tickets line empty.
 - Omit the "Fix pending release" line when there are none.
 - If tickets were grouped by root cause, show: "5 tickets (grouped from 8 findings)".
