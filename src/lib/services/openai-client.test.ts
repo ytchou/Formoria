@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  _resetLearnedParamShapes,
   createOpenAIClient,
   isNonRetryableProviderError,
   type ChatAuditEvent,
@@ -12,6 +13,7 @@ import {
 import { LLM_MODELS } from "@/lib/constants/llm-models";
 
 afterEach(() => {
+  _resetLearnedParamShapes();
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
@@ -1187,6 +1189,373 @@ describe("createOpenAIClient", () => {
         messageCount: conversation.length,
         toolCallCount: 1,
       });
+    });
+  });
+
+  // A model family that rejects a parameter degrades instead of failing, and
+  // the working shape is learned per model for the rest of the process.
+  describe("unsupported parameter fallback", () => {
+    function paramError(param: string | null, code: string | null) {
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: `Unsupported parameter: '${param}'`,
+            type: "invalid_request_error",
+            param,
+            code,
+          },
+        }),
+        { status: 400, headers: { "content-type": "application/json" } },
+      );
+    }
+
+    const CHAT_MODEL = "gpt-4o-mini";
+    const REASONING_MODEL = "gpt-6-luna";
+
+    it("max_tokens rejected -> retries with max_completion_tokens", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          paramError("max_tokens", "unsupported_parameter"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const client = createOpenAIClient({ apiKey: "k", model: CHAT_MODEL });
+
+      const result = await client.chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(requestBody(fetchSpy, 0).max_tokens).toBe(50);
+      const second = requestBody(fetchSpy, 1);
+      expect(second.max_completion_tokens).toBe(50);
+      expect(second).not.toHaveProperty("max_tokens");
+      expect(result.ok).toBe(true);
+    });
+
+    it("temperature rejected -> drops temperature and sends reasoning_effort none", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(paramError("temperature", "unsupported_value"))
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const client = createOpenAIClient({ apiKey: "k", model: CHAT_MODEL });
+
+      const result = await client.chat({
+        system: "s",
+        user: "u",
+        temperature: 0,
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(requestBody(fetchSpy, 0).temperature).toBe(0);
+      const second = requestBody(fetchSpy, 1);
+      expect(second).not.toHaveProperty("temperature");
+      expect(second.reasoning_effort).toBe("none");
+      expect(result.ok).toBe(true);
+    });
+
+    it("reasoning_effort value rejected -> drops reasoning_effort", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          paramError("reasoning_effort", "unsupported_value"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const client = createOpenAIClient({
+        apiKey: "k",
+        model: REASONING_MODEL,
+      });
+
+      const result = await client.chat({
+        system: "s",
+        user: "u",
+        reasoningEffort: "low",
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(requestBody(fetchSpy, 0).reasoning_effort).toBe("low");
+      expect(requestBody(fetchSpy, 1)).not.toHaveProperty("reasoning_effort");
+      expect(result.ok).toBe(true);
+    });
+
+    it("a rejected reasoning_effort value does not drop other values for that model", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          paramError("reasoning_effort", "unsupported_value"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const client = createOpenAIClient({
+        apiKey: "k",
+        model: REASONING_MODEL,
+      });
+
+      await client.chat({ system: "s", user: "u", reasoningEffort: "none" });
+      await client.chat({ system: "s", user: "u", reasoningEffort: "high" });
+      await client.chat({ system: "s", user: "u", reasoningEffort: "none" });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(4);
+      expect(requestBody(fetchSpy, 0).reasoning_effort).toBe("none");
+      expect(requestBody(fetchSpy, 1)).not.toHaveProperty("reasoning_effort");
+      // A value never rejected is still sent.
+      expect(requestBody(fetchSpy, 2).reasoning_effort).toBe("high");
+      // The rejected value is omitted on the first attempt of a later call.
+      expect(requestBody(fetchSpy, 3)).not.toHaveProperty("reasoning_effort");
+    });
+
+    it("temperature fallback omits reasoning_effort none once none is rejected", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(paramError("temperature", "unsupported_value"))
+        .mockResolvedValueOnce(
+          paramError("reasoning_effort", "unsupported_value"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        model: CHAT_MODEL,
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      const result = await client.chat({
+        system: "s",
+        user: "u",
+        temperature: 0,
+      });
+      await client.chat({ system: "s", user: "u", temperature: 0 });
+
+      expect(result.ok).toBe(true);
+      expect(fetchSpy).toHaveBeenCalledTimes(4);
+      expect(requestBody(fetchSpy, 1).reasoning_effort).toBe("none");
+      for (const index of [2, 3]) {
+        const body = requestBody(fetchSpy, index);
+        expect(body).not.toHaveProperty("temperature");
+        expect(body).not.toHaveProperty("reasoning_effort");
+      }
+      // Each label describes the body that attempt actually sent.
+      expect(events[1]?.meta?.paramFallback).toEqual([
+        "temperature->reasoning_effort:none",
+      ]);
+      expect(events[2]?.meta?.paramFallback).toEqual(["temperature->omitted"]);
+      expect(events[3]?.meta?.paramFallback).toEqual(["temperature->omitted"]);
+    });
+
+    it("an aborted caller signal ends the degrade loop", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const controller = new AbortController();
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementationOnce(() => {
+          controller.abort();
+          return Promise.resolve(
+            paramError("max_tokens", "unsupported_parameter"),
+          );
+        })
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        model: CHAT_MODEL,
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      const result = await client.chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+        signal: controller.signal,
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(events).toHaveLength(1);
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(400);
+    });
+
+    it("learned shape is reused for the same model", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          paramError("max_tokens", "unsupported_parameter"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+
+      await createOpenAIClient({ apiKey: "k", model: CHAT_MODEL }).chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+      });
+      const result = await createOpenAIClient({
+        apiKey: "k",
+        model: CHAT_MODEL,
+      }).chat({ system: "s", user: "u", maxTokens: 50 });
+
+      // Two fetches for the first call, one for the second.
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      const body = requestBody(fetchSpy, 2);
+      expect(body.max_completion_tokens).toBe(50);
+      expect(body).not.toHaveProperty("max_tokens");
+      expect(result.ok).toBe(true);
+    });
+
+    it("learned shape does not leak to another model", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          paramError("max_tokens", "unsupported_parameter"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+
+      await createOpenAIClient({ apiKey: "k", model: CHAT_MODEL }).chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+      });
+      await createOpenAIClient({ apiKey: "k", model: "gpt-4.1" }).chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+      });
+
+      // Two fetches for the first model, one for the second.
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      const body = requestBody(fetchSpy, 2);
+      expect(body.max_tokens).toBe(50);
+      expect(body).not.toHaveProperty("max_completion_tokens");
+    });
+
+    it("paramFallback recorded in audit meta", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          paramError("max_tokens", "unsupported_parameter"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        model: CHAT_MODEL,
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      await client.chat({ system: "s", user: "u", maxTokens: 50 });
+      await client.chat({ system: "s", user: "u", maxTokens: 50 });
+
+      expect(events).toHaveLength(3);
+      // The failed 400 attempt still emits its own audit event.
+      expect(events[0]?.ok).toBe(false);
+      expect(events[0]?.meta).not.toHaveProperty("paramFallback");
+      expect(events[1]?.ok).toBe(true);
+      expect(events[1]?.meta?.paramFallback).toEqual([
+        "max_tokens->max_completion_tokens",
+      ]);
+      expect(events[2]?.meta?.paramFallback).toEqual([
+        "max_tokens->max_completion_tokens",
+      ]);
+    });
+
+    it("non-param 400 is not retried", async () => {
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(paramError(null, "unsupported_parameter"))
+        .mockResolvedValueOnce(
+          paramError("max_tokens", "context_length_exceeded"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const client = createOpenAIClient({ apiKey: "k", model: CHAT_MODEL });
+
+      const nullParam = await client.chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+      });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(nullParam.ok).toBe(false);
+
+      const otherCode = await client.chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+      });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(otherCode.ok).toBe(false);
+    });
+
+    it("combines with json_schema downgrade", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              error: {
+                message:
+                  "Invalid parameter: 'response_format' of type 'json_schema' is not supported with this model.",
+                type: "invalid_request_error",
+                param: null,
+                code: null,
+              },
+            }),
+            { status: 400, headers: { "content-type": "application/json" } },
+          ),
+        )
+        .mockResolvedValueOnce(
+          paramError("max_tokens", "unsupported_parameter"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const client = createOpenAIClient({ apiKey: "k", model: CHAT_MODEL });
+
+      const result = await client.chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+        schema: {
+          name: "verdicts",
+          schema: { type: "object", properties: {} },
+        },
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      const last = requestBody(fetchSpy, 2);
+      expect(last.response_format).toEqual({ type: "json_object" });
+      expect(last.max_completion_tokens).toBe(50);
+      expect(last).not.toHaveProperty("max_tokens");
+      expect(result.ok).toBe(true);
+    });
+
+    it("warns once per model+param", async () => {
+      const warnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => undefined);
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(paramError("temperature", "unsupported_value"))
+        .mockResolvedValueOnce(okResponse())
+        .mockResolvedValueOnce(paramError("temperature", "unsupported_value"))
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const client = createOpenAIClient({ apiKey: "k", model: CHAT_MODEL });
+
+      // The second call's first attempt already omits temperature; the mock
+      // rejects it anyway, so the fallback path runs a second time.
+      await client.chat({ system: "s", user: "u", temperature: 0 });
+      await client.chat({ system: "s", user: "u", temperature: 0 });
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

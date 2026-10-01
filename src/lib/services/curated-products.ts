@@ -20,6 +20,7 @@ import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 import { isRegistryRecordActive } from "@/lib/services/curated-products/origin-qualification";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { PREVIEW_THUMBNAIL_LIMIT } from "./curated-products.constants";
+import { isMissingColumn, MISSING_COLUMN_CODE } from "./_shared/missing-column";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
 export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
@@ -363,23 +364,15 @@ const UNPLACED = Number.MAX_SAFE_INTEGER;
 
 /** PostgREST's "could not find the table in the schema cache". */
 const MISSING_TABLE_CODE = "PGRST205";
-/** Observed from the staging REST read before this migration landed. */
-const MISSING_COLUMN_CODE = "42703";
-const POSTGREST_MISSING_COLUMN_CODE = "PGRST204";
-
 /** True when the error says the database schema is older than this code. */
 function isSchemaLag(error: unknown): boolean {
   const code = (error as { code?: string }).code;
+  // 42703 was observed from the staging REST read before this migration landed.
   return code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE;
 }
 
 function isMissingSubcategoryColumn(error: unknown): boolean {
-  const code = (error as { code?: string }).code;
-  const message = (error as { message?: string }).message ?? "";
-  return (
-    (code === MISSING_COLUMN_CODE || code === POSTGREST_MISSING_COLUMN_CODE) &&
-    /\bsubcategory\b/u.test(message)
-  );
+  return isMissingColumn(error, "subcategory");
 }
 
 /**

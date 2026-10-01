@@ -13,6 +13,7 @@ import { evalSinkPath, writeEvalSinkRecord } from "../eval/llm-usage-sink";
 import { priceUsage, usageFromRawResponse } from "../llm-pricing";
 import { captureAlert } from "@/lib/adapters/alerting/sentry";
 import { classifyPostgrestError, IN_PROCESS, withRetry } from "@/lib/retry";
+import { isMissingColumn, MISSING_COLUMN_CODE } from "./missing-column";
 
 // The model behind every text phase. Written verbatim into brand_ai_results.model, so it
 // must track the model the audited client actually calls — hence the shared resolver
@@ -33,7 +34,7 @@ function textModel(): string {
  * undefined column (the cost columns added by the LLM cost tracking
  * migration).
  */
-const SCHEMA_MISMATCH_CODES = new Set(["23514", "42703"]);
+const SCHEMA_MISMATCH_CODES = new Set(["23514", MISSING_COLUMN_CODE]);
 // The newest migration widening the CHECK. `20260903000000` rewrote the
 // constraint in full and OMITS `acquire`, so applying that one as the
 // remediation would narrow the constraint and drop the phase this pipeline
@@ -43,9 +44,26 @@ const PHASE_CHECK_MIGRATION =
 const COST_COLUMNS_MIGRATION =
   "supabase/migrations/20260803023000_llm_cost_tracking.sql";
 
+const REQUEST_COLUMN_MIGRATION =
+  "supabase/migrations/20261001100000_brand_ai_results_request.sql";
+
 // One shot per process. This fires on EVERY audit write once the schema is
 // behind, and a per-row log would bury the line it is trying to make unmissable.
 let schemaMismatchReported = false;
+// Separate latch: a missing `request` column degrades replay logging only, and
+// must not swallow a later cost-column or phase-CHECK alert.
+let requestColumnMissingReported = false;
+// Once one insert has proved the column missing, later inserts in this process
+// skip it up front instead of failing first. A process that outlives the
+// migration keeps skipping until restart; every deploy restarts it.
+let requestColumnMissing = false;
+
+/** @internal Test-only — re-arm the one-shot schema alerts and the missing-column flag. */
+export function _resetSchemaAlertLatches(): void {
+  schemaMismatchReported = false;
+  requestColumnMissingReported = false;
+  requestColumnMissing = false;
+}
 
 type AuditInsertError = { code?: string; message: string };
 
@@ -99,7 +117,9 @@ function reportInsertError(
 
   schemaMismatchReported = true;
   const migration =
-    error.code === "42703" ? COST_COLUMNS_MIGRATION : PHASE_CHECK_MIGRATION;
+    error.code === MISSING_COLUMN_CODE
+      ? COST_COLUMNS_MIGRATION
+      : PHASE_CHECK_MIGRATION;
   const message =
     `[AI-RESULTS] SCHEMA MISMATCH: brand_ai_results rejected phase="${phase}" — ` +
     `apply ${migration} (supabase db push --linked --include-all). ` +
@@ -109,6 +129,17 @@ function reportInsertError(
     level: "error",
     context: { phase, pgCode: error.code },
   });
+}
+
+function reportMissingRequestColumn(phase: string): void {
+  if (requestColumnMissingReported) return;
+  requestColumnMissingReported = true;
+  const message =
+    `[AI-RESULTS] brand_ai_results has no request column — apply ` +
+    `${REQUEST_COLUMN_MIGRATION} with pnpm db:migrate against the explicit target. ` +
+    `Audit and cost rows still insert, but replay logging is off until it is applied.`;
+  console.error(message);
+  captureAlert(message, { level: "warning", context: { phase } });
 }
 
 export type AiCallInput = {
@@ -123,6 +154,8 @@ export type AiCallInput = {
   config?: unknown;
   latencyMs: number;
   auditSpanId?: string;
+  /** The full logical request, for replay. Stored unredacted; null when absent. */
+  request?: unknown;
   supabase?: SupabaseClient<Database>;
 };
 
@@ -168,27 +201,39 @@ export async function insertAiCallResult(input: AiCallInput): Promise<void> {
       cached_prompt_tokens: cost?.cachedPromptTokens ?? null,
       completion_tokens: cost?.completionTokens ?? null,
       cost_usd: cost?.costUsd ?? null,
+      request: input.request ?? null,
     };
-    const error = await retryAuditWrite(async () => {
-      try {
-        const { error: insertError } = await supabase
-          .from("brand_ai_results")
-          .insert(row as never);
-        return insertError
-          ? {
-              ...(insertError.code ? { code: insertError.code } : {}),
-              message: insertError.message,
-            }
-          : null;
-      } catch (writeError) {
-        return {
-          message:
-            writeError instanceof Error
-              ? writeError.message
-              : String(writeError),
-        };
-      }
-    });
+    const insertRow = (candidate: object) =>
+      retryAuditWrite(async () => {
+        try {
+          const { error: insertError } = await supabase
+            .from("brand_ai_results")
+            .insert(candidate as never);
+          return insertError
+            ? {
+                ...(insertError.code ? { code: insertError.code } : {}),
+                message: insertError.message,
+              }
+            : null;
+        } catch (writeError) {
+          return {
+            message:
+              writeError instanceof Error
+                ? writeError.message
+                : String(writeError),
+          };
+        }
+      });
+    const { request: _request, ...rowWithoutRequest } = row;
+    // The missing-column fallback costs one failed round-trip per process
+    // until the migration lands; remove once production has the column for a
+    // release.
+    let error = await insertRow(requestColumnMissing ? rowWithoutRequest : row);
+    if (!requestColumnMissing && error && isMissingColumn(error, "request")) {
+      requestColumnMissing = true;
+      reportMissingRequestColumn(input.phase);
+      error = await insertRow(rowWithoutRequest);
+    }
     if (error) reportInsertError(error, input.phase);
   } catch (error) {
     console.error(

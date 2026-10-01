@@ -63,8 +63,10 @@ type DecideOutcome =
   | { ok: false; error: unknown };
 
 /**
- * Fire-and-forget Langfuse generation. Same shape as `emitLangfuseGeneration`
- * in llm-audit.ts, which is typed to chat events and so does not fit here.
+ * Fire-and-forget Langfuse generation, modelled on `emitLangfuseGeneration` in
+ * llm-audit.ts (typed to chat events, so it does not fit here). No longer the
+ * same shape: chat generations now carry the full request, while Jev keeps its
+ * own 2,000-char trace cut — tracked in DEV-1918.
  * A failed call is emitted at level ERROR with the error as statusMessage.
  * Must never throw -- all errors are swallowed.
  */

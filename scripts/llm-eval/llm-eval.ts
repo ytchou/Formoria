@@ -2081,7 +2081,8 @@ async function cmdDatasetHarvest(
   // Read-only. Paged until an empty page: PostgREST caps a page (1,000 rows by
   // default, possibly lower), so a short page is not proof of the end.
   // Rows arrive newest first, so a --limit stops paging once it is met.
-  const PAGE = 1000
+  // `input` is stored uncut since DEV-1902 (5–27 KB a row), so a 1,000-row page is too heavy.
+  const PAGE = 200
   const rows: HarvestRow[] = []
   for (let from = 0; ; ) {
     let query = supabase

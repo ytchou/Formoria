@@ -144,6 +144,7 @@ export type Database = {
           phase: string
           prompt_tokens: number | null
           raw_response: Json | null
+          request: Json | null
           retry_attempt: number
           slug_generated: string | null
           subcategories: string[] | null
@@ -171,6 +172,7 @@ export type Database = {
           phase: string
           prompt_tokens?: number | null
           raw_response?: Json | null
+          request?: Json | null
           retry_attempt?: number
           slug_generated?: string | null
           subcategories?: string[] | null
@@ -198,6 +200,7 @@ export type Database = {
           phase?: string
           prompt_tokens?: number | null
           raw_response?: Json | null
+          request?: Json | null
           retry_attempt?: number
           slug_generated?: string | null
           subcategories?: string[] | null
