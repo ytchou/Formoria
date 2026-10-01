@@ -239,35 +239,47 @@ export const curationJobsDetector: Detector = {
       })
     }
 
-    // 6. Stranded pending: due jobs nobody claimed while nothing is running.
+    // 6. Stranded pending: an admin Run-now dispatched the job, yet no run
+    // claimed it. Only dispatched jobs qualify: automatic retries,
+    // --enqueue-only batches, and soft-deadline leftovers keep
+    // dispatch_status 'pending' and wait for the next cron slot by design.
     // A running job means the drain loop is live and will reach them.
     if (runningJobs.length === 0) {
       const strandedCutoff = new Date(
         now - CURATION_STRANDED_PENDING_MS,
       ).toISOString()
-      const duePending = await pagedRead<JobRow>(supabase, 'curation_jobs', {
-        orderBy: [{ column: 'id' }],
-        select:
-          'id, status, dispatch_status, dispatch_error, heartbeat_at, completed_at, created_at, succeeded_count, failed_count',
-        filters: [{ column: 'status', value: 'pending' }],
-        rangeFilters: [
-          { column: 'run_after', op: 'lte', value: new Date(now).toISOString() },
-          { column: 'created_at', op: 'lte', value: strandedCutoff },
-        ],
-      })
+      const stranded = await pagedRead<
+        Pick<JobRow, 'id' | 'dispatch_status' | 'created_at'> & {
+          dispatched_at: string | null
+        }
+      >(
+        supabase,
+        'curation_jobs',
+        {
+          orderBy: [{ column: 'id' }],
+          select: 'id, dispatch_status, created_at, dispatched_at',
+          filters: [
+            { column: 'status', value: 'pending' },
+            { column: 'dispatch_status', value: 'dispatched' },
+          ],
+          rangeFilters: [
+            { column: 'run_after', op: 'lte', value: new Date(now).toISOString() },
+            { column: 'dispatched_at', op: 'lte', value: strandedCutoff },
+          ],
+        },
+      )
 
-      for (const job of duePending) {
-        // pending + dispatch failed is already reported by check 1.
-        if (job.dispatch_status === 'failed') continue
+      for (const job of stranded) {
         findings.push({
           source: 'pipeline',
           fingerprint: stableFingerprint('pipeline', 'stranded-pending', job.id),
-          title: `Curation job ${job.id} is due but unclaimed with no job running`,
+          title: `Curation job ${job.id} was dispatched but never claimed with no job running`,
           severity: 'high',
           evidence: {
             jobId: job.id,
             dispatchStatus: job.dispatch_status,
             createdAt: job.created_at ?? 'unknown',
+            dispatchedAt: job.dispatched_at ?? 'unknown',
           },
           mergePolicy: 'human',
         })
