@@ -277,11 +277,27 @@ ledger_migration_status() {
   fi
 }
 
+# `supabase migration list` is a network round-trip; both ledger checks below
+# read it, so it is fetched once per run per URL. Sets MIGRATION_LEDGER (empty
+# when the read failed). Not called via $(...): a subshell would lose the memo.
+MIGRATION_LEDGER=""
+MIGRATION_LEDGER_URL=""
+MIGRATION_LEDGER_LOADED=0
+load_migration_ledger() {
+  local url="$1"
+  if [ "$MIGRATION_LEDGER_LOADED" = "1" ] && [ "$MIGRATION_LEDGER_URL" = "$url" ]; then
+    return
+  fi
+  MIGRATION_LEDGER=$(supabase migration list --db-url "$url" 2>/dev/null || true)
+  MIGRATION_LEDGER_URL="$url"
+  MIGRATION_LEDGER_LOADED=1
+}
+
 check_ai_results_phase() {
   local url
   if url=$(db_url) && command -v supabase &> /dev/null; then
-    local ledger
-    ledger=$(supabase migration list --db-url "$url" 2>/dev/null || true)
+    load_migration_ledger "$url"
+    local ledger="$MIGRATION_LEDGER"
     if [ -z "$ledger" ]; then
       echo "WARN: could not read the explicit migration target — verify by hand that the live brand_ai_results phase CHECK accepts 'facts' and 'reputation' (${PHASE_CHECK_REMEDIATION})"
       return
@@ -317,17 +333,17 @@ check_ai_results_phase() {
 }
 
 # ── brand_ai_results.request column ──────────────────────────────────────────
-# insertAiCallResult writes the replayable request payload into this column and
-# swallows insert errors, so a missing column silently drops audit rows — the
-# same "code ahead of schema" failure as the phase CHECK above. Read-only probe.
+# insertAiCallResult writes the replayable request payload into this column.
+# Without it, audit and cost rows still insert (re-inserted without `request`),
+# but replay logging is off until the migration is applied. Read-only probe.
 REQUEST_COLUMN_MIGRATION="supabase/migrations/20261001100000_brand_ai_results_request.sql"
 REQUEST_COLUMN_REMEDIATION="apply ${REQUEST_COLUMN_MIGRATION} with pnpm db:migrate — until then audit rows insert without the request and replay logging is off"
 
 check_ai_results_request_column() {
   local url
   if url=$(db_url) && command -v supabase &> /dev/null; then
-    local ledger
-    ledger=$(supabase migration list --db-url "$url" 2>/dev/null || true)
+    load_migration_ledger "$url"
+    local ledger="$MIGRATION_LEDGER"
     if [ -z "$ledger" ]; then
       echo "WARN: could not read the explicit migration target — verify by hand that brand_ai_results.request exists (${REQUEST_COLUMN_REMEDIATION})"
       return
@@ -345,11 +361,13 @@ check_ai_results_request_column() {
     local probe
     if probe=$(psql "$url" -tAc "SELECT request FROM brand_ai_results LIMIT 0" 2>&1); then
       echo "OK: brand_ai_results.request column present"
-    elif [[ "$probe" == *"does not exist"* ]]; then
+    elif [[ "$probe" == *'column "request" does not exist'* ]]; then
+      # Only the column-specific message means the column is missing; a missing
+      # table, auth failure, or network error is an unexpected probe failure.
       echo "ERROR: brand_ai_results.request column is missing on the live database. ${REQUEST_COLUMN_REMEDIATION}"
       ERRORS=$((ERRORS + 1))
     else
-      echo "WARN: could not probe brand_ai_results.request — verify by hand (${REQUEST_COLUMN_REMEDIATION})"
+      echo "WARN: could not probe brand_ai_results.request (unexpected error) — verify by hand (${REQUEST_COLUMN_REMEDIATION})"
     fi
     return
   fi

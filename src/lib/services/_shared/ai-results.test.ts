@@ -228,15 +228,31 @@ describe("insertAiCallResult request column", () => {
       callInput(fakeSupabase(inserts, [PGRST204_REQUEST]), { request: { v: 1 } }),
     );
     await insertAiCallResult(
-      callInput(fakeSupabase(inserts, [PGRST204_REQUEST]), { request: { v: 1 } }),
+      callInput(fakeSupabase(inserts), { request: { v: 1 } }),
     );
 
-    expect(inserts).toHaveLength(4);
     expect(captureAlert).toHaveBeenCalledTimes(1);
     const [message, options] = vi.mocked(captureAlert).mock.calls[0] ?? [];
     expect(message).toContain("20261001100000_brand_ai_results_request.sql");
+    expect(message).toContain("pnpm db:migrate");
+    expect(message).not.toContain("--linked");
     expect(message).not.toContain("llm_cost_tracking");
     expect(options).toMatchObject({ level: "warning" });
+  });
+
+  it("after detection, later inserts skip the request column up front", async () => {
+    const inserts: Record<string, unknown>[] = [];
+    // Only the first insert fails: once detected, nothing retries with `request`.
+    const supabase = fakeSupabase(inserts, [PGRST204_REQUEST]);
+
+    await insertAiCallResult(callInput(supabase, { request: { v: 1 } }));
+    await insertAiCallResult(callInput(supabase, { request: { v: 1 } }));
+
+    expect(inserts).toHaveLength(3);
+    expect(inserts[0]).toHaveProperty("request");
+    expect(inserts[1]).not.toHaveProperty("request");
+    expect(inserts[2]).not.toHaveProperty("request");
+    expect(inserts[2]).toHaveProperty("cost_usd");
   });
 
   it("42703 on another column keeps the cost-columns remediation", async () => {

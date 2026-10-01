@@ -1283,6 +1283,107 @@ describe("createOpenAIClient", () => {
       expect(result.ok).toBe(true);
     });
 
+    it("a rejected reasoning_effort value does not drop other values for that model", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          paramError("reasoning_effort", "unsupported_value"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const client = createOpenAIClient({
+        apiKey: "k",
+        model: REASONING_MODEL,
+      });
+
+      await client.chat({ system: "s", user: "u", reasoningEffort: "none" });
+      await client.chat({ system: "s", user: "u", reasoningEffort: "high" });
+      await client.chat({ system: "s", user: "u", reasoningEffort: "none" });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(4);
+      expect(requestBody(fetchSpy, 0).reasoning_effort).toBe("none");
+      expect(requestBody(fetchSpy, 1)).not.toHaveProperty("reasoning_effort");
+      // A value never rejected is still sent.
+      expect(requestBody(fetchSpy, 2).reasoning_effort).toBe("high");
+      // The rejected value is omitted on the first attempt of a later call.
+      expect(requestBody(fetchSpy, 3)).not.toHaveProperty("reasoning_effort");
+    });
+
+    it("temperature fallback omits reasoning_effort none once none is rejected", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(paramError("temperature", "unsupported_value"))
+        .mockResolvedValueOnce(
+          paramError("reasoning_effort", "unsupported_value"),
+        )
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        model: CHAT_MODEL,
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      const result = await client.chat({
+        system: "s",
+        user: "u",
+        temperature: 0,
+      });
+      await client.chat({ system: "s", user: "u", temperature: 0 });
+
+      expect(result.ok).toBe(true);
+      expect(fetchSpy).toHaveBeenCalledTimes(4);
+      expect(requestBody(fetchSpy, 1).reasoning_effort).toBe("none");
+      for (const index of [2, 3]) {
+        const body = requestBody(fetchSpy, index);
+        expect(body).not.toHaveProperty("temperature");
+        expect(body).not.toHaveProperty("reasoning_effort");
+      }
+      // Each label describes the body that attempt actually sent.
+      expect(events[1]?.meta?.paramFallback).toEqual([
+        "temperature->reasoning_effort:none",
+      ]);
+      expect(events[2]?.meta?.paramFallback).toEqual(["temperature->omitted"]);
+      expect(events[3]?.meta?.paramFallback).toEqual(["temperature->omitted"]);
+    });
+
+    it("an aborted caller signal ends the degrade loop", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const controller = new AbortController();
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockImplementationOnce(() => {
+          controller.abort();
+          return Promise.resolve(
+            paramError("max_tokens", "unsupported_parameter"),
+          );
+        })
+        .mockImplementation(() => Promise.resolve(okResponse()));
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        model: CHAT_MODEL,
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      const result = await client.chat({
+        system: "s",
+        user: "u",
+        maxTokens: 50,
+        signal: controller.signal,
+      });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(events).toHaveLength(1);
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(400);
+    });
+
     it("learned shape is reused for the same model", async () => {
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
       const fetchSpy = vi

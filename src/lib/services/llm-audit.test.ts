@@ -272,6 +272,35 @@ describe("audited LLM clients", () => {
   });
 });
 
+describe("NUL characters in the logged request", () => {
+  it("strips U+0000 from request and input so jsonb accepts the row", async () => {
+    const inserts: InsertedRow[] = [];
+    const head = "a".repeat(2_500);
+    const user = `${head}\u0000tail`;
+    const client = createAuditedOpenAIClient(
+      { target, phase: "descriptions", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({
+      system: "s\u0000ys",
+      user,
+      meta: { note: ["x\u0000y"] },
+    });
+
+    const row = inserts[0]!;
+    expect(JSON.stringify(row.request)).not.toContain("\\u0000");
+    expect(JSON.stringify(row.input)).not.toContain("\\u0000");
+    expect(row.request).toMatchObject({
+      v: 1,
+      system: "sys",
+      user: `${head}tail`,
+      meta: { note: ["xy"] },
+    });
+    expect(row.input).toMatchObject({ system: "sys", user: `${head}tail` });
+  });
+});
+
 describe("Langfuse generation integration", () => {
   it("creates a Langfuse generation on chat complete", async () => {
     vi.stubGlobal(
@@ -343,13 +372,39 @@ describe("Langfuse generation integration", () => {
     expect(body.input).toEqual({ system: "s", user: `${"u".repeat(2_000)}…` });
     expect(body.metadata).toMatchObject({
       inputTruncated: true,
-      inputChars: JSON.stringify(inserts[0]?.request).length,
+      inputBytes: Buffer.byteLength(JSON.stringify(inserts[0]?.request), "utf8"),
       auditSpanId: inserts[0]?.audit_span_id,
     });
     // The DB row keeps the full request regardless of the trace cap.
     expect((inserts[0]?.request as { user: string }).user).toHaveLength(
       1_000_001,
     );
+  });
+
+  it("Langfuse input under the char count but over the byte cap is cut visibly", async () => {
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+    const inserts: InsertedRow[] = [];
+    // 400,000 chars, but 1.2 MB of UTF-8: CJK is three bytes per char.
+    const cjkUser = "字".repeat(400_000);
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const client = createAuditedOpenAIClient(
+        { target, phase: "descriptions", supabase: fakeSupabase(inserts) },
+        { apiKey: "k" },
+      );
+      return client.chat({ system: "s", user: cjkUser });
+    });
+
+    const serialized = JSON.stringify(inserts[0]?.request);
+    expect(serialized.length).toBeLessThan(1_000_000);
+    const body = mockGeneration.mock.calls[0]![0];
+    expect(body.input).toEqual({ system: "s", user: `${"字".repeat(2_000)}…` });
+    expect(body.metadata).toMatchObject({
+      inputTruncated: true,
+      inputBytes: Buffer.byteLength(serialized, "utf8"),
+      auditSpanId: inserts[0]?.audit_span_id,
+    });
   });
 
   it("Langfuse error does not block production call", async () => {

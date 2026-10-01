@@ -24,8 +24,14 @@ import {
 export const MAX_PROMPT_LENGTH = 2_000;
 export const PROMPT_TRUNCATION_MARK = "…";
 
-/** A Langfuse generation input above this many serialised chars is cut back to `{system,user}`. */
-const LANGFUSE_INPUT_MAX_CHARS = 1_000_000;
+/**
+ * A Langfuse generation input above this many serialised UTF-8 bytes is cut
+ * back to `{system,user}`. The SDK limit is 1,000,000 UTF-8 bytes on the whole
+ * event body (input + output + metadata), and above it the SDK silently swaps
+ * the input for a placeholder before our visible cut could run. The owner's
+ * 1 MB decision minus headroom for output and metadata.
+ */
+const LANGFUSE_INPUT_MAX_BYTES = 900_000;
 
 export type LlmAuditContext = {
   jobId?: string;
@@ -159,6 +165,40 @@ function sanitizeMessages(messages: ChatMessage[]): unknown[] {
   });
 }
 
+/**
+ * Postgres jsonb cannot store U+0000 (22P05), and one NUL anywhere would drop
+ * the whole audit and cost row. Removing an unstorable character is not
+ * truncation: everything else is kept. Unchanged values keep their identity.
+ */
+function stripNul(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value.includes("\u0000") ? value.replaceAll("\u0000", "") : value;
+  }
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item: unknown) => {
+      const stripped = stripNul(item);
+      if (stripped !== item) changed = true;
+      return stripped;
+    });
+    return changed ? next : value;
+  }
+  if (value !== null && typeof value === "object") {
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return value;
+    let changed = false;
+    const next: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      const strippedKey = stripNul(key) as string;
+      const stripped = stripNul(item);
+      if (strippedKey !== key || stripped !== item) changed = true;
+      next[strippedKey] = stripped;
+    }
+    return changed ? next : value;
+  }
+  return value;
+}
+
 function buildLoggedRequest(input: ChatInput): LoggedRequest {
   const request: LoggedRequest = { v: 1 };
   for (const [key, logged] of Object.entries(LOGGED_INPUT_KEYS)) {
@@ -174,7 +214,7 @@ function buildLoggedRequest(input: ChatInput): LoggedRequest {
   if (request.images !== undefined) {
     request.images = sanitizeImages(request.images, request.meta);
   }
-  return request;
+  return stripNul(request) as LoggedRequest;
 }
 
 /** Request logging must never fail the call it records. */
@@ -245,7 +285,7 @@ function truncate(value: string): string {
 type GenerationInput = {
   input: unknown;
   /** Present only when the full request was over the cap and was cut. */
-  truncation: { inputTruncated: true; inputChars: number } | null;
+  truncation: { inputTruncated: true; inputBytes: number } | null;
 };
 
 /**
@@ -263,8 +303,10 @@ function generationInput(
       truncation: null,
     };
   }
-  const inputChars = JSON.stringify(request).length;
-  if (inputChars <= LANGFUSE_INPUT_MAX_CHARS) {
+  // UTF-8 bytes, not UTF-16 units: the SDK limit is in bytes, and CJK text
+  // is three bytes per char.
+  const inputBytes = Buffer.byteLength(JSON.stringify(request), "utf8");
+  if (inputBytes <= LANGFUSE_INPUT_MAX_BYTES) {
     return { input: request, truncation: null };
   }
   return {
@@ -272,7 +314,7 @@ function generationInput(
       system: truncate(event.request.system),
       user: truncate(event.request.user),
     },
-    truncation: { inputTruncated: true, inputChars },
+    truncation: { inputTruncated: true, inputBytes },
   };
 }
 
@@ -346,12 +388,14 @@ async function persistAuditEvent(
         ...(event.usage ? { usage: event.usage } : {}),
         ...(event.error ? { error: event.error } : {}),
       },
-      input: {
+      // NUL stripped for jsonb (see stripNul): system/user are uncut now, and
+      // caller `meta` flows in here too.
+      input: stripNul({
         system: event.request.system,
         user: event.request.user,
         imageCount: event.request.imageCount,
         ...(event.meta ? { meta: event.meta } : {}),
-      },
+      }),
       ...(context.attempt !== undefined ? { attempt: context.attempt } : {}),
       ...(event.retryAttempt !== undefined
         ? { retryAttempt: event.retryAttempt }
@@ -392,8 +436,15 @@ function createAuditedClient(
   return {
     async chat(input: ChatInput) {
       // Synchronously, before any await: the caller may mutate its input
-      // (agent loops push turns) while this call is in flight.
-      const loggedRequest = safeBuildLoggedRequest(input);
+      // (agent loops push turns) while this call is in flight. Skipped when
+      // nothing consumes it: no audit row (no target) and no Langfuse trace.
+      // Both are fixed for the call, so reading them here matches the
+      // completion hook's view.
+      const consumesRequest =
+        context.target !== undefined || Boolean(getAuditContext().langfuseTrace);
+      const loggedRequest = consumesRequest
+        ? safeBuildLoggedRequest(input)
+        : null;
       const spanId = randomUUID();
 
       // The envelope wraps the whole chat call because the client retries
