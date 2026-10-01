@@ -237,50 +237,73 @@ db_url() {
   return 1
 }
 
+# Prints "found" when <version> has a remote (applied) entry in the output of
+# `supabase migration list`, otherwise "missing". Accepts the current JSON shape
+# and the legacy pipe-delimited table.
+ledger_migration_status() {
+  local ledger="$1" version="$2"
+  if printf '%s\n' "$ledger" | grep -Eq '^[[:space:]]*\{'; then
+    local json_status
+    json_status=$(printf '%s\n' "$ledger" | MIGRATION_VERSION="$version" node -e '
+      let input = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (chunk) => { input += chunk; });
+      process.stdin.on("end", () => {
+        try {
+          const payload = JSON.parse(input);
+          const migration = Array.isArray(payload.migrations)
+            ? payload.migrations.find((row) => row?.local === process.env.MIGRATION_VERSION)
+            : null;
+          process.stdout.write(
+            typeof migration?.remote === "string" && migration.remote.trim()
+              ? "found"
+              : "missing",
+          );
+        } catch {
+          process.stdout.write("invalid");
+        }
+      });
+    ' 2>/dev/null || true)
+    [ "$json_status" = "found" ] && echo "found" || echo "missing"
+    return
+  fi
+
+  local row
+  row=$(printf '%s\n' "$ledger" | grep "$version" || true)
+  if [ -n "$row" ] && echo "$row" | awk -F'|' '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); exit ($2 == "" ? 1 : 0) }'; then
+    echo "found"
+  else
+    echo "missing"
+  fi
+}
+
+# `supabase migration list` is a network round-trip; both ledger checks below
+# read it, so it is fetched once per run per URL. Sets MIGRATION_LEDGER (empty
+# when the read failed). Not called via $(...): a subshell would lose the memo.
+MIGRATION_LEDGER=""
+MIGRATION_LEDGER_URL=""
+MIGRATION_LEDGER_LOADED=0
+load_migration_ledger() {
+  local url="$1"
+  if [ "$MIGRATION_LEDGER_LOADED" = "1" ] && [ "$MIGRATION_LEDGER_URL" = "$url" ]; then
+    return
+  fi
+  MIGRATION_LEDGER=$(supabase migration list --db-url "$url" 2>/dev/null || true)
+  MIGRATION_LEDGER_URL="$url"
+  MIGRATION_LEDGER_LOADED=1
+}
+
 check_ai_results_phase() {
   local url
   if url=$(db_url) && command -v supabase &> /dev/null; then
-    local ledger
-    ledger=$(supabase migration list --db-url "$url" 2>/dev/null || true)
+    load_migration_ledger "$url"
+    local ledger="$MIGRATION_LEDGER"
     if [ -z "$ledger" ]; then
       echo "WARN: could not read the explicit migration target — verify by hand that the live brand_ai_results phase CHECK accepts 'facts' and 'reputation' (${PHASE_CHECK_REMEDIATION})"
       return
     fi
 
-    if printf '%s\n' "$ledger" | grep -Eq '^[[:space:]]*\{'; then
-      local json_status
-      json_status=$(printf '%s\n' "$ledger" | node -e '
-        let input = "";
-        process.stdin.setEncoding("utf8");
-        process.stdin.on("data", (chunk) => { input += chunk; });
-        process.stdin.on("end", () => {
-          try {
-            const payload = JSON.parse(input);
-            const migration = Array.isArray(payload.migrations)
-              ? payload.migrations.find((row) => row?.local === "20260803033000")
-              : null;
-            process.stdout.write(
-              typeof migration?.remote === "string" && migration.remote.trim()
-                ? "found"
-                : "missing",
-            );
-          } catch {
-            process.stdout.write("invalid");
-          }
-        });
-      ' 2>/dev/null || true)
-      if [ "$json_status" = "found" ]; then
-        echo "OK: brand_ai_results phase CHECK migration applied on the explicit target"
-      else
-        echo "ERROR: brand_ai_results phase CHECK migration is not applied on the explicit target. ${PHASE_CHECK_REMEDIATION}"
-        ERRORS=$((ERRORS + 1))
-      fi
-      return
-    fi
-
-    local row
-    row=$(printf '%s\n' "$ledger" | grep "20260803033000" || true)
-    if [ -n "$row" ] && echo "$row" | awk -F'|' '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); exit ($2 == "" ? 1 : 0) }'; then
+    if [ "$(ledger_migration_status "$ledger" "20260803033000")" = "found" ]; then
       echo "OK: brand_ai_results phase CHECK migration applied on the explicit target"
     else
       echo "ERROR: brand_ai_results phase CHECK migration is not applied on the explicit target. ${PHASE_CHECK_REMEDIATION}"
@@ -307,6 +330,49 @@ check_ai_results_phase() {
   fi
 
   echo "WARN: no explicit database connection available — cannot verify the brand_ai_results phase CHECK (${PHASE_CHECK_REMEDIATION})"
+}
+
+# ── brand_ai_results.request column ──────────────────────────────────────────
+# insertAiCallResult writes the replayable request payload into this column.
+# Without it, audit and cost rows still insert (re-inserted without `request`),
+# but replay logging is off until the migration is applied. Read-only probe.
+REQUEST_COLUMN_MIGRATION="supabase/migrations/20261001100000_brand_ai_results_request.sql"
+REQUEST_COLUMN_REMEDIATION="apply ${REQUEST_COLUMN_MIGRATION} with pnpm db:migrate — until then audit rows insert without the request and replay logging is off"
+
+check_ai_results_request_column() {
+  local url
+  if url=$(db_url) && command -v supabase &> /dev/null; then
+    load_migration_ledger "$url"
+    local ledger="$MIGRATION_LEDGER"
+    if [ -z "$ledger" ]; then
+      echo "WARN: could not read the explicit migration target — verify by hand that brand_ai_results.request exists (${REQUEST_COLUMN_REMEDIATION})"
+      return
+    fi
+    if [ "$(ledger_migration_status "$ledger" "20261001100000")" = "found" ]; then
+      echo "OK: brand_ai_results.request column migration applied on the explicit target"
+    else
+      echo "ERROR: brand_ai_results.request column migration is not applied on the explicit target. ${REQUEST_COLUMN_REMEDIATION}"
+      ERRORS=$((ERRORS + 1))
+    fi
+    return
+  fi
+
+  if url=$(db_url) && command -v psql &> /dev/null; then
+    local probe
+    if probe=$(psql "$url" -tAc "SELECT request FROM brand_ai_results LIMIT 0" 2>&1); then
+      echo "OK: brand_ai_results.request column present"
+    elif [[ "$probe" == *'column "request" does not exist'* ]]; then
+      # Only the column-specific message means the column is missing; a missing
+      # table, auth failure, or network error is an unexpected probe failure.
+      echo "ERROR: brand_ai_results.request column is missing on the live database. ${REQUEST_COLUMN_REMEDIATION}"
+      ERRORS=$((ERRORS + 1))
+    else
+      echo "WARN: could not probe brand_ai_results.request (unexpected error) — verify by hand (${REQUEST_COLUMN_REMEDIATION})"
+    fi
+    return
+  fi
+
+  echo "WARN: no explicit database connection available — cannot verify brand_ai_results.request (${REQUEST_COLUMN_REMEDIATION})"
 }
 
 # ── e2e env vars (opt-in with --e2e) ─────────────────────────────────────────
@@ -416,6 +482,7 @@ check_pnpm
 check_deps
 check_env
 check_ai_results_phase
+check_ai_results_request_column
 check_e2e "$@"
 check_health_railway_vars "$@"
 check_ops_agent_vars

@@ -262,6 +262,101 @@ function isJsonSchemaUnsupported(status: number, errorBody: unknown): boolean {
   );
 }
 
+const REJECTABLE_PARAMS = [
+  "max_tokens",
+  "max_completion_tokens",
+  "temperature",
+  "reasoning_effort",
+] as const;
+
+type RejectableParam = (typeof REJECTABLE_PARAMS)[number];
+
+/**
+ * The request parameter a 400 rejected, when it is one this client can drop or
+ * swap: `max_tokens`/`max_completion_tokens` (token budget name),
+ * `temperature`, or a `reasoning_effort` value. Anything else is null and fails
+ * the call as before.
+ *
+ * Ceiling: this trusts OpenAI's structured `error.param` and the two codes
+ * `unsupported_parameter` / `unsupported_value` as of 2026-10. If OpenAI renames
+ * the codes or stops setting `param`, a model family that rejects one of these
+ * parameters fails with ok:false instead of degrading.
+ * Upgrade path: re-pin the fixture from a live probe and extend the code set,
+ * or move the per-family shape into `isReasoningModel` once the family is probed.
+ */
+function unsupportedParam(
+  status: number,
+  errorBody: unknown,
+): RejectableParam | null {
+  if (status !== 400) return null;
+  if (!errorBody || typeof errorBody !== "object") return null;
+  const { error } = errorBody as { error?: unknown };
+  if (!error || typeof error !== "object") return null;
+  const { param, code } = error as { param?: unknown; code?: unknown };
+  if (code !== "unsupported_parameter" && code !== "unsupported_value") {
+    return null;
+  }
+  return REJECTABLE_PARAMS.find((candidate) => candidate === param) ?? null;
+}
+
+type LearnedParamShape = {
+  tokenParam?: "max_completion_tokens" | "max_tokens";
+  dropTemperature?: boolean;
+  // Values, not the parameter: one rejected effort (e.g. 'none') says nothing
+  // about another caller's 'high', so only a value already rejected is dropped.
+  rejectedReasoningEfforts?: ReadonlySet<string>;
+};
+
+// Process-wide, keyed by model: once one call learns a family rejects a
+// parameter, every later call to that model sends the working shape first.
+// In-memory only; a restart re-learns at the cost of one 400 per param.
+const learnedParamShape = new Map<string, LearnedParamShape>();
+
+// Latched per `model:param` so a fallback warns once per process, not per call.
+const warnedParamFallback = new Set<string>();
+
+/** @internal Test-only — forget learned parameter shapes and their warn latches. */
+export function _resetLearnedParamShapes(): void {
+  learnedParamShape.clear();
+  warnedParamFallback.clear();
+}
+
+/**
+ * Records a rejection. `sentReasoningEffort` is the value the rejected request
+ * carried; a `reasoning_effort` rejection without one has nothing to learn.
+ */
+function learnParamRejection(
+  model: string,
+  param: RejectableParam,
+  sentReasoningEffort: unknown,
+): void {
+  const shape: LearnedParamShape = { ...learnedParamShape.get(model) };
+  if (param === "max_tokens") shape.tokenParam = "max_completion_tokens";
+  if (param === "max_completion_tokens") shape.tokenParam = "max_tokens";
+  if (param === "temperature") shape.dropTemperature = true;
+  if (param === "reasoning_effort" && typeof sentReasoningEffort === "string") {
+    shape.rejectedReasoningEfforts = new Set([
+      ...(shape.rejectedReasoningEfforts ?? []),
+      sentReasoningEffort,
+    ]);
+  }
+  learnedParamShape.set(model, shape);
+
+  const latch = `${model}:${param}`;
+  if (!warnedParamFallback.has(latch)) {
+    warnedParamFallback.add(latch);
+    console.warn(
+      `  [OPENAI] Model ${model} rejected '${param}'; retrying without it and reusing that shape for this model.`,
+    );
+  }
+}
+
+// Bounds the degrade loop in `chat`: the schema downgrade plus param fallbacks
+// never cost more than this many extra attempts per call. A shape still
+// rejected after that fails the call; the learned entry carries the progress
+// into the next call.
+const MAX_EXTRA_ATTEMPTS = 3;
+
 // Copied from `enrich-phases/agents/runtime.ts` SCHEMA_TRAILER, not imported:
 // this client sits below the enrich layer and must not depend on it.
 const SCHEMA_CONTRACT_TRAILER =
@@ -394,22 +489,29 @@ export function createOpenAIClient({
        * Every event names the response format actually sent, read off the same
        * `responseFormat()` body the wire gets, so a schema downgrade is visible per row.
        * The counts are only meaningful for a conversation the caller composed,
-       * so legacy `{system,user}` calls carry the format alone. Caller `meta` is
-       * spread last: its keys are kept, including a collision with a computed one.
+       * so legacy `{system,user}` calls carry the format alone. `paramFallback`
+       * lists the learned parameter overrides that changed this request. Caller
+       * `meta` is spread last: its keys are kept, including a collision with a
+       * computed one.
        */
       function auditMeta(
         useSchema: boolean,
         sentMessageCount: number,
+        paramFallback: string[],
       ): { meta: Record<string, unknown> } {
         const format = responseFormat(useSchema).response_format?.type ?? "none";
+        const fallback = paramFallback.length ? { paramFallback } : {};
         if (!messages) {
-          return { meta: { responseFormat: format, ...(meta ?? {}) } };
+          return {
+            meta: { responseFormat: format, ...fallback, ...(meta ?? {}) },
+          };
         }
         return {
           meta: {
             responseFormat: format,
             messageCount: sentMessageCount,
             toolCallCount: tools?.length ?? 0,
+            ...fallback,
             ...(meta ?? {}),
           },
         };
@@ -441,11 +543,18 @@ export function createOpenAIClient({
        * `max_tokens` is a hard 400 on reasoning models; `temperature` is not, so it
        * passes through for every model and existing callers keep their values.
        */
-      function tokenBudget(): Record<string, unknown> {
+      function tokenBudget(paramFallback: string[]): Record<string, unknown> {
         if (typeof maxTokens !== "number") return {};
-        return isReasoningModel(model)
-          ? { max_completion_tokens: maxTokens }
-          : { max_tokens: maxTokens };
+        const guess = isReasoningModel(model)
+          ? "max_completion_tokens"
+          : "max_tokens";
+        // A learned rejection overrides the regex guess for this model.
+        const learned = learnedParamShape.get(model)?.tokenParam;
+        if (learned && learned !== guess) {
+          paramFallback.push(`${guess}->${learned}`);
+          return { [learned]: maxTokens };
+        }
+        return { [guess]: maxTokens };
       }
 
       /**
@@ -457,7 +566,34 @@ export function createOpenAIClient({
        * dropped rather than sent — the two cannot both apply, and sending both
        * is a 400 that would fail the whole call.
        */
-      function samplingAndReasoning(): Record<string, unknown> {
+      function samplingAndReasoning(
+        paramFallback: string[],
+      ): Record<string, unknown> {
+        const params = guessedSamplingAndReasoning();
+        // A learned rejection overrides the regex guess for this model.
+        const learned = learnedParamShape.get(model);
+        const rejectedEfforts = learned?.rejectedReasoningEfforts;
+        if (learned?.dropTemperature && "temperature" in params) {
+          delete params.temperature;
+          // 'none' is only injected while the model still accepts it; the
+          // label names the body actually sent.
+          if (rejectedEfforts?.has("none")) {
+            delete params.reasoning_effort;
+            paramFallback.push("temperature->omitted");
+          } else {
+            params.reasoning_effort = "none";
+            paramFallback.push("temperature->reasoning_effort:none");
+          }
+        }
+        const effort = params.reasoning_effort;
+        if (typeof effort === "string" && rejectedEfforts?.has(effort)) {
+          delete params.reasoning_effort;
+          paramFallback.push("reasoning_effort->omitted");
+        }
+        return params;
+      }
+
+      function guessedSamplingAndReasoning(): Record<string, unknown> {
         const wantsTemperature = typeof temperature === "number";
         if (!isReasoningModel(model)) {
           return wantsTemperature ? { temperature } : {};
@@ -470,6 +606,10 @@ export function createOpenAIClient({
         }
         return reasoningEffort ? { reasoning_effort: reasoningEffort } : {};
       }
+
+      // The reasoning_effort the latest attempt sent, so a rejection learns the
+      // value OpenAI refused rather than the whole parameter.
+      let lastSentReasoningEffort: unknown;
 
       async function attempt(
         useSchema: boolean,
@@ -506,7 +646,17 @@ export function createOpenAIClient({
                 },
               ]
             : wireMessages;
-        const eventMeta = auditMeta(useSchema, sentMessages.length);
+        const paramFallback: string[] = [];
+        const shapedParams = {
+          ...tokenBudget(paramFallback),
+          ...samplingAndReasoning(paramFallback),
+        };
+        lastSentReasoningEffort = shapedParams.reasoning_effort;
+        const eventMeta = auditMeta(
+          useSchema,
+          sentMessages.length,
+          paramFallback,
+        );
 
         const startedAt = performance.now();
         // Per-attempt deadline. A shared one let a slow first call abort the retry instantly.
@@ -535,8 +685,7 @@ export function createOpenAIClient({
                     })),
                   }
                 : {}),
-              ...tokenBudget(),
-              ...samplingAndReasoning(),
+              ...shapedParams,
               ...responseFormat(useSchema),
             }),
             signal,
@@ -651,21 +800,42 @@ export function createOpenAIClient({
         );
       }
 
-      const first = await attemptWithRetry(Boolean(schema));
-      if (
-        schema &&
-        !first.ok &&
-        isJsonSchemaUnsupported(first.status, first.errorBody)
+      // Degrade loop: each pass fixes the one 400 it can (the schema downgrade,
+      // or one rejected parameter) and re-runs the retry ladder. Every fix
+      // applies at most once per call, and MAX_EXTRA_ATTEMPTS bounds the total.
+      let useSchemaState = Boolean(schema);
+      // The two token-budget names share one key: swapping back and forth is a loop.
+      const fellBack = new Set<string>();
+      let result = await attemptWithRetry(useSchemaState);
+      for (
+        let extra = 0;
+        extra < MAX_EXTRA_ATTEMPTS && !result.ok;
+        extra += 1
       ) {
-        if (!warnedStructuredOutputsUnsupported) {
-          warnedStructuredOutputsUnsupported = true;
-          console.warn(
-            `  [OPENAI] Model ${model} does not support json_schema response_format; falling back to json_object mode with the schema inlined.`,
-          );
+        // A cancelled caller gets the last result, not another degraded attempt.
+        if (input.signal?.aborted) break;
+        if (
+          useSchemaState &&
+          isJsonSchemaUnsupported(result.status, result.errorBody)
+        ) {
+          if (!warnedStructuredOutputsUnsupported) {
+            warnedStructuredOutputsUnsupported = true;
+            console.warn(
+              `  [OPENAI] Model ${model} does not support json_schema response_format; falling back to json_object mode with the schema inlined.`,
+            );
+          }
+          useSchemaState = false;
+        } else {
+          const param = unsupportedParam(result.status, result.errorBody);
+          if (!param) break;
+          const key = param === "max_completion_tokens" ? "max_tokens" : param;
+          if (fellBack.has(key)) break;
+          fellBack.add(key);
+          learnParamRejection(model, param, lastSentReasoningEffort);
         }
-        return await attemptWithRetry(false);
+        result = await attemptWithRetry(useSchemaState);
       }
-      return first;
+      return result;
     },
   };
 }

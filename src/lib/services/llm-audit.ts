@@ -16,9 +16,22 @@ import {
   type LlmReasoningEffort,
 } from "@/lib/constants/llm-models";
 
-/** Stored system/user text is cut to this many characters, then marked. */
+/**
+ * Rows written before 2026-10-01 stored system/user cut to this many
+ * characters, then marked. New rows store them uncut; these stay exported for
+ * readers of historical rows. Langfuse still uses the cut for an over-cap input.
+ */
 export const MAX_PROMPT_LENGTH = 2_000;
 export const PROMPT_TRUNCATION_MARK = "…";
+
+/**
+ * A Langfuse generation input above this many serialised UTF-8 bytes is cut
+ * back to `{system,user}`. The SDK limit is 1,000,000 UTF-8 bytes on the whole
+ * event body (input + output + metadata), and above it the SDK silently swaps
+ * the input for a placeholder before our visible cut could run. The owner's
+ * 1 MB decision minus headroom for output and metadata.
+ */
+const LANGFUSE_INPUT_MAX_BYTES = 900_000;
 
 export type LlmAuditContext = {
   jobId?: string;
@@ -82,6 +95,140 @@ function capturedMessages(input: ChatInput): ChatMessage[] {
   ];
 }
 
+/** Stands in for a `data:` image, which is never stored. */
+const OMITTED_DATA_URI = { omitted: "data-uri" } as const;
+
+/**
+ * The full logical request as the caller sent it, for replay. `v` versions the
+ * shape. Images are rewritten so a data URI is never stored.
+ */
+type LoggedRequest = { v: 1 } & Record<string, unknown>;
+
+// Denylist by construction: every ChatInput key must be listed (the
+// `satisfies` fails typecheck on a new field), and only `signal` is dropped.
+// A field missing here would make replay send a different request.
+const LOGGED_INPUT_KEYS = {
+  system: true,
+  user: true,
+  messages: true,
+  tools: true,
+  signal: false,
+  json: true,
+  timeoutMs: true,
+  maxTokens: true,
+  temperature: true,
+  reasoningEffort: true,
+  images: true,
+  imageDetail: true,
+  meta: true,
+  schema: true,
+} satisfies Record<keyof ChatInput, boolean>;
+
+function isDataUri(url: unknown): boolean {
+  return typeof url === "string" && url.startsWith("data:");
+}
+
+/**
+ * Legacy `images[i]` that are data URIs become `meta.imageUrls[i]` when the two
+ * lengths match; otherwise every data URI becomes a placeholder, since a
+ * shifted URL would replay the wrong image.
+ */
+function sanitizeImages(images: unknown, meta: unknown): unknown {
+  if (!Array.isArray(images)) return images;
+  const imageUrls = (meta as { imageUrls?: unknown } | undefined)?.imageUrls;
+  const urls =
+    Array.isArray(imageUrls) && imageUrls.length === images.length
+      ? imageUrls
+      : null;
+  return images.map((image: unknown, index) => {
+    const url =
+      typeof image === "string" ? image : (image as { url?: unknown })?.url;
+    if (!isDataUri(url)) return image;
+    const replacement = urls?.[index];
+    return typeof replacement === "string" && !isDataUri(replacement)
+      ? replacement
+      : OMITTED_DATA_URI;
+  });
+}
+
+function sanitizeMessages(messages: ChatMessage[]): unknown[] {
+  return messages.map((message) => {
+    if (!Array.isArray(message.content)) return message;
+    return {
+      ...message,
+      content: message.content.map((part) =>
+        part.type === "image_url" && isDataUri(part.image_url.url)
+          ? OMITTED_DATA_URI
+          : part,
+      ),
+    };
+  });
+}
+
+/**
+ * Postgres jsonb cannot store U+0000 (22P05), and one NUL anywhere would drop
+ * the whole audit and cost row. Removing an unstorable character is not
+ * truncation: everything else is kept. Unchanged values keep their identity.
+ */
+function stripNul(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value.includes("\u0000") ? value.replaceAll("\u0000", "") : value;
+  }
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((item: unknown) => {
+      const stripped = stripNul(item);
+      if (stripped !== item) changed = true;
+      return stripped;
+    });
+    return changed ? next : value;
+  }
+  if (value !== null && typeof value === "object") {
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return value;
+    let changed = false;
+    const next: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      const strippedKey = stripNul(key) as string;
+      const stripped = stripNul(item);
+      if (strippedKey !== key || stripped !== item) changed = true;
+      next[strippedKey] = stripped;
+    }
+    return changed ? next : value;
+  }
+  return value;
+}
+
+function buildLoggedRequest(input: ChatInput): LoggedRequest {
+  const request: LoggedRequest = { v: 1 };
+  for (const [key, logged] of Object.entries(LOGGED_INPUT_KEYS)) {
+    if (!logged) continue;
+    // Read once: the value is copied as passed, so a getter runs a single time.
+    const value = input[key as keyof ChatInput];
+    if (value !== undefined) request[key] = value;
+  }
+  // Snapshotted: agent loops keep pushing turns onto the caller's array.
+  if (input.messages) {
+    request.messages = sanitizeMessages(capturedMessages(input));
+  }
+  if (request.images !== undefined) {
+    request.images = sanitizeImages(request.images, request.meta);
+  }
+  return stripNul(request) as LoggedRequest;
+}
+
+/** Request logging must never fail the call it records. */
+function safeBuildLoggedRequest(input: ChatInput): LoggedRequest | null {
+  try {
+    return buildLoggedRequest(input);
+  } catch (error) {
+    console.error("[llm-audit:request]", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
 function capturedResponse(
   input: ChatInput,
   event: ChatAuditEvent,
@@ -135,6 +282,42 @@ function truncate(value: string): string {
     : `${value.slice(0, MAX_PROMPT_LENGTH)}${PROMPT_TRUNCATION_MARK}`;
 }
 
+type GenerationInput = {
+  input: unknown;
+  /** Present only when the full request was over the cap and was cut. */
+  truncation: { inputTruncated: true; inputBytes: number } | null;
+};
+
+/**
+ * The full request when it fits; above the cap, the old cut `{system,user}`
+ * with a flag so the trace says it is partial. Without a request (direct
+ * callers), the uncut `{system,user}`.
+ */
+function generationInput(
+  event: ChatAuditEvent,
+  request: LoggedRequest | null | undefined,
+): GenerationInput {
+  if (!request) {
+    return {
+      input: { system: event.request.system, user: event.request.user },
+      truncation: null,
+    };
+  }
+  // UTF-8 bytes, not UTF-16 units: the SDK limit is in bytes, and CJK text
+  // is three bytes per char.
+  const inputBytes = Buffer.byteLength(JSON.stringify(request), "utf8");
+  if (inputBytes <= LANGFUSE_INPUT_MAX_BYTES) {
+    return { input: request, truncation: null };
+  }
+  return {
+    input: {
+      system: truncate(event.request.system),
+      user: truncate(event.request.user),
+    },
+    truncation: { inputTruncated: true, inputBytes },
+  };
+}
+
 /**
  * Fire-and-forget Langfuse generation for LLM calls.
  * Must never throw -- all errors are swallowed.
@@ -143,16 +326,18 @@ export function emitLangfuseGeneration(
   context: LlmAuditContext,
   event: ChatAuditEvent,
   costUsd?: number | null,
+  logged?: { request: LoggedRequest | null; spanId: string },
 ): void {
   try {
     const trace = getAuditContext().langfuseTrace;
     if (trace) {
       const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
       const responseFormat = readResponseFormat(event.meta);
+      const { input, truncation } = generationInput(event, logged?.request);
       langfuseTrace.generation({
         name: `${event.provider}/chat_completions`,
         model: event.model,
-        input: { system: truncate(event.request.system), user: truncate(event.request.user) },
+        input,
         output: event.data,
         usage: {
           promptTokens: event.usage?.prompt_tokens,
@@ -171,6 +356,9 @@ export function emitLangfuseGeneration(
           status: event.status,
           latencyMs: event.latencyMs,
           ...(responseFormat !== null ? { responseFormat } : {}),
+          ...(truncation
+            ? { ...truncation, auditSpanId: logged?.spanId }
+            : {}),
         },
       });
     }
@@ -183,6 +371,7 @@ async function persistAuditEvent(
   context: LlmAuditContext,
   event: ChatAuditEvent,
   spanId: string,
+  request: LoggedRequest | null,
 ): Promise<void> {
   try {
     if (!context.target) return;
@@ -199,12 +388,14 @@ async function persistAuditEvent(
         ...(event.usage ? { usage: event.usage } : {}),
         ...(event.error ? { error: event.error } : {}),
       },
-      input: {
-        system: truncate(event.request.system),
-        user: truncate(event.request.user),
+      // NUL stripped for jsonb (see stripNul): system/user are uncut now, and
+      // caller `meta` flows in here too.
+      input: stripNul({
+        system: event.request.system,
+        user: event.request.user,
         imageCount: event.request.imageCount,
         ...(event.meta ? { meta: event.meta } : {}),
-      },
+      }),
       ...(context.attempt !== undefined ? { attempt: context.attempt } : {}),
       ...(event.retryAttempt !== undefined
         ? { retryAttempt: event.retryAttempt }
@@ -220,6 +411,7 @@ async function persistAuditEvent(
       })(),
       latencyMs: event.latencyMs,
       auditSpanId: spanId,
+      request,
       ...(context.supabase ? { supabase: context.supabase } : {}),
     });
   } catch (error) {
@@ -243,6 +435,16 @@ function createAuditedClient(
 ) {
   return {
     async chat(input: ChatInput) {
+      // Synchronously, before any await: the caller may mutate its input
+      // (agent loops push turns) while this call is in flight. Skipped when
+      // nothing consumes it: no audit row (no target) and no Langfuse trace.
+      // Both are fixed for the call, so reading them here matches the
+      // completion hook's view.
+      const consumesRequest =
+        context.target !== undefined || Boolean(getAuditContext().langfuseTrace);
+      const loggedRequest = consumesRequest
+        ? safeBuildLoggedRequest(input)
+        : null;
       const spanId = randomUUID();
 
       // The envelope wraps the whole chat call because the client retries
@@ -281,8 +483,11 @@ function createAuditedClient(
                   // Price lookup must never prevent the audit row from being written.
                 }
               }
-              await persistAuditEvent(context, event, spanId);
-              emitLangfuseGeneration(context, event, costUsd);
+              await persistAuditEvent(context, event, spanId, loggedRequest);
+              emitLangfuseGeneration(context, event, costUsd, {
+                request: loggedRequest,
+                spanId,
+              });
             },
           });
           return client.chat(input);
