@@ -27,10 +27,7 @@ import type { AuditContextSeed } from '@/lib/audit/context'
 import { routeOf, stableFingerprint, type HealthFinding } from './contracts'
 import { isAcknowledged } from '@/lib/constants/health-acknowledgements'
 import { HEALTH_TICKET_FOLLOW_UP_DAYS } from '@/lib/constants/health-detectors'
-import {
-  isClosedState,
-  type TicketState,
-} from '@/lib/adapters/linear/get-ticket-states'
+import { truncatePlain } from '@/lib/adapters/slack/blocks'
 import type { Detector } from './types'
 import type { RepoWorkerClient } from './repo-worker-client'
 import {
@@ -112,12 +109,13 @@ export type RunHealthAgentDeps = {
   }) => Promise<{ identifier: string; url?: string }>
 
   /**
-   * Read the Linear workflow state of existing tickets. Absent when Linear is
+   * Read the workflow state of existing tickets, keyed by the requested
+   * identifier; `closed` means completed or canceled. Absent when Linear is
    * unconfigured; a throw leaves the states unknown.
    */
   linearGetTicketStates?: (
     identifiers: readonly string[],
-  ) => Promise<Map<string, TicketState>>
+  ) => Promise<Map<string, { state: string; closed: boolean }>>
 
   /**
    * Trigger the ops-agent to repair findings. threadTs threads under the digest.
@@ -151,8 +149,15 @@ export type RunHealthAgentResult = {
   error?: string
 }
 
-/** Matches the relay's zod max for `tickets_filed.tickets`. */
+/**
+ * Caps the items listed in one `ticket_outcomes` event to bound Slack
+ * metadata size. The relay does not validate this event; only this cap and
+ * OUTCOME_TITLE_LIMIT bound it.
+ */
 const MAX_TIMELINE_TICKETS = 50
+
+/** Bounds an item title stored in Slack metadata (the Linear ticket keeps the full title). */
+const OUTCOME_TITLE_LIMIT = 120
 
 /** Bounds an error message stored in Slack metadata. */
 const OUTCOME_REASON_LIMIT = 200
@@ -623,9 +628,13 @@ async function executeRunBody(
     string,
     { ticket: string; until: string; count: number }
   >()
-  const routedFindings = allFindings.filter((f) => {
+  const routedFindings: HealthFinding[] = []
+  for (const f of allFindings) {
     const acknowledgement = isAcknowledged(f.fingerprint, logicalDate)
-    if (!acknowledgement) return true
+    if (!acknowledgement) {
+      routedFindings.push(f)
+      continue
+    }
     const group = acknowledgedGroups.get(acknowledgement.ticket)
     if (!group) {
       acknowledgedGroups.set(acknowledgement.ticket, {
@@ -638,8 +647,7 @@ async function executeRunBody(
       // Two entries under one ticket: the soonest expiry is the one to warn about.
       if (acknowledgement.until < group.until) group.until = acknowledgement.until
     }
-    return false
-  })
+  }
   const acknowledgedCount = totalFindings - routedFindings.length
   const autoFixFindings = routedFindings.filter(
     (f) => routeOf(f) === 'auto_fix',
@@ -761,7 +769,7 @@ async function executeRunBody(
 
   /** Why `isTicketEligible` turned the finding down, or the ticket it already has. */
   const ineligibleOutcome = (finding: HealthFinding): TicketOutcome => {
-    const title = finding.title
+    const title = truncatePlain(finding.title, OUTCOME_TITLE_LIMIT)
     if (finding.source === 'sentry') {
       return { title, outcome: 'not_eligible', reason: 'Sentry issues are signal-only' }
     }
@@ -795,7 +803,7 @@ async function executeRunBody(
     const identifiers = [...new Set(items.flatMap((item) =>
       item.outcome === 'existing' && item.ticketId ? [item.ticketId] : []))]
     if (!getStates || identifiers.length === 0) return
-    let states: Map<string, TicketState>
+    let states: Map<string, { state: string; closed: boolean }>
     try {
       states = await getStates(identifiers)
     } catch (err) {
@@ -806,7 +814,7 @@ async function executeRunBody(
       const state = item.ticketId ? states.get(item.ticketId) : undefined
       if (item.outcome !== 'existing' || !state) continue
       item.state = state.state
-      item.closed = isClosedState(state.type)
+      item.closed = state.closed
     }
   }
 
@@ -821,9 +829,16 @@ async function executeRunBody(
       // A duplicate fingerprint is never retried.
       if (attempted.has(finding.fingerprint)) continue
       attempted.add(finding.fingerprint)
-      const title = finding.title
+      const title = truncatePlain(finding.title, OUTCOME_TITLE_LIMIT)
       if (!ledgerRead) {
-        items.push({ title, outcome: 'not_processed', reason: 'ticket ledger read failed' })
+        // The ledger read is skipped when nothing was enqueued, so name the enqueue then.
+        items.push({
+          title,
+          outcome: 'not_processed',
+          reason: enqueuedIds.length === 0
+            ? 'finding was not enqueued'
+            : 'ticket ledger read failed',
+        })
         continue
       }
       if (!isTicketEligible(finding, ticketLedger, now)) {

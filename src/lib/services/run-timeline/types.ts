@@ -10,7 +10,10 @@ export type RunTicket = {
 /** Acknowledged findings sharing one `health-acknowledgements.ts` ticket. */
 type AcknowledgedGroup = {
   ticket: string;
-  /** UTC date (YYYY-MM-DD) the acknowledgement lapses. */
+  /**
+   * Date (YYYY-MM-DD) the acknowledgement lapses, compared with the health
+   * agent's logicalDate, which is the Asia/Taipei calendar date.
+   */
   until: string;
   count: number;
 };
@@ -18,7 +21,10 @@ type AcknowledgedGroup = {
 /** What the health agent's ticket step did with one routed finding. */
 export type TicketOutcome = {
   title: string;
-  /** `not_processed`: the ticket ledger could not be read, so nothing was filed. */
+  /**
+   * `not_processed`: nothing was filed; `reason` names why, e.g. the ticket
+   * ledger could not be read or the finding was not enqueued.
+   */
   outcome:
     | "filed"
     | "follow_up"

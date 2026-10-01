@@ -1,5 +1,6 @@
 import { escapeSlackMrkdwn, truncatePlain } from "@/lib/adapters/slack/blocks";
 import { boundedSlackText } from "@/lib/adapters/slack/notification";
+import { isoDateInTimeZone } from "@/lib/date-range";
 import type { RunEvent, RunEventKind, RunTicket, RunTimeline, TicketOutcome } from "./types";
 
 type SlackBlock = Record<string, unknown>;
@@ -16,6 +17,8 @@ const MAX_ITEMS = 5;
 // An acknowledgement this close to lapsing goes under Needs you.
 const ACK_WARN_DAYS = 7;
 const DAY_MS = 86_400_000;
+// The health agent's logicalDate, which acknowledgement `until` is checked against.
+const RUN_TIME_ZONE = "Asia/Taipei";
 
 // Bot messages containing a ```json fence are treated as repair requests by the
 // Slack events route, so no fence may ever leave this renderer.
@@ -69,24 +72,6 @@ function e2eParts(event: Findings): string[] {
   return parts;
 }
 
-function findingsLabel(event: Findings): string {
-  const parts: string[] = [];
-  if (event.total !== undefined) parts.push(`${event.total} findings`);
-  // Events persisted before the auto-fix/ticket rename carry the old names.
-  const autoFix = event.autoFix ?? event.repairable;
-  const ticket = event.ticket ?? event.reportOnly;
-  if (autoFix !== undefined) parts.push(`${autoFix} auto-fix`);
-  if (ticket !== undefined) parts.push(`${ticket} ticket`);
-  if (event.acknowledged) parts.push(`${event.acknowledged} acknowledged`);
-  if (event.failedDetectors) {
-    const n = event.failedDetectors;
-    parts.push(`${n} detector${n === 1 ? "" : "s"} failed`);
-  }
-  parts.push(...e2eParts(event));
-  if (event.summary) parts.push(safe(event.summary));
-  return parts.length ? parts.join(" · ") : "Findings gathered";
-}
-
 type KindSpec<K extends RunEventKind> = {
   /** Emoji of the event row, and of the header status when `status` is a string. */
   emoji: string;
@@ -94,15 +79,19 @@ type KindSpec<K extends RunEventKind> = {
   status: string | { as: RunEventKind };
   /** Row label; defaults to `status`. */
   label?: (event: Extract<RunEvent, { kind: K }>, startedAt: number | undefined) => string;
+  /** Stage name in the compact timeline; null for data-only events. */
+  compact: string | null | ((event: Extract<RunEvent, { kind: K }>) => string);
 };
 
 const KINDS: { [K in RunEventKind]: KindSpec<K> } = {
-  started: { emoji: "🔄", status: "Running" },
-  findings: { emoji: "🔍", status: "Findings gathered", label: findingsLabel },
-  repair_requested: { emoji: "📨", status: "Repair requested" },
+  started: { emoji: "🔄", status: "Running", compact: "start" },
+  // A findings event always renders as buckets, never as a row.
+  findings: { emoji: "🔍", status: "Findings gathered", compact: "findings" },
+  repair_requested: { emoji: "📨", status: "Repair requested", compact: "repair" },
   repair_started: {
     emoji: "🔧",
     status: "Repairing",
+    compact: "repair",
     label: (event) =>
       event.sessionUrl
         ? `Repair started · <${safeUrl(event.sessionUrl)}|session>`
@@ -111,6 +100,7 @@ const KINDS: { [K in RunEventKind]: KindSpec<K> } = {
   repair_failed: {
     emoji: "⚠️",
     status: "Repair failed",
+    compact: "repair failed",
     label: (event) => `Repair failed · ${safe(event.reason)}`,
   },
   // A PR or a ticket is progress inside the repair, not a new run state.
@@ -118,28 +108,31 @@ const KINDS: { [K in RunEventKind]: KindSpec<K> } = {
     emoji: "🔀",
     status: { as: "repair_started" },
     label: (event) => `PR opened · <${safeUrl(event.url)}|#${event.number}>`,
+    compact: (event) => `<${safeUrl(event.url)}|PR #${event.number}>`,
   },
   tickets_filed: {
     emoji: "🎫",
     status: { as: "repair_started" },
-    label: (event) => {
-      const n = event.tickets.length;
-      return `${n} ticket${n === 1 ? "" : "s"} filed`;
-    },
+    label: (event) => `${plural(event.tickets.length, "ticket")} filed`,
+    compact: (event) => plural(event.tickets.length, "ticket"),
   },
   ticket_outcomes: {
     emoji: "🎫",
     status: { as: "findings" },
     label: (event) => plural(event.items.length, "ticket outcome"),
+    // Its content is in the buckets.
+    compact: null,
   },
   repair_summary: {
     emoji: "📋",
     status: { as: "repair_started" },
     label: (event) => `Repair summary · ${event.fixed} fixed`,
+    compact: null,
   },
   completed: {
     emoji: "✅",
     status: "Completed",
+    compact: "done",
     label: (event, startedAt) =>
       startedAt === undefined ? "Completed" : `Completed · ${formatDuration(event.at - startedAt)}`,
   },
@@ -148,6 +141,7 @@ const KINDS: { [K in RunEventKind]: KindSpec<K> } = {
     status: "Failed",
     label: (event) =>
       `Failed · ${safe(event.outcome, 40)}${event.reason ? ` · ${safe(event.reason)}` : ""}`,
+    compact: (event) => `failed · ${safe(event.outcome, 40)}`,
   },
 };
 
@@ -233,7 +227,7 @@ type RunFailed = Extract<RunEvent, { kind: "failed" }>;
 type RunFold = {
   findings: Findings;
   e2e: boolean;
-  /** Epoch ms of the run's UTC date; acknowledgement expiry counts from it. */
+  /** Epoch ms of the run's Asia/Taipei date; acknowledgement expiry counts from it. */
   runDay: number;
   prs: PrOpened[];
   /** Tickets the routine filed during the repair. */
@@ -262,9 +256,9 @@ type Bucket = {
   details: string[];
 };
 
-function utcDay(at: number): number {
-  const date = new Date(at * 1000);
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+/** UTC midnight of the Asia/Taipei calendar date of `at`, comparable with a parsed `until`. */
+function runDayOf(at: number): number {
+  return Date.parse(isoDateInTimeZone(new Date(at * 1000).toISOString(), RUN_TIME_ZONE));
 }
 
 function bucketsOf(events: RunEvent[], findings: Findings): RunFold {
@@ -273,7 +267,7 @@ function bucketsOf(events: RunEvent[], findings: Findings): RunFold {
   const fold: RunFold = {
     findings,
     e2e,
-    runDay: utcDay(events.find((e) => e.kind === "started")?.at ?? findings.at),
+    runDay: runDayOf(events.find((e) => e.kind === "started")?.at ?? findings.at),
     prs: [],
     repairTickets: [],
     legacyTickets: [],
@@ -290,24 +284,33 @@ function bucketsOf(events: RunEvent[], findings: Findings): RunFold {
         break;
       case "repair_started":
         fold.repairStarted = true;
+        fold.repairFailed = undefined;
         fold.sessionUrl = event.sessionUrl ?? fold.sessionUrl;
         break;
       case "repair_failed":
         fold.repairFailed = event.reason;
         break;
       case "pr_opened":
+        // A trigger post that timed out may still have been delivered: later
+        // repair evidence supersedes an earlier repair_failed.
+        fold.repairFailed = undefined;
         fold.prs.push(event);
         break;
       case "tickets_filed":
         // Before ticket_outcomes the health agent filed its own tickets with this
-        // kind, ahead of the repair; the routine only files after repair_started.
-        if (!e2e && !hasOutcomes && !fold.repairStarted) fold.legacyTickets.push(...event.tickets);
-        else fold.repairTickets.push(...event.tickets);
+        // kind, ahead of the repair. It always appends repair_requested before the
+        // routine runs; repair_started comes from the routine and can be lost.
+        if (!e2e && !hasOutcomes && !fold.repairRequested && !fold.repairStarted) {
+          fold.legacyTickets.push(...event.tickets);
+        } else {
+          fold.repairTickets.push(...event.tickets);
+        }
         break;
       case "ticket_outcomes":
         (event.bucket === "auto_fix" ? fold.autoFixItems : fold.ticketItems).push(...event.items);
         break;
       case "repair_summary":
+        fold.repairFailed = undefined;
         fold.summary = event;
         break;
       case "completed":
@@ -321,6 +324,11 @@ function bucketsOf(events: RunEvent[], findings: Findings): RunFold {
     }
   }
   return fold;
+}
+
+/** "DEV-1, DEV-2" for the tickets whose fix awaits release; empty when none are named. */
+function pendingIds(summary: RepairSummary | undefined): string {
+  return (summary?.pendingReleaseTickets ?? []).map((id) => safe(id, 20)).join(", ");
 }
 
 const isNewTicket = (item: TicketOutcome) => item.outcome === "filed" || item.outcome === "follow_up";
@@ -341,6 +349,11 @@ function ticketRef(id: string | undefined, url: string | undefined): string {
 function prRef(pr: PrOpened): string {
   const ticket = pr.ticketId ? ` (${safe(pr.ticketId, 20)})` : "";
   return `<${safeUrl(pr.url)}|PR #${pr.number}>${ticket}`;
+}
+
+/** The routine itself reported in, whatever the trigger step recorded. */
+function repairRan(fold: RunFold): boolean {
+  return fold.repairStarted || fold.prs.length > 0 || fold.summary !== undefined;
 }
 
 function finished(fold: RunFold): boolean {
@@ -372,7 +385,7 @@ function repairDetails(fold: RunFold): string[] {
       ? ["outcome counts not reported"]
       : [];
   }
-  const ids = (summary.pendingReleaseTickets ?? []).map((id) => safe(id, 20)).join(", ");
+  const ids = pendingIds(summary);
   const pending =
     summary.pendingRelease > 0
       ? `${summary.pendingRelease} fix pending release${ids ? ` (${ids})` : ""}`
@@ -440,12 +453,26 @@ function outcomeLines(items: TicketOutcome[]): string[] {
   return lines;
 }
 
+const isUnprocessed = (item: TicketOutcome) => item.outcome === "not_processed";
+
+// Short forms of the reasons the health agent sends; any other reason shows as sent.
+const UNPROCESSED_REASONS: Record<string, string> = {
+  "ticket ledger read failed": "ledger read failed",
+};
+
+/** "not processed (<reasons>)" from the items' own reasons, never an assumed cause. */
+function unprocessedLabel(items: TicketOutcome[]): string {
+  const short = (reason: string) => UNPROCESSED_REASONS[reason] ?? reason;
+  const reasons = [...new Set(items.flatMap((item) => (item.reason ? [short(item.reason)] : [])))];
+  return reasons.length
+    ? `not processed (${reasons.map((reason) => safe(reason, 60)).join("; ")})`
+    : "not processed";
+}
+
 function ticketHead(fold: RunFold): string | undefined {
   const items = fold.ticketItems;
   if (items.length) {
-    if (items.every((item) => item.outcome === "not_processed")) {
-      return "not processed (ledger read failed)";
-    }
+    if (items.every(isUnprocessed)) return unprocessedLabel(items);
     const n = items.filter(isNewTicket).length;
     return n ? plural(n, "new ticket") : "no new ticket";
   }
@@ -481,29 +508,26 @@ function healthBuckets(fold: RunFold): Bucket[] {
   const buckets: Bucket[] = [];
   const autoFix = f.autoFix ?? f.repairable ?? 0;
   if (autoFix > 0) {
-    const fallback = fold.autoFixItems;
-    // The trigger failed, so the health agent filed the auto-fix tickets itself.
-    const bucket: Bucket = fallback.length
-      ? {
-          emoji: "🔧",
-          name: "Auto-fix",
-          short: "auto-fix",
-          count: autoFix,
-          head: `repair not run · ${plural(fallback.filter(isNewTicket).length, "ticket")} filed`,
-          details: [
-            ...outcomeLines(fallback),
+    const items = fold.autoFixItems;
+    // The trigger failed, so the health agent filed the auto-fix tickets itself;
+    // later repair evidence means the routine ran after all.
+    const fallback = items.length > 0 && !repairRan(fold);
+    const fallbackHead = items.every(isUnprocessed)
+      ? `repair not run · ${unprocessedLabel(items)}`
+      : `repair not run · ${plural(items.filter(isNewTicket).length, "ticket")} filed`;
+    buckets.push({
+      emoji: "🔧",
+      name: "Auto-fix",
+      short: "auto-fix",
+      count: autoFix,
+      head: fallback ? fallbackHead : repairHead(fold),
+      details: fallback
+        ? [
+            ...outcomeLines(items),
             ...(fold.repairFailed !== undefined ? [`repair failed: ${safe(fold.repairFailed)}`] : []),
-          ],
-        }
-      : {
-          emoji: "🔧",
-          name: "Auto-fix",
-          short: "auto-fix",
-          count: autoFix,
-          head: repairHead(fold),
-          details: repairDetails(fold),
-        };
-    buckets.push(bucket);
+          ]
+        : [...repairDetails(fold), ...outcomeLines(items)],
+    });
   }
   const ticket = f.ticket ?? f.reportOnly ?? 0;
   if (ticket > 0) {
@@ -632,19 +656,20 @@ function bucketNeedsRows(fold: RunFold): string[] {
 
   const pending = fold.summary?.pendingRelease ?? 0;
   if (pending > 0) {
-    const ids = (fold.summary?.pendingReleaseTickets ?? []).map((id) => safe(id, 20)).join(", ");
+    const ids = pendingIds(fold.summary);
     rows.push(`• Promote staging to clear ${plural(pending, "finding")}${ids ? ` (${ids})` : ""}`);
   }
 
-  // The fallback bucket already reports a failed trigger through its tickets.
-  if (fold.repairFailed !== undefined && !fold.autoFixItems.length) {
+  // The fallback bucket already reports a failed trigger through its tickets;
+  // unprocessed items are no tickets, so the re-send row still applies.
+  if (fold.repairFailed !== undefined && fold.autoFixItems.every(isUnprocessed)) {
     rows.push("• Repair failed: findings re-send tomorrow");
   }
   if (fold.failed) {
     const reason = fold.failed.reason ? ` · ${safe(fold.failed.reason)}` : "";
     rows.push(`• Run failed: ${safe(fold.failed.outcome, 40)}${reason}`);
   }
-  const unprocessed = fold.ticketItems.filter((item) => item.outcome === "not_processed").length;
+  const unprocessed = items.filter(isUnprocessed).length;
   if (unprocessed) rows.push(`• Ticket step skipped: ${plural(unprocessed, "finding")} unticketed`);
   for (const item of items) {
     if (item.outcome === "failed") rows.push(`• Ticket filing failed for "${safe(item.title)}"`);
@@ -654,29 +679,9 @@ function bucketNeedsRows(fold: RunFold): string[] {
 
 /** Short stage name for the compact timeline; null for data-only events. */
 function compactLabel(event: RunEvent): string | null {
-  switch (event.kind) {
-    case "started":
-      return "start";
-    case "findings":
-      return "findings";
-    case "repair_requested":
-    case "repair_started":
-      return "repair";
-    case "repair_failed":
-      return "repair failed";
-    case "pr_opened":
-      return `<${safeUrl(event.url)}|PR #${event.number}>`;
-    case "tickets_filed":
-      return plural(event.tickets.length, "ticket");
-    case "completed":
-      return "done";
-    case "failed":
-      return `failed · ${safe(event.outcome, 40)}`;
-    // Their content is in the buckets.
-    case "ticket_outcomes":
-    case "repair_summary":
-      return null;
-  }
+  // Correlated-union cast, as in eventRow.
+  const { compact } = KINDS[event.kind] as KindSpec<RunEventKind>;
+  return typeof compact === "function" ? compact(event) : compact;
 }
 
 function compactTimeline(events: RunEvent[]): string {

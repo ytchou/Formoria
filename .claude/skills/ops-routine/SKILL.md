@@ -131,15 +131,20 @@ jq -s --arg channel "<repair.timeline.channel>" --arg ts "<repair.timeline.ts>" 
 source /tmp/relay.sh && relay /api/internal/run-timeline /tmp/timeline-tickets.json
 
 # repair_summary: the same counts as the Repair Summary post. pendingReleaseTickets is a
-# space-separated list of IDs, or "" for none. Notes go after --args (at most 3); pass
-# nothing after --args when there are none.
+# list of IDs separated by spaces and/or commas, or "" for none. Notes go after --args
+# (at most 3); pass nothing after --args when there are none. Notes are cut to 200 UTF-16
+# units, the unit the relay counts, so an emoji counts as 2.
 jq -n \
   --arg channel "<repair.timeline.channel>" --arg ts "<repair.timeline.ts>" \
   --argjson total <N> --argjson fixed <N> --argjson falsePositive <N> \
   --argjson ticketed <N> --argjson pendingRelease <N> \
-  --arg pendingReleaseTickets "<e.g. DEV-1201 DEV-1202, or empty>" \
-  '($pendingReleaseTickets | split(" ") | map(select(. != "")) | .[0:20]) as $ids
-   | ($ARGS.positional | map(select(. != "") | .[0:200]) | .[0:3]) as $notes
+  --arg pendingReleaseTickets "<e.g. DEV-1201, DEV-1202, or empty>" \
+  'def utf16_prefix($n): reduce explode[] as $c ({out: [], len: 0, done: false};
+       (if $c > 65535 then 2 else 1 end) as $w
+       | if .done or .len + $w > $n then .done = true
+         else .out += [$c] | .len += $w end) | .out | implode;
+   ([$pendingReleaseTickets | splits("[ ,]+")] | map(select(length > 0)) | .[0:20]) as $ids
+   | ($ARGS.positional | map(select(. != "") | utf16_prefix(200)) | .[0:3]) as $notes
    | {channel:$channel, ts:$ts, event:({kind:"repair_summary", total:$total, fixed:$fixed,
        falsePositive:$falsePositive, ticketed:$ticketed, pendingRelease:$pendingRelease}
        + (if $ids == [] then {} else {pendingReleaseTickets:$ids} end)

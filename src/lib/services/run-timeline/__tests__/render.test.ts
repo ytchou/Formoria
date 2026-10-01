@@ -733,8 +733,12 @@ describe("renderTimeline edge cases", () => {
           kind: "ticket_outcomes",
           bucket: "ticket",
           items: [
-            { title: "Sentry quota exhausted", outcome: "not_processed" },
-            { title: "Stale sitemap", outcome: "not_processed" },
+            {
+              title: "Sentry quota exhausted",
+              outcome: "not_processed",
+              reason: "ticket ledger read failed",
+            },
+            { title: "Stale sitemap", outcome: "not_processed", reason: "ticket ledger read failed" },
           ],
         },
       ]),
@@ -878,16 +882,23 @@ describe("renderTimeline edge cases", () => {
           start,
         ),
       );
+    // 12-28 20:51 UTC is 12-29 in Asia/Taipei, the health agent's logical date.
     const expiring = ack(Date.UTC(2026, 11, 28, 20, 51) / 1000);
     expect(sectionLines(expiring)).toContain(
-      "💤 Acknowledged · 15 → DEV-1903 (until 2026-12-31, expires in 3d)",
+      "💤 Acknowledged · 15 → DEV-1903 (until 2026-12-31, expires in 2d)",
     );
     expect(needsYou(expiring)).toEqual([
       "Acknowledgement DEV-1903 expires 2026-12-31: 15 findings will route again",
     ]);
 
-    // 8 days out: not flagged yet.
-    const notYet = ack(Date.UTC(2026, 11, 23, 20, 51) / 1000);
+    // 7 Taipei days out (12-23 20:51 UTC = 12-24 Taipei): still flagged.
+    const sevenDays = ack(Date.UTC(2026, 11, 23, 20, 51) / 1000);
+    expect(sectionLines(sevenDays)).toContain(
+      "💤 Acknowledged · 15 → DEV-1903 (until 2026-12-31, expires in 7d)",
+    );
+
+    // 8 Taipei days out (12-22 20:51 UTC = 12-23 Taipei): not flagged yet.
+    const notYet = ack(Date.UTC(2026, 11, 22, 20, 51) / 1000);
     expect(sectionLines(notYet)).toContain("💤 Acknowledged · 15 → DEV-1903 (until 2026-12-31)");
     expect(needsYou(notYet)).toEqual([]);
   });
@@ -928,6 +939,125 @@ describe("renderTimeline edge cases", () => {
       "205 passed · 0 failed · 0 flaky · 1 skipped · Duration: 7m 51s",
     ]);
     expect(result.blocks.map((b) => b.type)).toEqual(["header", "section", "context"]);
+    expect(needsYou(result)).toEqual([]);
+  });
+});
+
+describe("renderTimeline review fixes", () => {
+  it("counts acknowledgement expiry in Asia/Taipei days (expires today on the logical date)", () => {
+    const result = renderTimeline(
+      run(
+        {
+          total: 1,
+          autoFix: 0,
+          ticket: 0,
+          acknowledged: 1,
+          acknowledgedGroups: [{ ticket: "DEV-1903", until: "2026-12-31", count: 1 }],
+        },
+        [],
+        // 12-30 20:51 UTC is 12-31 in Asia/Taipei.
+        Date.UTC(2026, 11, 30, 20, 51) / 1000,
+      ),
+    );
+    expect(sectionLines(result)).toContain(
+      "💤 Acknowledged · 1 → DEV-1903 (until 2026-12-31, expires today)",
+    );
+  });
+
+  it("surfaces unprocessed auto-fix fallback items when the ledger and the trigger both fail", () => {
+    const result = renderTimeline(
+      run({ total: 2, autoFix: 2, ticket: 0 }, [
+        {
+          kind: "ticket_outcomes",
+          bucket: "auto_fix",
+          items: [
+            { title: "Resend domain", outcome: "not_processed", reason: "ticket ledger read failed" },
+            { title: "Stale sitemap", outcome: "not_processed", reason: "ticket ledger read failed" },
+          ],
+        },
+        { kind: "repair_failed", reason: "trigger rejected: 401" },
+      ]),
+    );
+    const lines = sectionLines(result);
+    expect(lines).toContain("🔧 Auto-fix · 2 → repair not run · not processed (ledger read failed)");
+    expect(lines.join("\n")).not.toContain("0 tickets filed");
+    expect(lines).toContain("repair failed: trigger rejected: 401");
+    expect(needsYou(result)).toEqual([
+      "Repair failed: findings re-send tomorrow",
+      "Ticket step skipped: 2 findings unticketed",
+    ]);
+  });
+
+  it("names the enqueue, not the ledger, when findings were not enqueued", () => {
+    const result = renderTimeline(
+      run({ total: 2, autoFix: 0, ticket: 2 }, [
+        {
+          kind: "ticket_outcomes",
+          bucket: "ticket",
+          items: [
+            { title: "Sentry quota", outcome: "not_processed", reason: "finding was not enqueued" },
+            { title: "Stale sitemap", outcome: "not_processed", reason: "finding was not enqueued" },
+          ],
+        },
+      ]),
+    );
+    const lines = sectionLines(result);
+    expect(lines).toContain("🎫 Ticket · 2 → not processed (finding was not enqueued)");
+    expect(allText(result)).not.toContain("ledger");
+    expect(needsYou(result)).toEqual(["Ticket step skipped: 2 findings unticketed"]);
+  });
+
+  it("keeps routine tickets in the auto-fix bucket when repair_started was lost", () => {
+    const result = renderTimeline(
+      run({ total: 2, autoFix: 2, ticket: 0 }, [
+        { kind: "repair_requested" },
+        {
+          kind: "tickets_filed",
+          tickets: [{ id: "DEV-2070", url: linear("DEV-2070"), title: "Env var missing" }],
+        },
+        { kind: "completed" },
+      ]),
+    );
+    const lines = sectionLines(result);
+    expect(lines).toContain("🔧 Auto-fix · 2 → no PR · 1 ticket filed");
+    expect(lines.some((l) => l.startsWith("🎫 Ticket"))).toBe(false);
+    expect(needsYou(result)).toEqual(["Triage DEV-2070 Env var missing"]);
+  });
+
+  it("prefers a PR opened after an ambiguous repair_failed", () => {
+    const result = renderTimeline(
+      run({ total: 4, autoFix: 4, ticket: 0 }, [
+        { kind: "repair_requested" },
+        { kind: "repair_failed", reason: "trigger post timed out" },
+        { kind: "repair_started" },
+        { kind: "pr_opened", number: 1302, url: PR_1302, title: "fix deps", ticketId: "DEV-1912" },
+        { kind: "completed" },
+      ]),
+    );
+    const lines = sectionLines(result);
+    expect(lines).toContain("🔧 Auto-fix · 4 → PR #1302 (DEV-1912)");
+    expect(lines.join("\n")).not.toContain("repair failed");
+    expect(needsYou(result)).toEqual(["Review PR #1302 (DEV-1912)"]);
+  });
+
+  it("prefers a repair_summary after repair_failed even without repair_started", () => {
+    const result = renderTimeline(
+      run({ total: 1, autoFix: 1, ticket: 0 }, [
+        { kind: "repair_requested" },
+        { kind: "repair_failed", reason: "trigger post timed out" },
+        {
+          kind: "repair_summary",
+          total: 1,
+          fixed: 1,
+          falsePositive: 0,
+          ticketed: 0,
+          pendingRelease: 0,
+        },
+        { kind: "completed" },
+      ]),
+    );
+    const lines = sectionLines(result);
+    expect(lines).toContain("🔧 Auto-fix · 1 → no PR");
     expect(needsYou(result)).toEqual([]);
   });
 });

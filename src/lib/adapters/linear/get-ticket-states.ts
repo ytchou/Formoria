@@ -1,11 +1,10 @@
 import { auditedCall } from "@/lib/audit";
+import { postLinearGraphql, requireLinearApiKey } from "./linear-graphql";
 
-const LINEAR_API_URL = "https://api.linear.app/graphql";
-const TIMEOUT_MS = 10_000;
-
-export type TicketState = {
+/** Provider-neutral ticket state: the workflow state name and whether it is closed. */
+type TicketState = {
   state: string;
-  type: string;
+  closed: boolean;
 };
 
 type IssueNode = {
@@ -14,22 +13,22 @@ type IssueNode = {
 } | null;
 
 /** Linear workflow-state types that mean the ticket is no longer open. */
-export function isClosedState(type: string): boolean {
+function isClosedState(type: string): boolean {
   return type === "completed" || type === "canceled";
 }
 
 /**
  * Looks up the workflow state of each Linear identifier in one aliased GraphQL
- * request. Identifiers Linear does not resolve are omitted from the result.
+ * request, keyed by the identifier as requested (an issue that moved teams
+ * resolves under its old identifier). Identifiers Linear does not resolve are
+ * omitted: a per-issue "not found" error with partial data is not a failure.
+ * Throws only when the response carries no data at all.
  */
 export async function getTicketStates(
   identifiers: readonly string[],
   fetchFn: typeof fetch = fetch,
 ): Promise<Map<string, TicketState>> {
-  const apiKey = process.env.LINEAR_API_KEY;
-  if (!apiKey) {
-    throw new Error("Linear is not configured: LINEAR_API_KEY is required");
-  }
+  const apiKey = requireLinearApiKey();
 
   const result = new Map<string, TicketState>();
   if (identifiers.length === 0) return result;
@@ -44,33 +43,24 @@ export async function getTicketStates(
   return auditedCall(
     { provider: "linear", operation: "get_ticket_states", kind: "external" },
     async () => {
-      const response = await fetchFn(LINEAR_API_URL, {
-        method: "POST",
-        headers: {
-          Authorization: apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query, variables }),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
+      const body = await postLinearGraphql<Record<string, IssueNode>>(
+        apiKey,
+        { query, variables },
+        fetchFn,
+      );
 
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(`Linear API error: ${response.status} ${text}`.trim());
+      if (!body.data) {
+        const message = body.errors?.[0]?.message ?? "response has no data";
+        throw new Error(`Linear GraphQL error: ${message}`);
       }
 
-      const body = (await response.json()) as {
-        errors?: Array<{ message: string }>;
-        data?: Record<string, IssueNode>;
-      };
-
-      if (body.errors && body.errors.length > 0) {
-        throw new Error(`Linear GraphQL error: ${body.errors[0]!.message}`);
-      }
-
-      for (const node of Object.values(body.data ?? {})) {
+      for (const [i, identifier] of identifiers.entries()) {
+        const node = body.data[`t${i}`];
         if (!node?.state) continue;
-        result.set(node.identifier, { state: node.state.name, type: node.state.type });
+        result.set(identifier, {
+          state: node.state.name,
+          closed: isClosedState(node.state.type),
+        });
       }
       return result;
     },

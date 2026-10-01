@@ -1703,7 +1703,7 @@ describe('runHealthAgent — ticket_outcomes timeline event', () => {
       { ticketedAt: { [REPORT_ONLY.fingerprint]: '2026-09-29T20:58:00Z' } },
     )
     const linearGetTicketStates = vi.fn(async () =>
-      new Map([['DEV-1909', { state: 'Duplicate', type: 'canceled' }]]))
+      new Map([['DEV-1909', { state: 'Duplicate', closed: true }]]))
     const { slack, deps } = ticketingDeps([REPORT_ONLY], {
       client: ledger.client,
       logicalDate: '2026-10-01',
@@ -1804,8 +1804,62 @@ describe('runHealthAgent — ticket_outcomes timeline event', () => {
     ])
     const [outcomes] = outcomeEvents(slack)
     expect(outcomes.items).toEqual([
-      expect.objectContaining({ title: 'Report-only finding', outcome: 'not_processed' }),
+      expect.objectContaining({
+        title: 'Report-only finding',
+        outcome: 'not_processed',
+        reason: 'ticket ledger read failed',
+      }),
     ])
+  })
+
+  it('enqueue failure emits not_processed items naming the enqueue, not the ledger', async () => {
+    const ledger = ticketClient()
+    const rpc = ledger.client.rpc
+    ledger.client.rpc = vi.fn(async (fn: string, params: Record<string, unknown>) =>
+      fn === 'enqueue_health_fix'
+        ? { data: null, error: { message: 'enqueue rpc down' } }
+        : rpc(fn, params)) as unknown as typeof rpc
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const { slack, deps } = ticketingDeps([REPORT_ONLY], {
+        client: ledger.client,
+        triggerRepair: vi.fn(async () => {}),
+      })
+
+      await runHealthAgent(deps)
+
+      expect(deps.linearCreateTicket).not.toHaveBeenCalled()
+      const [outcomes] = outcomeEvents(slack)
+      expect(outcomes.items).toEqual([
+        {
+          title: 'Report-only finding',
+          outcome: 'not_processed',
+          reason: 'finding was not enqueued',
+        },
+      ])
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('truncates each stored item title to 120 characters', async () => {
+    const longTitle = `Brand ${'x'.repeat(300)} has no logo`
+    const { slack, deps } = ticketingDeps(
+      [finding('directory:test:long', { disposition: 'report_only', title: longTitle })],
+      { triggerRepair: vi.fn(async () => {}) },
+    )
+
+    await runHealthAgent(deps)
+
+    const [outcomes] = outcomeEvents(slack)
+    const title = outcomes.items[0].title
+    expect(Array.from(title)).toHaveLength(120)
+    expect(longTitle.startsWith(title.slice(0, -1))).toBe(true)
+    expect(title.endsWith('…')).toBe(true)
+    // The Linear ticket keeps the full title; only the timeline item is bounded.
+    expect(deps.linearCreateTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ title: expect.stringContaining('x'.repeat(300)) }),
+    )
   })
 
   it('does not emit tickets_filed from the health agent anymore', async () => {
@@ -1929,7 +1983,7 @@ describe('runHealthAgent — ticket_outcomes timeline event', () => {
     expect(outcomes[0].items[0].ticketId).toBe('DEV-1')
   })
 
-  it('metadata for 50 ticket_outcomes items serializes under 8 KB', async () => {
+  it('metadata for 50 typical ticket_outcomes items serializes under 8 KB', async () => {
     const findings = Array.from({ length: 50 }, (_, i) =>
       finding(`directory:brand-missing-logo:${(0x1a2b3c + i).toString(16)}`, {
         disposition: 'report_only',
@@ -1945,6 +1999,38 @@ describe('runHealthAgent — ticket_outcomes timeline event', () => {
     expect(outcomeEvents(slack)[0].items).toHaveLength(50)
     const bytes = Buffer.byteLength(JSON.stringify(slack.payload(PARENT_TS)), 'utf8')
     expect(bytes).toBeLessThan(8192)
+  })
+
+  // Worst case: 50 items with titles at the 120-character storage limit and
+  // full Linear URLs (60-character title slug). Measured ~14.5 KB, so the
+  // 50-item cap with title truncation bounds the event under 16 KB, not 8 KB.
+  it('metadata for 50 worst-case ticket_outcomes items stays bounded', async () => {
+    const findings = Array.from({ length: 50 }, (_, i) =>
+      finding(`directory:brand-missing-logo:${(0x1a2b3c + i).toString(16)}`, {
+        disposition: 'report_only',
+        title: `${i} ${'x'.repeat(300)}`,
+      }),
+    )
+    let next = 1000
+    const { slack, deps } = ticketingDeps(findings, {
+      triggerRepair: vi.fn(async () => {}),
+      linearCreateTicket: vi.fn(async () => {
+        next += 1
+        const identifier = `DEV-${next}`
+        return {
+          identifier,
+          url: `https://linear.app/formoria/issue/${identifier}/${'s'.repeat(60)}`,
+        }
+      }),
+    })
+
+    await runHealthAgent(deps)
+
+    const [outcomes] = outcomeEvents(slack)
+    expect(outcomes.items).toHaveLength(50)
+    for (const item of outcomes.items) expect(Array.from(item.title)).toHaveLength(120)
+    const bytes = Buffer.byteLength(JSON.stringify(slack.payload(PARENT_TS)), 'utf8')
+    expect(bytes).toBeLessThan(16384)
   })
 
   it('lists a ticket without a url by its identifier only', async () => {
