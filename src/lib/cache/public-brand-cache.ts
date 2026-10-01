@@ -53,7 +53,7 @@ export function revalidateTrailSurfaces(trailSlugs: readonly string[]): void {
 
   for (const slug of unique) revalidateTrail(slug)
 
-  revalidateLocalizedPath('/')
+  revalidateLocalizedPath(routes.home())
   revalidateLocalizedPath(routes.style())
 }
 

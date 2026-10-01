@@ -10,7 +10,8 @@
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -19,6 +20,7 @@ import {
   dedupeByBrandPerSection,
   isTrailEligibleProduct,
   parseTrailBrief,
+  parseTrailSlugOption,
   TRAIL_ELIGIBILITY_SELECT,
   type ShortlistCandidate,
   type ShortlistCandidates,
@@ -30,32 +32,28 @@ import { renderReviewSheet } from "./review-sheet";
 const RETRIEVAL_PAGE_SIZE = 30;
 const CANDIDATES_PER_SECTION = 10;
 const BRIEFS_DIR = path.resolve(
-  path.dirname(new URL(import.meta.url).pathname),
+  path.dirname(fileURLToPath(import.meta.url)),
   "briefs",
 );
 
 type Options = { trail: string; out: string };
 
+/** `argv` arrives with `--target` already stripped by loadScriptTarget. */
 function parseOptions(argv: readonly string[]): Options {
-  let trail: string | undefined;
-  let out: string | undefined;
+  const { values } = parseArgs({
+    args: [...argv],
+    options: {
+      trail: { type: "string" },
+      out: { type: "string" },
+    },
+    strict: true,
+  });
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index]!;
-    const [flag, inline] = argument.includes("=")
-      ? [argument.slice(0, argument.indexOf("=")), argument.slice(argument.indexOf("=") + 1)]
-      : [argument, undefined];
-    const value = inline ?? argv[index + 1];
-    if (inline === undefined && (flag === "--trail" || flag === "--out")) index += 1;
-
-    if (flag === "--trail") trail = value;
-    else if (flag === "--out") out = value;
-    else throw new Error(`Unknown argument ${argument}`);
-  }
-
-  if (!trail?.trim()) throw new Error("--trail <slug> is required");
-  if (!out?.trim()) throw new Error("--out <dir> is required");
-  return { trail: trail.trim(), out: path.resolve(out.trim()) };
+  // Validated before it is joined into the brief path.
+  const trail = parseTrailSlugOption(values.trail);
+  const out = values.out?.trim();
+  if (!out) throw new Error("--out <dir> is required");
+  return { trail, out: path.resolve(out) };
 }
 
 type EligibilityRow = TrailEligibilityRow & { id: string };
@@ -92,15 +90,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2)) {
   // loadScriptTarget so an env-file value cannot switch LTR back on. The
   // import is dynamic so nothing from the service runs before this line.
   process.env.SEARCH_LTR_MODE = "off";
+  if (process.env.SEARCH_LTR_MODE !== "off") {
+    throw new Error("SEARCH_LTR_MODE must be off for a shortlist run");
+  }
   const { searchProductsBySituation } = await import(
     "@/lib/services/product-situation-search"
   );
 
   const sections: ShortlistSection[] = [];
   for (const section of brief.sections) {
-    if (process.env.SEARCH_LTR_MODE !== "off") {
-      throw new Error("SEARCH_LTR_MODE must be off for a shortlist run");
-    }
     const result = await searchProductsBySituation({
       query: section.query,
       locale: "zh-TW",

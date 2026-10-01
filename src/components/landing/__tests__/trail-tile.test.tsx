@@ -207,6 +207,27 @@ describe("TrailTile", () => {
     expect(list!.closest("li")).toBe(link.closest("li"));
   });
 
+  it("keeps an empty square for a peek product with no safe image, within the cap", () => {
+    const peek = [
+      { ...buildPeekProduct(0), imageUrl: null },
+      { ...buildPeekProduct(1), imageUrl: "//evil.example/p.jpg" },
+      ...Array.from({ length: 4 }, (_, index) => buildPeekProduct(index + 2)),
+    ];
+
+    const { container } = renderTile(buildTrail(), { peek });
+
+    const list = peekList(container);
+    expect(list).not.toBeNull();
+    const items = list!.querySelectorAll(":scope > li");
+    // The imageless products still take their slots, so the cap holds at 4.
+    expect(items).toHaveLength(4);
+    for (const item of [...items].slice(0, 2)) {
+      expect(item.className).toContain("aspect-square");
+      expect(item.querySelector("img")).toBeNull();
+    }
+    expect(list!.querySelectorAll("img")).toHaveLength(2);
+  });
+
   it("renders no peek list when peek is empty or undefined", () => {
     const empty = renderTile(buildTrail(), { peek: [] });
     expect(empty.container.querySelectorAll("ul")).toHaveLength(1);

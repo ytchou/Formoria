@@ -12,6 +12,7 @@ import {
 } from '@/components/brands/selected-product-tile'
 import { Grid } from '@/components/ui/grid'
 import { routes } from '@/lib/routes'
+import { pickNoteKey } from '@/lib/trails/note-key'
 
 export type TrailProductsContextValue = {
   trailSlug: string
@@ -65,7 +66,7 @@ export function TrailProducts({ section }: { section: string }) {
             brand={product.brand}
             brandSlug={product.brandSlug}
             brandName={product.brandName}
-            note={sectionNotes[`${product.brandSlug}/${product.key}`]}
+            note={sectionNotes[pickNoteKey(product.brandSlug, product.key)]}
             tracking={{
               brandSlug: product.brandSlug,
               position: index,

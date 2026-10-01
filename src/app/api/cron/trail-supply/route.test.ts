@@ -28,12 +28,14 @@ function authorizedRequest(): Request {
   });
 }
 
-function noSelections(): TrailSupplyReportDeps["selectionsClient"] {
+function selectionsReturning(
+  rows: readonly unknown[],
+): TrailSupplyReportDeps["selectionsClient"] {
   const chain = {
     select: () => chain,
     eq: () => chain,
     order: () => chain,
-    range: () => Promise.resolve({ data: [], error: null }),
+    range: () => Promise.resolve({ data: rows, error: null }),
   };
 
   return () =>
@@ -88,7 +90,15 @@ describe("GET /api/cron/trail-supply", () => {
       readTrailPlacements: async () => [
         { sectionKey: "first", brandSlug: "lamp-co", key: "desk-lamp" },
       ],
-      selectionsClient: noSelections(),
+      // The note's product is actively selected, so the note is not orphaned.
+      selectionsClient: selectionsReturning([
+        {
+          product_id: "11111111-1111-1111-1111-111111111111",
+          trail_slug: "small-space-reading-corner",
+          section_key: "first",
+          curated_products: { key: "desk-lamp", brands: { slug: "lamp-co" } },
+        },
+      ]),
     });
 
     const response = await GET(authorizedRequest());
@@ -102,7 +112,7 @@ describe("GET /api/cron/trail-supply", () => {
     expect(await response.json()).toEqual({
       readUnavailable: false,
       trailsObserved: 1,
-      selectionsObserved: 0,
+      selectionsObserved: 1,
       emptySections: [],
       orphanedSelections: [],
       // Additive fields only: every key above is unchanged.

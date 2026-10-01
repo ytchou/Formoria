@@ -13,6 +13,7 @@ import {
   getPublishedCuratedProductsForHomepage,
   getTrailPeekProducts,
   MIN_HOME_CURATED_PRODUCTS,
+  trailPeekRequests,
 } from "@/lib/services/curated-products";
 import { buildGroupedWallSlots } from "@/lib/curated-products/home-wall";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
@@ -112,10 +113,7 @@ export default async function LandingPage({ params }: PageProps) {
   // failure is already counted as `trails`.
   const trailPeekRead = trailRead
     .then((result) =>
-      getTrailPeekProducts(
-        result?.ok ? result.trails.map((trail) => trail.slug) : [],
-        4,
-      ),
+      getTrailPeekProducts(result?.ok ? trailPeekRequests(result.trails) : []),
     )
     .catch(captureReadFailure("landing.trailPeeks"));
 

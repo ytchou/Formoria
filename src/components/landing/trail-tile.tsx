@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { trackTrailCardClicked } from "@/lib/analytics";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import type { CuratedProduct } from "@/lib/services/curated-products";
+import { TRAIL_PEEK_SIZE } from "@/lib/services/curated-products.constants";
 import type { TrailEntry } from "@/lib/services/trails";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
@@ -14,9 +15,6 @@ export type TrailTileLabels = {
   eyebrow: string;
   cta: string;
 };
-
-/** The most product thumbnails a card shows under its band. */
-const PEEK_LIMIT = 4;
 
 /**
  * The 3:2 ratio follows the photograph while the height floor protects the
@@ -48,7 +46,7 @@ export function TrailTile({
   className?: string;
 }) {
   const Heading = headingLevel;
-  const peekItems = (peek ?? []).slice(0, PEEK_LIMIT);
+  const peekItems = (peek ?? []).slice(0, TRAIL_PEEK_SIZE);
   const title = trail.frontmatter.title;
   const promise =
     trail.frontmatter.promise ?? trail.frontmatter.description ?? "";

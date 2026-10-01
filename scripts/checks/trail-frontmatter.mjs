@@ -42,6 +42,8 @@ const L1_CATEGORIES = new Set(
   ),
 );
 
+// Mirrors NOTE_KEY in src/lib/trails/note-key.ts (the source of truth); this
+// .mjs check cannot import TypeScript.
 const NOTE_KEY = /^[a-z0-9-]+\/[a-z0-9-]+$/;
 // Counted by code point so a CJK character is one, matching how a reader sees it.
 const NOTE_MAX_CHARS = 20;

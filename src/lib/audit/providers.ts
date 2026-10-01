@@ -72,6 +72,9 @@ const PROVIDERS = {
   // Editorial write path for /brands/[slug] curated products (DEV-1465). Every
   // writer is audited: a published product is a factual claim the site makes on
   // a brand's behalf, so who moved it and when has to be replayable.
+  // One read is audited too: `getTrailPeekProducts` is a single batched public
+  // read behind every trail card on the homepage and the /style hub, so its
+  // latency and payload are worth replaying when a peek renders wrong.
   curatedProducts: [
     "createCuratedProduct",
     "getTrailPeekProducts",

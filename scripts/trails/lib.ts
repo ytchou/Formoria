@@ -3,6 +3,8 @@
 
 import matter from "gray-matter";
 
+import { NOTE_KEY_SEGMENT, pickNoteKey } from "@/lib/trails/note-key";
+
 // ---------------------------------------------------------------------------
 // Briefs
 // ---------------------------------------------------------------------------
@@ -203,11 +205,24 @@ export function toPicksJson(trail: string, rows: readonly PickRow[]): TrailPicks
 // Apply picks
 // ---------------------------------------------------------------------------
 
-/** Mirrors NOTE_MAX_CHARS in scripts/checks/trail-frontmatter.mjs. */
-const NOTE_MAX_CHARS = 20;
+/** D13 note cap, counted in code points. Mirrors NOTE_MAX_CHARS in scripts/checks/trail-frontmatter.mjs. */
+export const NOTE_MAX_CHARS = 20;
 
-/** Brand slug and product key share the shape a `notes` key needs. */
-const SLUG_SEGMENT = /^[a-z0-9-]+$/;
+/** A trail slug as `--trail` accepts it: lowercase kebab-case, never a path. */
+const TRAIL_SLUG = /^[a-z0-9-]+$/;
+
+/**
+ * Validates `--trail` BEFORE it is joined into a file path, so a value like
+ * `../x` can never name a file outside the briefs or trails directory.
+ */
+export function parseTrailSlugOption(value: string | undefined): string {
+  const trail = value?.trim();
+  if (!trail) throw new Error("--trail <slug> is required");
+  if (!TRAIL_SLUG.test(trail)) {
+    throw new Error(`--trail must be a lowercase kebab-case slug, got "${trail}"`);
+  }
+  return trail;
+}
 
 /**
  * Validates a parsed `picks.json` against the trail's MDX section keys and
@@ -252,8 +267,8 @@ export function validatePicks(
       if (
         typeof pick.brandSlug !== "string" ||
         typeof pick.productKey !== "string" ||
-        !SLUG_SEGMENT.test(pick.brandSlug) ||
-        !SLUG_SEGMENT.test(pick.productKey)
+        !NOTE_KEY_SEGMENT.test(pick.brandSlug) ||
+        !NOTE_KEY_SEGMENT.test(pick.productKey)
       ) {
         problems.push(
           `${where}: brandSlug and productKey must be lowercase kebab-case`,
@@ -330,7 +345,7 @@ export function notesForSection(
   picks: readonly TrailPick[],
 ): Record<string, string> {
   return Object.fromEntries(
-    picks.map((pick) => [`${pick.brandSlug}/${pick.productKey}`, pick.note]),
+    picks.map((pick) => [pickNoteKey(pick.brandSlug, pick.productKey), pick.note]),
   );
 }
 

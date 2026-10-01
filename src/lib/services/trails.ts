@@ -4,6 +4,8 @@ import path from 'path'
 import { cache } from 'react'
 import matter from 'gray-matter'
 
+import { NOTE_KEY } from '@/lib/trails/note-key'
+
 const TRAILS_DIR = path.join(process.cwd(), 'content', 'trails')
 
 type TrailSection = {
@@ -87,7 +89,7 @@ function notesRecord(value: unknown): Record<string, string> {
   return Object.fromEntries(
     Object.entries(value).filter(
       (entry): entry is [string, string] =>
-        typeof entry[1] === 'string' && entry[0].split('/').length === 2,
+        typeof entry[1] === 'string' && NOTE_KEY.test(entry[0]),
     ),
   )
 }

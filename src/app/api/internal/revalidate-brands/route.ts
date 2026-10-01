@@ -23,6 +23,28 @@ function toSlugList(value: unknown): string[] | null {
   return value as string[];
 }
 
+const SLUG_FIELDS = ["slugs", "trailSlugs"] as const;
+type SlugField = (typeof SLUG_FIELDS)[number];
+
+/**
+ * Both lists, or the 400 message for the first problem. Every list is checked
+ * for shape before any is checked against the cap.
+ */
+function parseSlugLists(
+  body: Record<string, unknown>,
+): { lists: Record<SlugField, string[]> } | { error: string } {
+  const lists: Partial<Record<SlugField, string[]>> = {};
+  for (const field of SLUG_FIELDS) {
+    const list = toSlugList(body[field]);
+    if (!list) return { error: `Invalid ${field}` };
+    lists[field] = list;
+  }
+  for (const field of SLUG_FIELDS) {
+    if (lists[field]!.length > MAX_SLUGS) return { error: `Too many ${field}` };
+  }
+  return { lists: lists as Record<SlugField, string[]> };
+}
+
 export const POST = withAuditScope(async (req: Request) => {
   if (!isAuthorizedMachineCaller(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -38,27 +60,11 @@ export const POST = withAuditScope(async (req: Request) => {
       return NextResponse.json({ error: "Invalid slugs" }, { status: 400 });
     }
 
-    const brandSlugs = toSlugList(body.slugs);
-    if (!brandSlugs) {
-      return NextResponse.json({ error: "Invalid slugs" }, { status: 400 });
+    const parsed = parseSlugLists(body);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    const trails = toSlugList(body.trailSlugs);
-    if (!trails) {
-      return NextResponse.json(
-        { error: "Invalid trailSlugs" },
-        { status: 400 },
-      );
-    }
-
-    if (brandSlugs.length > MAX_SLUGS) {
-      return NextResponse.json({ error: "Too many slugs" }, { status: 400 });
-    }
-    if (trails.length > MAX_SLUGS) {
-      return NextResponse.json(
-        { error: "Too many trailSlugs" },
-        { status: 400 },
-      );
-    }
+    const { slugs: brandSlugs, trailSlugs: trails } = parsed.lists;
 
     if (brandSlugs.length > 0) revalidatePublicBrands(brandSlugs);
     if (trails.length > 0) revalidateTrailSurfaces(trails);

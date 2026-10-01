@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import type { TrailEntry } from "@/lib/services/trails";
+import { HubTagChipRow } from "@/components/trails/hub-tag-chip-row";
+import { HubTrailGrid } from "@/components/trails/hub-trail-grid";
 import {
-  HubTagChipRow,
-  HubTrailGrid,
   filterTrailsByTag,
   hubTagChips,
   readHubPeeks,
@@ -160,7 +160,7 @@ describe("style trail hub", () => {
       trail("home-trail", ["home", "not-a-category"]),
       trail("second-home-trail", ["home"]),
     ];
-    const chips = hubTagChips(trails, "zh-TW");
+    const chips = hubTagChips(trails, "zh-TW", null);
 
     // Ontology order, one chip per tag in use, unknown tags dropped.
     expect(chips).toEqual([
@@ -210,12 +210,45 @@ describe("style trail hub", () => {
     }
   });
 
+  it("keeps the active chip visible for a valid tag no published trail carries", () => {
+    const trails = [trail("home-trail", ["home"])];
+
+    // A valid visible L1 with no trail still gets its chip; an unknown or a
+    // deferred tag does not.
+    expect(hubTagChips(trails, "zh-TW", "jewelry")).toEqual([
+      { slug: "jewelry", label: "飾品珠寶" },
+      { slug: "home", label: "居家生活" },
+    ]);
+    expect(hubTagChips(trails, "zh-TW", "not-a-category")).toEqual([
+      { slug: "home", label: "居家生活" },
+    ]);
+    expect(hubTagChips(trails, "zh-TW", "tech")).toEqual([
+      { slug: "home", label: "居家生活" },
+    ]);
+
+    render(
+      <HubTagChipRow
+        chips={hubTagChips(trails, "zh-TW", "jewelry")}
+        activeTag="jewelry"
+        allLabel="全部"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "飾品珠寶" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "全部" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
   it("renders cards without peeks when the peek read fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const trails = [trail("home-trail", ["home"]), trail("craft-trail", ["crafts"])];
 
     const peeks = await readHubPeeks(
-      trails.map((item) => item.slug),
+      trails,
       async () => {
         throw new Error("peek read failed");
       },

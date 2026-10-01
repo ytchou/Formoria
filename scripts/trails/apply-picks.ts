@@ -28,6 +28,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
 import {
@@ -35,12 +36,15 @@ import {
   upsertCuratedProductSelection,
 } from "@/lib/services/curated-products";
 import { getTrailBySlug } from "@/lib/services/trails";
+import { pickNoteKey } from "@/lib/trails/note-key";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import { assertRevalidationConfigured } from "../enrichment/products/curated-products/shared";
 import { loadScriptTarget, type ScriptTarget } from "../shared/target";
 import {
   isTrailEligibleProduct,
   notesForSection,
+  parseTrailSlugOption,
   planPlacements,
   rewriteTrailNotes,
   TRAIL_ELIGIBILITY_SELECT,
@@ -58,34 +62,25 @@ type Options = {
   skipRevalidate: boolean;
 };
 
-const BOOLEAN_FLAGS = new Set(["--dry-run", "--mdx-only", "--skip-revalidate"]);
-
+/** `argv` arrives with `--target` already stripped by loadScriptTarget. */
 function parseOptions(argv: readonly string[], target: ScriptTarget): Options {
-  let trail: string | undefined;
-  let picks: string | undefined;
-  const flags = new Set<string>();
+  const { values } = parseArgs({
+    args: [...argv],
+    options: {
+      trail: { type: "string" },
+      picks: { type: "string" },
+      "dry-run": { type: "boolean", default: false },
+      "mdx-only": { type: "boolean", default: false },
+      "skip-revalidate": { type: "boolean", default: false },
+    },
+    strict: true,
+  });
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index]!;
-    if (BOOLEAN_FLAGS.has(argument)) {
-      flags.add(argument);
-      continue;
-    }
-    const [flag, inline] = argument.includes("=")
-      ? [argument.slice(0, argument.indexOf("=")), argument.slice(argument.indexOf("=") + 1)]
-      : [argument, undefined];
-    const value = inline ?? argv[index + 1];
-    if (inline === undefined && (flag === "--trail" || flag === "--picks")) index += 1;
+  const trail = parseTrailSlugOption(values.trail);
+  const picks = values.picks?.trim();
+  if (!picks) throw new Error("--picks <file> is required");
 
-    if (flag === "--trail") trail = value;
-    else if (flag === "--picks") picks = value;
-    else throw new Error(`Unknown argument ${argument}`);
-  }
-
-  if (!trail?.trim()) throw new Error("--trail <slug> is required");
-  if (!picks?.trim()) throw new Error("--picks <file> is required");
-
-  const skipRevalidate = flags.has("--skip-revalidate");
+  const skipRevalidate = values["skip-revalidate"];
   if (skipRevalidate && target !== "production") {
     throw new Error(
       "--skip-revalidate is allowed only with --target production (the pre-promotion apply)",
@@ -93,31 +88,17 @@ function parseOptions(argv: readonly string[], target: ScriptTarget): Options {
   }
 
   return {
-    trail: trail.trim(),
-    picks: path.resolve(picks.trim()),
-    dryRun: flags.has("--dry-run"),
-    mdxOnly: flags.has("--mdx-only"),
+    trail,
+    picks: path.resolve(picks),
+    dryRun: values["dry-run"],
+    mdxOnly: values["mdx-only"],
     skipRevalidate,
   };
 }
 
-/**
- * Mirrors assertRevalidationConfigured in
- * scripts/enrichment/products/curated-products/shared.ts; restated so the
- * message names this script's flags instead of --apply.
- */
-function assertRevalidationConfigured(): void {
-  const hasOrigin = Boolean(
-    process.env.FORMORIA_RAILWAY_URL?.trim() ||
-      process.env.NEXT_PUBLIC_SITE_URL?.trim(),
-  );
-  const hasSecret = Boolean(process.env.ORIGIN_SECRET?.trim());
-  if (hasOrigin && hasSecret) return;
-  throw new Error(
-    "apply-picks requires ORIGIN_SECRET and FORMORIA_RAILWAY_URL (or NEXT_PUBLIC_SITE_URL) before any write: " +
-      "without them the placements land but the trail page keeps serving the stale ISR shell",
-  );
-}
+const REVALIDATION_UNCONFIGURED =
+  "apply-picks requires ORIGIN_SECRET and FORMORIA_RAILWAY_URL (or NEXT_PUBLIC_SITE_URL) before any write: " +
+  "without them the placements land but the trail page keeps serving the stale ISR shell";
 
 type ProductRow = TrailEligibilityRow & {
   id: string;
@@ -142,7 +123,7 @@ async function resolvePicks(
   // (brand_id, key) is unique, so a brand slug and key name at most one row.
   const byPair = new Map(
     ((data ?? []) as unknown as ProductRow[]).map((row) => [
-      `${row.brands?.slug}/${row.key}`,
+      pickNoteKey(row.brands?.slug ?? "", row.key),
       row,
     ]),
   );
@@ -152,7 +133,7 @@ async function resolvePicks(
     Object.entries(sections).map(([sectionKey, picks]) => [
       sectionKey,
       picks.flatMap((pick) => {
-        const pair = `${pick.brandSlug}/${pick.productKey}`;
+        const pair = pickNoteKey(pick.brandSlug, pick.productKey);
         const row = byPair.get(pair);
         if (!row) {
           problems.push(`${sectionKey}: ${pair} not found on this target`);
@@ -271,7 +252,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)) {
     return;
   }
 
-  if (!options.skipRevalidate) assertRevalidationConfigured();
+  if (!options.skipRevalidate) assertRevalidationConfigured(REVALIDATION_UNCONFIGURED);
 
   const touchedBrands = new Set<string>();
   let writes = 0;

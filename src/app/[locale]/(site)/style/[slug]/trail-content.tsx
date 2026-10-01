@@ -28,9 +28,7 @@ export function TrailContent({
    * than parsed out of the MDX because the frontmatter is the ordered list and
    * the body is not.
    */
-  sections: readonly (TrailSectionRef & {
-    notes?: Readonly<Record<string, string>>;
-  })[];
+  sections: readonly TrailSectionRef[];
 }) {
   const notes = Object.fromEntries(
     sections.map((section) => [section.key, section.notes ?? {}]),

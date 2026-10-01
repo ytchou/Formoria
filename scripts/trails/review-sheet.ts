@@ -2,10 +2,12 @@
 // Pure: candidates in, one self-contained HTML string out. Nothing here is
 // published; the sheet is opened from disk and exports `picks.json`.
 
-import type { ShortlistCandidate, ShortlistCandidates, ShortlistSection } from "./lib";
-
-/** D13 note cap, counted in code points. Mirrors the MDX validator. */
-const NOTE_MAX_CHARS = 20;
+import {
+  NOTE_MAX_CHARS,
+  type ShortlistCandidate,
+  type ShortlistCandidates,
+  type ShortlistSection,
+} from "./lib";
 
 /** Fewer distinct brands than this means the section cannot reach 3 picks. */
 const MIN_SECTION_BRANDS = 3;
@@ -138,13 +140,18 @@ const SHEET_SCRIPT = `
     var blob = new Blob([JSON.stringify({ trail: trail, sections: sections }, null, 2) + "\\n"], {
       type: "application/json",
     });
+    var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
+    link.href = url;
     link.download = "picks.json";
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(link.href);
+    // Revoking synchronously can cancel the download before the browser
+    // reads the blob; defer it past the click's navigation.
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 1000);
     say("已匯出 picks.json。");
   });
 })();

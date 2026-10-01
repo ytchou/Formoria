@@ -448,7 +448,13 @@ export function SelectedProductTile({
           mode === "trail" ? (
             // Under a note the description is supporting detail: small, muted,
             // two lines, and dropped on phones where the note carries the pick.
-            <p className="type-body-sm text-ink-muted line-clamp-2 hidden sm:block">
+            // With no note it is the only text, so it shows at every width.
+            <p
+              className={cn(
+                "type-body-sm text-ink-muted line-clamp-2",
+                note && "hidden sm:block",
+              )}
+            >
               {productDescription}
             </p>
           ) : (

@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import { Compass } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { TrailTile, type TrailTileLabels } from "@/components/landing/trail-tile";
+import {
+  HubTagChipRow,
+  type HubTagChip,
+} from "@/components/trails/hub-tag-chip-row";
+import { HubTrailGrid } from "@/components/trails/hub-trail-grid";
 import { EmptyState } from "@/components/ui/empty-state";
-import { gridStyles } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
-import { ChipRow, taxonomyLinkClasses } from "@/components/ui/toggle-chip";
-import { Link } from "@/i18n/navigation";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { shouldIndexTrailHub } from "@/lib/seo/trail-hub-indexability";
 import { captureReadFailure } from "@/lib/degraded-render";
 import {
   getTrailPeekProducts,
+  trailPeekRequests,
   type CuratedProduct,
 } from "@/lib/services/curated-products";
 import {
@@ -67,15 +69,19 @@ export function selectHubView({
   return trails.length === 0 ? { kind: "comingSoon" } : { kind: "list", trails };
 }
 
-export type HubTagChip = { slug: string; label: string };
-
 /**
  * One chip per visible L1 that at least one published trail carries, in
  * ontology order. Built from the unfiltered list so the row stays put while a
- * tag is active.
+ * tag is active. A valid L1 the reader filtered by that no trail carries still
+ * gets its chip, so the active filter stays visible beside the empty state.
  */
-export function hubTagChips(trails: TrailEntry[], locale: string): HubTagChip[] {
+export function hubTagChips(
+  trails: TrailEntry[],
+  locale: string,
+  activeTag: string | null,
+): HubTagChip[] {
   const inUse = new Set(trails.flatMap((trail) => trail.frontmatter.tags));
+  if (activeTag) inUse.add(activeTag);
   return VISIBLE_L1_CATEGORIES.filter((category) => inUse.has(category.slug)).map(
     (category) => ({ slug: category.slug, label: categoryLabel(category, locale) }),
   );
@@ -87,79 +93,14 @@ export function hubTagChips(trails: TrailEntry[], locale: string): HubTagChip[] 
  * `read` is the service seam the hub test stubs without mocking a module.
  */
 export async function readHubPeeks(
-  slugs: string[],
+  trails: TrailEntry[],
   read: typeof getTrailPeekProducts = getTrailPeekProducts,
 ): Promise<Record<string, CuratedProduct[]>> {
   // uncached: one query per hub view; wrap in a tagged cache if hub traffic grows.
-  const peeks = await read(slugs, 4).catch(captureReadFailure("style.hub.peeks"));
+  const peeks = await read(trailPeekRequests(trails)).catch(
+    captureReadFailure("style.hub.peeks"),
+  );
   return peeks ?? {};
-}
-
-/**
- * The filter lives in the query string, so the chips are links and work with
- * JS off. An unknown tag is ignored by the filter, so it leaves 全部 current.
- */
-export function HubTagChipRow({
-  chips,
-  activeTag,
-  allLabel,
-}: {
-  chips: HubTagChip[];
-  activeTag: string | null;
-  allLabel: string;
-}) {
-  const current = activeTag && TRAIL_TAGS.has(activeTag) ? activeTag : null;
-  const items = [{ slug: null, label: allLabel }, ...chips];
-
-  return (
-    <ChipRow as="ul">
-      {items.map((chip) => {
-        const active = chip.slug === current;
-        return (
-          <li key={chip.slug ?? "all"}>
-            <Link
-              href={
-                chip.slug
-                  ? `${routes.style()}?tag=${encodeURIComponent(chip.slug)}`
-                  : routes.style()
-              }
-              prefetch={false}
-              aria-current={active ? "page" : undefined}
-              className={taxonomyLinkClasses({ active })}
-            >
-              {chip.label}
-            </Link>
-          </li>
-        );
-      })}
-    </ChipRow>
-  );
-}
-
-export function HubTrailGrid({
-  trails,
-  peeks,
-  labels,
-}: {
-  trails: TrailEntry[];
-  peeks: Record<string, CuratedProduct[]>;
-  labels: TrailTileLabels;
-}) {
-  return (
-    <ul className={gridStyles({ cols: "pair" })}>
-      {trails.map((trail, index) => (
-        <TrailTile
-          key={trail.slug}
-          trail={trail}
-          position={index}
-          trailSurface="style_hub"
-          headingLevel="h2"
-          peek={peeks[trail.slug]}
-          labels={labels}
-        />
-      ))}
-    </ul>
-  );
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -204,11 +145,9 @@ export default async function StyleHubPage({ params, searchParams }: PageProps) 
     getTranslations({ locale, namespace: "common" }),
     getTranslations({ locale, namespace: "landing" }),
     // No slugs, no query: the service answers `{}` without a round trip.
-    readHubPeeks(
-      view.kind === "list" ? view.trails.map((trail) => trail.slug) : [],
-    ),
+    readHubPeeks(view.kind === "list" ? view.trails : []),
   ]);
-  const tagChips = result.ok ? hubTagChips(result.trails, locale) : [];
+  const tagChips = result.ok ? hubTagChips(result.trails, locale, activeTag) : [];
 
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">

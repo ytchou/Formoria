@@ -5,6 +5,7 @@ import {
 import { unplacedSectionKeys } from "@/lib/services/trail-authoring";
 import { getAllTrailsForAdmin, type TrailLocale } from "@/lib/services/trails";
 import { createServiceClient } from "@/lib/supabase/service";
+import { pickNoteKey } from "@/lib/trails/note-key";
 
 /**
  * Nightly supply-decay observation for discovery trails (DEV-1520).
@@ -61,8 +62,11 @@ export type TrailSupplyOrphanedSelection = {
  * sorted. Grouped per section for the same reason orphaned selections are: one
  * section is one thing for a human to fix.
  *
- *   - `unnotedPlacements` — products placed in the section with no pick note;
- *   - `orphanedNotes` — notes whose product has no active placement there.
+ *   - `unnotedPlacements` — eligible (rendered) products placed in the section
+ *     with no pick note;
+ *   - `orphanedNotes` — notes whose product has no ACTIVE SELECTION there. A
+ *     product that is still selected but temporarily ineligible (link broken,
+ *     brand unapproved) keeps its note: it is not "no longer placed".
  *
  * Both are REPORT ONLY. An unnoted product still renders; an orphaned note
  * simply renders nowhere.
@@ -237,7 +241,34 @@ type ActiveSelectionRow = {
   product_id: string;
   trail_slug: string;
   section_key: string;
+  /** Many-to-one embed; read only to build the note key. */
+  curated_products?: {
+    key: string;
+    brands: { slug: string } | null;
+  } | null;
 };
+
+/** `${trailSlug}\u0000${sectionKey}` — neither can contain `\u0000`. */
+function sectionId(trailSlug: string, sectionKey: string): string {
+  return `${trailSlug}\u0000${sectionKey}`;
+}
+
+/** Note keys of every active selection, grouped by trail + section. */
+function selectedNoteKeysBySection(
+  selections: readonly ActiveSelectionRow[],
+): Map<string, Set<string>> {
+  const bySection = new Map<string, Set<string>>();
+  for (const row of selections) {
+    const productKey = row.curated_products?.key;
+    const brandSlug = row.curated_products?.brands?.slug;
+    if (!productKey || !brandSlug) continue;
+    const id = sectionId(row.trail_slug, row.section_key);
+    const keys = bySection.get(id) ?? new Set<string>();
+    keys.add(pickNoteKey(brandSlug, productKey));
+    bySection.set(id, keys);
+  }
+  return bySection;
+}
 
 function unavailableReport(): TrailSupplyReport {
   return {
@@ -287,7 +318,11 @@ function sectionTitle(
 }
 
 /**
- * Diffs each declared section's `notes` against the products placed in it.
+ * Diffs each declared section's `notes` against what is in it: unnoted against
+ * the ELIGIBLE placements (what renders), orphaned against the ACTIVE
+ * SELECTIONS (what is still placed, rendered or not). Diffing orphans against
+ * eligible placements would call a still-selected product's note orphaned the
+ * night its link breaks.
  *
  * Only DECLARED sections are examined: a placement in an undeclared section is
  * already an orphaned selection, and reporting it again as unnoted would file
@@ -297,12 +332,13 @@ function noteDrift(
   trailSlug: string,
   sections: readonly TrailSupplySection[],
   placements: readonly TrailSupplyPlacement[],
+  selectedBySection: ReadonlyMap<string, ReadonlySet<string>>,
 ): { unnoted: TrailSupplyNoteDrift[]; orphaned: TrailSupplyNoteDrift[] } {
   const placedBySection = new Map<string, Set<string>>();
   for (const placement of placements) {
     if (!placement.sectionKey) continue;
     const placed = placedBySection.get(placement.sectionKey) ?? new Set();
-    placed.add(`${placement.brandSlug}/${placement.key}`);
+    placed.add(pickNoteKey(placement.brandSlug, placement.key));
     placedBySection.set(placement.sectionKey, placed);
   }
 
@@ -311,6 +347,9 @@ function noteDrift(
   for (const section of sections) {
     const noted = new Set(Object.keys(section.notes ?? {}));
     const placed = placedBySection.get(section.key) ?? new Set<string>();
+    const selected =
+      selectedBySection.get(sectionId(trailSlug, section.key)) ??
+      new Set<string>();
 
     const unnotedKeys = [...placed].filter((key) => !noted.has(key)).sort();
     if (unnotedKeys.length > 0) {
@@ -321,7 +360,7 @@ function noteDrift(
       });
     }
 
-    const orphanedKeys = [...noted].filter((key) => !placed.has(key)).sort();
+    const orphanedKeys = [...noted].filter((key) => !selected.has(key)).sort();
     if (orphanedKeys.length > 0) {
       orphaned.push({
         trailSlug,
@@ -335,7 +374,10 @@ function noteDrift(
 }
 
 /**
- * Every ACTIVE placement row, paged to the first short page.
+ * Every ACTIVE placement row, paged to the first short page, with the product
+ * key and brand slug embedded for the note-drift diff. The embeds are LEFT
+ * joins on purpose: an `!inner` would drop a row from `selectionsObserved`
+ * and from the orphaned-selection diff.
  *
  * `.order()` before `.range()` is load-bearing, not cosmetic: without a total
  * order the same row can appear on two pages and another on none. The primary
@@ -351,7 +393,9 @@ async function readActiveSelections(
     const from = page * SELECTION_PAGE_SIZE;
     const { data, error } = await client
       .from("curated_product_selections")
-      .select("product_id, trail_slug, section_key")
+      .select(
+        "product_id, trail_slug, section_key, curated_products(key, brands(slug))",
+      )
       .eq("state", "active")
       .order("product_id", { ascending: true })
       .order("trail_slug", { ascending: true })
@@ -405,6 +449,11 @@ export async function loadTrailSupplyReport(): Promise<TrailSupplyReport> {
   const emptySections: TrailSupplyEmptySection[] = [];
   const unnotedPlacements: TrailSupplyNoteDrift[] = [];
   const orphanedNotes: TrailSupplyNoteDrift[] = [];
+  // Note drift needs the active selections, which are read after this loop.
+  const placementsByTrail: Array<{
+    entry: TrailSupplyTrail;
+    placements: readonly TrailSupplyPlacement[];
+  }> = [];
   // Counts what the pass EXAMINED, which is what `trailsObserved` reports.
   let publishedExamined = 0;
   for (const entry of trails.trails) {
@@ -448,9 +497,7 @@ export async function loadTrailSupplyReport(): Promise<TrailSupplyReport> {
     }
 
     // Drafts never reach this line, so their notes are never examined either.
-    const drift = noteDrift(entry.slug, entry.frontmatter.sections, placements);
-    unnotedPlacements.push(...drift.unnoted);
-    orphanedNotes.push(...drift.orphaned);
+    placementsByTrail.push({ entry, placements });
   }
 
   let selections: ActiveSelectionRow[];
@@ -470,6 +517,18 @@ export async function loadTrailSupplyReport(): Promise<TrailSupplyReport> {
     return unavailableReport();
   }
 
+  const selectedBySection = selectedNoteKeysBySection(selections);
+  for (const { entry, placements } of placementsByTrail) {
+    const drift = noteDrift(
+      entry.slug,
+      entry.frontmatter.sections,
+      placements,
+      selectedBySection,
+    );
+    unnotedPlacements.push(...drift.unnoted);
+    orphanedNotes.push(...drift.orphaned);
+  }
+
   // Keyed by trail + section, because the finding is about the PLACEMENT, not
   // the product: ten products stranded in one dropped section are one thing to
   // fix, not ten identical findings. `selectionsObserved` still counts rows.
@@ -485,7 +544,7 @@ export async function loadTrailSupplyReport(): Promise<TrailSupplyReport> {
 
     // `\u0000` cannot occur in a slug or a section key, so the pair
     // never collides with a single value containing the separator.
-    orphaned.set(`${row.trail_slug}\u0000${row.section_key}`, {
+    orphaned.set(sectionId(row.trail_slug, row.section_key), {
       trailSlug: row.trail_slug,
       sectionKey: row.section_key,
       reason,

@@ -196,6 +196,8 @@ describe("trail content loader", () => {
           '      "mogu/count": 3',
           '      "no-slash": 沒有斜線',
           '      "too/many/slashes": 太多斜線',
+          '      "Mogu/Lamp": 大寫不合格式',
+          '      "mogu/": 缺少商品鍵',
           "  - key: second",
           "    title: Second section",
           "    notes: not-an-object",

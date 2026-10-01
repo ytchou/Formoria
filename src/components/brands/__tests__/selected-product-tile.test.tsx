@@ -533,6 +533,15 @@ describe("SelectedProductTile trail note", () => {
     view.unmount();
   });
 
+  it("trail mode shows the description at every width when there is no note", () => {
+    const view = renderTrailTile({ note: undefined });
+
+    const descriptionElement = view.getByText(description);
+    expect(descriptionElement.className).toContain("line-clamp-2");
+    expect(descriptionElement.className).not.toContain("hidden");
+    view.unmount();
+  });
+
   it("non-trail modes ignore note", () => {
     const wall = renderTrailTile({ mode: "wall", ratio: "4:3" });
     expect(wall.container.textContent).not.toContain(note);
