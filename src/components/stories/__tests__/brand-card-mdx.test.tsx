@@ -232,6 +232,7 @@ describe("BrandGrid", () => {
       "Bags & Accessories",
       4,
       "id-paper-mill",
+      undefined,
     );
   });
 });

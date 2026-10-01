@@ -1070,6 +1070,7 @@ const PUBLIC_BRAND_CARD_COLUMN_LIST = [
   "category",
   "status",
   "founding_year",
+  "city",
   "subcategories",
   "subcategories_en",
 ] as const;
@@ -1077,7 +1078,6 @@ const PUBLIC_BRAND_CARD_COLUMN_LIST = [
 /** Columns allowed to cross the public detail boundary. */
 const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
   ...PUBLIC_BRAND_CARD_COLUMN_LIST,
-  "city",
   ...ONLINE_STORE_COLUMNS,
   "social_instagram",
   "social_threads",

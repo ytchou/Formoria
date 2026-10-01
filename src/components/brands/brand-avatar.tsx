@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { SurfaceImage } from "@/components/ui/image";
 import { cn } from "@/lib/utils";
 
@@ -6,16 +9,26 @@ export function BrandAvatar({
   imageSrc,
   nameFace = "interface",
   size = "sm",
+  showName = true,
+  preload,
 }: {
   name: string;
   imageSrc: string | null;
   nameFace?: "content" | "interface";
   size?: "sm" | "lg";
+  /** Off where the caller renders the name itself (the directory card's h3). */
+  showName?: boolean;
+  /** Forwarded to the image; the directory's first card is the LCP candidate. */
+  preload?: boolean;
 }) {
   const circle = size === "lg" ? "h-20 w-20" : "h-11 w-11";
+  // Remembers WHICH src failed rather than a boolean, so a new `imageSrc`
+  // gets a fresh attempt without an effect to reset the flag.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImage = !!imageSrc && imageSrc !== failedSrc;
   return (
     <>
-      {imageSrc ? (
+      {showImage ? (
         <div
           className={cn(
             "relative shrink-0 overflow-hidden rounded-full bg-surface",
@@ -26,10 +39,12 @@ export function BrandAvatar({
             src={imageSrc}
             alt=""
             fill
+            preload={preload}
             surface="thumb"
             // The lg circle measures 80px; `thumb` alone would hint 72px.
             sizes={size === "lg" ? "80px" : undefined}
             className="object-cover"
+            onError={() => setFailedSrc(imageSrc)}
           />
         </div>
       ) : (
@@ -50,15 +65,17 @@ export function BrandAvatar({
           </span>
         </div>
       )}
-      <span
-        className={cn(
-          "line-clamp-1 text-ink-soft text-center",
-          size === "lg" ? "mt-2" : "mt-1",
-          nameFace === "content" ? "type-body-sm" : "type-metadata",
-        )}
-      >
-        {name}
-      </span>
+      {showName ? (
+        <span
+          className={cn(
+            "line-clamp-1 text-ink-soft text-center",
+            size === "lg" ? "mt-2" : "mt-1",
+            nameFace === "content" ? "type-body-sm" : "type-metadata",
+          )}
+        >
+          {name}
+        </span>
+      ) : null}
     </>
   );
 }
