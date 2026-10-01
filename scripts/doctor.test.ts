@@ -126,3 +126,26 @@ describe("environment doctor migration ledger contract", () => {
     );
   });
 });
+
+describe("environment doctor brand_ai_results.request column", () => {
+  it("doctor reports missing brand_ai_results.request column", () => {
+    const result = runDoctorWithMigrationOutput(
+      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":null}]}',
+    );
+
+    expect(result.stdout).toMatch(
+      /(ERROR|WARN): brand_ai_results\.request.*20261001100000_brand_ai_results_request\.sql/,
+    );
+    expect(result.status).not.toBe(0);
+  });
+
+  it("doctor passes the request column check when present", () => {
+    const result = runDoctorWithMigrationOutput(
+      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":"20261001100000"}]}',
+    );
+
+    expect(result.stdout).toContain(
+      "OK: brand_ai_results.request column migration applied on the explicit target",
+    );
+  });
+});
