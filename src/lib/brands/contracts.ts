@@ -29,6 +29,7 @@ export type PublicBrandCard = {
   subcategories: string[];
   subcategoriesEn: string[];
   foundingYear: number | null;
+  city: string | null;
   productPhotos: string[];
   imageAlts: BrandImageMeta[];
   heroImageMetadata: Brand["heroImageMetadata"];
@@ -36,7 +37,6 @@ export type PublicBrandCard = {
 
 export type PublicBrandDetail = PublicBrandCard &
   PublicPurchaseLinks & {
-    city: string | null;
     socialInstagram: string | null;
     socialThreads: string | null;
     socialFacebook: string | null;
@@ -121,6 +121,7 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     subcategories: [...brand.subcategories],
     subcategoriesEn: [...brand.subcategoriesEn],
     foundingYear: brand.foundingYear,
+    city: brand.city ?? null,
     productPhotos: [...brand.productPhotos],
     imageAlts: brand.imageAlts.map((alt) => ({
       isLogo: alt.isLogo,
@@ -161,6 +162,7 @@ export function normalizePublicBrandCard(
   return {
     ...brand,
     categorySlug: brand.categorySlug ?? null,
+    city: brand.city ?? null,
     subcategories: Array.isArray(brand.subcategories)
       ? [...brand.subcategories]
       : [],
@@ -183,7 +185,6 @@ export function normalizePublicBrandCard(
 export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
   return {
     ...toPublicBrandCard(brand),
-    city: brand.city,
     socialInstagram: brand.socialInstagram,
     socialThreads: brand.socialThreads,
     socialFacebook: brand.socialFacebook,

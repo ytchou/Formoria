@@ -6,7 +6,11 @@ import {
   brandToDomain,
   type BrandRowWithJoins,
 } from "../brands";
-import { toPublicBrandCard, toPublicBrandDetail } from "@/lib/brands/contracts";
+import {
+  normalizePublicBrandCard,
+  toPublicBrandCard,
+  toPublicBrandDetail,
+} from "@/lib/brands/contracts";
 
 /**
  * Guards the narrow directory column projection.
@@ -204,6 +208,30 @@ describe("public brand response contracts", () => {
     expect(payload).not.toContain("approvedAt");
     expect(payload).not.toContain("createdAt");
     expect(payload).not.toContain("updatedAt");
+  });
+
+  it("card projection carries city", () => {
+    const brand = brandToDomain(buildRow(BRAND_COLUMN_LIST));
+    expect(toPublicBrandCard({ ...brand, city: "taipei" }).city).toBe(
+      "taipei",
+    );
+
+    const withoutCity = { ...brand } as Partial<typeof brand>;
+    delete withoutCity.city;
+    expect(toPublicBrandCard(withoutCity as typeof brand).city).toBeNull();
+  });
+
+  it("normalizePublicBrandCard keeps city", () => {
+    const brand = brandToDomain(buildRow(BRAND_COLUMN_LIST));
+    const card = toPublicBrandCard({ ...brand, city: "taipei" });
+    expect(normalizePublicBrandCard(card).city).toBe("taipei");
+    expect(normalizePublicBrandCard({ ...brand, city: "taipei" }).city).toBe(
+      "taipei",
+    );
+
+    const withoutCity = { ...card } as Partial<typeof card>;
+    delete withoutCity.city;
+    expect(normalizePublicBrandCard(withoutCity as typeof card).city).toBeNull();
   });
 });
 

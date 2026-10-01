@@ -425,16 +425,48 @@ export async function getPublishedCuratedProductsForBrand(
   brandId: string,
   client?: CuratedProductSupabase,
 ): Promise<CuratedProduct[]> {
-  const runQuery = (select: string) =>
-    curatedProductClient(client)
+  const products = await readPublishedCuratedProducts(
+    brandId,
+    "curatedProducts.brand",
+    client,
+  );
+  return products
+    .filter((product) => product.subcategory !== null)
+    .sort(compareBrandPageOrder);
+}
+
+/** Brand-page order: placed products by position, then oldest first, then key. */
+const compareBrandPageOrder = (a: CuratedProduct, b: CuratedProduct): number =>
+  (a.productPosition ?? UNPLACED) - (b.productPosition ?? UNPLACED) ||
+  a.createdAt.localeCompare(b.createdAt) ||
+  a.key.localeCompare(b.key);
+
+/**
+ * The brand-page publication read, shared by the single-brand read and the
+ * directory preview batch so the two gates cannot diverge. `brands` is one id
+ * (`.eq`) or a list (`.in`). Schema lag logs and degrades to `[]`; every other
+ * error is rethrown.
+ */
+async function readPublishedCuratedProducts(
+  brands: string | readonly string[],
+  scope: string,
+  client?: CuratedProductSupabase,
+): Promise<CuratedProduct[]> {
+  const runQuery = (select: string) => {
+    const query = curatedProductClient(client)
       .from("curated_products")
-      .select(select)
-      .eq("brand_id", brandId)
+      .select(select);
+    return (
+      typeof brands === "string"
+        ? query.eq("brand_id", brands)
+        : query.in("brand_id", [...brands])
+    )
       .eq("visible", true)
       .not("official_url", "is", null)
       .not("source_checked_at", "is", null)
       .eq("curated_product_sources.state", "active")
       .eq("curated_product_selections.state", "active");
+  };
   let { data, error } = await runQuery(CURATED_PRODUCT_READ_SELECT);
   if (error && isMissingSubcategoryColumn(error)) {
     ({ data, error } = await runQuery(LEGACY_CURATED_PRODUCT_READ_SELECT));
@@ -446,24 +478,72 @@ export async function getPublishedCuratedProductsForBrand(
     // Degrading to "no curated section" is right here — this is one section of
     // a page whose subject is the brand — but it is no longer silent.
     if (isSchemaLag(error)) {
-      console.error(
-        new CuratedProductSchemaLagError("curatedProducts.brand", error)
-          .message,
-      );
+      console.error(new CuratedProductSchemaLagError(scope, error).message);
       return [];
     }
     throw error;
   }
 
-  return ((data ?? []) as unknown as CuratedProductReadRow[])
-    .map(toCuratedProduct)
+  return ((data ?? []) as unknown as CuratedProductReadRow[]).map(
+    toCuratedProduct,
+  );
+}
+
+/** What a directory card's evidence strip shows for one brand. */
+export type BrandProductPreview = {
+  count: number;
+  /** Raw stored URLs, at most three; `safeImageSrc` runs at render. */
+  thumbnails: string[];
+};
+
+const PREVIEW_THUMBNAIL_LIMIT = 3;
+
+/**
+ * Per-brand count and first three images, in brand-page order. Drops the same
+ * null-subcategory rows the brand page drops, so the count matches what the
+ * brand page renders. A brand with no surviving rows gets no entry.
+ */
+export function summarizeProductPreviews(
+  products: readonly CuratedProduct[],
+): Map<string, BrandProductPreview> {
+  const previews = new Map<string, BrandProductPreview>();
+  const ordered = products
     .filter((product) => product.subcategory !== null)
-    .sort(
-      (a, b) =>
-        (a.productPosition ?? UNPLACED) - (b.productPosition ?? UNPLACED) ||
-        a.createdAt.localeCompare(b.createdAt) ||
-        a.key.localeCompare(b.key),
-    );
+    .sort(compareBrandPageOrder);
+  for (const product of ordered) {
+    const preview = previews.get(product.brandId) ?? {
+      count: 0,
+      thumbnails: [],
+    };
+    preview.count += 1;
+    if (
+      product.imageUrl &&
+      preview.thumbnails.length < PREVIEW_THUMBNAIL_LIMIT
+    ) {
+      preview.thumbnails.push(product.imageUrl);
+    }
+    previews.set(product.brandId, preview);
+  }
+  return previews;
+}
+
+/**
+ * Batched evidence-strip read for one directory page (≤12 brands): one query,
+ * the same publication gate as `getPublishedCuratedProductsForBrand`. Schema
+ * lag degrades to an empty Map; other errors are rethrown for the caller to
+ * degrade.
+ */
+export async function getPublishedProductPreviewsForBrands(
+  brandIds: string[],
+  client?: CuratedProductSupabase,
+): Promise<Map<string, BrandProductPreview>> {
+  if (brandIds.length === 0) return new Map();
+  const products = await readPublishedCuratedProducts(
+    brandIds,
+    "curatedProducts.brandPreviews",
+    client,
+  );
+  return summarizeProductPreviews(products);
 }
 
 /**
