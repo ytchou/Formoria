@@ -57,9 +57,10 @@ const DEV_1903_RELEASE_WINDOW_ACKNOWLEDGEMENTS: readonly HealthAcknowledgement[]
 export const HEALTH_ACKNOWLEDGEMENTS: readonly HealthAcknowledgement[] = [
   {
     match: "directory:trail-empty-section:",
-    reason: "Five live trails have no curated products in production (known debt).",
+    reason:
+      "Production serves the pre-DEV-1903 trail MDX with no placements until the release promotes the new trails; lapses with the release window.",
     ticket: "DEV-1903",
-    until: "2026-12-31",
+    until: DEV_1903_RELEASE_WINDOW_UNTIL,
   },
   ...DEV_1903_RELEASE_WINDOW_ACKNOWLEDGEMENTS,
 ];
