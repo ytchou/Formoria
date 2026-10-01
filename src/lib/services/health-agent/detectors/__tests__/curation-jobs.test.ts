@@ -30,6 +30,7 @@ type JobRow = {
   failed_count: number
   trigger?: string
   run_after?: string
+  dispatched_at?: string | null
 }
 
 type PhaseOutputRow = {
@@ -337,6 +338,10 @@ describe('curation-jobs detector', () => {
         failed_count: 0,
         trigger: 'admin',
         run_after: new Date(Date.now() - runAfterAgoMs).toISOString(),
+        dispatched_at:
+          dispatchStatus === 'pending'
+            ? null
+            : new Date(Date.now() - createdAgoMs).toISOString(),
       }
     }
 
@@ -380,6 +385,43 @@ describe('curation-jobs detector', () => {
 
     it('ignores pending jobs with run_after in the future', async () => {
       const jobs = [pendingJob('p-retry', 2 * HOUR, -30 * MINUTE)]
+
+      const findings = strandedFindings(
+        await curationJobsDetector.run(ctx({ deps: { supabase: fakeSupabase(jobs, []) } })),
+      )
+      expect(findings).toHaveLength(0)
+    })
+
+    it('ignores a due automatic retry waiting for the next cron slot', async () => {
+      const jobs = [
+        {
+          ...pendingJob('p-auto-retry', 2 * HOUR, 90 * MINUTE, 'pending'),
+          trigger: 'automatic_retry',
+        },
+      ]
+
+      const findings = strandedFindings(
+        await curationJobsDetector.run(ctx({ deps: { supabase: fakeSupabase(jobs, []) } })),
+      )
+      expect(findings).toHaveLength(0)
+    })
+
+    it('ignores an undispatched enqueue-only job', async () => {
+      const jobs = [pendingJob('p-enqueue-only', 3 * HOUR, 3 * HOUR, 'pending')]
+
+      const findings = strandedFindings(
+        await curationJobsDetector.run(ctx({ deps: { supabase: fakeSupabase(jobs, []) } })),
+      )
+      expect(findings).toHaveLength(0)
+    })
+
+    it('measures age from dispatch, not creation', async () => {
+      const jobs = [
+        {
+          ...pendingJob('p-late-dispatch', 3 * HOUR, 3 * HOUR),
+          dispatched_at: new Date(Date.now() - 5 * MINUTE).toISOString(),
+        },
+      ]
 
       const findings = strandedFindings(
         await curationJobsDetector.run(ctx({ deps: { supabase: fakeSupabase(jobs, []) } })),
