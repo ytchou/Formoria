@@ -30,7 +30,7 @@ interface MasonryGridProps {
  * Exported because callers must decide which cards to `preload` using the same
  * number — a second copy of the literal drifts the moment the columns change.
  */
-export const MASONRY_ABOVE_FOLD = 4;
+export const MASONRY_ABOVE_FOLD = 3;
 
 export function MasonryGrid({
   children,
@@ -69,11 +69,11 @@ export function MasonryGrid({
   });
 
   return compact ? (
-    <Grid as="ul" ref={listRef}>
+    <Grid as="ul" cols="thirds" ref={listRef}>
       {items}
     </Grid>
   ) : (
-    <Grid ref={divRef} role="list">
+    <Grid ref={divRef} cols="thirds" role="list">
       {items}
     </Grid>
   );

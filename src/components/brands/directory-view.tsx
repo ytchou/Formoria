@@ -61,6 +61,8 @@ import { ActiveFilterChips, FilterAside } from "@/components/filters";
 import { DirectoryHeader } from "@/components/directory/directory-header";
 import { DirectoryToolbar } from "@/components/directory/directory-toolbar";
 import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
+import { getPublishedProductPreviewsForBrands } from "@/lib/services/curated-products";
+import { captureReadFailure } from "@/lib/degraded-render";
 import {
   RelatedStoryLink,
   RelatedTrailLink,
@@ -207,6 +209,12 @@ export async function DirectoryView({
     });
     displayBrands = refetched.brands;
   }
+  // One read for the whole page, keyed by the brands actually shown (after the
+  // clamped re-read). A failure degrades to cards without a product strip.
+  const productPreviews =
+    (await getPublishedProductPreviewsForBrands(
+      displayBrands.map((brand) => brand.id),
+    ).catch(captureReadFailure("directory.productPreviews"))) ?? new Map();
 
   const latestUpdatedAt = taxonomySummary.latestUpdatedAt;
 
@@ -483,15 +491,15 @@ export async function DirectoryView({
             <Suspense
               fallback={
                 <MasonryGrid>
-                  {Array.from({ length: 8 }).map((_, index) => (
+                  {Array.from({ length: 9 }).map((_, index) => (
                     <div
                       key={index}
                       className={surfaceCardStyles({ padding: "none" })}
                     >
-                      <div className="aspect-media animate-pulse rounded-t-surface bg-surface" />
-                      <div className="p-4">
+                      <div className="flex flex-col gap-3 p-5">
+                        <div className="h-20 w-20 animate-pulse rounded-full bg-surface" />
                         <div className="h-4 animate-pulse rounded-surface bg-surface" />
-                        <div className="mt-2 h-3 w-2/3 animate-pulse rounded-surface bg-surface" />
+                        <div className="h-3 w-2/3 animate-pulse rounded-surface bg-surface" />
                       </div>
                     </div>
                   ))}
@@ -512,6 +520,7 @@ export async function DirectoryView({
                         key={brand.id}
                         brand={brand}
                         preload={index < 1}
+                        preview={productPreviews.get(brand.id)}
                       />
                     ))}
                   </MasonryGrid>

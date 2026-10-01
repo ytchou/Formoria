@@ -267,6 +267,7 @@
     },
     "card": {
       "foundingYear": "創立於 {year}",
+      "productCount": "{count} 件商品",
       "viewBrand": "查看品牌"
     },
     "loadingAria": "載入品牌中...",

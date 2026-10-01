@@ -108,6 +108,7 @@ const DIRECTORY_CONSUMED_FIELDS = [
   "categorySlug",
   "categoryLabel",
   "heroImageUrl",
+  "city",
   "description",
   "descriptionEn",
   "blurb",
