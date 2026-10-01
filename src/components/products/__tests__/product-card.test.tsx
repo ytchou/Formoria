@@ -98,16 +98,61 @@ describe("ProductCard", () => {
     expect(li).toHaveAttribute("data-product-key", "test-product");
   });
 
-  it("keeps the subcategory badge after the description", () => {
+  it("orders brand, name, then reason", () => {
     const { container } = render(
       <ProductCard product={baseProduct} locale="zh-TW" />,
     );
-    const elements = container.querySelectorAll(
-      "h3, p[data-nosnippet], [class*='badge']",
+    const texts = Array.from(
+      container.querySelectorAll("a p, a h3"),
+    ).map((el) => el.textContent);
+    expect(texts).toEqual([
+      "Test Brand",
+      "手工皮革包",
+      "義大利植鞣牛皮手染鞋面與鞋墊",
+    ]);
+    expect(
+      container.querySelector("a p:last-of-type")?.hasAttribute(
+        "data-nosnippet",
+      ),
+    ).toBe(true);
+  });
+
+  it("renders no subcategory badge", () => {
+    render(<ProductCard product={baseProduct} locale="zh-TW" />);
+    expect(screen.queryByText("手提包")).not.toBeInTheDocument();
+    expect(screen.queryByText("handbags")).not.toBeInTheDocument();
+  });
+
+  it("renders frameless", () => {
+    const { container } = render(
+      <ProductCard product={baseProduct} locale="zh-TW" />,
     );
-    const texts = Array.from(elements).map((el) => el.textContent);
-    // name -> description -> badge in DOM order
-    expect(texts[0]).toBe("手工皮革包");
-    expect(texts[1]).toBe("義大利植鞣牛皮手染鞋面與鞋墊");
+    expect(container.querySelector("li")?.className ?? "").not.toMatch(
+      /\bborder\b/,
+    );
+  });
+
+  it("clamps name and reason to one line without slicing", () => {
+    render(<ProductCard product={baseProduct} locale="zh-TW" />);
+    const name = screen.getByRole("heading", { level: 3 });
+    const reason = screen.getByText("義大利植鞣牛皮手染鞋面與鞋墊");
+    expect(name).toHaveClass("line-clamp-1");
+    expect(name.textContent).toBe("手工皮革包");
+    expect(reason).toHaveClass("line-clamp-1");
+    expect(reason.textContent).toBe("義大利植鞣牛皮手染鞋面與鞋墊");
+  });
+
+  it("uses the caller's image sizes", () => {
+    const product = {
+      ...baseProduct,
+      imageUrl: "/i/p.jpg",
+    };
+    render(
+      <ProductCard product={product} locale="zh-TW" imageSizes="123px" />,
+    );
+    expect(screen.getByRole("img", { name: "手工皮革包" })).toHaveAttribute(
+      "sizes",
+      "123px",
+    );
   });
 });

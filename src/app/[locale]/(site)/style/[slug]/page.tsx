@@ -40,6 +40,7 @@ import { findSimilarProductsForTrail } from "@/lib/services/product-situation-se
 import { ProductCard } from "@/components/products/product-card";
 import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import { Grid } from "@/components/ui/grid";
+import { IMAGE_SURFACE_SIZES } from "@/components/ui/image";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -369,6 +370,7 @@ export default async function StyleTrailPage({ params }: PageProps) {
                       key={product.id}
                       product={product}
                       locale={safeLocale}
+                      imageSizes={IMAGE_SURFACE_SIZES.tile}
                     />
                   ))}
                 </Grid>
