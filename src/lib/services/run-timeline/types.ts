@@ -7,6 +7,44 @@ export type RunTicket = {
   fingerprints?: string[];
 };
 
+/** Acknowledged findings sharing one `health-acknowledgements.ts` ticket. */
+type AcknowledgedGroup = {
+  ticket: string;
+  /**
+   * Date (YYYY-MM-DD) the acknowledgement lapses, compared with the health
+   * agent's logicalDate, which is the Asia/Taipei calendar date.
+   */
+  until: string;
+  count: number;
+};
+
+/** What the health agent's ticket step did with one routed finding. */
+export type TicketOutcome = {
+  title: string;
+  /**
+   * `not_processed`: nothing was filed; `reason` names why, e.g. the ticket
+   * ledger could not be read or the finding was not enqueued.
+   */
+  outcome:
+    | "filed"
+    | "follow_up"
+    | "existing"
+    | "not_eligible"
+    | "failed"
+    | "not_processed";
+  ticketId?: string;
+  url?: string;
+  /** When the ledger recorded the existing ticket (ISO timestamp). */
+  ticketedAt?: string;
+  /** Linear workflow state name, e.g. "In Progress" or "Duplicate". */
+  state?: string;
+  /** Linear state type is completed or canceled. */
+  closed?: boolean;
+  /** UTC date (YYYY-MM-DD) a follow-up ticket becomes allowed. */
+  followUpOn?: string;
+  reason?: string;
+};
+
 export type RunEvent =
   | { kind: "started"; at: number }
   | {
@@ -26,11 +64,17 @@ export type RunEvent =
       acknowledged?: number;
       /** Detectors that could not run; their sources are missing from `total`. */
       failedDetectors?: number;
+      /** Names of the failed detectors, for the Needs you line. */
+      failedDetectorNames?: string[];
+      /** Acknowledged findings grouped by their acknowledgement ticket. */
+      acknowledgedGroups?: AcknowledgedGroup[];
       // e2e agent
       passed?: number;
       failed?: number;
       flaky?: number;
       skipped?: number;
+      /** Skips not declared as expected; repaired together with `failed`. */
+      unexpectedSkips?: number;
       /** Test-suite duration, which excludes setup; `completed` shows wall-clock time. */
       durationSeconds?: number;
       summary?: string;
@@ -47,6 +91,26 @@ export type RunEvent =
       ticketId?: string;
     }
   | { kind: "tickets_filed"; at: number; tickets: RunTicket[] }
+  // Health-owned: one item per routed finding of the bucket.
+  | {
+      kind: "ticket_outcomes";
+      at: number;
+      bucket: "ticket" | "auto_fix";
+      items: TicketOutcome[];
+    }
+  // Routine-owned: the repair's triage counts, sent before `completed`.
+  | {
+      kind: "repair_summary";
+      at: number;
+      total: number;
+      fixed: number;
+      falsePositive: number;
+      ticketed: number;
+      /** Fixed on staging but not promoted, so the finding still fires. */
+      pendingRelease: number;
+      pendingReleaseTickets?: string[];
+      notes?: string[];
+    }
   | { kind: "completed"; at: number }
   | { kind: "failed"; at: number; outcome: string; reason?: string };
 
@@ -60,6 +124,8 @@ export const RUN_EVENT_KINDS: readonly RunEventKind[] = [
   "repair_failed",
   "pr_opened",
   "tickets_filed",
+  "ticket_outcomes",
+  "repair_summary",
   "completed",
   "failed",
 ];

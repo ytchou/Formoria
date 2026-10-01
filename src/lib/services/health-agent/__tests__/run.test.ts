@@ -977,7 +977,11 @@ function fakeSlack() {
     return (metadata.get(ts)?.event_payload.events ?? []) as RunEvent[]
   }
 
-  return { deps, calls, events }
+  function payload(ts: string): Record<string, unknown> | undefined {
+    return metadata.get(ts)?.event_payload
+  }
+
+  return { deps, calls, events, payload }
 }
 
 /**
@@ -1048,8 +1052,9 @@ function ticketClient(
             id,
             fingerprint,
             status: 'pending',
-            ticketed_at: ticketed[fingerprint] ? ticketedAtFor(fingerprint) : null,
-            linear_identifier: ticketed[fingerprint] ?? null,
+            // An empty identifier is a ledger row ticketed with no linear_identifier.
+            ticketed_at: fingerprint in ticketed ? ticketedAtFor(fingerprint) : null,
+            linear_identifier: ticketed[fingerprint] || null,
           }
         }),
         error: null,
@@ -1203,7 +1208,37 @@ describe('runHealthAgent — run timeline', () => {
       ticket: 1,
     })
     expect(events[1]).not.toHaveProperty('acknowledged')
+    expect(events[1]).not.toHaveProperty('acknowledgedGroups')
+    expect(events[1]).not.toHaveProperty('failedDetectorNames')
     expect(deps.triggerRepair).not.toHaveBeenCalled()
+  })
+
+  it('findings event names failed detectors', async () => {
+    const slack = fakeSlack()
+    const deps = timelineDeps(slack, [], {
+      registryOverride: [
+        makeDetector({
+          name: 'brand-invariants',
+          source: 'directory',
+          run: async () => [],
+        }),
+        makeDetector({
+          name: 'link-health',
+          source: 'link',
+          run: async () => {
+            throw new Error('link checker down')
+          },
+        }),
+      ],
+    })
+
+    await runHealthAgent(deps)
+
+    expect(slack.events(PARENT_TS)[1]).toMatchObject({
+      kind: 'findings',
+      failedDetectors: 1,
+      failedDetectorNames: ['link-health'],
+    })
   })
 
   it('appends repair_requested before triggering repair and passes the timeline on the request', async () => {
@@ -1570,9 +1605,15 @@ describe('runHealthAgent — Block Kit guard', () => {
   })
 })
 
-describe('runHealthAgent — tickets_filed timeline event', () => {
+describe('runHealthAgent — ticket_outcomes timeline event', () => {
   const urlFor = (identifier: string) =>
     `https://linear.app/formoria/issue/${identifier}/slug`
+
+  const outcomeEvents = (slack: ReturnType<typeof fakeSlack>) =>
+    slack
+      .events(PARENT_TS)
+      .filter((event): event is Extract<RunEvent, { kind: 'ticket_outcomes' }> =>
+        event.kind === 'ticket_outcomes')
 
   function ticketingDeps(
     findings: HealthFinding[],
@@ -1605,21 +1646,232 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
     expect(events.map((event) => event.kind)).toEqual([
       'started',
       'findings',
-      'tickets_filed',
+      'ticket_outcomes',
       'completed',
     ])
-    expect(events[2]).toMatchObject({
-      kind: 'tickets_filed',
-      tickets: [
+    expect(events[2]).toEqual({
+      kind: 'ticket_outcomes',
+      at: expect.any(Number),
+      bucket: 'ticket',
+      items: [
         {
-          id: 'DEV-1',
-          url: urlFor('DEV-1'),
           title: 'Report-only finding',
+          outcome: 'filed',
+          ticketId: 'DEV-1',
+          url: urlFor('DEV-1'),
         },
       ],
     })
-    const [ticket] = (events[2] as Extract<RunEvent, { kind: 'tickets_filed' }>).tickets
-    expect(ticket).not.toHaveProperty('fingerprints')
+  })
+
+  it('ticket_outcomes reports filed and follow_up items with url', async () => {
+    const stale = finding('directory:test:stale', {
+      disposition: 'report_only',
+      title: 'Stale finding',
+    })
+    const { slack, deps } = ticketingDeps([REPORT_ONLY, stale], {
+      triggerRepair: vi.fn(async () => {}),
+      client: ticketClient(
+        { [stale.fingerprint]: 'DEV-10' },
+        { ticketedAt: { [stale.fingerprint]: '2026-08-31T00:00:00Z' } },
+      ).client,
+    })
+
+    await runHealthAgent(deps)
+
+    const outcomes = outcomeEvents(slack)
+    expect(outcomes).toHaveLength(1)
+    expect(outcomes[0].items).toEqual([
+      {
+        title: 'Report-only finding',
+        outcome: 'filed',
+        ticketId: 'DEV-1',
+        url: urlFor('DEV-1'),
+      },
+      {
+        title: 'Stale finding',
+        outcome: 'follow_up',
+        ticketId: 'DEV-2',
+        url: urlFor('DEV-2'),
+      },
+    ])
+  })
+
+  it('ticket_outcomes reports an existing ticket with Linear state and followUpOn', async () => {
+    const ledger = ticketClient(
+      { [REPORT_ONLY.fingerprint]: 'DEV-1909' },
+      { ticketedAt: { [REPORT_ONLY.fingerprint]: '2026-09-29T20:58:00Z' } },
+    )
+    const linearGetTicketStates = vi.fn(async () =>
+      new Map([['DEV-1909', { state: 'Duplicate', closed: true }]]))
+    const { slack, deps } = ticketingDeps([REPORT_ONLY], {
+      client: ledger.client,
+      logicalDate: '2026-10-01',
+      now: () => new Date('2026-10-01T12:00:00Z'),
+      triggerRepair: vi.fn(async () => {}),
+      linearGetTicketStates,
+    })
+
+    await runHealthAgent(deps)
+
+    expect(deps.linearCreateTicket).not.toHaveBeenCalled()
+    expect(linearGetTicketStates).toHaveBeenCalledOnce()
+    expect(linearGetTicketStates).toHaveBeenCalledWith(['DEV-1909'])
+    const [outcomes] = outcomeEvents(slack)
+    expect(outcomes.bucket).toBe('ticket')
+    expect(outcomes.items).toEqual([
+      {
+        title: 'Report-only finding',
+        outcome: 'existing',
+        ticketId: 'DEV-1909',
+        ticketedAt: '2026-09-29T20:58:00Z',
+        state: 'Duplicate',
+        closed: true,
+        followUpOn: '2026-10-13',
+      },
+    ])
+  })
+
+  it('state read failure leaves state undefined and the run completes', async () => {
+    const ledger = ticketClient({ [REPORT_ONLY.fingerprint]: 'DEV-1909' })
+    const linearGetTicketStates = vi.fn(async () => {
+      throw new Error('linear graphql 500')
+    })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const { slack, deps } = ticketingDeps([REPORT_ONLY], {
+        client: ledger.client,
+        triggerRepair: vi.fn(async () => {}),
+        linearGetTicketStates,
+      })
+
+      const result = await runHealthAgent(deps)
+
+      expect(result.status).toBe('completed')
+      expect(linearGetTicketStates).toHaveBeenCalledOnce()
+      const [outcomes] = outcomeEvents(slack)
+      expect(outcomes.items).toHaveLength(1)
+      expect(outcomes.items[0]).toMatchObject({ outcome: 'existing', ticketId: 'DEV-1909' })
+      expect(outcomes.items[0]).not.toHaveProperty('state')
+      expect(outcomes.items[0]).not.toHaveProperty('closed')
+      expect(slack.events(PARENT_TS).at(-1)?.kind).toBe('completed')
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('reports sentry findings and ledger rows with no identifier as not_eligible', async () => {
+    const unlinked = finding('directory:test:unlinked', {
+      disposition: 'report_only',
+      title: 'Unlinked finding',
+    })
+    const sentry = finding('sentry:issue:abc', {
+      source: 'sentry',
+      title: 'Sentry issue',
+    })
+    const { slack, deps } = ticketingDeps([unlinked, sentry], {
+      client: ticketClient({ [unlinked.fingerprint]: '' }).client,
+      triggerRepair: vi.fn(async () => {}),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(deps.linearCreateTicket).not.toHaveBeenCalled()
+    const [outcomes] = outcomeEvents(slack)
+    expect(outcomes.items.map((item) => [item.title, item.outcome])).toEqual([
+      ['Unlinked finding', 'not_eligible'],
+      ['Sentry issue', 'not_eligible'],
+    ])
+    for (const item of outcomes.items) expect(item.reason).toEqual(expect.any(String))
+  })
+
+  it('ledger read failure emits not_processed items', async () => {
+    const { slack, deps } = ticketingDeps([REPORT_ONLY], {
+      client: ticketClient({}, {
+        ledgerReadError: { code: '57014', message: 'statement timeout' },
+      }).client,
+      triggerRepair: vi.fn(async () => {}),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(deps.linearCreateTicket).not.toHaveBeenCalled()
+    expect(slack.events(PARENT_TS).map((event) => event.kind)).toEqual([
+      'started',
+      'findings',
+      'ticket_outcomes',
+      'completed',
+    ])
+    const [outcomes] = outcomeEvents(slack)
+    expect(outcomes.items).toEqual([
+      expect.objectContaining({
+        title: 'Report-only finding',
+        outcome: 'not_processed',
+        reason: 'ticket ledger read failed',
+      }),
+    ])
+  })
+
+  it('enqueue failure emits not_processed items naming the enqueue, not the ledger', async () => {
+    const ledger = ticketClient()
+    const rpc = ledger.client.rpc
+    ledger.client.rpc = vi.fn(async (fn: string, params: Record<string, unknown>) =>
+      fn === 'enqueue_health_fix'
+        ? { data: null, error: { message: 'enqueue rpc down' } }
+        : rpc(fn, params)) as unknown as typeof rpc
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const { slack, deps } = ticketingDeps([REPORT_ONLY], {
+        client: ledger.client,
+        triggerRepair: vi.fn(async () => {}),
+      })
+
+      await runHealthAgent(deps)
+
+      expect(deps.linearCreateTicket).not.toHaveBeenCalled()
+      const [outcomes] = outcomeEvents(slack)
+      expect(outcomes.items).toEqual([
+        {
+          title: 'Report-only finding',
+          outcome: 'not_processed',
+          reason: 'finding was not enqueued',
+        },
+      ])
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('truncates each stored item title to 120 characters', async () => {
+    const longTitle = `Brand ${'x'.repeat(300)} has no logo`
+    const { slack, deps } = ticketingDeps(
+      [finding('directory:test:long', { disposition: 'report_only', title: longTitle })],
+      { triggerRepair: vi.fn(async () => {}) },
+    )
+
+    await runHealthAgent(deps)
+
+    const [outcomes] = outcomeEvents(slack)
+    const title = outcomes.items[0].title
+    expect(Array.from(title)).toHaveLength(120)
+    expect(longTitle.startsWith(title.slice(0, -1))).toBe(true)
+    expect(title.endsWith('…')).toBe(true)
+    // The Linear ticket keeps the full title; only the timeline item is bounded.
+    expect(deps.linearCreateTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ title: expect.stringContaining('x'.repeat(300)) }),
+    )
+  })
+
+  it('does not emit tickets_filed from the health agent anymore', async () => {
+    const { slack, deps } = ticketingDeps([REPORT_ONLY, REPAIRABLE], {
+      triggerRepair: undefined,
+    })
+
+    await runHealthAgent(deps)
+
+    expect(deps.linearCreateTicket).toHaveBeenCalledTimes(2)
+    expect(slack.events(PARENT_TS).some((event) => event.kind === 'tickets_filed'))
+      .toBe(false)
   })
 
   it('appends report-only tickets before repair_requested', async () => {
@@ -1632,7 +1884,7 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
     expect(slack.events(PARENT_TS).map((event) => event.kind)).toEqual([
       'started',
       'findings',
-      'tickets_filed',
+      'ticket_outcomes',
       'repair_requested',
     ])
   })
@@ -1648,23 +1900,26 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
     expect(events.map((event) => event.kind)).toEqual([
       'started',
       'findings',
-      'tickets_filed',
-      'tickets_filed',
+      'ticket_outcomes',
+      'ticket_outcomes',
       'completed',
     ])
+    expect(events[2]).toMatchObject({ kind: 'ticket_outcomes', bucket: 'ticket' })
     expect(events[3]).toMatchObject({
-      kind: 'tickets_filed',
-      tickets: [
+      kind: 'ticket_outcomes',
+      bucket: 'auto_fix',
+      items: [
         {
-          id: 'DEV-2',
-          url: urlFor('DEV-2'),
           title: 'Repairable finding',
+          outcome: 'filed',
+          ticketId: 'DEV-2',
+          url: urlFor('DEV-2'),
         },
       ],
     })
   })
 
-  it('ends on repair_failed, after the fallback tickets, when Slack rejects the repair post', async () => {
+  it('fallback filing after a rejected trigger emits ticket_outcomes with bucket auto_fix', async () => {
     const { slack, deps } = ticketingDeps([REPAIRABLE], {
       triggerRepair: vi.fn(async () => {
         throw new RepairPostRejectedError('not_in_channel')
@@ -1678,9 +1933,14 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
       'started',
       'findings',
       'repair_requested',
-      'tickets_filed',
+      'ticket_outcomes',
       'repair_failed',
     ])
+    expect(events[3]).toMatchObject({
+      kind: 'ticket_outcomes',
+      bucket: 'auto_fix',
+      items: [{ title: 'Repairable finding', outcome: 'filed', ticketId: 'DEV-1' }],
+    })
     expect(events[4]).toMatchObject({
       reason: 'repair trigger post rejected by Slack: not_in_channel',
     })
@@ -1717,16 +1977,63 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
     await runHealthAgent(deps)
 
     expect(deps.linearCreateTicket).toHaveBeenCalledTimes(51)
-    const filed = slack
-      .events(PARENT_TS)
-      .filter((event): event is Extract<RunEvent, { kind: 'tickets_filed' }> =>
-        event.kind === 'tickets_filed')
-    expect(filed).toHaveLength(1)
-    expect(filed[0].tickets).toHaveLength(50)
-    expect(filed[0].tickets[0].id).toBe('DEV-1')
+    const outcomes = outcomeEvents(slack)
+    expect(outcomes).toHaveLength(1)
+    expect(outcomes[0].items).toHaveLength(50)
+    expect(outcomes[0].items[0].ticketId).toBe('DEV-1')
   })
 
-  it('leaves a ticket without a url out of the event, and skips the event when none remain', async () => {
+  it('metadata for 50 typical ticket_outcomes items serializes under 8 KB', async () => {
+    const findings = Array.from({ length: 50 }, (_, i) =>
+      finding(`directory:brand-missing-logo:${(0x1a2b3c + i).toString(16)}`, {
+        disposition: 'report_only',
+        title: `Brand ${i + 1} has no logo`,
+      }),
+    )
+    const { slack, deps } = ticketingDeps(findings, {
+      triggerRepair: vi.fn(async () => {}),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(outcomeEvents(slack)[0].items).toHaveLength(50)
+    const bytes = Buffer.byteLength(JSON.stringify(slack.payload(PARENT_TS)), 'utf8')
+    expect(bytes).toBeLessThan(8192)
+  })
+
+  // Worst case: 50 items with titles at the 120-character storage limit and
+  // full Linear URLs (60-character title slug). Measured ~14.5 KB, so the
+  // 50-item cap with title truncation bounds the event under 16 KB, not 8 KB.
+  it('metadata for 50 worst-case ticket_outcomes items stays bounded', async () => {
+    const findings = Array.from({ length: 50 }, (_, i) =>
+      finding(`directory:brand-missing-logo:${(0x1a2b3c + i).toString(16)}`, {
+        disposition: 'report_only',
+        title: `${i} ${'x'.repeat(300)}`,
+      }),
+    )
+    let next = 1000
+    const { slack, deps } = ticketingDeps(findings, {
+      triggerRepair: vi.fn(async () => {}),
+      linearCreateTicket: vi.fn(async () => {
+        next += 1
+        const identifier = `DEV-${next}`
+        return {
+          identifier,
+          url: `https://linear.app/formoria/issue/${identifier}/${'s'.repeat(60)}`,
+        }
+      }),
+    })
+
+    await runHealthAgent(deps)
+
+    const [outcomes] = outcomeEvents(slack)
+    expect(outcomes.items).toHaveLength(50)
+    for (const item of outcomes.items) expect(Array.from(item.title)).toHaveLength(120)
+    const bytes = Buffer.byteLength(JSON.stringify(slack.payload(PARENT_TS)), 'utf8')
+    expect(bytes).toBeLessThan(16384)
+  })
+
+  it('lists a ticket without a url by its identifier only', async () => {
     const { slack, deps } = ticketingDeps([REPORT_ONLY], {
       triggerRepair: vi.fn(async () => {}),
       linearCreateTicket: vi.fn(async () => ({ identifier: 'DEV-50' })),
@@ -1734,14 +2041,13 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
 
     await runHealthAgent(deps)
 
-    expect(slack.events(PARENT_TS).map((event) => event.kind)).toEqual([
-      'started',
-      'findings',
-      'completed',
+    const [outcomes] = outcomeEvents(slack)
+    expect(outcomes.items).toEqual([
+      { title: 'Report-only finding', outcome: 'filed', ticketId: 'DEV-50' },
     ])
   })
 
-  it('appends nothing when no ticket was created', async () => {
+  it('reports a failed item when ticket creation throws', async () => {
     const { slack, deps } = ticketingDeps([REPORT_ONLY], {
       triggerRepair: vi.fn(async () => {}),
       linearCreateTicket: vi.fn(async () => {
@@ -1754,8 +2060,18 @@ describe('runHealthAgent — tickets_filed timeline event', () => {
     expect(slack.events(PARENT_TS).map((event) => event.kind)).toEqual([
       'started',
       'findings',
+      'ticket_outcomes',
       'completed',
     ])
+    const [outcomes] = outcomeEvents(slack)
+    expect(outcomes.items).toEqual([
+      expect.objectContaining({
+        title: 'Report-only finding',
+        outcome: 'failed',
+        reason: expect.stringContaining('linear down'),
+      }),
+    ])
+    expect(outcomes.items[0]).not.toHaveProperty('ticketId')
   })
 })
 
@@ -1803,6 +2119,22 @@ describe('runHealthAgent — acknowledged known debt', () => {
       autoFix: 1,
       ticket: 1,
       acknowledged: 2,
+    })
+  })
+
+  it('findings event carries acknowledgedGroups grouped by ticket', async () => {
+    const slack = fakeSlack()
+    const deps = timelineDeps(slack, [ACK_TICKET, ACK_AUTO_FIX, REPORT_ONLY], {
+      client: ticketClient().client,
+      triggerRepair: vi.fn(async () => {}),
+    })
+
+    await runHealthAgent(deps)
+
+    expect(slack.events(PARENT_TS)[1]).toMatchObject({
+      kind: 'findings',
+      acknowledged: 2,
+      acknowledgedGroups: [{ ticket: 'DEV-1903', until: '2026-12-31', count: 2 }],
     })
   })
 
