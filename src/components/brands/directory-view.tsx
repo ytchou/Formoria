@@ -61,7 +61,10 @@ import { ActiveFilterChips, FilterAside } from "@/components/filters";
 import { DirectoryHeader } from "@/components/directory/directory-header";
 import { DirectoryToolbar } from "@/components/directory/directory-toolbar";
 import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
-import { getPublishedProductPreviewsForBrands } from "@/lib/services/curated-products";
+import {
+  getPublishedProductPreviewsForBrands,
+  type BrandProductPreview,
+} from "@/lib/services/curated-products";
 import { captureReadFailure } from "@/lib/degraded-render";
 import {
   RelatedStoryLink,
@@ -214,7 +217,8 @@ export async function DirectoryView({
   const productPreviews =
     (await getPublishedProductPreviewsForBrands(
       displayBrands.map((brand) => brand.id),
-    ).catch(captureReadFailure("directory.productPreviews"))) ?? new Map();
+    ).catch(captureReadFailure("directory.productPreviews"))) ??
+    new Map<string, BrandProductPreview>();
 
   const latestUpdatedAt = taxonomySummary.latestUpdatedAt;
 

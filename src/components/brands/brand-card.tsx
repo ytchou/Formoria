@@ -18,6 +18,7 @@ import { brandImageFill } from "@/lib/images/fill";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import type { BrandProductPreview } from "@/lib/services/curated-products";
+import { PREVIEW_THUMBNAIL_LIMIT } from "@/lib/services/curated-products.constants";
 import { selectBrandCardImage } from "@/lib/brands/image-selection";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import { SaveBrandButton } from "./save-brand-button";
@@ -25,6 +26,11 @@ import { BrandImageFallback } from "./brand-image-fallback";
 import { BrandAvatar } from "./brand-avatar";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
+
+// Shared by the directory and the cover-image articles: the whole-card link
+// relies on `relative` for its overlay and on the focus ring for keyboard users.
+const CARD_ARTICLE_CLASS =
+  "group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent";
 
 interface BrandCardProps {
   brand: PublicBrandCard;
@@ -102,22 +108,13 @@ export function BrandCard({
             position,
           );
         } else {
-          if (listSource) {
-            trackBrandCardClicked(
-              brand.slug,
-              brand.categoryLabel,
-              position,
-              brand.id,
-              listSource,
-            );
-          } else {
-            trackBrandCardClicked(
-              brand.slug,
-              brand.categoryLabel,
-              position,
-              brand.id,
-            );
-          }
+          trackBrandCardClicked(
+            brand.slug,
+            brand.categoryLabel,
+            position,
+            brand.id,
+            listSource,
+          );
         }
         if (savedIds.has(brand.id)) {
           trackSavedBrandRevisited(brand.slug, "card", brand.id);
@@ -136,19 +133,20 @@ export function BrandCard({
     const thumbnails = (preview?.thumbnails ?? [])
       .map((src) => safeImageSrc(src))
       .filter((src): src is string => src !== null)
-      .slice(0, 3);
+      .slice(0, PREVIEW_THUMBNAIL_LIMIT);
 
     return (
       <article
         className={surfaceCardStyles({
           tone: "white",
-          className:
-            "group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent",
+          // h-full fills the grid cell so every strip in a row can sit on
+          // the same bottom edge (mt-auto below).
+          className: cn(CARD_ARTICLE_CLASS, "h-full"),
           interactive: true,
           padding: "none",
         })}
       >
-        <div className="flex flex-col gap-3 p-5">
+        <div className="flex h-full flex-col gap-3 p-5">
           <div className="flex items-start justify-between gap-3">
             <BrandAvatar
               name={brand.name}
@@ -173,7 +171,7 @@ export function BrandCard({
             {blurb ?? " "}
           </p>
           {preview && preview.count > 0 ? (
-            <div className="flex items-center gap-2">
+            <div className="mt-auto flex items-center gap-2">
               {thumbnails.map((src, index) => (
                 <div
                   key={`${index}-${src}`}
@@ -208,8 +206,7 @@ export function BrandCard({
   return (
     <article
       className={surfaceCardStyles({
-        className:
-          "group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent",
+        className: CARD_ARTICLE_CLASS,
         interactive: true,
         padding: "none",
       })}
@@ -264,8 +261,8 @@ export function BrandCard({
            * Editorial titles get two lines with a reserved two-line height: at
            * the ~229px card width of a 3-up row `truncate` cut real brand names
            * mid-word, and an unreserved clamp let a 1-line card ride up out of
-           * line with its neighbours. Every other variant keeps `truncate` —
-           * the directory and recommendation surfaces must not change.
+           * line with its neighbours. The recommendation variant keeps
+           * `truncate` — that surface must not change.
            */}
           <h3
             className={cn(
@@ -302,7 +299,7 @@ export function BrandCard({
               {t("card.viewBrand")}
             </Link>
           </>
-        ) : variant === "editorial" ? (
+        ) : (
           <>
             {/*
               A reserved block: a fixed
@@ -334,7 +331,7 @@ export function BrandCard({
               </div>
             ) : null}
           </>
-        ) : null}
+        )}
       </div>
     </article>
   );

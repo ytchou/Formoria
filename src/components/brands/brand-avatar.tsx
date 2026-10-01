@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { SurfaceImage } from "@/components/ui/image";
 import { cn } from "@/lib/utils";
 
@@ -19,9 +22,13 @@ export function BrandAvatar({
   preload?: boolean;
 }) {
   const circle = size === "lg" ? "h-20 w-20" : "h-11 w-11";
+  // Remembers WHICH src failed rather than a boolean, so a new `imageSrc`
+  // gets a fresh attempt without an effect to reset the flag.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImage = !!imageSrc && imageSrc !== failedSrc;
   return (
     <>
-      {imageSrc ? (
+      {showImage ? (
         <div
           className={cn(
             "relative shrink-0 overflow-hidden rounded-full bg-surface",
@@ -37,6 +44,7 @@ export function BrandAvatar({
             // The lg circle measures 80px; `thumb` alone would hint 72px.
             sizes={size === "lg" ? "80px" : undefined}
             className="object-cover"
+            onError={() => setFailedSrc(imageSrc)}
           />
         </div>
       ) : (

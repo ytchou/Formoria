@@ -267,7 +267,7 @@
     },
     "card": {
       "foundingYear": "Est. {year}",
-      "productCount": "{count} products",
+      "productCount": "{count, plural, one {# product} other {# products}}",
       "viewBrand": "View brand"
     },
     "loadingAria": "Loading brands...",

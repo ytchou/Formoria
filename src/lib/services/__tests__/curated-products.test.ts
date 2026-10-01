@@ -379,7 +379,7 @@ describe("getPublishedCuratedProductsForBrand", () => {
     await getPublishedCuratedProductsForBrand("brand-1", client);
 
     expect(calls.table).toEqual(["curated_products"]);
-    expect(calls.eq).toContainEqual(["brand_id", "brand-1"]);
+    expect(calls.in).toContainEqual(["brand_id", ["brand-1"]]);
     expect(calls.eq).toContainEqual(["visible", true]);
     expect(calls.not).toContainEqual(["official_url", "is", null]);
     expect(calls.not).toContainEqual(["source_checked_at", "is", null]);

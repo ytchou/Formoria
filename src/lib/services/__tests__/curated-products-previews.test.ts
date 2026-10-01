@@ -54,19 +54,19 @@ describe("summarizeProductPreviews", () => {
       product({
         key: "unplaced",
         productPosition: null,
-        imageUrl: "https://img/unplaced.jpg",
+        imageUrl: "/i/unplaced.jpg",
       }),
       product({
         key: "later-created",
         productPosition: 2,
         createdAt: "2026-08-14T00:00:00Z",
-        imageUrl: "https://img/later-created.jpg",
+        imageUrl: "/i/later-created.jpg",
       }),
       product({
         key: "b-key",
         productPosition: 2,
         createdAt: "2026-08-13T00:00:00Z",
-        imageUrl: "https://img/b-key.jpg",
+        imageUrl: "/i/b-key.jpg",
       }),
       product({
         key: "a-key",
@@ -77,7 +77,7 @@ describe("summarizeProductPreviews", () => {
       product({
         key: "first",
         productPosition: 1,
-        imageUrl: "https://img/first.jpg",
+        imageUrl: "/i/first.jpg",
       }),
     ];
 
@@ -86,20 +86,39 @@ describe("summarizeProductPreviews", () => {
     expect(previews.get(BRAND_A)).toEqual({
       count: 5,
       thumbnails: [
-        "https://img/first.jpg",
-        "https://img/b-key.jpg",
-        "https://img/later-created.jpg",
+        "/i/first.jpg",
+        "/i/b-key.jpg",
+        "/i/later-created.jpg",
       ],
+    });
+  });
+
+  it("fills thumbnail slots only with URLs safeImageSrc accepts", () => {
+    // `//host/…` is protocol-relative (offsite) and always rejected; `/i/…` is
+    // the same-origin image proxy and always accepted, whatever the env.
+    const rows = [
+      product({ key: "a", productPosition: 1, imageUrl: "//evil.example/a.jpg" }),
+      product({ key: "b", productPosition: 2, imageUrl: "//evil.example/b.jpg" }),
+      product({ key: "c", productPosition: 3, imageUrl: "/i/c.jpg" }),
+      product({ key: "d", productPosition: 4, imageUrl: "/i/d.jpg" }),
+      product({ key: "e", productPosition: 5, imageUrl: "/i/e.jpg" }),
+    ];
+
+    const previews = summarizeProductPreviews(rows);
+
+    expect(previews.get(BRAND_A)).toEqual({
+      count: 5,
+      thumbnails: ["/i/c.jpg", "/i/d.jpg", "/i/e.jpg"],
     });
   });
 
   it("drops rows with a null subcategory", () => {
     const rows = [
-      product({ key: "kept", imageUrl: "https://img/kept.jpg" }),
+      product({ key: "kept", imageUrl: "/i/kept.jpg" }),
       product({
         key: "dropped",
         subcategory: null,
-        imageUrl: "https://img/dropped.jpg",
+        imageUrl: "/i/dropped.jpg",
       }),
     ];
 
@@ -107,7 +126,7 @@ describe("summarizeProductPreviews", () => {
 
     expect(previews.get(BRAND_A)).toEqual({
       count: 1,
-      thumbnails: ["https://img/kept.jpg"],
+      thumbnails: ["/i/kept.jpg"],
     });
   });
 

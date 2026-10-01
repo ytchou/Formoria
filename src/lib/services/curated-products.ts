@@ -18,6 +18,8 @@ import {
 } from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 import { isRegistryRecordActive } from "@/lib/services/curated-products/origin-qualification";
+import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
+import { PREVIEW_THUMBNAIL_LIMIT } from "./curated-products.constants";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
 export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
@@ -426,10 +428,21 @@ export async function getPublishedCuratedProductsForBrand(
   client?: CuratedProductSupabase,
 ): Promise<CuratedProduct[]> {
   const products = await readPublishedCuratedProducts(
-    brandId,
+    [brandId],
     "curatedProducts.brand",
     client,
   );
+  return toBrandPageOrder(products);
+}
+
+/**
+ * What the brand page renders, in the order it renders it: null-subcategory
+ * rows dropped, then brand-page order. Shared by the brand page and the
+ * directory preview count so the two cannot diverge.
+ */
+function toBrandPageOrder(
+  products: readonly CuratedProduct[],
+): CuratedProduct[] {
   return products
     .filter((product) => product.subcategory !== null)
     .sort(compareBrandPageOrder);
@@ -443,12 +456,11 @@ const compareBrandPageOrder = (a: CuratedProduct, b: CuratedProduct): number =>
 
 /**
  * The brand-page publication read, shared by the single-brand read and the
- * directory preview batch so the two gates cannot diverge. `brands` is one id
- * (`.eq`) or a list (`.in`). Schema lag logs and degrades to `[]`; every other
- * error is rethrown.
+ * directory preview batch so the two gates cannot diverge. Schema lag logs and
+ * degrades to `[]`; every other error is rethrown.
  */
 async function readPublishedCuratedProducts(
-  brands: string | readonly string[],
+  brandIds: readonly string[],
   scope: string,
   client?: CuratedProductSupabase,
 ): Promise<CuratedProduct[]> {
@@ -456,11 +468,14 @@ async function readPublishedCuratedProducts(
     const query = curatedProductClient(client)
       .from("curated_products")
       .select(select);
-    return (
-      typeof brands === "string"
-        ? query.eq("brand_id", brands)
-        : query.in("brand_id", [...brands])
-    )
+    // Unpaged `.in` read, so PostgREST `max_rows = 1000` (supabase/config.toml)
+    // truncates it silently. Ceiling: ~1000 published products across one
+    // 12-brand directory page — unreachable today (census 2026-10-01: 1366
+    // published products across 293 approved brands). Upgrade path:
+    // range-paginate like `CURATED_PRODUCT_BATCH_PAGE_SIZE` below, or move the
+    // count/thumbnail summary into an aggregate RPC.
+    return query
+      .in("brand_id", [...brandIds])
       .eq("visible", true)
       .not("official_url", "is", null)
       .not("source_checked_at", "is", null)
@@ -492,25 +507,25 @@ async function readPublishedCuratedProducts(
 /** What a directory card's evidence strip shows for one brand. */
 export type BrandProductPreview = {
   count: number;
-  /** Raw stored URLs, at most three; `safeImageSrc` runs at render. */
+  /**
+   * Raw stored URLs, at most `PREVIEW_THUMBNAIL_LIMIT`. Only URLs that
+   * `safeImageSrc` accepts are kept, so an unsafe URL never consumes a slot;
+   * the render site still applies `safeImageSrc` itself.
+   */
   thumbnails: string[];
 };
 
-const PREVIEW_THUMBNAIL_LIMIT = 3;
-
 /**
- * Per-brand count and first three images, in brand-page order. Drops the same
- * null-subcategory rows the brand page drops, so the count matches what the
- * brand page renders. A brand with no surviving rows gets no entry.
+ * Per-brand count and first three renderable images, in brand-page order.
+ * Drops the same null-subcategory rows the brand page drops, so the count
+ * matches what the brand page renders. A brand with no surviving rows gets no
+ * entry.
  */
 export function summarizeProductPreviews(
   products: readonly CuratedProduct[],
 ): Map<string, BrandProductPreview> {
   const previews = new Map<string, BrandProductPreview>();
-  const ordered = products
-    .filter((product) => product.subcategory !== null)
-    .sort(compareBrandPageOrder);
-  for (const product of ordered) {
+  for (const product of toBrandPageOrder(products)) {
     const preview = previews.get(product.brandId) ?? {
       count: 0,
       thumbnails: [],
@@ -518,6 +533,7 @@ export function summarizeProductPreviews(
     preview.count += 1;
     if (
       product.imageUrl &&
+      safeImageSrc(product.imageUrl) !== null &&
       preview.thumbnails.length < PREVIEW_THUMBNAIL_LIMIT
     ) {
       preview.thumbnails.push(product.imageUrl);

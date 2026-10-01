@@ -44,6 +44,10 @@ vi.mock("@/lib/analytics", () => ({
   trackBrandCardClicked: vi.fn(),
   trackRecommendationBrandClicked: vi.fn(),
   trackSavedBrandRevisited: vi.fn(),
+  trackBrandSaved: vi.fn(),
+  trackBrandUnsaved: vi.fn(),
+  trackProductSaved: vi.fn(),
+  trackProductUnsaved: vi.fn(),
 }));
 
 vi.mock("@/hooks/use-saved-brands", () => ({
@@ -54,9 +58,25 @@ vi.mock("@/hooks/use-saved-brands", () => ({
   }),
 }));
 
-// The save control has its own suite; this file is about the card's layout.
-vi.mock("@/components/brands/save-brand-button", () => ({
-  SaveBrandButton: () => <button type="button">save</button>,
+// The real SaveBrandButton renders, so the card's stacking classes on it are
+// observable; only its context hooks are stubbed (no provider in this tree).
+vi.mock("@/hooks/use-saved-products", () => ({
+  useSavedProducts: () => ({
+    savedIds: new Set<string>(),
+    toggle: vi.fn(),
+    loading: false,
+  }),
+}));
+
+vi.mock("@/lib/auth/use-user", () => ({
+  useUser: () => ({
+    user: null,
+    loading: false,
+    viewer: { isAdmin: false },
+    viewerLoading: false,
+    viewerError: false,
+    refreshViewer: vi.fn(),
+  }),
 }));
 
 const { BrandCard } = await import("@/components/brands/brand-card");
@@ -151,6 +171,26 @@ describe("BrandCard directory variant", () => {
       />,
     );
     expect(screen.queryByText(/件商品/u)).toBeNull();
+  });
+
+  it("stacks the save control above the whole-card link", () => {
+    renderCard(<BrandCard brand={buildBrand()} />);
+
+    const save = screen.getByRole("button", { name: "收藏這個品牌" });
+    expect(save).toHaveClass("relative", "z-20");
+  });
+
+  it("fills its grid cell and pins the strip to the bottom", () => {
+    const { container } = renderCard(
+      <BrandCard
+        brand={buildBrand()}
+        preview={{ count: 7, thumbnails: THUMBS }}
+      />,
+    );
+
+    expect(container.querySelector("article")).toHaveClass("h-full");
+    const strip = screen.getByText("7 件商品").parentElement;
+    expect(strip).toHaveClass("mt-auto");
   });
 
   it("renders no badges", () => {

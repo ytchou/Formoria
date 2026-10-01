@@ -113,8 +113,6 @@ const DIRECTORY_CONSUMED_FIELDS = [
   "descriptionEn",
   "blurb",
   "blurbEn",
-  "subcategories",
-  "subcategoriesEn",
 ];
 
 describe("brand column projections", () => {
