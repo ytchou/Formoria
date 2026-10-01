@@ -8,6 +8,7 @@ import { requireAdminAction } from "@/lib/auth/require-admin";
 import {
   revalidatePublicBrands,
   revalidateTrail,
+  revalidateTrailSurfaces,
 } from "@/lib/cache/public-brand-cache";
 import { logAdminAction } from "@/lib/services/admin-audit";
 import {
@@ -473,7 +474,7 @@ export async function upsertCuratedProductSelectionAction(
           },
         });
       }
-      revalidateTrail(payload.trailSlug);
+      revalidateTrailSurfaces([payload.trailSlug]);
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {
@@ -519,7 +520,7 @@ export async function retireCuratedProductSelectionAction(
           },
         });
       }
-      revalidateTrail(value.trailSlug);
+      revalidateTrailSurfaces([value.trailSlug]);
       revalidateCurated(brandSlug);
       return undefined;
     } catch (error) {

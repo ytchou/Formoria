@@ -41,6 +41,11 @@ export type SelectedProductTileProps = {
   labels: SelectedProductTileLabels;
   mode: "outbound" | "trail" | "wall" | "shelf";
   /**
+   * Trail-only editorial note for this pick (D13), authored in the trail's
+   * frontmatter. Ignored in every other mode.
+   */
+  note?: string;
+  /**
    * Wall geometry: the snapped ratio bucket the tile renders at. Absent means
    * the row carries no measurement yet, which renders the legacy 4:3.
    */
@@ -91,6 +96,7 @@ export function SelectedProductTile({
   brandSlug,
   brandName,
   tracking,
+  note,
 }: SelectedProductTileProps) {
   const isEnglish = locale === "en";
   const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
@@ -426,6 +432,12 @@ export function SelectedProductTile({
           </Typography>
         )}
 
+        {/* The note is content, so 明體 at body size; the brand line below
+            stays 黑體 metadata in ink-muted (D14). */}
+        {mode === "trail" && note ? (
+          <p className="type-body line-clamp-2">{note}</p>
+        ) : null}
+
         {mode === "trail" && brandName ? (
           <Typography as="p" variant="metadata">
             {brandName}
@@ -433,9 +445,17 @@ export function SelectedProductTile({
         ) : null}
 
         {productDescription ? (
-          <Typography as="p" variant="body">
-            {productDescription}
-          </Typography>
+          mode === "trail" ? (
+            // Under a note the description is supporting detail: small, muted,
+            // two lines, and dropped on phones where the note carries the pick.
+            <p className="type-body-sm text-ink-muted line-clamp-2 hidden sm:block">
+              {productDescription}
+            </p>
+          ) : (
+            <Typography as="p" variant="body">
+              {productDescription}
+            </Typography>
+          )
         ) : null}
 
         {isBroken ? (

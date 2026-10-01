@@ -8,6 +8,7 @@ import {
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   getPublishedCuratedProductsForTrail,
+  groupTrailPeek,
   listCuratedProductsForAdmin,
   retireCuratedProductSelection,
   retireCuratedProduct,
@@ -1777,5 +1778,82 @@ describe("getBrandTrailSlugs", () => {
     await expect(getBrandTrailSlugs(BRAND_ID, client)).rejects.toMatchObject({
       code: "42703",
     });
+  });
+});
+
+describe("groupTrailPeek", () => {
+  function peekRow(
+    key: string,
+    selections: { trail_slug: string; position: number }[],
+  ) {
+    return trailProductRow({
+      id: `id-${key}`,
+      key,
+      curated_product_sources: [{ id: `source-${key}`, state: "active" }],
+      curated_product_selections: selections.map((selection) => ({
+        ...selection,
+        section_key: "first",
+        state: "active",
+      })),
+    });
+  }
+
+  it("groupTrailPeek keeps at most N per trail ordered by position", () => {
+    const rows = [
+      ...[6, 3, 5, 1, 4, 2].map((position) =>
+        peekRow(`a-${position}`, [{ trail_slug: "alpha", position }]),
+      ),
+      peekRow("b-2", [{ trail_slug: "beta", position: 2 }]),
+      peekRow("b-1", [{ trail_slug: "beta", position: 1 }]),
+    ];
+
+    const peek = groupTrailPeek(rows, ["alpha", "beta"], 4);
+
+    expect(peek.alpha?.map((product) => product.key)).toEqual([
+      "a-1",
+      "a-2",
+      "a-3",
+      "a-4",
+    ]);
+    expect(peek.beta?.map((product) => product.key)).toEqual(["b-1", "b-2"]);
+  });
+
+  it("groupTrailPeek returns an entry for every requested slug", () => {
+    const rows = [peekRow("a-1", [{ trail_slug: "alpha", position: 1 }])];
+
+    const peek = groupTrailPeek(rows, ["alpha", "empty"], 4);
+
+    expect(Object.keys(peek).sort()).toEqual(["alpha", "empty"]);
+    expect(peek.empty).toEqual([]);
+  });
+
+  it("groupTrailPeek ignores rows for slugs not requested", () => {
+    const rows = [
+      peekRow("a-1", [{ trail_slug: "alpha", position: 1 }]),
+      peekRow("x-1", [{ trail_slug: "unrequested", position: 1 }]),
+    ];
+
+    const peek = groupTrailPeek(rows, ["alpha"], 4);
+
+    expect(Object.keys(peek)).toEqual(["alpha"]);
+    expect(peek.alpha?.map((product) => product.key)).toEqual(["a-1"]);
+  });
+
+  it("groupTrailPeek includes a product placed in two requested trails in both peeks", () => {
+    const rows = [
+      peekRow("shared", [
+        { trail_slug: "alpha", position: 3 },
+        { trail_slug: "beta", position: 1 },
+      ]),
+    ];
+
+    const peek = groupTrailPeek(rows, ["alpha", "beta"], 4);
+
+    expect(peek.alpha?.map((product) => product.key)).toEqual(["shared"]);
+    expect(peek.beta?.map((product) => product.key)).toEqual(["shared"]);
+    // Each peek carries its own placement, not the single winning selection.
+    expect(peek.alpha?.at(0)?.trailSlug).toBe("alpha");
+    expect(peek.alpha?.at(0)?.position).toBe(3);
+    expect(peek.beta?.at(0)?.trailSlug).toBe("beta");
   });
 });

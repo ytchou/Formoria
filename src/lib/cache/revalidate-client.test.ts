@@ -186,3 +186,41 @@ describe('requestPublicBrandRevalidation', () => {
   })
 })
 
+describe('trailSlugs', () => {
+  it('posts trailSlugs alone when no brand slugs are given', async () => {
+    await expect(
+      requestPublicBrandRevalidation([], { trailSlugs: ['a', ' a ', ''] }),
+    ).resolves.toEqual({ ok: true })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(JSON.parse(init.body)).toEqual({ trailSlugs: ['a'] })
+  })
+
+  it('sends brand slugs and trailSlugs as separate payloads', async () => {
+    await expect(
+      requestPublicBrandRevalidation(['niizo'], { trailSlugs: ['a'] }),
+    ).resolves.toEqual({ ok: true })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const bodies = fetchMock.mock.calls.map(([, init]) =>
+      JSON.parse((init as RequestInit).body as string),
+    )
+    expect(bodies).toEqual([{ slugs: ['niizo'] }, { trailSlugs: ['a'] }])
+  })
+
+  it('reports the trail request failure', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 400 } as unknown as Response)
+
+    await expect(
+      requestPublicBrandRevalidation([], { trailSlugs: ['a'] }),
+    ).resolves.toEqual({ ok: false, reason: 'http-400' })
+  })
+
+  it('makes no network call when both lists are empty', async () => {
+    await expect(
+      requestPublicBrandRevalidation([], { trailSlugs: [' '] }),
+    ).resolves.toEqual({ ok: true, reason: 'no-slugs' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})

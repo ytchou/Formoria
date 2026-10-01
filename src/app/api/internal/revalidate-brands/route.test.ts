@@ -87,4 +87,38 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
     expect(revalidateTag).not.toHaveBeenCalled();
   });
+  it("route accepts trailSlugs without slugs", async () => {
+    const response = await POST(request({ trailSlugs: ["a"] }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ revalidated: 1 });
+    expect(revalidatePath).toHaveBeenCalledWith("/style/a");
+    expect(revalidatePath).toHaveBeenCalledWith("/en/style/a");
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+    expect(revalidatePath).toHaveBeenCalledWith("/style");
+    // A trail-only payload must not purge every brand page.
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
+  it("route rejects non-string trailSlugs", async () => {
+    const response = await POST(request({ trailSlugs: [1] }));
+
+    expect(response.status).toBe(400);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("rejects trailSlugs over the cap", async () => {
+    const trailSlugs = Array.from({ length: 201 }, (_, index) => `t-${index}`);
+    const response = await POST(request({ trailSlugs }));
+
+    expect(response.status).toBe(400);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("still rejects a payload with neither slugs nor trailSlugs", async () => {
+    const response = await POST(request({}));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Invalid slugs" });
+  });
 });

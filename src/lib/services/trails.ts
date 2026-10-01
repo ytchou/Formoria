@@ -9,6 +9,12 @@ const TRAILS_DIR = path.join(process.cwd(), 'content', 'trails')
 type TrailSection = {
   key: string
   title: string
+  /**
+   * One short pick note per product, keyed `brandSlug/productKey`. The loader
+   * always sets it (`{}` when absent); optional only so hand-built fixtures
+   * that predate notes stay valid.
+   */
+  notes?: Record<string, string>
 }
 
 /**
@@ -76,6 +82,16 @@ function stringArray(value: unknown): string[] {
     : []
 }
 
+function notesRecord(value: unknown): Record<string, string> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === 'string' && entry[0].split('/').length === 2,
+    ),
+  )
+}
+
 function sectionsArray(value: unknown): TrailSection[] {
   if (!Array.isArray(value)) return []
   return value
@@ -83,6 +99,7 @@ function sectionsArray(value: unknown): TrailSection[] {
     .map((item) => ({
       key: typeof item.key === 'string' ? item.key : '',
       title: typeof item.title === 'string' ? item.title : '',
+      notes: notesRecord(item.notes),
     }))
 }
 

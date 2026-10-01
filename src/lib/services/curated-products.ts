@@ -811,6 +811,133 @@ export async function getPublishedCuratedProductsForTrail(
   );
 }
 
+/**
+ * Groups raw trail-read rows into per-trail peeks: at most `perTrail` products
+ * per requested slug, ascending `position`, ties broken by product key. Every
+ * requested slug gets an entry (`[]` when nothing is placed); rows for other
+ * slugs are dropped. Rows are expanded per ACTIVE selection, so a product
+ * placed in two requested trails appears in both peeks — each copy carries
+ * that trail's own placement, not `toCuratedProduct`'s single winning one.
+ * Applies the same defensive eligibility checks as
+ * `getPublishedCuratedProductsForTrail`.
+ */
+export function groupTrailPeek(
+  rows: readonly unknown[],
+  slugs: readonly string[],
+  perTrail = 4,
+): Record<string, CuratedProduct[]> {
+  const requested = new Set(slugs);
+  const placed = new Map<string, CuratedProduct[]>(
+    slugs.map((slug) => [slug, []]),
+  );
+
+  for (const row of rows as TrailCuratedProductRow[]) {
+    if (
+      !row.brands?.slug ||
+      !row.brands.name ||
+      (row.brands.status !== undefined && row.brands.status !== "approved") ||
+      !row.visible ||
+      !row.official_url ||
+      !row.source_checked_at ||
+      !productSubcategory(row)
+    ) {
+      continue;
+    }
+
+    const activeSources = row.curated_product_sources ?? [];
+    if (
+      activeSources.length > 0 &&
+      !activeSources.some(
+        (source) => source.state === undefined || source.state === "active",
+      )
+    ) {
+      continue;
+    }
+
+    const product = toCuratedProduct(row);
+    for (const selection of row.curated_product_selections ?? []) {
+      if (
+        !requested.has(selection.trail_slug) ||
+        (selection.state !== undefined && selection.state !== "active")
+      ) {
+        continue;
+      }
+      placed.get(selection.trail_slug)?.push({
+        ...product,
+        trailSlug: selection.trail_slug,
+        sectionKey: selection.section_key,
+        position: selection.position,
+      });
+    }
+  }
+
+  return Object.fromEntries(
+    [...placed].map(([slug, products]) => [
+      slug,
+      products
+        .sort(
+          (a, b) =>
+            (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
+            a.key.localeCompare(b.key),
+        )
+        .slice(0, perTrail),
+    ]),
+  );
+}
+
+/**
+ * Batched peek for trail cards (homepage, /style hub): one query over every
+ * requested trail, the same eligibility gate as
+ * `getPublishedCuratedProductsForTrail`, grouped by `groupTrailPeek`. Throws on
+ * any error, schema lag included; callers own `captureReadFailure`.
+ */
+export async function getTrailPeekProducts(
+  slugs: string[],
+  perTrail = 4,
+  client?: CuratedProductSupabase,
+): Promise<Record<string, CuratedProduct[]>> {
+  if (slugs.length === 0) return {};
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "getTrailPeekProducts",
+      kind: "service",
+    },
+    async () => {
+      // Unpaged read, so PostgREST `max_rows = 1000` truncates it silently.
+      // Ceiling: ~1000 placed products across the requested trails. Upgrade
+      // path: range-paginate, or rank per trail in an RPC and return top N.
+      const runQuery = (select: string) =>
+        curatedProductClient(client)
+          .from("curated_products")
+          .select(select)
+          .in("curated_product_selections.trail_slug", [...slugs])
+          .eq("visible", true)
+          .not("official_url", "is", null)
+          .not("source_checked_at", "is", null)
+          .eq("curated_product_sources.state", "active")
+          .eq("curated_product_selections.state", "active")
+          .eq("brands.status", "approved");
+      let { data, error } = await runQuery(CURATED_PRODUCT_TRAIL_READ_SELECT);
+      if (error && isMissingSubcategoryColumn(error)) {
+        ({ data, error } = await runQuery(
+          LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT,
+        ));
+      }
+      if (error) {
+        if (isSchemaLag(error)) {
+          throw new CuratedProductSchemaLagError(
+            "curatedProducts.trailPeek",
+            error,
+          );
+        }
+        throw error;
+      }
+      return groupTrailPeek(data ?? [], slugs, perTrail);
+    },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Write path (DEV-1465)
 //

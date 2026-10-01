@@ -42,6 +42,10 @@ const L1_CATEGORIES = new Set(
   ),
 );
 
+const NOTE_KEY = /^[a-z0-9-]+\/[a-z0-9-]+$/;
+// Counted by code point so a CJK character is one, matching how a reader sees it.
+const NOTE_MAX_CHARS = 20;
+
 const failures = [];
 
 function isNonEmptyString(value) {
@@ -51,6 +55,34 @@ function isNonEmptyString(value) {
 function isDateLike(value) {
   if (value instanceof Date) return !Number.isNaN(value.getTime());
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value.trim());
+}
+
+/** `notes` is optional; when present it maps `brandSlug/productKey` to a short pick note. */
+function checkSectionNotes(file, index, notes) {
+  if (notes === undefined) return [];
+  if (typeof notes !== "object" || notes === null || Array.isArray(notes)) {
+    return [
+      `${file}: \`sections[${index}].notes\` must be an object keyed \`brandSlug/productKey\``,
+    ];
+  }
+  const noteFailures = [];
+  for (const [key, note] of Object.entries(notes)) {
+    if (!NOTE_KEY.test(key)) {
+      noteFailures.push(
+        `${file}: \`sections[${index}].notes\` key ${JSON.stringify(key)} must be shaped \`brandSlug/productKey\` (lowercase letters, digits, hyphens)`,
+      );
+    }
+    if (!isNonEmptyString(note)) {
+      noteFailures.push(
+        `${file}: \`sections[${index}].notes[${JSON.stringify(key)}]\` must be a non-empty string`,
+      );
+    } else if ([...note].length > NOTE_MAX_CHARS) {
+      noteFailures.push(
+        `${file}: \`sections[${index}].notes[${JSON.stringify(key)}]\` is ${[...note].length} characters; the limit is ${NOTE_MAX_CHARS}`,
+      );
+    }
+  }
+  return noteFailures;
 }
 
 function checkTrail(file, raw) {
@@ -143,6 +175,7 @@ function checkTrail(file, raw) {
           seenTitles.add(title);
         }
       }
+      fileFailures.push(...checkSectionNotes(file, index, section?.notes));
     });
   }
 

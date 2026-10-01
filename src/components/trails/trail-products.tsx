@@ -18,6 +18,8 @@ export type TrailProductsContextValue = {
   locale: AppLocale
   products: readonly TrailCuratedProduct[]
   labels: SelectedProductTileLabels
+  /** Pick notes per section key, each keyed `brandSlug/productKey` (D13). */
+  notes: Readonly<Record<string, Readonly<Record<string, string>>>>
 }
 
 const TrailProductsContext = createContext<TrailProductsContextValue | null>(null)
@@ -48,6 +50,7 @@ export function TrailProducts({ section }: { section: string }) {
 
   const products = context.products.filter((product) => product.sectionKey === section)
   if (products.length === 0) return null
+  const sectionNotes = context.notes[section] ?? {}
 
   return (
     <div className="mt-8 border-t border-rule pt-8">
@@ -62,6 +65,7 @@ export function TrailProducts({ section }: { section: string }) {
             brand={product.brand}
             brandSlug={product.brandSlug}
             brandName={product.brandName}
+            note={sectionNotes[`${product.brandSlug}/${product.key}`]}
             tracking={{
               brandSlug: product.brandSlug,
               position: index,

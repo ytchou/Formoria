@@ -13,7 +13,8 @@ const REVALIDATE_TIMEOUT_MS = 10_000
 const REVALIDATE_PATH = '/api/internal/revalidate-brands'
 
 /**
- * Mirrors MAX_SLUGS in app/api/internal/revalidate-brands/route.ts.
+ * Mirrors MAX_SLUGS in app/api/internal/revalidate-brands/route.ts, which caps
+ * `slugs` and `trailSlugs` separately.
  * Anything over the cap came back as http-400 "Too many slugs" and the write
  * landed with the public pages left stale — the failure only appears on the
  * large runs where revalidation matters most. Chunk here rather than in each
@@ -115,18 +116,33 @@ async function postRevalidation(
 
 /**
  * Asks the running site to revalidate the public ISR entries touched by a brand
- * write. Never throws — see postRevalidation.
+ * write. Pass `trailSlugs` after a trail placement change: the route then
+ * refreshes those trail pages plus the homepage and `/style` peeks. Brand and
+ * trail slugs go out as separate payloads so each chunks against its own cap.
+ * Never throws — see postRevalidation.
  */
 export async function requestPublicBrandRevalidation(
   slugs: string[],
+  options: { trailSlugs?: string[] } = {},
 ): Promise<RevalidationResult> {
   const uniqueSlugs = normalizeSlugs(slugs)
+  const uniqueTrailSlugs = normalizeSlugs(options.trailSlugs ?? [])
 
-  if (uniqueSlugs.length === 0) {
+  if (uniqueSlugs.length === 0 && uniqueTrailSlugs.length === 0) {
     return { ok: true, reason: 'no-slugs' }
   }
 
-  return postChunked(uniqueSlugs, (chunk) => ({ slugs: chunk }))
+  const results: RevalidationResult[] = []
+  if (uniqueSlugs.length > 0) {
+    results.push(await postChunked(uniqueSlugs, (chunk) => ({ slugs: chunk })))
+  }
+  if (uniqueTrailSlugs.length > 0) {
+    results.push(
+      await postChunked(uniqueTrailSlugs, (chunk) => ({ trailSlugs: chunk })),
+    )
+  }
+
+  return results.find((result) => !result.ok) ?? { ok: true }
 }
 
 /**
