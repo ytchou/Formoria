@@ -28,6 +28,13 @@ export const HEALTH_ACKNOWLEDGEMENTS: readonly HealthAcknowledgement[] = [
     ticket: "DEV-1903",
     until: "2026-12-31",
   },
+  {
+    match: "directory:trail-orphaned-selection:",
+    reason:
+      "Temporary (D11 release window): production placements are applied before the trail MDX is promoted, so for a few nights the production report sees selections for sections it does not know yet.",
+    ticket: "DEV-1903",
+    until: "2026-10-15",
+  },
 ];
 
 /**

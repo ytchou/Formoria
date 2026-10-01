@@ -2076,7 +2076,15 @@ describe('runHealthAgent — ticket_outcomes timeline event', () => {
 })
 
 describe('runHealthAgent — acknowledged known debt', () => {
-  // Covered by the shipped `directory:trail-empty-section:` acknowledgement.
+  // Injected, so these cases do not depend on the shipped acknowledgement list.
+  const ACKNOWLEDGEMENTS: RunHealthAgentDeps['acknowledgements'] = [
+    {
+      match: 'directory:trail-empty-section:',
+      reason: 'Test acknowledgement',
+      ticket: 'DEV-1903',
+      until: '2026-12-31',
+    },
+  ]
   const ACK_TICKET = finding('directory:trail-empty-section:autumn-kitchen:glassware', {
     title: 'Trail section has no products',
   })
@@ -2094,6 +2102,7 @@ describe('runHealthAgent — acknowledged known debt', () => {
       client: ledger.client,
       linearCreateTicket,
       triggerRepair,
+      acknowledgements: ACKNOWLEDGEMENTS,
     })
 
     await runHealthAgent(deps)
@@ -2127,6 +2136,7 @@ describe('runHealthAgent — acknowledged known debt', () => {
     const deps = timelineDeps(slack, [ACK_TICKET, ACK_AUTO_FIX, REPORT_ONLY], {
       client: ticketClient().client,
       triggerRepair: vi.fn(async () => {}),
+      acknowledgements: ACKNOWLEDGEMENTS,
     })
 
     await runHealthAgent(deps)
@@ -2145,6 +2155,7 @@ describe('runHealthAgent — acknowledged known debt', () => {
     await runHealthAgent(baseDeps({
       client: ledger.client,
       logicalDate: '2027-01-01',
+      acknowledgements: ACKNOWLEDGEMENTS,
       registryOverride: [
         makeDetector({
           name: 'brand-invariants',
