@@ -25,7 +25,10 @@
 
 import type { AuditContextSeed } from '@/lib/audit/context'
 import { routeOf, stableFingerprint, type HealthFinding } from './contracts'
-import { isAcknowledged } from '@/lib/constants/health-acknowledgements'
+import {
+  isAcknowledged,
+  type HealthAcknowledgement,
+} from '@/lib/constants/health-acknowledgements'
 import { HEALTH_TICKET_FOLLOW_UP_DAYS } from '@/lib/constants/health-detectors'
 import { truncatePlain } from '@/lib/adapters/slack/blocks'
 import type { Detector } from './types'
@@ -138,6 +141,9 @@ export type RunHealthAgentDeps = {
 
   /** Clock for the stale-ticket follow-up window. Defaults to `new Date()`. */
   now?: () => Date
+
+  /** Override the acknowledged-debt list for tests. Defaults to `HEALTH_ACKNOWLEDGEMENTS`. */
+  acknowledgements?: readonly HealthAcknowledgement[]
 }
 
 export type RunHealthAgentResult = {
@@ -630,7 +636,7 @@ async function executeRunBody(
   >()
   const routedFindings: HealthFinding[] = []
   for (const f of allFindings) {
-    const acknowledgement = isAcknowledged(f.fingerprint, logicalDate)
+    const acknowledgement = isAcknowledged(f.fingerprint, logicalDate, deps.acknowledgements)
     if (!acknowledgement) {
       routedFindings.push(f)
       continue

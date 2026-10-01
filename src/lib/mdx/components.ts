@@ -18,10 +18,16 @@ import { TrailProducts } from "@/components/trails/trail-products";
 import { cn } from "@/lib/utils";
 
 /**
- * One declared section of a trail, in authoring order. Only `title` is read —
- * it is what the markdown `##` heading resolves against.
+ * One declared section of a trail, in authoring order. The component map reads
+ * only `title` — it is what the markdown `##` heading resolves against. `notes`
+ * (one pick note per product, keyed `brandSlug/productKey`) is read by the
+ * trail page.
  */
-export type TrailSectionRef = { key: string; title: string };
+export type TrailSectionRef = {
+  key: string;
+  title: string;
+  notes?: Readonly<Record<string, string>>;
+};
 
 function visibleText(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);

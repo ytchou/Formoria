@@ -5,6 +5,8 @@ import { SurfaceImage } from "@/components/ui/image";
 import { Link } from "@/i18n/navigation";
 import { trackTrailCardClicked } from "@/lib/analytics";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
+import type { CuratedProduct } from "@/lib/services/curated-products";
+import { TRAIL_PEEK_SIZE } from "@/lib/services/curated-products.constants";
 import type { TrailEntry } from "@/lib/services/trails";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
@@ -16,22 +18,35 @@ export type TrailTileLabels = {
 
 /**
  * The 3:2 ratio follows the photograph while the height floor protects the
- * copy stack. A single-column band also has a ceiling so it cannot grow taller
- * than the viewport-scale section it belongs to.
+ * copy stack — on a ~320px phone 3:2 alone is ~213px and clips the copy, so the
+ * base floor is 224px. A single-column band also has a ceiling so it cannot
+ * grow taller than the viewport-scale section it belongs to.
+ *
+ * The optional peek sits BELOW the band, inside the same list item, and is
+ * decorative: the one card link already carries the trail's name.
  */
 export function TrailTile({
   trail,
   labels,
   position,
+  trailSurface,
+  peek,
+  headingLevel = "h3",
   singleColumn = false,
   className,
 }: {
   trail: TrailEntry;
   labels: TrailTileLabels;
   position: number;
+  /** Analytics surface reported with the click, e.g. `homepage_trails`. */
+  trailSurface: string;
+  peek?: CuratedProduct[];
+  headingLevel?: "h2" | "h3";
   singleColumn?: boolean;
   className?: string;
 }) {
+  const Heading = headingLevel;
+  const peekItems = (peek ?? []).slice(0, TRAIL_PEEK_SIZE);
   const title = trail.frontmatter.title;
   const promise =
     trail.frontmatter.promise ?? trail.frontmatter.description ?? "";
@@ -54,22 +69,17 @@ export function TrailTile({
   const titleId = `trail-${trail.slug}-title`;
 
   return (
-    <li
-      className={cn(
-        "relative aspect-[3/2] md:min-h-80 list-none overflow-hidden rounded-surface bg-ink text-ground",
-        singleColumn && "max-h-[35rem]",
-        className,
-      )}
-    >
+    <li className={cn("flex list-none flex-col gap-2", className)}>
       <Link
         href={routes.trail(trail.slug)}
         prefetch={false}
         aria-labelledby={titleId}
         data-ph-no-autocapture
-        onClick={() =>
-          trackTrailCardClicked(trail.slug, position, "homepage_trails")
-        }
-        className="group relative flex h-full md:min-h-80 flex-col justify-end overflow-hidden p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3 md:p-8"
+        onClick={() => trackTrailCardClicked(trail.slug, position, trailSurface)}
+        className={cn(
+          "group relative flex aspect-[3/2] min-h-56 flex-col justify-end overflow-hidden rounded-surface bg-ink p-5 text-ground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3 md:min-h-80 md:p-8",
+          singleColumn && "max-h-[35rem]",
+        )}
       >
         {imageSrc ? (
           <SurfaceImage
@@ -88,12 +98,12 @@ export function TrailTile({
           <span className="rounded-full border border-ground/30 bg-ink px-3 py-1 type-eyebrow text-ground">
             {labels.eyebrow}
           </span>
-          <h3
+          <Heading
             id={titleId}
             className="line-clamp-2 type-card-title text-ground md:type-section md:text-ground"
           >
             {title}
-          </h3>
+          </Heading>
           {promise ? (
             <span className="type-body text-on-ink line-clamp-3">
               {promise}
@@ -104,6 +114,31 @@ export function TrailTile({
           </span>
         </span>
       </Link>
+      {peekItems.length > 0 ? (
+        <ul aria-hidden="true" className="grid grid-cols-4 gap-2">
+          {peekItems.map((product) => {
+            const peekSrc = safeImageSrc(product.imageUrl);
+            return (
+              <li
+                key={product.id}
+                className="relative aspect-square overflow-hidden rounded-surface bg-surface-deep"
+              >
+                {peekSrc ? (
+                  <SurfaceImage
+                    src={peekSrc}
+                    alt=""
+                    fill
+                    // A quarter of a card cell: ~80px on a phone, ~110px in
+                    // the three-up grid.
+                    sizes="120px"
+                    className="object-cover"
+                  />
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </li>
   );
 }

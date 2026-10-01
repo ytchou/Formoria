@@ -28,6 +28,8 @@ describe('trail supply detector', () => {
       selectionsObserved: 0,
       emptySections: [],
       orphanedSelections: [],
+      unnotedPlacements: [],
+      orphanedNotes: [],
     }
 
     const detector = trailSupplyDetector({
@@ -79,6 +81,8 @@ describe('trail supply detector', () => {
           trailSlug: 'retired-trail',
         },
       ],
+      unnotedPlacements: [],
+      orphanedNotes: [],
     }
 
     const findings = evaluateTrailSupply(report)

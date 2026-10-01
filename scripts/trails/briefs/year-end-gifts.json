@@ -1,0 +1,8 @@
+{
+  "slug": "year-end-gifts",
+  "sections": [
+    { "key": "to-wear", "title": "戴在身上的", "query": "送禮用的飾品 戒指 耳環 項鍊 簡約", "subcategories": ["rings", "earrings", "necklaces", "bracelets-and-bangles"] },
+    { "key": "for-the-desk", "title": "放在桌上的", "query": "送禮的文具 筆記本 筆 書籤", "subcategories": ["journals-and-notebooks", "pens-and-writing", "bookmarks", "desk-organization"] },
+    { "key": "scent", "title": "帶來氣味的", "query": "香氛 蠟燭 手工皂 擴香 送禮", "subcategories": ["home-fragrance", "candles", "handmade-soap", "fragrance"] }
+  ]
+}

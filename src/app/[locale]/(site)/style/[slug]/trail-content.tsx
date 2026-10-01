@@ -30,8 +30,13 @@ export function TrailContent({
    */
   sections: readonly TrailSectionRef[];
 }) {
+  const notes = Object.fromEntries(
+    sections.map((section) => [section.key, section.notes ?? {}]),
+  );
   return (
-    <TrailProductsProvider value={{ trailSlug, locale, products, labels }}>
+    <TrailProductsProvider
+      value={{ trailSlug, locale, products, labels, notes }}
+    >
       {/*
         Every rule below reaches INTO the authored MDX, which is the only way to
         reach it: `<section id="…">` is explicit JSX and MDX never routes

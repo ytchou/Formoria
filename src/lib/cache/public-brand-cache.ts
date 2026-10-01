@@ -18,14 +18,14 @@ function revalidateLocalizedPath(path: string): void {
 }
 
 /**
- * Cache invalidation for one discovery trail. `/discover/[slug]` lives under the
- * `[locale]` segment, so a bare unprefixed path invalidates nothing.
+ * Cache invalidation for one discovery trail page. `/style/[slug]` lives under
+ * the `[locale]` segment, so a bare unprefixed path invalidates nothing.
  *
  * Lives here rather than in the two action files that call it: it was
  * byte-for-byte duplicated between `src/app/admin/actions.ts` and
  * `src/app/admin/curated-products/actions.ts`, and a trail is a public cached
  * surface like every other one this module owns. `revalidatePublicBrands`
- * deliberately does NOT reach `/discover/[slug]`, so a brand- or product-level
+ * deliberately does NOT reach `/style/[slug]`, so a brand- or product-level
  * write needs this as well, not instead.
  */
 export function revalidateTrail(trailSlug: string): void {
@@ -40,6 +40,21 @@ function uniqueSlugs(slugs: readonly string[]): string[] {
         .filter(Boolean),
     ),
   ]
+}
+
+/**
+ * Revalidates the trail pages plus the two surfaces that render trail peeks:
+ * the homepage 風格 section and the `/style` hub. Use this for any placement
+ * change; `revalidateTrail` alone leaves the peeks stale.
+ */
+export function revalidateTrailSurfaces(trailSlugs: readonly string[]): void {
+  const unique = uniqueSlugs(trailSlugs)
+  if (unique.length === 0) return
+
+  for (const slug of unique) revalidateTrail(slug)
+
+  revalidateLocalizedPath(routes.home())
+  revalidateLocalizedPath(routes.style())
 }
 
 /**

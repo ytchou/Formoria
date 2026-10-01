@@ -484,3 +484,80 @@ describe("SelectedProductTile", () => {
     expect(container.querySelectorAll("a").length).toBe(0);
   });
 });
+
+// D13/D14: a trail pick carries one short editorial note under its name.
+describe("SelectedProductTile trail note", () => {
+  const note = "無線的光";
+  const description = "Steady in the hand, made for small kitchens";
+
+  function renderTrailTile(
+    props: Partial<Parameters<typeof SelectedProductTile>[0]> = {},
+  ) {
+    return render(
+      <ul>
+        <SelectedProductTile
+          locale="en"
+          product={buildProduct()}
+          labels={labels}
+          mode="trail"
+          brand={brand}
+          brandSlug="kettle-co"
+          brandName="Kettle Co"
+          note={note}
+          {...props}
+        />
+      </ul>,
+    );
+  }
+
+  it("trail mode renders the note under the product name", () => {
+    const view = renderTrailTile();
+
+    const name = view.getByRole("heading", { name: "Pour-over kettle" });
+    const noteElement = view.getByText(note);
+    expect(
+      name.compareDocumentPosition(noteElement) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(noteElement.className).toContain("line-clamp-2");
+    view.unmount();
+  });
+
+  it("trail mode clamps description to 2 lines and hides it on mobile", () => {
+    const view = renderTrailTile();
+
+    const descriptionElement = view.getByText(description);
+    expect(descriptionElement.className).toContain("line-clamp-2");
+    expect(descriptionElement.className).toContain("hidden");
+    expect(descriptionElement.className).toContain("sm:block");
+    view.unmount();
+  });
+
+  it("trail mode shows the description at every width when there is no note", () => {
+    const view = renderTrailTile({ note: undefined });
+
+    const descriptionElement = view.getByText(description);
+    expect(descriptionElement.className).toContain("line-clamp-2");
+    expect(descriptionElement.className).not.toContain("hidden");
+    view.unmount();
+  });
+
+  it("non-trail modes ignore note", () => {
+    const wall = renderTrailTile({ mode: "wall", ratio: "4:3" });
+    expect(wall.container.textContent).not.toContain(note);
+    wall.unmount();
+
+    const outbound = renderTrailTile({ mode: "outbound" });
+    expect(outbound.container.textContent).not.toContain(note);
+    outbound.unmount();
+  });
+
+  it("brand line uses ink-muted, not accent", () => {
+    const view = renderTrailTile();
+
+    const brandLine = view.getByText("Kettle Co");
+    expect(brandLine.className).not.toContain("text-accent");
+    expect(brandLine.className).toContain("type-metadata");
+    view.unmount();
+  });
+});

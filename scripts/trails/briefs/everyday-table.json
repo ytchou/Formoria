@@ -1,0 +1,23 @@
+{
+  "slug": "everyday-table",
+  "sections": [
+    {
+      "key": "plates-and-bowls",
+      "title": "盤、碟與筷子",
+      "query": "日常用的盤子 碗 陶瓷餐具",
+      "subcategories": [
+        "tableware"
+      ]
+    },
+    {
+      "key": "cups",
+      "title": "每天拿起來的杯子",
+      "query": "每天用的杯子 馬克杯 茶杯 隨行杯",
+      "subcategories": [
+        "tumblers-and-bottles",
+        "tea-and-coffee-ware",
+        "tableware"
+      ]
+    }
+  ]
+}

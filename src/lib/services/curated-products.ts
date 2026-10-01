@@ -19,7 +19,10 @@ import {
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 import { isRegistryRecordActive } from "@/lib/services/curated-products/origin-qualification";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
-import { PREVIEW_THUMBNAIL_LIMIT } from "./curated-products.constants";
+import {
+  PREVIEW_THUMBNAIL_LIMIT,
+  TRAIL_PEEK_SIZE,
+} from "./curated-products.constants";
 import { isMissingColumn, MISSING_COLUMN_CODE } from "./_shared/missing-column";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
@@ -711,6 +714,88 @@ const LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT =
   );
 
 /**
+ * The defensive public-eligibility gate every trail read re-applies on top of
+ * the PostgREST filters: an approved brand with a slug and name, a visible
+ * product with an official URL and a checked source, at least one active
+ * provenance row, and a subcategory the taxonomy still knows.
+ */
+function isPublicTrailRow(row: TrailCuratedProductRow): boolean {
+  if (
+    !row.brands?.slug ||
+    !row.brands.name ||
+    (row.brands.status !== undefined && row.brands.status !== "approved") ||
+    !row.visible ||
+    !row.official_url ||
+    !row.source_checked_at
+  ) {
+    return false;
+  }
+
+  const activeSources = row.curated_product_sources ?? [];
+  if (
+    activeSources.length > 0 &&
+    !activeSources.some(
+      (source) => source.state === undefined || source.state === "active",
+    )
+  ) {
+    return false;
+  }
+
+  return Boolean(productSubcategory(row));
+}
+
+function isActiveSelection(selection: CuratedProductSelectionRow): boolean {
+  return selection.state === undefined || selection.state === "active";
+}
+
+/**
+ * The one public trail-placement query, scoped to one trail (`eq`) or several
+ * (`in`), with the legacy `subcategories` fallback.
+ *
+ * Schema lag THROWS here, exactly as the homepage read does. A trail page turns
+ * this result into its whole product body, and a trail card into its peek, so
+ * `[]` reads as "nothing is placed yet" — the zone silently vanishes from a
+ * cached render with a green build and nothing in Sentry. Callers wrap this in
+ * `captureReadFailure`, so a throw marks the render degraded instead.
+ */
+async function readPublicTrailRows(
+  trailSlugs: string | readonly string[],
+  schemaLagSurface: string,
+  client?: CuratedProductSupabase,
+): Promise<TrailCuratedProductRow[]> {
+  const runQuery = (select: string) => {
+    const query = curatedProductClient(client)
+      .from("curated_products")
+      .select(select)
+      .eq("visible", true)
+      .not("official_url", "is", null)
+      .not("source_checked_at", "is", null)
+      .eq("curated_product_sources.state", "active")
+      .eq("curated_product_selections.state", "active");
+    const scoped =
+      typeof trailSlugs === "string"
+        ? query.eq("curated_product_selections.trail_slug", trailSlugs)
+        : query.in("curated_product_selections.trail_slug", [...trailSlugs]);
+    return scoped.eq("brands.status", "approved");
+  };
+  let { data, error } = await runQuery(CURATED_PRODUCT_TRAIL_READ_SELECT);
+  if (error && isMissingSubcategoryColumn(error)) {
+    ({ data, error } = await runQuery(
+      LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT,
+    ));
+  }
+
+  if (error) {
+    if (isSchemaLag(error)) {
+      throw new CuratedProductSchemaLagError(schemaLagSurface, error);
+    }
+    throw error;
+  }
+
+  return (data ?? []) as unknown as TrailCuratedProductRow[];
+}
+
+/**
  * Resolves the public placements for one trail. Unlike the homepage rail this
  * deliberately keeps every product from a brand: a trail can use one brand in
  * several distinct roles. Each active selection becomes one card, and every
@@ -721,35 +806,11 @@ export async function getPublishedCuratedProductsForTrail(
   trailSlug: string,
   client?: CuratedProductSupabase,
 ): Promise<TrailCuratedProduct[]> {
-  const runQuery = (select: string) =>
-    curatedProductClient(client)
-      .from("curated_products")
-      .select(select)
-      .eq("visible", true)
-      .not("official_url", "is", null)
-      .not("source_checked_at", "is", null)
-      .eq("curated_product_sources.state", "active")
-      .eq("curated_product_selections.state", "active")
-      .eq("curated_product_selections.trail_slug", trailSlug)
-      .eq("brands.status", "approved");
-  let { data, error } = await runQuery(CURATED_PRODUCT_TRAIL_READ_SELECT);
-  if (error && isMissingSubcategoryColumn(error)) {
-    ({ data, error } = await runQuery(
-      LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT,
-    ));
-  }
-
-  if (error) {
-    // Schema lag THROWS here, exactly as the homepage read does. A trail page
-    // turns this result into its whole product body, so `[]` reads as "nothing
-    // is placed yet" — the zone silently vanishes from a cached render with a
-    // green build and nothing in Sentry. The caller wraps this in
-    // `captureReadFailure`, so a throw marks the render degraded instead.
-    if (isSchemaLag(error)) {
-      throw new CuratedProductSchemaLagError("curatedProducts.trail", error);
-    }
-    throw error;
-  }
+  const rows = await readPublicTrailRows(
+    trailSlug,
+    "curatedProducts.trail",
+    client,
+  );
 
   const trail = await getPublishedTrailBySlug(trailSlug).catch(() => null);
   const sectionOrder = new Map(
@@ -760,37 +821,12 @@ export async function getPublishedCuratedProductsForTrail(
   );
 
   const products: TrailCuratedProduct[] = [];
-  for (const rawRow of (data ?? []) as unknown as TrailCuratedProductRow[]) {
-    const row = rawRow;
-    if (
-      !row.brands?.slug ||
-      !row.brands.name ||
-      (row.brands.status !== undefined && row.brands.status !== "approved") ||
-      !row.visible ||
-      !row.official_url ||
-      !row.source_checked_at
-    ) {
-      continue;
-    }
-
-    const activeSources = row.curated_product_sources ?? [];
-    if (
-      activeSources.length > 0 &&
-      !activeSources.some(
-        (source) => source.state === undefined || source.state === "active",
-      )
-    ) {
-      continue;
-    }
-
-    const selections = (row.curated_product_selections ?? []).filter(
-      (selection) =>
-        selection.trail_slug === trailSlug &&
-        (selection.state === undefined || selection.state === "active"),
-    );
-    if (!productSubcategory(row)) continue;
-
-    for (const selection of selections) {
+  for (const row of rows) {
+    if (!isPublicTrailRow(row)) continue;
+    for (const selection of row.curated_product_selections ?? []) {
+      if (selection.trail_slug !== trailSlug || !isActiveSelection(selection)) {
+        continue;
+      }
       products.push(toTrailProduct(row, selection));
     }
   }
@@ -801,6 +837,120 @@ export async function getPublishedCuratedProductsForTrail(
         (sectionOrder.get(b.sectionKey ?? "") ?? UNPLACED) ||
       (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
       a.key.localeCompare(b.key),
+  );
+}
+
+/** One trail a peek is requested for, with its declared section keys in order. */
+export type TrailPeekRequest = {
+  slug: string;
+  sectionKeys: readonly string[];
+};
+
+/** The peek request for each trail entry: its slug and declared sections. */
+export function trailPeekRequests(
+  trails: readonly {
+    slug: string;
+    frontmatter: { sections: readonly { key: string }[] };
+  }[],
+): TrailPeekRequest[] {
+  return trails.map((trail) => ({
+    slug: trail.slug,
+    sectionKeys: trail.frontmatter.sections.map((section) => section.key),
+  }));
+}
+
+/**
+ * Groups raw trail-read rows into per-trail peeks: at most `perTrail` products
+ * per requested trail, in the order the trail page renders them — declared
+ * section order, then `position`, ties broken by product key. A placement in a
+ * section the trail does not declare is dropped, because the page never shows
+ * it. A product placed in two sections of one trail appears once (its first
+ * placement after ordering); a product placed in two requested trails appears
+ * in both peeks, each copy carrying that trail's own placement. Every requested
+ * slug gets an entry (`[]` when nothing is placed); rows for other slugs are
+ * dropped. Applies the same eligibility gate as
+ * `getPublishedCuratedProductsForTrail`.
+ */
+export function groupTrailPeek(
+  rows: readonly unknown[],
+  trails: readonly TrailPeekRequest[],
+  perTrail = TRAIL_PEEK_SIZE,
+): Record<string, CuratedProduct[]> {
+  const sectionOrder = new Map(
+    trails.map((trail) => [
+      trail.slug,
+      new Map(trail.sectionKeys.map((key, index) => [key, index])),
+    ]),
+  );
+  const placed = new Map<string, TrailCuratedProduct[]>(
+    trails.map((trail) => [trail.slug, []]),
+  );
+
+  for (const row of rows as TrailCuratedProductRow[]) {
+    if (!isPublicTrailRow(row)) continue;
+    for (const selection of row.curated_product_selections ?? []) {
+      if (
+        !isActiveSelection(selection) ||
+        !sectionOrder.get(selection.trail_slug)?.has(selection.section_key)
+      ) {
+        continue;
+      }
+      placed.get(selection.trail_slug)?.push(toTrailProduct(row, selection));
+    }
+  }
+
+  return Object.fromEntries(
+    [...placed].map(([slug, products]) => {
+      const sections = sectionOrder.get(slug);
+      const seen = new Set<string>();
+      const peek = products
+        .sort(
+          (a, b) =>
+            (sections?.get(a.sectionKey ?? "") ?? UNPLACED) -
+              (sections?.get(b.sectionKey ?? "") ?? UNPLACED) ||
+            (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
+            a.key.localeCompare(b.key),
+        )
+        .filter((product) => {
+          if (seen.has(product.id)) return false;
+          seen.add(product.id);
+          return true;
+        })
+        .slice(0, perTrail);
+      return [slug, peek];
+    }),
+  );
+}
+
+/**
+ * Batched peek for trail cards (homepage, /style hub): one query over every
+ * requested trail, the same eligibility gate as
+ * `getPublishedCuratedProductsForTrail`, grouped by `groupTrailPeek`. Throws on
+ * any error, schema lag included; callers own `captureReadFailure`.
+ */
+export async function getTrailPeekProducts(
+  trails: readonly TrailPeekRequest[],
+  perTrail = TRAIL_PEEK_SIZE,
+  client?: CuratedProductSupabase,
+): Promise<Record<string, CuratedProduct[]>> {
+  if (trails.length === 0) return {};
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "getTrailPeekProducts",
+      kind: "service",
+    },
+    async () => {
+      // Unpaged read, so PostgREST `max_rows = 1000` truncates it silently.
+      // Ceiling: ~1000 placed products across the requested trails. Upgrade
+      // path: range-paginate, or rank per trail in an RPC and return top N.
+      const rows = await readPublicTrailRows(
+        trails.map((trail) => trail.slug),
+        "curatedProducts.trailPeek",
+        client,
+      );
+      return groupTrailPeek(rows, trails, perTrail);
+    },
   );
 }
 

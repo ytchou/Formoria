@@ -12,12 +12,15 @@ import {
 } from '@/components/brands/selected-product-tile'
 import { Grid } from '@/components/ui/grid'
 import { routes } from '@/lib/routes'
+import { pickNoteKey } from '@/lib/trails/note-key'
 
 export type TrailProductsContextValue = {
   trailSlug: string
   locale: AppLocale
   products: readonly TrailCuratedProduct[]
   labels: SelectedProductTileLabels
+  /** Pick notes per section key, each keyed `brandSlug/productKey` (D13). */
+  notes: Readonly<Record<string, Readonly<Record<string, string>>>>
 }
 
 const TrailProductsContext = createContext<TrailProductsContextValue | null>(null)
@@ -48,6 +51,7 @@ export function TrailProducts({ section }: { section: string }) {
 
   const products = context.products.filter((product) => product.sectionKey === section)
   if (products.length === 0) return null
+  const sectionNotes = context.notes[section] ?? {}
 
   return (
     <div className="mt-8 border-t border-rule pt-8">
@@ -62,6 +66,7 @@ export function TrailProducts({ section }: { section: string }) {
             brand={product.brand}
             brandSlug={product.brandSlug}
             brandName={product.brandName}
+            note={sectionNotes[pickNoteKey(product.brandSlug, product.key)]}
             tracking={{
               brandSlug: product.brandSlug,
               position: index,

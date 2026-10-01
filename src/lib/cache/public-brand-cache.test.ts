@@ -11,6 +11,7 @@ import {
   PUBLIC_BRAND_DATA_TAG,
   revalidatePublicBrands,
   revalidatePublicStockists,
+  revalidateTrailSurfaces,
 } from "./public-brand-cache";
 
 const revalidatedPaths = () => revalidatePath.mock.calls;
@@ -84,6 +85,40 @@ describe("revalidatePublicStockists", () => {
     revalidatePublicStockists();
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
     expect(revalidateTag).toHaveBeenCalledTimes(1);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("revalidateTrailSurfaces", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("revalidates each trail path in every locale plus home and style hub", () => {
+    // A trail placement changes the trail page and the peeks on the homepage
+    // 風格 section and the /style hub, so all three surfaces must refresh.
+    revalidateTrailSurfaces(["x", "y"]);
+
+    expect(revalidatedPaths()).toEqual([
+      ["/style/x"],
+      ["/en/style/x"],
+      ["/style/y"],
+      ["/en/style/y"],
+      ["/"],
+      ["/en"],
+      ["/style"],
+      ["/en/style"],
+    ]);
+    expect(revalidatedPaths()).not.toContainEqual(["/zh-TW/style/x"]);
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates trail slugs and does nothing for an empty batch", () => {
+    revalidateTrailSurfaces(["x", " x ", ""]);
+    expect(
+      revalidatedPaths().filter(([path]) => path === "/style/x"),
+    ).toHaveLength(1);
+
+    vi.clearAllMocks();
+    revalidateTrailSurfaces([]);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

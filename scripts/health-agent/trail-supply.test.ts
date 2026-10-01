@@ -2,17 +2,24 @@ import { describe, expect, it } from "vitest";
 
 import type { TrailSupplyReport } from "@/lib/services/trail-supply-report";
 
-import { evaluateTrailSupply, trailSupplyArtifact } from "./trail-supply";
+import {
+  evaluateTrailSupply,
+  parseTrailSupplyReport,
+  trailSupplyArtifact,
+  UNOBSERVED_TRAIL_SUPPLY,
+} from "./trail-supply";
 
 const COLLECTED_AT = "2026-08-20T00:00:00.000Z";
 
 function report(overrides: Partial<TrailSupplyReport> = {}): TrailSupplyReport {
   return {
     emptySections: [],
+    orphanedNotes: [],
     orphanedSelections: [],
     readUnavailable: false,
     selectionsObserved: 0,
     trailsObserved: 0,
+    unnotedPlacements: [],
     ...overrides,
   };
 }
@@ -227,5 +234,113 @@ describe("trail supply decay detector", () => {
     expect(artifact.routine).toBe("trail-supply");
     expect(artifact.failures).toEqual([]);
     expect(artifact.collectedAt).toBe(COLLECTED_AT);
+  });
+
+  it("evaluateTrailSupply maps both kinds to findings with stable fingerprints and titles", () => {
+    const drift = report({
+      orphanedNotes: [
+        {
+          productKeys: ["chair-co/floor-cushion"],
+          sectionKey: "first",
+          trailSlug: "autumn-kitchen",
+        },
+      ],
+      trailsObserved: 1,
+      unnotedPlacements: [
+        {
+          productKeys: ["lamp-co/desk-lamp", "lamp-co/wall-lamp"],
+          sectionKey: "second",
+          trailSlug: "autumn-kitchen",
+        },
+      ],
+    });
+
+    const findings = evaluateTrailSupply(drift);
+
+    expect(findings.map((entry) => entry.fingerprint)).toEqual([
+      "directory:trail-orphaned-note:autumn-kitchen:first",
+      "directory:trail-unnoted-placement:autumn-kitchen:second",
+    ]);
+    expect(evaluateTrailSupply(drift).map((entry) => entry.fingerprint))
+      .toEqual(findings.map((entry) => entry.fingerprint));
+    expect(findings.map((entry) => entry.evidence)).toEqual([
+      {
+        productKeys: ["chair-co/floor-cushion"],
+        sectionKey: "first",
+        trailSlug: "autumn-kitchen",
+      },
+      {
+        productKeys: ["lamp-co/desk-lamp", "lamp-co/wall-lamp"],
+        sectionKey: "second",
+        trailSlug: "autumn-kitchen",
+      },
+    ]);
+    // Each kind is its own repair, so each carries its own rendered title.
+    const titles = findings.map((entry) => entry.title);
+    expect(new Set(titles).size).toBe(2);
+    expect(titles.at(0)).toContain("note");
+    expect(titles.at(1)).toContain("note");
+    for (const entry of findings) {
+      expect(entry.source).toBe("directory");
+      expect(entry.severity).toBe("low");
+      expect(entry.disposition).toBe("report_only");
+      expect(entry.mergePolicy).toBe("human");
+    }
+    // Dormant runs emit nothing, whatever drift the payload carries.
+    expect(evaluateTrailSupply({ ...drift, readUnavailable: true })).toEqual(
+      [],
+    );
+  });
+
+  it("parseTrailSupplyReport keeps unnotedPlacements and orphanedNotes", () => {
+    // A raw JSON body, as the collector receives it from the endpoint.
+    const raw: unknown = JSON.parse(
+      JSON.stringify({
+        readUnavailable: false,
+        trailsObserved: 1,
+        selectionsObserved: 3,
+        emptySections: [],
+        orphanedSelections: [],
+        unnotedPlacements: [
+          {
+            trailSlug: "autumn-kitchen",
+            sectionKey: "second",
+            productKeys: ["lamp-co/desk-lamp"],
+          },
+        ],
+        orphanedNotes: [
+          {
+            trailSlug: "autumn-kitchen",
+            sectionKey: "first",
+            productKeys: ["chair-co/floor-cushion"],
+          },
+        ],
+      }),
+    );
+
+    const parsed = parseTrailSupplyReport(raw);
+
+    expect(parsed.unnotedPlacements).toEqual([
+      {
+        productKeys: ["lamp-co/desk-lamp"],
+        sectionKey: "second",
+        trailSlug: "autumn-kitchen",
+      },
+    ]);
+    expect(parsed.orphanedNotes).toEqual([
+      {
+        productKeys: ["chair-co/floor-cushion"],
+        sectionKey: "first",
+        trailSlug: "autumn-kitchen",
+      },
+    ]);
+    expect(evaluateTrailSupply(parsed).map((entry) => entry.fingerprint))
+      .toEqual([
+        "directory:trail-orphaned-note:autumn-kitchen:first",
+        "directory:trail-unnoted-placement:autumn-kitchen:second",
+      ]);
+    // The unavailable-report default carries both fields too.
+    expect(UNOBSERVED_TRAIL_SUPPLY.unnotedPlacements).toEqual([]);
+    expect(UNOBSERVED_TRAIL_SUPPLY.orphanedNotes).toEqual([]);
   });
 });
