@@ -56,6 +56,24 @@ export type TrailSupplyOrphanedSelection = {
 };
 
 /**
+ * Note drift in one section of a published trail (DEV-1903). `productKeys` are
+ * `${brandSlug}/${productKey}`, the key the frontmatter `notes` record uses,
+ * sorted. Grouped per section for the same reason orphaned selections are: one
+ * section is one thing for a human to fix.
+ *
+ *   - `unnotedPlacements` — products placed in the section with no pick note;
+ *   - `orphanedNotes` — notes whose product has no active placement there.
+ *
+ * Both are REPORT ONLY. An unnoted product still renders; an orphaned note
+ * simply renders nowhere.
+ */
+export type TrailSupplyNoteDrift = {
+  trailSlug: string;
+  sectionKey: string;
+  productKeys: string[];
+};
+
+/**
  * The whole contract between this app and the nightly health-agent detector.
  *
  * `readUnavailable` is the load-bearing field: `true` means the run observed
@@ -77,10 +95,16 @@ export type TrailSupplyReport = {
   selectionsObserved: number;
   emptySections: TrailSupplyEmptySection[];
   orphanedSelections: TrailSupplyOrphanedSelection[];
+  unnotedPlacements: TrailSupplyNoteDrift[];
+  orphanedNotes: TrailSupplyNoteDrift[];
 };
 
 /** The narrowest shape of a trail this report reads. */
-type TrailSupplySection = { key: string; title?: string };
+type TrailSupplySection = {
+  key: string;
+  title?: string;
+  notes?: Readonly<Record<string, string>>;
+};
 
 type TrailSupplyTrail = {
   slug: string;
@@ -92,7 +116,11 @@ type TrailSupplyTrailList =
   | { ok: false };
 
 /** The narrowest shape of a placed product this report reads. */
-type TrailSupplyPlacement = { sectionKey?: string | null };
+type TrailSupplyPlacement = {
+  sectionKey?: string | null;
+  brandSlug: string;
+  key: string;
+};
 
 /**
  * The three reads, injectable so both this service's tests and the cron route's
@@ -218,6 +246,8 @@ function unavailableReport(): TrailSupplyReport {
     selectionsObserved: 0,
     emptySections: [],
     orphanedSelections: [],
+    unnotedPlacements: [],
+    orphanedNotes: [],
   };
 }
 
@@ -254,6 +284,54 @@ function sectionTitle(
     if (section.key === sectionKey) return section.title ?? sectionKey;
   }
   return sectionKey;
+}
+
+/**
+ * Diffs each declared section's `notes` against the products placed in it.
+ *
+ * Only DECLARED sections are examined: a placement in an undeclared section is
+ * already an orphaned selection, and reporting it again as unnoted would file
+ * the same breakage twice. A section with no `notes` reads as `{}`.
+ */
+function noteDrift(
+  trailSlug: string,
+  sections: readonly TrailSupplySection[],
+  placements: readonly TrailSupplyPlacement[],
+): { unnoted: TrailSupplyNoteDrift[]; orphaned: TrailSupplyNoteDrift[] } {
+  const placedBySection = new Map<string, Set<string>>();
+  for (const placement of placements) {
+    if (!placement.sectionKey) continue;
+    const placed = placedBySection.get(placement.sectionKey) ?? new Set();
+    placed.add(`${placement.brandSlug}/${placement.key}`);
+    placedBySection.set(placement.sectionKey, placed);
+  }
+
+  const unnoted: TrailSupplyNoteDrift[] = [];
+  const orphaned: TrailSupplyNoteDrift[] = [];
+  for (const section of sections) {
+    const noted = new Set(Object.keys(section.notes ?? {}));
+    const placed = placedBySection.get(section.key) ?? new Set<string>();
+
+    const unnotedKeys = [...placed].filter((key) => !noted.has(key)).sort();
+    if (unnotedKeys.length > 0) {
+      unnoted.push({
+        trailSlug,
+        sectionKey: section.key,
+        productKeys: unnotedKeys,
+      });
+    }
+
+    const orphanedKeys = [...noted].filter((key) => !placed.has(key)).sort();
+    if (orphanedKeys.length > 0) {
+      orphaned.push({
+        trailSlug,
+        sectionKey: section.key,
+        productKeys: orphanedKeys,
+      });
+    }
+  }
+
+  return { unnoted, orphaned };
 }
 
 /**
@@ -325,6 +403,8 @@ export async function loadTrailSupplyReport(): Promise<TrailSupplyReport> {
   }
 
   const emptySections: TrailSupplyEmptySection[] = [];
+  const unnotedPlacements: TrailSupplyNoteDrift[] = [];
+  const orphanedNotes: TrailSupplyNoteDrift[] = [];
   // Counts what the pass EXAMINED, which is what `trailsObserved` reports.
   let publishedExamined = 0;
   for (const entry of trails.trails) {
@@ -366,6 +446,11 @@ export async function loadTrailSupplyReport(): Promise<TrailSupplyReport> {
         sectionTitle: sectionTitle(entry.frontmatter.sections, sectionKey),
       });
     }
+
+    // Drafts never reach this line, so their notes are never examined either.
+    const drift = noteDrift(entry.slug, entry.frontmatter.sections, placements);
+    unnotedPlacements.push(...drift.unnoted);
+    orphanedNotes.push(...drift.orphaned);
   }
 
   let selections: ActiveSelectionRow[];
@@ -418,5 +503,7 @@ export async function loadTrailSupplyReport(): Promise<TrailSupplyReport> {
         a.trailSlug.localeCompare(b.trailSlug) ||
         a.sectionKey.localeCompare(b.sectionKey),
     ),
+    unnotedPlacements,
+    orphanedNotes,
   };
 }

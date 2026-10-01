@@ -6,7 +6,7 @@
  * target: staging-default
  * safety: read-only
  * owner: engineering
- * notes: Reads scripts/trails/briefs/<slug>.json. Ranking is the retrieval (RRF) position only; LTR is forced off. Writes only under --out.
+ * notes: Reads scripts/trails/briefs/<slug>.json. Ranking is the retrieval (RRF) position only; LTR is forced off. Writes only under --out. Sibling scripts/trails/apply-picks.ts applies the reviewed picks.json (writes placements, or MDX notes with --mdx-only; --dry-run supported).
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";

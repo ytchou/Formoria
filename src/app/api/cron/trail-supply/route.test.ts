@@ -74,12 +74,20 @@ describe("GET /api/cron/trail-supply", () => {
             slug: "small-space-reading-corner",
             frontmatter: {
               draft: false,
-              sections: [{ key: "first", title: "先讓光進來" }],
+              sections: [
+                {
+                  key: "first",
+                  title: "先讓光進來",
+                  notes: { "lamp-co/desk-lamp": "光線柔和" },
+                },
+              ],
             },
           },
         ],
       }),
-      readTrailPlacements: async () => [{ sectionKey: "first" }],
+      readTrailPlacements: async () => [
+        { sectionKey: "first", brandSlug: "lamp-co", key: "desk-lamp" },
+      ],
       selectionsClient: noSelections(),
     });
 
@@ -97,6 +105,9 @@ describe("GET /api/cron/trail-supply", () => {
       selectionsObserved: 0,
       emptySections: [],
       orphanedSelections: [],
+      // Additive fields only: every key above is unchanged.
+      unnotedPlacements: [],
+      orphanedNotes: [],
     });
   });
 
@@ -117,6 +128,9 @@ describe("GET /api/cron/trail-supply", () => {
       selectionsObserved: 0,
       emptySections: [],
       orphanedSelections: [],
+      // Additive fields only: every key above is unchanged.
+      unnotedPlacements: [],
+      orphanedNotes: [],
     });
   });
 });

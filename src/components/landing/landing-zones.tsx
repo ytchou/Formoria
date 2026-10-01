@@ -2,21 +2,26 @@ import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { CuratedProductGrid } from "@/components/landing/curated-product-grid";
-import TrailCarousel from "@/components/landing/trail-carousel";
+import { TrailTile } from "@/components/landing/trail-tile";
 import { StoryCard } from "@/components/landing/story-card";
 import BrandStrip from "@/components/landing/brand-strip";
 import MissionCloser from "@/components/landing/mission-closer";
 import { SectionHeader } from "@/components/shared/section-header";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import { Grid } from "@/components/ui/grid";
+import { Grid, gridStyles } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import { displayBrandCount } from "@/lib/brands/display-brand-count";
 import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
+import type { CuratedProduct } from "@/lib/services/curated-products";
 import type { StoryEntry } from "@/lib/services/stories";
 import type { TrailEntry } from "@/lib/services/trails";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
+
+/** Trails the md-and-up grid shows; the snap row below md shows every trail. */
+const DESKTOP_TRAIL_LIMIT = 3;
 
 export type LandingZonesProps = {
   locale: Locale;
@@ -32,6 +37,8 @@ export type LandingZonesProps = {
   wall: { groups: GroupedWallSlots } | null;
   /** Every indexable trail rendered in the dedicated editorial zone. */
   trails: TrailEntry[];
+  /** Up to four placed products per trail slug, shown under each card. */
+  trailPeeks: Record<string, CuratedProduct[]>;
   stories: StoryEntry[];
   brands: PublicBrandCard[];
   /** Directory-wide brand count, surfaced in BrandStrip and MissionCloser. */
@@ -68,6 +75,7 @@ export async function LandingZones({
   close,
   wall,
   trails,
+  trailPeeks,
   stories,
   brands,
   totalBrandCount,
@@ -115,17 +123,39 @@ export async function LandingZones({
                 linkHref={routes.style()}
                 linkLabel={t("trails.linkText")}
               />
-              <div className="mt-8">
-                <TrailCarousel
-                  trails={trails}
-                  labels={{
-                    eyebrow: t("trails.eyebrow"),
-                    cta: t("trails.cta"),
-                    prev: t("trails.prev"),
-                    next: t("trails.next"),
-                  }}
-                />
-              </div>
+              {/* ONE list serves both breakpoints, so each trail is one card
+                  and one link in the DOM. Below md it is a native snap-scroll
+                  row of every trail; from md up it becomes the three-up grid
+                  and cards past the third leave the layout (and the tab
+                  order) via `md:hidden`. The row's overflow would clip the
+                  cards' 5px focus ring (2px ring + 3px offset), so below md
+                  it carries 6px of padding inside a matching negative margin
+                  and 6px less top margin, which keeps the 32px stack. */}
+              <ul
+                className={cn(
+                  gridStyles({ cols: "triptych" }),
+                  "-mx-1.5 mt-6.5 flex snap-x snap-mandatory overflow-x-auto p-1.5 md:mx-0 md:mt-8 md:grid md:snap-none md:overflow-visible md:p-0",
+                )}
+              >
+                {trails.map((trail, index) => (
+                  <TrailTile
+                    key={trail.slug}
+                    trail={trail}
+                    position={index}
+                    trailSurface="homepage_trails"
+                    headingLevel="h3"
+                    peek={trailPeeks[trail.slug]}
+                    labels={{
+                      eyebrow: t("trails.eyebrow"),
+                      cta: t("trails.cta"),
+                    }}
+                    className={cn(
+                      "shrink-0 basis-[85%] snap-start scroll-mx-1.5 md:basis-auto",
+                      index >= DESKTOP_TRAIL_LIMIT && "md:hidden",
+                    )}
+                  />
+                ))}
+              </ul>
             </PageShell>
           </section>
         ) : null}

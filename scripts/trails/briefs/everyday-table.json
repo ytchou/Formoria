@@ -1,0 +1,8 @@
+{
+  "slug": "everyday-table",
+  "sections": [
+    { "key": "plates-and-bowls", "title": "盤與碗", "query": "日常用的盤子 碗 陶瓷餐具", "subcategories": ["tableware"] },
+    { "key": "cups", "title": "杯", "query": "每天用的杯子 馬克杯 茶杯 隨行杯", "subcategories": ["tumblers-and-bottles", "tea-and-coffee-ware", "tableware"] },
+    { "key": "table-linen", "title": "桌上的布", "query": "餐墊 桌巾 擦手巾 茶巾 布料", "subcategories": ["towels", "home-textiles"] }
+  ]
+}

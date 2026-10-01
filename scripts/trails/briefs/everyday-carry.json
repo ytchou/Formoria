@@ -1,0 +1,8 @@
+{
+  "slug": "everyday-carry",
+  "sections": [
+    { "key": "the-bag", "title": "包本身", "query": "每天出門背的包 斜背包 後背包 托特包", "subcategories": ["crossbody-bags", "backpacks", "tote-bags"] },
+    { "key": "inside-the-bag", "title": "包裡的小東西", "query": "收納包 卡夾 皮夾 零錢包", "subcategories": ["storage-pouches", "card-holders", "wallets", "coin-purses"] },
+    { "key": "on-the-outside", "title": "掛在外面的", "query": "鑰匙圈 吊飾 手機背帶 雨傘", "subcategories": ["keychains", "charms", "phone-straps", "umbrellas"] }
+  ]
+}

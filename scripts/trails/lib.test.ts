@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   dedupeByBrandPerSection,
   isTrailEligibleProduct,
+  planPlacements,
+  rewriteTrailNotes,
   toPicksJson,
+  validatePicks,
   type ShortlistCandidate,
   type TrailEligibilityRow,
 } from "./lib";
@@ -100,5 +103,135 @@ describe("isTrailEligibleProduct", () => {
     ["no source rows", { curated_product_sources: [] }],
   ] as const)("rejects a product with %s", (_label, overrides) => {
     expect(isTrailEligibleProduct({ ...eligible, ...overrides })).toBe(false);
+  });
+});
+
+describe("planPlacements", () => {
+  it("retires a swapped-out product before upserting its same-brand replacement", () => {
+    const plan = planPlacements(
+      [
+        { productId: "kiln-old", sectionKey: "light", position: 0 },
+        { productId: "niizo-a", sectionKey: "light", position: 1 },
+      ],
+      {
+        light: [
+          { brandSlug: "kiln", productKey: "new", note: "暖光", productId: "kiln-new" },
+          { brandSlug: "niizo", productKey: "a", note: "小巧", productId: "niizo-a" },
+        ],
+      },
+    );
+
+    expect(plan.retire).toEqual([{ productId: "kiln-old", sectionKey: "light" }]);
+    expect(plan.upsert.map((row) => row.productId)).toEqual(["kiln-new", "niizo-a"]);
+  });
+
+  it("assigns position by pick order within each section", () => {
+    const plan = planPlacements([], {
+      light: [
+        { brandSlug: "kiln", productKey: "a", note: "一", productId: "p1" },
+        { brandSlug: "niizo", productKey: "b", note: "二", productId: "p2" },
+      ],
+      table: [{ brandSlug: "kiln", productKey: "c", note: "三", productId: "p3" }],
+    });
+
+    expect(
+      plan.upsert.map((row) => [row.sectionKey, row.productId, row.position]),
+    ).toEqual([
+      ["light", "p1", 0],
+      ["light", "p2", 1],
+      ["table", "p3", 0],
+    ]);
+    expect(plan.retire).toEqual([]);
+  });
+});
+
+describe("validatePicks", () => {
+  const pick = (brandSlug: string, productKey: string, note = "好用") => ({
+    brandSlug,
+    productKey,
+    note,
+  });
+
+  it("rejects duplicate brands in one section, unknown section keys, and notes over 20 chars", () => {
+    expect(() =>
+      validatePicks(
+        { trail: "t", sections: { light: [pick("kiln", "a"), pick("kiln", "b")] } },
+        ["light"],
+      ),
+    ).toThrow(/kiln/);
+    expect(() =>
+      validatePicks({ trail: "t", sections: { nope: [pick("kiln", "a")] } }, ["light"]),
+    ).toThrow(/nope/);
+    expect(() =>
+      validatePicks(
+        { trail: "t", sections: { light: [pick("kiln", "a", "字".repeat(21))] } },
+        ["light"],
+      ),
+    ).toThrow(/20/);
+    expect(() =>
+      validatePicks({ trail: "t", sections: { light: [pick("kiln", "a", "  ")] } }, [
+        "light",
+      ]),
+    ).toThrow(/note/);
+  });
+
+  it("accepts the same brand in two different sections", () => {
+    const picks = validatePicks(
+      {
+        trail: "t",
+        sections: {
+          light: [pick("kiln", "a", "字".repeat(20))],
+          table: [pick("kiln", "b")],
+        },
+      },
+      ["light", "table"],
+    );
+
+    expect(Object.keys(picks.sections)).toEqual(["light", "table"]);
+  });
+});
+
+describe("rewriteTrailNotes", () => {
+  const source = [
+    "---",
+    "title: 標題",
+    "publishedAt: 2026-08-25",
+    "sections:",
+    "  - key: light",
+    "    title: 光",
+    "    notes:",
+    "      old/gone: 舊的",
+    "  - key: table",
+    "    title: 桌",
+    "exclusions: 無",
+    "---",
+    "",
+    "Body stays  exactly.\n",
+  ].join("\n");
+
+  it("replaces only the notes blocks and keeps every other byte", () => {
+    const result = rewriteTrailNotes(source, {
+      light: {},
+      table: { "kiln/a": "暖光: 小巧" },
+    });
+
+    expect(result).toBe(
+      [
+        "---",
+        "title: 標題",
+        "publishedAt: 2026-08-25",
+        "sections:",
+        "  - key: light",
+        "    title: 光",
+        "  - key: table",
+        "    title: 桌",
+        "    notes:",
+        '      "kiln/a": "暖光: 小巧"',
+        "exclusions: 無",
+        "---",
+        "",
+        "Body stays  exactly.\n",
+      ].join("\n"),
+    );
   });
 });
