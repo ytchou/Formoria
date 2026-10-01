@@ -1,0 +1,71 @@
+{
+  "trail": "everyday-carry",
+  "sections": {
+    "the-bag": [
+      {
+        "brandSlug": "yi-fan-canvas-bags",
+        "productKey": "tou-hui-hu-hsing-chien-pei-to-te-pao",
+        "note": "上漿防水帆布，可手提或肩背"
+      },
+      {
+        "brandSlug": "satana",
+        "productKey": "ta-jung-liang-hou-pei-pao-soldier-17l",
+        "note": "17L防潑水尼龍日用後背包"
+      },
+      {
+        "brandSlug": "bangstree",
+        "productKey": "bangs-chien-pei-shu-kou-san-yung-pao",
+        "note": "束口三用包，內有四格分隔"
+      },
+      {
+        "brandSlug": "soar-and-arrow",
+        "productKey": "tzu-hsi-kou-to-te-pao-l6puy5um",
+        "note": "磁吸扣開合，可放13吋筆電"
+      }
+    ],
+    "inside-the-bag": [
+      {
+        "brandSlug": "studio-smoll",
+        "productKey": "envelope-chiao-che-tuan-chia",
+        "note": "一片植鞣皮革摺成，不用膠線"
+      },
+      {
+        "brandSlug": "venturezac",
+        "productKey": "l-hsing-la-lien-ling-chien-pao",
+        "note": "植鞣牛革L型拉鍊零錢包"
+      },
+      {
+        "brandSlug": "yamamoto-leather",
+        "productKey": "chiang-hsi-lieh-mi-ni-kou-chin-tuan-chia",
+        "note": "鈔票零錢與卡片收進一只口金"
+      },
+      {
+        "brandSlug": "gamakuchi",
+        "productKey": "ti-hua-che-tieh-kou-chin-pao-hsing-tsan-chih-ying",
+        "note": "緹花織物的摺疊口金包"
+      }
+    ],
+    "on-the-outside": [
+      {
+        "brandSlug": "journey-of-sole",
+        "productKey": "pi-ko-shou-chi-kua-sheng",
+        "note": "小牛皮手機掛繩，扣件可旋轉"
+      },
+      {
+        "brandSlug": "loginheart",
+        "productKey": "shih-erh-hsing-tso-chen-pi-shen-so-kou-vzcf8xsn",
+        "note": "可伸縮30公分的皮革扣環"
+      },
+      {
+        "brandSlug": "tcf",
+        "productKey": "an-chuan-tzu-tung-shun-shou-san-u012",
+        "note": "297g自動開收傘"
+      },
+      {
+        "brandSlug": "dnd-city-beauty",
+        "productKey": "shuang-mien-tzu-hsiu-yueh-chih-chuan-shuang-chi-sha-as4wmxb2",
+        "note": "雙面刺繡的雙髻鯊鑰匙圈"
+      }
+    ]
+  }
+}

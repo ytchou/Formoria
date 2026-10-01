@@ -1,0 +1,71 @@
+{
+  "trail": "year-end-gifts",
+  "sections": {
+    "to-wear": [
+      {
+        "brandSlug": "studio-bubee",
+        "productKey": "shuang-hui-hsuan-erh-kou",
+        "note": "925銀耳扣，也可當戒指戴"
+      },
+      {
+        "brandSlug": "dazzle-jewelry",
+        "productKey": "chiao-tieh-shuang-huan-kai-fang-chieh-chih-chen-chu-14kgf",
+        "note": "淡水珍珠開放戒，可微調戒圍"
+      },
+      {
+        "brandSlug": "seeseamylove",
+        "productKey": "shou-mo-pai-yu-sui-pien-chih-hsiang-lien-qjvtwfvy",
+        "note": "東海岸玉石手磨，蠟線編織"
+      },
+      {
+        "brandSlug": "moonlight",
+        "productKey": "wei-tu-chieh",
+        "note": "999純銀戒，可在戒面刻字"
+      }
+    ],
+    "for-the-desk": [
+      {
+        "brandSlug": "tsnowstationery-design-studio",
+        "productKey": "hsiao-chih-chiao-shu-chien-ching-lo-q2wz7ii6",
+        "note": "夾住書頁的直角黃銅書籤"
+      },
+      {
+        "brandSlug": "wenwenworks",
+        "productKey": "ti-she-chin-erh-ho-yi-kang-pi-kang-chu-pi-li-ho",
+        "note": "鋼筆與鋼珠筆一盒，附皮筆套"
+      },
+      {
+        "brandSlug": "iwi",
+        "productKey": "handscript-yung-heng-pan-kang-chu-pi-bdx4m8ht",
+        "note": "十二邊形鋁合金筆身鋼珠筆"
+      },
+      {
+        "brandSlug": "mr-eggplants",
+        "productKey": "summer-breeze-chi-ssu-shou-chang",
+        "note": "A5一週二頁手帳，可攤平"
+      }
+    ],
+    "scent": [
+      {
+        "brandSlug": "miher",
+        "productKey": "shou-kung-shui-ni-pen-hsiang-fen-la-chu",
+        "note": "水泥盆器裝的大豆蠟蠟燭"
+      },
+      {
+        "brandSlug": "verde",
+        "productKey": "she-wen-shih-yuan-shih-hsien-hsiang-tso",
+        "note": "花蓮蛇紋石原石做的線香座"
+      },
+      {
+        "brandSlug": "feelgood-toothbrush",
+        "productKey": "chu-lei-tiao-kuo-hsiang-pien",
+        "note": "滴入精油使用的桂竹擴香片"
+      },
+      {
+        "brandSlug": "fu-yu-pao",
+        "productKey": "tiao-hua-shou-kung-tsao-li-ho",
+        "note": "雕花手工皂，以禮盒包裝"
+      }
+    ]
+  }
+}
