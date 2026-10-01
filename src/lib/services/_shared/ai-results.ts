@@ -43,9 +43,23 @@ const PHASE_CHECK_MIGRATION =
 const COST_COLUMNS_MIGRATION =
   "supabase/migrations/20260803023000_llm_cost_tracking.sql";
 
+const REQUEST_COLUMN_MIGRATION =
+  "supabase/migrations/20261001100000_brand_ai_results_request.sql";
+const MISSING_COLUMN_CODE = "42703";
+const POSTGREST_MISSING_COLUMN_CODE = "PGRST204";
+
 // One shot per process. This fires on EVERY audit write once the schema is
 // behind, and a per-row log would bury the line it is trying to make unmissable.
 let schemaMismatchReported = false;
+// Separate latch: a missing `request` column degrades replay logging only, and
+// must not swallow a later cost-column or phase-CHECK alert.
+let requestColumnMissingReported = false;
+
+/** @internal Test-only — re-arm the one-shot schema alerts. */
+export function _resetSchemaAlertLatches(): void {
+  schemaMismatchReported = false;
+  requestColumnMissingReported = false;
+}
 
 type AuditInsertError = { code?: string; message: string };
 
@@ -111,6 +125,31 @@ function reportInsertError(
   });
 }
 
+/**
+ * True when the insert failed only because the database predates the
+ * `request` column. PostgREST reports it as PGRST204 (schema cache) and
+ * Postgres as 42703; both name the column, which separates it from the cost
+ * columns that share 42703.
+ */
+function isMissingRequestColumn(error: AuditInsertError): boolean {
+  return (
+    (error.code === MISSING_COLUMN_CODE ||
+      error.code === POSTGREST_MISSING_COLUMN_CODE) &&
+    /\brequest\b/u.test(error.message)
+  );
+}
+
+function reportMissingRequestColumn(phase: string): void {
+  if (requestColumnMissingReported) return;
+  requestColumnMissingReported = true;
+  const message =
+    `[AI-RESULTS] brand_ai_results has no request column — apply ` +
+    `${REQUEST_COLUMN_MIGRATION} (supabase db push --linked --include-all). ` +
+    `Audit and cost rows still insert, but replay logging is off until it is applied.`;
+  console.error(message);
+  captureAlert(message, { level: "warning", context: { phase } });
+}
+
 export type AiCallInput = {
   target: EnrichmentTarget;
   phase: string;
@@ -123,6 +162,8 @@ export type AiCallInput = {
   config?: unknown;
   latencyMs: number;
   auditSpanId?: string;
+  /** The full logical request, for replay. Stored unredacted; null when absent. */
+  request?: unknown;
   supabase?: SupabaseClient<Database>;
 };
 
@@ -168,27 +209,37 @@ export async function insertAiCallResult(input: AiCallInput): Promise<void> {
       cached_prompt_tokens: cost?.cachedPromptTokens ?? null,
       completion_tokens: cost?.completionTokens ?? null,
       cost_usd: cost?.costUsd ?? null,
+      request: input.request ?? null,
     };
-    const error = await retryAuditWrite(async () => {
-      try {
-        const { error: insertError } = await supabase
-          .from("brand_ai_results")
-          .insert(row as never);
-        return insertError
-          ? {
-              ...(insertError.code ? { code: insertError.code } : {}),
-              message: insertError.message,
-            }
-          : null;
-      } catch (writeError) {
-        return {
-          message:
-            writeError instanceof Error
-              ? writeError.message
-              : String(writeError),
-        };
-      }
-    });
+    const insertRow = (candidate: object) =>
+      retryAuditWrite(async () => {
+        try {
+          const { error: insertError } = await supabase
+            .from("brand_ai_results")
+            .insert(candidate as never);
+          return insertError
+            ? {
+                ...(insertError.code ? { code: insertError.code } : {}),
+                message: insertError.message,
+              }
+            : null;
+        } catch (writeError) {
+          return {
+            message:
+              writeError instanceof Error
+                ? writeError.message
+                : String(writeError),
+          };
+        }
+      });
+    let error = await insertRow(row);
+    if (error && isMissingRequestColumn(error)) {
+      // re-insert costs one extra round-trip per row until the migration lands;
+      // remove once production has the column for a release
+      reportMissingRequestColumn(input.phase);
+      const { request: _request, ...rowWithoutRequest } = row;
+      error = await insertRow(rowWithoutRequest);
+    }
     if (error) reportInsertError(error, input.phase);
   } catch (error) {
     console.error(

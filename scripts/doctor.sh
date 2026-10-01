@@ -321,7 +321,7 @@ check_ai_results_phase() {
 # swallows insert errors, so a missing column silently drops audit rows — the
 # same "code ahead of schema" failure as the phase CHECK above. Read-only probe.
 REQUEST_COLUMN_MIGRATION="supabase/migrations/20261001100000_brand_ai_results_request.sql"
-REQUEST_COLUMN_REMEDIATION="apply ${REQUEST_COLUMN_MIGRATION} with pnpm db:migrate — otherwise audit rows carrying a request payload are dropped"
+REQUEST_COLUMN_REMEDIATION="apply ${REQUEST_COLUMN_MIGRATION} with pnpm db:migrate — until then audit rows insert without the request and replay logging is off"
 
 check_ai_results_request_column() {
   local url

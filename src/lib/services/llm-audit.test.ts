@@ -319,6 +319,37 @@ describe("Langfuse generation integration", () => {
         }),
       }),
     );
+    // Langfuse generation input is the full request.
+    expect(inserts[0]?.request).toEqual({ v: 1, system: "s", user: "u" });
+    expect(mockGeneration.mock.calls[0]![0].input).toEqual(inserts[0]?.request);
+  });
+
+  it("Langfuse input above the cap is cut visibly", async () => {
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+    const inserts: InsertedRow[] = [];
+    const hugeUser = "u".repeat(1_000_001);
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      const client = createAuditedOpenAIClient(
+        { target, phase: "descriptions", supabase: fakeSupabase(inserts) },
+        { apiKey: "k" },
+      );
+      return client.chat({ system: "s", user: hugeUser });
+    });
+
+    expect(mockGeneration).toHaveBeenCalledOnce();
+    const body = mockGeneration.mock.calls[0]![0];
+    expect(body.input).toEqual({ system: "s", user: `${"u".repeat(2_000)}…` });
+    expect(body.metadata).toMatchObject({
+      inputTruncated: true,
+      inputChars: JSON.stringify(inserts[0]?.request).length,
+      auditSpanId: inserts[0]?.audit_span_id,
+    });
+    // The DB row keeps the full request regardless of the trace cap.
+    expect((inserts[0]?.request as { user: string }).user).toHaveLength(
+      1_000_001,
+    );
   });
 
   it("Langfuse error does not block production call", async () => {
@@ -455,6 +486,24 @@ describe("emitLangfuseGeneration — prompt and cost fields", () => {
     expect(mockGeneration).toHaveBeenCalledOnce();
     const body = mockGeneration.mock.calls[0]![0];
     expect(body.metadata).toMatchObject({ responseFormat: "json_schema" });
+  });
+
+  it("sends uncut system and user when no request is supplied", async () => {
+    const mockGeneration = vi.fn();
+    const langfuseTrace = { generation: mockGeneration };
+    const longUser = "u".repeat(5_000);
+
+    await runWithAuditContext({ langfuseTrace }, () => {
+      emitLangfuseGeneration({ phase: "detect" }, {
+        ...baseEvent,
+        request: { system: "sys", user: longUser, imageCount: 0 },
+      });
+      return Promise.resolve();
+    });
+
+    const body = mockGeneration.mock.calls[0]![0];
+    expect(body.input).toEqual({ system: "sys", user: longUser });
+    expect(body.metadata).not.toHaveProperty("inputTruncated");
   });
 
   it("langfuse_generation_metadata_omits_response_format_when_absent", async () => {
@@ -682,5 +731,316 @@ describe("chat capture seam", () => {
     await client.chat({ system: "s", user: "u" });
 
     expect(seam).not.toHaveBeenCalled();
+  });
+});
+
+type ChatInput = Parameters<
+  ReturnType<typeof createAuditedOpenAIClient>["chat"]
+>[0];
+
+// Compile-time key list: adding a ChatInput field fails typecheck here until
+// the test (and the builder's own list) account for it.
+const CHAT_INPUT_KEYS = {
+  system: true,
+  user: true,
+  messages: true,
+  tools: true,
+  signal: true,
+  json: true,
+  timeoutMs: true,
+  maxTokens: true,
+  temperature: true,
+  reasoningEffort: true,
+  images: true,
+  imageDetail: true,
+  meta: true,
+  schema: true,
+} satisfies Record<keyof ChatInput, true>;
+
+describe("full request logging", () => {
+  beforeEach(() => {
+    // A fresh body per call: several tests here make two calls.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ choices: [{ message: { content: "answer" } }] }),
+            { status: 200 },
+          ),
+      ),
+    );
+  });
+
+  const schema = {
+    name: "facts",
+    schema: { type: "object", properties: { a: { type: "string" } } },
+  };
+
+  it("stores the full logical request for a legacy call", async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "facts", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+    const user = "u".repeat(5_000);
+    const controller = new AbortController();
+
+    await client.chat({
+      system: "sys",
+      user,
+      json: true,
+      schema,
+      maxTokens: 512,
+      temperature: 0.2,
+      reasoningEffort: "none",
+      meta: { promptVersion: 3 },
+      signal: controller.signal,
+    });
+
+    expect(inserts).toHaveLength(1);
+    const request = inserts[0]?.request as Record<string, unknown>;
+    expect(request).toEqual({
+      v: 1,
+      system: "sys",
+      user,
+      json: true,
+      schema,
+      maxTokens: 512,
+      temperature: 0.2,
+      reasoningEffort: "none",
+      meta: { promptVersion: 3 },
+    });
+    expect((request.user as string).length).toBe(5_000);
+    expect(request).not.toHaveProperty("signal");
+  });
+
+  it("stores messages and tools for an agent call", async () => {
+    let releaseFetch: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      releaseFetch = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        await gate;
+        return new Response(
+          JSON.stringify({ choices: [{ message: { content: "answer" } }] }),
+          { status: 200 },
+        );
+      }),
+    );
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "acquire", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+    const messages: ChatMessage[] = [
+      { role: "system", content: "you plan" },
+      { role: "user", content: "find the shop" },
+    ];
+    const tools = [
+      {
+        name: "fetch_url",
+        description: "Fetch a page",
+        parameters: { type: "object", properties: {} },
+      },
+    ];
+
+    const pending = client.chat({ messages, tools });
+    messages.push({ role: "user", content: "later turn" });
+    releaseFetch();
+    await pending;
+
+    const request = inserts[0]?.request as Record<string, unknown>;
+    expect(request.messages).toEqual([
+      { role: "system", content: "you plan" },
+      { role: "user", content: "find the shop" },
+    ]);
+    expect(request.tools).toEqual(tools);
+    expect(request).not.toHaveProperty("system");
+    expect(request).not.toHaveProperty("user");
+  });
+
+  it("never stores a data URI", async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "classify-images", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({
+      system: "sys",
+      user: "u",
+      images: ["data:image/webp;base64,AAAA"],
+      meta: { imageUrls: ["https://x/1.webp"] },
+    });
+    await client.chat({
+      messages: [
+        { role: "system", content: "sys" },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "look" },
+            {
+              type: "image_url",
+              image_url: { url: "data:image/png;base64,BBBB", detail: "low" },
+            },
+            {
+              type: "image_url",
+              image_url: { url: "https://x/2.webp", detail: "low" },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(inserts).toHaveLength(2);
+    expect((inserts[0]?.request as { images: unknown }).images).toEqual([
+      "https://x/1.webp",
+    ]);
+    const messages = (inserts[1]?.request as { messages: ChatMessage[] })
+      .messages;
+    expect(messages[1]?.content).toEqual([
+      { type: "text", text: "look" },
+      { omitted: "data-uri" },
+      {
+        type: "image_url",
+        image_url: { url: "https://x/2.webp", detail: "low" },
+      },
+    ]);
+    for (const row of inserts) {
+      expect(JSON.stringify(row.request)).not.toContain("data:image");
+    }
+  });
+
+  it("image count mismatch uses placeholders", async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "classify-images", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({
+      system: "sys",
+      user: "u",
+      images: ["data:image/webp;base64,AAAA", { url: "data:image/webp;base64,CCCC" }],
+      meta: { imageUrls: ["https://x/1.webp"] },
+    });
+
+    expect((inserts[0]?.request as { images: unknown }).images).toEqual([
+      { omitted: "data-uri" },
+      { omitted: "data-uri" },
+    ]);
+    expect(JSON.stringify(inserts[0]?.request)).not.toContain("data:image");
+  });
+
+  it("request builder exhaustive over ChatInput keys", async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "facts", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+    const controller = new AbortController();
+
+    // messages and tools exclude system/user and json/schema, so two fully
+    // populated calls together cover every key.
+    await client.chat({
+      system: "sys",
+      user: "u",
+      json: true,
+      schema,
+      timeoutMs: 10_000,
+      maxTokens: 100,
+      temperature: 0,
+      reasoningEffort: "low",
+      images: ["https://x/1.webp"],
+      imageDetail: "high",
+      meta: { imageUrls: ["https://x/1.webp"] },
+      signal: controller.signal,
+    });
+    await client.chat({
+      messages: [{ role: "user", content: "u" }],
+      tools: [{ name: "t", description: "d", parameters: {} }],
+      signal: controller.signal,
+    });
+
+    const storedKeys = new Set(
+      inserts.flatMap((row) => Object.keys(row.request as object)),
+    );
+    for (const key of Object.keys(CHAT_INPUT_KEYS)) {
+      if (key === "signal") {
+        expect(storedKeys.has(key)).toBe(false);
+      } else {
+        expect(storedKeys.has(key), key).toBe(true);
+      }
+    }
+  });
+
+  it("input.system/user are stored uncut", async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "facts", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+    const longUser = "u".repeat(5_000);
+
+    await client.chat({ system: "sys", user: longUser });
+
+    const input = inserts[0]?.input as { system: string; user: string };
+    expect(input.user).toHaveLength(5_000);
+    expect(input.user).toBe(longUser);
+    expect(input.system).toBe("sys");
+  });
+
+  it("builder failure never fails the call", async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "facts", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+    // Throws on the builder's read only; the client's own read succeeds, so
+    // the failure is isolated to request logging.
+    let metaReads = 0;
+    const input = {
+      system: "sys",
+      user: "u",
+      get meta() {
+        metaReads += 1;
+        if (metaReads === 1) throw new Error("meta exploded");
+        return { a: 1 };
+      },
+    };
+
+    const result = await client.chat(input);
+
+    expect(result).toMatchObject({ ok: true, content: "answer" });
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]?.request).toBeNull();
+  });
+
+  it("capture seam still receives raw messages", async () => {
+    const captured: CapturedCall[] = [];
+    setChatCaptureSeam((call) => captured.push(call));
+    const client = createAuditedOpenAIClient(
+      { target, phase: "acquire", supabase: fakeSupabase([]) },
+      { apiKey: "k" },
+    );
+    const messages: ChatMessage[] = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "look" },
+          {
+            type: "image_url",
+            image_url: { url: "data:image/png;base64,BBBB", detail: "low" },
+          },
+        ],
+      },
+    ];
+
+    await client.chat({ messages });
+
+    expect(captured[0]!.messages).toEqual(messages);
   });
 });
