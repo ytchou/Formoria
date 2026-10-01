@@ -69,7 +69,6 @@ export const DETECTOR_NAMES = [
   "github-app",
   "langfuse",
   "slack-events",
-  "worker-chromium",
   "resend-domain",
   "sentry-capture",
   // surface source
@@ -127,7 +126,6 @@ export const DETECTOR_SOURCE: Record<DetectorName, HealthSource> = {
   "github-app": "credential",
   langfuse: "credential",
   "slack-events": "credential",
-  "worker-chromium": "credential",
   "resend-domain": "credential",
   "sentry-capture": "credential",
   // surface
@@ -184,7 +182,6 @@ export const DETECTOR_SCHEDULE: Record<DetectorName, DetectorSchedule> = {
   "github-app": "nightly",
   langfuse: "nightly",
   "slack-events": "nightly",
-  "worker-chromium": "nightly",
   "resend-domain": "nightly",
   "sentry-capture": "nightly",
   // surface

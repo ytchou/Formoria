@@ -228,39 +228,6 @@ export async function claimNextCurationJob(
   );
 }
 
-export async function claimCurationDispatchWork(
-  requestedJobId: string,
-  workerToken: string,
-): Promise<{
-  requestedJob: CurationJob;
-  claimedJob: CurationJob | null;
-} | null> {
-  return auditedCall(
-    { provider: "curation", operation: "claimCurationDispatchWork", kind: "service" },
-    async () => {
-      const supabase = createServiceClient();
-      const { data, error } = await supabase
-        .from("curation_jobs")
-        .select("*")
-        .eq("id", requestedJobId)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) return null;
-
-      const requestedJob = data as CurationJob;
-      if (requestedJob.status !== "pending") {
-        return { requestedJob, claimedJob: null };
-      }
-
-      return {
-        requestedJob,
-        claimedJob: await claimNextCurationJob(workerToken),
-      };
-    },
-  );
-}
-
 export async function claimCurationJob(
   jobId: string,
   workerToken: string,

@@ -9,7 +9,7 @@ import {
 import {
   NON_SERVICE_ENV,
   SERVICE_REGISTRY,
-} from "@/lib/services/service-registry";
+} from "../src/lib/services/service-registry";
 
 function writeFixture(cwd: string, file: string, source: string) {
   const path = join(cwd, file);

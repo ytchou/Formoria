@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { curationJobsDetector } from '../curation-jobs'
+import { stableFingerprint } from '../../contracts'
 import type { DetectorContext } from '../../types'
 
 // ---------------------------------------------------------------------------
@@ -27,6 +28,8 @@ type JobRow = {
   created_at: string | null
   succeeded_count: number
   failed_count: number
+  trigger?: string
+  run_after?: string
 }
 
 type PhaseOutputRow = {
@@ -87,6 +90,13 @@ function fakeSupabase(jobs: JobRow[], phaseOutputs: PhaseOutputRow[]) {
           })
           return builder
         },
+        lte: (_col: string, val: unknown) => {
+          filtered = filtered.filter((r) => {
+            const row = r as unknown as Record<string, unknown>
+            return (row[_col] as string) <= (val as string)
+          })
+          return builder
+        },
         gt: (_col: string, val: unknown) => {
           filtered = filtered.filter((r) => {
             const row = r as unknown as Record<string, unknown>
@@ -94,7 +104,15 @@ function fakeSupabase(jobs: JobRow[], phaseOutputs: PhaseOutputRow[]) {
           })
           return builder
         },
-        order: () => builder,
+        order: (col: string, opts?: { ascending: boolean }) => {
+          const dir = opts?.ascending === false ? -1 : 1
+          filtered.sort((a, b) => {
+            const av = String((a as unknown as Record<string, unknown>)[col] ?? '')
+            const bv = String((b as unknown as Record<string, unknown>)[col] ?? '')
+            return av < bv ? -dir : av > bv ? dir : 0
+          })
+          return builder
+        },
         range: (_from: number, _to: number) =>
           Promise.resolve({ data: filtered.slice(_from, _to + 1), error: null }),
         limit: () => builder,
@@ -204,4 +222,182 @@ describe('curation-jobs detector', () => {
     expect(finding).toBeDefined()
     expect(finding!.evidence).toHaveProperty('phaseOutputId', 'po-1')
   })
+
+  describe('cron-missed', () => {
+    const cronMissedFp = stableFingerprint('pipeline', 'cron-missed', 'curation-worker')
+
+    function cronJob(id: string, ageMs: number): JobRow {
+      const createdAt = new Date(Date.now() - ageMs).toISOString()
+      return {
+        id,
+        status: 'completed',
+        dispatch_status: 'dispatched',
+        dispatch_error: null,
+        heartbeat_at: null,
+        completed_at: createdAt,
+        created_at: createdAt,
+        succeeded_count: 1,
+        failed_count: 0,
+        trigger: 'cron',
+        run_after: createdAt,
+      }
+    }
+
+    it('flags cron-missed when newest cron job is older than 7h', async () => {
+      const jobs = [cronJob('cron-old', 9 * HOUR), cronJob('cron-older', 15 * HOUR)]
+
+      const findings = await curationJobsDetector.run(
+        ctx({ deps: { supabase: fakeSupabase(jobs, []) } }),
+      )
+      const finding = findings.find((f) => f.fingerprint === cronMissedFp)
+      expect(finding).toBeDefined()
+      expect(finding!.severity).toBe('high')
+      expect(finding!.evidence).toHaveProperty('lastCronJobId', 'cron-old')
+    })
+
+    it('flags cron-missed when no cron job exists', async () => {
+      const findings = await curationJobsDetector.run(
+        ctx({ deps: { supabase: fakeSupabase([], []) } }),
+      )
+      expect(findings.some((f) => f.fingerprint === cronMissedFp)).toBe(true)
+    })
+
+    it('no cron-missed finding when a cron job is fresh', async () => {
+      const jobs = [cronJob('cron-old', 13 * HOUR), cronJob('cron-new', 2 * HOUR)]
+
+      const findings = await curationJobsDetector.run(
+        ctx({ deps: { supabase: fakeSupabase(jobs, []) } }),
+      )
+      expect(findings.some((f) => f.fingerprint === cronMissedFp)).toBe(false)
+    })
+  })
+
+  describe('staging', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('skips cron-missed and stranded-pending in staging, where the worker does not run', async () => {
+      vi.stubEnv('FORMORIA_DEPLOYMENT_ENV', 'staging')
+      const jobs: JobRow[] = [
+        {
+          id: 'p-stranded',
+          status: 'pending',
+          dispatch_status: 'dispatched',
+          dispatch_error: null,
+          heartbeat_at: null,
+          completed_at: null,
+          created_at: new Date(Date.now() - 2 * HOUR).toISOString(),
+          succeeded_count: 0,
+          failed_count: 0,
+          trigger: 'admin',
+          run_after: new Date(Date.now() - 2 * HOUR).toISOString(),
+        },
+        {
+          id: 'p-dispatch-failed',
+          status: 'pending',
+          dispatch_status: 'failed',
+          dispatch_error: 'worker unreachable',
+          heartbeat_at: null,
+          completed_at: null,
+          created_at: new Date(Date.now() - 2 * HOUR).toISOString(),
+          succeeded_count: 0,
+          failed_count: 0,
+          trigger: 'admin',
+          run_after: new Date(Date.now() - 2 * HOUR).toISOString(),
+        },
+      ]
+
+      const findings = await curationJobsDetector.run(
+        ctx({ deps: { supabase: fakeSupabase(jobs, []) } }),
+      )
+      expect(findings.some((f) => f.fingerprint.includes('cron-missed'))).toBe(false)
+      expect(findings.some((f) => f.fingerprint.includes('stranded-pending'))).toBe(false)
+      // The other checks still run in staging.
+      expect(findings.some((f) => f.fingerprint.includes('dispatch-failed'))).toBe(true)
+    })
+  })
+
+  describe('stranded-pending', () => {
+    function pendingJob(
+      id: string,
+      createdAgoMs: number,
+      runAfterAgoMs: number,
+      dispatchStatus = 'dispatched',
+    ): JobRow {
+      return {
+        id,
+        status: 'pending',
+        dispatch_status: dispatchStatus,
+        dispatch_error: null,
+        heartbeat_at: null,
+        completed_at: null,
+        created_at: new Date(Date.now() - createdAgoMs).toISOString(),
+        succeeded_count: 0,
+        failed_count: 0,
+        trigger: 'admin',
+        run_after: new Date(Date.now() - runAfterAgoMs).toISOString(),
+      }
+    }
+
+    const strandedFindings = (findings: Awaited<ReturnType<typeof curationJobsDetector.run>>) =>
+      findings.filter((f) => f.fingerprint.includes('stranded-pending'))
+
+    it('flags stranded-pending when a pending job waited >15 min and none is running', async () => {
+      const jobs = [
+        pendingJob('p-1', 30 * MINUTE, 30 * MINUTE),
+        pendingJob('p-2', 60 * MINUTE, 20 * MINUTE),
+        pendingJob('p-fresh', 5 * MINUTE, 5 * MINUTE),
+      ]
+
+      const findings = strandedFindings(
+        await curationJobsDetector.run(ctx({ deps: { supabase: fakeSupabase(jobs, []) } })),
+      )
+      expect(findings.map((f) => f.fingerprint).sort()).toEqual(
+        [
+          stableFingerprint('pipeline', 'stranded-pending', 'p-1'),
+          stableFingerprint('pipeline', 'stranded-pending', 'p-2'),
+        ].sort(),
+      )
+      expect(findings[0]!.evidence).toHaveProperty('jobId')
+    })
+
+    it('no stranded-pending when a job is running', async () => {
+      const jobs = [
+        pendingJob('p-1', 30 * MINUTE, 30 * MINUTE),
+        {
+          ...pendingJob('r-1', 40 * MINUTE, 40 * MINUTE),
+          status: 'running',
+          heartbeat_at: new Date().toISOString(),
+        },
+      ]
+
+      const findings = strandedFindings(
+        await curationJobsDetector.run(ctx({ deps: { supabase: fakeSupabase(jobs, []) } })),
+      )
+      expect(findings).toHaveLength(0)
+    })
+
+    it('ignores pending jobs with run_after in the future', async () => {
+      const jobs = [pendingJob('p-retry', 2 * HOUR, -30 * MINUTE)]
+
+      const findings = strandedFindings(
+        await curationJobsDetector.run(ctx({ deps: { supabase: fakeSupabase(jobs, []) } })),
+      )
+      expect(findings).toHaveLength(0)
+    })
+
+    it('does not double-report pending jobs whose dispatch already failed', async () => {
+      const jobs = [pendingJob('p-failed', 2 * HOUR, 2 * HOUR, 'failed')]
+
+      const findings = await curationJobsDetector.run(
+        ctx({ deps: { supabase: fakeSupabase(jobs, []) } }),
+      )
+      expect(strandedFindings(findings)).toHaveLength(0)
+      expect(findings.some((f) => f.fingerprint.includes('dispatch-failed'))).toBe(true)
+    })
+  })
 })
+
+const MINUTE = 60_000
+const HOUR = 60 * MINUTE

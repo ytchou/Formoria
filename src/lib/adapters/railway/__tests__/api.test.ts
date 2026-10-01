@@ -4,7 +4,7 @@ import {
   setAuditWriteSeam,
   type AuditRecord,
 } from "@/lib/audit";
-import { runE2eAgentNow } from "../api";
+import { runCurationWorkerNow, runE2eAgentNow } from "../api";
 
 const GRAPHQL_URL = "https://backboard.railway.com/graphql/v2";
 const ENVIRONMENT_ID = "cb8f8b37-b99f-4c88-9f83-e5d969d3cfd4";
@@ -170,6 +170,69 @@ describe("runE2eAgentNow", () => {
     delete process.env.OPS_AGENT_RAILWAY_TOKEN;
 
     await expect(runE2eAgentNow()).rejects.toThrow(
+      "OPS_AGENT_RAILWAY_TOKEN is not set",
+    );
+  });
+});
+
+describe("runCurationWorkerNow", () => {
+  const CURATION_ENVIRONMENT_ID = "d2c107d8-95e4-4467-a972-fbf719593dc3";
+  const CURATION_INSTANCE_ID = "si-curation-worker";
+
+  it("runCurationWorkerNow_resolves_curation_worker_in_production_then_runs_it", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        lookupResponse([
+          { id: "si-decoy", serviceName: "Formoria" },
+          { id: CURATION_INSTANCE_ID, serviceName: "curation-worker" },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ data: { deploymentInstanceExecutionCreate: true } }),
+      );
+
+    const result = await runCurationWorkerNow();
+
+    expect(result).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const lookup = bodyOf(fetchMock.mock.calls[0]![1]);
+    expect(lookup.variables.id).toBe(CURATION_ENVIRONMENT_ID);
+
+    const mutation = bodyOf(fetchMock.mock.calls[1]![1]);
+    expect(mutation.variables.input).toEqual({
+      serviceInstanceId: CURATION_INSTANCE_ID,
+    });
+
+    const terminal = writes.filter((w) => w.status !== "started");
+    expect(terminal).toEqual([
+      expect.objectContaining({
+        provider: "railway",
+        operation: "run_cron_now",
+        status: "succeeded",
+      }),
+    ]);
+  });
+
+  it("runCurationWorkerNow_returns_error_when_service_not_found", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        lookupResponse([{ id: "si-decoy", serviceName: "Formoria" }]),
+      );
+
+    const result = await runCurationWorkerNow();
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain("curation-worker");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("runCurationWorkerNow_throws_when_token_missing", async () => {
+    delete process.env.OPS_AGENT_RAILWAY_TOKEN;
+
+    await expect(runCurationWorkerNow()).rejects.toThrow(
       "OPS_AGENT_RAILWAY_TOKEN is not set",
     );
   });

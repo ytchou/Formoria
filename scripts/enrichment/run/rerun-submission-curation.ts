@@ -15,7 +15,8 @@
  * already uses, in the same order the system uses them:
  *
  *   enqueueAdminCurationJob()  <- what the admin "run curation again" path calls
- *   claimCurationJob()         <- what the worker calls to take a job
+ *   claimCurationJob()         <- claims this exact job (the worker claims the
+ *                                 queue head via claimNextCurationJob)
  *   runJob()                   <- what the worker calls to execute it
  *
  * Deliberately NOT the raw `enqueue_curation_job` RPC. scripts/run-refresh-

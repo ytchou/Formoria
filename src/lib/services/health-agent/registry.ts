@@ -56,7 +56,6 @@ import { serviceProbesDetector } from './detectors/service-probes'
 import { slackEventsDetector } from './detectors/slack-events'
 import { surfaceDetector } from './detectors/surface'
 import { trailSupplyDetector } from './detectors/trail-supply'
-import { workerChromiumDetector } from './detectors/worker-chromium'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -176,7 +175,6 @@ export const registry: Record<DetectorName, Detector> = {
   'github-app': githubAppDetector,
   langfuse: langfuseDetector,
   'slack-events': slackEventsDetector,
-  'worker-chromium': workerChromiumDetector,
   'resend-domain': resendDomainDetector,
   'sentry-capture': sentryCaptureDetector,
 

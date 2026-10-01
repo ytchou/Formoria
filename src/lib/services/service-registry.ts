@@ -97,7 +97,6 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
     "Staging E2E origin authentication secret, not a provider service.",
   E2E_STAGING_SESSION_SECRET:
     "Request-scoped staging deep-suite capability secret; separate from Cloudflare Access and origin credentials.",
-  CURATION_WORKER_URL: "Internal worker routing target, not a credential.",
   E2E_DISPATCH_URL:
     "Production origin the staging e2e agent calls to claim ops-bot dispatches, not a credential.",
   NEXT_PUBLIC_SITE_URL:
@@ -528,7 +527,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     // `CHANNEL_VERDICTS=off` is the rollout switch that keeps the automatic
     // no-purchase-channel verdicts report-only.
     envVars: [
-      "CURATION_WORKER_CONTROL_TOKEN",
       "RAILWAY_GIT_COMMIT_SHA",
       "FORMORIA_RAILWAY_URL",
       "ORIGIN_SECRET",

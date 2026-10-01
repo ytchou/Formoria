@@ -1,5 +1,11 @@
 import { auditedCall } from "@/lib/audit";
+import { CURATION_CRON_MAX_GAP_MS } from "@/lib/constants/curation";
+import { isStagingEnvironment } from "@/lib/deployment-environment";
 import { createServiceClient } from "@/lib/supabase/service";
+import {
+  cronAgeHours,
+  readLatestCronJob,
+} from "@/lib/services/curation-cron-freshness";
 import { checkMitRegistryHealth } from "@/lib/services/mit-registry";
 import {
   SERVICE_REGISTRY,
@@ -244,6 +250,43 @@ async function turnstileHealthResult(response: Response): Promise<CheckResult> {
   return { status: "healthy", message: "Turnstile Siteverify reachable" };
 }
 
+async function readLatestCronJobCreatedAt(): Promise<string | null> {
+  return (await readLatestCronJob(createServiceClient()))?.created_at ?? null;
+}
+
+/**
+ * curation-worker is a Railway cron one-shot with no HTTP server, so its
+ * health is DB freshness: the newest `trigger = 'cron'` job must be younger
+ * than one cadence plus grace.
+ */
+export async function checkCurationWorkerHealth({
+  readLatestCronCreatedAt = readLatestCronJobCreatedAt,
+  now = Date.now,
+}: {
+  readLatestCronCreatedAt?: () => Promise<string | null>;
+  now?: () => number;
+} = {}): Promise<CheckResult> {
+  // No curation worker is deployed in staging, so a stale cron there is expected.
+  if (isStagingEnvironment()) {
+    return {
+      status: "unconfigured",
+      message: "Curation worker runs in production only",
+    };
+  }
+  const createdAt = await readLatestCronCreatedAt();
+  if (!createdAt) {
+    return { status: "down", message: "No scheduled run on record" };
+  }
+  const ageMs = now() - new Date(createdAt).getTime();
+  const ageHours = cronAgeHours(ageMs);
+  return ageMs > CURATION_CRON_MAX_GAP_MS
+    ? {
+        status: "down",
+        message: `Last scheduled run ${ageHours}h ago (expected within ${CURATION_CRON_MAX_GAP_MS / 3_600_000}h)`,
+      }
+    : { status: "healthy", message: `Last scheduled run ${ageHours}h ago` };
+}
+
 export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   const resendKey = process.env.RESEND_API_KEY;
@@ -259,11 +302,6 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
   const posthogHost = (process.env.POSTHOG_API_HOST ?? "").replace(/\/+$/, "");
   const posthogProjectId = process.env.POSTHOG_PROJECT_ID;
   const posthogToken = process.env.POSTHOG_PERSONAL_API_KEY;
-  const curationWorkerUrl = process.env.CURATION_WORKER_URL?.replace(
-    /\/+$/,
-    "",
-  );
-  const curationWorkerToken = process.env.CURATION_WORKER_CONTROL_TOKEN;
   const railwayUrl = process.env.FORMORIA_RAILWAY_URL?.replace(/\/+$/, "");
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
 
@@ -494,24 +532,8 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
       id: "railway-curation-worker",
       service: "Curation worker",
       tier: "back-office",
-      request: {
-        endpoint: curationWorkerUrl ? `${curationWorkerUrl}/health` : null,
-        configured: Boolean(curationWorkerUrl && curationWorkerToken),
-      },
-      run: configured(
-        curationWorkerUrl && curationWorkerToken
-          ? curationWorkerToken
-          : undefined,
-        "Curation worker is not configured",
-        async () =>
-          responseResult(
-            await fetch(`${curationWorkerUrl}/health`, {
-              headers: { Authorization: `Bearer ${curationWorkerToken}` },
-              signal: AbortSignal.timeout(5_000),
-            }),
-            "Curation worker reachable",
-          ),
-      ),
+      request: { table: "curation_jobs", operation: "latest_cron_job" },
+      run: () => checkCurationWorkerHealth(),
     },
   ];
 }
