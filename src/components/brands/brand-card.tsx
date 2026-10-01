@@ -65,10 +65,6 @@ export function BrandCard({
   // Safe on surfaces with no SavedBrandsProvider — the hook falls back to an empty set.
   const { savedIds } = useSavedBrands();
   const [imgError, setImgError] = useState(false);
-  const selectedImage = selectBrandCardImage(brand);
-  const imageSrc = selectedImage?.src ?? null;
-  const showImage = imageSrc != null && !imgError;
-  const imageFill = brandImageFill(selectedImage?.meta, { inset: "p-6" });
 
   const categoryLabel = getBrandCategoryLabel(
     brand,
@@ -201,6 +197,13 @@ export function BrandCard({
       </article>
     );
   }
+
+  // The directory card leads with the logo mark, so only the other variants
+  // need the selected cover image.
+  const selectedImage = selectBrandCardImage(brand);
+  const imageSrc = selectedImage?.src ?? null;
+  const showImage = imageSrc != null && !imgError;
+  const imageFill = brandImageFill(selectedImage?.meta, { inset: "p-6" });
 
   return (
     <article

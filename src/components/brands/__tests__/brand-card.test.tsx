@@ -77,13 +77,18 @@ function buildBrand(overrides: Partial<PublicBrandCard> = {}): PublicBrandCard {
     blurb: null,
     blurbEn: null,
     heroImageUrl: "/i/brands/shanjian/logo.jpg",
+    status: "approved",
     categorySlug: "home",
     categoryLabel: "居家生活",
-    city: "taipei",
     subcategories: ["backpacks"],
     subcategoriesEn: ["Backpacks"],
+    foundingYear: null,
+    city: "taipei",
+    productPhotos: [],
+    imageAlts: [],
+    heroImageMetadata: null,
     ...overrides,
-  } as unknown as PublicBrandCard;
+  };
 }
 
 function renderCard(node: ReactNode) {
