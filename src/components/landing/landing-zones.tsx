@@ -43,8 +43,8 @@ export type LandingZonesProps = {
  *
  *     hero      the editorial opener — eyebrow, promise, lede, search
  *     selection the justified product wall
- *     trails    the style zone — every indexable trail as an editorial card
  *     directory one explore-style brand rail
+ *     trails    the style zone — every indexable trail as an editorial card
  *     manifesto the photo band
  *     topics    stories
  *     close     the CTA band — recommend · newsletter
@@ -88,6 +88,17 @@ export async function LandingZones({
           </div>
         ) : null}
 
+        {brands.length > 0 && (
+          <div data-landing-zone="directory" className="py-section">
+            <PageShell measure="page">
+              <BrandStrip
+                brands={brands}
+                totalCount={shownBrandCount}
+              />
+            </PageShell>
+          </div>
+        )}
+
         {/* The zone is withheld only when nothing is indexable. Its image-led
             cards are the homepage's single owner for discovery trails. */}
         {trails.length > 0 ? (
@@ -118,17 +129,6 @@ export async function LandingZones({
             </PageShell>
           </section>
         ) : null}
-
-        {brands.length > 0 && (
-          <div data-landing-zone="directory" className="py-section">
-            <PageShell measure="page">
-              <BrandStrip
-                brands={brands}
-                totalCount={shownBrandCount}
-              />
-            </PageShell>
-          </div>
-        )}
 
         {/* MissionCloser wraps its own PhotoBand and reads missionCloser.*
             keys internally. The trust statement (`trustSeam.line`) now ships

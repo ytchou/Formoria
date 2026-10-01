@@ -58,3 +58,9 @@ The canonical browser suite targets the isolated staging Supabase project. Deep 
   `image-route.spec.ts` seeds and removes its own storage objects, so it does not depend on what the target's bucket already holds. That matters: staging's `brand-images` bucket contains only `curated-products/`, so any spec asserting against pre-existing `brands/` objects would 404 for the wrong reason and pass vacuously.
 
 - The older DEV-1503 staging-run narrative that used to sit here described deployed merge SHA `261b1667` and no longer describes the suite: the 2026-08-21 cleanup added and removed cases across `brand-corrections`, `brand-detail`, `community-submit`, `og-images`, `seo`, `settings`, `brand-share`, `stories`, and `events`. Re-run the canonical staging suite and replace this section with the new result.
+
+## Update 2026-09-30 — PR #1298 (DEV-1911) directory filters + unified header
+- NEW `e2e/tests/directory-filters.spec.ts` (deep): 子分類 under 全部 sets parent category + drops material (/discover, /brands); 清除全部 toolbar + mobile drawer clear search/category/sub on /brands; search + 子分類 together on both pages; 再顯示 truncation (data-guarded). Status: authored, first run on staging after merge.
+- `discover-situation-search.spec.ts`: search mode shows the count once (找到 N, no 共 N). `directory.spec.ts`: /brands 搜尋 button submits without reopening suggestions.
+- Fixed in PR #1298: /brands?search=<term> on direct load used to open an unfocused suggestion listbox over the toolbar (pre-existing on prod). Covered by `directory.spec.ts` "opening a shared search link…".
+- Backlog: landing zone order/copy (non-critical); single-X search input (webkit); directory-material.spec.ts still missing.

@@ -72,7 +72,7 @@ type PageProps = {
 
 export const revalidate = 3600;
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 20;
 
 function firstParam(value: string | string[] | undefined): string | null {
   const candidate = Array.isArray(value) ? value.at(0) : value;

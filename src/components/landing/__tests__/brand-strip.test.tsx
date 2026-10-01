@@ -110,7 +110,9 @@ describe("BrandStrip", () => {
   it("renders count headline", async () => {
     render(await BrandStrip({ brands: mockBrands, totalCount: 700 }));
 
-    expect(screen.getByText("count")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "count" }),
+    ).toBeInTheDocument();
   });
 
   it("renders hero image for brands with heroImageUrl", async () => {

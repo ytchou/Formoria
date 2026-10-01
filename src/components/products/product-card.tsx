@@ -1,47 +1,42 @@
 import { Link } from "@/i18n/navigation";
-import { Badge } from "@/components/ui/badge";
 import { SurfaceImage } from "@/components/ui/image";
-import { Typography } from "@/components/ui/typography";
-import { surfaceCardStyles } from "@/components/ui/card";
 import { BrandImageFallback } from "@/components/brands/brand-image-fallback";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
-import { subcategoryBySlug, subcategoryLabel } from "@/lib/taxonomy/ontology";
 import { SaveButton } from "@/components/ui/save-button";
+
+/** Tile widths at the `catalog` grid stops — /discover's results column. */
+const CATALOG_IMAGE_SIZES =
+  "(min-width: 1536px) 240px, (min-width: 1280px) 220px, (min-width: 768px) 33vw, 50vw";
 
 type ProductCardProps = {
   product: CatalogProduct;
   locale: string;
+  /** `sizes` for the photo; a caller on a different grid states its own. */
+  imageSizes?: string;
 };
 
-export function ProductCard({ product, locale }: ProductCardProps) {
+export function ProductCard({
+  product,
+  locale,
+  imageSizes = CATALOG_IMAGE_SIZES,
+}: ProductCardProps) {
   const isEnglish = locale === "en";
   const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
   const description = isEnglish
     ? (product.productDescriptionEn ?? product.productDescriptionZh)
     : product.productDescriptionZh;
   const imageSrc = safeImageSrc(product.imageUrl);
-  const subcategory = subcategoryBySlug(product.subcategory);
-  const subcategoryName = subcategory
-    ? subcategoryLabel(subcategory, locale)
-    : product.subcategory;
 
   return (
-    <li
-      data-brand-slug={product.brandSlug}
-      data-product-key={product.key}
-      className={surfaceCardStyles({
-        padding: "none",
-        className: "flex flex-col overflow-hidden",
-      })}
-    >
+    <li data-brand-slug={product.brandSlug} data-product-key={product.key}>
       <Link
         href={routes.brand(product.brandSlug)}
         className="group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
       >
-        <div className="relative aspect-square w-full overflow-hidden bg-surface-deep">
+        <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
           {imageSrc ? (
             <SurfaceImage
               src={imageSrc}
@@ -49,6 +44,7 @@ export function ProductCard({ product, locale }: ProductCardProps) {
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
               surface="card"
+              sizes={imageSizes}
             />
           ) : (
             <BrandImageFallback
@@ -65,26 +61,19 @@ export function ProductCard({ product, locale }: ProductCardProps) {
           />
         </div>
 
-        <div className="flex flex-1 flex-col gap-1.5 p-4">
-          <Typography
-            as="h3"
-            variant="cardTitle"
-            className="group-hover:text-accent"
-          >
-            {name}
-          </Typography>
-          <Typography as="p" variant="metadata">
+        <div className="mt-3 flex flex-col gap-1">
+          <p className="type-metadata text-accent truncate">
             {product.brandName}
-          </Typography>
+          </p>
+          <h3 className="type-body font-semibold text-ink line-clamp-1 group-hover:underline">
+            {name}
+          </h3>
           <p
             {...NO_SNIPPET}
-            className="min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2"
+            className="type-body-sm text-ink-muted line-clamp-1"
           >
             {description}
           </p>
-          <Badge variant="declared" className="mt-auto self-start">
-            {subcategoryName}
-          </Badge>
         </div>
       </Link>
     </li>

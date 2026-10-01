@@ -5,34 +5,55 @@ export function BrandAvatar({
   name,
   imageSrc,
   nameFace = "interface",
+  size = "sm",
 }: {
   name: string;
   imageSrc: string | null;
   nameFace?: "content" | "interface";
+  size?: "sm" | "lg";
 }) {
+  const circle = size === "lg" ? "h-20 w-20" : "h-11 w-11";
   return (
     <>
       {imageSrc ? (
-        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-surface">
+        <div
+          className={cn(
+            "relative shrink-0 overflow-hidden rounded-full bg-surface",
+            circle,
+          )}
+        >
           <SurfaceImage
             src={imageSrc}
             alt=""
             fill
             surface="thumb"
+            // The lg circle measures 80px; `thumb` alone would hint 72px.
+            sizes={size === "lg" ? "80px" : undefined}
             className="object-cover"
           />
         </div>
       ) : (
         <div
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-deep"
+          className={cn(
+            "flex items-center justify-center rounded-full bg-surface-deep",
+            circle,
+          )}
           aria-hidden="true"
         >
-          <span className="type-metadata text-ink-soft">{name.charAt(0)}</span>
+          <span
+            className={cn(
+              "text-ink-soft",
+              size === "lg" ? "type-card-title" : "type-metadata",
+            )}
+          >
+            {name.charAt(0)}
+          </span>
         </div>
       )}
       <span
         className={cn(
-          "mt-1 line-clamp-1 text-ink-soft text-center",
+          "line-clamp-1 text-ink-soft text-center",
+          size === "lg" ? "mt-2" : "mt-1",
           nameFace === "content" ? "type-body-sm" : "type-metadata",
         )}
       >

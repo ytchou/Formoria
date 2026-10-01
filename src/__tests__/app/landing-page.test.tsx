@@ -435,8 +435,8 @@ describe("landing page zones", () => {
     expect(zoneOrder(container)).toEqual([
       "hero",
       "selection",
-      "trails",
       "directory",
+      "trails",
       "manifesto",
       "topics",
       "close",
