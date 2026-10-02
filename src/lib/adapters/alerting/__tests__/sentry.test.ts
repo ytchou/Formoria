@@ -4,7 +4,7 @@ const sentry = vi.hoisted(() => ({
   getClient: vi.fn(),
   flush: vi.fn(),
 }));
-vi.mock("@sentry/nextjs", () => sentry);
+vi.mock("@sentry/node", () => sentry);
 
 import { flushAlerts } from "../sentry";
 
