@@ -125,7 +125,11 @@ async function flushAndExit(code: number): Promise<void> {
   } catch {
     /* flush failure must not mask exit */
   }
-  await flushAlerts(); // never throws
+  try {
+    await flushAlerts();
+  } catch {
+    /* flush failure must not mask exit */
+  }
   process.exit(code);
 }
 
