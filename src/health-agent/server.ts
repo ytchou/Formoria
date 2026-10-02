@@ -52,6 +52,10 @@ let createTicket: Awaited<
   typeof import('@/lib/adapters/linear/create-ticket')
 >['createTicket']
 
+let getTicketStates: Awaited<
+  typeof import('@/lib/adapters/linear/get-ticket-states')
+>['getTicketStates']
+
 let createRepoWorkerClient: Awaited<
   typeof import('@/lib/services/health-agent/repo-worker-client')
 >['createRepoWorkerClient']
@@ -107,6 +111,9 @@ await bootWorker({
     ;({ reportWorkerFailure } = await import('@/lib/services/job-alerts'))
     ;({ postMessage } = await import('@/lib/adapters/slack/web-api'))
     ;({ createTicket } = await import('@/lib/adapters/linear/create-ticket'))
+    ;({ getTicketStates } = await import(
+      '@/lib/adapters/linear/get-ticket-states'
+    ))
     ;({ createRepoWorkerClient } = await import(
       '@/lib/services/health-agent/repo-worker-client'
     ))
@@ -182,6 +189,9 @@ async function main(): Promise<never> {
   const linearCreateTicket = process.env.LINEAR_API_KEY
     ? createTicket
     : undefined
+  const linearGetTicketStates = process.env.LINEAR_API_KEY
+    ? (identifiers: readonly string[]) => getTicketStates(identifiers)
+    : undefined
 
   // ---- Conditionally create repair trigger ----
   const opsAgentBotId = process.env.OPS_AGENT_SLACK_BOT_ID
@@ -229,6 +239,7 @@ async function main(): Promise<never> {
       langfuseTrace,
       workerClient,
       linearCreateTicket,
+      linearGetTicketStates,
       triggerRepair,
       startTimeline: async (date, startRunId) => {
         const channel = process.env.HEALTH_AGENT_SLACK_CHANNEL

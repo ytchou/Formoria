@@ -1,0 +1,33 @@
+{
+  "slug": "desk-setup",
+  "sections": [
+    {
+      "key": "writing-tools",
+      "title": "每天拿起來的筆",
+      "query": "書寫順手的筆 鋼筆 原子筆 鉛筆",
+      "subcategories": [
+        "pens-and-writing"
+      ]
+    },
+    {
+      "key": "desk-surface",
+      "title": "筆和紙底下的桌面",
+      "query": "桌墊 桌上收納 筆筒 文具收納盒",
+      "subcategories": [
+        "desk-mats",
+        "desk-organization"
+      ]
+    },
+    {
+      "key": "paper",
+      "title": "留在桌上的紙",
+      "query": "筆記本 手帳 紙膠帶 卡片 書寫用紙",
+      "subcategories": [
+        "journals-and-notebooks",
+        "paper-goods",
+        "washi-tape",
+        "cards-and-postcards"
+      ]
+    }
+  ]
+}

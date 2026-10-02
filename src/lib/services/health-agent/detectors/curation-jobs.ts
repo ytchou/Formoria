@@ -1,9 +1,19 @@
 /**
  * Curation jobs detector — monitors curation_jobs, curation_job_targets,
  * and curation_phase_outputs for dispatch failures, stale heartbeats,
- * high failure rates, and unpersisted phase outputs.
+ * high failure rates, unpersisted phase outputs, missed cron runs, and
+ * stranded pending jobs.
  */
 
+import {
+  CURATION_CRON_MAX_GAP_MS,
+  CURATION_STRANDED_PENDING_MS,
+} from '@/lib/constants/curation'
+import { isStagingEnvironment } from '@/lib/deployment-environment'
+import {
+  cronAgeHours,
+  readLatestCronJob,
+} from '@/lib/services/curation-cron-freshness'
 import { stableFingerprint, type HealthFinding } from '../contracts'
 import type { Detector, DetectorContext } from '../types'
 import { pagedRead, type PageableQuery } from '../paged-read'
@@ -57,6 +67,8 @@ export const curationJobsDetector: Detector = {
   thresholds: {
     heartbeatStaleMs: HEARTBEAT_STALE_MS,
     unpersistedThresholdMs: UNPERSISTED_THRESHOLD_MS,
+    cronMaxGapMs: CURATION_CRON_MAX_GAP_MS,
+    strandedPendingMs: CURATION_STRANDED_PENDING_MS,
   },
 
   async run(ctx: DetectorContext): Promise<HealthFinding[]> {
@@ -193,6 +205,81 @@ export const curationJobsDetector: Detector = {
             phaseOutputId: po.id,
             jobId: po.job_id,
             createdAt: po.created_at,
+          },
+          mergePolicy: 'human',
+        })
+      }
+    }
+
+    // No curation worker is deployed in staging, so checks 5 and 6 would
+    // report its absence as a fault on every run.
+    if (isStagingEnvironment()) return findings
+
+    // 5. Cron missed: the newest scheduled job is too old (or none exists)
+    const latest = await readLatestCronJob(supabase)
+    const latestAgeMs = latest?.created_at
+      ? now - new Date(latest.created_at).getTime()
+      : null
+    if (latestAgeMs === null || latestAgeMs > CURATION_CRON_MAX_GAP_MS) {
+      const ageHours = latestAgeMs === null ? null : cronAgeHours(latestAgeMs)
+      findings.push({
+        source: 'pipeline',
+        fingerprint: stableFingerprint('pipeline', 'cron-missed', 'curation-worker'),
+        title:
+          ageHours === null
+            ? 'Curation worker has no scheduled cron run on record'
+            : `Curation worker last scheduled run was ${ageHours}h ago`,
+        severity: 'high',
+        evidence: {
+          lastCronJobId: latest?.id ?? 'none',
+          lastCronCreatedAt: latest?.created_at ?? 'none',
+          ageHours: ageHours ?? 'none',
+        },
+        mergePolicy: 'human',
+      })
+    }
+
+    // 6. Stranded pending: an admin Run-now dispatched the job, yet no run
+    // claimed it. Only dispatched jobs qualify: automatic retries,
+    // --enqueue-only batches, and soft-deadline leftovers keep
+    // dispatch_status 'pending' and wait for the next cron slot by design.
+    // A running job means the drain loop is live and will reach them.
+    if (runningJobs.length === 0) {
+      const strandedCutoff = new Date(
+        now - CURATION_STRANDED_PENDING_MS,
+      ).toISOString()
+      const stranded = await pagedRead<
+        Pick<JobRow, 'id' | 'dispatch_status' | 'created_at'> & {
+          dispatched_at: string | null
+        }
+      >(
+        supabase,
+        'curation_jobs',
+        {
+          orderBy: [{ column: 'id' }],
+          select: 'id, dispatch_status, created_at, dispatched_at',
+          filters: [
+            { column: 'status', value: 'pending' },
+            { column: 'dispatch_status', value: 'dispatched' },
+          ],
+          rangeFilters: [
+            { column: 'run_after', op: 'lte', value: new Date(now).toISOString() },
+            { column: 'dispatched_at', op: 'lte', value: strandedCutoff },
+          ],
+        },
+      )
+
+      for (const job of stranded) {
+        findings.push({
+          source: 'pipeline',
+          fingerprint: stableFingerprint('pipeline', 'stranded-pending', job.id),
+          title: `Curation job ${job.id} was dispatched but never claimed with no job running`,
+          severity: 'high',
+          evidence: {
+            jobId: job.id,
+            dispatchStatus: job.dispatch_status,
+            createdAt: job.created_at ?? 'unknown',
+            dispatchedAt: job.dispatched_at ?? 'unknown',
           },
           mergePolicy: 'human',
         })

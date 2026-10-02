@@ -172,9 +172,7 @@
       "note": "一個角落，一段日常",
       "linkText": "看全部風格",
       "eyebrow": "風格",
-      "cta": "探索這個風格 →",
-      "prev": "上一個",
-      "next": "下一個"
+      "cta": "探索這個風格 →"
     },
     "selection": {
       "headline": "每一件，都說得出選它的理由",
@@ -267,6 +265,7 @@
     },
     "card": {
       "foundingYear": "創立於 {year}",
+      "productCount": "{count} 件商品",
       "viewBrand": "查看品牌"
     },
     "loadingAria": "載入品牌中...",

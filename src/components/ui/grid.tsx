@@ -30,6 +30,8 @@ export const gridStyles = cva("grid", {
       triptych: "grid-cols-1 md:grid-cols-3",
       /** Three-up with a tablet stop. Story galleries, product grids. */
       thirds: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+      /** Two-up, five-up at `2xl`. /discover's dense product tiles. */
+      catalog: "grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
       single: "grid-cols-1",
       bands: "grid-cols-1 lg:grid-cols-2 xl:grid-cols-3",
       /**

@@ -172,9 +172,7 @@
       "note": "A corner, a slice of everyday life",
       "linkText": "See every style",
       "eyebrow": "Style",
-      "cta": "Explore this style →",
-      "prev": "Previous",
-      "next": "Next"
+      "cta": "Explore this style →"
     },
     "selection": {
       "headline": "Every pick has a reason",
@@ -267,6 +265,7 @@
     },
     "card": {
       "foundingYear": "Est. {year}",
+      "productCount": "{count, plural, one {# product} other {# products}}",
       "viewBrand": "View brand"
     },
     "loadingAria": "Loading brands...",

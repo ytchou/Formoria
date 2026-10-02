@@ -1,0 +1,8 @@
+{
+  "slug": "small-space-reading-corner",
+  "sections": [
+    { "key": "light-first", "title": "先讓光線到位", "query": "閱讀用的桌燈 檯燈 可調角度 小巧的燈", "subcategories": ["lighting"] },
+    { "key": "beside-seat", "title": "把需要的東西放在座位旁", "query": "座位旁的小收納 托盤 書擋 放書與眼鏡的置物", "subcategories": ["storage", "home-decor"] },
+    { "key": "moveable-setup", "title": "選擇可以移動的做法", "query": "輕巧可移動的椅凳 坐墊 小邊桌 毯子", "subcategories": ["furniture", "home-textiles"] }
+  ]
+}

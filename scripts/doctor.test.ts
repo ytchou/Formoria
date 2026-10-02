@@ -1,4 +1,11 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -7,15 +14,16 @@ import { describe, expect, it } from "vitest";
 function runDoctorWithMigrationOutput(output: string) {
   const directory = mkdtempSync(join(tmpdir(), "formoria-doctor-"));
   const supabase = join(directory, "supabase");
+  const callLog = join(directory, "calls");
   writeFileSync(
     supabase,
-    `#!/bin/sh\nprintf '%s\\n' '${output.replace(/'/g, "'\\''")}'\n`,
+    `#!/bin/sh\necho call >> '${callLog}'\nprintf '%s\\n' '${output.replace(/'/g, "'\\''")}'\n`,
     "utf8",
   );
   chmodSync(supabase, 0o755);
 
   try {
-    return spawnSync("bash", ["scripts/doctor.sh"], {
+    const result = spawnSync("bash", ["scripts/doctor.sh"], {
       cwd: process.cwd(),
       encoding: "utf8",
       env: {
@@ -27,6 +35,10 @@ function runDoctorWithMigrationOutput(output: string) {
         HEALTH_AGENT_READ_DATABASE_URL: "",
       },
     });
+    const supabaseCalls = existsSync(callLog)
+      ? readFileSync(callLog, "utf8").trim().split("\n").length
+      : 0;
+    return { ...result, supabaseCalls };
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -123,6 +135,43 @@ describe("environment doctor migration ledger contract", () => {
 
     expect(result.stdout).toContain(
       "OK: brand_ai_results phase CHECK migration applied on the explicit target",
+    );
+  });
+});
+
+describe("environment doctor brand_ai_results.request column", () => {
+  it("doctor reports missing brand_ai_results.request column", () => {
+    const result = runDoctorWithMigrationOutput(
+      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":null}]}',
+    );
+
+    expect(result.stdout).toMatch(
+      /^ERROR: brand_ai_results\.request\b.*20261001100000_brand_ai_results_request\.sql/mu,
+    );
+    expect(result.status).not.toBe(0);
+  });
+
+  it("reads the migration ledger once for both ledger checks", () => {
+    const result = runDoctorWithMigrationOutput(
+      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":"20261001100000"}]}',
+    );
+
+    expect(result.stdout).toContain(
+      "OK: brand_ai_results phase CHECK migration applied on the explicit target",
+    );
+    expect(result.stdout).toContain(
+      "OK: brand_ai_results.request column migration applied on the explicit target",
+    );
+    expect(result.supabaseCalls).toBe(1);
+  });
+
+  it("doctor passes the request column check when present", () => {
+    const result = runDoctorWithMigrationOutput(
+      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":"20261001100000"}]}',
+    );
+
+    expect(result.stdout).toContain(
+      "OK: brand_ai_results.request column migration applied on the explicit target",
     );
   });
 });

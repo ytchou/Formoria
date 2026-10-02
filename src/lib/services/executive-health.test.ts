@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  checkCurationWorkerHealth,
   classifyExecutiveHealth,
   createExecutiveHealthMonitor,
   defaultChecks,
@@ -258,6 +259,69 @@ describe("executive health", () => {
       );
       vi.unstubAllEnvs();
       vi.unstubAllGlobals();
+    });
+  });
+
+  describe("curation worker DB freshness check", () => {
+    const now = Date.parse("2026-10-01T12:00:00Z");
+    const hoursAgo = (hours: number) =>
+      new Date(now - hours * 3_600_000).toISOString();
+
+    it("reads the latest cron job instead of probing an endpoint", () => {
+      const check = defaultChecks().find(
+        (entry) => entry.id === "railway-curation-worker",
+      );
+      expect(check?.tier).toBe("back-office");
+      expect(check?.request).toEqual({
+        table: "curation_jobs",
+        operation: "latest_cron_job",
+      });
+    });
+
+    it("curation worker check is healthy when a cron job was created within 7h", async () => {
+      await expect(
+        checkCurationWorkerHealth({
+          readLatestCronCreatedAt: async () => hoursAgo(3),
+          now: () => now,
+        }),
+      ).resolves.toEqual({
+        status: "healthy",
+        message: "Last scheduled run 3h ago",
+      });
+    });
+
+    it("curation worker check is down when the latest cron job is older than 7h", async () => {
+      const result = await checkCurationWorkerHealth({
+        readLatestCronCreatedAt: async () => hoursAgo(9),
+        now: () => now,
+      });
+      expect(result.status).toBe("down");
+      expect(result.message).toContain("9h");
+    });
+
+    it("curation worker check is unconfigured in staging, where the worker does not run", async () => {
+      vi.stubEnv("FORMORIA_DEPLOYMENT_ENV", "staging");
+      const readLatestCronCreatedAt = vi.fn(async () => null);
+      try {
+        await expect(
+          checkCurationWorkerHealth({ readLatestCronCreatedAt, now: () => now }),
+        ).resolves.toEqual({
+          status: "unconfigured",
+          message: "Curation worker runs in production only",
+        });
+        expect(readLatestCronCreatedAt).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it("curation worker check is down when no cron job exists", async () => {
+      await expect(
+        checkCurationWorkerHealth({
+          readLatestCronCreatedAt: async () => null,
+          now: () => now,
+        }),
+      ).resolves.toMatchObject({ status: "down" });
     });
   });
 

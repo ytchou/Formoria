@@ -1,0 +1,39 @@
+{
+  "trail": "everyday-table",
+  "sections": {
+    "plates-and-bowls": [
+      {
+        "brandSlug": "anta-pottery",
+        "productKey": "mien-tiu-tao-tzu-shou-tsang-pan-chiang-liao-tieh-zhax5pfb",
+        "note": "以青瓷重現免洗醬料碟"
+      },
+      {
+        "brandSlug": "miaoisland",
+        "productKey": "mao-mi-chi-min-tsan-cho-hsi-lieh-pan-tsu-z5mxyvpu",
+        "note": "霧面白陶，可進微波爐與電鍋"
+      },
+      {
+        "brandSlug": "hh-healthy-happy",
+        "productKey": "tai-wan-ching-wu-ching-liang-kuai",
+        "note": "一體成型的22.5公分樹脂筷"
+      }
+    ],
+    "cups": [
+      {
+        "brandSlug": "hmm",
+        "productKey": "w-glass-milk-hui-shou-po-li-pei",
+        "note": "回收玻璃製，可用熱水與洗碗機"
+      },
+      {
+        "brandSlug": "anta-pottery",
+        "productKey": "mien-tiu-tao-tzu-shou-tsang-pan-mei-hua-tui-pei-2ptwgxt5",
+        "note": "青瓷梅花杯，一組兩只"
+      },
+      {
+        "brandSlug": "goodglas",
+        "productKey": "noii-noii-tsao-hsing-shuang-tseng-po-li-pei",
+        "note": "雙層玻璃，減少冷飲結露"
+      }
+    ]
+  }
+}

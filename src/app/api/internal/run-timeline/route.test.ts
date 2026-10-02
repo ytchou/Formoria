@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  applyRoutineTimelineEvent,
+  type RoutineTimelineDeps,
+} from "@/lib/services/run-timeline/relay";
 import { createRunTimelineHandler, type RunTimelineRouteDeps } from "./route";
 
 const TOKEN = "routine-callback-token";
@@ -89,5 +93,29 @@ describe("POST /api/internal/run-timeline — service call", () => {
     const response = await createRunTimelineHandler(deps)(makeRequest(BODY));
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ ok: true, appended: false, recorded: 1 });
+  });
+
+  it("passes a repair_summary body through to the relay", async () => {
+    const appendRunEvent = vi.fn<RoutineTimelineDeps["appendRunEvent"]>(async () => true);
+    const recordTickets = vi.fn<RoutineTimelineDeps["recordTickets"]>(async () => 0);
+    const deps: RunTimelineRouteDeps = {
+      applyRoutineTimelineEvent: (body) =>
+        applyRoutineTimelineEvent(body, { appendRunEvent, recordTickets, now: () => 1_727_200_500 }),
+    };
+    const event = {
+      kind: "repair_summary",
+      total: 4,
+      fixed: 4,
+      falsePositive: 0,
+      ticketed: 0,
+      pendingRelease: 0,
+    };
+    const response = await createRunTimelineHandler(deps)(makeRequest({ ...BODY, event }));
+    expect(response.status).toBe(200);
+    expect(appendRunEvent).toHaveBeenCalledWith(
+      { channel: BODY.channel, ts: BODY.ts },
+      { ...event, at: 1_727_200_500 },
+    );
+    expect(recordTickets).not.toHaveBeenCalled();
   });
 });

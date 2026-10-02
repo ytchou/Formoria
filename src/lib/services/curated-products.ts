@@ -18,6 +18,12 @@ import {
 } from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 import { isRegistryRecordActive } from "@/lib/services/curated-products/origin-qualification";
+import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
+import {
+  PREVIEW_THUMBNAIL_LIMIT,
+  TRAIL_PEEK_SIZE,
+} from "./curated-products.constants";
+import { isMissingColumn, MISSING_COLUMN_CODE } from "./_shared/missing-column";
 
 /** The tables are reached through the untyped `from` surface, with generated DB shapes at the boundary. */
 export type CuratedProductSupabase = Pick<SupabaseClient, "from">;
@@ -361,23 +367,15 @@ const UNPLACED = Number.MAX_SAFE_INTEGER;
 
 /** PostgREST's "could not find the table in the schema cache". */
 const MISSING_TABLE_CODE = "PGRST205";
-/** Observed from the staging REST read before this migration landed. */
-const MISSING_COLUMN_CODE = "42703";
-const POSTGREST_MISSING_COLUMN_CODE = "PGRST204";
-
 /** True when the error says the database schema is older than this code. */
 function isSchemaLag(error: unknown): boolean {
   const code = (error as { code?: string }).code;
+  // 42703 was observed from the staging REST read before this migration landed.
   return code === MISSING_TABLE_CODE || code === MISSING_COLUMN_CODE;
 }
 
 function isMissingSubcategoryColumn(error: unknown): boolean {
-  const code = (error as { code?: string }).code;
-  const message = (error as { message?: string }).message ?? "";
-  return (
-    (code === MISSING_COLUMN_CODE || code === POSTGREST_MISSING_COLUMN_CODE) &&
-    /\bsubcategory\b/u.test(message)
-  );
+  return isMissingColumn(error, "subcategory");
 }
 
 /**
@@ -425,16 +423,61 @@ export async function getPublishedCuratedProductsForBrand(
   brandId: string,
   client?: CuratedProductSupabase,
 ): Promise<CuratedProduct[]> {
-  const runQuery = (select: string) =>
-    curatedProductClient(client)
+  const products = await readPublishedCuratedProducts(
+    [brandId],
+    "curatedProducts.brand",
+    client,
+  );
+  return toBrandPageOrder(products);
+}
+
+/**
+ * What the brand page renders, in the order it renders it: null-subcategory
+ * rows dropped, then brand-page order. Shared by the brand page and the
+ * directory preview count so the two cannot diverge.
+ */
+function toBrandPageOrder(
+  products: readonly CuratedProduct[],
+): CuratedProduct[] {
+  return products
+    .filter((product) => product.subcategory !== null)
+    .sort(compareBrandPageOrder);
+}
+
+/** Brand-page order: placed products by position, then oldest first, then key. */
+const compareBrandPageOrder = (a: CuratedProduct, b: CuratedProduct): number =>
+  (a.productPosition ?? UNPLACED) - (b.productPosition ?? UNPLACED) ||
+  a.createdAt.localeCompare(b.createdAt) ||
+  a.key.localeCompare(b.key);
+
+/**
+ * The brand-page publication read, shared by the single-brand read and the
+ * directory preview batch so the two gates cannot diverge. Schema lag logs and
+ * degrades to `[]`; every other error is rethrown.
+ */
+async function readPublishedCuratedProducts(
+  brandIds: readonly string[],
+  scope: string,
+  client?: CuratedProductSupabase,
+): Promise<CuratedProduct[]> {
+  const runQuery = (select: string) => {
+    const query = curatedProductClient(client)
       .from("curated_products")
-      .select(select)
-      .eq("brand_id", brandId)
+      .select(select);
+    // Unpaged `.in` read, so PostgREST `max_rows = 1000` (supabase/config.toml)
+    // truncates it silently. Ceiling: ~1000 published products across one
+    // 12-brand directory page — unreachable today (census 2026-10-01: 1366
+    // published products across 293 approved brands). Upgrade path:
+    // range-paginate like `CURATED_PRODUCT_BATCH_PAGE_SIZE` below, or move the
+    // count/thumbnail summary into an aggregate RPC.
+    return query
+      .in("brand_id", [...brandIds])
       .eq("visible", true)
       .not("official_url", "is", null)
       .not("source_checked_at", "is", null)
       .eq("curated_product_sources.state", "active")
       .eq("curated_product_selections.state", "active");
+  };
   let { data, error } = await runQuery(CURATED_PRODUCT_READ_SELECT);
   if (error && isMissingSubcategoryColumn(error)) {
     ({ data, error } = await runQuery(LEGACY_CURATED_PRODUCT_READ_SELECT));
@@ -446,24 +489,73 @@ export async function getPublishedCuratedProductsForBrand(
     // Degrading to "no curated section" is right here — this is one section of
     // a page whose subject is the brand — but it is no longer silent.
     if (isSchemaLag(error)) {
-      console.error(
-        new CuratedProductSchemaLagError("curatedProducts.brand", error)
-          .message,
-      );
+      console.error(new CuratedProductSchemaLagError(scope, error).message);
       return [];
     }
     throw error;
   }
 
-  return ((data ?? []) as unknown as CuratedProductReadRow[])
-    .map(toCuratedProduct)
-    .filter((product) => product.subcategory !== null)
-    .sort(
-      (a, b) =>
-        (a.productPosition ?? UNPLACED) - (b.productPosition ?? UNPLACED) ||
-        a.createdAt.localeCompare(b.createdAt) ||
-        a.key.localeCompare(b.key),
-    );
+  return ((data ?? []) as unknown as CuratedProductReadRow[]).map(
+    toCuratedProduct,
+  );
+}
+
+/** What a directory card's evidence strip shows for one brand. */
+export type BrandProductPreview = {
+  count: number;
+  /**
+   * Raw stored URLs, at most `PREVIEW_THUMBNAIL_LIMIT`. Only URLs that
+   * `safeImageSrc` accepts are kept, so an unsafe URL never consumes a slot;
+   * the render site still applies `safeImageSrc` itself.
+   */
+  thumbnails: string[];
+};
+
+/**
+ * Per-brand count and first three renderable images, in brand-page order.
+ * Drops the same null-subcategory rows the brand page drops, so the count
+ * matches what the brand page renders. A brand with no surviving rows gets no
+ * entry.
+ */
+export function summarizeProductPreviews(
+  products: readonly CuratedProduct[],
+): Map<string, BrandProductPreview> {
+  const previews = new Map<string, BrandProductPreview>();
+  for (const product of toBrandPageOrder(products)) {
+    const preview = previews.get(product.brandId) ?? {
+      count: 0,
+      thumbnails: [],
+    };
+    preview.count += 1;
+    if (
+      product.imageUrl &&
+      safeImageSrc(product.imageUrl) !== null &&
+      preview.thumbnails.length < PREVIEW_THUMBNAIL_LIMIT
+    ) {
+      preview.thumbnails.push(product.imageUrl);
+    }
+    previews.set(product.brandId, preview);
+  }
+  return previews;
+}
+
+/**
+ * Batched evidence-strip read for one directory page (≤12 brands): one query,
+ * the same publication gate as `getPublishedCuratedProductsForBrand`. Schema
+ * lag degrades to an empty Map; other errors are rethrown for the caller to
+ * degrade.
+ */
+export async function getPublishedProductPreviewsForBrands(
+  brandIds: string[],
+  client?: CuratedProductSupabase,
+): Promise<Map<string, BrandProductPreview>> {
+  if (brandIds.length === 0) return new Map();
+  const products = await readPublishedCuratedProducts(
+    brandIds,
+    "curatedProducts.brandPreviews",
+    client,
+  );
+  return summarizeProductPreviews(products);
 }
 
 /**
@@ -622,6 +714,88 @@ const LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT =
   );
 
 /**
+ * The defensive public-eligibility gate every trail read re-applies on top of
+ * the PostgREST filters: an approved brand with a slug and name, a visible
+ * product with an official URL and a checked source, at least one active
+ * provenance row, and a subcategory the taxonomy still knows.
+ */
+function isPublicTrailRow(row: TrailCuratedProductRow): boolean {
+  if (
+    !row.brands?.slug ||
+    !row.brands.name ||
+    (row.brands.status !== undefined && row.brands.status !== "approved") ||
+    !row.visible ||
+    !row.official_url ||
+    !row.source_checked_at
+  ) {
+    return false;
+  }
+
+  const activeSources = row.curated_product_sources ?? [];
+  if (
+    activeSources.length > 0 &&
+    !activeSources.some(
+      (source) => source.state === undefined || source.state === "active",
+    )
+  ) {
+    return false;
+  }
+
+  return Boolean(productSubcategory(row));
+}
+
+function isActiveSelection(selection: CuratedProductSelectionRow): boolean {
+  return selection.state === undefined || selection.state === "active";
+}
+
+/**
+ * The one public trail-placement query, scoped to one trail (`eq`) or several
+ * (`in`), with the legacy `subcategories` fallback.
+ *
+ * Schema lag THROWS here, exactly as the homepage read does. A trail page turns
+ * this result into its whole product body, and a trail card into its peek, so
+ * `[]` reads as "nothing is placed yet" — the zone silently vanishes from a
+ * cached render with a green build and nothing in Sentry. Callers wrap this in
+ * `captureReadFailure`, so a throw marks the render degraded instead.
+ */
+async function readPublicTrailRows(
+  trailSlugs: string | readonly string[],
+  schemaLagSurface: string,
+  client?: CuratedProductSupabase,
+): Promise<TrailCuratedProductRow[]> {
+  const runQuery = (select: string) => {
+    const query = curatedProductClient(client)
+      .from("curated_products")
+      .select(select)
+      .eq("visible", true)
+      .not("official_url", "is", null)
+      .not("source_checked_at", "is", null)
+      .eq("curated_product_sources.state", "active")
+      .eq("curated_product_selections.state", "active");
+    const scoped =
+      typeof trailSlugs === "string"
+        ? query.eq("curated_product_selections.trail_slug", trailSlugs)
+        : query.in("curated_product_selections.trail_slug", [...trailSlugs]);
+    return scoped.eq("brands.status", "approved");
+  };
+  let { data, error } = await runQuery(CURATED_PRODUCT_TRAIL_READ_SELECT);
+  if (error && isMissingSubcategoryColumn(error)) {
+    ({ data, error } = await runQuery(
+      LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT,
+    ));
+  }
+
+  if (error) {
+    if (isSchemaLag(error)) {
+      throw new CuratedProductSchemaLagError(schemaLagSurface, error);
+    }
+    throw error;
+  }
+
+  return (data ?? []) as unknown as TrailCuratedProductRow[];
+}
+
+/**
  * Resolves the public placements for one trail. Unlike the homepage rail this
  * deliberately keeps every product from a brand: a trail can use one brand in
  * several distinct roles. Each active selection becomes one card, and every
@@ -632,35 +806,11 @@ export async function getPublishedCuratedProductsForTrail(
   trailSlug: string,
   client?: CuratedProductSupabase,
 ): Promise<TrailCuratedProduct[]> {
-  const runQuery = (select: string) =>
-    curatedProductClient(client)
-      .from("curated_products")
-      .select(select)
-      .eq("visible", true)
-      .not("official_url", "is", null)
-      .not("source_checked_at", "is", null)
-      .eq("curated_product_sources.state", "active")
-      .eq("curated_product_selections.state", "active")
-      .eq("curated_product_selections.trail_slug", trailSlug)
-      .eq("brands.status", "approved");
-  let { data, error } = await runQuery(CURATED_PRODUCT_TRAIL_READ_SELECT);
-  if (error && isMissingSubcategoryColumn(error)) {
-    ({ data, error } = await runQuery(
-      LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT,
-    ));
-  }
-
-  if (error) {
-    // Schema lag THROWS here, exactly as the homepage read does. A trail page
-    // turns this result into its whole product body, so `[]` reads as "nothing
-    // is placed yet" — the zone silently vanishes from a cached render with a
-    // green build and nothing in Sentry. The caller wraps this in
-    // `captureReadFailure`, so a throw marks the render degraded instead.
-    if (isSchemaLag(error)) {
-      throw new CuratedProductSchemaLagError("curatedProducts.trail", error);
-    }
-    throw error;
-  }
+  const rows = await readPublicTrailRows(
+    trailSlug,
+    "curatedProducts.trail",
+    client,
+  );
 
   const trail = await getPublishedTrailBySlug(trailSlug).catch(() => null);
   const sectionOrder = new Map(
@@ -671,37 +821,12 @@ export async function getPublishedCuratedProductsForTrail(
   );
 
   const products: TrailCuratedProduct[] = [];
-  for (const rawRow of (data ?? []) as unknown as TrailCuratedProductRow[]) {
-    const row = rawRow;
-    if (
-      !row.brands?.slug ||
-      !row.brands.name ||
-      (row.brands.status !== undefined && row.brands.status !== "approved") ||
-      !row.visible ||
-      !row.official_url ||
-      !row.source_checked_at
-    ) {
-      continue;
-    }
-
-    const activeSources = row.curated_product_sources ?? [];
-    if (
-      activeSources.length > 0 &&
-      !activeSources.some(
-        (source) => source.state === undefined || source.state === "active",
-      )
-    ) {
-      continue;
-    }
-
-    const selections = (row.curated_product_selections ?? []).filter(
-      (selection) =>
-        selection.trail_slug === trailSlug &&
-        (selection.state === undefined || selection.state === "active"),
-    );
-    if (!productSubcategory(row)) continue;
-
-    for (const selection of selections) {
+  for (const row of rows) {
+    if (!isPublicTrailRow(row)) continue;
+    for (const selection of row.curated_product_selections ?? []) {
+      if (selection.trail_slug !== trailSlug || !isActiveSelection(selection)) {
+        continue;
+      }
       products.push(toTrailProduct(row, selection));
     }
   }
@@ -712,6 +837,120 @@ export async function getPublishedCuratedProductsForTrail(
         (sectionOrder.get(b.sectionKey ?? "") ?? UNPLACED) ||
       (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
       a.key.localeCompare(b.key),
+  );
+}
+
+/** One trail a peek is requested for, with its declared section keys in order. */
+export type TrailPeekRequest = {
+  slug: string;
+  sectionKeys: readonly string[];
+};
+
+/** The peek request for each trail entry: its slug and declared sections. */
+export function trailPeekRequests(
+  trails: readonly {
+    slug: string;
+    frontmatter: { sections: readonly { key: string }[] };
+  }[],
+): TrailPeekRequest[] {
+  return trails.map((trail) => ({
+    slug: trail.slug,
+    sectionKeys: trail.frontmatter.sections.map((section) => section.key),
+  }));
+}
+
+/**
+ * Groups raw trail-read rows into per-trail peeks: at most `perTrail` products
+ * per requested trail, in the order the trail page renders them — declared
+ * section order, then `position`, ties broken by product key. A placement in a
+ * section the trail does not declare is dropped, because the page never shows
+ * it. A product placed in two sections of one trail appears once (its first
+ * placement after ordering); a product placed in two requested trails appears
+ * in both peeks, each copy carrying that trail's own placement. Every requested
+ * slug gets an entry (`[]` when nothing is placed); rows for other slugs are
+ * dropped. Applies the same eligibility gate as
+ * `getPublishedCuratedProductsForTrail`.
+ */
+export function groupTrailPeek(
+  rows: readonly unknown[],
+  trails: readonly TrailPeekRequest[],
+  perTrail = TRAIL_PEEK_SIZE,
+): Record<string, CuratedProduct[]> {
+  const sectionOrder = new Map(
+    trails.map((trail) => [
+      trail.slug,
+      new Map(trail.sectionKeys.map((key, index) => [key, index])),
+    ]),
+  );
+  const placed = new Map<string, TrailCuratedProduct[]>(
+    trails.map((trail) => [trail.slug, []]),
+  );
+
+  for (const row of rows as TrailCuratedProductRow[]) {
+    if (!isPublicTrailRow(row)) continue;
+    for (const selection of row.curated_product_selections ?? []) {
+      if (
+        !isActiveSelection(selection) ||
+        !sectionOrder.get(selection.trail_slug)?.has(selection.section_key)
+      ) {
+        continue;
+      }
+      placed.get(selection.trail_slug)?.push(toTrailProduct(row, selection));
+    }
+  }
+
+  return Object.fromEntries(
+    [...placed].map(([slug, products]) => {
+      const sections = sectionOrder.get(slug);
+      const seen = new Set<string>();
+      const peek = products
+        .sort(
+          (a, b) =>
+            (sections?.get(a.sectionKey ?? "") ?? UNPLACED) -
+              (sections?.get(b.sectionKey ?? "") ?? UNPLACED) ||
+            (a.position ?? UNPLACED) - (b.position ?? UNPLACED) ||
+            a.key.localeCompare(b.key),
+        )
+        .filter((product) => {
+          if (seen.has(product.id)) return false;
+          seen.add(product.id);
+          return true;
+        })
+        .slice(0, perTrail);
+      return [slug, peek];
+    }),
+  );
+}
+
+/**
+ * Batched peek for trail cards (homepage, /style hub): one query over every
+ * requested trail, the same eligibility gate as
+ * `getPublishedCuratedProductsForTrail`, grouped by `groupTrailPeek`. Throws on
+ * any error, schema lag included; callers own `captureReadFailure`.
+ */
+export async function getTrailPeekProducts(
+  trails: readonly TrailPeekRequest[],
+  perTrail = TRAIL_PEEK_SIZE,
+  client?: CuratedProductSupabase,
+): Promise<Record<string, CuratedProduct[]>> {
+  if (trails.length === 0) return {};
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "getTrailPeekProducts",
+      kind: "service",
+    },
+    async () => {
+      // Unpaged read, so PostgREST `max_rows = 1000` truncates it silently.
+      // Ceiling: ~1000 placed products across the requested trails. Upgrade
+      // path: range-paginate, or rank per trail in an RPC and return top N.
+      const rows = await readPublicTrailRows(
+        trails.map((trail) => trail.slug),
+        "curatedProducts.trailPeek",
+        client,
+      );
+      return groupTrailPeek(rows, trails, perTrail);
+    },
   );
 }
 

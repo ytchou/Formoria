@@ -140,6 +140,60 @@ describe("applyRoutineTimelineEvent — append", () => {
   });
 });
 
+describe("applyRoutineTimelineEvent — repair_summary", () => {
+  const SUMMARY = {
+    kind: "repair_summary",
+    total: 4,
+    fixed: 3,
+    falsePositive: 0,
+    ticketed: 0,
+    pendingRelease: 1,
+    pendingReleaseTickets: ["DEV-1912"],
+    notes: ["Next.js advisory GHSA-vcvr-r3jv-pc5j not in batch"],
+  };
+
+  it("accepts a repair_summary and appends it without a ticket write-back", async () => {
+    const deps = makeDeps();
+    const result = await applyRoutineTimelineEvent({ ...REF, event: SUMMARY }, deps);
+    expect(result).toEqual({ ok: true, appended: true, recorded: 0 });
+    expect(deps.appendRunEvent).toHaveBeenCalledTimes(1);
+    expect(deps.appendRunEvent).toHaveBeenCalledWith(REF, { ...SUMMARY, at: NOW });
+    expect(deps.recordTickets).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["4 notes", { notes: ["a", "b", "c", "d"] }, "event.notes"],
+    ["a 201-char note", { notes: ["x".repeat(201)] }, "event.notes.0"],
+    ["a negative count", { fixed: -1 }, "event.fixed"],
+  ])("rejects a repair_summary with %s", async (_name, override, path) => {
+    const deps = makeDeps();
+    const result = await applyRoutineTimelineEvent(
+      { ...REF, event: { ...SUMMARY, ...override } },
+      deps,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.error).toContain(path);
+    expect(deps.appendRunEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects ticket_outcomes from the routine", async () => {
+    const deps = makeDeps();
+    const result = await applyRoutineTimelineEvent(
+      {
+        ...REF,
+        event: {
+          kind: "ticket_outcomes",
+          bucket: "ticket",
+          items: [{ title: "Sentry quota exhausted", outcome: "existing", ticketId: "DEV-1909" }],
+        },
+      },
+      deps,
+    );
+    expect(result.ok).toBe(false);
+    expect(deps.appendRunEvent).not.toHaveBeenCalled();
+  });
+});
+
 describe("applyRoutineTimelineEvent — ticket write-back", () => {
   it("maps every fingerprint of every filed ticket to its identifier", async () => {
     const deps = makeDeps();

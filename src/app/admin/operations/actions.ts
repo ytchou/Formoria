@@ -316,7 +316,7 @@ async function dispatchQueuedJob(
   successMessage: string,
 ): Promise<QueuedJobResult> {
   try {
-    const dispatch = await dispatchCurationJob(jobId);
+    await dispatchCurationJob(jobId);
     try {
       await markCurationJobDispatched(jobId);
     } catch (error) {
@@ -325,13 +325,9 @@ async function dispatchQueuedJob(
         sanitizeDispatchError(error),
       );
     }
-    const dispatchMessage =
-      dispatch.status === "queued"
-        ? "Queued behind earlier jobs."
-        : "Dispatching now.";
     return queuedJobResult(
       jobId,
-      `${successMessage} ${dispatchMessage}`,
+      `${successMessage} Worker run requested — starts within ~1–2 min; runs queued jobs in order.`,
       "dispatched",
     );
   } catch (error) {

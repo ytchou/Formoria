@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { trackTrailCardClicked } from "@/lib/analytics";
+import type { CuratedProduct } from "@/lib/services/curated-products";
 import type { TrailEntry } from "@/lib/services/trails";
 import { TrailTile } from "../trail-tile";
 
@@ -61,11 +63,55 @@ function buildTrail(): TrailEntry {
   };
 }
 
-function renderTile(trail = buildTrail()) {
+function buildPeekProduct(index: number): CuratedProduct {
+  return {
+    id: `product-${index}`,
+    brandId: `brand-${index}`,
+    key: `product-${index}`,
+    nameZh: `商品 ${index}`,
+    nameEn: null,
+    category: "home",
+    subcategory: null,
+    officialUrl: "https://example.com/product",
+    imageUrl: `/i/curated-products/p/${index}.jpg`,
+    imageSourceUrl: null,
+    visible: true,
+    linkState: "ok",
+    linkCheckedAt: null,
+    sourceCheckedAt: null,
+    reviewDueAt: null,
+    productDescriptionZh: "描述",
+    productDescriptionEn: null,
+    productPosition: null,
+    createdAt: "2026-01-01T00:00:00Z",
+    trailSlug: "small-space-reading-corner",
+    sectionKey: null,
+    position: index,
+    mitQualified: false,
+  };
+}
+
+function renderTile(
+  trail = buildTrail(),
+  props: Partial<Parameters<typeof TrailTile>[0]> = {},
+) {
   return render(
     <ul>
-      <TrailTile trail={trail} labels={labels} position={0} singleColumn />
+      <TrailTile
+        trail={trail}
+        labels={labels}
+        position={0}
+        trailSurface="homepage_trails"
+        singleColumn
+        {...props}
+      />
     </ul>,
+  );
+}
+
+function peekList(container: HTMLElement): HTMLUListElement | null {
+  return container.querySelector<HTMLUListElement>(
+    'ul[aria-hidden="true"]',
   );
 }
 
@@ -136,5 +182,82 @@ describe("TrailTile", () => {
     expect(
       screen.getByRole("link", { name: "A reading corner for a small flat" }),
     ).toHaveAttribute("href", "/style/small-space-reading-corner");
+  });
+
+  it("renders up to 4 peek thumbnails with empty alt", () => {
+    const peek = Array.from({ length: 5 }, (_, index) =>
+      buildPeekProduct(index),
+    );
+
+    const { container } = renderTile(buildTrail(), { peek });
+
+    const list = peekList(container);
+    expect(list).not.toBeNull();
+    const thumbnails = list!.querySelectorAll("img");
+    expect(thumbnails).toHaveLength(4);
+    for (const thumbnail of thumbnails) {
+      expect(thumbnail).toHaveAttribute("alt", "");
+    }
+    // Thumbnails are decorative and never their own links: the card keeps one.
+    expect(list!.querySelector("a")).toBeNull();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    // The peek sits outside the dark band but inside the same list item.
+    const link = screen.getByRole("link");
+    expect(link.contains(list)).toBe(false);
+    expect(list!.closest("li")).toBe(link.closest("li"));
+  });
+
+  it("keeps an empty square for a peek product with no safe image, within the cap", () => {
+    const peek = [
+      { ...buildPeekProduct(0), imageUrl: null },
+      { ...buildPeekProduct(1), imageUrl: "//evil.example/p.jpg" },
+      ...Array.from({ length: 4 }, (_, index) => buildPeekProduct(index + 2)),
+    ];
+
+    const { container } = renderTile(buildTrail(), { peek });
+
+    const list = peekList(container);
+    expect(list).not.toBeNull();
+    const items = list!.querySelectorAll(":scope > li");
+    // The imageless products still take their slots, so the cap holds at 4.
+    expect(items).toHaveLength(4);
+    for (const item of [...items].slice(0, 2)) {
+      expect(item.className).toContain("aspect-square");
+      expect(item.querySelector("img")).toBeNull();
+    }
+    expect(list!.querySelectorAll("img")).toHaveLength(2);
+  });
+
+  it("renders no peek list when peek is empty or undefined", () => {
+    const empty = renderTile(buildTrail(), { peek: [] });
+    expect(empty.container.querySelectorAll("ul")).toHaveLength(1);
+    empty.unmount();
+
+    const missing = renderTile();
+    expect(missing.container.querySelectorAll("ul")).toHaveLength(1);
+  });
+
+  it("tracks clicks with the given trailSurface", () => {
+    renderTile(buildTrail(), { trailSurface: "style_hub", position: 2 });
+
+    fireEvent.click(screen.getByRole("link"));
+
+    expect(trackTrailCardClicked).toHaveBeenCalledWith(
+      "small-space-reading-corner",
+      2,
+      "style_hub",
+    );
+  });
+
+  it("uses the requested heading level", () => {
+    renderTile(buildTrail(), { headingLevel: "h2" });
+
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "A reading corner for a small flat",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
   });
 });

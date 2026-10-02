@@ -40,6 +40,15 @@ describe("Grid", () => {
     expect(gridStyles({ cols: "thirds" })).toContain("lg:grid-cols-3");
   });
 
+  it("exposes the catalog formula for product tiles", () => {
+    const classes = gridStyles({ cols: "catalog" });
+
+    expect(classes).toContain("grid-cols-2");
+    expect(classes).toContain("md:grid-cols-3");
+    expect(classes).toContain("xl:grid-cols-4");
+    expect(classes).toContain("2xl:grid-cols-5");
+  });
+
   it("single renders one column at every breakpoint", () => {
     const classes = gridStyles({ cols: "single" });
 

@@ -20,10 +20,7 @@
     "@react-email/ui",
     "react-simple-maps"
   ],
-  "ignoreBinaries": ["codex", "gh", "lsof", "psql", "python3", "scripts/run-worker.sh", "uv"],
-  "ignore": [
-    "scripts/threads-scraper/.venv/**"
-  ],
+  "ignoreBinaries": ["codex", "lsof", "psql", "python3", "scripts/run-worker.sh", "uv"],
   "ignoreIssues": {
     "src/components/ui/card.tsx": ["exports"],
     "src/app/admin/actions.ts": ["exports"],

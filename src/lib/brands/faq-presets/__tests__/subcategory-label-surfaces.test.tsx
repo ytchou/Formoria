@@ -155,13 +155,15 @@ describe("subcategory label surfaces", () => {
   it("brand_chips_render_localised_labels", () => {
     const brand = buildBrand();
 
+    // The directory card no longer renders L2 chips at all — neither the
+    // label nor the raw slug may appear on it.
     const zhCard = renderInLocale(<BrandCard brand={brand} />, "zh-TW");
-    expect(screen.getByText(MIGRATED_LABEL_ZH)).toBeInTheDocument();
+    expect(screen.queryByText(MIGRATED_LABEL_ZH)).toBeNull();
     expect(screen.queryByText(MIGRATED_SLUG)).toBeNull();
     zhCard.unmount();
 
     const enCard = renderInLocale(<BrandCard brand={brand} />, "en");
-    expect(screen.getByText(MIGRATED_LABEL_EN)).toBeInTheDocument();
+    expect(screen.queryByText(MIGRATED_LABEL_EN)).toBeNull();
     expect(screen.queryByText(MIGRATED_SLUG)).toBeNull();
     enCard.unmount();
 

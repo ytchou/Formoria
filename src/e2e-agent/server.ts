@@ -331,6 +331,7 @@ export async function main(): Promise<void> {
       flaky: result.stats.flaky,
       skipped: result.stats.skipped,
       durationSeconds: Math.round(result.stats.duration / 1000),
+      unexpectedSkips: result.unexpectedSkips.length,
       ...(result.unexpectedSkips.length > 0
         ? { summary: `${result.unexpectedSkips.length} unexpected skips` }
         : {}),

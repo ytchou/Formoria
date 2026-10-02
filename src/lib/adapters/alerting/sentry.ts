@@ -3,11 +3,13 @@ import * as Sentry from "@sentry/nextjs";
 /**
  * Sentry adapter for background alerting.
  *
- * The curation worker is a separate container (`Dockerfile.curation-worker`)
- * that runs `tsx src/curation-worker/server.ts` — it never loads Next's
- * instrumentation hook, so `sentry.server.config.ts` never runs there. This
- * adapter therefore self-initializes when no client is present, and piggybacks
- * on the existing client when it is (the Next runtime).
+ * The curation worker is a one-shot Railway cron process
+ * (`Dockerfile.curation-worker`, `tsx src/curation-worker/server.ts`) that
+ * drains the queue and exits. It never loads Next's instrumentation hook, so
+ * `sentry.server.config.ts` never runs there. This adapter therefore
+ * self-initializes when no client is present, and piggybacks on the existing
+ * client when it is (the Next runtime). `captureAlert` only queues an event;
+ * a process about to exit must `await flushAlerts()` first or lose it.
  *
  * `@sentry/nextjs` re-exports the Node SDK on the server, so no `@sentry/node`
  * dependency is needed.
@@ -86,3 +88,18 @@ export function captureAlert(
   return true;
 }
 
+/**
+ * Drains queued Sentry events before a short-lived process exits. Never
+ * throws; resolves true when there is nothing to flush or the flush finished
+ * within `timeoutMs`.
+ */
+export async function flushAlerts(timeoutMs = 2_000): Promise<boolean> {
+  if (!Sentry.getClient()) {
+    return true;
+  }
+  try {
+    return await Sentry.flush(timeoutMs);
+  } catch {
+    return false;
+  }
+}

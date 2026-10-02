@@ -1,7 +1,5 @@
 import { auditedCall } from "@/lib/audit";
-
-const LINEAR_API_URL = "https://api.linear.app/graphql";
-const TIMEOUT_MS = 10_000;
+import { postLinearGraphql, requireLinearApiKey } from "./linear-graphql";
 
 const ISSUE_CREATE_MUTATION = `
 mutation IssueCreate($input: IssueCreateInput!) {
@@ -40,12 +38,7 @@ function resolveLabel(label: string): string {
 }
 
 export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
-  const apiKey = process.env.LINEAR_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "Linear is not configured: LINEAR_API_KEY is required",
-    );
-  }
+  const apiKey = requireLinearApiKey();
 
   const teamId = process.env.LINEAR_TEAM_ID;
   if (!teamId) {
@@ -74,34 +67,15 @@ export async function createTicket(spec: TicketSpec): Promise<TicketResult> {
         ...(stateId && { stateId }),
       };
 
-      const response = await fetch(LINEAR_API_URL, {
-        method: "POST",
-        headers: {
-          Authorization: apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: ISSUE_CREATE_MUTATION,
-          variables: { input },
-        }),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(`Linear API error: ${response.status} ${text}`.trim());
-      }
-
-      const json = (await response.json()) as {
-        errors?: Array<{ message: string }>;
-        data: { issueCreate: { issue: { identifier: string; url?: string } } };
-      };
+      const json = await postLinearGraphql<{
+        issueCreate: { issue: { identifier: string; url?: string } };
+      }>(apiKey, { query: ISSUE_CREATE_MUTATION, variables: { input } });
 
       if (json.errors?.length) {
         throw new Error(`Linear GraphQL error: ${json.errors[0].message}`);
       }
 
-      const { identifier, url } = json.data.issueCreate.issue;
+      const { identifier, url } = json.data!.issueCreate.issue;
       return { identifier, ...(url ? { url } : {}) };
     },
   );

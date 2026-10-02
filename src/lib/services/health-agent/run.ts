@@ -15,8 +15,9 @@
  * (`HEALTH_ACKNOWLEDGEMENTS`) is enqueued but takes neither route.
  *
  * The run timeline (Slack parent message) gets `started`, `findings`, then
- * `repair_requested` or `completed`. The repair routine owns the rest. A
- * failed trigger ends on `repair_failed`, after any fallback `tickets_filed`.
+ * `ticket_outcomes`, then `repair_requested` or `completed`. The repair
+ * routine owns the rest. A failed trigger ends on `repair_failed`, after any
+ * fallback `ticket_outcomes` (bucket `auto_fix`).
  *
  * `createServiceClient()` is called ONCE, in the server.ts entry point,
  * and passed to this module via `deps.client`.
@@ -24,7 +25,12 @@
 
 import type { AuditContextSeed } from '@/lib/audit/context'
 import { routeOf, stableFingerprint, type HealthFinding } from './contracts'
-import { isAcknowledged } from '@/lib/constants/health-acknowledgements'
+import {
+  isAcknowledged,
+  type HealthAcknowledgement,
+} from '@/lib/constants/health-acknowledgements'
+import { HEALTH_TICKET_FOLLOW_UP_DAYS } from '@/lib/constants/health-detectors'
+import { truncatePlain } from '@/lib/adapters/slack/blocks'
 import type { Detector } from './types'
 import type { RepoWorkerClient } from './repo-worker-client'
 import {
@@ -35,7 +41,7 @@ import {
 import {
   nowSeconds,
   type RunEvent,
-  type RunTicket,
+  type TicketOutcome,
   type TimelineRef,
 } from '@/lib/services/run-timeline/types'
 import {
@@ -106,6 +112,15 @@ export type RunHealthAgentDeps = {
   }) => Promise<{ identifier: string; url?: string }>
 
   /**
+   * Read the workflow state of existing tickets, keyed by the requested
+   * identifier; `closed` means completed or canceled. Absent when Linear is
+   * unconfigured; a throw leaves the states unknown.
+   */
+  linearGetTicketStates?: (
+    identifiers: readonly string[],
+  ) => Promise<Map<string, { state: string; closed: boolean }>>
+
+  /**
    * Trigger the ops-agent to repair findings. threadTs threads under the digest.
    * Throws `RepairPostRejectedError` when the post definitely did not land;
    * any other throw means delivery is unknown.
@@ -126,6 +141,9 @@ export type RunHealthAgentDeps = {
 
   /** Clock for the stale-ticket follow-up window. Defaults to `new Date()`. */
   now?: () => Date
+
+  /** Override the acknowledged-debt list for tests. Defaults to `HEALTH_ACKNOWLEDGEMENTS`. */
+  acknowledgements?: readonly HealthAcknowledgement[]
 }
 
 export type RunHealthAgentResult = {
@@ -137,8 +155,20 @@ export type RunHealthAgentResult = {
   error?: string
 }
 
-/** Matches the relay's zod max for `tickets_filed.tickets`. */
+/**
+ * Caps the items listed in one `ticket_outcomes` event to bound Slack
+ * metadata size. The relay does not validate this event; only this cap and
+ * OUTCOME_TITLE_LIMIT bound it.
+ */
 const MAX_TIMELINE_TICKETS = 50
+
+/** Bounds an item title stored in Slack metadata (the Linear ticket keeps the full title). */
+const OUTCOME_TITLE_LIMIT = 120
+
+/** Bounds an error message stored in Slack metadata. */
+const OUTCOME_REASON_LIMIT = 200
+
+const DAY_MS = 86_400_000
 
 type QualityWorkerFailureKind =
   'clone-auth' | 'install' | 'vitest-exec' | 'knip-exec' | 'worker-transport'
@@ -600,9 +630,30 @@ async function executeRunBody(
   const totalFindings = allFindings.length
   // Acknowledged known debt is still enqueued (reconcile closes it by
   // detector absence) but takes neither route.
-  const routedFindings = allFindings.filter(
-    (f) => !isAcknowledged(f.fingerprint, logicalDate),
-  )
+  const acknowledgedGroups = new Map<
+    string,
+    { ticket: string; until: string; count: number }
+  >()
+  const routedFindings: HealthFinding[] = []
+  for (const f of allFindings) {
+    const acknowledgement = isAcknowledged(f.fingerprint, logicalDate, deps.acknowledgements)
+    if (!acknowledgement) {
+      routedFindings.push(f)
+      continue
+    }
+    const group = acknowledgedGroups.get(acknowledgement.ticket)
+    if (!group) {
+      acknowledgedGroups.set(acknowledgement.ticket, {
+        ticket: acknowledgement.ticket,
+        until: acknowledgement.until,
+        count: 1,
+      })
+    } else {
+      group.count += 1
+      // Two entries under one ticket: the soonest expiry is the one to warn about.
+      if (acknowledgement.until < group.until) group.until = acknowledgement.until
+    }
+  }
   const acknowledgedCount = totalFindings - routedFindings.length
   const autoFixFindings = routedFindings.filter(
     (f) => routeOf(f) === 'auto_fix',
@@ -610,15 +661,23 @@ async function executeRunBody(
   const ticketFindings = routedFindings.filter(
     (f) => routeOf(f) === 'ticket',
   )
-  const failedDetectors = results.filter((r) => r.status === 'failed').length
+  const failedDetectorNames = results
+    .filter((r) => r.status === 'failed')
+    .map((r) => r.name)
+  const failedDetectors = failedDetectorNames.length
   await appendEvent({
     kind: 'findings',
     at: nowSeconds(),
     total: totalFindings,
     autoFix: autoFixFindings.length,
     ticket: ticketFindings.length,
-    ...(acknowledgedCount > 0 ? { acknowledged: acknowledgedCount } : {}),
-    ...(failedDetectors > 0 ? { failedDetectors } : {}),
+    ...(acknowledgedCount > 0
+      ? {
+          acknowledged: acknowledgedCount,
+          acknowledgedGroups: [...acknowledgedGroups.values()],
+        }
+      : {}),
+    ...(failedDetectors > 0 ? { failedDetectors, failedDetectorNames } : {}),
   })
   const sentryFindings = allFindings.filter(
     (finding) =>
@@ -709,21 +768,94 @@ async function executeRunBody(
   // One ticket per eligible finding: reserve -> create -> finalize, undoing
   // the reservation only when the ticket was never created. A finding ticketed more than
   // HEALTH_TICKET_FOLLOW_UP_DAYS ago that still fires gets a follow-up ticket.
-  // Created tickets are listed under "Needs you" through one tickets_filed
-  // event per call.
+  // Every routed finding gets one outcome item, appended as one
+  // ticket_outcomes event per call.
   const now = deps.now?.() ?? new Date()
   const attempted = new Set<string>()
-  const fileFindingTickets = async (findings: HealthFinding[]): Promise<void> => {
+
+  /** Why `isTicketEligible` turned the finding down, or the ticket it already has. */
+  const ineligibleOutcome = (finding: HealthFinding): TicketOutcome => {
+    const title = truncatePlain(finding.title, OUTCOME_TITLE_LIMIT)
+    if (finding.source === 'sentry') {
+      return { title, outcome: 'not_eligible', reason: 'Sentry issues are signal-only' }
+    }
+    const entry = ticketLedger.get(finding.fingerprint)
+    if (!entry?.linearIdentifier) {
+      return {
+        title,
+        outcome: 'not_eligible',
+        reason: 'ticketed with no Linear identifier',
+      }
+    }
+    const ticketedMs = Date.parse(entry.ticketedAt)
+    return {
+      title,
+      outcome: 'existing',
+      ticketId: entry.linearIdentifier,
+      ticketedAt: entry.ticketedAt,
+      ...(Number.isNaN(ticketedMs)
+        ? {}
+        : {
+            followUpOn: new Date(
+              ticketedMs + HEALTH_TICKET_FOLLOW_UP_DAYS * DAY_MS,
+            ).toISOString().slice(0, 10),
+          }),
+    }
+  }
+
+  /** Adds the Linear state to `existing` items in one read; a failure leaves it unknown. */
+  const addTicketStates = async (items: TicketOutcome[]): Promise<void> => {
+    const getStates = deps.linearGetTicketStates
+    const identifiers = [...new Set(items.flatMap((item) =>
+      item.outcome === 'existing' && item.ticketId ? [item.ticketId] : []))]
+    if (!getStates || identifiers.length === 0) return
+    let states: Map<string, { state: string; closed: boolean }>
+    try {
+      states = await getStates(identifiers)
+    } catch (err) {
+      console.warn('[health-agent] Linear ticket state read failed:', err)
+      return
+    }
+    for (const item of items) {
+      const state = item.ticketId ? states.get(item.ticketId) : undefined
+      if (item.outcome !== 'existing' || !state) continue
+      item.state = state.state
+      item.closed = state.closed
+    }
+  }
+
+  const fileFindingTickets = async (
+    findings: HealthFinding[],
+    bucket: 'ticket' | 'auto_fix',
+  ): Promise<void> => {
     const createTicket = deps.linearCreateTicket
-    if (dryRun || !createTicket || !ledgerRead) return
-    const filed: RunTicket[] = []
+    if (dryRun || !createTicket) return
+    const items: TicketOutcome[] = []
     for (const finding of findings) {
       // A duplicate fingerprint is never retried.
       if (attempted.has(finding.fingerprint)) continue
-      if (!isTicketEligible(finding, ticketLedger, now)) continue
-      const queueId = fingerprintToId.get(finding.fingerprint)
-      if (!queueId) continue
       attempted.add(finding.fingerprint)
+      const title = truncatePlain(finding.title, OUTCOME_TITLE_LIMIT)
+      if (!ledgerRead) {
+        // The ledger read is skipped when nothing was enqueued, so name the enqueue then.
+        items.push({
+          title,
+          outcome: 'not_processed',
+          reason: enqueuedIds.length === 0
+            ? 'finding was not enqueued'
+            : 'ticket ledger read failed',
+        })
+        continue
+      }
+      if (!isTicketEligible(finding, ticketLedger, now)) {
+        items.push(ineligibleOutcome(finding))
+        continue
+      }
+      const queueId = fingerprintToId.get(finding.fingerprint)
+      if (!queueId) {
+        items.push({ title, outcome: 'not_processed', reason: 'finding was not enqueued' })
+        continue
+      }
 
       const previous = ticketLedger.get(finding.fingerprint)
       const ticket = buildFindingTicket(finding, {
@@ -742,6 +874,7 @@ async function executeRunBody(
         await reserveTicket(client, queueId, previous)
       } catch (err) {
         console.error('[health-agent] ticket reservation failed:', err)
+        items.push({ title, outcome: 'failed', reason: 'ticket reservation failed' })
         continue
       }
 
@@ -758,6 +891,12 @@ async function executeRunBody(
           // A follow-up keeps its earlier ticket link rather than clearing it.
           await undoReservation(client, queueId, previous)
         } catch { /* release best-effort */ }
+        const message = err instanceof Error ? err.message : String(err)
+        items.push({
+          title,
+          outcome: 'failed',
+          reason: `Linear create failed: ${message}`.slice(0, OUTCOME_REASON_LIMIT),
+        })
         continue
       }
 
@@ -779,31 +918,30 @@ async function executeRunBody(
           err,
         )
       }
-      // No URL, no row: no existing src/ code builds Linear issue links (the
-      // workspace slug is not configured), so a ticket without one is left
-      // out of the timeline. It is still in Linear and in the ledger.
-      // No fingerprints: only the relay write-back needs them, and they
-      // bloat the Slack metadata.
-      if (result.url) {
-        filed.push({
-          id: result.identifier,
-          url: result.url,
-          title: finding.title,
-        })
-      }
-    }
-    if (filed.length > 0) {
-      // shortcut: cap 50 tickets per event to bound Slack metadata size; the rest are still filed in Linear, just not listed under Needs you. Upgrade: an 'N more' marker.
-      await appendEvent({
-        kind: 'tickets_filed',
-        at: nowSeconds(),
-        tickets: filed.slice(0, MAX_TIMELINE_TICKETS),
+      // No URL: no existing src/ code builds Linear issue links (the
+      // workspace slug is not configured), so the item names the identifier
+      // only. No fingerprints: they bloat the Slack metadata.
+      items.push({
+        title,
+        outcome: previous ? 'follow_up' : 'filed',
+        ticketId: result.identifier,
+        ...(result.url ? { url: result.url } : {}),
       })
     }
+    if (items.length === 0) return
+    // shortcut: cap 50 items per event to bound Slack metadata size; the rest are still handled, just not listed. Upgrade: an 'N more' count, or a byte-budget trim in append.ts.
+    const listed = items.slice(0, MAX_TIMELINE_TICKETS)
+    await addTicketStates(listed)
+    await appendEvent({
+      kind: 'ticket_outcomes',
+      at: nowSeconds(),
+      bucket,
+      items: listed,
+    })
   }
 
   // shortcut: one ticket per ticket-route finding; the first night after a new detector ships can file many. Upgrade path: group by detector.
-  await fileFindingTickets(ticketFindings)
+  await fileFindingTickets(ticketFindings, 'ticket')
 
   // ---- 7. Worker jobs (knip-fix/repair/PR publishing) ----
   // Quality dispatch (vitest + knip) moved to step 3.5.
@@ -836,7 +974,7 @@ async function executeRunBody(
   // The repair routine owns tickets for the findings it receives. When the
   // trigger is unconfigured or Slack definitely rejected the post, the health
   // agent files them instead, so no finding goes without a ticket. The
-  // timeline never ends on `tickets_filed`: a failed trigger ends on
+  // timeline never ends on `ticket_outcomes`: a failed trigger ends on
   // `repair_failed`, an unconfigured one on `completed`.
   if (!dryRun) {
     if (autoFixFindings.length === 0) {
@@ -881,7 +1019,7 @@ async function executeRunBody(
         console.error('[health-agent] repair trigger failed:', err)
         if (err instanceof RepairPostRejectedError) {
           // Definite: the routine never saw the request.
-          await fileFindingTickets(autoFixFindings)
+          await fileFindingTickets(autoFixFindings, 'auto_fix')
         } else {
           // ambiguous: the post may have been delivered; the routine tickets, and ticketed_at stays NULL so tomorrow's run re-sends if not.
         }
@@ -893,7 +1031,7 @@ async function executeRunBody(
       }
     } else {
       // Unconfigured trigger: nothing further will happen for this run.
-      await fileFindingTickets(autoFixFindings)
+      await fileFindingTickets(autoFixFindings, 'auto_fix')
       await appendEvent({ kind: 'completed', at: nowSeconds() })
     }
   }

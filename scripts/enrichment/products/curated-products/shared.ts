@@ -87,7 +87,11 @@ export function parseBrandOption(argv: string[]): string | null {
  * page keeps serving its hour-old shell. Failing here leaves the database
  * untouched, which is the reversible failure.
  */
-export function assertRevalidationConfigured(): void {
+export function assertRevalidationConfigured(
+  message: string =
+    '--apply requires ORIGIN_SECRET and FORMORIA_RAILWAY_URL (or NEXT_PUBLIC_SITE_URL): ' +
+    'without them the write lands but every brand page keeps serving the stale ISR shell',
+): void {
   const hasOrigin = Boolean(
     process.env.FORMORIA_RAILWAY_URL?.trim() ||
       process.env.NEXT_PUBLIC_SITE_URL?.trim(),
@@ -95,10 +99,7 @@ export function assertRevalidationConfigured(): void {
   const hasSecret = Boolean(process.env.ORIGIN_SECRET?.trim())
   if (hasOrigin && hasSecret) return
 
-  throw new Error(
-    '--apply requires ORIGIN_SECRET and FORMORIA_RAILWAY_URL (or NEXT_PUBLIC_SITE_URL): ' +
-      'without them the write lands but every brand page keeps serving the stale ISR shell',
-  )
+  throw new Error(message)
 }
 
 type PageResult = { data: unknown[] | null; error: { message: string } | null }

@@ -32,11 +32,11 @@ export const MAX_BRAND_IMAGE_SELECTION = 24
 // yet. Invariant: this MUST sort above every active row the table can hold, so
 // a parked draft can never collide with a real gallery position.
 //
-// Derived from MAX_BRAND_IMAGE_SELECTION rather than MAX_BRAND_ACTIVE_IMAGES:
-// the display cap is 10, but legacy brands hold active rows up to sort_order
-// 13, so parking at the display cap lands *inside* the occupied range for
-// exactly the brands most likely to be re-edited.
-export const DRAFT_PARK_SORT_ORDER = MAX_BRAND_IMAGE_SELECTION
+// Above MAX_BRAND_ACTIVE_IMAGES on purpose: the display cap is 10, but legacy
+// brands hold active rows up to sort_order 13, so parking at the display cap
+// lands *inside* the occupied range for exactly the brands most likely to be
+// re-edited. Its own literal (not an alias) so knip reports no duplicate export.
+export const DRAFT_PARK_SORT_ORDER = 24
 
 // Over-cap images scoring at or above this threshold become candidates rather
 // than rejected. Derived from the staging p10 of active-image scores (73);

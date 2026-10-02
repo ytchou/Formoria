@@ -11,7 +11,9 @@ import SectionBand from "@/components/landing/section-band";
 import { getExploreBrands } from "@/lib/services/brands";
 import {
   getPublishedCuratedProductsForHomepage,
+  getTrailPeekProducts,
   MIN_HOME_CURATED_PRODUCTS,
+  trailPeekRequests,
 } from "@/lib/services/curated-products";
 import { buildGroupedWallSlots } from "@/lib/curated-products/home-wall";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
@@ -42,18 +44,21 @@ export function isLandingRenderDegraded({
   curatedProducts,
   stories,
   trails,
+  trailPeeks,
 }: {
   exploreResult: unknown;
   curatedProducts: unknown;
   stories: { ok: boolean };
   trails: { ok: boolean } | null;
+  trailPeeks: unknown;
 }): boolean {
   return (
     exploreResult === null ||
     curatedProducts === null ||
     !stories.ok ||
     trails === null ||
-    !trails.ok
+    !trails.ok ||
+    trailPeeks === null
   );
 }
 
@@ -94,30 +99,46 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale);
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
 
-  const [exploreResult, curatedProductsResult, storyResult, trailResult] =
-    await Promise.all([
-      getExploreBrands().catch(
-        captureReadFailure("landing.exploreBrands"),
-      ),
-      getPublishedCuratedProductsForHomepage().catch(
-        captureReadFailure("landing.selectedProducts"),
-      ),
-      getAllStories(safeLocale),
-      getAllTrails(safeLocale)
-        .then((result) => {
-          if (!result.ok) {
-            captureReadFailure("landing.trails")(result.error);
-          }
-          return result;
-        })
-        .catch(captureReadFailure("landing.trails")),
-    ]);
+  const trailRead = getAllTrails(safeLocale)
+    .then((result) => {
+      if (!result.ok) {
+        captureReadFailure("landing.trails")(result.error);
+      }
+      return result;
+    })
+    .catch(captureReadFailure("landing.trails"));
+  // Chained off the MDX read because it needs the slugs; it still runs inside
+  // the same `Promise.all`, beside the other reads. A failed trails read
+  // passes no slugs, which the service answers with `{}` and no query — that
+  // failure is already counted as `trails`.
+  const trailPeekRead = trailRead
+    .then((result) =>
+      getTrailPeekProducts(result?.ok ? trailPeekRequests(result.trails) : []),
+    )
+    .catch(captureReadFailure("landing.trailPeeks"));
+
+  const [
+    exploreResult,
+    curatedProductsResult,
+    storyResult,
+    trailResult,
+    trailPeeksResult,
+  ] = await Promise.all([
+    getExploreBrands().catch(captureReadFailure("landing.exploreBrands")),
+    getPublishedCuratedProductsForHomepage().catch(
+      captureReadFailure("landing.selectedProducts"),
+    ),
+    getAllStories(safeLocale),
+    trailRead,
+    trailPeekRead,
+  ]);
 
   const degraded = isLandingRenderDegraded({
     exploreResult,
     curatedProducts: curatedProductsResult,
     stories: storyResult,
     trails: trailResult,
+    trailPeeks: trailPeeksResult,
   });
   if (degraded) {
     await markRenderDegraded("landing");
@@ -129,8 +150,7 @@ export default async function LandingPage({ params }: PageProps) {
     ? storyResult.stories.slice(0, LANDING_STORY_LIMIT)
     : [];
   const curatedProducts = curatedProductsResult ?? [];
-  // Straight off the MDX read already in flight, so `/` stays statically
-  // rendered without a second query.
+  // Straight off the MDX read already in flight.
   const publishedTrails = trailResult?.ok ? trailResult.trails : [];
   const wallGroups = buildGroupedWallSlots({
     products: curatedProducts,
@@ -159,6 +179,7 @@ export default async function LandingPage({ params }: PageProps) {
               : null
           }
           trails={publishedTrails}
+          trailPeeks={trailPeeksResult ?? {}}
           stories={latestStories}
           brands={exploreBrands}
           totalBrandCount={totalBrandCount}

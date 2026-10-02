@@ -464,12 +464,36 @@ describe('e2e-agent server', () => {
 
     const events = timelineEvents(ALERTS_CHANNEL, START_TS)
     expect(events.map((e) => e.kind)).toEqual(['started', 'findings', 'completed'])
-    expect(events[1]).toMatchObject({ passed: 10, failed: 0, flaky: 0, skipped: 0, durationSeconds: 5 })
+    expect(events[1]).toMatchObject({
+      passed: 10,
+      failed: 0,
+      flaky: 0,
+      skipped: 0,
+      durationSeconds: 5,
+      unexpectedSkips: 0,
+    })
     // Every update targets the timeline message; no FINAL_LINE overwrite.
     for (const [params] of mockUpdateMessage.mock.calls) {
       expect(params).toMatchObject({ channel: ALERTS_CHANNEL, ts: START_TS })
     }
     expect(mockExit).toHaveBeenCalledWith(0)
+  })
+
+  it('findings event carries unexpectedSkips', async () => {
+    vi.stubEnv('SLACK_E2E_CHANNEL', ALERTS_CHANNEL)
+    mockRunE2eSuite.mockResolvedValue({
+      ...greenRunResult(),
+      outcome: 'red',
+      unexpectedSkips: [
+        { file: 'e2e/tests/auth-password-reset.spec.ts', title: 'unexpected auth skip', project: 'deep' },
+        { file: 'e2e/tests/brand-detail.spec.ts', title: 'unexpected brand skip', project: 'deep' },
+      ],
+    })
+
+    await runServer()
+
+    const findings = timelineEvents(ALERTS_CHANNEL, START_TS).find((e) => e.kind === 'findings')
+    expect(findings).toMatchObject({ unexpectedSkips: 2, summary: '2 unexpected skips' })
   })
 
   it('server_records_repair_requested_and_sends_timeline_on_red_run', async () => {

@@ -1,0 +1,66 @@
+{
+  "trail": "desk-setup",
+  "sections": {
+    "writing-tools": [
+      {
+        "brandSlug": "iwi",
+        "productKey": "handscript-shou-kao-yi-shu-chia-hsi-lieh-kang-chu-pi-zjjgtwgx",
+        "note": "黃銅管配木質筆身的鋼珠筆"
+      },
+      {
+        "brandSlug": "dot-design",
+        "productKey": "orii-dot-design-liang-yung-pi",
+        "note": "著色銅板筆身，鋼筆鋼珠兩用"
+      },
+      {
+        "brandSlug": "karus",
+        "productKey": "tsai-yi-pi-dressed-pen",
+        "note": "回收衣物布料壓合成筆身"
+      },
+      {
+        "brandSlug": "wenwenworks",
+        "productKey": "yuan-yu-chou-kung-yi-erh-ho-yi-kang-pi-kang-chu-pi-li-ho",
+        "note": "軟陶手作筆身的鋼筆與鋼珠筆"
+      }
+    ],
+    "desk-surface": [
+      {
+        "brandSlug": "hmm",
+        "productKey": "hmm-lou-kung-lu-chia-clip",
+        "note": "可夾40張A4，倒置當便箋座"
+      },
+      {
+        "brandSlug": "ecopeco",
+        "productKey": "kang-chun-shuang-tseng-hsueh-sheng-cho-tien",
+        "note": "雙層夾層可收文件的桌墊"
+      },
+      {
+        "brandSlug": "bao-needle-felt",
+        "productKey": "chang-kun-mien-pao-chien-pi-ho",
+        "note": "內長30公分的羊毛氈筆盒"
+      }
+    ],
+    "paper": [
+      {
+        "brandSlug": "yarn-ball",
+        "productKey": "chen-hsien-chiu-hou-pang-pien-tiao-pen",
+        "note": "厚磅紙，鋼筆書寫不易透色"
+      },
+      {
+        "brandSlug": "mr-eggplants",
+        "productKey": "summer-breeze-chi-ssu-shou-chang",
+        "note": "穿線精裝，可180°攤平"
+      },
+      {
+        "brandSlug": "bon-bon-stickers",
+        "productKey": "a7-m6-huo-yeh-chih-nei-yeh",
+        "note": "100磅道林紙的活頁內頁"
+      },
+      {
+        "brandSlug": "hsiaoyu-illustration",
+        "productKey": "tai-pei-tu-pan-ming-hsin-pien-62",
+        "note": "凸版印刷的台北明信片"
+      }
+    ]
+  }
+}

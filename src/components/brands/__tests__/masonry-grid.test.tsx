@@ -17,7 +17,7 @@ function cards(count: number) {
  *
  * The four-up column formula was written out in six files with four different
  * gap values, and nothing made a card grid and its own loading skeleton agree.
- * The assertion below compares against `gridStyles()` — the primitive's own
+ * The assertion below compares against `gridStyles({ cols: "thirds" })` — the primitive's own
  * output — rather than a class string, so it keeps holding when the column
  * count changes and fails the moment this surface stops asking the primitive.
  */
@@ -26,7 +26,7 @@ describe("MasonryGrid", () => {
     render(<MasonryGrid>{cards(2)}</MasonryGrid>);
 
     const grid = screen.getByRole("list");
-    for (const className of gridStyles().split(" ")) {
+    for (const className of gridStyles({ cols: "thirds" }).split(" ")) {
       expect(grid).toHaveClass(className);
     }
   });
@@ -36,9 +36,19 @@ describe("MasonryGrid", () => {
 
     const grid = container.querySelector("ul");
     expect(grid).not.toBeNull();
-    for (const className of gridStyles().split(" ")) {
+    for (const className of gridStyles({ cols: "thirds" }).split(" ")) {
       expect(grid).toHaveClass(className);
     }
+  });
+
+  it("lays out three across from lg", () => {
+    render(<MasonryGrid>{cards(3)}</MasonryGrid>);
+
+    expect(screen.getByRole("list")).toHaveClass("lg:grid-cols-3");
+  });
+
+  it("MASONRY_ABOVE_FOLD equals the widest column count", () => {
+    expect(MASONRY_ABOVE_FOLD).toBe(3);
   });
 
   it("renders every capped card into the markup and hides the overflow", () => {

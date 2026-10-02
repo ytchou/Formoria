@@ -12,7 +12,10 @@ import { describe, expect, it, vi } from "vitest";
 import en from "../../../messages/en.json";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import type { GroupedWallSlots, WallSlot } from "@/lib/curated-products/home-wall";
-import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
+import type {
+  CuratedProduct,
+  HomepageCuratedProduct,
+} from "@/lib/services/curated-products";
 import type { StoryEntry } from "@/lib/services/stories";
 import type { TrailEntry } from "@/lib/services/trails";
 
@@ -105,35 +108,12 @@ vi.mock("@/lib/auth/use-user", () => ({
   }),
 }));
 
-// The new async server components call `getTranslations` internally, and the
-// client TrailCarousel depends on embla-carousel which needs a real DOM.
-// Mock them so the zone-structure assertions stay fast and deterministic.
+// The new async server components call `getTranslations` internally. Mock
+// the grid so the zone-structure assertions stay fast and deterministic. The
+// trail cards render for real: they are plain links with no client library.
 vi.mock("@/components/landing/curated-product-grid", () => ({
   CuratedProductGrid: ({ groups }: { groups: Record<string, unknown[]> }) => (
     <div data-testid="curated-product-grid">{(groups.all ?? []).length} products</div>
-  ),
-}));
-
-vi.mock("@/components/landing/trail-carousel", () => ({
-  default: ({
-    trails,
-    labels,
-  }: {
-    trails: { slug: string; frontmatter: { title: string } }[];
-    labels: { eyebrow: string; cta: string; prev: string; next: string };
-  }) => (
-    <ul data-testid="trail-carousel">
-      {trails.map((trail) => (
-        <li key={trail.slug} role="listitem">
-          <a href={`/style/${trail.slug}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- test mock */}
-            <img src="/stub.webp" alt={trail.frontmatter.title} />
-            <h3>{trail.frontmatter.title}</h3>
-          </a>
-          <span>{labels.eyebrow}</span>
-        </li>
-      ))}
-    </ul>
   ),
 }));
 
@@ -320,6 +300,7 @@ async function renderZones(overrides: ZoneOverrides = {}) {
     close: <section>Close</section>,
     wall: buildWall(),
     trails: [],
+    trailPeeks: {},
     stories: [buildStory("a-story")],
     brands: [buildBrand(0), buildBrand(1)],
     totalBrandCount: 700,
@@ -382,6 +363,52 @@ describe("landing page zones", () => {
     expect(
       within(trails!).getByRole("link", { name: /Trail small-kitchen/ }),
     ).toHaveAttribute("href", "/style/small-kitchen");
+    expect(within(trails!).getAllByRole("listitem")).toHaveLength(1);
+    expect(trails!.querySelector("[aria-roledescription]")).toBeNull();
+  });
+
+  it("renders the trails zone with one card per trail and no carousel roledescription", async () => {
+    const slugs = ["a", "b", "c", "d", "e"];
+    const peek: CuratedProduct[] = [0, 1, 2, 3].map(buildProduct);
+    const { container } = await renderZones({
+      trails: slugs.map((slug) => buildTrail(slug)),
+      trailPeeks: { a: peek },
+    });
+
+    const trails = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trails"]',
+    )!;
+    // One list, one card per trail: no duplicate desktop/mobile copies.
+    const cards = within(trails).getAllByRole("listitem");
+    expect(cards).toHaveLength(slugs.length);
+    expect(within(trails).getAllByRole("heading", { level: 3 })).toHaveLength(
+      slugs.length,
+    );
+    for (const [index, slug] of slugs.entries()) {
+      expect(within(cards[index]!).getAllByRole("link")).toHaveLength(1);
+      expect(within(cards[index]!).getByRole("link")).toHaveAttribute(
+        "href",
+        `/style/${slug}`,
+      );
+    }
+    // Desktop shows the first three; the snap row below md shows them all.
+    for (const card of cards.slice(0, 3)) {
+      expect(card).not.toHaveClass("md:hidden");
+    }
+    for (const card of cards.slice(3)) {
+      expect(card).toHaveClass("md:hidden");
+    }
+
+    // A trail with placements carries its decorative peek; one without none.
+    expect(
+      cards[0]!.querySelectorAll('ul[aria-hidden="true"] img'),
+    ).toHaveLength(4);
+    expect(cards[1]!.querySelector('ul[aria-hidden="true"]')).toBeNull();
+
+    expect(trails.querySelector("[aria-roledescription]")).toBeNull();
+    expect(
+      within(trails).queryByRole("button", { name: /previous|next/i }),
+    ).toBeNull();
   });
 
   it("renders every published trail as a card in the zone", async () => {
@@ -435,8 +462,8 @@ describe("landing page zones", () => {
     expect(zoneOrder(container)).toEqual([
       "hero",
       "selection",
-      "trails",
       "directory",
+      "trails",
       "manifesto",
       "topics",
       "close",
@@ -500,6 +527,7 @@ describe("landing page zones", () => {
       curatedProducts: [],
       stories: { ok: true as const },
       trails: { ok: true as const },
+      trailPeeks: {},
     };
 
     // `trailSupply` is not an input at all: a failed supply read hides the
@@ -534,5 +562,22 @@ describe("landing page zones", () => {
     expect(end).toBeGreaterThan(start);
     const statement = source.slice(start, end);
     expect(statement).not.toContain("trailSupply");
+  });
+
+  it("isLandingRenderDegraded is true when the trail peek read failed", () => {
+    const healthy = {
+      exploreResult: { brands: [], totalCount: 0 },
+      curatedProducts: [],
+      stories: { ok: true as const },
+      trails: { ok: true as const },
+      trailPeeks: {},
+    };
+
+    expect(isLandingRenderDegraded(healthy)).toBe(false);
+    // The batched peek read is a page read like any other (D12): a failure
+    // must not be frozen into the ISR cache.
+    expect(isLandingRenderDegraded({ ...healthy, trailPeeks: null })).toBe(
+      true,
+    );
   });
 });

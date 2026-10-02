@@ -21,13 +21,48 @@ export type HealthAcknowledgement = {
   until: string;
 };
 
+/** The trails DEV-1903 re-picks; their D11 release window is acknowledged below. */
+const DEV_1903_TRAILS = [
+  "small-space-reading-corner",
+  "desk-setup",
+  "everyday-table",
+  "year-end-gifts",
+  "everyday-carry",
+] as const;
+
+const DEV_1903_RELEASE_WINDOW_UNTIL = "2026-10-15";
+
+/**
+ * Temporary (D11 release window), scoped per trail so an orphaned selection on
+ * any other trail still reports. Fingerprints are
+ * `directory:<kind>:<trail>:<section>` (scripts/health-agent/trail-supply.ts).
+ */
+const DEV_1903_RELEASE_WINDOW_ACKNOWLEDGEMENTS: readonly HealthAcknowledgement[] = [
+  ...DEV_1903_TRAILS.map((trail) => ({
+    match: `directory:trail-orphaned-selection:${trail}:`,
+    reason:
+      "Temporary (D11 release window): production placements are applied before the trail MDX is promoted, so for a few nights the production report sees selections for sections it does not know yet.",
+    ticket: "DEV-1903",
+    until: DEV_1903_RELEASE_WINDOW_UNTIL,
+  })),
+  ...["trail-unnoted-placement", "trail-orphaned-note"].map((kind) => ({
+    match: `directory:${kind}:small-space-reading-corner:`,
+    reason:
+      "Temporary (D11 release window): the published trail's MDX notes name the new picks while the environment still holds the old placements until the picks are applied.",
+    ticket: "DEV-1903",
+    until: DEV_1903_RELEASE_WINDOW_UNTIL,
+  })),
+];
+
 export const HEALTH_ACKNOWLEDGEMENTS: readonly HealthAcknowledgement[] = [
   {
     match: "directory:trail-empty-section:",
-    reason: "Five live trails have no curated products in production (known debt).",
+    reason:
+      "Production serves the pre-DEV-1903 trail MDX with no placements until the release promotes the new trails; lapses with the release window.",
     ticket: "DEV-1903",
-    until: "2026-12-31",
+    until: DEV_1903_RELEASE_WINDOW_UNTIL,
   },
+  ...DEV_1903_RELEASE_WINDOW_ACKNOWLEDGEMENTS,
 ];
 
 /**

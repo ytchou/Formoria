@@ -15,16 +15,22 @@ import { surfaceCardStyles } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { brandImageFill } from "@/lib/images/fill";
-import {
-  getBrandCategoryLabel,
-  getBrandSubcategoryLabels,
-} from "@/lib/brands/category-label";
+import { getBrandCategoryLabel } from "@/lib/brands/category-label";
+import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
+import type { BrandProductPreview } from "@/lib/services/curated-products";
+import { PREVIEW_THUMBNAIL_LIMIT } from "@/lib/services/curated-products.constants";
 import { selectBrandCardImage } from "@/lib/brands/image-selection";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import { SaveBrandButton } from "./save-brand-button";
 import { BrandImageFallback } from "./brand-image-fallback";
+import { BrandAvatar } from "./brand-avatar";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
+
+// Shared by the directory and the cover-image articles: the whole-card link
+// relies on `relative` for its overlay and on the focus ring for keyboard users.
+const CARD_ARTICLE_CLASS =
+  "group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent";
 
 interface BrandCardProps {
   brand: PublicBrandCard;
@@ -43,6 +49,8 @@ interface BrandCardProps {
   note?: string;
   /** Editorial variant only: short kicker above the brand name. */
   eyebrow?: string;
+  /** Directory variant only: published-product count and up to 3 thumbnails. */
+  preview?: BrandProductPreview;
 }
 
 export function BrandCard({
@@ -55,26 +63,18 @@ export function BrandCard({
   imageSizes,
   note,
   eyebrow,
+  preview,
 }: BrandCardProps) {
   const t = useTranslations("brands");
+  const tCities = useTranslations("cities");
   const locale = useLocale();
   // Safe on surfaces with no SavedBrandsProvider — the hook falls back to an empty set.
   const { savedIds } = useSavedBrands();
   const [imgError, setImgError] = useState(false);
-  const selectedImage = selectBrandCardImage(brand);
-  const imageSrc = selectedImage?.src ?? null;
-  const showImage = imageSrc != null && !imgError;
-  const imageFill = brandImageFill(selectedImage?.meta, { inset: "p-6" });
 
   const categoryLabel = getBrandCategoryLabel(
     brand,
     locale === "en" ? "en" : "zh-TW",
-  );
-  // Compact surfaces show the first five STORED L2s without expanding the
-  // card. Directory/search data still carries the complete array.
-  const compactSubcategories = getBrandSubcategoryLabels(brand, locale).slice(
-    0,
-    5,
   );
   // The directory blurb, resolved once: both the directory variant and the
   // editorial variant (as its fallback when there is no curator note) render it,
@@ -89,12 +89,124 @@ export function BrandCard({
   // Directory and editorial cards are whole-card click targets with a save
   // affordance; recommendation cards use an explicit button instead.
   const isWholeCardLink = variant === "directory" || variant === "editorial";
+  // One link element for every variant: the whole-card overlay and the click
+  // analytics must not drift between the directory and the other layouts.
+  const nameLink = (
+    <Link
+      href={routes.brand(brand.slug)}
+      prefetch={variant === "directory" ? false : undefined}
+      className={cn(
+        "focus-visible:outline-none",
+        isWholeCardLink && "after:absolute after:inset-0",
+      )}
+      onClick={() => {
+        if (variant === "recommendation") {
+          trackRecommendationBrandClicked(
+            brand.id,
+            brand.slug,
+            sourceBrandSlug ?? "",
+            position,
+          );
+        } else {
+          trackBrandCardClicked(
+            brand.slug,
+            brand.categoryLabel,
+            position,
+            brand.id,
+            listSource,
+          );
+        }
+        if (savedIds.has(brand.id)) {
+          trackSavedBrandRevisited(brand.slug, "card", brand.id);
+        }
+      }}
+      data-ph-no-autocapture
+    >
+      {brand.name}
+    </Link>
+  );
+
+  if (variant === "directory") {
+    const cityLabel =
+      brand.city && tCities.has(brand.city) ? tCities(brand.city) : null;
+    const metadata = [categoryLabel, cityLabel].filter(Boolean).join(" · ");
+    const thumbnails = (preview?.thumbnails ?? [])
+      .map((src) => safeImageSrc(src))
+      .filter((src): src is string => src !== null)
+      .slice(0, PREVIEW_THUMBNAIL_LIMIT);
+
+    return (
+      <article
+        className={surfaceCardStyles({
+          tone: "white",
+          // h-full fills the grid cell so every strip in a row can sit on
+          // the same bottom edge (mt-auto below).
+          className: cn(CARD_ARTICLE_CLASS, "h-full"),
+          interactive: true,
+          padding: "none",
+        })}
+      >
+        <div className="flex h-full flex-col gap-3 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <BrandAvatar
+              name={brand.name}
+              imageSrc={safeImageSrc(brand.heroImageUrl)}
+              size="lg"
+              showName={false}
+              preload={preload}
+            />
+            <SaveBrandButton
+              brandId={brand.id}
+              slug={brand.slug}
+              variant="inline"
+              className="relative z-20"
+            />
+          </div>
+          <h3 className="type-card-title line-clamp-2 text-ink">{nameLink}</h3>
+          {metadata ? (
+            <p className="type-metadata text-ink-soft">{metadata}</p>
+          ) : null}
+          {/* Same snippet suppression as the editorial variant below. */}
+          <p {...NO_SNIPPET} className="type-body-sm line-clamp-2">
+            {blurb ?? " "}
+          </p>
+          {preview && preview.count > 0 ? (
+            <div className="mt-auto flex items-center gap-2">
+              {thumbnails.map((src, index) => (
+                <div
+                  key={`${index}-${src}`}
+                  className="relative size-12 shrink-0 overflow-hidden rounded-surface bg-surface-deep"
+                >
+                  <SurfaceImage
+                    src={src}
+                    alt=""
+                    fill
+                    sizes="48px"
+                    className="object-cover"
+                  />
+                </div>
+              ))}
+              <span className="ms-auto type-metadata text-ink-soft">
+                {t("card.productCount", { count: preview.count })}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </article>
+    );
+  }
+
+  // The directory card leads with the logo mark, so only the other variants
+  // need the selected cover image.
+  const selectedImage = selectBrandCardImage(brand);
+  const imageSrc = selectedImage?.src ?? null;
+  const showImage = imageSrc != null && !imgError;
+  const imageFill = brandImageFill(selectedImage?.meta, { inset: "p-6" });
 
   return (
     <article
       className={surfaceCardStyles({
-        className:
-          "group relative block has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent",
+        className: CARD_ARTICLE_CLASS,
         interactive: true,
         padding: "none",
       })}
@@ -149,8 +261,8 @@ export function BrandCard({
            * Editorial titles get two lines with a reserved two-line height: at
            * the ~229px card width of a 3-up row `truncate` cut real brand names
            * mid-word, and an unreserved clamp let a 1-line card ride up out of
-           * line with its neighbours. Every other variant keeps `truncate` —
-           * the directory and recommendation surfaces must not change.
+           * line with its neighbours. The recommendation variant keeps
+           * `truncate` — that surface must not change.
            */}
           <h3
             className={cn(
@@ -158,47 +270,7 @@ export function BrandCard({
               variant === "editorial" ? "line-clamp-2 min-h-10" : "truncate",
             )}
           >
-            <Link
-              href={routes.brand(brand.slug)}
-              prefetch={variant === "directory" ? false : undefined}
-              className={cn(
-                "focus-visible:outline-none",
-                isWholeCardLink && "after:absolute after:inset-0",
-              )}
-              onClick={() => {
-                if (variant === "recommendation") {
-                  trackRecommendationBrandClicked(
-                    brand.id,
-                    brand.slug,
-                    sourceBrandSlug ?? "",
-                    position,
-                  );
-                } else {
-                  if (listSource) {
-                    trackBrandCardClicked(
-                      brand.slug,
-                      brand.categoryLabel,
-                      position,
-                      brand.id,
-                      listSource,
-                    );
-                  } else {
-                    trackBrandCardClicked(
-                      brand.slug,
-                      brand.categoryLabel,
-                      position,
-                      brand.id,
-                    );
-                  }
-                }
-                if (savedIds.has(brand.id)) {
-                  trackSavedBrandRevisited(brand.slug, "card", brand.id);
-                }
-              }}
-              data-ph-no-autocapture
-            >
-              {brand.name}
-            </Link>
+            {nameLink}
           </h3>
         </div>
         {variant === "recommendation" ? (
@@ -227,10 +299,10 @@ export function BrandCard({
               {t("card.viewBrand")}
             </Link>
           </>
-        ) : variant === "editorial" ? (
+        ) : (
           <>
             {/*
-              Same reserved block as the directory variant below: a fixed
+              A reserved block: a fixed
               minimum height plus a two-line clamp so every card in a
               `<BrandGrid>` row lands its badge row on the same baseline,
               whatever length note the author wrote. Rendered unconditionally
@@ -258,30 +330,6 @@ export function BrandCard({
                 <Badge variant="secondary">{categoryLabel}</Badge>
               </div>
             ) : null}
-          </>
-        ) : (
-          <>
-            {/* Same snippet suppression as the editorial variant above. */}
-            <p
-              {...NO_SNIPPET}
-              className="mt-1.5 min-h-[2.625rem] type-body-sm line-clamp-2"
-            >
-              {blurb ?? " "}
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 overflow-hidden">
-              {categoryLabel && (
-                <Badge variant="secondary">{categoryLabel}</Badge>
-              )}
-              {compactSubcategories.map((subcategory, index) => (
-                <Badge
-                  key={`${subcategory}-${index}`}
-                  variant="declared"
-                  className="max-w-full truncate"
-                >
-                  {subcategory}
-                </Badge>
-              ))}
-            </div>
           </>
         )}
       </div>

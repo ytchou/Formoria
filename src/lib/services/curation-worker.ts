@@ -6,8 +6,9 @@ import {
   recoverStaleJobs,
   type CurationJob,
 } from "@/lib/services/curation-jobs";
+import type { EnrichmentSummary } from "@/lib/services/enrichment-logger";
 import { runJob } from "@/lib/services/job-runner";
-import { auditedCall } from "@/lib/audit";
+import { auditedCall, runWithAuditContext } from "@/lib/audit";
 
 const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1_000;
 const SCHEDULE_INTERVAL_HOURS = 6;
@@ -15,29 +16,76 @@ const SCHEDULE_INTERVAL_HOURS = 6;
 export type ScheduledCurationRun = {
   processed: number;
   scheduledJob: CurationJob | null;
+  /** True when the run stopped claiming because the soft deadline passed. */
+  deadlineHit: boolean;
+};
+
+/** Injectable seams, defaulting to the real services (see ops-agent ExecuteDeps). */
+export type CurationWorkerDeps = {
+  recoverStaleJobs: typeof recoverStaleJobs;
+  ensureAutomaticRetries: typeof ensureAutomaticRetries;
+  enqueueScheduledSubmissionJob: typeof enqueueScheduledSubmissionJob;
+  claimNextCurationJob: typeof claimNextCurationJob;
+  runJob: typeof runJob;
+};
+
+const defaultDeps: CurationWorkerDeps = {
+  recoverStaleJobs,
+  ensureAutomaticRetries,
+  enqueueScheduledSubmissionJob,
+  claimNextCurationJob,
+  runJob,
+};
+
+type ScheduledCurationOptions = {
+  /** Epoch ms after which no new job is claimed. The in-flight job is never raced. */
+  softDeadlineAt: number;
+  /** Called right after each successful claim, before the job runs. */
+  onJobClaimed: (job: CurationJob) => void;
+  /** Called once each claimed job's run resolves or rejects. */
+  onJobSettled: (job: CurationJob) => void;
+  deps?: CurationWorkerDeps;
 };
 
 export async function runScheduledCuration(
-  now = new Date(),
+  now: Date,
+  options: ScheduledCurationOptions,
 ): Promise<ScheduledCurationRun> {
+  const deps = options.deps ?? defaultDeps;
   return auditedCall(
     { provider: "curation", operation: "runScheduledCuration", kind: "service" },
     async () => {
-      await recoverStaleJobs();
-      await ensureAutomaticRetries();
+      await deps.recoverStaleJobs();
+      await deps.ensureAutomaticRetries();
 
-      let scheduledJob: CurationJob | null = null;
-      let processed = 0;
-      scheduledJob = await enqueueScheduledSubmissionJob(
+      const scheduledJob = await deps.enqueueScheduledSubmissionJob(
         getTaipeiScheduleSlot(now),
       );
-      let workerToken = randomUUID();
-      let job = await claimNextCurationJob(workerToken);
+      let processed = 0;
 
       while (true) {
-        if (!job) return { processed, scheduledJob };
+        // Checked before every claim, never around `runJob`: a running job is
+        // allowed to finish; the entry's hard cap handles a hung one.
+        if (Date.now() >= options.softDeadlineAt) {
+          return { processed, scheduledJob, deadlineHit: true };
+        }
 
-        const summary = await runJob(job, workerToken);
+        const workerToken = randomUUID();
+        const job = await deps.claimNextCurationJob(workerToken);
+        if (!job) return { processed, scheduledJob, deadlineHit: false };
+        options.onJobClaimed(job);
+
+        // Each job gets its own correlation id so its audit rows group apart
+        // from the sweep's and from the next job's.
+        let summary: EnrichmentSummary;
+        try {
+          summary = await runWithAuditContext(
+            { correlationId: workerToken },
+            () => deps.runJob(job, workerToken),
+          );
+        } finally {
+          options.onJobSettled(job);
+        }
         processed += 1;
 
         // The breaker only trips when every LLM call fails at the provider,
@@ -48,11 +96,8 @@ export async function runScheduledCuration(
           console.error(
             "[curation-worker] LLM circuit breaker tripped — stopping the scheduled sweep",
           );
-          return { processed, scheduledJob };
+          return { processed, scheduledJob, deadlineHit: false };
         }
-
-        workerToken = randomUUID();
-        job = await claimNextCurationJob(workerToken);
       }
     },
   );

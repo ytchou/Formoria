@@ -22,9 +22,11 @@ const fingerprints = z.array(z.string().min(1).max(200)).max(100);
 const ticketId = z.string().regex(/^[A-Z][A-Z0-9]*-\d+$/);
 // Server-set when omitted; epoch seconds.
 const at = z.number().int().nonnegative().optional();
+const count = z.number().int().nonnegative();
 
-// Only the kinds the routine owns. started/findings/repair_* belong to the
-// agents and the ops-agent, never to this relay.
+// Only the kinds the routine owns. started/findings/repair_*/ticket_outcomes
+// belong to the agents and the ops-agent, never to this relay; repair_summary
+// is the routine's own triage result.
 const routineEventSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("pr_opened"),
@@ -50,6 +52,18 @@ const routineEventSchema = z.discriminatedUnion("kind", [
       )
       .min(1)
       .max(50),
+  }),
+  z.object({
+    kind: z.literal("repair_summary"),
+    at,
+    total: count,
+    fixed: count,
+    falsePositive: count,
+    ticketed: count,
+    pendingRelease: count,
+    pendingReleaseTickets: z.array(ticketId).max(20).optional(),
+    // Untrusted text shown in the parent; the renderer escapes it.
+    notes: z.array(z.string().min(1).max(200)).max(3).optional(),
   }),
   z.object({ kind: z.literal("completed"), at }),
   z.object({

@@ -24,7 +24,21 @@ type SelectionRow = {
   product_id: string;
   trail_slug: string;
   section_key: string;
+  curated_products?: { key: string; brands: { slug: string } | null } | null;
 };
+
+/** An active selection of `brandSlug/productKey` in a pilot section. */
+function selected(
+  sectionKey: string,
+  brandSlug: string,
+  productKey: string,
+): SelectionRow {
+  return selection({
+    product_id: `${brandSlug}-${productKey}`,
+    section_key: sectionKey,
+    curated_products: { key: productKey, brands: { slug: brandSlug } },
+  });
+}
 
 /**
  * Mirrors `SELECTION_PAGE_SIZE` / `SELECTION_MAX_PAGES` in the service, which
@@ -36,7 +50,11 @@ const MAX_PAGES = 200;
 
 function trail(
   slug: string,
-  sections: Array<{ key: string; title: string }>,
+  sections: Array<{
+    key: string;
+    title: string;
+    notes?: Record<string, string>;
+  }>,
   draft = false,
 ) {
   return { slug, frontmatter: { draft, sections } };
@@ -49,9 +67,9 @@ const pilot = trail("small-space-reading-corner", [
 ]);
 
 const fullSlate = async () => [
-  { sectionKey: "first" },
-  { sectionKey: "second" },
-  { sectionKey: "third" },
+  { sectionKey: "first", brandSlug: "lamp-co", key: "desk-lamp" },
+  { sectionKey: "second", brandSlug: "chair-co", key: "floor-cushion" },
+  { sectionKey: "third", brandSlug: "box-co", key: "book-crate" },
 ];
 
 function selection(overrides: Partial<SelectionRow> = {}): SelectionRow {
@@ -166,7 +184,9 @@ describe("loadTrailSupplyReport", () => {
 
   it("reports one entry per empty declared section", async () => {
     const report = await run({
-      readTrailPlacements: async () => [{ sectionKey: "second" }],
+      readTrailPlacements: async () => [
+        { sectionKey: "second", brandSlug: "chair-co", key: "floor-cushion" },
+      ],
     });
 
     expect(report.emptySections).toEqual([
@@ -217,6 +237,8 @@ describe("loadTrailSupplyReport", () => {
       selectionsObserved: 0,
       emptySections: [],
       orphanedSelections: [],
+      unnotedPlacements: [],
+      orphanedNotes: [],
     });
   });
 
@@ -443,6 +465,169 @@ describe("loadTrailSupplyReport", () => {
     expect(loggedEvents(errorSpy)).toEqual([
       "trail_supply_selection_read_failed",
     ]);
+  });
+
+  // Note drift is REPORT ONLY, like everything else here: an unnoted product
+  // still renders, and an orphaned note simply renders nowhere. Both are
+  // matched by `${brandSlug}/${productKey}`, the key the frontmatter uses.
+  it("reports a placed product with no note in its section", async () => {
+    const noted = trail("small-space-reading-corner", [
+      {
+        key: "first",
+        title: "先讓光進來",
+        notes: { "lamp-co/desk-lamp": "光線柔和" },
+      },
+      { key: "second", title: "坐得住的位置", notes: {} },
+      { key: "third", title: "收得起來的秩序" },
+    ]);
+
+    const report = await run({
+      readTrails: async () => ({ ok: true, trails: [noted] }),
+      readTrailPlacements: async () => [
+        { sectionKey: "first", brandSlug: "lamp-co", key: "desk-lamp" },
+        { sectionKey: "first", brandSlug: "lamp-co", key: "wall-lamp" },
+        { sectionKey: "second", brandSlug: "chair-co", key: "floor-cushion" },
+        // No `notes` declared at all reads the same as an empty record.
+        { sectionKey: "third", brandSlug: "box-co", key: "book-crate" },
+      ],
+      selectionsClient: stubSelectionsClient([
+        selected("first", "lamp-co", "desk-lamp"),
+        selected("first", "lamp-co", "wall-lamp"),
+        selected("second", "chair-co", "floor-cushion"),
+        selected("third", "box-co", "book-crate"),
+      ]),
+    });
+
+    expect(report.unnotedPlacements).toEqual([
+      {
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "first",
+        productKeys: ["lamp-co/wall-lamp"],
+      },
+      {
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "second",
+        productKeys: ["chair-co/floor-cushion"],
+      },
+      {
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "third",
+        productKeys: ["box-co/book-crate"],
+      },
+    ]);
+    expect(report.orphanedNotes).toEqual([]);
+    expect(report.readUnavailable).toBe(false);
+  });
+
+  it("reports a note whose product has no active selection in that section", async () => {
+    const noted = trail("small-space-reading-corner", [
+      {
+        key: "first",
+        title: "先讓光進來",
+        notes: {
+          "lamp-co/desk-lamp": "光線柔和",
+          // Placed, but in ANOTHER section: the note is still orphaned here.
+          "chair-co/floor-cushion": "坐久不累",
+        },
+      },
+      {
+        key: "second",
+        title: "坐得住的位置",
+        notes: { "chair-co/floor-cushion": "坐久不累" },
+      },
+    ]);
+
+    const report = await run({
+      readTrails: async () => ({ ok: true, trails: [noted] }),
+      readTrailPlacements: async () => [
+        { sectionKey: "second", brandSlug: "chair-co", key: "floor-cushion" },
+      ],
+      selectionsClient: stubSelectionsClient([
+        selected("second", "chair-co", "floor-cushion"),
+      ]),
+    });
+
+    expect(report.orphanedNotes).toEqual([
+      {
+        trailSlug: "small-space-reading-corner",
+        sectionKey: "first",
+        productKeys: ["chair-co/floor-cushion", "lamp-co/desk-lamp"],
+      },
+    ]);
+    expect(report.unnotedPlacements).toEqual([]);
+  });
+
+  it("reports nothing when notes and placements match", async () => {
+    const noted = trail("small-space-reading-corner", [
+      {
+        key: "first",
+        title: "先讓光進來",
+        notes: { "lamp-co/desk-lamp": "光線柔和" },
+      },
+      {
+        key: "second",
+        title: "坐得住的位置",
+        notes: { "chair-co/floor-cushion": "坐久不累" },
+      },
+      {
+        key: "third",
+        title: "收得起來的秩序",
+        notes: { "box-co/book-crate": "收得下" },
+      },
+    ]);
+    // A draft promises nothing yet, so its drift is not examined either.
+    const draft = trail(
+      "unpublished-trail",
+      [{ key: "one", title: "One", notes: { "ghost-co/ghost": "不存在" } }],
+      true,
+    );
+
+    const report = await run({
+      readTrails: async () => ({ ok: true, trails: [noted, draft] }),
+      readTrailPlacements: fullSlate,
+      selectionsClient: stubSelectionsClient([
+        selected("first", "lamp-co", "desk-lamp"),
+        selected("second", "chair-co", "floor-cushion"),
+        selected("third", "box-co", "book-crate"),
+      ]),
+    });
+
+    expect(report.unnotedPlacements).toEqual([]);
+    expect(report.orphanedNotes).toEqual([]);
+    expect(report.emptySections).toEqual([]);
+    expect(report.readUnavailable).toBe(false);
+  });
+
+  // Placements come from the ELIGIBILITY-filtered read, so a product whose link
+  // broke tonight vanishes from them while its selection stays active. Its
+  // note is not orphaned: the product is still placed there, just not rendered.
+  it("does not orphan the note of a selected but ineligible product", async () => {
+    const noted = trail("small-space-reading-corner", [
+      {
+        key: "first",
+        title: "先讓光進來",
+        notes: {
+          "lamp-co/desk-lamp": "光線柔和",
+          "lamp-co/wall-lamp": "牆上省空間",
+        },
+      },
+    ]);
+
+    const report = await run({
+      readTrails: async () => ({ ok: true, trails: [noted] }),
+      // wall-lamp is still selected but no longer eligible, so it is absent.
+      readTrailPlacements: async () => [
+        { sectionKey: "first", brandSlug: "lamp-co", key: "desk-lamp" },
+      ],
+      selectionsClient: stubSelectionsClient([
+        selected("first", "lamp-co", "desk-lamp"),
+        selected("first", "lamp-co", "wall-lamp"),
+      ]),
+    });
+
+    expect(report.orphanedNotes).toEqual([]);
+    expect(report.unnotedPlacements).toEqual([]);
+    expect(report.readUnavailable).toBe(false);
   });
 
   // A seam that silently fills its gaps from `PRODUCTION_DEPS` turns a partial

@@ -9,7 +9,7 @@ const PROVIDERS = {
   // bytes leaving the edge, so a reading that disagrees with a billing
   // surprise has to be replayable.
   cloudflare: ["origin_probe", "zone_egress_by_day"],
-  linear: ["create_ticket"],
+  linear: ["create_ticket", "get_ticket_states"],
   turnstile: ["siteverify"],
   slack: ["post_slack_alert", "post_message", "update_message", "add_reaction", "read_message_metadata"],
   posthog: ["run_query"],
@@ -72,8 +72,12 @@ const PROVIDERS = {
   // Editorial write path for /brands/[slug] curated products (DEV-1465). Every
   // writer is audited: a published product is a factual claim the site makes on
   // a brand's behalf, so who moved it and when has to be replayable.
+  // One read is audited too: `getTrailPeekProducts` is a single batched public
+  // read behind every trail card on the homepage and the /style hub, so its
+  // latency and payload are worth replaying when a peek renders wrong.
   curatedProducts: [
     "createCuratedProduct",
+    "getTrailPeekProducts",
     "retireCuratedProduct",
     "retireCuratedProductSelection",
     "retireCuratedProductSource",
@@ -85,7 +89,6 @@ const PROVIDERS = {
   ],
   curation: [
     "cancelCurationJob",
-    "claimCurationDispatchWork",
     "claimCurationJob",
     "claimNextCurationJob",
     "dispatchCurationJob",
@@ -227,7 +230,6 @@ const PROVIDERS = {
     "probe_langfuse_traces",
     "probe_langfuse_prompt",
     "probe_slack_events",
-    "probe_worker_chromium",
     "probe_resend_domain",
     "probe_sentry_write",
     "probe_sentry_capture_trigger",

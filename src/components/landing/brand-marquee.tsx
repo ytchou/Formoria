@@ -69,14 +69,22 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
 
   return (
     <div ref={emblaRef} className="mt-8 overflow-hidden">
-      <ul className="flex gap-6">
+      {/* Slide padding, not `gap`: Embla's loop does not measure a flex gap,
+          so the seam between the last and first slide lost 24px and the
+          spacing visibly jumped once per cycle. Same shape as ProductShelf. */}
+      <ul className="-ml-6 flex">
         {brands.map((brand) => (
-          <li key={brand.id} className="min-w-0 flex-none basis-36">
+          <li key={brand.id} className="min-w-0 flex-none basis-44 pl-6">
             <Link
               href={brand.href}
               className="flex flex-col items-center rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground"
             >
-              <BrandAvatar name={brand.name} imageSrc={brand.imageSrc} />
+              <BrandAvatar
+                name={brand.name}
+                imageSrc={brand.imageSrc}
+                size="lg"
+                nameFace="content"
+              />
             </Link>
           </li>
         ))}

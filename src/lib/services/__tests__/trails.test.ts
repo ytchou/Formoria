@@ -21,6 +21,9 @@ const fixtureStems = [
   "loader-draft-fixture",
   "loader-published-fixture",
   "loader-malformed-fixture",
+  "loader-notes-fixture",
+  "loader-notes-absent-fixture",
+  "loader-notes-malformed-fixture",
   "checker-slug-fixture",
   "checker-sections-fixture",
   "checker-section-titles-fixture",
@@ -144,6 +147,70 @@ describe("trail content loader", () => {
       faq: [],
       draft: false,
     });
+  });
+
+  it("parses section notes keyed by brandSlug/productKey", async () => {
+    const stem = "loader-notes-fixture";
+    writeTrail(
+      stem,
+      validFrontmatter(
+        stem,
+        [],
+        [
+          "  - key: first",
+          "    title: First section",
+          "    notes:",
+          '      "mogu/lamp": 無線的光',
+        ],
+      ),
+    );
+
+    const result = await getTrailBySlug(stem);
+
+    expect(result?.entry.frontmatter.sections[0].notes?.["mogu/lamp"]).toBe(
+      "無線的光",
+    );
+  });
+
+  it("defaults notes to an empty object when absent", async () => {
+    const stem = "loader-notes-absent-fixture";
+    writeTrail(stem, validFrontmatter(stem));
+
+    const result = await getTrailBySlug(stem);
+
+    expect(result?.entry.frontmatter.sections[0].notes).toEqual({});
+  });
+
+  it("drops malformed note entries", async () => {
+    const stem = "loader-notes-malformed-fixture";
+    writeTrail(
+      stem,
+      validFrontmatter(
+        stem,
+        [],
+        [
+          "  - key: first",
+          "    title: First section",
+          "    notes:",
+          '      "mogu/lamp": 無線的光',
+          '      "mogu/count": 3',
+          '      "no-slash": 沒有斜線',
+          '      "too/many/slashes": 太多斜線',
+          '      "Mogu/Lamp": 大寫不合格式',
+          '      "mogu/": 缺少商品鍵',
+          "  - key: second",
+          "    title: Second section",
+          "    notes: not-an-object",
+        ],
+      ),
+    );
+
+    const result = await getTrailBySlug(stem);
+
+    expect(result?.entry.frontmatter.sections[0].notes).toEqual({
+      "mogu/lamp": "無線的光",
+    });
+    expect(result?.entry.frontmatter.sections[1].notes).toEqual({});
   });
 
   it("getPublishedTrailBySlug returns null for draft: true", async () => {

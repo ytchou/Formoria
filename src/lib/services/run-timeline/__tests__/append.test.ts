@@ -118,7 +118,8 @@ describe("appendRunEvent", () => {
     const params = deps.updateMessage.mock.calls[0]![0];
     expect(params.channel).toBe(REF.channel);
     expect(params.ts).toBe(REF.ts);
-    expect(params.text).toContain("Findings gathered");
+    // One-line bucket summary: the notification preview.
+    expect(params.text).toBe("Health agent · 🔍 Findings gathered · 1 auto-fix · 2 ticket");
     expect(params.metadata?.event_type).toBe(RUN_TIMELINE_EVENT_TYPE);
     expect((params.metadata?.event_payload as RunTimeline).events).toEqual([
       { kind: "started", at: 1000 },

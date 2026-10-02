@@ -6,6 +6,14 @@ const TIMEOUT_MS = 8_000;
 const E2E_NIGHTLY_ENVIRONMENT_ID = "cb8f8b37-b99f-4c88-9f83-e5d969d3cfd4";
 const E2E_NIGHTLY_SERVICE_NAME = "e2e-nightly-agent";
 
+// Production environment. curation-worker exists only in production; staging
+// runs curation in-process (scripts/enrichment/run/refresh.ts).
+// Ceiling: hardcoded to production because no other environment has a worker.
+// Upgrade path: read a per-environment variable if staging ever gets one.
+// Callers must go through dispatchCurationJob, which carries the staging guard.
+const CURATION_WORKER_ENVIRONMENT_ID = "d2c107d8-95e4-4467-a972-fbf719593dc3";
+const CURATION_WORKER_SERVICE_NAME = "curation-worker";
+
 const SERVICE_INSTANCES_QUERY = `query($id: String!) {
   environment(id: $id) {
     serviceInstances { edges { node { id serviceName } } }
@@ -51,7 +59,10 @@ async function post<T>(
   return { ok: true, data: body.data as T };
 }
 
-export async function runE2eAgentNow(): Promise<
+async function runCronServiceNow(target: {
+  serviceName: string;
+  environmentId: string;
+}): Promise<
   { ok: true } | { ok: false; error: string }
 > {
   const token = process.env.OPS_AGENT_RAILWAY_TOKEN;
@@ -63,8 +74,8 @@ export async function runE2eAgentNow(): Promise<
       operation: "run_cron_now",
       kind: "external",
       meta: {
-        serviceName: E2E_NIGHTLY_SERVICE_NAME,
-        environmentId: E2E_NIGHTLY_ENVIRONMENT_ID,
+        serviceName: target.serviceName,
+        environmentId: target.environmentId,
       },
     },
     async (ctx) => {
@@ -74,16 +85,16 @@ export async function runE2eAgentNow(): Promise<
             edges?: Array<{ node: { id: string; serviceName: string } }>;
           };
         };
-      }>(token, SERVICE_INSTANCES_QUERY, { id: E2E_NIGHTLY_ENVIRONMENT_ID });
+      }>(token, SERVICE_INSTANCES_QUERY, { id: target.environmentId });
       if (!lookup.ok) return { ok: false as const, error: lookup.error };
 
       const instance = lookup.data?.environment?.serviceInstances?.edges?.find(
-        (edge) => edge.node.serviceName === E2E_NIGHTLY_SERVICE_NAME,
+        (edge) => edge.node.serviceName === target.serviceName,
       )?.node;
       if (!instance) {
         return {
           ok: false as const,
-          error: `Railway service ${E2E_NIGHTLY_SERVICE_NAME} not found in environment ${E2E_NIGHTLY_ENVIRONMENT_ID}`,
+          error: `Railway service ${target.serviceName} not found in environment ${target.environmentId}`,
         };
       }
       ctx.summary.serviceInstanceId = instance.id;
@@ -97,7 +108,7 @@ export async function runE2eAgentNow(): Promise<
       if (run.data?.deploymentInstanceExecutionCreate !== true) {
         return {
           ok: false as const,
-          error: `Railway refused to start the ${E2E_NIGHTLY_SERVICE_NAME} execution`,
+          error: `Railway refused to start the ${target.serviceName} execution`,
         };
       }
 
@@ -107,4 +118,22 @@ export async function runE2eAgentNow(): Promise<
       classify: (result) => (result.ok ? "succeeded" : "failed"),
     },
   );
+}
+
+export function runE2eAgentNow(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  return runCronServiceNow({
+    serviceName: E2E_NIGHTLY_SERVICE_NAME,
+    environmentId: E2E_NIGHTLY_ENVIRONMENT_ID,
+  });
+}
+
+export function runCurationWorkerNow(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  return runCronServiceNow({
+    serviceName: CURATION_WORKER_SERVICE_NAME,
+    environmentId: CURATION_WORKER_ENVIRONMENT_ID,
+  });
 }

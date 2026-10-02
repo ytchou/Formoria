@@ -1,0 +1,56 @@
+{
+  "trail": "small-space-reading-corner",
+  "sections": {
+    "light-first": [
+      {
+        "brandSlug": "sammm-studio",
+        "productKey": "nora-to-kung-neng-tiao-chieh-teng",
+        "note": "桌壁兩用，可調整照明角度"
+      },
+      {
+        "brandSlug": "singbee",
+        "productKey": "tione-pro-chuan-kuang-pu-led-tso-chia-liang-yung-hu-yen-tai-teng",
+        "note": "底座與夾具可切換的檯燈"
+      },
+      {
+        "brandSlug": "mr-casa",
+        "productKey": "wan-chu-hsiao-chuan-lo-ti-teng-circulos-aeqnjhrs",
+        "note": "燈頭可旋轉180度的落地燈"
+      }
+    ],
+    "beside-seat": [
+      {
+        "brandSlug": "anta-pottery",
+        "productKey": "your-monkey-yen-ching-chia-chien-tsun-chien-tung-7cfsl8yz",
+        "note": "可承托眼鏡的猴形瓷器"
+      },
+      {
+        "brandSlug": "dot-design",
+        "productKey": "hai-fei-shou-na-ho",
+        "note": "含海廢保麗龍再製的收納盒"
+      },
+      {
+        "brandSlug": "uniwoodesign",
+        "productKey": "home-base-pang-chiu-chang-kuo-hsiang-shou-na-ho-80-h-00033-a",
+        "note": "集中放零錢與鑰匙的收納盒"
+      }
+    ],
+    "moveable-setup": [
+      {
+        "brandSlug": "shensenwood",
+        "productKey": "more-square-and-round-side-table-fang-yuan-pien-chi",
+        "note": "桌面直徑40公分的實木邊几"
+      },
+      {
+        "brandSlug": "js-furniture",
+        "productKey": "pei-ou-kung-chi-yi-z-chair",
+        "note": "椅背可轉動的實木餐椅"
+      },
+      {
+        "brandSlug": "hoyi",
+        "productKey": "jun-hsi-pi-ko-shih-mu-tsan-yi",
+        "note": "寬49公分的皮革實木餐椅"
+      }
+    ]
+  }
+}

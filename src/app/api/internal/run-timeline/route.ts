@@ -5,7 +5,8 @@ import { applyRoutineTimelineEvent } from "@/lib/services/run-timeline/relay";
 
 /**
  * Relay endpoint for the ops routine to append routine-owned events
- * (pr_opened, tickets_filed, completed, failed) to a run's Slack timeline.
+ * (pr_opened, tickets_filed, repair_summary, completed, failed) to a run's
+ * Slack timeline.
  * Called on the Railway origin, which is exempt from the origin guard in
  * `src/proxy.ts`.
  *

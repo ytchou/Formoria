@@ -40,6 +40,7 @@ import { findSimilarProductsForTrail } from "@/lib/services/product-situation-se
 import { ProductCard } from "@/components/products/product-card";
 import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import { Grid } from "@/components/ui/grid";
+import { IMAGE_SURFACE_SIZES } from "@/components/ui/image";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -103,11 +104,9 @@ export function buildTrailMetadata({
 // until `revalidate`. Same shape as `brands/[slug]`, for a second reason that
 // matters more here: enumerating trails made this route read the database during
 // `next build`, and a failed read there calls `markRenderDegraded`, which
-// demotes the route to dynamic for the whole deployment. Production's curated
-// tables exist, but without `visible`, `category` and `subcategories`, so the
-// read fails with Postgres 42703 today and would cost `/style/[slug]` its
-// ISR cache entirely. Returning no params removes the build-time read, so the
-// route cannot be demoted by one.
+// demotes the route to dynamic for the whole deployment, costing
+// `/style/[slug]` its ISR cache entirely. Returning no params removes the
+// build-time read, so the route cannot be demoted by one.
 //
 // This was invisible until the first trail was published: while every trail was
 // `draft: true` the list was empty anyway.
@@ -369,6 +368,7 @@ export default async function StyleTrailPage({ params }: PageProps) {
                       key={product.id}
                       product={product}
                       locale={safeLocale}
+                      imageSizes={IMAGE_SURFACE_SIZES.tile}
                     />
                   ))}
                 </Grid>

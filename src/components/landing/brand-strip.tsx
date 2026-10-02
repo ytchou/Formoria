@@ -19,9 +19,9 @@ export default async function BrandStrip({
 
   return (
     <div className="text-center">
-      <p className="type-body-lg font-ming">
+      <h2 className="type-section">
         {t("count", { count: totalCount })}
-      </p>
+      </h2>
 
       <BrandMarquee
         brands={brands.map((brand) => ({

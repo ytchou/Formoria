@@ -1,8 +1,23 @@
 {
-  "$schema": "https://railway.com/railway.schema.json",
-  "deploy": {
-    "startCommand": "pnpm curation:worker",
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 3
-  }
+  "$comment": "Documentation-only — Railway does not read per-service JSON files. This records the intended service configuration for the curation-worker Railway service: a cron one-shot that drains the curation queue and exits. It serves no HTTP and has no public domain.",
+  "service": "curation-worker",
+  "schedule": "0 4,10,16,22 * * * (UTC)",
+  "startCommand": "pnpm curation:worker",
+  "restartPolicy": "NEVER",
+  "manualTrigger": "deploymentInstanceExecutionCreate (Run now) via dispatchCurationJob (admin dispatch, Slack refresh/rerun, refresh.ts --via-worker) — production only; never redeploy (a cron service redeploy does not run the job)",
+  "envVars": [
+    "FORMORIA_DEPLOYMENT_ENV",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "WORKER_BUILD_SHA",
+    "FORMORIA_RAILWAY_URL",
+    "ORIGIN_SECRET",
+    "CHANNEL_VERDICTS",
+    "OPENAI_API_KEY",
+    "SENTRY_DSN",
+    "LANGFUSE_SECRET_KEY",
+    "LANGFUSE_PUBLIC_KEY",
+    "LANGFUSE_BASEURL"
+  ],
+  "$removedEnvVarsComment": "CURATION_CRON_SCHEDULE and CURATION_WORKER_CONTROL_TOKEN are deleted (DEV-1906): the schedule is a Railway cron setting and there is no HTTP control endpoint."
 }

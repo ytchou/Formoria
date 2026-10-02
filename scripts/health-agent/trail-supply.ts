@@ -1,5 +1,6 @@
 import type {
   TrailSupplyEmptySection,
+  TrailSupplyNoteDrift,
   TrailSupplyOrphanedSelection,
   TrailSupplyReport,
 } from "@/lib/services/trail-supply-report";
@@ -54,10 +55,12 @@ const TRAIL_SUPPLY_ROUTINE = "trail-supply";
  */
 export const UNOBSERVED_TRAIL_SUPPLY: TrailSupplyReport = {
   emptySections: [],
+  orphanedNotes: [],
   orphanedSelections: [],
   readUnavailable: true,
   selectionsObserved: 0,
   trailsObserved: 0,
+  unnotedPlacements: [],
 };
 
 /**
@@ -108,6 +111,7 @@ function trailSupplyFinding(
   sectionKey: string,
   title: string,
   evidence: Record<string, JsonValue>,
+  severity: HealthFinding["severity"] = "medium",
 ): HealthFinding {
   return {
     disposition: "report_only",
@@ -121,7 +125,7 @@ function trailSupplyFinding(
     ),
     humanReason: TRAIL_SUPPLY_HUMAN_REASON,
     mergePolicy: "human",
-    severity: "medium",
+    severity,
     source: "directory",
     title,
   };
@@ -180,6 +184,40 @@ function orphanedSelectionFinding(
 }
 
 /**
+ * Note drift (DEV-1903) is cosmetic next to a broken promise: the products
+ * still render, so both kinds are `low`. The title names the repair — write the
+ * missing note, or drop the note for a product no longer placed there.
+ */
+function noteDriftFinding(
+  kind: "trail-unnoted-placement" | "trail-orphaned-note",
+  title: string,
+): (drift: TrailSupplyNoteDrift) => HealthFinding {
+  return (drift) =>
+    trailSupplyFinding(
+      kind,
+      drift.trailSlug,
+      drift.sectionKey,
+      title,
+      {
+        productKeys: [...drift.productKeys],
+        sectionKey: drift.sectionKey,
+        trailSlug: drift.trailSlug,
+      },
+      "low",
+    );
+}
+
+const unnotedPlacementFinding = noteDriftFinding(
+  "trail-unnoted-placement",
+  "Trail section places a product with no pick note",
+);
+
+const orphanedNoteFinding = noteDriftFinding(
+  "trail-orphaned-note",
+  "Trail section carries a pick note for a product no longer placed there",
+);
+
+/**
  * Turns one observation into findings. Pure: no I/O, no clock, no env.
  *
  * The `readUnavailable` guard is the most important line in the file and it
@@ -197,6 +235,8 @@ export function evaluateTrailSupply(
   return [
     ...report.emptySections.map(emptySectionFinding),
     ...report.orphanedSelections.map(orphanedSelectionFinding),
+    ...report.unnotedPlacements.map(unnotedPlacementFinding),
+    ...report.orphanedNotes.map(orphanedNoteFinding),
   ].sort((left, right) => compareText(left.fingerprint, right.fingerprint));
 }
 
@@ -279,6 +319,25 @@ function arrayField(value: unknown, field: string): unknown[] {
 }
 
 /**
+ * The note-drift arrays arrived after the rest of the contract (DEV-1903). An
+ * ABSENT field reads as `[]` so a collector that ships ahead of the endpoint
+ * still parses an older summary; a PRESENT but malformed one still throws.
+ */
+function noteDriftField(value: unknown, field: string): TrailSupplyNoteDrift[] {
+  if (value === undefined) return [];
+  return arrayField(value, field).map((entry) => {
+    if (!isRecord(entry)) throw new Error(`trail_supply_${field}_invalid`);
+    return {
+      productKeys: arrayField(entry.productKeys, "product_keys").map((key) =>
+        stringField(key, "product_key"),
+      ),
+      sectionKey: stringField(entry.sectionKey, "section_key"),
+      trailSlug: stringField(entry.trailSlug, "trail_slug"),
+    };
+  });
+}
+
+/**
  * Narrows the endpoint's JSON to the summary contract, throwing on anything
  * else. The collector turns a throw into a `skipped` artifact with a recorded
  * failure, so a contract drift between this tree and
@@ -319,12 +378,17 @@ export function parseTrailSupplyReport(value: unknown): TrailSupplyReport {
         trailSlug: stringField(entry.trailSlug, "trail_slug"),
       };
     }),
+    orphanedNotes: noteDriftField(value.orphanedNotes, "orphaned_notes"),
     readUnavailable: value.readUnavailable,
     selectionsObserved: countField(
       value.selectionsObserved,
       "selections_observed",
     ),
     trailsObserved: countField(value.trailsObserved, "trails_observed"),
+    unnotedPlacements: noteDriftField(
+      value.unnotedPlacements,
+      "unnoted_placements",
+    ),
   };
 }
 
