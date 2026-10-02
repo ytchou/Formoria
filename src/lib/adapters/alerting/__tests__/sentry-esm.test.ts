@@ -1,5 +1,11 @@
 import { execFile } from "node:child_process";
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -9,12 +15,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 // were undefined, so the one-shot curation worker crashed in `flushAlerts`.
 // Production injects `"type":"module"`; the `.mts` copy recreates that without
 // touching package.json. `@sentry/*` is deliberately not mocked here.
-const probeDir = path.join(
-  process.cwd(),
-  "node_modules",
-  ".cache",
-  "formoria-esm-probe",
-);
+// Under node_modules so `@sentry/*` resolves from the repo; one directory per
+// run so concurrent vitest processes never delete each other's probe.
+const cacheDir = path.join(process.cwd(), "node_modules", ".cache");
+let probeDir = "";
 
 const runner = `
 import { captureAlert, flushAlerts } from "./sentry.mts";
@@ -25,7 +29,8 @@ console.log(JSON.stringify({ captured, flushed }));
 `;
 
 beforeAll(() => {
-  mkdirSync(probeDir, { recursive: true });
+  mkdirSync(cacheDir, { recursive: true });
+  probeDir = mkdtempSync(path.join(cacheDir, "formoria-esm-probe-"));
   // Copied verbatim: an `@/` import added to the adapter must fail here, not skip.
   copyFileSync(
     path.join(process.cwd(), "src/lib/adapters/alerting/sentry.ts"),
@@ -35,7 +40,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  rmSync(probeDir, { recursive: true, force: true });
+  if (probeDir) rmSync(probeDir, { recursive: true, force: true });
 });
 
 describe("sentry alerting adapter under ESM", () => {
