@@ -12,9 +12,9 @@ type IssueNode = {
   state: { name: string; type: string } | null;
 } | null;
 
-/** Linear workflow-state types that mean the ticket is no longer open. */
+/** Linear workflow-state types that mean the ticket is no longer open. Duplicate is its own type, not canceled. */
 function isClosedState(type: string): boolean {
-  return type === "completed" || type === "canceled";
+  return type === "completed" || type === "canceled" || type === "duplicate";
 }
 
 /**
