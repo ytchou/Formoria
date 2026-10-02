@@ -31,7 +31,7 @@ describe("getTicketStates", () => {
     const fetchFn = fetchReturning(
       Response.json({
         data: {
-          t0: { identifier: "DEV-1909", state: { name: "Duplicate", type: "canceled" } },
+          t0: { identifier: "DEV-1909", state: { name: "Duplicate", type: "duplicate" } },
           t1: { identifier: "DEV-1903", state: { name: "In Progress", type: "started" } },
         },
       }),
@@ -55,7 +55,7 @@ describe("getTicketStates", () => {
     expect(result.get("DEV-1903")).toEqual({ state: "In Progress", closed: false });
   });
 
-  it("marks only completed and canceled state types as closed", async () => {
+  it("marks only completed, canceled and duplicate state types as closed", async () => {
     const fetchFn = fetchReturning(
       Response.json({
         data: {
@@ -63,17 +63,19 @@ describe("getTicketStates", () => {
           t1: { identifier: "DEV-2", state: { name: "Canceled", type: "canceled" } },
           t2: { identifier: "DEV-3", state: { name: "Todo", type: "unstarted" } },
           t3: { identifier: "DEV-4", state: { name: "Backlog", type: "backlog" } },
+          t4: { identifier: "DEV-5", state: { name: "Duplicate", type: "duplicate" } },
         },
       }),
     );
 
-    const result = await getTicketStates(["DEV-1", "DEV-2", "DEV-3", "DEV-4"], fetchFn);
+    const result = await getTicketStates(["DEV-1", "DEV-2", "DEV-3", "DEV-4", "DEV-5"], fetchFn);
 
     expect([...result.values()].map((value) => value.closed)).toEqual([
       true,
       true,
       false,
       false,
+      true,
     ]);
   });
 
