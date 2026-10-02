@@ -1,10 +1,11 @@
 /**
  * Shared health-check path matching for all workers.
  *
- * Railway applies the project-wide `deploy.healthcheckPath` from railway.json
- * to every service, including plain node:http workers. Each HTTP worker must
- * answer both its own `/health` and whatever railway.json probes (currently
- * `/api/health`).
+ * Each HTTP worker answers both its own `/health` and `/api/health`, the path
+ * the web services' Railway healthcheck probes. railway.json no longer sets a
+ * healthcheck (DEV-1920): Railway applied it to every Config-as-Code service,
+ * including the one-shot curation worker, which serves no HTTP. The web
+ * healthcheck now lives in each service's Railway settings.
  *
  * Only repo-worker serves HTTP today (`src/repo-worker/health-paths.ts`
  * re-exports from here). The curation worker is a cron one-shot and serves no

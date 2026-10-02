@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import * as Sentry from "@sentry/node";
 
 /**
  * Sentry adapter for background alerting.
@@ -11,8 +11,13 @@ import * as Sentry from "@sentry/nextjs";
  * client when it is (the Next runtime). `captureAlert` only queues an event;
  * a process about to exit must `await flushAlerts()` first or lose it.
  *
- * `@sentry/nextjs` re-exports the Node SDK on the server, so no `@sentry/node`
- * dependency is needed.
+ * It imports `@sentry/node`, not `@sentry/nextjs`. Under ESM (the workers run
+ * with `"type":"module"`), `@sentry/nextjs` resolves to a CJS build whose
+ * re-exported Node API is invisible to the ESM namespace, so `getClient`,
+ * `flush`, and `captureException` were undefined (DEV-1920). Both packages
+ * share one global client, so in the Next runtime this still reuses the client
+ * `sentry.server.config.ts` initialized. Keep `@sentry/node` pinned to the
+ * exact version `@sentry/nextjs` depends on, or the clients diverge.
  */
 
 export type AlertLevel = "error" | "warning";
@@ -94,10 +99,10 @@ export function captureAlert(
  * within `timeoutMs`.
  */
 export async function flushAlerts(timeoutMs = 2_000): Promise<boolean> {
-  if (!Sentry.getClient()) {
-    return true;
-  }
   try {
+    if (!Sentry.getClient()) {
+      return true;
+    }
     return await Sentry.flush(timeoutMs);
   } catch {
     return false;
