@@ -5,6 +5,7 @@
  * Never imports `next/server`.
  */
 
+import { EDITORIAL_ROUTING_RULE, relayEditorialReply } from "./editorial";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import {
   createAgentModel as defaultCreateAgentModel,
@@ -48,8 +49,14 @@ type SlackBlock = Record<string, unknown>;
 const INPUT_PRICE_PER_M = 0.15;
 const OUTPUT_PRICE_PER_M = 0.60;
 
-function estimateCostUsd(promptTokens: number, completionTokens: number): number {
-  return (promptTokens * INPUT_PRICE_PER_M + completionTokens * OUTPUT_PRICE_PER_M) / 1_000_000;
+function estimateCostUsd(
+  promptTokens: number,
+  completionTokens: number,
+): number {
+  return (
+    (promptTokens * INPUT_PRICE_PER_M + completionTokens * OUTPUT_PRICE_PER_M) /
+    1_000_000
+  );
 }
 
 function formatToolChain(
@@ -159,7 +166,10 @@ export function formatThreadHistory(rows: OpsRequestRow[]): ChatMessage[] {
     }
 
     messages.push({ role: "user", content: row.text });
-    messages.push({ role: "assistant", content: truncateContent(`${toolPrefix}${summary}`) });
+    messages.push({
+      role: "assistant",
+      content: truncateContent(`${toolPrefix}${summary}`),
+    });
   }
 
   return messages;
@@ -202,8 +212,15 @@ export type RunOpsAgentDeps = {
     signal?: AbortSignal,
     priorMessages?: ChatMessage[],
   ) => Promise<GraphResult>;
-  fireRoutine?: (params: { routineId: string; text: string }) => Promise<{ sessionUrl: string }>;
-  getThreadHistory?: (channelId: string, threadTs: string, excludeId: string) => Promise<OpsRequestRow[]>;
+  fireRoutine?: (params: {
+    routineId: string;
+    text: string;
+  }) => Promise<{ sessionUrl: string }>;
+  getThreadHistory?: (
+    channelId: string,
+    threadTs: string,
+    excludeId: string,
+  ) => Promise<OpsRequestRow[]>;
   appendRunEvent?: typeof defaultAppendRunEvent;
   toolDeps?: Partial<OpsToolDeps>;
 };
@@ -255,7 +272,8 @@ export async function runOpsAgent(
         requestId: request.id,
         operatorSlackId: request.slackUserId,
         proposal: desc.action,
-        rationale: desc.why,
+        rationale: desc.why + (desc.confirmLabel ? "\n" + desc.cost : ""),
+        confirmLabel: desc.confirmLabel,
         expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
       }));
 
@@ -325,7 +343,14 @@ export async function runOpsAgent(
         ];
         await postMsg(request.threadTs, repairFallback, repairBlocks);
 
-        return { kind: "answer" as const, text: `Routine fired: ${sessionUrl}`, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
+        return {
+          kind: "answer" as const,
+          text: `Routine fired: ${sessionUrl}`,
+          modelCalls: 0,
+          toolLog: [],
+          promptTokens: 0,
+          completionTokens: 0,
+        };
       } catch (err) {
         if (fired) {
           // The routine is already running: a later step failing (the
@@ -333,8 +358,18 @@ export async function runOpsAgent(
           // failure. No failed transition, no "Failed to start" notice, no
           // repair_failed; those would contradict the timeline and invite a
           // second fire. Return the success path's "answer" kind.
-          console.error("[ops-agent] post-fire step failed; the repair routine is running:", err);
-          return { kind: "answer" as const, text: `Routine fired: ${firedSessionUrl}`, modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
+          console.error(
+            "[ops-agent] post-fire step failed; the repair routine is running:",
+            err,
+          );
+          return {
+            kind: "answer" as const,
+            text: `Routine fired: ${firedSessionUrl}`,
+            modelCalls: 0,
+            toolLog: [],
+            promptTokens: 0,
+            completionTokens: 0,
+          };
         }
         console.error("[ops-agent] repair routine fire failed:", err);
         const reason = err instanceof Error ? err.message : String(err);
@@ -375,7 +410,48 @@ export async function runOpsAgent(
       context: `Request: \`${request.id}\``,
     });
     await postMsg(request.threadTs, notice.text, notice.blocks);
-    return { kind: "refused" as const, reason: "invalid_repair_request", modelCalls: 0, toolLog: [], promptTokens: 0, completionTokens: 0 };
+    return {
+      kind: "refused" as const,
+      reason: "invalid_repair_request",
+      modelCalls: 0,
+      toolLog: [],
+      promptTokens: 0,
+      completionTokens: 0,
+    };
+  }
+
+  if (!isSystemRequest) {
+    try {
+      const editorialReply = await relayEditorialReply(request);
+      if (editorialReply) {
+        await transition(request.id, ["running"], "answered", {
+          result: { text: editorialReply, modelCalls: 0 },
+        });
+        await postMsg(request.threadTs, editorialReply);
+        return {
+          kind: "answer",
+          text: editorialReply,
+          modelCalls: 0,
+          toolLog: [],
+          promptTokens: 0,
+          completionTokens: 0,
+        };
+      }
+    } catch {
+      const text =
+        "Editorial thread lookup failed; retry your reply rather than starting duplicate work.";
+      await transition(request.id, ["running"], "failed", {
+        result: { error: text },
+      });
+      await postMsg(request.threadTs, text);
+      return {
+        kind: "failed",
+        modelCalls: 0,
+        toolLog: [],
+        promptTokens: 0,
+        completionTokens: 0,
+      };
+    }
   }
 
   // 3c. Load thread history
@@ -392,6 +468,8 @@ export async function runOpsAgent(
   const { text: rawPrompt, prompt: promptMeta } =
     await fetchLangfusePromptWithMeta("ops-agent-system");
   let systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
+
+  systemPrompt += "\n\n" + EDITORIAL_ROUTING_RULE;
 
   if (priorMessages.length > 0) {
     systemPrompt += "\n\nPrior messages in this thread are context only — do not re-execute past actions unless explicitly asked.";
@@ -458,7 +536,10 @@ export async function runOpsAgent(
             modelCalls: modelCallsCount,
           },
         });
-        await postMsg(request.threadTs, `${chain}\n${toSlackMrkdwn(result.text)}`);
+        await postMsg(
+          request.threadTs,
+          `${chain}\n${toSlackMrkdwn(result.text)}`,
+        );
         break;
       }
 

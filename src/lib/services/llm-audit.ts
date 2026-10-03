@@ -5,8 +5,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertAiCallResult } from "./_shared/ai-results";
 import { readResponseFormat } from "./eval/llm-usage-sink";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import { createOpenAIClient, type ChatMessage } from "./openai-client";
-import { priceUsage } from "./llm-pricing";
+import {
+  createOpenAIClient,
+  type ChatMessage,
+  type AttemptLifecycle,
+} from "./openai-client";
+import { priceUsage, costFromUsage, type PriceRow } from "./llm-pricing";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
 import type { PromptMeta } from "@/lib/langfuse/prompt";
 import {
@@ -34,6 +38,8 @@ export const PROMPT_TRUNCATION_MARK = "…";
 const LANGFUSE_INPUT_MAX_BYTES = 900_000;
 
 export type LlmAuditContext = {
+  attemptLifecycle?: AttemptLifecycle;
+  recordedPrice?: PriceRow;
   jobId?: string;
   target?: EnrichmentTarget;
   phase: string;
@@ -235,7 +241,9 @@ function capturedResponse(
 ): CapturedResponse {
   const message = (
     event.data as {
-      choices?: Array<{ message?: { content?: string | null; tool_calls?: unknown } }>;
+      choices?: Array<{
+        message?: { content?: string | null; tool_calls?: unknown };
+      }>;
     } | null
   )?.choices?.[0]?.message;
   // Trimmed, matching the `content` the client hands its caller.
@@ -331,7 +339,9 @@ export function emitLangfuseGeneration(
   try {
     const trace = getAuditContext().langfuseTrace;
     if (trace) {
-      const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
+      const langfuseTrace = trace as {
+        generation: (input: Record<string, unknown>) => void;
+      };
       const responseFormat = readResponseFormat(event.meta);
       const { input, truncation } = generationInput(event, logged?.request);
       langfuseTrace.generation({
@@ -462,6 +472,7 @@ function createAuditedClient(
         async (ctx) => {
           const client = createOpenAIClient({
             ...options,
+            attemptLifecycle: context.attemptLifecycle,
             onChatComplete: async (event) => {
               capture(context, profileKey, input, event);
               ctx.model = event.model;
@@ -476,7 +487,9 @@ function createAuditedClient(
                 ctx.cacheWriteTokens =
                   event.usage.prompt_tokens_details?.cache_write_tokens ?? 0;
                 try {
-                  const cost = await priceUsage(event.model ?? "", event.usage);
+                  const cost = context.recordedPrice
+                    ? costFromUsage(event.usage, context.recordedPrice)
+                    : await priceUsage(event.model ?? "", event.usage);
                   ctx.costUsd = cost.costUsd;
                   costUsd = cost.costUsd;
                 } catch {

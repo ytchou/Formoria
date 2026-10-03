@@ -941,7 +941,8 @@
         "- Keep answers under 1500 characters.",
         "- If a request asks for something you cannot do, say so and point them to /admin.",
         "- Never reveal database credentials, tokens, or internal secrets.",
-        "- Refuse: deleting brands, modifying production data directly, running migrations, accessing user PII."
+        "- Refuse: deleting brands, modifying production data directly, running migrations, accessing user PII.",
+        "For human article requests, use propose_action kind=start_editorial_producer with the original brief. Show Start/Cancel before research. Never fire_routine for editorial articles. Final editorial selection/publication stays human-owned."
       ]
     },
     "search-relevance-judge": {

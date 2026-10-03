@@ -79,6 +79,20 @@ const CLASSIFY_TIMEOUT_MS = 30_000;
  * so `none` is the intended production reasoning budget throughout.
  */
 export const LLM_PROFILES = {
+  editorialProducerWrite: {
+    model: "text",
+    maxTokens: 12000,
+    temperature: 0.4,
+    reasoningEffort: "none",
+    timeoutMs: 90000,
+  },
+  editorialProducerReview: {
+    model: "text",
+    maxTokens: 6000,
+    temperature: 0,
+    reasoningEffort: "none",
+    timeoutMs: 90000,
+  },
   /** Facts extraction — taxonomy, city, year, MIT signals, listing verdict. */
   facts: {
     model: "text",

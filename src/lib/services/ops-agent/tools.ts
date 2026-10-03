@@ -122,12 +122,32 @@ const ProposeActionParameters = {
   properties: {
     kind: {
       type: "string",
-      enum: ["refresh_brand", "rerun_job", "dispatch_workflow"],
+      enum: [
+        "refresh_brand",
+        "rerun_job",
+        "dispatch_workflow",
+        "start_editorial_producer",
+      ],
       description:
-        "refresh_brand needs slug; rerun_job needs jobId and mode; dispatch_workflow needs workflow.",
+        "refresh_brand needs slug; rerun_job needs jobId and mode; dispatch_workflow needs workflow; start_editorial_producer needs brief.",
     },
-    slug: { type: "string", minLength: 1, description: "Brand slug (refresh_brand only)." },
-    jobId: { type: "string", minLength: 1, description: "Curation job ID (rerun_job only)." },
+    brief: {
+      type: "string",
+      minLength: 1,
+      maxLength: 6000,
+      description:
+        "Human editorial brief (start_editorial_producer only); preserve the operator request.",
+    },
+    slug: {
+      type: "string",
+      minLength: 1,
+      description: "Brand slug (refresh_brand only).",
+    },
+    jobId: {
+      type: "string",
+      minLength: 1,
+      description: "Curation job ID (rerun_job only).",
+    },
     mode: {
       type: "string",
       enum: ["rerun", "resume"],

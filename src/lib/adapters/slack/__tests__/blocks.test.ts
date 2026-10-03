@@ -9,6 +9,38 @@ import {
 } from "../blocks";
 
 describe("renderProposalCard", () => {
+  it("keeps a long editorial Start card within Slack field limits while preserving its request identity", () => {
+    const blocks = renderProposalCard({
+      requestId: "maria-christmas-start-card",
+      operatorSlackId: "U_MARIA_GARCIA",
+      proposal:
+        "Prepare an article: " +
+        "小宅聖誕禮物，兼顧閱讀角落與收納。".repeat(200),
+      rationale: "Producer model cap US$1; human final selection.",
+      expiresAt: "2026-10-04T12:00:00Z",
+      confirmLabel: "Start",
+    });
+    const fields = blocks.find((block) => block.type === "section")
+      ?.fields as Array<{ text: string }>;
+    expect(fields).toHaveLength(4);
+    expect(
+      fields.some((field) => field.text.includes("Producer model cap US$1")),
+    ).toBe(true);
+    for (const field of fields)
+      expect(Array.from(field.text).length).toBeLessThanOrEqual(2000);
+    const elements = blocks.find((block) => block.type === "actions")
+      ?.elements as Array<{
+      action_id: string;
+      value: string;
+      text: { text: string };
+    }>;
+    expect(
+      elements.find((element) => element.action_id === "ops_confirm"),
+    ).toMatchObject({
+      value: "maria-christmas-start-card",
+      text: { text: "Start" },
+    });
+  });
   it("proposal_card_renders_confirm_and_cancel_with_request_id", () => {
     const blocks = renderProposalCard({
       requestId: "req_abc123",
@@ -24,8 +56,9 @@ describe("renderProposalCard", () => {
     );
     expect(actionsBlock).toBeDefined();
 
-    const elements = (actionsBlock as { elements: Array<Record<string, unknown>> })
-      .elements;
+    const elements = (
+      actionsBlock as { elements: Array<Record<string, unknown>> }
+    ).elements;
     expect(elements).toHaveLength(2);
 
     const confirm = elements.find(
@@ -45,11 +78,11 @@ describe("renderProposalCard", () => {
 
     // Text fallback must be <= 2999 chars (boundedSlackText)
     const textFallbacks = blocks
-      .filter((b: Record<string, unknown>) => typeof b.text === "object" && b.text !== null)
-      .map(
+      .filter(
         (b: Record<string, unknown>) =>
-          (b.text as { text: string }).text,
-      );
+          typeof b.text === "object" && b.text !== null,
+      )
+      .map((b: Record<string, unknown>) => (b.text as { text: string }).text);
 
     for (const t of textFallbacks) {
       expect(t.length).toBeLessThanOrEqual(2999);
@@ -87,7 +120,9 @@ describe("renderResultCard", () => {
     });
 
     const textContent = JSON.stringify(blocks);
-    expect(textContent).toContain("*Result*\\nStarted e2e run on staging (~20 min).");
+    expect(textContent).toContain(
+      "*Result*\\nStarted e2e run on staging (~20 min).",
+    );
   });
 });
 
@@ -114,11 +149,15 @@ describe("renderThreadNotice", () => {
     });
 
     expect(blocks.map((b) => b.type)).toEqual(["header", "section", "context"]);
-    expect((blocks[0] as { text: { type: string; text: string } }).text).toMatchObject({
+    expect(
+      (blocks[0] as { text: { type: string; text: string } }).text,
+    ).toMatchObject({
       type: "plain_text",
       text: "Repair failed",
     });
-    expect((blocks[1] as { text: { type: string; text: string } }).text).toMatchObject({
+    expect(
+      (blocks[1] as { text: { type: string; text: string } }).text,
+    ).toMatchObject({
       type: "mrkdwn",
       text: "Failed to start repair routine",
     });
@@ -129,7 +168,10 @@ describe("renderThreadNotice", () => {
   });
 
   it("thread_notice_omits_context_and_truncates_header", () => {
-    const { blocks } = renderThreadNotice({ title: "x".repeat(400), body: "b" });
+    const { blocks } = renderThreadNotice({
+      title: "x".repeat(400),
+      body: "b",
+    });
 
     expect(blocks.map((b) => b.type)).toEqual(["header", "section"]);
     const header = (blocks[0] as { text: { text: string } }).text.text;
@@ -139,7 +181,9 @@ describe("renderThreadNotice", () => {
 
 describe("escapeSlackMrkdwn", () => {
   it("escapes the characters Slack reads as markup", () => {
-    expect(escapeSlackMrkdwn("Resend <domain> & DNS")).toBe("Resend &lt;domain&gt; &amp; DNS");
+    expect(escapeSlackMrkdwn("Resend <domain> & DNS")).toBe(
+      "Resend &lt;domain&gt; &amp; DNS",
+    );
   });
 });
 

@@ -30,10 +30,30 @@ const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 // for an audit row must keep reading the same function.
 export { resolveOpenAIModel };
 
+export type AttemptLifecycle = {
+  before: (
+    request: Record<string, unknown>,
+    retryAttempt: number,
+  ) => Promise<void>;
+  after: (
+    event: ChatAuditEvent,
+    request: Record<string, unknown>,
+  ) => Promise<void>;
+};
+
+class AttemptLifecycleError extends Error {
+  constructor(error: unknown) {
+    super(error instanceof Error ? error.message : String(error), {
+      cause: error,
+    });
+  }
+}
+
 type OpenAIClientOptions = {
   apiKey?: string;
   model?: string;
   onChatComplete?: (event: ChatAuditEvent) => void | Promise<void>;
+  attemptLifecycle?: AttemptLifecycle;
 };
 
 type OpenAIImage = string | { url: string };
@@ -373,10 +393,21 @@ export function createOpenAIClient({
   apiKey,
   model = resolveOpenAIModel(),
   onChatComplete,
+  attemptLifecycle,
 }: OpenAIClientOptions = {}) {
   const resolvedApiKey = apiKey ?? process.env.OPENAI_API_KEY;
 
-  async function emitAudit(event: ChatAuditEvent): Promise<void> {
+  async function emitAudit(
+    event: ChatAuditEvent,
+    request: Record<string, unknown>,
+  ): Promise<void> {
+    if (attemptLifecycle) {
+      try {
+        await attemptLifecycle.after(event, request);
+      } catch (error) {
+        throw new AttemptLifecycleError(error);
+      }
+    }
     if (!onChatComplete) return;
 
     try {
@@ -658,6 +689,27 @@ export function createOpenAIClient({
           paramFallback,
         );
 
+        const requestBody: Record<string, unknown> = {
+          model,
+          messages: sentMessages,
+          ...(tools
+            ? {
+                tools: tools.map((tool) => ({
+                  type: "function" as const,
+                  function: {
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: tool.parameters,
+                  },
+                })),
+              }
+            : {}),
+          ...shapedParams,
+          ...responseFormat(useSchema),
+        };
+        if (attemptLifecycle)
+          await attemptLifecycle.before(requestBody, retryAttempt);
+
         const startedAt = performance.now();
         // Per-attempt deadline. A shared one let a slow first call abort the retry instantly.
         const controller = new AbortController();
@@ -670,24 +722,7 @@ export function createOpenAIClient({
           const response = await fetch(OPENAI_API_URL, {
             method: "POST",
             headers,
-            body: JSON.stringify({
-              model,
-              messages: sentMessages,
-              ...(tools
-                ? {
-                    tools: tools.map((tool) => ({
-                      type: "function" as const,
-                      function: {
-                        name: tool.name,
-                        description: tool.description,
-                        parameters: tool.parameters,
-                      },
-                    })),
-                  }
-                : {}),
-              ...shapedParams,
-              ...responseFormat(useSchema),
-            }),
+            body: JSON.stringify(requestBody),
             signal,
           });
 
@@ -696,17 +731,20 @@ export function createOpenAIClient({
               .clone()
               .json()
               .catch(() => null)) as unknown;
-            await emitAudit({
-              provider: "openai",
-              model,
-              ok: false,
-              status: response.status,
-              data,
-              latencyMs: performance.now() - startedAt,
-              request: auditRequest(),
-              retryAttempt,
-              ...eventMeta,
-            });
+            await emitAudit(
+              {
+                provider: "openai",
+                model,
+                ok: false,
+                status: response.status,
+                data,
+                latencyMs: performance.now() - startedAt,
+                request: auditRequest(),
+                retryAttempt,
+                ...eventMeta,
+              },
+              requestBody,
+            );
             return {
               response,
               data: null,
@@ -726,18 +764,21 @@ export function createOpenAIClient({
             data.choices?.[0]?.message?.tool_calls,
           );
 
-          await emitAudit({
-            provider: "openai",
-            model,
-            ok: true,
-            status: response.status,
-            data,
-            ...(data.usage ? { usage: data.usage } : {}),
-            latencyMs: performance.now() - startedAt,
-            request: auditRequest(),
-            retryAttempt,
-            ...eventMeta,
-          });
+          await emitAudit(
+            {
+              provider: "openai",
+              model,
+              ok: true,
+              status: response.status,
+              data,
+              ...(data.usage ? { usage: data.usage } : {}),
+              latencyMs: performance.now() - startedAt,
+              request: auditRequest(),
+              retryAttempt,
+              ...eventMeta,
+            },
+            requestBody,
+          );
 
           return {
             response,
@@ -751,20 +792,24 @@ export function createOpenAIClient({
             refusal: data.choices?.[0]?.message?.refusal ?? null,
           };
         } catch (error) {
+          if (error instanceof AttemptLifecycleError) throw error;
           const message =
             error instanceof Error ? error.message : String(error);
-          await emitAudit({
-            provider: "openai",
-            model,
-            ok: false,
-            status: 0,
-            data: null,
-            latencyMs: performance.now() - startedAt,
-            request: auditRequest(),
-            retryAttempt,
-            ...eventMeta,
-            error: message,
-          });
+          await emitAudit(
+            {
+              provider: "openai",
+              model,
+              ok: false,
+              status: 0,
+              data: null,
+              latencyMs: performance.now() - startedAt,
+              request: auditRequest(),
+              retryAttempt,
+              ...eventMeta,
+              error: message,
+            },
+            requestBody,
+          );
           return {
             response: networkFailureResponse(),
             data: null,

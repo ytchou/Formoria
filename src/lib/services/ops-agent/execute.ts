@@ -1,3 +1,4 @@
+import { startEditorialProducer } from "@/lib/adapters/editorial-producer";
 import { auditedCall } from "@/lib/audit";
 import type { CurationRecoveryInput, CurationRecoveryCounts } from "../curation-jobs";
 import type { OpsProposal } from "./proposals";
@@ -13,6 +14,7 @@ import { escapeSlackMrkdwn } from "../health-agent/report";
 type ExecutableProposal =
   | Extract<OpsProposal, { kind: "refresh_brand" }>
   | Extract<OpsProposal, { kind: "rerun_job" }>
+  | Extract<OpsProposal, { kind: "start_editorial_producer" }>
   | { kind: "dispatch_workflow"; workflow: string; mode?: string };
 
 // ---------------------------------------------------------------------------
@@ -21,6 +23,7 @@ type ExecutableProposal =
 
 export type ExecuteContext = {
   operatorEmail: string;
+  operatorSlackId?: string;
   requestId: string;
   channel: string;
   threadTs: string;
@@ -30,7 +33,14 @@ export type ExecuteDeps = {
   requestBrandRefreshesBySlugs: (
     slugs: string[],
     requesterEmail: string,
-  ) => Promise<Array<{ slug: string; name: string; submissionId: string | null; error: string | null }>>;
+  ) => Promise<
+    Array<{
+      slug: string;
+      name: string;
+      submissionId: string | null;
+      error: string | null;
+    }>
+  >;
   enqueueAdminCurationJob: (input: {
     params: { target: "submissions" | "brands"; submissionIds: string[] };
     dryRun: boolean;
@@ -49,8 +59,7 @@ export type ExecuteDeps = {
 // ---------------------------------------------------------------------------
 
 export type ExecuteResult =
-  | { ok: true; result: Record<string, unknown> }
-  | { ok: false; error: string };
+  { ok: true; result: Record<string, unknown> } | { ok: false; error: string };
 
 /** Slack mrkdwn link to the job's admin page; Slack needs an absolute URL. */
 function adminJobLink(jobId: string): string {
@@ -202,6 +211,33 @@ export async function executeProposal(
             return executeRerunJob(proposal, ctx, deps);
           case "dispatch_workflow":
             return executeDispatchWorkflow(proposal, ctx, deps);
+          case "start_editorial_producer": {
+            if (
+              !ctx.operatorSlackId ||
+              !ctx.operatorEmail ||
+              ctx.operatorEmail.startsWith("system:")
+            )
+              return {
+                ok: false,
+                error: "Human operator identity is required",
+              };
+            const response = await startEditorialProducer({
+              requestId: ctx.requestId,
+              operatorSlackId: ctx.operatorSlackId,
+              channelId: ctx.channel,
+              threadTs: ctx.threadTs,
+              brief: proposal.brief,
+            });
+            if (!response.ok) return response;
+            return {
+              ok: true,
+              result: {
+                editorialRunId: response.runId,
+                summary:
+                  "Editorial Producer started. Questions and Markdown attachments will arrive in this thread. Producer model cap: US$1.",
+              },
+            };
+          }
           default:
             return { ok: false, error: `unsupported_proposal_kind` };
         }
