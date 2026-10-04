@@ -194,7 +194,7 @@ export async function runProducer(
   async function model<T extends z.ZodType>(
     schema: T,
     purpose: string,
-    data: unknown,
+    data: { instruction: string; [key: string]: unknown },
     review = false,
   ): Promise<z.infer<T>> {
     const instance = await createAgentModel(
@@ -205,10 +205,14 @@ export async function runProducer(
         recordedPrice: (await store.read(id)).price ?? undefined,
       },
     );
+    const { instruction, ...untrustedData } = data;
     const result = await instance.invoke(
       [
-        { role: "system", content: EDITORIAL_RULES + "\nTask: " + purpose },
-        { role: "user", content: JSON.stringify({ untrustedData: data }) },
+        {
+          role: "system",
+          content: EDITORIAL_RULES + "\nTask: " + purpose + "\n" + instruction,
+        },
+        { role: "user", content: JSON.stringify({ untrustedData }) },
       ],
       {
         signal,
@@ -249,7 +253,7 @@ export async function runProducer(
           input: run.input,
           answers: run.answers,
           instruction:
-            "Normalize the brief. Ask only about consequential missing requirements; do not invent the intended audience/angle when materially ambiguous.",
+            "Normalize the brief and respect all previous human answers. Ask only when a conflicting or missing audience/intent prevents useful research. An explicit topic, recipient group and angle are sufficient: optional preferences such as gift budget, a particular recipient or product count remain unspecified and must not block work. Do not invent a narrower context such as a gift exchange. Return question:null when the existing brief is usable.",
         });
         await checkpoint(brief.question ? "brief" : "overlap", (current) => {
           current.brief = brief;
@@ -271,7 +275,7 @@ export async function runProducer(
           existing: snapshot.content,
           answers: snapshot.answers,
           instruction:
-            "Compare actual primary intent. On real overlap, offer maintaining the existing owner or a distinct angle and ask the human. Previously answered decisions must be respected; no publication takes place.",
+            "Compare actual primary intent. On real overlap, offer maintaining the existing owner or a distinct angle and ask the human. Human answers settle editorial ownership: when the human already chose a separate article and its distinct angle, return decisionNeeded:false and question:null. Do not ask for confirmation of that choice or raise the same owner again; proceed under the chosen angle. Ask again only about a newly discovered material conflict with a different owner. No publication takes place.",
         });
         if (
           overlap.overlaps.some(

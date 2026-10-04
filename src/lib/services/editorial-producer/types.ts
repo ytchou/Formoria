@@ -123,7 +123,12 @@ export type Run = Owner & {
   activeStartedAt: string | null;
   price: PriceRow | null;
   question: Question | null;
-  answers: Array<{ questionId: string; text: string; eventId: string }>;
+  answers: Array<{
+    questionId: string;
+    questionText?: string;
+    text: string;
+    eventId: string;
+  }>;
   processedEvents: string[];
   brief?: Brief;
   content?: ContentIntent[];

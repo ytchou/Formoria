@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { CatalogProduct } from "../../curated-products-catalog";
 import { RunStore } from "../store";
 import { runProducer } from "../run";
+import { ProducerController } from "../controller";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -196,6 +197,21 @@ it("takes a saved catalog through official evidence to a reviewed zh-TW draft an
   expect(journal).toContain("chat_completions");
   expect(journal).toContain("prompt_tokens");
   expect(journal).toContain("燈座以楓木製作。");
+  const draftRequest = journal
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .find((event) =>
+      event.request?.messages?.at(0)?.content?.includes("Task: draft\n"),
+    )?.request;
+  expect(draftRequest.messages.at(0).content).toContain(
+    "Write the full natural zh-TW Markdown article",
+  );
+  const draftData = JSON.parse(
+    draftRequest.messages.at(1).content,
+  ).untrustedData;
+  expect(draftData).not.toHaveProperty("instruction");
+  expect(draftData.facts.at(0).excerpt).toBe("燈座以楓木製作。");
 });
 it("pauses on an editorial fork and resumes from the saved stage without resetting spending", async () => {
   const { store, id } = await fixture();
@@ -204,19 +220,28 @@ it("pauses on an editorial fork and resumes from the saved stage without resetti
   expect(waiting.status, waiting.error).toBe("awaiting_input");
   expect(waiting.stage).toBe("overlap");
   const question = waiting.question!;
-  await store.update(id, (run) => {
-    run.answers.push({
-      questionId: question.id,
-      text: "採用獨立閱讀角度",
+  const controller = new ProducerController(store);
+  try {
+    await controller.command({
+      runId: id,
+      operatorSlackId: waiting.operatorSlackId,
+      channelId: waiting.channelId,
+      threadTs: waiting.threadTs,
+      command: "answer",
+      answer: "採用獨立閱讀角度",
       eventId: "maria-angle-answer",
     });
-    run.question = null;
-    run.status = "running";
-  });
-  const complete = await runProducer(store, id);
+    await vi.waitFor(async () =>
+      expect((await store.read(id)).status).toBe("ready_for_review"),
+    );
+  } finally {
+    await controller.shutdown();
+  }
+  const complete = await store.read(id);
   expect(complete.status).toBe("ready_for_review");
   expect(complete.budget.costUsd).toBeGreaterThan(waiting.budget.costUsd);
   expect(tasks.filter((task) => task === "brief")).toHaveLength(1);
+  expect(complete.answers.at(-1)?.questionText).toBe(question.text);
 });
 it("blocks unsupported variant facts before producing a misleading article", async () => {
   const { store, id } = await fixture();

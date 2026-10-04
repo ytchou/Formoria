@@ -125,6 +125,7 @@ export class ProducerController {
         if (input.command === "answer" && current.question && input.answer)
           current.answers.push({
             questionId: current.question.id,
+            questionText: current.question.text,
             text: input.answer,
             eventId: input.eventId,
           });
