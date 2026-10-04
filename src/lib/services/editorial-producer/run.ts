@@ -398,7 +398,7 @@ export async function runProducer(
           })),
           answers: snapshot.answers,
           instruction:
-            "Confirm exact product/variant and official entity identity with a literal identity excerpt. Extract only relevant durable facts, each with an exact quote. Exclude mismatches or unsupported specifications; ask if evidence requires an angle change.",
+            "Confirm exact product/variant and official entity identity with a literal identity excerpt. Extract only relevant durable facts, each with one contiguous verbatim quote from source.text. Never shorten quotes with ellipses, merge separate passages or normalize characters. Exclude mismatches or unsupported specifications; ask if evidence requires an angle change.",
         });
         const facts: Fact[] = [];
         const exclusions = [...snapshot.exclusions];
@@ -423,8 +423,15 @@ export async function runProducer(
             continue;
           }
           for (const fact of product.facts) {
-            if (!source.text.includes(fact.excerpt))
-              throw new Error("Evidence excerpt does not occur in its source");
+            if (!fact.excerpt.trim() || !source.text.includes(fact.excerpt)) {
+              exclusions.push({
+                productId: product.productId,
+                reason:
+                  "Evidence excerpt does not occur in its source: " +
+                  fact.claim,
+              });
+              continue;
+            }
             facts.push({
               id: "f" + (facts.length + 1),
               productId: product.productId,

@@ -75,6 +75,7 @@ function provider(
     rejectDraft?: boolean;
     unknownUsage?: boolean;
     failedSource?: boolean;
+    mismatchedQuote?: boolean;
   } = {},
 ) {
   const tasks: string[] = [];
@@ -135,7 +136,14 @@ function provider(
             sourceId,
             identityConfirmed: true,
             identityExcerpt: "河岸木作 楓木桌燈",
-            facts: [{ claim: "燈座以楓木製作。", excerpt: "燈座以楓木製作。" }],
+            facts: [
+              {
+                claim: "燈座以楓木製作。",
+                excerpt: options.mismatchedQuote
+                  ? "燈座以實木製作。"
+                  : "燈座以楓木製作。",
+              },
+            ],
             exclusionReason: null,
           },
         ],
@@ -262,6 +270,21 @@ it("stops after two failed revisions and preserves the partial draft", async () 
   expect(result.review?.failures).toContain(
     "Article claims an unsupported dimension",
   );
+});
+it("excludes a nonliteral evidence quote instead of trapping the run at research", async () => {
+  const { store, id } = await fixture();
+  provider({ mismatchedQuote: true });
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("blocked");
+  expect(result.facts).toHaveLength(0);
+  expect(result.draft).toBeUndefined();
+  expect(result.exclusions).toContainEqual({
+    productId: product.id,
+    reason: "Evidence excerpt does not occur in its source: 燈座以楓木製作。",
+  });
+  expect(
+    await readFile(join(store.root, id, "research-extraction.json"), "utf8"),
+  ).toContain("燈座以實木製作。");
 });
 it("does not spend again when a paid response omits usage", async () => {
   const { store, id } = await fixture();
