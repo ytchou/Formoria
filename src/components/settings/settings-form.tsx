@@ -30,10 +30,10 @@ export function SettingsForm({
   const t = useTranslations("settings");
   const [state, action, pending] = useActionState<SettingsState, FormData>(
     updateSettings,
-    {}
+    {},
   );
   const [newsletterMarketing, setNewsletterMarketing] = useState(
-    newsletterStatus !== "off"
+    newsletterStatus !== "off",
   );
   // `newsletterStatus` is a server prop; `useState` only reads it on mount, so
   // after `unsubscribeAll` revalidates the route the checkbox would stay ticked
@@ -106,9 +106,7 @@ export function SettingsForm({
               ? "localePreference-error"
               : undefined
           }
-          aria-invalid={
-            state.fieldErrors?.localePreference ? true : undefined
-          }
+          aria-invalid={state.fieldErrors?.localePreference ? true : undefined}
           id="localePreference"
           name="localePreference"
           defaultValue={profile?.localePreference ?? currentLocale}

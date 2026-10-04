@@ -148,13 +148,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const directoryPagesPromise =
       buildDirectorySitemapSection(rawBrandsPromise);
     const trailPagesPromise = buildTrailSitemapSection().catch(() => []);
-    const [brands, storyResult, categoryPages, trailPages] =
-      await Promise.all([
-        brandsPromise,
-        getAllStories(),
-        directoryPagesPromise,
-        trailPagesPromise,
-      ]);
+    const [brands, storyResult, categoryPages, trailPages] = await Promise.all([
+      brandsPromise,
+      getAllStories(),
+      directoryPagesPromise,
+      trailPagesPromise,
+    ]);
     const stories = storyResult.ok ? storyResult.stories : [];
 
     const brandPages = buildBrandSitemapEntries(brands);

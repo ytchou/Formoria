@@ -371,9 +371,7 @@ test.describe("SEO deep", () => {
     });
     expect(staticLocations.length).toBeGreaterThan(0);
     expect(locations.some((url) => url.pathname === "/discover")).toBe(true);
-    expect(locations.some((url) => url.pathname === "/en/discover")).toBe(
-      true,
-    );
+    expect(locations.some((url) => url.pathname === "/en/discover")).toBe(true);
     // A browser render per URL exceeds the CI timeout, while compiling every
     // route concurrently can overload a cold dev server and corrupt its route
     // manifests. Plain HTTP requests in small batches keep all URL assertions
