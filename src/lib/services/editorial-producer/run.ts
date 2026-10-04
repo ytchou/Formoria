@@ -14,7 +14,7 @@ import {
   reserveModelCost,
   settleModelCost,
 } from "./budget";
-import { EDITORIAL_RULES } from "./prompts";
+import { EDITORIAL_RULES } from "@/lib/prompts/editorial-producer";
 import { fetchSource, loadContext } from "./sources";
 import { RunStore } from "./store";
 import { LIMITS, type Fact, type Run, type Stage } from "./types";
@@ -197,14 +197,14 @@ export async function runProducer(
     data: { instruction: string; [key: string]: unknown },
     review = false,
   ): Promise<z.infer<T>> {
-    const instance = await createAgentModel(
-      review ? "editorialProducerReview" : "editorialProducerWrite",
-      {
-        phase: "editorial-producer-" + purpose,
-        attemptLifecycle: lifecycle,
-        recordedPrice: (await store.read(id)).price ?? undefined,
-      },
-    );
+    const profile = review
+      ? "editorialProducerReview"
+      : "editorialProducerWrite";
+    const instance = await createAgentModel(profile, {
+      phase: profile,
+      attemptLifecycle: lifecycle,
+      recordedPrice: (await store.read(id)).price ?? undefined,
+    });
     const { instruction, ...untrustedData } = data;
     const result = await instance.invoke(
       [

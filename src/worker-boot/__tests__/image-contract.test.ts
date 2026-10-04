@@ -20,7 +20,7 @@ describe("worker image contract", () => {
     );
   });
 
-  it("Dockerfile copies only src and manifests", () => {
+  it("packages editorial context without copying unrelated content or database files", () => {
     const dockerfile = readFileSync(
       resolve(ROOT, "Dockerfile.curation-worker"),
       "utf8",
@@ -29,8 +29,11 @@ describe("worker image contract", () => {
       .split("\n")
       .filter((line) => /^\s*COPY\s/i.test(line));
 
+    expect(copyLines.filter((line) => /COPY\s+content\//.test(line))).toEqual([
+      "COPY content/stories/ content/stories/",
+      "COPY content/trails/ content/trails/",
+    ]);
     for (const line of copyLines) {
-      expect(line).not.toMatch(/COPY\s+content\//);
       expect(line).not.toMatch(/COPY\s+supabase\//);
     }
   });
