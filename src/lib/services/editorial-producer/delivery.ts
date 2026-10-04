@@ -52,6 +52,10 @@ export function evidencePacket(run: Run): string {
           ...item,
           ...productLead(item.productId),
         })),
+        rejectedFacts: run.rejectedFacts?.map((item) => ({
+          ...item,
+          name: productLead(item.productId).name,
+        })),
       },
       null,
       2,
@@ -139,6 +143,7 @@ export async function notifyRun(store: RunStore, id: string): Promise<void> {
         ". Model usage: US$" +
         run.budget.costUsd.toFixed(4) +
         " / US$1." +
+        (run.error ? " Reason: " + run.error + "." : "") +
         (run.budget.costUncertain
           ? " Additional usage is uncertain; further spending stopped."
           : "") +

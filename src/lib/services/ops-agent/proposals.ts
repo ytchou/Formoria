@@ -120,7 +120,7 @@ export function describeProposal(proposal: OpsProposal): ProposalDescription {
         steps:
           "Research official catalog sources, draft zh-TW article, independently review claims, attach draft and evidence",
         why: "Human-requested editorial preparation; final selection and publication remain yours",
-        cost: "Producer model cap US$1; 15 active minutes; 12 source pages; 24 fetch/render attempts; 20 physical model requests; 2 revisions. Ops routing and hosting billed separately.",
+        cost: "Producer model cap US$1; 15 active minutes; 12 source pages; 24 fetch/render attempts; 20 physical model requests; 3 revisions. Ops routing and hosting billed separately.",
         confirmLabel: "Start",
       };
 

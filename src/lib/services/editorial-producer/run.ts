@@ -11,13 +11,14 @@ import { getModelPrice } from "../llm-pricing";
 import {
   assertBudget,
   BudgetStop,
+  chargeReservation,
   reserveModelCost,
   settleModelCost,
 } from "./budget";
 import { EDITORIAL_RULES } from "@/lib/prompts/editorial-producer";
 import { fetchSource, loadContext } from "./sources";
 import { RunStore } from "./store";
-import { LIMITS, type Fact, type Run, type Stage } from "./types";
+import { LIMITS, type Claim, type Fact, type Run, type Stage } from "./types";
 
 const QuestionSchema = z.string().min(1).nullable();
 const BriefSchema = z.object({
@@ -65,15 +66,44 @@ const OutlineSchema = z.object({
 });
 const DraftSchema = z.object({
   markdown: z.string().min(1),
-  claims: z.array(
-    z.object({ text: z.string().min(1), factIds: z.array(z.string()).min(1) }),
-  ),
   openDecisions: z.array(z.string()),
 });
 const ReviewSchema = z.object({
-  failures: z.array(z.string()),
+  issues: z.array(
+    z.object({
+      severity: z.enum(["blocking", "revise"]),
+      quote: z.string(),
+      problem: z.string().min(1),
+      falseBelief: z.string(),
+    }),
+  ),
   openDecisions: z.array(z.string()),
 });
+const MAX_REVIEW_DECISIONS = 5;
+
+const CITATION = /\[\^([^\]]+)\]/g;
+const SENTENCE = /[^。！？!?\n]+[。！？!?]?(?:\s*\[\^[^\]]+\])*/g;
+/** Sentences with citation markers removed, for comparing drafts. */
+function sentences(markdown: string): string[] {
+  return (markdown.match(SENTENCE) ?? [])
+    .map((sentence) => sentence.replace(CITATION, "").trim())
+    .filter(Boolean);
+}
+/**
+ * The claim ledger is derived from the article, not restated by the writer:
+ * every sentence carrying a [^fN] marker is a claim backed by those facts.
+ * A model-restated ledger failed exact matching on its own article.
+ */
+export function deriveClaims(markdown: string): Claim[] {
+  const claims: Claim[] = [];
+  for (const sentence of markdown.match(SENTENCE) ?? []) {
+    const factIds = [...sentence.matchAll(CITATION)].map((match) => match[1]!);
+    if (!factIds.length) continue;
+    const text = sentence.replace(CITATION, "").trim();
+    if (text) claims.push({ text, factIds: [...new Set(factIds)] });
+  }
+  return claims;
+}
 
 export function validateDraft(
   run: Pick<Run, "draft" | "claims" | "facts">,
@@ -82,20 +112,11 @@ export function validateDraft(
   const ids = new Set(run.facts.map((fact) => fact.id));
   const markdown = run.draft ?? "";
   if (!markdown.trim()) failures.push("Draft is empty");
-  for (const match of markdown.matchAll(/\[\^([^\]]+)\]/g))
+  for (const match of markdown.matchAll(CITATION))
     if (!ids.has(match[1]!)) failures.push("Unknown citation: " + match[1]);
-  for (const claim of run.claims) {
-    if (!markdown.includes(claim.text))
-      failures.push("Claim ledger does not match article: " + claim.text);
-    if (
-      !claim.factIds.length ||
-      claim.factIds.some(
-        (id) => !ids.has(id) || !markdown.includes("[^" + id + "]"),
-      )
-    )
-      failures.push("Claim has no valid article citation: " + claim.text);
-  }
-  return failures;
+  if (markdown.trim() && ids.size && !run.claims.length)
+    failures.push("Article cites none of the supported facts");
+  return [...new Set(failures)];
 }
 
 function chargeTime(run: Run): void {
@@ -109,6 +130,59 @@ function ask(run: Run, text: string): void {
   run.question = { id: run.stage + "-" + randomUUID(), stage: run.stage, text };
   run.status = "awaiting_input";
 }
+/**
+ * Models corrupt 36-character UUIDs when copying them back (one pilot run
+ * returned a catalog ID with its last twelve characters rewritten), so prompts
+ * carry short aliases such as p1/s1 and results are mapped back here.
+ */
+function aliases<T>(items: T[], prefix: string, key: (item: T) => string) {
+  const toReal = new Map(items.map((item, i) => [prefix + (i + 1), key(item)]));
+  const toAlias = new Map([...toReal].map(([alias, real]) => [real, alias]));
+  return { toReal, toAlias };
+}
+/**
+ * Candidates the article may feature: those with at least one supported fact,
+ * named as the catalog names them (identity was confirmed during research).
+ */
+function evidenced(run: Run) {
+  return run.candidates
+    ?.filter((candidate) =>
+      run.facts.some((fact) => fact.productId === candidate.productId),
+    )
+    .map((candidate) => {
+      const product = run.catalog?.find(
+        (item) => item.id === candidate.productId,
+      );
+      return {
+        ...candidate,
+        name: product?.nameZh,
+        nameEn: product?.nameEn,
+        brand: product?.brandName,
+      };
+    });
+}
+/** Replaces prompt aliases (p7) in model text shown to humans with product names. */
+function unalias(
+  run: Run,
+  text: string,
+  ids: ReturnType<typeof aliases>,
+): string {
+  return text.replace(/\bp\d+\b/g, (alias) => {
+    const id = ids.toReal.get(alias);
+    const product = run.catalog?.find((item) => item.id === id);
+    return product ? "「" + product.nameZh + "」" : alias;
+  });
+}
+/**
+ * After the brief and overlap are settled, a question that does not stop the
+ * work (candidates or facts exist) is an editorial decision for the packet,
+ * not a checkpoint. Models otherwise ask hypothetical "if supply runs short"
+ * questions with a usable selection in hand.
+ */
+function deferDecision(run: Run, text: string): void {
+  run.decisions ??= [];
+  if (!run.decisions.includes(text)) run.decisions.push(text);
+}
 
 export async function runProducer(
   store: RunStore,
@@ -117,6 +191,18 @@ export async function runProducer(
 ): Promise<Run> {
   let initial = await store.read(id);
   if (initial.status !== "running") return initial;
+  if (initial.budget.reservedUsd > 0 && !initial.budget.costUncertain) {
+    // The process died mid-call: charge the outstanding reservation as spent.
+    initial = await store.update(id, (run) => {
+      chargeReservation(run.budget, run.budget.reservedUsd);
+    });
+    await store.journal(id, {
+      provider: "openai",
+      operation: "chat_completions",
+      status: "charged_unsettled_reservation",
+      costUsd: initial.budget.costUsd,
+    });
+  }
   if (initial.budget.reservedUsd > 0) {
     return store.update(id, (run) => {
       run.budget.costUncertain = true;
@@ -180,6 +266,10 @@ export async function runProducer(
               0,
               run.budget.reservedUsd - reserved,
             );
+          // A timeout, abort or 5xx reports no usage; charge the whole
+          // reservation as the worst case so the cap holds and the run can retry.
+          else if (!event.ok && !event.usage)
+            chargeReservation(run.budget, reserved);
           else if (run.price)
             settleModelCost(run.budget, run.price, reserved, event.usage);
           else throw new BudgetStop("Model pricing is unknown");
@@ -301,11 +391,12 @@ export async function runProducer(
       }
       case "catalog": {
         const catalog = run.catalog ?? [];
+        const productIds = aliases(catalog, "p", (product) => product.id);
         const result = await model(CatalogSchema, "catalog", {
           brief: run.brief,
           answers: run.answers,
           products: catalog.map((product) => ({
-            id: product.id,
+            id: productIds.toAlias.get(product.id),
             name: product.nameZh,
             nameEn: product.nameEn,
             brand: product.brandName,
@@ -317,29 +408,46 @@ export async function runProducer(
           instruction:
             "Make provisional selections with reasons tied to the brief. All catalog facts remain unverified. At most 12 source pages are available; no minimum count. Never prefer easier-to-research products. Explain considered exclusions. Ask if catalog supply requires changing the angle.",
         });
-        if (
-          [...result.candidates, ...result.exclusions].some(
-            (item) => !catalog.some((product) => product.id === item.productId),
-          )
-        )
-          throw new Error("Invented catalog product");
-        if (
-          new Set(result.candidates.map((item) => item.productId)).size !==
-          result.candidates.length
-        )
-          throw new Error("Duplicate catalog candidate");
-        await checkpoint(
-          result.question ? "catalog" : "research",
-          (current) => {
-            current.candidates = result.candidates;
-            current.exclusions = result.exclusions;
-            if (result.question) ask(current, result.question);
-            else if (!result.candidates.length) {
-              current.status = "blocked";
-              current.error = "Insufficient eligible catalog supply";
-            }
-          },
-        );
+        const unknown = [...result.candidates, ...result.exclusions]
+          .map((item) => item.productId)
+          .filter((alias) => !productIds.toReal.has(alias));
+        if (unknown.length)
+          await store.journal(id, {
+            stage: "catalog",
+            droppedUnknownProductIds: unknown,
+          });
+        const resolve = <T extends { productId: string; reason: string }>(
+          items: T[],
+        ) => {
+          const seen = new Set<string>();
+          return items.flatMap((item) => {
+            const productId = productIds.toReal.get(item.productId);
+            if (!productId || seen.has(productId)) return [];
+            seen.add(productId);
+            return [
+              {
+                ...item,
+                productId,
+                reason: unalias(run, item.reason, productIds),
+              },
+            ];
+          });
+        };
+        const candidates = resolve(result.candidates);
+        const mustAsk = !!result.question && !candidates.length;
+        await checkpoint(mustAsk ? "catalog" : "research", (current) => {
+          current.candidates = candidates;
+          current.exclusions = resolve(result.exclusions);
+          const question = result.question
+            ? unalias(current, result.question, productIds)
+            : null;
+          if (mustAsk) ask(current, question!);
+          else if (question) deferDecision(current, question);
+          else if (!candidates.length) {
+            current.status = "blocked";
+            current.error = "Insufficient eligible catalog supply";
+          }
+        });
         break;
       }
       case "research": {
@@ -387,26 +495,45 @@ export async function runProducer(
           if (failure?.status === "rejected") throw failure.reason;
         }
         const snapshot = await store.read(id);
+        const researched =
+          snapshot.catalog?.filter((product) =>
+            candidates.some((candidate) => candidate.productId === product.id),
+          ) ?? [];
+        const productIds = aliases(researched, "p", (product) => product.id);
+        const sourceIds = aliases(snapshot.sources, "s", (source) => source.id);
         const extraction = await model(ResearchSchema, "research", {
           brief: snapshot.brief,
-          products: snapshot.catalog?.filter((product) =>
-            candidates.some((candidate) => candidate.productId === product.id),
-          ),
+          products: researched.map((product) => ({
+            ...product,
+            id: productIds.toAlias.get(product.id),
+          })),
           sources: snapshot.sources.map((source) => ({
             ...source,
+            id: sourceIds.toAlias.get(source.id),
+            productId: productIds.toAlias.get(source.productId),
             text: source.text.slice(0, 16000),
           })),
           answers: snapshot.answers,
           instruction:
-            "Confirm exact product/variant and official entity identity with a literal identity excerpt. Extract only relevant durable facts, each with one contiguous verbatim quote from source.text. Never shorten quotes with ellipses, merge separate passages or normalize characters. Exclude mismatches or unsupported specifications; ask if evidence requires an angle change.",
+            "Confirm exact product/variant and official entity identity with a literal identity excerpt. Extract only relevant durable facts, each with one contiguous verbatim quote from source.text. Never shorten quotes with ellipses, merge separate passages or normalize characters. Also extract, as separate facts, every usage restriction, caution or warning the page states for the product (who should not use it, what not to do, required accessories not included). Never extract commerce facts, even as restrictions: price, discounts, stock or availability, sold-out status, made-to-order or production lead times, shipping, delivery, returns or ordering instructions; Formoria links to the source for those. Exclude mismatches or unsupported specifications; ask if evidence requires an angle change.",
         });
         const facts: Fact[] = [];
         const exclusions = [...snapshot.exclusions];
-        for (const product of extraction.products) {
+        const rejectedFacts: NonNullable<Run["rejectedFacts"]> = [];
+        for (const extracted of extraction.products) {
+          const productId = productIds.toReal.get(extracted.productId);
+          if (!productId) {
+            await store.journal(id, {
+              stage: "research",
+              droppedUnknownProductId: extracted.productId,
+            });
+            continue;
+          }
+          const product = { ...extracted, productId };
           const source = snapshot.sources.find(
             (item) =>
-              item.id === product.sourceId &&
-              item.productId === product.productId,
+              item.id === sourceIds.toReal.get(product.sourceId) &&
+              item.productId === productId,
           );
           if (
             !source ||
@@ -416,19 +543,18 @@ export async function runProducer(
           ) {
             exclusions.push({
               productId: product.productId,
-              reason:
-                product.exclusionReason ??
-                "Exact product/variant identity was not evidenced",
+              reason: product.exclusionReason
+                ? unalias(snapshot, product.exclusionReason, productIds)
+                : "Exact product/variant identity was not evidenced",
             });
             continue;
           }
           for (const fact of product.facts) {
             if (!fact.excerpt.trim() || !source.text.includes(fact.excerpt)) {
-              exclusions.push({
+              rejectedFacts.push({
                 productId: product.productId,
-                reason:
-                  "Evidence excerpt does not occur in its source: " +
-                  fact.claim,
+                claim: fact.claim,
+                reason: "Evidence excerpt does not occur in its source",
               });
               continue;
             }
@@ -451,7 +577,10 @@ export async function runProducer(
             "facts-review",
             {
               facts,
-              sources: snapshot.sources,
+              sources: snapshot.sources.map((source) => ({
+                ...source,
+                text: source.text.slice(0, 16000),
+              })),
               products: snapshot.catalog?.filter((product) =>
                 candidates.some(
                   (candidate) => candidate.productId === product.id,
@@ -465,29 +594,36 @@ export async function runProducer(
           const supported = new Set(review.supportedFactIds);
           for (const fact of facts)
             if (!supported.has(fact.id))
-              exclusions.push({
+              rejectedFacts.push({
                 productId: fact.productId,
-                reason: "Unsupported fact: " + fact.claim,
+                claim: fact.claim,
+                reason: "Independent review found it unsupported",
               });
           await store.artifact(id, "facts-review.json", JSON.stringify(review));
-          await checkpoint(
-            extraction.question ? "research" : "outline",
-            (current) => {
-              current.facts = facts.filter((fact) => supported.has(fact.id));
-              current.exclusions = exclusions;
-              if (extraction.question) ask(current, extraction.question);
-              else if (!current.facts.length) {
-                current.status = "blocked";
-                current.error = "No independently supported facts";
-              }
-            },
-          );
+          const kept = facts.filter((fact) => supported.has(fact.id));
+          const mustAsk = !!extraction.question && !kept.length;
+          await checkpoint(mustAsk ? "research" : "outline", (current) => {
+            current.facts = kept;
+            current.exclusions = exclusions;
+            current.rejectedFacts = rejectedFacts;
+            const question = extraction.question
+              ? unalias(current, extraction.question, productIds)
+              : null;
+            if (mustAsk) ask(current, question!);
+            else if (question) deferDecision(current, question);
+            else if (!current.facts.length) {
+              current.status = "blocked";
+              current.error = "No independently supported facts";
+            }
+          });
         } else {
           await checkpoint(
             extraction.question ? "research" : "outline",
             (current) => {
               current.exclusions = exclusions;
-              if (extraction.question) ask(current, extraction.question);
+              current.rejectedFacts = rejectedFacts;
+              if (extraction.question)
+                ask(current, unalias(current, extraction.question, productIds));
               else {
                 current.status = "blocked";
                 current.error = "Insufficient official evidence";
@@ -507,9 +643,9 @@ export async function runProducer(
           instruction:
             "Outline a complete article satisfying the brief using only supported facts. Ask if the angle must change. No word-count or product-count quota.",
         });
-        await checkpoint(result.question ? "outline" : "draft", (current) => {
+        await checkpoint("draft", (current) => {
           current.outline = result.outline;
-          if (result.question) ask(current, result.question);
+          if (result.question) deferDecision(current, result.question);
         });
         break;
       }
@@ -517,19 +653,35 @@ export async function runProducer(
         const result = await model(DraftSchema, "draft", {
           brief: run.brief,
           outline: run.outline,
-          candidates: run.candidates,
-          facts: run.facts,
-          failures: run.review?.failures,
+          candidates: evidenced(run),
+          facts: run.facts.map((fact) => ({
+            ...fact,
+            sourceUrl: run.sources.find((source) => source.id === fact.sourceId)
+              ?.finalUrl,
+          })),
           answers: run.answers,
+          openDecisions: run.decisions,
+          ...(run.draft && run.review?.failures.length
+            ? {
+                previousDraft: run.draft,
+                reviewFailures: run.review.failures,
+              }
+            : {}),
           instruction:
-            "Write the full natural zh-TW Markdown article. Cite facts with [^f1] style references. Return a complete claim ledger: exact article text for each factual assertion and its factIds. Distinguish interpretations, make no unsupported product claims. Do not add footnote definitions; the service adds source links. All selections remain provisional.",
+            "Write the full natural zh-TW Markdown article. Put a [^f1] style marker right after every sentence that states a sourced fact, citing only the facts that sentence relies on; sentences without a marker must contain no product facts. Distinguish interpretations, make no unsupported product claims. Do not add footnote definitions; the service appends them with source links. All selections remain provisional; open decisions belong in openDecisions, not the article. Name each source by what its sourceUrl shows: a brand's own site is the brand's 官網, a marketplace such as Pinkoi or Shopee is that marketplace's 商品頁 with its seller; never call a marketplace page 官方頁面. Each sentence may state only what the excerpts of the facts it cites say: add no detail from fact claims beyond their excerpts, from other facts, or from your own knowledge. When you describe a use that has restriction or caution facts, state those restrictions with their markers in the same paragraph, or do not describe that use. The article contains no editorial to-do notes such as 出版前需補核; those belong in openDecisions. Name each product in full once, where its paragraph begins; within that paragraph refer to it as 它 or a short name. Choose the facts that matter to this reader's decision (for example size and storage for a small home, restrictions for the described use); a product paragraph is not an exhaustive spec list. The article speaks to readers: never mention internal process (candidates, catalog data, verification, human review, publication decisions) and never mention stock, availability, lead times, shipping or ordering. Frame an editorial interpretation as conditional once per product, then trust the reader; do not repeat that no product suits everyone. When previousDraft and reviewFailures are present, revise previousDraft to resolve every failure, changing only the sentences those failures concern and keeping every other sentence word for word; if a failure cannot be fixed with the provided facts, delete or narrow the offending sentence.",
         });
         await checkpoint("review", (current) => {
           current.draft = result.markdown;
-          current.claims = result.claims;
+          current.claims = deriveClaims(result.markdown);
           current.review = {
             failures: [],
-            openDecisions: result.openDecisions,
+            notes: [],
+            openDecisions: [
+              ...new Set([
+                ...(current.decisions ?? []),
+                ...result.openDecisions.slice(0, MAX_REVIEW_DECISIONS),
+              ]),
+            ],
           };
         });
         await store.artifact(id, "draft.md", result.markdown);
@@ -537,32 +689,80 @@ export async function runProducer(
       }
       case "review": {
         const deterministic = validateDraft(run);
+        // Later rounds may only block on what changed or stayed broken: an
+        // unchanged sentence already passed an independent review. Without this
+        // a fresh reviewer finds new nits in every full pass and never converges.
+        const previous = run.reviewed;
+        const seen = new Set(previous ? sentences(previous.draft) : []);
+        const changed = previous
+          ? sentences(run.draft ?? "").filter((sentence) => !seen.has(sentence))
+          : null;
         const result = await model(
           ReviewSchema,
           "draft-review",
           {
             brief: run.brief,
+            answers: run.answers,
             article: run.draft,
-            claims: run.claims,
             facts: run.facts,
-            sources: run.sources,
-            candidates: run.candidates,
+            sources: run.sources.map((source) => ({
+              ...source,
+              text: source.text.slice(0, 16000),
+            })),
+            candidates: evidenced(run),
+            openDecisions: run.review?.openDecisions,
             deterministicFailures: deterministic,
+            ...(changed
+              ? {
+                  changedSentences: changed,
+                  previousFailures: previous!.failures,
+                }
+              : {}),
             instruction:
-              "Review independently with fresh context. Find ALL factual assertions, including those omitted from the claim ledger. Check semantic support, exact product/variant identity, coverage of brief, prohibited claims, natural zh-TW and voice. Unsupported important facts or missing citations are failures. Never accept solely because a citation/JSON exists. Open decisions do not permit unsupported factual assertions.",
+              "Review independently with fresh context. Find ALL factual assertions, including uncited ones, and check each cited sentence against its facts' excerpts. Classify every issue. severity blocking ONLY when publishing the sentence as written would mislead a reader: a product fact unsupported by its cited excerpts or stated without a [^fN] marker; a fact attributed to the wrong product, variant, brand or seller; a prohibited claim (price, stock, discount, delivery promise, certification, safety, efficacy, superiority); brand nationality presented as manufacturing origin; or a use described while omitting restrictions its source states for that use. Everything else is severity revise: naming precision, variant labels, source labels, wording, tone, structure, hedging. A blocking issue must be fixable by editing or deleting the quoted text using the provided facts. Never blocking: a pronoun or short name for the product named where its paragraph begins; facts the article leaves out; not naming a brand, seller or marketplace in the article (identity was verified during research); units, translations or variant labels; editorial interpretations clearly framed as such; suggestions. A sentence is supported when the excerpts of the facts it cites cover what it states, even if the page says more. When unsure, choose revise: a human editor reviews every draft before publication, and the draft is explicitly provisional. For a blocking issue, falseBelief states the specific false thing a reader would believe after reading the quoted text; if the text is accurate and you only want clearer or more cautious wording, the issue is revise and falseBelief is empty. Quote the offending text in quote. Footnote definitions are appended by the service at delivery: never ask for them. Human answers are settled editorial decisions: never re-raise them. openDecisions: at most five choices that need human editorial judgment (selection, angle, inclusion), not verification chores. When changedSentences and previousFailures are present this is a re-review: report a previous failure again as blocking only if it is still unresolved, and raise new blocking issues only about changedSentences; other sentences already passed review.",
           },
           true,
         );
-        const failures = [...new Set([...deterministic, ...result.failures])];
+        const describe = (issue: (typeof result.issues)[number]) =>
+          (issue.quote ? "「" + issue.quote + "」: " : "") +
+          issue.problem +
+          (issue.falseBelief.trim()
+            ? " (reader would believe: " + issue.falseBelief.trim() + ")"
+            : "");
+        // A blocking issue must name the false belief it causes; one that
+        // cannot is a wording suggestion and is downgraded to a note.
+        const bare = (text: string) => text.replace(CITATION, "").trim();
+        const inScope = (quote: string) =>
+          !changed ||
+          !quote ||
+          changed.some(
+            (sentence) => sentence.includes(quote) || quote.includes(sentence),
+          ) ||
+          previous!.failures.some((failure) => failure.includes(quote));
+        const blocks = (issue: (typeof result.issues)[number]) =>
+          issue.severity === "blocking" &&
+          !!issue.falseBelief.trim() &&
+          inScope(bare(issue.quote));
+        const failures = [
+          ...new Set([
+            ...deterministic,
+            ...result.issues.filter(blocks).map(describe),
+          ]),
+        ];
+        const notes = result.issues
+          .filter((issue) => !blocks(issue))
+          .map(describe);
         const repeat =
           failures.length > 0 && run.budget.revisions < LIMITS.revisions;
         await checkpoint(repeat ? "draft" : "done", (current) => {
+          current.reviewed = { draft: run.draft ?? "", failures };
           current.review = {
             failures,
+            notes,
             openDecisions: [
               ...new Set([
                 ...(current.review?.openDecisions ?? []),
-                ...result.openDecisions,
+                ...result.openDecisions.slice(0, MAX_REVIEW_DECISIONS),
               ]),
             ],
           };

@@ -8,7 +8,7 @@ export const LIMITS = {
   sourcePages: 12,
   fetchAttempts: 24,
   modelAttempts: 20,
-  revisions: 2,
+  revisions: 3,
 } as const;
 export const OwnerSchema = z.object({
   operatorSlackId: z.string().min(1),
@@ -135,12 +135,19 @@ export type Run = Owner & {
   catalog?: CatalogProduct[];
   candidates?: Candidate[];
   exclusions: Array<{ productId: string; reason: string }>;
+  /** Individual facts dropped during research; their products may still feature. */
+  rejectedFacts?: Array<{ productId: string; claim: string; reason: string }>;
   sources: Source[];
   facts: Fact[];
   outline?: string;
   draft?: string;
   claims: Claim[];
-  review?: { failures: string[]; openDecisions: string[] };
+  /** Questions deferred after the brief and overlap stages, kept across revisions. */
+  decisions?: string[];
+  /** failures block readiness; notes are non-blocking edits for the human editor. */
+  review?: { failures: string[]; openDecisions: string[]; notes?: string[] };
+  /** The last reviewed draft and its blocking failures, for re-review scoping. */
+  reviewed?: { draft: string; failures: string[] };
   error?: string;
   delivery: {
     files: Record<

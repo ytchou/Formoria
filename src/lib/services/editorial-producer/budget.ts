@@ -83,6 +83,11 @@ export function settleModelCost(
   budget.costUsd += cost;
   budget.reservedUsd = Math.max(0, budget.reservedUsd - reserved);
 }
+/** Settles an attempt with unknown usage at its reserved upper bound. */
+export function chargeReservation(budget: Budget, reserved: number): void {
+  budget.costUsd += reserved;
+  budget.reservedUsd = Math.max(0, budget.reservedUsd - reserved);
+}
 export function reserveFetch(budget: Budget, url: string): void {
   assertBudget(budget);
   if (!budget.sourceUrls.includes(url)) {

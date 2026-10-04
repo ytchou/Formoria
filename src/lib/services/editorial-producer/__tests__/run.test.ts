@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import type { CatalogProduct } from "../../curated-products-catalog";
 import { RunStore } from "../store";
-import { runProducer } from "../run";
+import { LIMITS } from "../types";
+import { deriveClaims, runProducer } from "../run";
 import { ProducerController } from "../controller";
 
 const roots: string[] = [];
@@ -77,6 +78,11 @@ function provider(
     failedSource?: boolean;
     mismatchedQuote?: boolean;
     mixedSupport?: boolean;
+    catalogQuestion?: boolean;
+    serverErrorOnce?: boolean;
+    styleNote?: boolean;
+    corruptCatalogId?: boolean;
+    blockUnchanged?: boolean;
   } = {},
 ) {
   const tasks: string[] = [];
@@ -99,10 +105,16 @@ function provider(
     const task =
       /Task: ([a-z-]+)/.exec(request.messages.at(0)?.content ?? "")?.[1] ?? "";
     tasks.push(task);
+    if (options.serverErrorOnce && tasks.length === 1)
+      return new Response(JSON.stringify({ error: { message: "upstream" } }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
     const context = JSON.parse(
       request.messages.at(1)?.content ?? "{}",
     ).untrustedData;
     const sourceId = context.sources?.at(0)?.id ?? "";
+    const productAlias = context.products?.at(0)?.id ?? "";
     const outputs: Record<string, unknown> = {
       brief: {
         topic: "小宅聖誕禮物",
@@ -123,17 +135,22 @@ function provider(
       catalog: {
         candidates: [
           {
-            productId: product.id,
+            productId: productAlias,
             reason: "桌燈可作為閱讀角落的提案，尺寸仍待查證",
           },
+          ...(options.corruptCatalogId
+            ? [{ productId: "p99", reason: "A copied ID the model mangled" }]
+            : []),
         ],
         exclusions: [],
-        question: null,
+        question: options.catalogQuestion
+          ? "若官方頁面確認後商品不足，是否接受收窄角度？"
+          : null,
       },
       research: {
         products: [
           {
-            productId: product.id,
+            productId: productAlias,
             sourceId,
             identityConfirmed: true,
             identityExcerpt: "河岸木作 楓木桌燈",
@@ -168,13 +185,48 @@ function provider(
       draft: {
         markdown:
           "# 留一盞燈給閱讀的角落\n\n燈座以楓木製作。[^f1]\n\n若桌面留得下，可以把這件桌燈列為禮物提案。",
-        claims: [{ text: "燈座以楓木製作。", factIds: ["f1"] }],
         openDecisions: ["Human final selection"],
       },
       "draft-review": {
-        failures: options.rejectDraft
-          ? ["Article claims an unsupported dimension"]
-          : [],
+        issues: [
+          ...(options.rejectDraft
+            ? [
+                {
+                  severity: "blocking",
+                  quote: "",
+                  problem: "Article claims an unsupported dimension",
+                  falseBelief: "The lamp has a verified size",
+                },
+              ]
+            : []),
+          ...(options.blockUnchanged
+            ? [
+                tasks.filter((name) => name === "draft-review").length === 1
+                  ? {
+                      severity: "blocking",
+                      quote: "",
+                      problem: "Opening scene is missing",
+                      falseBelief: "The article answers the brief",
+                    }
+                  : {
+                      severity: "blocking",
+                      quote: "燈座以楓木製作。",
+                      problem: "Material needs a variant qualifier",
+                      falseBelief: "Every variant is maple",
+                    },
+              ]
+            : []),
+          ...(options.styleNote
+            ? [
+                {
+                  severity: "revise",
+                  quote: "留一盞燈給閱讀的角落",
+                  problem: "Title could name the recipient",
+                  falseBelief: "",
+                },
+              ]
+            : []),
+        ],
         openDecisions: ["Human final selection"],
       },
     };
@@ -264,18 +316,20 @@ it("blocks unsupported variant facts before producing a misleading article", asy
   expect(result.status, result.error).toBe("blocked");
   expect(result.draft).toBeUndefined();
   expect(result.facts).toHaveLength(0);
-  expect(result.exclusions.at(0)?.reason).toContain("Unsupported fact");
+  expect(result.rejectedFacts?.at(0)?.reason).toBe(
+    "Independent review found it unsupported",
+  );
 });
-it("stops after two failed revisions and preserves the partial draft", async () => {
+it("stops after its bounded revisions and preserves the partial draft", async () => {
   const { store, id } = await fixture();
   provider({ rejectDraft: true });
   const result = await runProducer(store, id);
   expect(result.status, result.error).toBe("blocked");
-  expect(result.budget.revisions).toBe(2);
+  expect(result.budget.revisions).toBe(LIMITS.revisions);
   expect(result.draft).toContain("閱讀");
-  expect(result.review?.failures).toContain(
-    "Article claims an unsupported dimension",
-  );
+  expect(result.review?.failures).toEqual([
+    "Article claims an unsupported dimension (reader would believe: The lamp has a verified size)",
+  ]);
 });
 it("retains reviewed facts when a different claim is rejected", async () => {
   const { store, id } = await fixture();
@@ -283,9 +337,10 @@ it("retains reviewed facts when a different claim is rejected", async () => {
   const result = await runProducer(store, id);
   expect(result.status, result.error).toBe("ready_for_review");
   expect(result.facts.map((fact) => fact.claim)).toEqual(["燈座以楓木製作。"]);
-  expect(result.exclusions).toContainEqual({
+  expect(result.rejectedFacts).toContainEqual({
     productId: product.id,
-    reason: "Unsupported fact: 燈座可防水。",
+    claim: "燈座可防水。",
+    reason: "Independent review found it unsupported",
   });
   expect(result.draft).not.toContain("防水");
 });
@@ -296,9 +351,10 @@ it("excludes a nonliteral evidence quote instead of trapping the run at research
   expect(result.status, result.error).toBe("blocked");
   expect(result.facts).toHaveLength(0);
   expect(result.draft).toBeUndefined();
-  expect(result.exclusions).toContainEqual({
+  expect(result.rejectedFacts).toContainEqual({
     productId: product.id,
-    reason: "Evidence excerpt does not occur in its source: 燈座以楓木製作。",
+    claim: "燈座以楓木製作。",
+    reason: "Evidence excerpt does not occur in its source",
   });
   expect(
     await readFile(join(store.root, id, "research-extraction.json"), "utf8"),
@@ -345,4 +401,78 @@ it("preserves source failures as exclusions instead of drafting from catalog des
     productId: product.id,
     reason: "Official source unavailable; no facts inferred from catalog copy",
   });
+});
+it("records a hypothetical catalog question as an open decision instead of pausing", async () => {
+  const { store, id } = await fixture();
+  provider({ catalogQuestion: true });
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("ready_for_review");
+  expect(result.answers).toHaveLength(0);
+  expect(result.review?.openDecisions).toContain(
+    "若官方頁面確認後商品不足，是否接受收窄角度？",
+  );
+});
+it("charges a failed model attempt at its reservation and keeps working", async () => {
+  const { store, id } = await fixture();
+  const tasks = provider({ serverErrorOnce: true });
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("ready_for_review");
+  expect(result.budget.costUncertain).toBe(false);
+  expect(result.budget.reservedUsd).toBe(0);
+  expect(result.budget.modelAttempts).toBe(tasks.length);
+});
+it("charges an unsettled reservation left by a killed process before resuming", async () => {
+  const { store, id } = await fixture();
+  provider();
+  await store.update(id, (run) => {
+    run.budget.reservedUsd = 0.05;
+  });
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("ready_for_review");
+  expect(result.budget.costUsd).toBeGreaterThan(0.05);
+  expect(result.budget.reservedUsd).toBe(0);
+});
+it("derives the claim ledger from cited sentences, keeping trailing markers with their sentence", () => {
+  expect(
+    deriveClaims(
+      "# 標題\n\n燈座以楓木製作。[^f1][^f2] 若桌面留得下，可以列為提案。\n\n燈罩可拆[^f3]，方便收納！",
+    ),
+  ).toEqual([
+    { text: "燈座以楓木製作。", factIds: ["f1", "f2"] },
+    { text: "燈罩可拆，方便收納！", factIds: ["f3"] },
+  ]);
+});
+it("delivers non-misleading review notes to the editor without blocking or revising", async () => {
+  const { store, id } = await fixture();
+  const tasks = provider({ styleNote: true });
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("ready_for_review");
+  expect(result.budget.revisions).toBe(0);
+  expect(tasks.filter((task) => task === "draft")).toHaveLength(1);
+  expect(result.review?.notes).toEqual([
+    "「留一盞燈給閱讀的角落」: Title could name the recipient",
+  ]);
+});
+it("drops a catalog ID the model mangled instead of halting the run", async () => {
+  const { root, store, id } = await fixture();
+  provider({ corruptCatalogId: true });
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("ready_for_review");
+  expect(result.candidates?.map((item) => item.productId)).toEqual([
+    product.id,
+  ]);
+  expect(await readFile(join(root, id, "audit.jsonl"), "utf8")).toContain(
+    "droppedUnknownProductIds",
+  );
+});
+it("does not let a re-review block a sentence that already passed and did not change", async () => {
+  const { store, id } = await fixture();
+  const tasks = provider({ blockUnchanged: true });
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("ready_for_review");
+  expect(result.budget.revisions).toBe(1);
+  expect(tasks.filter((task) => task === "draft-review")).toHaveLength(2);
+  expect(result.review?.notes?.at(0)).toContain(
+    "Material needs a variant qualifier",
+  );
 });
