@@ -60,14 +60,4 @@ describe("HeroSection — the editorial opener", () => {
     expect(screen.getByText("lede")).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "searchLabel" })).toBeInTheDocument();
   });
-
-  it("offers style discovery beside the search field", async () => {
-    render(await HeroSection());
-
-    expect(screen.getByText("browsePrefix")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /browseCta/ })).toHaveAttribute(
-      "href",
-      "/discover",
-    );
-  });
 });

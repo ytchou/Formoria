@@ -64,7 +64,7 @@ export function Pagination({
   const pages = getPageRange(currentPage, totalPages)
 
   return (
-    <nav aria-label={t('pagination.label')} className="mt-10 flex items-center justify-center gap-1">
+    <nav aria-label={t('pagination.label')} className="mt-10 flex flex-wrap items-center justify-center gap-1">
       {/* Previous */}
       {currentPage > 1 ? (
         <Link
@@ -82,7 +82,7 @@ export function Pagination({
           <PaginationLinkStatus />
         </Link>
       ) : (
-        <span className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50">
+        <span aria-disabled="true" className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50">
           {t('pagination.previous')}
         </span>
       )}
@@ -153,7 +153,7 @@ export function Pagination({
           <PaginationLinkStatus />
         </Link>
       ) : (
-        <span className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50">
+        <span aria-disabled="true" className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50">
           {t('pagination.next')}
         </span>
       )}

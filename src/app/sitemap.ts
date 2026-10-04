@@ -47,6 +47,34 @@ function validDate(value: string | undefined): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
+// Next's metadata sitemap serializer interpolates URL strings directly into XML.
+function escapeSitemapEntry(
+  entry: MetadataRoute.Sitemap[number],
+): MetadataRoute.Sitemap[number] {
+  const escapeUrl = (url: string) =>
+    url
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&apos;");
+
+  return {
+    ...entry,
+    url: escapeUrl(entry.url),
+    ...(entry.alternates?.languages && {
+      alternates: {
+        languages: Object.fromEntries(
+          Object.entries(entry.alternates.languages).map(([locale, url]) => [
+            locale,
+            url ? escapeUrl(url) : url,
+          ]),
+        ),
+      },
+    }),
+  };
+}
+
 // Published is the whole test. Trail quality is a precondition of publishing,
 // enforced at authoring time, so the sitemap re-reads nothing to second-guess
 // it: a curated-product query here could only ever remove a live URL from the
@@ -99,7 +127,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/",
     routes.brands(),
     routes.discover(),
-    routes.style(),
     routes.about(),
     routes.faq(),
     routes.contact(),
@@ -151,8 +178,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...brandPages,
       ...storyPages,
       ...trailPages,
-    ];
+    ].map(escapeSitemapEntry);
   } catch {
-    return [...staticPages, ...storyIndexPages];
+    return [...staticPages, ...storyIndexPages].map(escapeSitemapEntry);
   }
 }

@@ -66,8 +66,9 @@ export function SettingsForm({
 
       {/* Email (read-only) */}
       <div className="space-y-2">
-        <Label>{t("emailLabel")}</Label>
+        <Label htmlFor="email">{t("emailLabel")}</Label>
         <Input
+          id="email"
           value={email}
           readOnly
           tabIndex={-1}

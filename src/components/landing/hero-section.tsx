@@ -61,7 +61,7 @@ export default async function HeroSection() {
             <span className="type-metadata text-ink-soft">
               {t("browsePrefix")}
             </span>
-            <Link href={routes.discover()} className={actionLinkStyles()}>
+            <Link href={routes.style()} className={actionLinkStyles()}>
               {t("browseCta")}
               <ArrowRight aria-hidden="true" />
             </Link>

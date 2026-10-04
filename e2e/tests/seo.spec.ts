@@ -119,11 +119,44 @@ test.describe("SEO deep", () => {
     }
   });
 
-  test("sitemap.xml is accessible", async ({ request }) => {
-    const response = await request.get("/sitemap.xml");
-    expect(response.status()).toBe(200);
-    const body = await response.text();
-    expect(body).toContain("<urlset");
+  test("search crawlers receive valid XML with unique canonical sitemap URLs", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const sitemap = await page.evaluate(async () => {
+      const response = await fetch("/sitemap.xml");
+      const document = new DOMParser().parseFromString(
+        await response.text(),
+        "application/xml",
+      );
+      return {
+        status: response.status,
+        error: document.querySelector("parsererror")?.textContent ?? null,
+        urls: Array.from(
+          document.querySelectorAll("url > loc"),
+          (node) => node.textContent ?? "",
+        ),
+        alternates: Array.from(
+          document.querySelectorAll("link"),
+          (node) => node.getAttribute("href") ?? "",
+        ),
+      };
+    });
+    expect(sitemap.status).toBe(200);
+    expect(sitemap.error).toBeNull();
+    expect(sitemap.urls.length).toBeGreaterThan(20);
+    expect(new Set(sitemap.urls).size).toBe(sitemap.urls.length);
+    expect(
+      sitemap.urls.some((url) => new URL(url).pathname === "/en/style"),
+    ).toBe(false);
+    const filteredUrls = [...sitemap.urls, ...sitemap.alternates].filter(
+      (url) => new URL(url).searchParams.has("sub"),
+    );
+    expect(filteredUrls.length).toBeGreaterThan(0);
+    for (const url of filteredUrls) {
+      expect(new URL(url).searchParams.has("category")).toBe(true);
+      expect(new URL(url).searchParams.has("amp;sub")).toBe(false);
+    }
   });
 
   test("directory page 2 keeps its page query in canonical metadata", async ({

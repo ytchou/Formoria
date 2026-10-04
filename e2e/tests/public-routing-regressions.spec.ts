@@ -1,6 +1,17 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Public routing regressions deep", () => {
+  test("brand owners can open the recruitment page in both locales", async ({
+    page,
+  }) => {
+    for (const path of ["/brands/join", "/en/brands/join"]) {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+      await expect(page.locator("main h1")).toBeVisible();
+      await expect(page.locator('main a[href$="/submit"]')).toBeVisible();
+    }
+  });
+
   test("@smoke /brands?category= renders in place without redirect", async ({
     request,
   }) => {

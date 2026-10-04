@@ -36,7 +36,7 @@ export default async function SettingsPage({ params, searchParams }: Props) {
   ]);
 
   return (
-    <PageShell measure="form" className="py-section">
+    <PageShell as="main" measure="form" className="py-section">
       <h1 className="type-page-title">
         {t("heading")}
       </h1>

@@ -11,7 +11,7 @@ import { BUDGET } from '../budgets'
  * Seed: none
  */
 test.describe('Settings page', () => {
-  test('renders settings form with user data', async ({ userPage }) => {
+  test('users can identify their account fields within the main landmark', async ({ userPage }) => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await userPage.goto('/settings')
     if (resp?.status() === 503) {
@@ -21,15 +21,10 @@ test.describe('Settings page', () => {
 
     // Page heading (zh-TW: "帳號設定")
     await expect(
-      userPage.getByRole('heading', { name: '帳號設定' }),
+      userPage.getByRole('main').getByRole('heading', { name: '帳號設定' }),
     ).toBeVisible({ timeout: BUDGET.GATED_UI })
 
-    // Email field (read-only, no id — located by label)
-    const emailLabel = userPage.getByText('電子郵件', { exact: true })
-    await expect(emailLabel).toBeVisible({ timeout: BUDGET.INTERACTIVE })
-
-    // Email field contains the test user's email address
-    const emailInput = userPage.locator('input[readonly]').first()
+    const emailInput = userPage.getByRole('textbox', { name: '電子郵件', exact: true })
     await expect(emailInput).toBeVisible({ timeout: BUDGET.RENDERED })
     await expect(emailInput).toHaveValue(process.env.E2E_USER_EMAIL ?? '', {
       timeout: BUDGET.RENDERED,
