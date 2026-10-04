@@ -175,3 +175,69 @@ describe("environment doctor brand_ai_results.request column", () => {
     );
   });
 });
+
+// Without a database URL the request check falls back to PostgREST, so a
+// local checkout (which never holds SUPABASE_DB_URL) gets a real answer.
+function runDoctorWithRestResponse(status: number, body: string) {
+  const directory = mkdtempSync(join(tmpdir(), "formoria-doctor-rest-"));
+  const curl = join(directory, "curl");
+  const headerLog = join(directory, "headers");
+  writeFileSync(
+    curl,
+    `#!/bin/sh\ncat > '${headerLog}'\nprintf '%s\\n%s' '${body.replace(/'/g, "'\\''")}' '${status}'\n`,
+    "utf8",
+  );
+  chmodSync(curl, 0o755);
+
+  try {
+    const result = spawnSync("bash", ["scripts/doctor.sh"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${directory}:${process.env.PATH ?? ""}`,
+        SUPABASE_DB_URL: "",
+        DATABASE_URL: "",
+        HEALTH_AGENT_READ_DATABASE_URL: "",
+        NEXT_PUBLIC_SUPABASE_URL: "https://ttkkyvgvcamfoezsetvf.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "test-service-key",
+      },
+    });
+    const headers = existsSync(headerLog) ? readFileSync(headerLog, "utf8") : "";
+    return { ...result, headers };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+describe("environment doctor brand_ai_results.request REST fallback", () => {
+  it("passes when PostgREST can select the column", () => {
+    const result = runDoctorWithRestResponse(200, "[]");
+
+    expect(result.stdout).toContain(
+      "OK: brand_ai_results.request column present (PostgREST probe)",
+    );
+    // The key reaches curl on stdin, never in argv.
+    expect(result.headers).toContain("apikey: test-service-key");
+  });
+
+  it("fails when PostgREST reports the column missing", () => {
+    const result = runDoctorWithRestResponse(
+      400,
+      '{"code":"42703","message":"column brand_ai_results.request does not exist"}',
+    );
+
+    expect(result.stdout).toMatch(
+      /^ERROR: brand_ai_results\.request column is missing on the live database\./mu,
+    );
+    expect(result.status).not.toBe(0);
+  });
+
+  it("warns on any other PostgREST failure", () => {
+    const result = runDoctorWithRestResponse(401, '{"message":"Invalid API key"}');
+
+    expect(result.stdout).toContain(
+      "WARN: could not probe brand_ai_results.request over PostgREST (HTTP 401)",
+    );
+  });
+});
