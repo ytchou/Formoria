@@ -118,6 +118,27 @@ describe('social link checker', () => {
     expect(result.findings).toHaveLength(0)
   })
 
+  it('treats a bare 400 with no redirect as blocked, not dead', async () => {
+    // Facebook answers 400 to anonymous probes of live pages too
+    // (facebook.com/facebook included), so the code carries no signal.
+    const client = fakeClient('brands', [
+      brandRow({ social_facebook: 'https://www.facebook.com/profile.php?id=1' }),
+    ])
+    const check = mockCheckUrl({
+      'https://www.facebook.com/profile.php?id=1': {
+        status: 'broken',
+        statusCode: 400,
+        resolvedUrl: 'https://www.facebook.com/profile.php?id=1',
+      },
+    })
+
+    const result = await checkSocialLinks({ supabase: client, checkUrl: check })
+
+    expect(result.blocked).toBe(1)
+    expect(result.dead).toBe(0)
+    expect(result.findings).toHaveLength(0)
+  })
+
   it('does not treat a profile whose handle contains "login" as a login wall', async () => {
     const client = fakeClient('brands', [
       brandRow({ social_facebook: 'https://www.facebook.com/loginbrand' }),
