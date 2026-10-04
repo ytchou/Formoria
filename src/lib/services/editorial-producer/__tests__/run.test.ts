@@ -76,6 +76,7 @@ function provider(
     unknownUsage?: boolean;
     failedSource?: boolean;
     mismatchedQuote?: boolean;
+    mixedSupport?: boolean;
   } = {},
 ) {
   const tasks: string[] = [];
@@ -143,6 +144,9 @@ function provider(
                   ? "燈座以實木製作。"
                   : "燈座以楓木製作。",
               },
+              ...(options.mixedSupport
+                ? [{ claim: "燈座可防水。", excerpt: "燈座以楓木製作。" }]
+                : []),
             ],
             exclusionReason: null,
           },
@@ -153,7 +157,9 @@ function provider(
         supportedFactIds: options.rejectFacts ? [] : ["f1"],
         failures: options.rejectFacts
           ? ["The material is not supported for this variant"]
-          : [],
+          : options.mixedSupport
+            ? ["f2: the source does not establish water resistance"]
+            : [],
       },
       outline: {
         outline: "閱讀桌面上的聖誕提案，說明材料與前往品牌的路徑",
@@ -270,6 +276,18 @@ it("stops after two failed revisions and preserves the partial draft", async () 
   expect(result.review?.failures).toContain(
     "Article claims an unsupported dimension",
   );
+});
+it("retains reviewed facts when a different claim is rejected", async () => {
+  const { store, id } = await fixture();
+  provider({ mixedSupport: true });
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("ready_for_review");
+  expect(result.facts.map((fact) => fact.claim)).toEqual(["燈座以楓木製作。"]);
+  expect(result.exclusions).toContainEqual({
+    productId: product.id,
+    reason: "Unsupported fact: 燈座可防水。",
+  });
+  expect(result.draft).not.toContain("防水");
 });
 it("excludes a nonliteral evidence quote instead of trapping the run at research", async () => {
   const { store, id } = await fixture();

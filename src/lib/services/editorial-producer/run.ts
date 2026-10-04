@@ -458,13 +458,11 @@ export async function runProducer(
                 ),
               ),
               instruction:
-                "Independently verify every fact against its excerpt and source, product identity, seller identity and variant. Reject extrapolated claims. Return supportedFactIds only when semantically supported.",
+                "Independently verify every fact against its excerpt and source, product identity, seller identity and variant. Reject extrapolated claims. Return supportedFactIds only when semantically supported; failures explain rejected facts and must not contradict that list. If a product identity is uncertain, reject every fact about that product. If a concern invalidates the entire evidence batch, return no supportedFactIds.",
             },
             true,
           );
-          const supported = new Set(
-            review.failures.length ? [] : review.supportedFactIds,
-          );
+          const supported = new Set(review.supportedFactIds);
           for (const fact of facts)
             if (!supported.has(fact.id))
               exclusions.push({
