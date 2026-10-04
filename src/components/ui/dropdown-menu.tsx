@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 
+import { UnstyledButton } from "@/components/ui/unstyled-button"
 import { cn } from "@/lib/utils"
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -68,7 +69,8 @@ function DropdownMenuItem({
       render={render}
       nativeButton={
         nativeButton ??
-        (React.isValidElement(render) && render.type === "button")
+        (React.isValidElement(render) &&
+          (render.type === "button" || render.type === UnstyledButton))
       }
     />
   )

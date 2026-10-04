@@ -372,6 +372,28 @@ check_ai_results_request_column() {
     return
   fi
 
+  # No database URL (every local checkout): ask PostgREST instead. The key goes
+  # to curl on stdin so it never appears in the process list.
+  local rest_url rest_key
+  rest_url=$(env_value NEXT_PUBLIC_SUPABASE_URL)
+  rest_key=$(env_value SUPABASE_SERVICE_ROLE_KEY)
+  if [ -n "$rest_url" ] && [ -n "$rest_key" ] && command -v curl &> /dev/null; then
+    local response status
+    response=$(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$rest_key" "$rest_key" \
+      | curl -sS --max-time 10 -H @- -w '\n%{http_code}' \
+        "${rest_url%/}/rest/v1/brand_ai_results?select=request&limit=0" 2>&1)
+    status=${response##*$'\n'}
+    if [ "$status" = "200" ]; then
+      echo "OK: brand_ai_results.request column present (PostgREST probe)"
+    elif [[ "$response" == *'"42703"'* ]]; then
+      echo "ERROR: brand_ai_results.request column is missing on the live database. ${REQUEST_COLUMN_REMEDIATION}"
+      ERRORS=$((ERRORS + 1))
+    else
+      echo "WARN: could not probe brand_ai_results.request over PostgREST (HTTP ${status}) — verify by hand (${REQUEST_COLUMN_REMEDIATION})"
+    fi
+    return
+  fi
+
   echo "WARN: no explicit database connection available — cannot verify brand_ai_results.request (${REQUEST_COLUMN_REMEDIATION})"
 }
 
@@ -401,17 +423,19 @@ check_e2e() {
 }
 
 # ── GitHub health agent (opt-in) ─────────────────────────────────────────────
-has_env_value() {
+# Prints a variable's value. The environment is authoritative, even when the
+# variable is set empty; .env.local is only a fallback for an unset one.
+env_value() {
   local var="$1"
-
-  # A variable set in the environment is authoritative, even when empty;
-  # .env.local is only a fallback for an unset one.
   if [ -n "${!var+x}" ]; then
-    [ -n "${!var}" ]
+    printf '%s' "${!var}"
     return
   fi
+  grep -E "^${var}=" .env.local 2>/dev/null | head -n1 | cut -d= -f2- | tr -d "\"'"
+}
 
-  grep -Eq "^${var}=.+" .env.local 2>/dev/null
+has_env_value() {
+  [ -n "$(env_value "$1")" ]
 }
 
 check_sentry_read_token() {
