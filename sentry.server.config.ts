@@ -79,6 +79,16 @@ export function extractPostgrestContext(error: unknown): PostgrestContext | null
   return null
 }
 
+// Next.js throws this by design when a POST carries an action id the running
+// build does not have: a tab opened before a deploy, or a bot replaying an old
+// form (DEV-1927). The id-less wording is the no-JS form path (E975), where
+// `deploymentId` skew protection cannot help because no client router runs.
+// A real visitor on the JS path still reports through the browser SDK as
+// `UnrecognizedActionError`, so dropping the server copy loses no user signal.
+// Anchored on Next's own wording so an unrelated action failure keeps reporting.
+export const SERVER_ACTION_SKEW =
+  /^Failed to find Server Action(?: "[^"]+")?\. This request might be from an older or newer deployment\./
+
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   enabled: process.env.NODE_ENV === 'production',
@@ -96,6 +106,8 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: false,
+
+  ignoreErrors: [SERVER_ACTION_SKEW],
 
   beforeSend(event, hint) {
     // Second net. A correctly tagged local event is still noise in a
