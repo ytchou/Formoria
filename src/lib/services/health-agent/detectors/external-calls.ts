@@ -11,8 +11,15 @@ import { pagedRead, type PageableQuery } from '../paged-read'
 // Thresholds
 // ---------------------------------------------------------------------------
 
-/** A provider with more than this share of non-succeeded terminal spans triggers a finding. */
+/** A provider with more than this share of failed terminal spans triggers a finding. */
 const FAILURE_RATE_THRESHOLD = 0.3
+
+/**
+ * Terminal statuses that are not failures. `empty` means the provider answered
+ * with nothing to return (no registry match, no extractable content) — an
+ * expected outcome, not a provider fault (DEV-1932, DEV-1933).
+ */
+const NON_FAILURE_STATUSES = new Set<string | null>(['succeeded', 'empty'])
 
 /** A started span with no terminal row after this window is flagged. */
 const ORPHAN_STARTED_THRESHOLD_MS = 60 * 60 * 1000 // 1 hour
@@ -80,7 +87,7 @@ export const externalCallsDetector: Detector = {
         failed: 0,
       }
       stats.total += 1
-      if (span.terminal_status !== 'succeeded') {
+      if (!NON_FAILURE_STATUSES.has(span.terminal_status)) {
         stats.failed += 1
       }
       providerStats.set(span.provider, stats)

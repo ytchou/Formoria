@@ -124,6 +124,27 @@ describe('external-calls detector', () => {
     expect(finding!.evidence).toHaveProperty('provider', 'openai')
   })
 
+  it('does not count empty spans as failures', async () => {
+    const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    // Mirrors the 2026-10-04 production window behind DEV-1932/DEV-1933:
+    // every non-succeeded span was `empty` — the provider answered with nothing.
+    const rows: SpanRow[] = [
+      ...['empty', 'empty', 'succeeded'].map((terminal_status, i) => ({
+        span_id: `mit-${i}`,
+        provider: 'mit-registry',
+        operation: 'lookup_exact_products',
+        terminal_status,
+        started_at: recent,
+        finished_at: recent,
+      })),
+    ]
+
+    const findings = await externalCallsDetector.run(
+      ctx({ deps: { supabase: fakeSupabase(rows) } }),
+    )
+    expect(findings).toEqual([])
+  })
+
   it('reports started spans with no terminal row after one hour', async () => {
     const twoHoursAgo = new Date(
       Date.now() - 2 * 60 * 60 * 1000,

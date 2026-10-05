@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest'
 import { sanitizeJobError } from '../job-errors'
 
 describe('sanitizeJobError', () => {
+  it('sanitizeJobError redacts OpenAI and Supabase secret keys (DEV-1931)', () => {
+    const error = new Error(
+      'request failed with sk-proj-abcdefghijklmnopqrstuvwx and sb_secret_abcdefghijklmnop',
+    )
+
+    const sanitized = sanitizeJobError(error)
+
+    expect(sanitized).toContain('request failed with')
+    expect(sanitized).not.toContain('sk-proj-abcdefghijklmnopqrstuvwx')
+    expect(sanitized).not.toContain('sb_secret_abcdefghijklmnop')
+  })
+
   it('sanitizeJobError accepts a max-length parameter', () => {
     const error = new Error('x'.repeat(2_500))
 

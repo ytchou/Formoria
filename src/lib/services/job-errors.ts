@@ -19,5 +19,7 @@ export function sanitizeJobError(error: unknown, maxLength = 2_000): string {
       '$1[REDACTED]',
     )
     .replace(/(postgres(?:ql)?:\/\/[^:\s]+:)[^@\s]+@/gi, '$1[REDACTED]@')
+    .replace(/\bsk-[A-Za-z0-9_-]{20,}/g, '[REDACTED]')
+    .replace(/\bsb_secret_[A-Za-z0-9_-]+/g, '[REDACTED]')
     .slice(0, maxLength)
 }

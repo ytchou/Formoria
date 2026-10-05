@@ -132,6 +132,18 @@ describe('quality detector', () => {
     expect(result.status).toBe('failed')
   })
 
+  it('names a nonzero exit with a clean report instead of calling it malformed (DEV-1931)', () => {
+    // Vitest exits 1 on an unhandled error, but the JSON report stays clean.
+    const result = evaluateQualityReports(makeInput({ vitestExitCode: 1 }))
+
+    expect(result.failures).toEqual([
+      'full-unit-suite:nonzero_exit_without_failures',
+    ])
+    expect(result.status).toBe('failed')
+    expect(result.summary.fullUnitSuite.status).toBe('failed')
+    expect(result.findings).toHaveLength(0)
+  })
+
   it('reports a Vitest suite setup failure with zero failed assertions', () => {
     const result = evaluateQualityReports(
       makeInput({

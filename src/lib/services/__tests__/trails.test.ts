@@ -30,6 +30,15 @@ const fixtureStems = [
   "checker-tags-fixture",
 ];
 
+// Pipe stderr: the rejection cases fail on purpose, and an inherited stderr
+// buries the suite's real errors under them (DEV-1931).
+function runChecker() {
+  return execFileSync(process.execPath, [checker], {
+    encoding: "utf8",
+    stdio: "pipe",
+  });
+}
+
 function writeTrail(stem: string, frontmatter: string, body = "Body") {
   writeFileSync(
     join(trailsDir, `${stem}.mdx`),
@@ -257,9 +266,7 @@ describe("trail frontmatter checker", () => {
       validFrontmatter(stem).replace(`slug: ${stem}`, "slug: different-slug"),
     );
 
-    expect(() =>
-      execFileSync(process.execPath, [checker], { encoding: "utf8" }),
-    ).toThrow();
+    expect(() => runChecker()).toThrow();
   });
 
   it("rejects duplicate or blank section keys", () => {
@@ -280,9 +287,7 @@ describe("trail frontmatter checker", () => {
       ),
     );
 
-    expect(() =>
-      execFileSync(process.execPath, [checker], { encoding: "utf8" }),
-    ).toThrow();
+    expect(() => runChecker()).toThrow();
   });
 
   it("rejects duplicate trimmed section titles", () => {
@@ -301,9 +306,7 @@ describe("trail frontmatter checker", () => {
       ),
     );
 
-    expect(() =>
-      execFileSync(process.execPath, [checker], { encoding: "utf8" }),
-    ).toThrow();
+    expect(() => runChecker()).toThrow();
   });
 
   it("rejects unknown tags while accepting a valid L1 product category slug", () => {
@@ -313,14 +316,10 @@ describe("trail frontmatter checker", () => {
       validFrontmatter(stem).replace("  - home", "  - not-a-category"),
     );
 
-    expect(() =>
-      execFileSync(process.execPath, [checker], { encoding: "utf8" }),
-    ).toThrow();
+    expect(() => runChecker()).toThrow();
 
     writeTrail(stem, validFrontmatter(stem).replace("  - home", "  - outdoor"));
 
-    expect(() =>
-      execFileSync(process.execPath, [checker], { encoding: "utf8" }),
-    ).not.toThrow();
+    expect(() => runChecker()).not.toThrow();
   });
 });
