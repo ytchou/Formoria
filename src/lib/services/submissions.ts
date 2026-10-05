@@ -26,6 +26,7 @@ import type {
 } from "@/lib/services/curation-jobs";
 import {
   deriveSubmissionReviewStage,
+  selectStageTarget,
   type SubmissionReviewStage,
 } from "./submission-review-stage";
 import { ConflictError, NotFoundError } from "@/lib/errors";
@@ -85,6 +86,7 @@ type CurationTargetHistoryRow = Pick<
   | "current_phase"
   | "error"
   | "created_at"
+  | "no_op"
 >;
 type CurationJobReviewRow = Pick<
   Database["public"]["Tables"]["curation_jobs"]["Row"],
@@ -1472,7 +1474,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: pageData, error: targetHistoryError } = await supabase
               .from("curation_job_targets")
               .select(
-                "id, target_id, job_id, status, current_phase, error, created_at",
+                "id, target_id, job_id, status, current_phase, error, created_at, no_op",
               )
               .eq("target_type", "submission")
               .in("target_id", targetIds)
@@ -1505,10 +1507,23 @@ export async function getSubmissionsForReview(options?: {
       error: string | null;
     }
   >();
-  for (const target of targetHistory ?? []) {
-    if (!latestTargetBySubmission.has(target.target_id)) {
-      latestTargetBySubmission.set(target.target_id, target);
-    }
+  // A submission's rows all sit in one chunk, and its pages are concatenated
+  // in query order, so each group below is complete and newest first.
+  const targetHistoryBySubmission = new Map<
+    string,
+    CurationTargetHistoryRow[]
+  >();
+  for (const target of targetHistory) {
+    const history = targetHistoryBySubmission.get(target.target_id);
+    if (history) history.push(target);
+    else targetHistoryBySubmission.set(target.target_id, [target]);
+  }
+  // Mirrors the SQL apply/approve gates where they agree with the drop RPC:
+  // a no-op rerun yields to an earlier `succeeded` run, and otherwise the true
+  // latest row decides the stage (DEV-1929). See `selectStageTarget`.
+  for (const [submissionId, history] of targetHistoryBySubmission) {
+    const stageTarget = selectStageTarget(history);
+    if (stageTarget) latestTargetBySubmission.set(submissionId, stageTarget);
   }
 
   const latestJobIds = [

@@ -325,6 +325,24 @@ export async function timePhase<T>(
   };
 }
 
+// Skip details that mean a phase executed nothing: it was satisfied from
+// history or does not apply to the target. `isNoOpTarget` allowlists exactly
+// these, so every write site uses the constant rather than retyping the text.
+// They live here, not in their writers, because `enrich-blocks/runner.ts` must
+// not import phase runners and already sits in an import cycle with
+// `phase-satisfaction.ts` (DEV-1929).
+/** Written by `pushSkippedResults` in `enrich-blocks/runner.ts`. */
+export const SATISFIED_FROM_HISTORY_SKIP_DETAIL = "phase output already satisfied";
+/** Written by `runStockistsPhase` for a submission target. */
+export const STOCKISTS_SUBMISSION_SKIP_DETAIL =
+  "stockists phase does not run for submission targets";
+/** Written by `runProductsPhase` for a non-submission target. */
+export const PRODUCTS_SUBMISSION_ONLY_SKIP_DETAIL =
+  "products phase runs only for submission targets";
+/** Written by `runProductsPhase` when no purchase channel resolves. */
+export const PRODUCTS_NO_CHANNEL_SKIP_DETAIL =
+  "no verified purchase channel to propose products from";
+
 export function buildPhaseResult(
   phase: string,
   status: PhaseResultStatus,

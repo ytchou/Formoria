@@ -20,6 +20,7 @@ import {
 } from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
+  STOCKISTS_SUBMISSION_SKIP_DETAIL,
   timePhase,
   type EnrichBrand,
   type EnrichPhase,
@@ -215,7 +216,7 @@ export async function runStockistsPhase({
         [],
         0,
         undefined,
-        "stockists phase does not run for submission targets",
+        STOCKISTS_SUBMISSION_SKIP_DETAIL,
       ),
       patch: {},
     };
