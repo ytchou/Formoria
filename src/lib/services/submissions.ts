@@ -1476,6 +1476,9 @@ export async function getSubmissionsForReview(options?: {
               )
               .eq("target_type", "submission")
               .in("target_id", targetIds)
+              // Mirrors the SQL apply/approve gates: a no-op rerun never
+              // hides the run before it (DEV-1929).
+              .eq("no_op", false)
               .order("created_at", { ascending: false })
               .order("id", { ascending: false })
               .range(

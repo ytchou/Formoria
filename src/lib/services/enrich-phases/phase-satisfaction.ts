@@ -11,6 +11,7 @@ import {
   isUsablePhaseOutput,
 } from "@/lib/services/enrich-blocks/phase-outputs";
 import type { EnrichmentTarget } from "@/lib/services/_shared/enrichment-target";
+import type { PhaseResult } from "@/lib/types/curation";
 
 /**
  * Map from phase name to the most recent time it succeeded, derived from
@@ -124,4 +125,25 @@ export function filterSatisfiedPhases(
   }
 
   return { execute, skipped };
+}
+
+/**
+ * True when a finished target ran nothing and wrote nothing: it owns zero
+ * checkpoints and every recorded phase result is `skipped` (satisfied from
+ * history or not applicable). Persisted as `curation_job_targets.no_op`, which
+ * the apply and approve gates ignore when they pick the latest enrichment run,
+ * so an empty rerun cannot hide an earlier `succeeded` run (DEV-1929).
+ */
+export function isNoOpTarget({
+  phaseResults,
+  checkpointCount,
+}: {
+  phaseResults: readonly PhaseResult[];
+  checkpointCount: number;
+}): boolean {
+  return (
+    checkpointCount === 0 &&
+    phaseResults.length > 0 &&
+    phaseResults.every((result) => result.status === "skipped")
+  );
 }

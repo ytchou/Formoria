@@ -21,10 +21,16 @@ export interface UnappliedEntry {
  * Returns submissions that were requested but either failed to apply or were
  * never attempted. Failed applies carry their original `detail`; missing
  * applies get `"not applied"`.
+ *
+ * `skippedSubmissionIds` are submissions whose target in this job ended
+ * `skipped`. They are never returned: a skip is either a verdict (not a brand,
+ * listing rejected, no purchase channel) or a no-op rerun, and neither is a
+ * reason to auto-reject. They stay pending for admin review (DEV-1929).
  */
 export function unappliedSubmissions(
   requested: Map<string, string>,
   applied: AppliedEntry[],
+  skippedSubmissionIds: ReadonlySet<string> = new Set(),
 ): UnappliedEntry[] {
   const succeededIds = new Set(
     applied.filter((a) => a.ok).map((a) => a.submissionId),
@@ -34,7 +40,7 @@ export function unappliedSubmissions(
 
   // Failed applies (ok: false) — keep the original detail
   for (const entry of applied) {
-    if (!entry.ok) {
+    if (!entry.ok && !skippedSubmissionIds.has(entry.submissionId)) {
       result.push({
         slug: entry.slug,
         submissionId: entry.submissionId,
@@ -46,7 +52,11 @@ export function unappliedSubmissions(
   // Requested but never appeared in applied at all
   const appliedIds = new Set(applied.map((a) => a.submissionId));
   for (const [slug, submissionId] of requested) {
-    if (!appliedIds.has(submissionId) && !succeededIds.has(submissionId)) {
+    if (
+      !appliedIds.has(submissionId) &&
+      !succeededIds.has(submissionId) &&
+      !skippedSubmissionIds.has(submissionId)
+    ) {
       result.push({ slug, submissionId, detail: "not applied" });
     }
   }

@@ -53,6 +53,33 @@ describe("unappliedSubmissions", () => {
 
     expect(result).toEqual([]);
   });
+
+  it("leaves a submission whose target in this job was skipped out of the reject list", () => {
+    const requested = new Map([
+      ["brand-a", "sub-1"],
+      ["brand-b", "sub-2"],
+    ]);
+    const applied: AppliedEntry[] = [
+      {
+        slug: "brand-a",
+        submissionId: "sub-1",
+        ok: false,
+        detail: "Refresh must have a successful enrichment run before apply",
+      },
+      {
+        slug: "brand-b",
+        submissionId: "sub-2",
+        ok: false,
+        detail: "Refresh is stale",
+      },
+    ];
+
+    const result = unappliedSubmissions(requested, applied, new Set(["sub-1"]));
+
+    expect(result).toEqual([
+      { slug: "brand-b", submissionId: "sub-2", detail: "Refresh is stale" },
+    ]);
+  });
 });
 
 describe("rejectionNote", () => {

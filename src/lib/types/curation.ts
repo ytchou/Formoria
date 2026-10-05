@@ -120,6 +120,8 @@ export interface BrandOutcome {
   changedFields?: string[];
   phaseResults?: PhaseResult[];
   error?: string;
+  /** The run executed nothing and wrote nothing; see `isNoOpTarget`. */
+  noOp?: boolean;
 }
 
 export interface CurationTargetProgressEvent {
@@ -133,6 +135,8 @@ export interface CurationTargetProgressEvent {
   changedFields?: string[];
   error?: string;
   durationMs?: number;
+  /** Persisted as `curation_job_targets.no_op`; omitted means "leave as is". */
+  noOp?: boolean;
 }
 
 export interface OperationResult {

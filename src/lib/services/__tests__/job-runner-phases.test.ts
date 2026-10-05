@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildTargetProgressPatch,
   finalizeSuccessfulJob,
   parseParams,
   resolvePhases,
@@ -332,5 +333,28 @@ describe("resolvePhases with retry", () => {
       retry: { block: "editorial", mode: "only" },
     });
     expect(phases).toEqual(phasesOfBlocks(["editorial"]));
+  });
+});
+
+describe("buildTargetProgressPatch no_op", () => {
+  const event = {
+    targetId: "sub-1",
+    targetType: "submission" as const,
+    slug: "bobo-and-puff",
+    name: "Bobo and Puff",
+    status: "skipped" as const,
+    durationMs: 5,
+  };
+
+  it("carries no_op when the event marks the run as a no-op", () => {
+    expect(buildTargetProgressPatch({ ...event, noOp: true })).toMatchObject({
+      target_id: "sub-1",
+      status: "skipped",
+      no_op: true,
+    });
+  });
+
+  it("omits the no_op key when the event does not set it", () => {
+    expect(buildTargetProgressPatch(event)).not.toHaveProperty("no_op");
   });
 });

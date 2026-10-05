@@ -28,6 +28,7 @@ import type { BlockContext, BlockRunResult } from "./enrich-blocks/registry";
 import { runBlocks } from "./enrich-blocks/runner";
 import { restoreAcquireCheckpoint } from "./enrich-blocks/hydration";
 import { createSupabasePhaseOutputStore, toAcquireCarry, isUsablePhaseOutput, mergeSelectedPhaseOutputs } from "./enrich-blocks/phase-outputs";
+import { isNoOpTarget } from "./enrich-phases/phase-satisfaction";
 import { normalizeToRootUrl, sanitizeHref } from "@/lib/url";
 import {
   ONLINE_STORES,
@@ -1820,6 +1821,7 @@ export async function runEnrich(
                 changedFields: outcome.changedFields,
                 error: outcome.error,
                 durationMs: Date.now() - ctx.brandStartedAt,
+                ...(outcome.noOp !== undefined && { noOp: outcome.noOp }),
               },
             ]);
           };
@@ -3274,6 +3276,10 @@ export async function runEnrich(
                       phaseResults: state.phaseResults,
                       error:
                         "All requested phases completed, but no new enrichment fields were found",
+                      noOp: isNoOpTarget({
+                        phaseResults: state.phaseResults,
+                        checkpointCount: checkpointIds.length,
+                      }),
                     };
                     await recordOutcome(ctx, skippedOutcome);
                     result.skipped += 1;

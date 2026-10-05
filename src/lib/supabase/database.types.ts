@@ -1699,6 +1699,7 @@ export type Database = {
           error: string | null
           id: string
           job_id: string
+          no_op: boolean
           phase_results: Json
           started_at: string | null
           status: string
@@ -1716,6 +1717,7 @@ export type Database = {
           error?: string | null
           id?: string
           job_id: string
+          no_op?: boolean
           phase_results?: Json
           started_at?: string | null
           status?: string
@@ -1733,6 +1735,7 @@ export type Database = {
           error?: string | null
           id?: string
           job_id?: string
+          no_op?: boolean
           phase_results?: Json
           started_at?: string | null
           status?: string

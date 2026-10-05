@@ -116,6 +116,7 @@ type TargetProgressPatch = {
   error?: string;
   completed_at?: string;
   duration_ms?: number;
+  no_op?: boolean;
 };
 
 export async function runJob(
@@ -701,6 +702,7 @@ async function persistTargetProgressBatch(
         ...(patch.duration_ms !== undefined && {
           duration_ms: patch.duration_ms,
         }),
+        ...(patch.no_op !== undefined && { no_op: patch.no_op }),
       });
     }
 
@@ -738,7 +740,7 @@ async function persistTargetProgressBatch(
   }
 }
 
-function buildTargetProgressPatch(
+export function buildTargetProgressPatch(
   event: CurationTargetProgressEvent,
 ): TargetProgressPatch {
   const isTerminal = event.status !== "running";
@@ -758,6 +760,7 @@ function buildTargetProgressPatch(
     ...(event.error !== undefined && {
       error: sanitizeJobError(event.error),
     }),
+    ...(event.noOp !== undefined && { no_op: event.noOp }),
     ...(isTerminal && {
       completed_at: new Date().toISOString(),
       duration_ms: Math.max(0, Math.round(event.durationMs ?? 0)),

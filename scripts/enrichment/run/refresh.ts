@@ -23,7 +23,8 @@
  *                                  brand and retires replaced images
  *
  * Step 2 must be a job, not a bare `runEnrich`. `apply_brand_refresh` reads the
- * latest `curation_job_targets` row for the submission and refuses to apply
+ * latest `curation_job_targets` row for the submission (ignoring `no_op`
+ * reruns that ran nothing, DEV-1929) and refuses to apply
  * unless it is `succeeded` — a direct `runEnrich` call enriches the submission
  * correctly but records no target row, so all 15 applies fail with "Refresh
  * must have a successful enrichment run before apply". Learned the hard way.
@@ -667,7 +668,34 @@ async function main(): Promise<void> {
       .filter((r): r is typeof r & { submissionId: string } => r.submissionId !== null)
       .map((r) => [r.slug, r.submissionId]),
   );
-  const unapplied = unappliedSubmissions(requestedMap, applied);
+  // A target this job recorded as `skipped` is a verdict or a no-op rerun,
+  // never grounds to auto-reject: it stays pending for admin review (DEV-1929).
+  // Unpaged: PostgREST caps the response at 1000 rows, so past that some
+  // skipped submissions fall back to the reject path; page this if a cohort
+  // ever skips more than 1000 targets.
+  const { data: skippedTargets, error: skippedTargetsErr } = await supabase
+    .from("curation_job_targets")
+    .select("target_id")
+    .in("job_id", jobIds)
+    .eq("target_type", "submission")
+    .eq("status", "skipped");
+  if (skippedTargetsErr) throw skippedTargetsErr;
+  const skippedSubmissionIds = new Set(
+    (skippedTargets ?? []).map((t) => t.target_id as string),
+  );
+  const leftPending = applied.filter(
+    (a) => !a.ok && skippedSubmissionIds.has(a.submissionId),
+  );
+  for (const entry of leftPending) {
+    console.log(
+      `  ${entry.slug.padEnd(18)} left pending for admin review (target skipped) — ${entry.detail}`,
+    );
+  }
+  const unapplied = unappliedSubmissions(
+    requestedMap,
+    applied,
+    skippedSubmissionIds,
+  );
   const rejected: Array<{ slug: string; submissionId: string; reason: string }> = [];
   if (unapplied.length > 0) {
     for (const entry of unapplied) {
@@ -710,6 +738,7 @@ async function main(): Promise<void> {
         },
         applied,
         ...(rejected.length > 0 ? { rejected } : {}),
+        ...(leftPending.length > 0 ? { leftPending } : {}),
       },
       null,
       2,
