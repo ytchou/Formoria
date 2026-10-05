@@ -173,9 +173,19 @@ const DAY_MS = 86_400_000
 type QualityWorkerFailureKind =
   'clone-auth' | 'install' | 'vitest-exec' | 'knip-exec' | 'worker-transport'
 
+/** Header Vitest prints before its unhandled-errors block on stderr. */
+const VITEST_UNHANDLED_HEADER = 'Unhandled Errors'
+
+/**
+ * Fits Vitest's unhandled-errors block: header, error, stack, origin file. A
+ * real in-test leak measured ~1,500 chars and the origin line comes after the
+ * stack, so the cap leaves room for deeper stacks.
+ */
+const VITEST_UNHANDLED_LIMIT = 4000
+
 function boundedEvidence(
   value: string | undefined,
-  keep: 'head' | 'tail' = 'head',
+  keep: 'head' | 'tail' | 'stderr' = 'head',
 ): string | undefined {
   if (!value) return undefined
   const redacted = value
@@ -183,7 +193,13 @@ function boundedEvidence(
     .replace(/\b(?:Bearer|Basic)\s+\S+/gi, '[REDACTED]')
     .replace(/\bgithub_pat_[A-Za-z0-9_]+\b/g, '[REDACTED]')
     .replace(/\bgh[pousr]_[A-Za-z0-9_]+\b/g, '[REDACTED]')
-  return keep === 'tail' ? redacted.slice(-500) : redacted.slice(0, 500)
+  if (keep === 'stderr') {
+    const header = redacted.lastIndexOf(VITEST_UNHANDLED_HEADER)
+    if (header >= 0) {
+      return redacted.slice(header, header + VITEST_UNHANDLED_LIMIT)
+    }
+  }
+  return keep === 'head' ? redacted.slice(0, 500) : redacted.slice(-500)
 }
 
 function qualityWorkerFailure(
@@ -201,8 +217,10 @@ function qualityWorkerFailure(
   const stage = boundedEvidence(details.stage)
   const code = boundedEvidence(details.code)
   const message = boundedEvidence(details.message)
-  // A command reports its failure last; the head is setup noise (DEV-1931).
-  const stderr = boundedEvidence(details.command?.stderr, 'tail')
+  // A command reports its failure last; the head is setup noise. Vitest's
+  // unhandled-errors block ends in ~460 chars of fixed text that would fill a
+  // 500-char tail, so that block is kept from its header instead (DEV-1931).
+  const stderr = boundedEvidence(details.command?.stderr, 'stderr')
   if (stage) evidence.stage = stage
   if (code) evidence.code = code
   if (message) evidence.message = message
@@ -546,15 +564,18 @@ async function executeRunBody(
           evaluation.summary.deadCode.status === 'success',
         )
         if (!vitestValid) {
+          const vitestFailure = evaluation.failures.find((failure) =>
+            failure.startsWith('full-unit-suite:'),
+          )
           vitestFindings.push(
             qualityWorkerFailure('vitest-exec', {
               stage: 'vitest',
               code: vitestResult?.timedOut
                 ? 'command-timeout'
-                : 'invalid-report',
-              message: evaluation.failures.find((failure) =>
-                failure.startsWith('full-unit-suite:'),
-              ),
+                : vitestFailure === 'full-unit-suite:nonzero_exit_without_failures'
+                  ? 'nonzero-exit-without-failures'
+                  : 'invalid-report',
+              message: vitestFailure,
               command: vitestResult,
             }),
           )

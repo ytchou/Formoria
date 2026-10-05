@@ -297,6 +297,19 @@ function parseVitestReport(
   )
 }
 
+// Vitest exits 1 on unhandled errors, but its JSON report counts only test and
+// suite failures, so the report reads clean (DEV-1931).
+function exitedWithoutFailures(value: unknown, exitCode: number): boolean {
+  return (
+    exitCode !== 0 &&
+    isRecord(value) &&
+    Array.isArray(value.testResults) &&
+    value.success === true &&
+    value.numFailedTests === 0 &&
+    value.numFailedTestSuites === 0
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Knip parser
 // ---------------------------------------------------------------------------
@@ -417,7 +430,13 @@ export function evaluateQualityReports(
     input.trackedFiles,
   )
   const failures = [
-    ...(vitest === null ? ['full-unit-suite:malformed_output'] : []),
+    ...(vitest === null
+      ? [
+          exitedWithoutFailures(input.vitestReport, input.vitestExitCode)
+            ? 'full-unit-suite:nonzero_exit_without_failures'
+            : 'full-unit-suite:malformed_output',
+        ]
+      : []),
     ...(knip === null ? ['dead-code:malformed_output'] : []),
   ]
   return {
