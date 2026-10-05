@@ -173,14 +173,17 @@ const DAY_MS = 86_400_000
 type QualityWorkerFailureKind =
   'clone-auth' | 'install' | 'vitest-exec' | 'knip-exec' | 'worker-transport'
 
-function boundedEvidence(value: string | undefined): string | undefined {
+function boundedEvidence(
+  value: string | undefined,
+  keep: 'head' | 'tail' = 'head',
+): string | undefined {
   if (!value) return undefined
-  return value
+  const redacted = value
     .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/g, '[REDACTED]')
     .replace(/\b(?:Bearer|Basic)\s+\S+/gi, '[REDACTED]')
     .replace(/\bgithub_pat_[A-Za-z0-9_]+\b/g, '[REDACTED]')
     .replace(/\bgh[pousr]_[A-Za-z0-9_]+\b/g, '[REDACTED]')
-    .slice(0, 500)
+  return keep === 'tail' ? redacted.slice(-500) : redacted.slice(0, 500)
 }
 
 function qualityWorkerFailure(
@@ -198,7 +201,8 @@ function qualityWorkerFailure(
   const stage = boundedEvidence(details.stage)
   const code = boundedEvidence(details.code)
   const message = boundedEvidence(details.message)
-  const stderr = boundedEvidence(details.command?.stderr)
+  // A command reports its failure last; the head is setup noise (DEV-1931).
+  const stderr = boundedEvidence(details.command?.stderr, 'tail')
   if (stage) evidence.stage = stage
   if (code) evidence.code = code
   if (message) evidence.message = message

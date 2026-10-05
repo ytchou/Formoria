@@ -810,6 +810,39 @@ describe('runHealthAgent', () => {
     expect(reconcileCall?.[1].p_completed_sources).not.toContain('quality')
   })
 
+  it('keeps the tail of vitest stderr, where the failure is reported (DEV-1931)', async () => {
+    const client = stubClient()
+    // The head of a real run's stderr is fixed noise (the Vite config warning
+    // and expected checker output); the actionable error is printed last.
+    const stderr = `${'(!) config warning\n'.repeat(40)}Error: the real cause`
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'repo-root', stdout: '/repo\n', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'tracked-files', stdout: '', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'vitest', stdout: 'not-json', stderr, exitCode: 1, timedOut: false },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    await runHealthAgent(
+      baseDeps({
+        client,
+        registryOverride: qualityRegistry(),
+        workerClient: { run: runFn },
+      }),
+    )
+
+    const enqueue = rpcCalls(client).find(
+      ([name, params]) =>
+        name === 'enqueue_health_fix' &&
+        params.p_fingerprint === 'quality:worker-failure:vitest-exec',
+    )
+    const evidence = enqueue?.[1].p_evidence as { stderr: string }
+    expect(evidence.stderr.endsWith('Error: the real cause')).toBe(true)
+    expect(evidence.stderr.length).toBeLessThanOrEqual(500)
+  })
+
   // ---- Task 6: repair trigger ----
 
   it('triggers auto-fix only for findings that opt in and are not report_only', async () => {
