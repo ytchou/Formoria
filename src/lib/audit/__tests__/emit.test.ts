@@ -115,23 +115,53 @@ describe("emitAuditRecord", () => {
     expect(auditWriteLossCount()).toBe(1);
   });
 
-  it("a hung audit write is dropped at the inline budget instead of stalling the caller", async () => {
-    setAuditWriteSeam(vi.fn(() => new Promise<null>(() => {})));
+  // Emits one record whose write settles `settleMs` after it starts, and
+  // returns once the inline budget has released the caller and the write has
+  // settled.
+  const emitSlowWrite = async (
+    settleMs: number,
+    outcome: { message: string } | null,
+  ): Promise<void> => {
+    setAuditWriteSeam(
+      vi.fn(
+        () =>
+          new Promise<{ message: string } | null>((resolve) =>
+            setTimeout(() => resolve(outcome), settleMs),
+          ),
+      ),
+    );
     vi.useFakeTimers();
-
     try {
-      const emitted = emitAuditRecord(record(), async () => {});
+      let released = false;
+      const emitted = emitAuditRecord(record(), async () => {}).then(() => {
+        released = true;
+      });
       // Let the lazy `next/server` import settle so the budget timer exists.
       await vi.advanceTimersByTimeAsync(0);
       await vi.advanceTimersByTimeAsync(2_000);
       await emitted;
+      expect(released).toBe(true);
+      // Drains every attempt: the inline policy retries a failed write once.
+      await vi.runAllTimersAsync();
     } finally {
       vi.useRealTimers();
     }
+  };
 
-    // Counted once: the abandoned write is left to settle and must not be able
-    // to report the same record a second time.
+  it("a write that lands after the inline budget releases the caller and is not a loss", async () => {
+    // DEV-1934: the 2026-10-04 alert fired for a write that landed late; every
+    // span in that hour was persisted.
+    await emitSlowWrite(5_000, null);
+
+    expect(auditWriteLossCount()).toBe(0);
+    expect(captureAlert).not.toHaveBeenCalled();
+  });
+
+  it("a write that fails after the inline budget is counted once, when it settles", async () => {
+    await emitSlowWrite(5_000, { message: "database unavailable" });
+
     expect(auditWriteLossCount()).toBe(1);
+    expect(captureAlert).toHaveBeenCalledTimes(1);
   });
 
   it("a unique violation on a retried insert is success, not a dropped record", async () => {

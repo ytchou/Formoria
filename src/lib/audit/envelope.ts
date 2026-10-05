@@ -137,7 +137,8 @@ export async function auditedCall<T>(
   // request scope -- where `after()` is unavailable and the write runs inline --
   // an unavailable audit DB still adds latency to the call being audited. That
   // cost is now capped at the emitter's INLINE_BUDGET_MS wall clock rather than
-  // the full retry backoff; past it the record is dropped and counted. Remaining
+  // the full retry backoff; past it the call proceeds while the write settles in
+  // the background, counted only if it fails (DEV-1934). Remaining
   // upgrade path if the loss counter goes sustained non-zero: a bounded
   // in-process queue that drains asynchronously, with a flush on shutdown.
   try {
