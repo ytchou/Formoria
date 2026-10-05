@@ -27,12 +27,6 @@ export type StoryLink = {
   title: string;
 };
 
-export type CategoryLink = {
-  slug: string;
-  name: string;
-  nameZh: string;
-};
-
 // ---------------------------------------------------------------------------
 // Internal data shapes for the pure derivation layer
 // ---------------------------------------------------------------------------
