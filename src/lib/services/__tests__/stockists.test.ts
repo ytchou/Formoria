@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { parseSubmissionStockists } from '@/lib/types/enriched-data'
 import {
   buildEnrichedStockistRows,
   STOCKIST_DETAIL_READ_SELECT,
@@ -233,6 +234,7 @@ describe('audit registry names every audited stockist operation', () => {
   const auditedStockistOperations = [
     'submitStockist',
     'upsertEnrichedStockists',
+    'materializeSubmissionStockists',
   ]
 
   it.each(auditedStockistOperations)(
@@ -254,5 +256,49 @@ describe('audit registry names every audited stockist operation', () => {
     expect(
       [...registryStrings].filter((name) => /Channels?(Status)?$/.test(name)),
     ).toEqual([])
+  })
+})
+
+describe('submission stockists materialize at apply/approve', () => {
+  it('feeds parseSubmissionStockists output straight into the row builder', () => {
+    // The shape `enriched_data.stockists` is stored in: camelCase candidates.
+    const parsed = parseSubmissionStockists([
+      {
+        name: '誠品生活松菸店',
+        normalizedName: '誠品生活松菸',
+        regionLabel: '臺北市',
+        address: '臺北市信義區菸廠路88號',
+        locationType: 'department_store_counter',
+        country: 'TW',
+        sourceUrl: 'https://example.com/stores',
+      },
+      { name: '   ', normalizedName: '' },
+      'not-a-candidate',
+    ])
+    expect(parsed).not.toBeNull()
+
+    const { rows, invalidCount } = buildEnrichedStockistRows(parsed ?? [])
+
+    expect(invalidCount).toBe(0)
+    expect(rows).toEqual([
+      expect.objectContaining({
+        name: '誠品生活松菸店',
+        normalized_name: '誠品生活松菸',
+        region_label: '臺北市',
+        address: '臺北市信義區菸廠路88號',
+        location_type: 'department_store_counter',
+        country: 'TW',
+        source: 'enriched',
+        source_url: 'https://example.com/stores',
+      }),
+    ])
+  })
+
+  it('reads enriched_data.stockists and writes through upsertEnrichedStockists', () => {
+    const body = functionBody(serviceSource, 'materializeSubmissionStockists')
+    expect(body).toContain("operation: 'materializeSubmissionStockists'")
+    expect(body).toContain(".from('brand_submissions')")
+    expect(body).toContain('parseSubmissionStockists(enrichedData?.stockists)')
+    expect(body).toContain('upsertEnrichedStockists(brandId, candidates)')
   })
 })

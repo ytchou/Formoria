@@ -181,7 +181,7 @@ function withApprovalTimeout<T>(
  *
  * Never at the cost of an approval that already succeeded: the RPC has
  * committed by the time this runs, so a failure is reported and swallowed,
- * exactly like the enriched-channels upsert in `approveSubmission`.
+ * exactly like the stockist materialization in `approveSubmission`.
  *
  * WHAT THE RECOVERY ACTUALLY IS. Requesting another products refresh re-runs
  * the phase and re-materializes, and that re-run is a repair, not a no-op:

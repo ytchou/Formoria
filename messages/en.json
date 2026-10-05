@@ -2437,6 +2437,17 @@
         },
         "catalog": "Catalog classification",
         "products": "Curated product proposals",
+        "stockists": "Stockists",
+        "stockistsProposed": "{count} proposed by this update, written on approval",
+        "stockistLocationTypes": {
+          "stockist": "Stockist",
+          "distributor_retailer": "Distributor / retailer",
+          "direct_store": "Brand store",
+          "department_store_counter": "Department store counter",
+          "showroom_studio": "Showroom / studio",
+          "shop_in_shop": "Shop-in-shop",
+          "other_physical_retail": "Other retail"
+        },
         "productEditor": {
           "item": "Proposal {number}",
           "keep": "Keep {name}",

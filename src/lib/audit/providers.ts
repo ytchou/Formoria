@@ -58,6 +58,7 @@ const PROVIDERS = {
     "updateProfileAdmin",
     "updateReportStatus",
     "materializeSubmissionFaq",
+    "materializeSubmissionStockists",
     "upsertBrandFaqEntries",
     "upsertEnrichedStockists",
   ],

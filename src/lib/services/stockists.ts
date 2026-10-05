@@ -5,6 +5,7 @@ import {
   normalizeStockistName,
 } from '@/lib/brands/stockist-display'
 import { auditedCall } from '@/lib/audit'
+import { parseSubmissionStockists } from '@/lib/types/enriched-data'
 import type {
   StockistInput,
   StockistCandidate,
@@ -560,6 +561,56 @@ export async function upsertEnrichedStockists(
             ? data.length
             : rows.length
       return { ok: true, count }
+    },
+  )
+}
+
+/**
+ * Reads `enriched_data.stockists` from a submission row and materializes the
+ * candidates into `brand_channels` (source='enriched') via
+ * `upsertEnrichedStockists`. Mirrors `materializeSubmissionFaq`.
+ *
+ * Called at apply/approve time: enrichment only proposes stockists on the
+ * submission, so nothing reaches the public brand page until a reviewer acts.
+ * Returns null when the submission is missing or carries no stockists key.
+ */
+export async function materializeSubmissionStockists(
+  submissionId: string,
+  brandId: string,
+): Promise<{ count: number } | null> {
+  return auditedCall(
+    {
+      provider: 'brands',
+      operation: 'materializeSubmissionStockists',
+      kind: 'service',
+    },
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase
+        .from('brand_submissions')
+        .select('enriched_data')
+        .eq('id', submissionId)
+        .single()
+
+      if (error || !data) {
+        console.warn(
+          `materializeSubmissionStockists: submission ${submissionId} not found`,
+        )
+        return null
+      }
+
+      const enrichedData = (data as { enriched_data?: Record<string, unknown> })
+        .enriched_data
+      const candidates = parseSubmissionStockists(enrichedData?.stockists)
+      if (!candidates) return null
+
+      const result = await upsertEnrichedStockists(brandId, candidates)
+      if (!result.ok) {
+        throw new Error(
+          `materializeSubmissionStockists: upsert failed (${result.code})`,
+        )
+      }
+      return { count: result.count }
     },
   )
 }
