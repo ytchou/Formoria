@@ -336,25 +336,33 @@ describe("resolvePhases with retry", () => {
   });
 });
 
-describe("buildTargetProgressPatch no_op", () => {
+describe("a terminal target write always records whether the run was a no-op", () => {
   const event = {
-    targetId: "sub-1",
+    targetId: "6f1c2b9e-4d3a-4e8b-9a71-2c5d8e0f3b14",
     targetType: "submission" as const,
     slug: "bobo-and-puff",
     name: "Bobo and Puff",
     status: "skipped" as const,
-    durationMs: 5,
+    durationMs: 1840,
   };
 
-  it("carries no_op when the event marks the run as a no-op", () => {
+  it("sets no_op true when the event marks the run as a no-op", () => {
     expect(buildTargetProgressPatch({ ...event, noOp: true })).toMatchObject({
-      target_id: "sub-1",
+      target_id: event.targetId,
       status: "skipped",
       no_op: true,
     });
   });
 
-  it("omits the no_op key when the event does not set it", () => {
-    expect(buildTargetProgressPatch(event)).not.toHaveProperty("no_op");
+  it("resets no_op to false on a terminal write that is not a no-op", () => {
+    expect(
+      buildTargetProgressPatch({ ...event, status: "failed", error: "fetch failed" }),
+    ).toMatchObject({ status: "failed", no_op: false });
+  });
+
+  it("leaves no_op untouched while the target is still running", () => {
+    expect(
+      buildTargetProgressPatch({ ...event, status: "running", currentPhase: "names" }),
+    ).not.toHaveProperty("no_op");
   });
 });

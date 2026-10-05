@@ -9,6 +9,12 @@ import {
 import { DEFERRED_PHASES, ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
 import type { PhaseOutputStore, PhaseOutputRow } from "@/lib/services/enrich-blocks/phase-outputs";
 import type { PhaseResult } from "@/lib/types/curation";
+import {
+  buildPhaseResult,
+  PRODUCTS_NO_CHANNEL_SKIP_DETAIL,
+  SATISFIED_FROM_HISTORY_SKIP_DETAIL,
+  STOCKISTS_SUBMISSION_SKIP_DETAIL,
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -283,8 +289,8 @@ describe("history-based phase satisfaction", () => {
 // isNoOpTarget (DEV-1929)
 // ---------------------------------------------------------------------------
 
-function skippedPhase(phase: string, detail: string): PhaseResult {
-  return { phase, status: "skipped", detail, changedFields: [], durationMs: 0 };
+function skippedPhase(phase: string, detail?: string): PhaseResult {
+  return buildPhaseResult(phase, "skipped", [], 0, undefined, detail);
 }
 
 /**
@@ -295,14 +301,21 @@ function skippedPhase(phase: string, detail: string): PhaseResult {
  */
 const NO_OP_RERUN_PHASE_RESULTS: PhaseResult[] = [
   ...["detect", "slugs", "acquire", "names", "descriptions", "faq"].map((phase) =>
-    skippedPhase(phase, "phase output already satisfied"),
+    skippedPhase(phase, SATISFIED_FROM_HISTORY_SKIP_DETAIL),
   ),
-  skippedPhase("stockists", "stockists phase does not run for submission targets"),
-  skippedPhase("products", "no verified purchase channel to propose products from"),
+  skippedPhase("stockists", STOCKISTS_SUBMISSION_SKIP_DETAIL),
+  skippedPhase("products", PRODUCTS_NO_CHANNEL_SKIP_DETAIL),
 ];
 
-describe("isNoOpTarget", () => {
-  it("is true for a rerun with zero checkpoints and every phase skipped", () => {
+/** The bobo-and-puff rerun with one phase's result swapped for `replacement`. */
+function rerunWith(replacement: PhaseResult): PhaseResult[] {
+  return NO_OP_RERUN_PHASE_RESULTS.map((result) =>
+    result.phase === replacement.phase ? replacement : result,
+  );
+}
+
+describe("a target counts as a no-op only when it ran nothing", () => {
+  it("is true for a rerun with zero checkpoints and every phase satisfied or not applicable", () => {
     expect(
       isNoOpTarget({ phaseResults: NO_OP_RERUN_PHASE_RESULTS, checkpointCount: 0 }),
     ).toBe(true);
@@ -326,5 +339,22 @@ describe("isNoOpTarget", () => {
 
   it("is false when no phase result was recorded", () => {
     expect(isNoOpTarget({ phaseResults: [], checkpointCount: 0 })).toBe(false);
+  });
+
+  it("is false when a forced acquire rerun ran out of wall clock", () => {
+    const phaseResults = rerunWith(skippedPhase("acquire", "wall_clock_exhausted"));
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
+  });
+
+  it("is false when products could not run for a missing API key", () => {
+    const phaseResults = rerunWith(
+      skippedPhase("products", "OPENAI_API_KEY is not configured"),
+    );
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
+  });
+
+  it("is false when a skipped phase carries no detail", () => {
+    const phaseResults = rerunWith(skippedPhase("names"));
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
   });
 });

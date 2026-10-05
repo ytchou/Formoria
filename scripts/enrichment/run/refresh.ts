@@ -78,7 +78,11 @@ import {
   type CurationTask,
 } from "@/lib/constants/enrich-phases";
 import { loadCohort, snapshotDir, type Cohort } from "./cohort";
-import { unappliedSubmissions, rejectionNote } from "./refresh-unapplied";
+import {
+  pendingExemptSubmissionIds,
+  unappliedSubmissions,
+  rejectionNote,
+} from "./refresh-unapplied";
 import { loadScriptTarget } from "../../shared/target";
 
 /**
@@ -668,34 +672,35 @@ async function main(): Promise<void> {
       .filter((r): r is typeof r & { submissionId: string } => r.submissionId !== null)
       .map((r) => [r.slug, r.submissionId]),
   );
-  // A target this job recorded as `skipped` is a verdict or a no-op rerun,
-  // never grounds to auto-reject: it stays pending for admin review (DEV-1929).
+  // A failed apply whose target this job recorded as `skipped` and that failed
+  // at the enrichment-run gate is a verdict or a no-op rerun, never grounds to
+  // auto-reject: it stays pending for admin review (DEV-1929). Any other
+  // failure is rejected below. The skipped-targets read runs only when an
+  // apply failed.
   // Unpaged: PostgREST caps the response at 1000 rows, so past that some
   // skipped submissions fall back to the reject path; page this if a cohort
   // ever skips more than 1000 targets.
-  const { data: skippedTargets, error: skippedTargetsErr } = await supabase
-    .from("curation_job_targets")
-    .select("target_id")
-    .in("job_id", jobIds)
-    .eq("target_type", "submission")
-    .eq("status", "skipped");
-  if (skippedTargetsErr) throw skippedTargetsErr;
-  const skippedSubmissionIds = new Set(
-    (skippedTargets ?? []).map((t) => t.target_id as string),
-  );
-  const leftPending = applied.filter(
-    (a) => !a.ok && skippedSubmissionIds.has(a.submissionId),
-  );
+  let exemptIds = new Set<string>();
+  if (applied.some((a) => !a.ok)) {
+    const { data: skippedTargets, error: skippedTargetsErr } = await supabase
+      .from("curation_job_targets")
+      .select("target_id")
+      .in("job_id", jobIds)
+      .eq("target_type", "submission")
+      .eq("status", "skipped");
+    if (skippedTargetsErr) throw skippedTargetsErr;
+    exemptIds = pendingExemptSubmissionIds(
+      applied,
+      new Set((skippedTargets ?? []).map((t) => t.target_id as string)),
+    );
+  }
+  const leftPending = applied.filter((a) => exemptIds.has(a.submissionId));
   for (const entry of leftPending) {
     console.log(
       `  ${entry.slug.padEnd(18)} left pending for admin review (target skipped) — ${entry.detail}`,
     );
   }
-  const unapplied = unappliedSubmissions(
-    requestedMap,
-    applied,
-    skippedSubmissionIds,
-  );
+  const unapplied = unappliedSubmissions(requestedMap, applied, exemptIds);
   const rejected: Array<{ slug: string; submissionId: string; reason: string }> = [];
   if (unapplied.length > 0) {
     for (const entry of unapplied) {

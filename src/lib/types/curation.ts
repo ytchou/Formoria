@@ -135,7 +135,7 @@ export interface CurationTargetProgressEvent {
   changedFields?: string[];
   error?: string;
   durationMs?: number;
-  /** Persisted as `curation_job_targets.no_op`; omitted means "leave as is". */
+  /** Persisted as `curation_job_targets.no_op` on terminal writes; omitted there means false. */
   noOp?: boolean;
 }
 

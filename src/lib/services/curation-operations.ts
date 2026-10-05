@@ -1821,7 +1821,7 @@ export async function runEnrich(
                 changedFields: outcome.changedFields,
                 error: outcome.error,
                 durationMs: Date.now() - ctx.brandStartedAt,
-                ...(outcome.noOp !== undefined && { noOp: outcome.noOp }),
+                noOp: outcome.noOp,
               },
             ]);
           };
