@@ -6,6 +6,8 @@ import type { CatalogProduct } from "../../curated-products-catalog";
 import { RunStore } from "../store";
 import { LIMITS } from "../types";
 import { deriveClaims, runProducer } from "../run";
+import { trailFile, trailPicks } from "../delivery";
+import matter from "gray-matter";
 import { ProducerController } from "../controller";
 
 const roots: string[] = [];
@@ -83,6 +85,8 @@ function provider(
     styleNote?: boolean;
     corruptCatalogId?: boolean;
     blockUnchanged?: boolean;
+    longNote?: boolean;
+    factInProse?: boolean;
   } = {},
 ) {
   const tasks: string[] = [];
@@ -183,8 +187,32 @@ function provider(
         question: null,
       },
       draft: {
-        markdown:
-          "# 留一盞燈給閱讀的角落\n\n燈座以楓木製作。[^f1]\n\n若桌面留得下，可以把這件桌燈列為禮物提案。",
+        title: "留一盞燈給閱讀的角落",
+        description: "從一盞燈開始整理閱讀角落。",
+        slug: "reading-corner-lamp",
+        promise: "讓角落更容易開始閱讀。",
+        readerSituation: "晚上的燈照不到書頁。",
+        exclusions: "不處理裝修。",
+        intro: "晚上十點，桌面只剩一盞燈。",
+        sections: [
+          {
+            key: "light-first",
+            title: "先讓光線到位",
+            body: options.factInProse
+              ? "燈座以楓木製作。[^f1]"
+              : "我們先看光能不能落到書頁。\n\n若桌面留得下，一盞燈就是一份提案。",
+            picks: [
+              {
+                productId: context.products?.at(0)?.productId ?? "",
+                note: options.longNote
+                  ? "這是一段明顯超過二十個字的卡片說明文字，不能放進卡片"
+                  : "楓木燈座",
+                factIds: ["f1"],
+              },
+            ],
+          },
+        ],
+        closing: "這份路線不處理裝修。",
         openDecisions: ["Human final selection"],
       },
       "draft-review": {
@@ -210,7 +238,7 @@ function provider(
                     }
                   : {
                       severity: "blocking",
-                      quote: "燈座以楓木製作。",
+                      quote: "我們先看光能不能落到書頁。",
                       problem: "Material needs a variant qualifier",
                       falseBelief: "Every variant is maple",
                     },
@@ -253,7 +281,7 @@ it("takes a saved catalog through official evidence to a reviewed zh-TW draft an
   const tasks = provider();
   const result = await runProducer(store, id);
   expect(result.status, result.error).toBe("ready_for_review");
-  expect(result.draft).toContain("燈座以楓木製作。[^f1]");
+  expect(result.draft).toContain("楓木燈座[^f1]");
   expect(result.facts.at(0)?.excerpt).toBe("燈座以楓木製作。");
   expect(result.sources.at(0)?.finalUrl).toBe(product.officialUrl);
   expect(result.budget.modelAttempts).toBe(tasks.length);
@@ -271,7 +299,7 @@ it("takes a saved catalog through official evidence to a reviewed zh-TW draft an
       event.request?.messages?.at(0)?.content?.includes("Task: draft\n"),
     )?.request;
   expect(draftRequest.messages.at(0).content).toContain(
-    "Write the full natural zh-TW Markdown article",
+    "Write a Formoria discovery trail in natural zh-TW",
   );
   const draftData = JSON.parse(
     draftRequest.messages.at(1).content,
@@ -474,5 +502,57 @@ it("does not let a re-review block a sentence that already passed and did not ch
   expect(tasks.filter((task) => task === "draft-review")).toHaveLength(2);
   expect(result.review?.notes?.at(0)).toContain(
     "Material needs a variant qualifier",
+  );
+});
+it("renders a ready run as a draft trail MDX with cards, sources and no citation markers", async () => {
+  const { store, id } = await fixture();
+  provider();
+  const result = await runProducer(store, id);
+  expect(result.status, result.error).toBe("ready_for_review");
+  const { data, content } = matter(trailFile(result));
+  expect(data).toMatchObject({
+    slug: "reading-corner-lamp",
+    draft: true,
+    locale: "zh-TW",
+    tags: ["home-living"],
+    sources: [product.officialUrl],
+    sections: [
+      {
+        key: "light-first",
+        title: "先讓光線到位",
+        notes: { "river-woodwork/maple-desk-lamp": "楓木燈座" },
+      },
+    ],
+  });
+  expect(content).toContain('<TrailProducts section="light-first" />');
+  expect(content).toContain("我們先看光能不能落到書頁。");
+  expect(content).not.toContain("[^");
+  expect(JSON.parse(trailPicks(result))).toEqual({
+    trail: "reading-corner-lamp",
+    sections: {
+      "light-first": [
+        {
+          brandSlug: "river-woodwork",
+          productKey: "maple-desk-lamp",
+          note: "楓木燈座",
+        },
+      ],
+    },
+  });
+});
+it("blocks a card note longer than the trail card allows", async () => {
+  const { store, id } = await fixture();
+  provider({ longNote: true });
+  const result = await runProducer(store, id);
+  expect(result.status).toBe("blocked");
+  expect(result.review?.failures.at(0)).toContain("Card note must be 1 to 20");
+});
+it("blocks product facts written into trail prose instead of card notes", async () => {
+  const { store, id } = await fixture();
+  provider({ factInProse: true });
+  const result = await runProducer(store, id);
+  expect(result.status).toBe("blocked");
+  expect(result.review?.failures.at(0)).toContain(
+    "Trail prose states product facts",
   );
 });

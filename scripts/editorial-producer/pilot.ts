@@ -14,8 +14,9 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { setAuditWriteSeam } from "@/lib/audit/emit";
 import {
-  draftFile,
   evidencePacket,
+  trailFile,
+  trailPicks,
 } from "@/lib/services/editorial-producer/delivery";
 import {
   runProducer,
@@ -140,7 +141,10 @@ async function finish(
   brief: PilotBrief,
   wallMs: number,
 ): Promise<boolean> {
-  if (run.draft) await store.artifact(run.id, "draft.md", draftFile(run));
+  if (run.trail) {
+    await store.artifact(run.id, "trail.mdx", trailFile(run));
+    await store.artifact(run.id, "picks.json", trailPicks(run));
+  }
   await store.artifact(run.id, "evidence.md", evidencePacket(run));
   const problems = evaluate(run, brief);
   const summary = {

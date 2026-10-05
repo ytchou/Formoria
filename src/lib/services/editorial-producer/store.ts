@@ -157,7 +157,7 @@ export class RunStore {
     });
   }
   async artifact(id: string, name: string, contents: string): Promise<void> {
-    if (!/^[a-z0-9-]+\.(json|md)$/.test(name))
+    if (!/^[a-z0-9-]+\.(json|md|mdx)$/.test(name))
       throw new Error("Invalid artifact name");
     const path = join(this.path(id), name);
     const tmp = path + "." + randomUUID() + ".tmp";

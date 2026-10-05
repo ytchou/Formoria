@@ -5,7 +5,10 @@ import {
   uploadFileBytes,
   SlackUploadRejected,
 } from "@/lib/adapters/slack/web-api";
+import matter from "gray-matter";
 import { renderThreadNotice } from "@/lib/adapters/slack/blocks";
+import { EDITORIAL_BYLINE } from "@/lib/prompts/editorial-producer";
+import { pickNoteKey } from "@/lib/trails/note-key";
 import { LIMITS, type Run } from "./types";
 import type { RunStore } from "./store";
 
@@ -94,6 +97,16 @@ export function evidencePacket(run: Run): string {
       2,
     ) +
     "\n```\n\n" +
+    (run.trail
+      ? "## Before publishing\n\n" +
+        "- Save trail.mdx as content/trails/" +
+        run.trail.slug +
+        ".mdx and add heroImage, heroImageAlt, reviewedAt and reviewDueAt; node scripts/checks/trail-frontmatter.mjs names anything missing.\n" +
+        "- Review the picks, then place them with npx tsx scripts/trails/apply-picks.ts --trail " +
+        run.trail.slug +
+        " --picks picks.json --dry-run, and again without --dry-run.\n" +
+        "- Set draft: false only after human editorial and publication approval.\n\n"
+      : "") +
     "## Actual usage\n\n```json\n" +
     JSON.stringify(
       {
@@ -110,25 +123,128 @@ export function evidencePacket(run: Run): string {
     "Ops routing and Railway hosting are separate charges. Model review may share writer blind spots; human spot-check required. Full adapter payloads and checkpoints remain in private worker storage. No measured efficiency gain is claimed.\n"
   );
 }
-export function draftFile(run: Run): string {
-  const used = new Set(
-    [...(run.draft ?? "").matchAll(/\[\^([^\]]+)\]/g)].map((match) => match[1]),
+const MARKER = /\s*\[\^([^\]]+)\]/g;
+function stripMarkers(text: string): string {
+  return text.replace(MARKER, "").trim();
+}
+function catalogEntry(run: Run, productId: string) {
+  const product = run.catalog?.find((item) => item.id === productId);
+  if (!product) throw new Error("Trail pick is not in the catalog snapshot");
+  return product;
+}
+
+/**
+ * The draft as a content/trails/<slug>.mdx document: the same frontmatter and
+ * <TrailProducts> layout as published trails, with citation markers removed
+ * (evidence.md keeps the sentence-to-source ledger). It stays draft: true;
+ * heroImage, review dates and publication are human decisions.
+ */
+export function trailFile(run: Run): string {
+  const trail = run.trail;
+  if (!trail) throw new Error("Run has no trail draft");
+  const cited = new Set(
+    [...(run.draft ?? "").matchAll(MARKER)].map((match) => match[1]),
   );
+  const sources = [
+    ...new Set(
+      run.facts
+        .filter((fact) => cited.has(fact.id))
+        .flatMap(
+          (fact) =>
+            run.sources.find((source) => source.id === fact.sourceId)
+              ?.finalUrl ?? [],
+        ),
+    ),
+  ];
+  const picks = trail.sections.flatMap((section) => section.picks);
+  const tags = [
+    ...new Set(picks.map((pick) => catalogEntry(run, pick.productId).category)),
+  ];
+  const frontmatter = {
+    title: trail.title,
+    description: trail.description,
+    slug: trail.slug,
+    tags,
+    locale: "zh-TW",
+    publishedAt: run.createdAt.slice(0, 10),
+    draft: true,
+    author: EDITORIAL_BYLINE,
+    sources,
+    promise: trail.promise,
+    readerSituation: trail.readerSituation,
+    sections: trail.sections.map((section) => ({
+      key: section.key,
+      title: section.title,
+      notes: Object.fromEntries(
+        section.picks.map((pick) => {
+          const product = catalogEntry(run, pick.productId);
+          return [pickNoteKey(product.brandSlug, product.key), pick.note];
+        }),
+      ),
+    })),
+    exclusions: trail.exclusions,
+    editorialOwner: EDITORIAL_BYLINE,
+    relatedCategories: [...tags],
+    relatedStories: [],
+    relatedTrails: [],
+  };
+  const body = [
+    ...(run.status === "ready_for_review"
+      ? []
+      : [
+          "{/* Partial draft: " +
+            run.status +
+            "; not ready for review or publication. */}",
+        ]),
+    stripMarkers(trail.intro),
+    ...trail.sections.map(
+      (section) =>
+        '<section id="' +
+        section.key +
+        '">\n\n## ' +
+        section.title +
+        "\n\n" +
+        stripMarkers(section.body) +
+        '\n\n<TrailProducts section="' +
+        section.key +
+        '" />\n\n</section>',
+    ),
+    stripMarkers(trail.closing),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  // js-yaml option passed through by gray-matter; untyped there. -1 keeps long
+  // source URLs on one line, as published trails write them.
+  return matter.stringify("\n" + body + "\n", frontmatter, {
+    lineWidth: -1,
+  } as Parameters<typeof matter.stringify>[2]);
+}
+
+/** The placements for scripts/trails/apply-picks.ts, which a human runs. */
+export function trailPicks(run: Run): string {
+  const trail = run.trail;
+  if (!trail) throw new Error("Run has no trail draft");
   return (
-    (run.status === "ready_for_review"
-      ? ""
-      : "> Partial draft — " +
-        run.status +
-        "; not ready for review or publication.\n\n") +
-    (run.draft ?? "") +
-    "\n\n" +
-    run.facts
-      .filter((fact) => used.has(fact.id))
-      .map((fact) => {
-        const source = run.sources.find((item) => item.id === fact.sourceId);
-        return "[^" + fact.id + "]: " + fact.excerpt + " — " + source?.finalUrl;
-      })
-      .join("\n")
+    JSON.stringify(
+      {
+        trail: trail.slug,
+        sections: Object.fromEntries(
+          trail.sections.map((section) => [
+            section.key,
+            section.picks.map((pick) => {
+              const product = catalogEntry(run, pick.productId);
+              return {
+                brandSlug: product.brandSlug,
+                productKey: product.key,
+                note: pick.note,
+              };
+            }),
+          ]),
+        ),
+      },
+      null,
+      2,
+    ) + "\n"
   );
 }
 export async function notifyRun(store: RunStore, id: string): Promise<void> {
@@ -170,7 +286,9 @@ export async function notifyRun(store: RunStore, id: string): Promise<void> {
 export async function deliverRun(store: RunStore, id: string): Promise<void> {
   let run = await store.read(id);
   const files = {
-    ...(run.draft ? { "draft.md": draftFile(run) } : {}),
+    ...(run.trail
+      ? { "trail.mdx": trailFile(run), "picks.json": trailPicks(run) }
+      : {}),
     "evidence.md": evidencePacket(run),
   };
   for (const [name, contents] of Object.entries(files)) {

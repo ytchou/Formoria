@@ -109,6 +109,24 @@ export type Fact = {
   excerpt: string;
 };
 export type Claim = { text: string; factIds: string[] };
+export type TrailPick = { productId: string; note: string; factIds: string[] };
+/** The writer's trail, in content/trails/*.mdx shape; prose keeps [^fN] markers. */
+export type TrailDraft = {
+  title: string;
+  description: string;
+  slug: string;
+  promise: string;
+  readerSituation: string;
+  exclusions: string;
+  intro: string;
+  sections: Array<{
+    key: string;
+    title: string;
+    body: string;
+    picks: TrailPick[];
+  }>;
+  closing: string;
+};
 export type Question = { id: string; stage: Stage; text: string };
 export type Run = Owner & {
   version: 1;
@@ -140,6 +158,8 @@ export type Run = Owner & {
   sources: Source[];
   facts: Fact[];
   outline?: string;
+  trail?: TrailDraft;
+  /** Review copy assembled from the trail: prose and card notes with [^fN] markers. */
   draft?: string;
   claims: Claim[];
   /** Questions deferred after the brief and overlap stages, kept across revisions. */

@@ -21,7 +21,14 @@ import {
 } from "@/lib/prompts/editorial-producer";
 import { fetchSource, loadContext } from "./sources";
 import { RunStore } from "./store";
-import { LIMITS, type Claim, type Fact, type Run, type Stage } from "./types";
+import {
+  LIMITS,
+  type Claim,
+  type Fact,
+  type Run,
+  type Stage,
+  type TrailDraft,
+} from "./types";
 
 const QuestionSchema = z.string().min(1).nullable();
 const BriefSchema = z.object({
@@ -68,9 +75,33 @@ const OutlineSchema = z.object({
   question: QuestionSchema,
 });
 const DraftSchema = z.object({
-  markdown: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  slug: z.string().min(1),
+  promise: z.string().min(1),
+  readerSituation: z.string().min(1),
+  exclusions: z.string().min(1),
+  intro: z.string().min(1),
+  sections: z.array(
+    z.object({
+      key: z.string().min(1),
+      title: z.string().min(1),
+      body: z.string().min(1),
+      picks: z.array(
+        z.object({
+          productId: z.string(),
+          note: z.string(),
+          factIds: z.array(z.string()),
+        }),
+      ),
+    }),
+  ),
+  closing: z.string(),
   openDecisions: z.array(z.string()),
 });
+/** Mirrors NOTE_MAX_CHARS in scripts/trails/lib.ts and the trail frontmatter check. */
+export const NOTE_MAX_CHARS = 20;
+const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ReviewSchema = z.object({
   issues: z.array(
     z.object({
@@ -86,6 +117,9 @@ const MAX_REVIEW_DECISIONS = 5;
 
 const CITATION = /\[\^([^\]]+)\]/g;
 const SENTENCE = /[^。！？!?\n]+[。！？!?]?(?:\s*\[\^[^\]]+\])*/g;
+function stripCitations(text: string): string {
+  return text.replace(CITATION, "").trim();
+}
 /** Sentences with citation markers removed, for comparing drafts. */
 function sentences(markdown: string): string[] {
   return (markdown.match(SENTENCE) ?? [])
@@ -108,10 +142,108 @@ export function deriveClaims(markdown: string): Claim[] {
   return claims;
 }
 
-export function validateDraft(
-  run: Pick<Run, "draft" | "claims" | "facts">,
-): string[] {
+/**
+ * The review copy of a trail: prose and one line per product card, each card
+ * line carrying its note's fact markers so review and the claim ledger cover
+ * card notes as well as prose. Delivery renders the MDX from run.trail.
+ */
+export function trailMarkdown(
+  run: Pick<Run, "catalog">,
+  trail: TrailDraft,
+): string {
+  const name = (productId: string) => {
+    const product = run.catalog?.find((item) => item.id === productId);
+    return product ? product.brandName + " " + product.nameZh : productId;
+  };
+  return [
+    "# " + trail.title,
+    trail.intro,
+    ...trail.sections.flatMap((section) => [
+      "## " + section.title,
+      section.body,
+      section.picks
+        .map(
+          (pick) =>
+            '- Card for catalog product "' +
+            name(pick.productId) +
+            '", note: ' +
+            pick.note +
+            pick.factIds.map((id) => "[^" + id + "]").join(""),
+        )
+        .join("\n"),
+    ]),
+    trail.closing,
+  ]
+    .filter((block) => block.trim())
+    .join("\n\n");
+}
+
+/** Contract checks the trail MDX and picks.json must pass before delivery. */
+function trailFailures(run: Pick<Run, "trail" | "facts">): string[] {
+  const trail = run.trail;
+  if (!trail) return [];
   const failures: string[] = [];
+  if (!KEBAB.test(trail.slug))
+    failures.push("Trail slug is not kebab-case: " + trail.slug);
+  if (!trail.sections.length) failures.push("Trail has no sections");
+  // Published trails keep product facts on the cards; prose carries criteria.
+  for (const prose of [
+    trail.intro,
+    trail.closing,
+    ...trail.sections.map((section) => section.body),
+  ])
+    if (prose.match(CITATION))
+      failures.push(
+        "Trail prose states product facts; keep facts in card notes: " +
+          stripCitations(prose).slice(0, 40),
+      );
+  const keys = new Set<string>();
+  const titles = new Set<string>();
+  const picked = new Set<string>();
+  for (const section of trail.sections) {
+    if (!KEBAB.test(section.key) || keys.has(section.key))
+      failures.push(
+        "Section key is missing, malformed or repeated: " + section.key,
+      );
+    if (titles.has(section.title))
+      failures.push("Section title is repeated: " + section.title);
+    keys.add(section.key);
+    titles.add(section.title);
+    if (!section.picks.length)
+      failures.push("Section has no products: " + section.title);
+    for (const pick of section.picks) {
+      if (picked.has(pick.productId))
+        failures.push("Product appears in more than one section: " + pick.note);
+      picked.add(pick.productId);
+      if (!pick.note.trim() || [...pick.note.trim()].length > NOTE_MAX_CHARS)
+        failures.push(
+          "Card note must be 1 to " +
+            NOTE_MAX_CHARS +
+            " characters: " +
+            pick.note,
+        );
+      if (
+        !pick.factIds.length ||
+        pick.factIds.some(
+          (factId) =>
+            !run.facts.some(
+              (fact) => fact.id === factId && fact.productId === pick.productId,
+            ),
+        )
+      )
+        failures.push(
+          "Card note is not backed by facts about its own product: " +
+            pick.note,
+        );
+    }
+  }
+  return failures;
+}
+
+export function validateDraft(
+  run: Pick<Run, "draft" | "claims" | "facts" | "trail">,
+): string[] {
+  const failures: string[] = [...trailFailures(run)];
   const ids = new Set(run.facts.map((fact) => fact.id));
   const markdown = run.draft ?? "";
   if (!markdown.trim()) failures.push("Draft is empty");
@@ -653,40 +785,87 @@ export async function runProducer(
         break;
       }
       case "draft": {
+        const featured = evidenced(run) ?? [];
+        const productIds = aliases(
+          featured,
+          "p",
+          (candidate) => candidate.productId,
+        );
+        const alias = (productId: string) =>
+          productIds.toAlias.get(productId) ?? productId;
         const result = await model(DraftSchema, "draft", {
           brief: run.brief,
           outline: run.outline,
-          candidates: evidenced(run),
+          products: featured.map((candidate) => ({
+            ...candidate,
+            productId: alias(candidate.productId),
+          })),
           facts: run.facts.map((fact) => ({
             ...fact,
+            productId: alias(fact.productId),
             sourceUrl: run.sources.find((source) => source.id === fact.sourceId)
               ?.finalUrl,
           })),
           answers: run.answers,
           openDecisions: run.decisions,
-          ...(run.draft && run.review?.failures.length
+          formatExamples: (run.content ?? [])
+            .filter((item) => item.kind === "trail" && !item.draft)
+            .slice(0, 2)
+            .map((item) => ({ title: item.title, body: item.content })),
+          ...(run.trail && run.review?.failures.length
             ? {
-                previousDraft: run.draft,
+                previousTrail: {
+                  ...run.trail,
+                  sections: run.trail.sections.map((section) => ({
+                    ...section,
+                    picks: section.picks.map((pick) => ({
+                      ...pick,
+                      productId: alias(pick.productId),
+                    })),
+                  })),
+                },
                 reviewFailures: run.review.failures,
               }
             : {}),
           instruction: EDITORIAL_DRAFT_INSTRUCTION,
         });
+        const { openDecisions, ...written } = result;
+        const unknown = written.sections
+          .flatMap((section) => section.picks)
+          .map((pick) => pick.productId)
+          .filter((productId) => !productIds.toReal.has(productId));
+        if (unknown.length)
+          await store.journal(id, {
+            stage: "draft",
+            droppedUnknownProductIds: unknown,
+          });
+        const trail: TrailDraft = {
+          ...written,
+          sections: written.sections.map((section) => ({
+            ...section,
+            picks: section.picks.flatMap((pick) => {
+              const productId = productIds.toReal.get(pick.productId);
+              return productId ? [{ ...pick, productId }] : [];
+            }),
+          })),
+        };
+        const markdown = trailMarkdown(run, trail);
         await checkpoint("review", (current) => {
-          current.draft = result.markdown;
-          current.claims = deriveClaims(result.markdown);
+          current.trail = trail;
+          current.draft = markdown;
+          current.claims = deriveClaims(markdown);
           current.review = {
             failures: [],
             notes: [],
             openDecisions: [
               ...new Set([
                 ...(current.decisions ?? []),
-                ...result.openDecisions.slice(0, MAX_REVIEW_DECISIONS),
+                ...openDecisions.slice(0, MAX_REVIEW_DECISIONS),
               ]),
             ],
           };
         });
-        await store.artifact(id, "draft.md", result.markdown);
+        await store.artifact(id, "review-draft.md", markdown);
         break;
       }
       case "review": {
@@ -721,7 +900,7 @@ export async function runProducer(
                 }
               : {}),
             instruction:
-              "Review independently with fresh context. Find ALL factual assertions, including uncited ones, and check each cited sentence against its facts' excerpts. Classify every issue. severity blocking ONLY when publishing the sentence as written would mislead a reader: a product fact unsupported by its cited excerpts or stated without a [^fN] marker; a fact attributed to the wrong product, variant, brand or seller; a prohibited claim (price, stock, discount, delivery promise, certification, safety, efficacy, superiority); brand nationality presented as manufacturing origin; or a use described while omitting restrictions its source states for that use. Everything else is severity revise: naming precision, variant labels, source labels, wording, tone, structure, hedging. A blocking issue must be fixable by editing or deleting the quoted text using the provided facts. Never blocking: a pronoun or short name for the product named where its paragraph begins; facts the article leaves out; not naming a brand, seller or marketplace in the article (identity was verified during research); units, translations or variant labels; editorial interpretations clearly framed as such; suggestions. A sentence is supported when the excerpts of the facts it cites cover what it states, even if the page says more. When unsure, choose revise: a human editor reviews every draft before publication, and the draft is explicitly provisional. For a blocking issue, falseBelief states the specific false thing a reader would believe after reading the quoted text; if the text is accurate and you only want clearer or more cautious wording, the issue is revise and falseBelief is empty. Quote the offending text in quote. Footnote definitions are appended by the service at delivery: never ask for them. Human answers are settled editorial decisions: never re-raise them. openDecisions: at most five choices that need human editorial judgment (selection, angle, inclusion), not verification chores. When changedSentences and previousFailures are present this is a re-review: report a previous failure again as blocking only if it is still unresolved, and raise new blocking issues only about changedSentences; other sentences already passed review.",
+              "Review independently with fresh context. Find ALL factual assertions, including uncited ones, and check each cited sentence against its facts' excerpts. Classify every issue. severity blocking ONLY when publishing the sentence as written would mislead a reader: a product fact unsupported by its cited excerpts or stated without a [^fN] marker; a fact attributed to the wrong product, variant, brand or seller; a prohibited claim (price, stock, discount, delivery promise, certification, safety, efficacy, superiority); brand nationality presented as manufacturing origin; or a use described while omitting safety restrictions its source states for that use (who should not use it). Care, cleaning and handling instructions are never required. Everything else is severity revise: naming precision, variant labels, source labels, wording, tone, structure, hedging. A blocking issue must be fixable by editing or deleting the quoted text using the provided facts. Never blocking: a pronoun or short name for the product named where its paragraph begins; facts the article leaves out; not naming a brand, seller or marketplace in the article (identity was verified during research); units, translations or variant labels; editorial interpretations clearly framed as such; suggestions. A sentence is supported when the excerpts of the facts it cites cover what it states, even if the page says more. When unsure, choose revise: a human editor reviews every draft before publication, and the draft is explicitly provisional. For a blocking issue, falseBelief states the specific false thing a reader would believe after reading the quoted text; if the text is accurate and you only want clearer or more cautious wording, the issue is revise and falseBelief is empty. Quote the offending text in quote. The article is the review copy of a discovery trail: prose sections, and under each section one 'Card for catalog product <name>, note: ...' line per product card. The quoted name is the catalog's title for the card, outside the writer's control and identity-checked in research: never raise issues about it; review only the note, which must be supported by its own markers. The card names the product, so prose need not name each product or list its specifications. A fact the source states for the product without distinguishing its listed variants (for example a size shared by all colours) is supported for every variant. Markers are removed and source URLs listed separately at delivery: never ask for footnotes or source lists. Human answers are settled editorial decisions: never re-raise them. openDecisions: at most five choices that need human editorial judgment (selection, angle, inclusion), not verification chores. When changedSentences and previousFailures are present this is a re-review: report a previous failure again as blocking only if it is still unresolved, and raise new blocking issues only about changedSentences; other sentences already passed review.",
           },
           true,
         );

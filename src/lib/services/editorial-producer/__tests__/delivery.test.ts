@@ -78,6 +78,19 @@ it("retries failed attachment completion using the saved file without regenerati
   });
   await store.update(run.id, (current) => {
     current.status = "ready_for_review";
+    current.trail = {
+      title: "閱讀角落的禮物",
+      description: "一份等待人類選擇的提案。",
+      slug: "reading-corner-gifts",
+      promise: "讓角落更容易開始閱讀。",
+      readerSituation: "晚上的燈照不到書頁。",
+      exclusions: "不處理裝修。",
+      intro: "這是一份等待人類選擇的提案。",
+      sections: [
+        { key: "light", title: "先讓光線到位", body: "先看光。", picks: [] },
+      ],
+      closing: "",
+    };
     current.draft = "# 閱讀角落的禮物\n\n這是一份等待人類選擇的提案。";
     current.budget.modelAttempts = 8;
   });
@@ -113,18 +126,20 @@ it("retries failed attachment completion using the saved file without regenerati
     throw new Error("Unexpected provider call");
   });
   await expect(deliverRun(store, run.id)).rejects.toThrow("ratelimited");
-  expect((await store.read(run.id)).delivery.files["draft.md"]).toMatchObject({
+  expect((await store.read(run.id)).delivery.files["trail.mdx"]).toMatchObject({
     fileId: "F_MARIA_1",
     uploaded: true,
     completed: false,
   });
   await deliverRun(store, run.id);
   const complete = await store.read(run.id);
-  expect(complete.delivery.files["draft.md"]?.completed).toBe(true);
+  expect(complete.delivery.files["trail.mdx"]?.completed).toBe(true);
+  expect(complete.delivery.files["picks.json"]?.completed).toBe(true);
   expect(complete.delivery.files["evidence.md"]?.completed).toBe(true);
   expect(complete.delivery.summarySent).toBe(true);
   expect(complete.budget.modelAttempts).toBe(8);
-  expect(uploads).toBe(2);
+  expect(uploads).toBe(3);
   expect(delivered.at(0)).toContain("閱讀角落");
-  expect(delivered.at(1)).toContain("Claim evidence");
+  expect(delivered.at(1)).toContain('"trail": "reading-corner-gifts"');
+  expect(delivered.at(2)).toContain("Claim evidence");
 });
