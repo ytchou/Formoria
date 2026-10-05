@@ -216,6 +216,7 @@ describe('editorial agent graph', () => {
       description_en: 'Repaired without AI artifact EN',
       blurb: 'blurb',
       blurb_en: 'blurb en',
+      stockists: STOCKISTS,
     })
     // A repair must belong only to the descriptions checkpoint, never its siblings.
     const { stockists: _stockists, ...descriptionsPatch } = output.patch
@@ -247,6 +248,7 @@ describe('editorial agent graph', () => {
       description_en: 'A brand description EN',
       blurb: 'blurb',
       blurb_en: 'blurb en',
+      stockists: STOCKISTS,
     })
     expect(output.decisions).toContainEqual(
       expect.objectContaining({ step: 'repair', action: 'truncated', reason: 'finish_reason=length' }),
