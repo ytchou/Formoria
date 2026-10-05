@@ -82,6 +82,12 @@ describe('enrichment-logger', () => {
         `  [ENRICH] description: ${'a'.repeat(60)}…`,
       )
     })
+
+    it('summarizes an object value by its keys instead of [object Object]', () => {
+      expect(formatEnrichPatchField('faq', { entries: [{}, {}] })).toBe(
+        '  [ENRICH] faq: {entries}',
+      )
+    })
   })
 
   describe('formatJobStart', () => {

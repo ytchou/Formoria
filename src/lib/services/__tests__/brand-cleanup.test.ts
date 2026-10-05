@@ -98,6 +98,8 @@ describe('cleanBrandName', () => {
     ['Change Tone 襪子專賣店┃100%台灣設計製造', 'Change Tone'],
     ['首頁 - 小朱甜點', '小朱甜點'],
     ['小朱甜點 | 官方網站', '小朱甜點'],
+    // DEV-1930: a marketplace seller-page title; keeping the label renamed the brand 賣家介紹.
+    ['賣家介紹 - 波波與小泡芙 BOBO AND PUFF', '波波與小泡芙 BOBO AND PUFF'],
   ])('keeps the first non-boilerplate separator segment of %s', (input, expected) => {
     const result = cleanBrandName(input)
 

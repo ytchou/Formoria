@@ -2410,6 +2410,7 @@
         "nameProposal": {
           "proposedName": "Proposed brand name",
           "high": "High confidence",
+          "medium": "Medium confidence",
           "confidenceReason": "{confidence} — {reason}",
           "use": "Use proposed name",
           "sources": {

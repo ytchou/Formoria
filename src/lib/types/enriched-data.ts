@@ -68,8 +68,9 @@ export type BrandNameEvidence = {
 
 export type BrandNameProposal = {
   value: string;
-  confidence: "high";
+  confidence: "high" | "medium";
   reason: string;
+  /** Empty when the chosen candidate came from a non-first-party source. */
   evidence: BrandNameEvidence[];
 };
 
@@ -133,10 +134,9 @@ export function isBrandNameProposal(value: unknown): value is BrandNameProposal 
   if (
     typeof proposal.value !== "string" ||
     proposal.value.trim() === "" ||
-    proposal.confidence !== "high" ||
+    (proposal.confidence !== "high" && proposal.confidence !== "medium") ||
     typeof proposal.reason !== "string" ||
-    !Array.isArray(proposal.evidence) ||
-    proposal.evidence.length === 0
+    !Array.isArray(proposal.evidence)
   ) {
     return false;
   }

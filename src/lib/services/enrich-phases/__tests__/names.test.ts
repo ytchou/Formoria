@@ -337,7 +337,15 @@ describe("runNamesPhase", () => {
       ],
     );
 
-    expect(applied.patch).toEqual({ name: "AROMASE 艾瑪絲" });
+    expect(applied.patch).toEqual({
+      name: "AROMASE 艾瑪絲",
+      _name_proposal: {
+        value: "AROMASE 艾瑪絲",
+        confidence: "medium",
+        reason: "尾段是行銷文案",
+        evidence: [],
+      },
+    });
     expect(applied.phaseResult.changedFields).toEqual(["name"]);
   });
 
@@ -510,6 +518,34 @@ describe("applyNamesResult guards", () => {
         confidence: "high",
         reason: "官網直接使用雙語品牌名",
         evidence,
+      },
+    });
+  });
+
+  // DEV-1930: a refresh never writes `name`, so a rename that produces no
+  // proposal is lost. The proposal must not depend on an official source.
+  it("proposes an accepted rename from a detected candidate", () => {
+    const applied = applyNamesResult(
+      {
+        chosen: "波波與小泡芙 BOBO&PUFF",
+        confidence: "high",
+        reason: "移除賣家介紹頁面標題並保留品牌雙語名稱",
+      },
+      brand("brand-bobo", "bobo-and-puff", "賣家介紹 - 波波與小泡芙 BOBO AND PUFF"),
+      [
+        candidate("stored", "賣家介紹 - 波波與小泡芙 BOBO AND PUFF"),
+        candidate("cleaned", "賣家介紹"),
+        candidate("detected", "波波與小泡芙 BOBO&PUFF"),
+      ],
+    );
+
+    expect(applied.patch).toEqual({
+      name: "波波與小泡芙 BOBO&PUFF",
+      _name_proposal: {
+        value: "波波與小泡芙 BOBO&PUFF",
+        confidence: "high",
+        reason: "移除賣家介紹頁面標題並保留品牌雙語名稱",
+        evidence: [],
       },
     });
   });

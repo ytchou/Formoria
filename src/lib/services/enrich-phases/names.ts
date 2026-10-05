@@ -210,6 +210,13 @@ export function resolveArbitratedName(
   return selected.value;
 }
 
+/**
+ * The reviewer-facing record of an accepted rename. Only a refresh persists it
+ * (`routeSubmissionNamePatch`), and a refresh never writes `name`, so this is
+ * the verdict's only route to the brand: any rename that passed
+ * `resolveArbitratedName` is proposed, whatever its source (DEV-1930). A
+ * fallback rename (no verdict, or one the gate rejected) has no reason to show.
+ */
 function proposalForChosen(
   verdict: NameVerdict | undefined,
   chosen: string,
@@ -218,27 +225,18 @@ function proposalForChosen(
 ): BrandNameProposal | null {
   if (
     !verdict ||
-    verdict.confidence !== "high" ||
+    verdict.confidence === "low" ||
     chosen === storedName ||
-    !isTaiwanFirstBilingualBrandName(chosen)
+    normalizeCandidateValue(verdict.chosen) !== chosen
   ) {
     return null;
   }
   const candidate = candidates.find((entry) => entry.value === chosen);
-  const evidence = dedupeEvidence(candidate?.evidence ?? []);
-  if (
-    !candidate ||
-    (candidate.source !== "official_website" &&
-      candidate.source !== "official_social") ||
-    evidence.length === 0
-  ) {
-    return null;
-  }
   return {
     value: chosen,
-    confidence: "high",
+    confidence: verdict.confidence,
     reason: verdict.reason,
-    evidence,
+    evidence: dedupeEvidence(candidate?.evidence ?? []),
   };
 }
 

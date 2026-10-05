@@ -397,11 +397,11 @@ export function ReviewDetailsEditor({
                     />
                     <p className="mt-3 type-body-sm text-ink-soft">
                       {t("details.nameProposal.confidenceReason", {
-                        confidence: t("details.nameProposal.high"),
+                        confidence: t(`details.nameProposal.${nameProposal.confidence}`),
                         reason: nameProposal.reason,
                       })}
                     </p>
-                    <ul className="mt-3 space-y-1">
+                    <ul className="mt-3 space-y-1 empty:hidden">
                       {nameProposal.evidence.map((evidence) => (
                         <li key={`${evidence.source}-${evidence.url}-${evidence.observedName}`}>
                           <a
@@ -797,11 +797,11 @@ function ContentEditor({
           </Field>
           <p className="mt-3 type-body-sm text-ink-soft">
             {t("details.nameProposal.confidenceReason", {
-              confidence: t("details.nameProposal.high"),
+              confidence: t(`details.nameProposal.${nameProposal.confidence}`),
               reason: nameProposal.reason,
             })}
           </p>
-          <ul className="mt-3 space-y-1">
+          <ul className="mt-3 space-y-1 empty:hidden">
             {nameProposal.evidence.map((evidence) => (
               <li key={`${evidence.source}-${evidence.url}-${evidence.observedName}`}>
                 <a
