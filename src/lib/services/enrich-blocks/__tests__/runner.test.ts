@@ -218,6 +218,46 @@ describe('runBlocks', () => {
     ])
   })
 
+  // The stockists phase authors `patch.stockists` (DEV-1928); its checkpoint
+  // has to pass the per-phase ownership check rather than throw.
+  it('checkpoints a stockists patch from the editorial block', async () => {
+    const store = fakeStore()
+    const registry = buildTestRegistry([])
+    const stockists = [{ name: '誠品書店 信義店', normalizedName: '誠品書店信義' }]
+    registry.editorial = {
+      scope: 'brand',
+      phases: ['descriptions', 'stockists', 'faq'],
+      async run() {
+        return {
+          phaseOutputs: [
+            {
+              phaseResult: {
+                phase: 'stockists',
+                status: 'succeeded',
+                changedFields: ['1 stockist(s)'],
+                durationMs: 12,
+              },
+              output: { patch: { stockists } as never },
+            },
+          ],
+        }
+      },
+    }
+    await runBlocks({
+      chunk: [makeCtx('林木工坊')],
+      registry,
+      order: ['editorial'],
+      concurrency: 1,
+      ...emptyMaps(),
+      store,
+      hooks: {},
+      jobId: 'stockists-checkpoint',
+    })
+    expect(
+      store.upserted.map((row) => ({ phase: row.phase, output: row.output })),
+    ).toEqual([{ phase: 'stockists', output: { patch: { stockists } } }])
+  })
+
   // Catches batch output from one target being checkpointed against its siblings.
   it('checkpoints each target-specific batch result against its own target', async () => {
     const store = fakeStore()

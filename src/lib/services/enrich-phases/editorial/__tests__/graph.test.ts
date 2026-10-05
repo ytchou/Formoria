@@ -29,6 +29,11 @@ import { AbnormalCompletionError } from '../../agents/runtime'
 // Helpers
 // ---------------------------------------------------------------------------
 
+const STOCKISTS = [
+  { name: '誠品書店 信義店', normalizedName: '誠品書店信義', regionLabel: '臺北市', source: 'enriched' as const },
+  { name: '小器 赤峰', normalizedName: '小器赤峰', regionLabel: '臺北市', source: 'enriched' as const },
+]
+
 function makeInput(overrides: Partial<EditorialInput> = {}): EditorialInput {
   return {
     brand: {
@@ -84,7 +89,7 @@ function makeDeps(overrides: Partial<EditorialDeps> = {}): EditorialDeps {
         changedFields: ['2 stockist(s)'],
         durationMs: 80,
       },
-      patch: {},
+      patch: { stockists: STOCKISTS },
     }),
     runFaq: vi.fn().mockResolvedValue({
       phaseResult: {
@@ -170,6 +175,22 @@ describe('editorial agent graph', () => {
     expect(deps.repairCrossOutput).not.toHaveBeenCalled()
   })
 
+  // The stockists node authors a patch instead of writing rows, so FAQ has to
+  // be told about the pending candidates or its where-to-buy count misses them.
+  it('graph forwards the stockists patch to faq and to the output', async () => {
+    const deps = makeDeps()
+
+    const output = await runEditorialAgent(makeInput(), deps)
+
+    expect(output.patch.stockists).toEqual(STOCKISTS)
+    expect(deps.runFaq).toHaveBeenCalledWith(
+      expect.objectContaining({ pendingStockists: STOCKISTS }),
+    )
+    expect(
+      output.phaseOutputs.find((entry) => entry.phaseResult.phase === 'stockists')?.patch,
+    ).toEqual({ stockists: STOCKISTS })
+  })
+
   it('editorial_repair_edge_fires_on_cross_failures_and_updates_description_patch', async () => {
     const deps = makeDeps({
       validateCrossOutput: vi.fn().mockReturnValue([
@@ -197,9 +218,10 @@ describe('editorial agent graph', () => {
       blurb_en: 'blurb en',
     })
     // A repair must belong only to the descriptions checkpoint, never its siblings.
+    const { stockists: _stockists, ...descriptionsPatch } = output.patch
     expect(output.phaseOutputs.map((entry) => ({ phase: entry.phaseResult.phase, patch: entry.patch }))).toEqual([
-      { phase: 'descriptions', patch: output.patch },
-      { phase: 'stockists', patch: {} },
+      { phase: 'descriptions', patch: descriptionsPatch },
+      { phase: 'stockists', patch: { stockists: STOCKISTS } },
       { phase: 'faq', patch: {} },
     ])
     expect(deps.runStockists).toHaveBeenCalledOnce()

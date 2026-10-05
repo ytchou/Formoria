@@ -84,8 +84,8 @@ const PHASE_PATCH_KEYS: Partial<Record<EnrichPhaseName, ReadonlySet<string>>> = 
   slugs: SLOT_ALLOWED_KEYS.detect,
   acquire: SLOT_ALLOWED_KEYS.acquire,
   names: SLOT_ALLOWED_KEYS.names,
-  descriptions: new Set([...SLOT_ALLOWED_KEYS.editorial].filter((key) => key !== 'faq')),
-  stockists: new Set(),
+  descriptions: new Set([...SLOT_ALLOWED_KEYS.editorial].filter((key) => key !== 'faq' && key !== 'stockists')),
+  stockists: new Set(['stockists']),
   faq: new Set(['faq']),
   products: SLOT_ALLOWED_KEYS.products,
 }

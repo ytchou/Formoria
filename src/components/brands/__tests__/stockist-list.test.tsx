@@ -372,4 +372,146 @@ describe("StockistList", () => {
       screen.queryByText("3 個社群提供的通路待確認"),
     ).not.toBeInTheDocument();
   });
+  describe("long lists", () => {
+    const TEN_REGIONS = [
+      "臺北市",
+      "新北市",
+      "桃園市",
+      "臺中市",
+      "臺南市",
+      "高雄市",
+      "基隆市",
+      "新竹市",
+      "嘉義市",
+      "宜蘭縣",
+    ];
+
+    function makeConfirmed(index: number, regionLabel = "臺北市") {
+      return makeStockist(index, {
+        name: `確認門市 ${index}`,
+        regionLabel,
+        ownerStatus: "confirmed",
+        source: "owner",
+        status: "confirmed",
+        confirmedBy: "owner",
+      });
+    }
+
+    function groups(container: HTMLElement) {
+      return Array.from(
+        container.querySelectorAll<HTMLElement>("[data-stockist-kind]"),
+      );
+    }
+
+    it("caps visible groups at 6", () => {
+      const { container } = renderList({
+        possible: TEN_REGIONS.map((regionLabel, index) =>
+          makeStockist(index + 1, { regionLabel }),
+        ),
+      });
+
+      const all = groups(container);
+      expect(all).toHaveLength(10);
+      expect(all.filter((group) => !group.hasAttribute("hidden"))).toHaveLength(
+        6,
+      );
+      expect(all.filter((group) => group.hasAttribute("hidden"))).toHaveLength(
+        4,
+      );
+      const showAll = screen.getByRole("button", {
+        name: "顯示全部 10 個地區",
+      });
+      expect(showAll).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("caps visible rows at 8 per group", () => {
+      const { container } = renderList({
+        confirmed: Array.from({ length: 20 }, (_, index) =>
+          makeConfirmed(index + 1),
+        ),
+      });
+
+      const rows = Array.from(
+        container.querySelectorAll<HTMLElement>("[data-stockist-row]"),
+      );
+      expect(rows.filter((row) => !row.hasAttribute("hidden"))).toHaveLength(8);
+      expect(rows.filter((row) => row.hasAttribute("hidden"))).toHaveLength(12);
+      expect(
+        screen.getByRole("button", { name: "顯示其餘 12 家" }),
+      ).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("toggles expand and collapse", async () => {
+      const user = userEvent.setup();
+      const { container } = renderList({
+        confirmed: Array.from({ length: 20 }, (_, index) =>
+          makeConfirmed(index + 1),
+        ),
+        possible: TEN_REGIONS.map((regionLabel, index) =>
+          makeStockist(index + 100, { regionLabel }),
+        ),
+      });
+
+      await user.click(
+        screen.getByRole("button", { name: "顯示全部 10 個地區" }),
+      );
+      expect(
+        groups(container).filter((group) => !group.hasAttribute("hidden")),
+      ).toHaveLength(10);
+      const collapseGroups = screen.getByRole("button", { name: "收合地區" });
+      expect(collapseGroups).toHaveAttribute("aria-expanded", "true");
+
+      await user.click(collapseGroups);
+      expect(
+        groups(container).filter((group) => !group.hasAttribute("hidden")),
+      ).toHaveLength(6);
+
+      await user.click(screen.getByRole("button", { name: "顯示其餘 12 家" }));
+      const rows = () =>
+        Array.from(
+          container.querySelectorAll<HTMLElement>("[data-stockist-row]"),
+        );
+      expect(rows().filter((row) => !row.hasAttribute("hidden"))).toHaveLength(
+        20,
+      );
+      const collapseRows = screen.getByRole("button", { name: "收合" });
+      expect(collapseRows).toHaveAttribute("aria-expanded", "true");
+
+      await user.click(collapseRows);
+      expect(rows().filter((row) => !row.hasAttribute("hidden"))).toHaveLength(
+        8,
+      );
+    });
+
+    // Content answering "where can I buy this" ships in the server HTML even
+    // when folded: the cap hides rows, it never drops them.
+    it("keeps every row in the markup", () => {
+      const { container } = renderList({
+        confirmed: Array.from({ length: 20 }, (_, index) =>
+          makeConfirmed(index + 1),
+        ),
+      });
+
+      expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(
+        20,
+      );
+    });
+
+    it("renders no toggle buttons below both caps", () => {
+      renderList({
+        confirmed: ["臺北市", "新北市", "桃園市"].flatMap((regionLabel, group) =>
+          Array.from({ length: 4 }, (_, index) =>
+            makeConfirmed(group * 10 + index + 1, regionLabel),
+          ),
+        ),
+      });
+
+      expect(
+        screen.queryByRole("button", { name: /顯示全部/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /顯示其餘/ }),
+      ).not.toBeInTheDocument();
+    });
+  });
 });

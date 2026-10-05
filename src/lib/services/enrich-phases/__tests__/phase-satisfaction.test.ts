@@ -13,7 +13,8 @@ import {
   buildPhaseResult,
   PRODUCTS_NO_CHANNEL_SKIP_DETAIL,
   SATISFIED_FROM_HISTORY_SKIP_DETAIL,
-  STOCKISTS_SUBMISSION_SKIP_DETAIL,
+  STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+  STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -303,7 +304,7 @@ const NO_OP_RERUN_PHASE_RESULTS: PhaseResult[] = [
   ...["detect", "slugs", "acquire", "names", "descriptions", "faq"].map((phase) =>
     skippedPhase(phase, SATISFIED_FROM_HISTORY_SKIP_DETAIL),
   ),
-  skippedPhase("stockists", STOCKISTS_SUBMISSION_SKIP_DETAIL),
+  skippedPhase("stockists", STOCKISTS_NO_EVIDENCE_SKIP_DETAIL),
   skippedPhase("products", PRODUCTS_NO_CHANNEL_SKIP_DETAIL),
 ];
 
@@ -349,6 +350,23 @@ describe("a target counts as a no-op only when it ran nothing", () => {
   it("is false when products could not run for a missing API key", () => {
     const phaseResults = rerunWith(
       skippedPhase("products", "OPENAI_API_KEY is not configured"),
+    );
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
+  });
+
+  it("treats each pre-model stockists skip as a no-op", () => {
+    for (const detail of [
+      STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+      STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+    ]) {
+      const phaseResults = rerunWith(skippedPhase("stockists", detail));
+      expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(true);
+    }
+  });
+
+  it("is false when the stockists model ran and found nothing", () => {
+    const phaseResults = rerunWith(
+      skippedPhase("stockists", "no stockists found in evidence"),
     );
     expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
   });

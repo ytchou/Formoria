@@ -27,6 +27,8 @@ import {
   type DescriptionEvidence,
 } from "../description-rewrite";
 import { getStockistsForBrand } from "../stockists";
+import { normalizeStockistName } from "@/lib/brands/stockist-display";
+import type { StockistCandidate } from "@/lib/types/stockist";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadPersistedScrapeText } from "./descriptions";
 import {
@@ -68,7 +70,38 @@ type FaqPhaseOptions = {
   supabase?: FaqSupabase;
   /** The caller's original explicit phase list, before step expansion. */
   explicitPhases?: readonly string[];
+  /**
+   * Stockist candidates this run authored but has not materialized yet. They
+   * count toward where-to-buy so the FAQ does not answer "無" for a brand the
+   * stockists phase just found stores for (DEV-1928).
+   */
+  pendingStockists?: readonly StockistCandidate[];
 };
+
+type LiveStockistNames = {
+  confirmed: readonly { name: string }[];
+  possible: readonly { name: string }[];
+};
+
+/**
+ * Where-to-buy count for the FAQ context: every live stockist row plus each
+ * pending candidate whose normalized name is not already live. A pending
+ * candidate repeated within the batch counts once.
+ */
+export function countWhereToBuy(
+  live: LiveStockistNames | null,
+  pending: readonly Pick<StockistCandidate, "normalizedName">[] = [],
+): number {
+  const liveRows = live ? [...live.confirmed, ...live.possible] : [];
+  const seen = new Set(liveRows.map((row) => normalizeStockistName(row.name)));
+  let count = liveRows.length;
+  for (const candidate of pending) {
+    if (seen.has(candidate.normalizedName)) continue;
+    seen.add(candidate.normalizedName);
+    count += 1;
+  }
+  return count;
+}
 
 type FaqPhaseOutput = {
   phaseResult: PhaseResult;
@@ -494,6 +527,7 @@ export async function runFaqPhase({
   jobId,
   supabase,
   explicitPhases,
+  pendingStockists,
 }: FaqPhaseOptions): Promise<FaqPhaseOutput> {
   if (!phases.includes("faq")) return skipped("faq phase not requested");
   if (target?.type !== "submission")
@@ -510,16 +544,15 @@ export async function runFaqPhase({
 
   const { result, durationMs } = await timePhase<FaqRunOutcome>(async () => {
     // Compute stockist count: refresh submissions query live stockists;
-    // new submissions (no source_brand_id) default to 0.
+    // new submissions (no source_brand_id) have none live. Candidates the
+    // stockists phase authored this run count on top of either.
     const [persistedScrape, stockistsResult] = await Promise.all([
       loadPersistedScrapeText(auditTarget),
       brand.source_brand_id
         ? getStockistsForBrand(brand.source_brand_id)
         : Promise.resolve(null),
     ]);
-    const stockistCount = stockistsResult
-      ? stockistsResult.confirmed.length + stockistsResult.possible.length
-      : 0;
+    const stockistCount = countWhereToBuy(stockistsResult, pendingStockists);
 
     const peerStats = await getCategoryPeerStats(
       brand.category ?? null,

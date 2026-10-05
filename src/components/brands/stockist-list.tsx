@@ -15,6 +15,13 @@ import type { Stockist } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE_CHIPS = 6;
+/**
+ * Region groups and rows past these caps render with the `hidden` attribute,
+ * never sliced out: the stockist list answers "where can I buy this", so every
+ * entry must stay in the server HTML even while folded.
+ */
+const MAX_VISIBLE_GROUPS = 6;
+const MAX_VISIBLE_ROWS = 8;
 /** Below this count the grouping is noise — entries render without headings. */
 const GROUPED_LAYOUT_MIN_STOCKISTS = 4;
 
@@ -64,9 +71,10 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
 type StockistListRowProps = {
   stockist: Stockist;
   t: Translate;
+  hidden?: boolean;
 };
 
-function StockistListRow({ stockist, t }: StockistListRowProps) {
+function StockistListRow({ stockist, t, hidden }: StockistListRowProps) {
   // Every stockist is a physical place since DEV-1513, so the address is always
   // the location worth printing and the region label is its fallback — except
   // the chain sentinel, which is not a location at all.
@@ -95,6 +103,7 @@ function StockistListRow({ stockist, t }: StockistListRowProps) {
     <div
       className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between"
       data-stockist-row
+      hidden={hidden}
     >
       <div className="flex min-w-0 items-start gap-3">
         <StatusMarker confirmed={isConfirmed} />
@@ -231,6 +240,10 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
   const [expandedChipGroups, setExpandedChipGroups] = useState<
     Partial<Record<string, boolean>>
   >({});
+  const [expandedRowGroups, setExpandedRowGroups] = useState<
+    Partial<Record<string, boolean>>
+  >({});
+  const [groupsExpanded, setGroupsExpanded] = useState(false);
 
   const displayGroups = groupStockistsByRegion(allStockists);
 
@@ -252,6 +265,47 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
     if (rows.length === 0) return null;
 
     return <div className="divide-y divide-rule">{rows.map(renderRow)}</div>;
+  }
+
+  /** The grouped layout's row stack: rows past the cap fold behind a toggle. */
+  function renderCappedRowStack(kind: string, rows: Stockist[]) {
+    if (rows.length === 0) return null;
+
+    const isExpanded = expandedRowGroups[kind] === true;
+    const hiddenRowCount = Math.max(rows.length - MAX_VISIBLE_ROWS, 0);
+
+    return (
+      <>
+        <div className="divide-y divide-rule">
+          {rows.map((stockist, index) => (
+            <StockistListRow
+              key={stockist.id}
+              stockist={stockist}
+              t={t}
+              hidden={!isExpanded && index >= MAX_VISIBLE_ROWS}
+            />
+          ))}
+        </div>
+        {hiddenRowCount > 0 ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            aria-expanded={isExpanded}
+            onClick={() =>
+              setExpandedRowGroups((current) => ({
+                ...current,
+                [kind]: !isExpanded,
+              }))
+            }
+          >
+            {isExpanded
+              ? t("channels.rows.collapse")
+              : t("channels.chips.showRest", { count: hiddenRowCount })}
+          </Button>
+        ) : null}
+      </>
+    );
   }
 
   function renderChipStack(kind: string, chips: Stockist[]) {
@@ -291,7 +345,7 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
     );
   }
 
-  function renderGroup(group: StockistRegionGroup) {
+  function renderGroup(group: StockistRegionGroup, index: number) {
     const rowStockists = group.stockists.filter(rendersAsRow);
     const chipStockists = group.stockists.filter(
       (stockist) => !rendersAsRow(stockist),
@@ -305,13 +359,14 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
       <AccordionItem
         key={group.key}
         data-stockist-kind={group.key}
+        hidden={!groupsExpanded && index >= MAX_VISIBLE_GROUPS}
         title={
           <h3 className="type-body-sm font-semibold text-ink">{`${heading} (${group.stockists.length})`}</h3>
         }
         panelClassName="space-y-4 px-4 py-4"
       >
         {renderChipStack(group.key, chipStockists)}
-        {renderRowStack(rowStockists)}
+        {renderCappedRowStack(group.key, rowStockists)}
       </AccordionItem>
     );
   }
@@ -333,7 +388,29 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
     );
   }
 
+  const hiddenGroupCount = Math.max(
+    displayGroups.length - MAX_VISIBLE_GROUPS,
+    0,
+  );
+
+  // The group toggle is the Accordion's last child, so it sits after the last
+  // visible group in both states: hidden groups take no space.
   return (
-    <Accordion data-stockist-list>{displayGroups.map(renderGroup)}</Accordion>
+    <Accordion data-stockist-list>
+      {displayGroups.map(renderGroup)}
+      {hiddenGroupCount > 0 ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="compact"
+          aria-expanded={groupsExpanded}
+          onClick={() => setGroupsExpanded((current) => !current)}
+        >
+          {groupsExpanded
+            ? t("channels.groups.collapse")
+            : t("channels.groups.showAll", { count: displayGroups.length })}
+        </Button>
+      ) : null}
+    </Accordion>
   );
 }

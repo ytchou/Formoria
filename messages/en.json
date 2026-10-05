@@ -483,13 +483,18 @@
       "provideInfo": "Provide a stockist",
       "groups": {
         "all_taiwan": "Across Taiwan",
-        "overseas": "Overseas"
+        "overseas": "Overseas",
+        "showAll": "Show all {count} regions",
+        "collapse": "Show fewer regions"
       },
       "confirmed": {
         "officialPageLink": "Official page"
       },
       "chips": {
         "showRest": "Show {count} more"
+      },
+      "rows": {
+        "collapse": "Show less"
       },
       "provenance": {
         "owner": "Brand confirmed",

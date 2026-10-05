@@ -13,8 +13,10 @@ import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
 import type { BrandFaqEntryRow } from "../../brand-faq";
 import type { EnrichBrand, EnrichPhase } from "../types";
+import { normalizeStockistName } from "@/lib/brands/stockist-display";
 import {
   contextFacts,
+  countWhereToBuy,
   faqCoverageIsComplete,
   localizedCityLabel,
   resolveFaqAttempts,
@@ -893,5 +895,44 @@ describe("runFaqPhase submission-only contract", () => {
       explicit: boolean;
     };
     expect(faqPatch.explicit).toBe(true);
+  });
+});
+
+describe("countWhereToBuy", () => {
+  const pending = (name: string) => ({
+    name,
+    normalizedName: normalizeStockistName(name),
+  });
+
+  it("counts_live_rows_when_nothing_is_pending", () => {
+    const live = {
+      confirmed: [{ name: "誠品書店 信義店" }],
+      possible: [{ name: "小器 赤峰" }],
+    };
+    expect(countWhereToBuy(live)).toBe(2);
+    expect(countWhereToBuy(live, [])).toBe(2);
+  });
+
+  it("adds_pending_stockists_not_already_live", () => {
+    const live = { confirmed: [{ name: "誠品書店 信義店" }], possible: [] };
+    expect(
+      countWhereToBuy(live, [
+        // Same store, different whitespace: normalizes to the live name.
+        pending("誠品書店信義店"),
+        pending("小器 赤峰"),
+        pending("好丘 信義"),
+      ]),
+    ).toBe(3);
+  });
+
+  it("counts_pending_alone_for_a_new_submission", () => {
+    expect(countWhereToBuy(null, [pending("小器 赤峰")])).toBe(1);
+    expect(countWhereToBuy(null)).toBe(0);
+  });
+
+  it("counts_a_repeated_pending_store_once", () => {
+    expect(
+      countWhereToBuy(null, [pending("小器 赤峰"), pending("小器赤峰")]),
+    ).toBe(1);
   });
 });

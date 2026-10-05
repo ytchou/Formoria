@@ -465,7 +465,7 @@ export function seedEnrichedDataFromOwnerData(
  * Keys whose array value REPLACES the stored one instead of unioning with it.
  *
  * The merge's default is a `Set` union, which is right for arrays of scalars
- * and wrong for everything here. `channels` and `products` are arrays of
+ * and wrong for everything here. `stockists` and `products` are arrays of
  * OBJECTS, so the Set union is a no-op on identity and every rerun appends its
  * whole list to the stored one. `subcategories` and its aligned English labels
  * are complete classifier results, so the newest pair is likewise the whole
@@ -479,7 +479,7 @@ export function seedEnrichedDataFromOwnerData(
  * without its block appended silently across every rerun and nothing failed.
  */
 const REPLACE_NOT_UNION_KEYS = new Set<string>([
-  "channels",
+  "stockists",
   "products",
   // A rerun replaces the whole FAQ proposal rather than appending entries.
   "faq",
@@ -2794,7 +2794,6 @@ export async function runEnrich(
                           brand: input.brand,
                           phases: input.phases,
                           scrapedData: input.scrapedData ?? undefined,
-                          overwrite: input.overwrite,
                           dryRun: input.dryRun,
                           target: input.target,
                           jobId: input.jobId,
@@ -2815,6 +2814,7 @@ export async function runEnrich(
                           target: input.target,
                           jobId: input.jobId,
                           explicitPhases: input.explicitPhases ?? [],
+                          pendingStockists: input.pendingStockists,
                         });
                         return {
                           phaseResult: result.phaseResult,
@@ -3079,7 +3079,6 @@ export async function runEnrich(
                           brand,
                           phases,
                           scrapedData: state.scrapedData,
-                          overwrite,
                           dryRun: config.dryRun,
                           target: { type: targetType, id: brand.id },
                           jobId: config.jobId,
@@ -3105,6 +3104,8 @@ export async function runEnrich(
                           target: { type: targetType, id: brand.id },
                           jobId: config.jobId,
                           explicitPhases: bctx.plan?.explicit ?? config.explicitPhases ?? [],
+                          // Only the stockists phase above writes this key.
+                          pendingStockists: editorialFallbackPatch.stockists,
                         });
                         phaseOutputs.push({ phaseResult: faqResult.phaseResult, output: { patch: faqResult.patch } });
                         state.phaseResults.push(faqResult.phaseResult);
