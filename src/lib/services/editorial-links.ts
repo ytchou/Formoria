@@ -8,11 +8,7 @@
  */
 import { cache } from "react";
 
-import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
-import {
-  getPublishedCuratedProductsForTrail,
-  type TrailCuratedProduct,
-} from "@/lib/services/curated-products";
+import { getPublishedCuratedProductsForTrail } from "@/lib/services/curated-products";
 import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -151,33 +147,6 @@ export function deriveStoryRelatedTrails(
     }
   }
   return links;
-}
-
-/**
- * Categories and stories related to a trail's curated product brands.
- */
-export function deriveTrailRelatedContent(
-  trailPlacements: ProductPlacement[],
-  stories: StoryBrandsRecord[],
-): { categories: CategoryLink[]; stories: StoryLink[] } {
-  const brandSlugs = new Set(trailPlacements.map((p) => p.brandSlug));
-
-  // Derive categories from the products' L1 category
-  const categorySlugs = new Set(trailPlacements.map((p) => p.category));
-  const categories: CategoryLink[] = [];
-  for (const slug of categorySlugs) {
-    const l1 = VISIBLE_L1_CATEGORIES.find((c) => c.slug === slug);
-    if (l1) {
-      categories.push({ slug: l1.slug, name: l1.name, nameZh: l1.nameZh });
-    }
-  }
-
-  // Stories that reference any of the trail's brands
-  const storyLinks: StoryLink[] = stories
-    .filter((s) => s.brands.some((b) => brandSlugs.has(b)))
-    .map((s) => ({ slug: s.slug, title: s.title }));
-
-  return { categories, stories: storyLinks };
 }
 
 // ---------------------------------------------------------------------------
@@ -321,32 +290,4 @@ export async function getStoryRelatedTrails(
 
   const placements = await collectAllPlacements();
   return deriveStoryRelatedTrails(brands, placements);
-}
-
-export async function getTrailRelatedContent(
-  trailSlug: string,
-): Promise<{ categories: CategoryLink[]; stories: StoryLink[] }> {
-  let products: TrailCuratedProduct[];
-  try {
-    products = await getPublishedCuratedProductsForTrail(trailSlug);
-  } catch {
-    return { categories: [], stories: [] };
-  }
-
-  const trailsResult = await getAllTrails("zh-TW");
-  const trailEntry = trailsResult.ok
-    ? trailsResult.trails.find((t) => t.slug === trailSlug)
-    : null;
-  const trailTitle = trailEntry?.frontmatter.title ?? trailSlug;
-
-  const trailPlacements: ProductPlacement[] = products.map((product) => ({
-    brandSlug: product.brandSlug,
-    trailSlug,
-    trailTitle,
-    category: product.category,
-    subcategories: product.subcategory ? [product.subcategory] : [],
-  }));
-
-  const storyBrands = await collectStoryBrands();
-  return deriveTrailRelatedContent(trailPlacements, storyBrands);
 }

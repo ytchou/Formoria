@@ -35,7 +35,6 @@ import {
 } from "@/lib/services/curated-products";
 import { TrailContent } from "./trail-content";
 import { routes } from "@/lib/routes";
-import { getTrailRelatedContent } from "@/lib/services/editorial-links";
 import { findSimilarProductsForTrail } from "@/lib/services/product-situation-search";
 import { ProductCard } from "@/components/products/product-card";
 import { SavedProductsProvider } from "@/hooks/use-saved-products";
@@ -222,10 +221,7 @@ export default async function StyleTrailPage({ params }: PageProps) {
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations({ locale, namespace: "style" });
-  const [{ trail, products }, derivedContent] = await Promise.all([
-    getTrailPageData(slug),
-    getTrailRelatedContent(slug),
-  ]);
+  const { trail, products } = await getTrailPageData(slug);
 
   if (!trail) notFound();
   if (products === null) await markRenderDegraded("style.trail.products");
@@ -384,29 +380,6 @@ export default async function StyleTrailPage({ params }: PageProps) {
               )}
               {relatedTrailLinks(t("relatedTrails"), frontmatter.relatedTrails)}
             </div>
-          )}
-          {derivedContent.stories.length > 0 && (
-            <nav
-              aria-label={t("derivedStoriesAriaLabel")}
-              className="mt-section"
-            >
-              <h2 className="type-card-title">{t("derivedStories")}</h2>
-              <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
-                {derivedContent.stories.map((story, idx) => (
-                  <li key={story.slug}>
-                    <RelatedStoryLink
-                      href={routes.story(story.slug)}
-                      storySlug={story.slug}
-                      position={idx}
-                      storySurface="trail_derived_stories"
-                      className="text-accent underline underline-offset-4 hover:text-ink"
-                    >
-                      {story.title}
-                    </RelatedStoryLink>
-                  </li>
-                ))}
-              </ul>
-            </nav>
           )}
         </PageShell>
       </article>
