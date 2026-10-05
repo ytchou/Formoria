@@ -162,7 +162,8 @@ type RunItemsParams = {
     promptMeta?: PromptMeta['prompt']
     answers?: Record<string, unknown>
   }>
-  adapter: PhaseAdapter
+  /** Only the fields runItems reads, so a caller without a full PhaseAdapter (request replay) can score items. */
+  adapter: Pick<PhaseAdapter, 'scorers' | 'expectedOf'>
   concurrency: number
   collector: AuditCollector
   runWithAuditContext: ExperimentDeps['runWithAuditContext']
@@ -179,7 +180,7 @@ type RunItemsParams = {
  * Scores for a failed item: 0 on every scorer except nullable ones, which stay
  * absent (n/a) so an origin-only mean is not diluted by the failure rate.
  */
-function zeroScoresFor(adapter: PhaseAdapter): Record<string, number> {
+function zeroScoresFor(adapter: Pick<PhaseAdapter, 'scorers'>): Record<string, number> {
   const zeroScores: Record<string, number> = {}
   for (const scorer of adapter.scorers) {
     if (!scorer.nullable) zeroScores[scorer.name] = 0

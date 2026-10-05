@@ -990,6 +990,45 @@ describe("full request logging", () => {
     expect(JSON.stringify(inserts[0]?.request)).not.toContain("data:image");
   });
 
+  it('buildLoggedRequest replaces a data URI with the placeholder when the matching imageUrl is ""', async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "classify-images", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({
+      system: "sys",
+      user: "u",
+      images: ["data:image/webp;base64,AAAA", "data:image/webp;base64,BBBB"],
+      meta: { imageUrls: ["", "https://x/2.webp"] },
+    });
+
+    expect((inserts[0]?.request as { images: unknown }).images).toEqual([
+      { omitted: "data-uri" },
+      "https://x/2.webp",
+    ]);
+  });
+
+  it("buildLoggedRequest replaces a data URI with the placeholder when the matching imageUrl is not http(s)", async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "classify-images", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({
+      system: "sys",
+      user: "u",
+      images: ["data:image/webp;base64,AAAA"],
+      meta: { imageUrls: ["submissions/x.webp"] },
+    });
+
+    expect((inserts[0]?.request as { images: unknown }).images).toEqual([
+      { omitted: "data-uri" },
+    ]);
+  });
+
   it("request builder exhaustive over ChatInput keys", async () => {
     const inserts: InsertedRow[] = [];
     const client = createAuditedOpenAIClient(

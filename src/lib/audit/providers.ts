@@ -165,6 +165,7 @@ const PROVIDERS = {
     "deleteStoredImagePaths",
     "downloadAndGateImages",
     "downloadAndStoreImages",
+    "fetchVisionImage",
     "insertBrandImage",
     "loadVisionImage",
     "purgeExpiredClassifierJunk",

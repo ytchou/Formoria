@@ -1150,6 +1150,34 @@ describe('runItems', () => {
     // Audit records exist, so audit sum (100) should be used, not wall-clock
     expect(results[0]!.latencyMs).toBe(100)
   })
+
+  it('runItems accepts a scorers+expectedOf-only adapter', async () => {
+    const minimalAdapter = {
+      expectedOf: (item: { expectedOutput: unknown; input?: unknown }) => item.expectedOutput,
+      scorers: [
+        {
+          name: 'exact',
+          fn: (output: unknown, expected: unknown) => (JSON.stringify(output) === JSON.stringify(expected) ? 1 : 0),
+        },
+        { name: 'skipped', fn: () => null },
+      ],
+    }
+
+    const results = await runItems({
+      items: [makeItem({ id: 'match', expectedOutput: { v: 'a' } }), makeItem({ id: 'miss', expectedOutput: { v: 'b' } })],
+      task: async () => ({ ok: true, output: { v: 'a' } }),
+      adapter: minimalAdapter,
+      concurrency: 1,
+      collector: makeCollector(),
+      runWithAuditContext: <T>(_seed: unknown, fn: () => T): T => fn(),
+    })
+
+    expect(results.map((r) => [r.itemId, r.scores])).toEqual([
+      ['match', { exact: 1 }],
+      ['miss', { exact: 0 }],
+    ])
+    expect(results[1]!.expected).toEqual({ v: 'b' })
+  })
 })
 
 // ---------------------------------------------------------------------------

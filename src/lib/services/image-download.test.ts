@@ -6,6 +6,7 @@ import {
   imageRejectionCode,
   isNonImageContentType,
   downloadAndGateImages,
+  fetchVisionImage,
   storeKeptImages,
   type GatedImage,
 } from './image-download'
@@ -331,5 +332,58 @@ describe('storeKeptImages', () => {
 
     expect(insertedRows.length).toBe(1)
     expect(insertedRows[0].status).toBe('active')
+  })
+})
+
+describe('fetchVisionImage', () => {
+  async function texturedPng(width: number, height: number): Promise<Buffer> {
+    const pixels = Buffer.alloc(width * height * 3)
+    for (let index = 0; index < pixels.length; index += 1)
+      pixels[index] = index % 251
+    return sharp(pixels, { raw: { width, height, channels: 3 } })
+      .png()
+      .toBuffer()
+  }
+
+  function fakeFetch(response: Response): typeof fetch {
+    return (async () => response) as unknown as typeof fetch
+  }
+
+  it('fetchVisionImage returns a webp data URI for an image response', async () => {
+    const png = await texturedPng(600, 600)
+    const result = await fetchVisionImage('https://example.com/a.png', {
+      fetch: fakeFetch(
+        new Response(new Uint8Array(png), {
+          status: 200,
+          headers: { 'content-type': 'image/png' },
+        }),
+      ),
+    })
+    expect(result).toMatch(/^data:image\/webp;base64,/)
+  })
+
+  it('fetchVisionImage returns null for an HTML response', async () => {
+    const result = await fetchVisionImage('https://example.com/a.png', {
+      fetch: fakeFetch(
+        new Response('<html>'.padEnd(6_000, ' '), {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        }),
+      ),
+    })
+    expect(result).toBeNull()
+  })
+
+  it('fetchVisionImage returns null on a non-ok status', async () => {
+    const png = await texturedPng(600, 600)
+    const result = await fetchVisionImage('https://example.com/a.png', {
+      fetch: fakeFetch(
+        new Response(new Uint8Array(png), {
+          status: 404,
+          headers: { 'content-type': 'image/png' },
+        }),
+      ),
+    })
+    expect(result).toBeNull()
   })
 })
