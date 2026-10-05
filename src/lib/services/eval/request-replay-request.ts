@@ -29,11 +29,10 @@ export type ImageTable = 'brand_images' | 'submission_images'
 /** `images` is undefined when the request sends no rebuilt images. */
 export type ImageRebuildResult = { images: string[] | undefined } | { skip: 'image' }
 
-/** The slice of a replay span that image rebuild reads; the result is cached on it. */
+/** The slice of a replay span that image rebuild reads. */
 export type ImageSpan = {
   request: LoggedRequest
   target: EnrichmentTarget
-  imageRebuild?: ImageRebuildResult
 }
 
 export type ImageRebuildDeps = {
@@ -148,7 +147,11 @@ async function rebuildAcquired(
   return { images }
 }
 
-async function computeImageRebuild(span: ImageSpan, deps: ImageRebuildDeps): Promise<ImageRebuildResult> {
+/**
+ * Restores a span's images. Called once per span: the orchestrator holds the
+ * result in a local, so both arms reuse one load.
+ */
+export async function rebuildImages(span: ImageSpan, deps: ImageRebuildDeps): Promise<ImageRebuildResult> {
   const { request, target } = span
   if (messagesHaveOmittedPart(request.messages)) return SKIP
 
@@ -172,17 +175,6 @@ async function computeImageRebuild(span: ImageSpan, deps: ImageRebuildDeps): Pro
   if (!logged) return { images: undefined }
   if (logged.some(isOmitted)) return SKIP
   return { images: undefined }
-}
-
-/**
- * Restores a span's images once; the result is cached on `span.imageRebuild`
- * and returned as-is on later calls, so both arms reuse one load.
- */
-export async function rebuildImages(span: ImageSpan, deps: ImageRebuildDeps): Promise<ImageRebuildResult> {
-  if (span.imageRebuild) return span.imageRebuild
-  const result = await computeImageRebuild(span, deps)
-  span.imageRebuild = result
-  return result
 }
 
 // ---------------------------------------------------------------------------

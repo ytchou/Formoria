@@ -51,6 +51,8 @@ import {
 } from '@/lib/services/eval/golden-capture'
 import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/types'
 import { REPLAY_STEPS } from '@/lib/services/eval/request-replay-steps'
+import { resolveReplaySteps } from '@/lib/services/eval/request-replay'
+import { embedOne } from '@/lib/services/eval/request-replay-load'
 import { DEFAULT_PANEL_MAX } from '@/lib/services/eval/request-replay-report'
 
 // ---------------------------------------------------------------------------
@@ -190,15 +192,8 @@ const DEFAULT_REPLAY_LIMIT = 50
 /** `--step all` or a comma list of catalog step names, in catalog order. */
 function parseReplaySteps(value: string | undefined): string[] {
   if (!value) throw new Error('--step is required (a step name or "all")')
-  const valid = REPLAY_STEPS.map((step) => step.name)
-  if (value.trim() === 'all') return valid
-  const asked = splitList(value)
-  for (const name of asked) {
-    if (!valid.includes(name)) {
-      throw new Error(`Unknown --step value: ${name} (valid: all, ${valid.join(', ')})`)
-    }
-  }
-  return valid.filter((name) => asked.includes(name))
+  if (value.trim() === 'all') return REPLAY_STEPS.map((step) => step.name)
+  return resolveReplaySteps(splitList(value)).map((step) => step.name)
 }
 
 /** Exactly one `--arm model:<id>`: the incumbent arm is automatic (D8). */
@@ -2097,16 +2092,6 @@ function reportFailedWrites(tag: string, failed: string[]): void {
   if (failed.length === 0) return
   console.error(`[${tag}] ${failed.length} item(s) not confirmed written: ${failed.join(', ')}`)
   process.exitCode = 1
-}
-
-/**
- * A PostgREST embed as one row. supabase-js types an embedded relation as an
- * array even when the foreign key makes it many-to-one (an object at runtime),
- * so both shapes are accepted.
- */
-function embedOne<T>(value: T | T[] | null | undefined): T | null {
-  if (Array.isArray(value)) return value[0] ?? null
-  return value ?? null
 }
 
 /** Refuses production unless `--target production --confirm` were both given. */

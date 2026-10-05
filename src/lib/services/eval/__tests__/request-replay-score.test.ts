@@ -37,10 +37,20 @@ describe('scoreReplayResponse — leaves', () => {
     expect(score.agreement).toBeCloseTo(1 / 3)
   })
 
-  it('recurses into object arrays pairwise by index', () => {
+  it('recurses into object arrays, pairing each element with its best match', () => {
     const expected = { items: [{ d: 'keep' }, { d: 'reject' }] }
     const candidate = { items: [{ d: 'keep' }, { d: 'keep' }] }
     expect(scoreReplayResponse(json(candidate), json(expected), NO_HINTS).agreement).toBe(0.5)
+  })
+
+  it('scores a reordered-but-equal object array as full agreement', () => {
+    const hints: ScoreHints = { keyFields: ['entries[].preset_id'], proseFields: ['entries[].answer_zh'] }
+    const a = { preset_id: 'faq-origin', answer_zh: '台灣製造' }
+    const b = { preset_id: 'faq-shipping', answer_zh: '三天內出貨' }
+    const score = scoreReplayResponse(json({ entries: [b, a] }), json({ entries: [a, b] }), hints)
+    expect(score.agreement).toBe(1)
+    expect(score.keyAgreement).toBe(1)
+    expect(score.prose.every((p) => !p.changed)).toBe(true)
   })
 
   it('excludes numbers from agreement and reports their absolute delta', () => {
@@ -99,6 +109,28 @@ describe('scoreReplayResponse — prose and key fields', () => {
     expect(score.keyAgreement).toBeCloseTo(2 / 3)
     // all leaves: verdict 1, other 0, d 1, id 0, d 0, id 1
     expect(score.agreement).toBe(0.5)
+  })
+
+  it('counts a missing or extra element against the key fields under its array', () => {
+    const hints: ScoreHints = { keyFields: ['entries[].preset_id'], proseFields: [] }
+    const expected = { entries: [{ preset_id: 'faq-origin' }, { preset_id: 'faq-shipping' }] }
+    const missingOne = scoreReplayResponse(json({ entries: [{ preset_id: 'faq-origin' }] }), json(expected), hints)
+    expect(missingOne.keyAgreement).toBe(0.5)
+
+    const extraOne = scoreReplayResponse(
+      json({ entries: [...expected.entries, { preset_id: 'faq-care' }] }),
+      json(expected),
+      hints,
+    )
+    expect(extraOne.keyAgreement).toBeCloseTo(2 / 3)
+  })
+
+  it('counts a missing array against the key fields under it', () => {
+    const hints: ScoreHints = { keyFields: ['entries[].preset_id'], proseFields: [] }
+    const expected = { entries: [{ preset_id: 'faq-origin' }, { preset_id: 'faq-shipping' }] }
+    const score = scoreReplayResponse(json({}), json(expected), hints)
+    expect(score.keyAgreement).toBe(0)
+    expect(score.agreement).toBe(0)
   })
 
   it('scores a key array field by Jaccard', () => {

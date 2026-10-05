@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { describe, expect, it } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { describe, expect, it, vi } from 'vitest'
 
 import { getAuditContext, runWithAuditContext, type AuditRecord } from '@/lib/audit'
 import type { CapturedCall } from '../../llm-audit'
@@ -9,6 +10,7 @@ import { REPLAY_STEPS } from '../request-replay-steps'
 import {
   requestReplayTask,
   runRequestReplay,
+  storedImageLoaders,
   type ReplayChatResult,
   type RequestReplayDeps,
 } from '../request-replay'
@@ -276,6 +278,27 @@ describe('runRequestReplay', () => {
     expect(classify!.images).toEqual({ rebuiltSpans: 0, rebuiltImages: 0, skippedSpans: 1 })
   })
 
+  it('skips a span whose image lookup throws, counts it as an image skip and keeps the run going', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const h = harness([classifyRow('broken1', [IMAGE_ID, 'not-a-uuid-later']), classifyRow('fine1')], {
+      answer: () => CLASSIFY_ANSWER,
+      loadStoredImage: async (_table, id) => {
+        if (id === 'not-a-uuid-later') throw new Error('[replay] brand_images read failed: invalid input syntax for type uuid')
+        return DATA_URI
+      },
+    })
+
+    const result = await runRequestReplay({ ...options, steps: ['classify_images'] }, h.deps)
+
+    expect(h.chatCalls.map((c) => c.input.user)).toEqual(['classify fine1', 'classify fine1'])
+    expect(result.tables[0]!.stats.skips.image).toBe(1)
+    expect(result.tables[0]!.images).toEqual({ rebuiltSpans: 1, rebuiltImages: 1, skippedSpans: 1 })
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0]![0])).toContain('span-broken1')
+    expect(String(warn.mock.calls[0]![0])).toContain('invalid input syntax')
+    warn.mockRestore()
+  })
+
   it('makes no arm call and skips the zero-write assertion when every step is empty', async () => {
     const h = harness([])
 
@@ -340,6 +363,73 @@ describe('runRequestReplay', () => {
 
     await expect(runRequestReplay({ ...options, steps: ['detect'] }, h.deps)).rejects.toThrow('read failed')
     expect(h.restored()).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// storedImageLoaders
+// ---------------------------------------------------------------------------
+
+type ImageRowFixture = { storage_path: string | null; url: string | null }
+
+/** A read-only stand-in for the PostgREST chain the loaders use; records each lookup. */
+function imageClient(tables: Record<string, Array<ImageRowFixture & Record<string, string | null>>>) {
+  const reads: Array<{ table: string; columns: string; match: Record<string, string> }> = []
+  const client = {
+    from: (table: string) => ({
+      select: (columns: string) => ({
+        match: (match: Record<string, string>) => ({
+          maybeSingle: async () => {
+            reads.push({ table, columns, match })
+            const hit = (tables[table] ?? []).find((r) => Object.entries(match).every(([k, v]) => r[k] === v))
+            return { data: hit ? { storage_path: hit.storage_path, url: hit.url } : null, error: null }
+          },
+        }),
+      }),
+    }),
+  } as unknown as SupabaseClient
+  return { client, reads }
+}
+
+describe('storedImageLoaders', () => {
+  const SUBMISSION_IMAGE_ID = '7c1d2e3f-0a4b-4c5d-8e6f-9a0b1c2d3e4f'
+  const PUBLIC_URL = 'https://example.supabase.co/storage/v1/object/public/brand-images/brands/x.jpg'
+
+  it('passes storage_path and url to loadVisionDataUri, as classify-images does', async () => {
+    const { client, reads } = imageClient({ brand_images: [{ id: IMAGE_ID, storage_path: null, url: PUBLIC_URL }] })
+    const loaded: ImageRowFixture[] = []
+
+    const uri = await storedImageLoaders(client, async (image) => {
+      loaded.push(image)
+      return DATA_URI
+    }).loadStoredImage('brand_images', IMAGE_ID)
+
+    expect(uri).toBe(DATA_URI)
+    expect(loaded).toEqual([{ storage_path: null, url: PUBLIC_URL }])
+    expect(reads[0]!.columns).toBe('storage_path, url')
+  })
+
+  it('falls back to submission_images by the same id when brand_images has no such row', async () => {
+    const { client, reads } = imageClient({
+      brand_images: [],
+      submission_images: [{ id: SUBMISSION_IMAGE_ID, storage_path: 'submissions/s/1.jpg', url: null }],
+    })
+
+    const uri = await storedImageLoaders(client, async (image) => `data:${image.storage_path}`).loadStoredImage(
+      'brand_images',
+      SUBMISSION_IMAGE_ID,
+    )
+
+    expect(uri).toBe('data:submissions/s/1.jpg')
+    expect(reads.map((r) => r.table)).toEqual(['brand_images', 'submission_images'])
+  })
+
+  it('returns null when neither table has the id', async () => {
+    const { client } = imageClient({ brand_images: [], submission_images: [] })
+
+    const uri = await storedImageLoaders(client, async () => DATA_URI).loadStoredImage('brand_images', IMAGE_ID)
+
+    expect(uri).toBeNull()
   })
 })
 

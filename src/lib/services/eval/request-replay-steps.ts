@@ -18,6 +18,8 @@
 
 import type { LlmProfileKey } from '@/lib/constants/llm-models'
 
+import { asRecord } from './request-replay-score'
+
 // ---------------------------------------------------------------------------
 // Discriminators — pinned to their source constants by the unit test
 // ---------------------------------------------------------------------------
@@ -204,16 +206,6 @@ const DISCRIMINATORS: Readonly<Record<string, Discriminator>> = {
 // ---------------------------------------------------------------------------
 // Classification
 // ---------------------------------------------------------------------------
-
-export function replayStepByName(name: string): ReplayStep | undefined {
-  return REPLAY_STEPS.find((step) => step.name === name)
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
 
 function shapeOf(request: Record<string, unknown>): ReplayStep['shape'] | null {
   if (Array.isArray(request.messages)) return 'messages'

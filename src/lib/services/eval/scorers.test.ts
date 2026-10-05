@@ -18,6 +18,7 @@ import {
   mean,
   p50,
   p95,
+  percentile,
   ndcgAtK,
   bootstrapCI,
   pairedBootstrapCI,
@@ -435,6 +436,17 @@ describe('p50', () => {
     expect(p50([4, 1, 3, 2])).toBe(2)
     expect(p50([7])).toBe(7)
     expect(p50([])).toBe(0)
+  })
+})
+
+describe('percentile', () => {
+  it('returns the nearest-rank value for any p, 0 when empty', () => {
+    const values = [40, 10, 30, 20, 50]
+    expect(percentile(values, 0)).toBe(10)
+    expect(percentile(values, 0.2)).toBe(10)
+    expect(percentile(values, 0.6)).toBe(30)
+    expect(percentile(values, 1)).toBe(50)
+    expect(percentile([], 0.5)).toBe(0)
   })
 })
 

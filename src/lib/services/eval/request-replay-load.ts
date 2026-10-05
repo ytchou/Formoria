@@ -44,12 +44,10 @@ export type ReplaySpan = {
   /** `audit_span_id`, or `row:<id>` for a legacy row without one. */
   spanId: string
   step: ReplayStep
-  /** Every row of the span, oldest first. */
-  rows: ReplayRow[]
-  /** The last `ok:true` row by `created_at`; null when production never succeeded. */
+  /** The last `ok:true` row by `created_at`; null when production never succeeded (reported, never replayed). */
   answer: ReplayRow | null
-  /** True when no row of the span is `ok:true` — reported, never replayed. */
-  prodFailed: boolean
+  /** The span's newest row by `created_at`. */
+  latest: ReplayRow
   /** `created_at` of the span's newest row; drives newest-first ordering. */
   lastAt: string
 }
@@ -73,8 +71,6 @@ export type LoadReplaySpansResult = {
   unclassified: number
   rowsRead: number
 }
-
-export type BrandCountTarget = Pick<ReplayRow, 'brandId' | 'submissionId' | 'submissionBrandId'>
 
 // ---------------------------------------------------------------------------
 // Grouping
@@ -118,14 +114,8 @@ export function groupSpans(rows: readonly ReplayRow[]): { spans: ReplaySpan[]; u
   const spans = [...groups.values()].map(({ step, spanId, rows: spanRows }): ReplaySpan => {
     const sorted = [...spanRows].sort(byCreatedAtThenId)
     const answer = sorted.filter((r) => isOk(r.rawResponse)).at(-1) ?? null
-    return {
-      spanId,
-      step,
-      rows: sorted,
-      answer,
-      prodFailed: answer === null,
-      lastAt: sorted.at(-1)!.createdAt,
-    }
+    const latest = sorted.at(-1)!
+    return { spanId, step, answer, latest, lastAt: latest.createdAt }
   })
   return { spans, unclassified }
 }
@@ -140,10 +130,11 @@ function newestFirst(a: ReplaySpan, b: ReplaySpan): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Reads every row for the steps' phases (paged until an empty page, as the
- * harvest loader does), groups them into spans and keeps the newest `limit`
- * spans per requested step. Rows of a catalog step that was not requested
- * (a shared phase) are dropped silently; rows matching no step are counted.
+ * Reads rows for the steps' phases newest first (paged until an empty page, as
+ * the harvest loader does, or until every step's `limit` is covered), groups
+ * them into spans and keeps the newest `limit` spans per requested step. Rows
+ * of a catalog step that was not requested (a shared phase) are dropped
+ * silently; rows matching no step are counted.
  */
 export async function loadReplaySpans(
   options: LoadReplaySpansOptions,
@@ -153,17 +144,37 @@ export async function loadReplaySpans(
   const filter: ReplayRowFilter = { phases, ...(options.since ? { since: options.since } : {}) }
 
   // Paged until an empty page: PostgREST caps a page, so a short page is not
-  // proof of the end. Grouping needs every row of a span, so no early stop.
+  // proof of the end. Offset paging on `created_at desc` shifts when production
+  // inserts mid-read, so a row can come back twice: rows are deduped by id.
+  //
+  // Early stop (with `limit`): rows arrive newest first, so once a step has
+  // seen `limit + 1` distinct span ids, its newest `limit` spans by `lastAt` are
+  // all known and every one of their rows newer than the read point is in.
+  // Ceiling: a kept span's rows older than the read point (a retry minutes
+  // before its last row) can be missed, which can mark a span prod-failed whose
+  // ok row is older. Spans are seconds long, so the `+1` buffer covers it in
+  // practice; upgrade path is a second read by `audit_span_id` for kept spans.
+  const wanted = new Set(options.steps.map((step) => step.name))
+  const spansSeen = new Map<string, Set<string>>([...wanted].map((name) => [name, new Set<string>()]))
+  const covered = () =>
+    options.limit !== undefined && [...spansSeen.values()].every((ids) => ids.size > options.limit!)
+  const seen = new Set<string>()
   const rows: ReplayRow[] = []
   for (let from = 0; ; ) {
     const page = await deps.readRows({ from, to: from + REPLAY_PAGE_SIZE - 1 }, filter)
     if (page.length === 0) break
-    rows.push(...page)
+    for (const row of page) {
+      if (seen.has(row.id)) continue
+      seen.add(row.id)
+      rows.push(row)
+      const step = classifyReplayRow(row)
+      if (step) spansSeen.get(step.name)?.add(row.auditSpanId ?? `row:${row.id}`)
+    }
     from += page.length
+    if (covered()) break
   }
 
   const { spans, unclassified } = groupSpans(rows)
-  const wanted = new Set(options.steps.map((step) => step.name))
   const perStep = new Map<string, number>()
   const kept = spans
     .filter((span) => wanted.has(span.step.name))
@@ -180,21 +191,24 @@ export async function loadReplaySpans(
 }
 
 // ---------------------------------------------------------------------------
-// Brand count
+// Span identity
 // ---------------------------------------------------------------------------
 
+/** The row a span is described by: its answer, else its newest row. */
+export function leadRow(span: ReplaySpan): ReplayRow {
+  return span.answer ?? span.latest
+}
+
 /**
- * Distinct brands: `brand_id`, else the brand of the submission, else the
- * submission itself counts as one.
+ * The span's brand, for the distinct-brand count: `brand_id`, else the brand
+ * of the submission, else the submission itself, else the span alone.
  */
-export function countBrands(targets: Iterable<BrandCountTarget>): number {
-  const keys = new Set<string>()
-  for (const target of targets) {
-    const brandId = target.brandId ?? target.submissionBrandId
-    if (brandId) keys.add(`brand:${brandId}`)
-    else if (target.submissionId) keys.add(`submission:${target.submissionId}`)
-  }
-  return keys.size
+export function brandKeyOf(span: ReplaySpan): string {
+  const lead = leadRow(span)
+  const brandId = lead.brandId ?? lead.submissionBrandId
+  if (brandId) return `brand:${brandId}`
+  if (lead.submissionId) return `submission:${lead.submissionId}`
+  return `span:${span.spanId}`
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +234,12 @@ export type ReplayDbRow = {
   brand_submissions: { brand_id: string | null } | Array<{ brand_id: string | null }> | null
 }
 
-function embedOne<T>(value: T | T[] | null | undefined): T | null {
+/**
+ * A PostgREST embed as one row. supabase-js types an embedded relation as an
+ * array even when the foreign key makes it many-to-one (an object at runtime),
+ * so both shapes are accepted.
+ */
+export function embedOne<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null
   return value ?? null
 }

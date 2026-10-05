@@ -200,6 +200,9 @@ function userMessageOf(input: unknown): string {
   return typeof user === 'string' ? user : JSON.stringify(input)
 }
 
+/** Prefix of the error note a model arm's off-slot item carries (D19). */
+export const OFF_SLOT_NOTE = 'off-slot call'
+
 export async function runItems({
   items,
   task,
@@ -275,7 +278,7 @@ export async function runItems({
         if (offSlot !== undefined) {
           // Appended, not replaced: a task that already failed keeps its own
           // error. A succeeded task (even after a failed first attempt) drops it.
-          const note = `off-slot call: ${offSlot}`
+          const note = `${OFF_SLOT_NOTE}: ${offSlot}`
           lastError = taskResult?.ok || lastError === undefined ? note : `${lastError}; ${note}`
         }
 
@@ -533,7 +536,7 @@ export async function runExperiment({
         // Off-slot items' tokens were billed at another model's price, so they
         // are excluded from both the sum and the denominator.
         const listCosts = costPerItem === null && arm.type === 'model'
-          ? itemResults.filter((r) => !r.error?.includes('off-slot call')).map((r) =>
+          ? itemResults.filter((r) => !r.error?.includes(OFF_SLOT_NOTE)).map((r) =>
               listPriceCost(
                 {
                   promptTokens: r.promptTokens ?? 0,

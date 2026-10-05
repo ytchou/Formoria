@@ -134,16 +134,6 @@ describe('rebuildImages on the stored path', () => {
     )
     expect(result).toEqual({ skip: 'image' })
   })
-
-  it('loads once per span and reuses the cached result', async () => {
-    const loadStoredImage = vi.fn(async () => 'data:x')
-    const s = span(logged({ user: 'u', images: [OMITTED], meta: { imageIds: [IMAGE_A] } }))
-    const first = await rebuildImages(s, deps({ loadStoredImage }))
-    const second = await rebuildImages(s, deps({ loadStoredImage }))
-    expect(second).toBe(first)
-    expect(s.imageRebuild).toBe(first)
-    expect(loadStoredImage).toHaveBeenCalledTimes(1)
-  })
 })
 
 // ---------------------------------------------------------------------------

@@ -1948,7 +1948,7 @@ describe('parseCliArgs — replay (DEV-1917)', () => {
 
   it('rejects an unknown step, listing the valid steps', () => {
     expect(() => parseCliArgs(['replay', '--step', 'nope', '--arm', 'model:gpt-6-luna'])).toThrow(
-      /Unknown --step value: nope \(valid: all, detect, facts/,
+      /Unknown replay step: nope \(valid: detect, facts/,
     )
     expect(() => parseCliArgs(['replay', '--arm', 'model:gpt-6-luna'])).toThrow('--step is required')
   })

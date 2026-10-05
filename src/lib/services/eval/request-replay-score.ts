@@ -7,10 +7,12 @@
  * leaves are key fields and which are prose.
  *
  * - Leaves (enum / string / boolean / null): exact match, 1 or 0.
- * - Arrays of primitives: set Jaccard. Arrays holding objects: paired by
- *   index and recursed; an element present on one side only is a 0 leaf.
- *   Index pairing scores a reordered list as disagreement — fine while the
- *   steps answer in input order; key by an id field if one ever does not.
+ * - Arrays of primitives: set Jaccard. Arrays holding objects: set
+ *   semantics too — each expected element is paired with its best-agreeing
+ *   unused candidate element (see `pairElements`), then recursed. An element
+ *   present on one side only, or a whole array missing on one side, scores
+ *   a 0 leaf for every leaf of the present side, so key fields under the
+ *   array (`entries[].preset_id`) count the miss.
  * - Numbers on both sides: absolute delta, reported, not counted.
  * - Prose fields: changed/unchanged plus lengths, never counted.
  * - Agreement = mean over the remaining leaves; key-field agreement = mean
@@ -69,14 +71,18 @@ type Accumulator = {
 // Structural walk
 // ---------------------------------------------------------------------------
 
-function meanOrNull(values: number[]): number | null {
+export function meanOrNull(values: number[]): number | null {
   return values.length === 0 ? null : mean(values)
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
+export function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null
+}
+
+function missing(value: unknown): boolean {
+  return value === null || value === undefined
 }
 
 function isPrimitive(value: unknown): boolean {
@@ -119,28 +125,77 @@ function walk(expected: unknown, candidate: unknown, path: string, hints: ScoreH
     return
   }
 
-  if (Array.isArray(expected) && Array.isArray(candidate)) {
-    if (expected.every(isPrimitive) && candidate.every(isPrimitive)) {
-      const toSet = (values: unknown[]) => new Set(values.map((v) => JSON.stringify(v)))
-      acc.leaves.push({ path, match: jaccard(toSet(expected), toSet(candidate)) })
+  // A missing side reads as empty, so an array or object present on one side
+  // only still scores (as misses) every leaf it holds.
+  if (Array.isArray(expected) || Array.isArray(candidate)) {
+    const ea = Array.isArray(expected) ? expected : missing(expected) ? [] : null
+    const ca = Array.isArray(candidate) ? candidate : missing(candidate) ? [] : null
+    if (ea && ca) {
+      walkArray(ea, ca, path, hints, acc)
       return
     }
-    const elementPath = `${path}[]`
-    for (let i = 0; i < Math.max(expected.length, candidate.length); i++) {
-      walk(expected[i], candidate[i], elementPath, hints, acc)
-    }
-    return
   }
 
-  const e = asRecord(expected)
-  const c = asRecord(candidate)
-  if (e && c) {
+  const e = asRecord(expected) ?? (missing(expected) ? {} : null)
+  const c = asRecord(candidate) ?? (missing(candidate) ? {} : null)
+  if (e && c && (asRecord(expected) || asRecord(candidate))) {
     const keys = new Set([...Object.keys(e), ...Object.keys(c)])
     for (const key of keys) walk(e[key], c[key], joinPath(path, key), hints, acc)
     return
   }
 
   acc.leaves.push({ path, match: sameLeaf(expected, candidate) ? 1 : 0 })
+}
+
+function walkArray(expected: unknown[], candidate: unknown[], path: string, hints: ScoreHints, acc: Accumulator): void {
+  if (expected.every(isPrimitive) && candidate.every(isPrimitive)) {
+    const toSet = (values: unknown[]) => new Set(values.map((v) => JSON.stringify(v)))
+    acc.leaves.push({ path, match: jaccard(toSet(expected), toSet(candidate)) })
+    return
+  }
+  const elementPath = `${path}[]`
+  const pairs = pairElements(expected, candidate, elementPath, hints)
+  pairs.forEach((ci, ei) => walk(expected[ei], ci === null ? undefined : candidate[ci], elementPath, hints, acc))
+  const used = new Set(pairs)
+  candidate.forEach((c, ci) => {
+    if (!used.has(ci)) walk(undefined, c, elementPath, hints, acc)
+  })
+}
+
+/** Leaf agreement of one element pair, scored on a scratch accumulator; 0 when it has no counted leaf. */
+function pairAgreement(expected: unknown, candidate: unknown, path: string, hints: ScoreHints): number {
+  const scratch: Accumulator = { leaves: [], prose: [], numberDeltas: [] }
+  walk(expected, candidate, path, hints, scratch)
+  return meanOrNull(scratch.leaves.map((l) => l.match)) ?? 0
+}
+
+/**
+ * For each expected element, the index of the candidate element it pairs
+ * with, or null when none is left. Greedy: expected elements in order each
+ * take the unused candidate with the highest leaf agreement, ties to the
+ * lowest index — so an in-order list pairs as index pairing did, and a
+ * reordered-but-equal list scores 1.
+ *
+ * Ceiling: greedy, not an optimal assignment, and O(n·m) trial walks. Fine for
+ * the step replies (tens of elements); switch to a Hungarian assignment if a
+ * step's arrays grow past a few hundred or greedy mispairs measurably.
+ */
+function pairElements(expected: unknown[], candidate: unknown[], path: string, hints: ScoreHints): Array<number | null> {
+  const used = new Set<number>()
+  return expected.map((e) => {
+    let best: number | null = null
+    let bestScore = -1
+    for (let ci = 0; ci < candidate.length; ci++) {
+      if (used.has(ci)) continue
+      const score = pairAgreement(e, candidate[ci], path, hints)
+      if (score > bestScore) {
+        best = ci
+        bestScore = score
+      }
+    }
+    if (best !== null) used.add(best)
+    return best
+  })
 }
 
 function isUnderKeyField(path: string, keyFields: readonly string[]): boolean {

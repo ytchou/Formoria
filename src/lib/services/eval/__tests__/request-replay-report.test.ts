@@ -96,7 +96,10 @@ describe('buildStepTable — columns', () => {
       'challenger agreement',
       'noise-floor agreement',
       'key-field agreement',
+      'noise-floor key-field agreement',
       'prose changed',
+      'prose length ratio',
+      'number deltas',
       'p50 latency',
       'p95 latency',
       '$/call',
@@ -128,10 +131,9 @@ describe('buildStepTable — columns', () => {
           keyAgreement: i === 0 ? 0 : 1,
           prose: [{ path: 'description', changed: i === 1, expectedLength: 10, candidateLength: 12 }],
         }),
-        offSlot: i === 3,
         paramFallback: i >= 2,
       }),
-      incumbent: arm({ model: INCUMBENT, score: score({ agreement: 0.9 }) }),
+      incumbent: arm({ model: INCUMBENT, score: score({ agreement: 0.9, keyAgreement: 0.5 }), offSlot: i === 3 }),
     }))
     rows.push(span(9, { skip: 'image', challenger: null, incumbent: null }))
     rows.push(span(10, { skip: 'prod-failed', challenger: null, incumbent: null }))
@@ -141,18 +143,63 @@ describe('buildStepTable — columns', () => {
     expect(stats.spans).toBe(7)
     expect(stats.distinctBrands).toBe(6)
     expect(stats.challengerAgreement).toBeCloseTo(0.75)
-    expect(stats.noiseFloorAgreement).toBeCloseTo(0.92)
+    // Noise floor: three on-slot 0.9 / 0.5 incumbents plus span 11's default 1 / 1; i=3 is off-slot.
+    expect(stats.noiseFloorAgreement).toBeCloseTo(0.925)
     expect(stats.keyAgreement).toBeCloseTo(0.75)
+    expect(stats.noiseFloorKeyAgreement).toBeCloseTo(0.625)
     expect(stats.proseChangedPct).toBeCloseTo(0.25)
+    expect(stats.scoredSpans).toBe(5)
     expect(stats.failures).toBe(1)
     expect(stats.offSlot).toBe(1)
     expect(stats.paramFallback).toBe(2)
-    expect(stats.skips).toEqual({ image: 1, 'prod-failed': 1, unclassified: 0 })
+    expect(stats.skips).toEqual({ image: 1, 'prod-failed': 1 })
 
     expect(cell(markdown, 'spans')).toBe('n=7')
     expect(cell(markdown, 'challenger agreement')).toBe('75.0%')
+    expect(cell(markdown, 'noise-floor key-field agreement')).toBe('62.5%')
     expect(cell(markdown, 'prose changed')).toBe('25.0%')
-    expect(cell(markdown, 'skips')).toBe('image 1, prod-failed 1, unclassified 0')
+    expect(cell(markdown, 'skips')).toBe('image 1, prod-failed 1')
+  })
+
+  it('reports number deltas and the prose length ratio', () => {
+    const rows = spans(2, (i) => ({
+      challenger: arm({
+        score: score({
+          numberDeltas: [
+            { path: 'year', absDelta: 0 },
+            { path: 'score', absDelta: i === 0 ? 0.5 : 0.25 },
+          ],
+          prose: [
+            { path: 'description', changed: true, expectedLength: 10, candidateLength: i === 0 ? 12 : 8 },
+            { path: 'blurb', changed: false, expectedLength: 0, candidateLength: 0 },
+          ],
+        }),
+      }),
+    }))
+    const { stats, markdown } = buildStepTable('detect', rows)
+    expect(stats.numbers).toEqual({ leaves: 4, changed: 2, meanAbsDelta: 0.1875, maxAbsDelta: 0.5 })
+    // 12/10 and 8/10; the empty expected blurb has no ratio.
+    expect(stats.proseLengthRatio).toBeCloseTo(1)
+    expect(cell(markdown, 'number deltas')).toBe('2/4 changed, mean Δ 0.1875, max Δ 0.5')
+    expect(cell(markdown, 'prose length ratio')).toBe('1.00x')
+  })
+
+  it('leaves off-slot calls out of challenger and noise-floor agreement, latency and cost', () => {
+    const rows = spans(2, (i) => ({
+      challenger: arm(
+        i === 0
+          ? { score: score({ agreement: 0, keyAgreement: 0 }), offSlot: true, latencyMs: 9000, costUsd: 0.5 }
+          : { latencyMs: 100, costUsd: 0.001 },
+      ),
+      incumbent: arm({ model: INCUMBENT, score: score({ agreement: i === 0 ? 0 : 1 }), offSlot: i === 0 }),
+    }))
+    const { stats } = buildStepTable('detect', rows)
+    expect(stats.challengerAgreement).toBe(1)
+    expect(stats.keyAgreement).toBe(1)
+    expect(stats.noiseFloorAgreement).toBe(1)
+    expect(stats.latencyP95Ms).toBe(100)
+    expect(stats.costPerCall).toEqual({ usd: 0.001, source: 'db' })
+    expect(stats.offSlot).toBe(2)
   })
 })
 
@@ -168,12 +215,23 @@ describe('buildStepTable — under-powered flag', () => {
     expect(stats.underPowered).toBe(false)
     expect(markdown).not.toContain('UNDER-POWERED')
   })
+
+  it('counts only scored spans: 30 spans with a skip are under-powered', () => {
+    const rows = spans(UNDER_POWERED_MIN_SPANS, (i) =>
+      i === 0 ? { skip: 'image', challenger: null, incumbent: null } : {},
+    )
+    const { stats, markdown } = buildStepTable('detect', rows)
+    expect(stats.underPowered).toBe(true)
+    expect(markdown).toContain(`UNDER-POWERED (n=${UNDER_POWERED_MIN_SPANS - 1} < ${UNDER_POWERED_MIN_SPANS})`)
+  })
 })
 
 describe('buildStepTable — empty step', () => {
   it('prints n=0 in a single row with no agreement', () => {
     const { stats, markdown } = buildStepTable('detect', [])
     expect(stats.spans).toBe(0)
+    expect(stats.underPowered).toBe(false)
+    expect(markdown.split('\n')[0]).toBe('### detect — n=0')
     expect(stats.challengerAgreement).toBeNull()
     expect(stats.noiseFloorAgreement).toBeNull()
     expect(stats.keyAgreement).toBeNull()
@@ -181,6 +239,7 @@ describe('buildStepTable — empty step', () => {
     expect(cell(markdown, 'challenger agreement')).toBe('—')
     expect(cell(markdown, 'noise-floor agreement')).toBe('—')
     expect(cell(markdown, 'key-field agreement')).toBe('—')
+    expect(cell(markdown, 'number deltas')).toBe('—')
   })
 })
 

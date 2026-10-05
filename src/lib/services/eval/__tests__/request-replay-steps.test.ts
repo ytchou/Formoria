@@ -13,7 +13,6 @@ import {
   PRODUCTS_REPAIR_SCHEMA_NAME,
   REPLAY_STEPS,
   classifyReplayRow,
-  replayStepByName,
 } from '../request-replay-steps'
 
 // ---------------------------------------------------------------------------
@@ -161,8 +160,8 @@ describe('REPLAY_STEPS', () => {
     expect(step.phases.length).toBeGreaterThan(0)
   })
 
-  it('looks a step up by name', () => {
-    expect(replayStepByName('acquire_plan')?.profileKey).toBe('acquisition')
-    expect(replayStepByName('stockists')).toBeUndefined()
+  it('maps acquire_plan to the acquisition profile and excludes stockists', () => {
+    expect(REPLAY_STEPS.find((s) => s.name === 'acquire_plan')?.profileKey).toBe('acquisition')
+    expect(REPLAY_STEPS.find((s) => s.name === 'stockists')).toBeUndefined()
   })
 })

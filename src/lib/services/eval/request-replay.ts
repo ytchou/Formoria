@@ -27,7 +27,14 @@ import {
   type ReplaySpanResult,
   type StepTable,
 } from './request-replay-report'
-import { loadReplaySpans, supabaseReplayRowReader, type ReplayRowReader, type ReplaySpan } from './request-replay-load'
+import {
+  brandKeyOf,
+  leadRow,
+  loadReplaySpans,
+  supabaseReplayRowReader,
+  type ReplayRowReader,
+  type ReplaySpan,
+} from './request-replay-load'
 import {
   normalizeFresh,
   normalizeStored,
@@ -35,12 +42,13 @@ import {
   toChatInput,
   type ChatInput,
   type ImageRebuildDeps,
+  type ImageRebuildResult,
   type ImageSpan,
   type ImageTable,
 } from './request-replay-request'
 import { scoreReplayResponse, type NormalizedResponse } from './request-replay-score'
 import { REPLAY_STEPS, type ReplayStep } from './request-replay-steps'
-import { runItems, type ExperimentDeps, type ExperimentItem, type ItemResult } from './run-experiment'
+import { OFF_SLOT_NOTE, runItems, type ExperimentDeps, type ExperimentItem, type ItemResult } from './run-experiment'
 import type { AuditCollector } from './zero-write'
 
 // ---------------------------------------------------------------------------
@@ -131,9 +139,9 @@ export function requestReplayTask(deps: RequestReplayTaskDeps) {
 const RUNS_DIR = 'scripts/llm-eval/runs'
 const DEFAULT_SEED = 'dev-1917'
 const CONCURRENCY = 4
-const OFF_SLOT_NOTE = 'off-slot call'
 
-function resolveSteps(names: readonly string[]): ReplayStep[] {
+/** Validates step names; returns the catalog steps asked for, in catalog order. */
+export function resolveReplaySteps(names: readonly string[]): ReplayStep[] {
   const valid = REPLAY_STEPS.map((step) => step.name)
   for (const name of names) {
     if (!valid.includes(name)) {
@@ -141,19 +149,6 @@ function resolveSteps(names: readonly string[]): ReplayStep[] {
     }
   }
   return REPLAY_STEPS.filter((step) => names.includes(step.name))
-}
-
-/** The row a span is described by: its answer, else its newest row. */
-function leadRow(span: ReplaySpan) {
-  return span.answer ?? span.rows[span.rows.length - 1]!
-}
-
-function brandKeyOf(span: ReplaySpan): string {
-  const lead = leadRow(span)
-  const brandId = lead.brandId ?? lead.submissionBrandId
-  if (brandId) return `brand:${brandId}`
-  if (lead.submissionId) return `submission:${lead.submissionId}`
-  return `span:${span.spanId}`
 }
 
 function targetOf(span: ReplaySpan): EnrichmentTarget {
@@ -253,9 +248,16 @@ async function replayStep(step: ReplayStep, spans: ReplaySpan[], ctx: RunContext
     const request = span.answer.request as LoggedRequest
     // Loaded once here, before the arms; both arms reuse the result (D8).
     const imageSpan: ImageSpan = { request, target: targetOf(span) }
-    const rebuilt = await deps.runWithAuditContext({ correlationId: imageCorrelationId }, () =>
-      rebuildImages(imageSpan, deps.images),
-    )
+    let rebuilt: ImageRebuildResult
+    try {
+      rebuilt = await deps.runWithAuditContext({ correlationId: imageCorrelationId }, () =>
+        rebuildImages(imageSpan, deps.images),
+      )
+    } catch (e) {
+      // A lookup error (PostgREST error, a non-UUID id) skips this span, not the run.
+      console.warn(`[replay] ${step.name} span ${span.spanId}: image lookup failed: ${e instanceof Error ? e.message : String(e)}`)
+      rebuilt = { skip: 'image' }
+    }
     if ('skip' in rebuilt) {
       result.skip = 'image'
       images.skippedSpans++
@@ -279,15 +281,8 @@ async function replayStep(step: ReplayStep, spans: ReplaySpan[], ctx: RunContext
   if (replayable.length > 0) {
     const task = requestReplayTask(deps)
     const adapter = {
-      // runItems' own agreement score; the full ReplayScore is rebuilt per arm below.
-      scorers: [
-        {
-          name: 'agreement',
-          fn: (output: unknown, expected: unknown) =>
-            scoreReplayResponse(output as NormalizedResponse, expected as NormalizedResponse, step).agreement,
-          nullable: true as const,
-        },
-      ],
+      // No runItems scorers: each arm result is scored once, in armResultOf.
+      scorers: [],
       expectedOf: (item: { expectedOutput: unknown }) => item.expectedOutput,
     }
 
@@ -379,7 +374,7 @@ export async function runRequestReplay(
   options: RunRequestReplayOptions,
   deps: RequestReplayDeps,
 ): Promise<RequestReplayResult> {
-  const steps = resolveSteps(options.steps)
+  const steps = resolveReplaySteps(options.steps)
 
   const since = deps.now()
   const iso = since.toISOString()
@@ -439,7 +434,6 @@ export async function runRequestReplay(
       runFile,
       JSON.stringify(
         {
-          challengerModel: options.challengerModel,
           options,
           iso,
           rowsRead: loaded.rowsRead,
@@ -462,17 +456,51 @@ export async function runRequestReplay(
 // Production deps
 // ---------------------------------------------------------------------------
 
-/** The image row's processed Storage object as a vision data URI, or null when it has none. */
-async function storedDataUri(
+type StoredImageRow = { storage_path: string | null; url: string | null }
+
+/** The image row's Storage columns, or null when no row matches. */
+async function readImageRow(
   client: SupabaseClient,
   table: ImageTable,
   match: Record<string, string>,
-  loadVisionDataUri: (image: { storage_path?: string | null }) => Promise<string | null>,
-): Promise<string | null> {
-  const { data, error } = await client.from(table).select('storage_path').match(match).maybeSingle()
+): Promise<StoredImageRow | null> {
+  const { data, error } = await client.from(table).select('storage_path, url').match(match).maybeSingle()
   if (error) throw new Error(`[replay] ${table} read failed: ${error.message}`)
-  const storagePath = (data as { storage_path?: string | null } | null)?.storage_path
-  return storagePath ? loadVisionDataUri({ storage_path: storagePath }) : null
+  return (data as StoredImageRow | null) ?? null
+}
+
+const OTHER_IMAGE_TABLE: Record<ImageTable, ImageTable> = {
+  brand_images: 'submission_images',
+  submission_images: 'brand_images',
+}
+
+/**
+ * The stored-image lookups over `client`. Both pass `storage_path` and `url`
+ * to `loadVisionDataUri`, as classify-images does: `visionStorageKey` falls
+ * back to the public `url` for rows written before DEV-1551.
+ */
+export function storedImageLoaders(
+  client: SupabaseClient,
+  loadVisionDataUri: (image: StoredImageRow) => Promise<string | null>,
+): Pick<ImageRebuildDeps, 'loadStoredImage' | 'loadBySourceUrl'> {
+  return {
+    // approve_submission re-targets brand_ai_results rows to the brand, but
+    // `meta.imageIds` keep the ids the call was made with: a classified-then-
+    // approved submission's ids are submission_images ids. A miss in the
+    // target's table falls back to the other table by the same id.
+    loadStoredImage: async (table, id) => {
+      const row = (await readImageRow(client, table, { id })) ?? (await readImageRow(client, OTHER_IMAGE_TABLE[table], { id }))
+      return row ? loadVisionDataUri(row) : null
+    },
+    loadBySourceUrl: async (table, targetId, sourceUrl) => {
+      const { foreignKey } = targetImageStorage({
+        type: table === 'submission_images' ? 'submission' : 'brand',
+        id: targetId,
+      })
+      const row = await readImageRow(client, table, { [foreignKey]: targetId, source_url: sourceUrl })
+      return row ? loadVisionDataUri(row) : null
+    },
+  }
 }
 
 /**
@@ -496,14 +524,7 @@ export async function createRequestReplayDeps(client: SupabaseClient): Promise<R
   return {
     readRows: supabaseReplayRowReader(client),
     images: {
-      loadStoredImage: (table, id) => storedDataUri(client, table, { id }, loadVisionDataUri),
-      loadBySourceUrl: (table, targetId, sourceUrl) => {
-        const { foreignKey } = targetImageStorage({
-          type: table === 'submission_images' ? 'submission' : 'brand',
-          id: targetId,
-        })
-        return storedDataUri(client, table, { [foreignKey]: targetId, source_url: sourceUrl }, loadVisionDataUri)
-      },
+      ...storedImageLoaders(client, loadVisionDataUri),
       fetchVisionImage: (url) => imageDownload.fetchVisionImage(url),
     },
     createProfiledOpenAIClient: (profileKey, context, options) =>
