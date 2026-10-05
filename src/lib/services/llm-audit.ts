@@ -72,6 +72,8 @@ export type CapturedCall = {
   /** The full conversation as the caller sent it, untruncated. A legacy `{system,user}` call becomes two messages; its `images` are not copied. */
   messages: ChatMessage[];
   response: CapturedResponse;
+  /** The learned parameter overrides that changed this attempt (`openai-client.ts`); absent when none did. */
+  paramFallback?: string[];
 };
 
 let captureSeam: ((call: CapturedCall) => void) | null = null;
@@ -263,6 +265,7 @@ function capture(
 ): void {
   if (!captureSeam) return;
   try {
+    const paramFallback = event.meta?.paramFallback;
     captureSeam({
       phase: context.phase,
       profileKey,
@@ -271,6 +274,9 @@ function capture(
       promptName: context.prompt?.name ?? null,
       messages: capturedMessages(input),
       response: capturedResponse(input, event),
+      ...(Array.isArray(paramFallback) && paramFallback.length > 0
+        ? { paramFallback: paramFallback.map(String) }
+        : {}),
     });
   } catch {
     // Capture is an offline observer; it must never fail the call.

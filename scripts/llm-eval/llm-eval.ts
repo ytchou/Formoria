@@ -50,6 +50,8 @@ import {
   type TimedCapturedCall,
 } from '@/lib/services/eval/golden-capture'
 import type { EnrichBrand, EnrichPhase } from '@/lib/services/enrich-phases/types'
+import { REPLAY_STEPS } from '@/lib/services/eval/request-replay-steps'
+import { DEFAULT_PANEL_MAX } from '@/lib/services/eval/request-replay-report'
 
 // ---------------------------------------------------------------------------
 // Arg parsing
@@ -97,6 +99,16 @@ export type ParsedCommand =
     }
   | { command: 'pairwise-report'; runName: string }
   | { command: 'sweep-names'; runFile: string; dataset: string; split: Split[] }
+  | {
+      command: 'replay'
+      steps: string[]
+      arm: { kind: 'model'; model: string }
+      since?: string
+      limit: number
+      panelMax: number
+      seed?: string
+      confirm: boolean
+    }
 
 function parseSplit(value: string): Split[] {
   const parts = splitList(value)
@@ -172,6 +184,34 @@ function parseLimit(value: string | undefined): number | undefined {
 
 const DEFAULT_SPLIT_SEED = 'dev-1898'
 
+/** D11: spans per step, newest first. */
+const DEFAULT_REPLAY_LIMIT = 50
+
+/** `--step all` or a comma list of catalog step names, in catalog order. */
+function parseReplaySteps(value: string | undefined): string[] {
+  if (!value) throw new Error('--step is required (a step name or "all")')
+  const valid = REPLAY_STEPS.map((step) => step.name)
+  if (value.trim() === 'all') return valid
+  const asked = splitList(value)
+  for (const name of asked) {
+    if (!valid.includes(name)) {
+      throw new Error(`Unknown --step value: ${name} (valid: all, ${valid.join(', ')})`)
+    }
+  }
+  return valid.filter((name) => asked.includes(name))
+}
+
+/** Exactly one `--arm model:<id>`: the incumbent arm is automatic (D8). */
+function parseReplayArm(arms: string[] | undefined): { kind: 'model'; model: string } {
+  if (!arms || arms.length === 0) throw new Error('--arm model:<id> is required')
+  if (arms.length > 1) {
+    throw new Error('replay takes exactly one --arm (the incumbent noise arm is added automatically)')
+  }
+  const arm = parseArm(arms[0]!)
+  if (arm.kind !== 'model') throw new Error(`replay needs a model arm (model:<id>), got ${arms[0]}`)
+  return arm
+}
+
 function assertGoldenCaptureDataset(dataset: string): void {
   if (!promptForDataset(dataset)) {
     throw new Error(`"${dataset}" is not a capture/harvest golden dataset`)
@@ -211,6 +251,8 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       seed: { type: 'string' },
       apply: { type: 'boolean', default: false },
       pin: { type: 'string' },
+      step: { type: 'string' },
+      'panel-max': { type: 'string' },
     },
   })
 
@@ -325,6 +367,26 @@ export function parseCliArgs(args: string[]): ParsedCommand {
     }
   }
 
+  if (sub === 'replay') {
+    if (values.since !== undefined && Number.isNaN(new Date(values.since).getTime())) {
+      throw new Error('--since must be a date (YYYY-MM-DD)')
+    }
+    const panelMax = values['panel-max'] !== undefined ? Number(values['panel-max']) : DEFAULT_PANEL_MAX
+    if (!Number.isInteger(panelMax) || panelMax < 0) {
+      throw new Error('--panel-max must be a non-negative integer')
+    }
+    return {
+      command: 'replay',
+      steps: parseReplaySteps(values.step),
+      arm: parseReplayArm(values.arm),
+      ...(values.since !== undefined ? { since: values.since } : {}),
+      limit: parseLimit(values.limit) ?? DEFAULT_REPLAY_LIMIT,
+      panelMax,
+      ...(values.seed !== undefined ? { seed: values.seed } : {}),
+      confirm: values.confirm ?? false,
+    }
+  }
+
   if (sub === 'sweep-names') {
     const runFile = positionals[1]
     if (!runFile) throw new Error('run file argument is required')
@@ -427,7 +489,8 @@ export function parseCliArgs(args: string[]): ParsedCommand {
       '  llm-eval prompt promote <name> <version> [--allow-variable-change]\n' +
       '  llm-eval pairwise run --phase <phase> [--target <target>] [--sample <n>] --arm <spec> --arm <spec> [--no-enqueue] [--allow-unreviewed]\n' +
       '  llm-eval pairwise report <runName>\n' +
-      '  llm-eval sweep-names <runfile> --dataset <name> --split train,val',
+      '  llm-eval sweep-names <runfile> --dataset <name> --split train,val\n' +
+      '  llm-eval replay --step <name|all> --arm model:<id> [--since <YYYY-MM-DD>] [--limit <n>] [--panel-max <n>] [--seed <s>] [--target production --confirm]',
   )
 }
 
@@ -2144,6 +2207,37 @@ async function cmdDatasetHarvest(
   reportFailedWrites('harvest', failed)
 }
 
+/**
+ * `llm-eval replay` (DEV-1917): CLI wiring only. Loading, rebuilding, scoring
+ * and the zero-write check live in `request-replay.ts`.
+ */
+export async function cmdReplay(
+  parsed: Extract<ParsedCommand, { command: 'replay' }>,
+  target: string,
+): Promise<void> {
+  assertGoldenTarget(target, parsed.confirm)
+  const { createServiceClient } = await import('@/lib/supabase/service')
+  const { createRequestReplayDeps, runRequestReplay } = await import('@/lib/services/eval/request-replay')
+
+  // Read-only: `loadScriptTarget` pointed the service client at --target.
+  const deps = await createRequestReplayDeps(createServiceClient())
+  const result = await runRequestReplay(
+    {
+      steps: parsed.steps,
+      challengerModel: parsed.arm.model,
+      ...(parsed.since !== undefined ? { since: parsed.since } : {}),
+      limit: parsed.limit,
+      panelMax: parsed.panelMax,
+      ...(parsed.seed !== undefined ? { seed: parsed.seed } : {}),
+    },
+    deps,
+  )
+
+  for (const table of result.tables) console.log(`${table.markdown}\n`)
+  console.log(result.summary)
+  console.log(`\n[replay] run written to ${result.runFile}`)
+}
+
 async function cmdDatasetCapture(
   brandSlugs: string[],
   target: string,
@@ -2815,6 +2909,9 @@ async function main() {
       break
     case 'sweep-names':
       await cmdSweepNames(parsed.runFile, parsed.dataset, parsed.split)
+      break
+    case 'replay':
+      await cmdReplay(parsed, target)
       break
   }
 }

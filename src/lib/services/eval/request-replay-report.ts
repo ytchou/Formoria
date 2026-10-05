@@ -32,7 +32,7 @@ export const DEFAULT_PANEL_MAX = 30
 // Input types
 // ---------------------------------------------------------------------------
 
-export type ReplaySkipReason = 'image' | 'prod-failed' | 'unclassified'
+type ReplaySkipReason = 'image' | 'prod-failed' | 'unclassified'
 
 /** One arm's call for one span. */
 export type ReplayArmResult = {
@@ -74,7 +74,7 @@ export type ReplaySpanResult = {
 // Step table
 // ---------------------------------------------------------------------------
 
-export type StepStats = {
+type StepStats = {
   step: string
   spans: number
   distinctBrands: number

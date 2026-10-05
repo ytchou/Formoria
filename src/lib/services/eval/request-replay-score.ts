@@ -37,14 +37,14 @@ export type ScoreHints = {
   proseFields: readonly string[]
 }
 
-export type ProseFieldDiff = {
+type ProseFieldDiff = {
   path: string
   changed: boolean
   expectedLength: number
   candidateLength: number
 }
 
-export type NumberDelta = { path: string; absDelta: number }
+type NumberDelta = { path: string; absDelta: number }
 
 export type ReplayScore = {
   /** Mean leaf match over non-prose, non-number leaves; null when there are none. */

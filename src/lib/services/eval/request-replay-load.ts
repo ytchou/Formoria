@@ -54,8 +54,8 @@ export type ReplaySpan = {
   lastAt: string
 }
 
-export type ReplayRowRange = { from: number; to: number }
-export type ReplayRowFilter = { phases: string[]; since?: string }
+type ReplayRowRange = { from: number; to: number }
+type ReplayRowFilter = { phases: string[]; since?: string }
 export type ReplayRowReader = (range: ReplayRowRange, filter: ReplayRowFilter) => Promise<ReplayRow[]>
 
 export type LoadReplaySpansOptions = {
