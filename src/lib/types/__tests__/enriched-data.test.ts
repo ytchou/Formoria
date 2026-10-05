@@ -108,6 +108,19 @@ describe("enrichedDataFromDb", () => {
     expect(domain.nameProposal).toEqual(proposal);
     expect(enrichedDataToDb(domain)).toEqual({ _name_proposal: proposal });
   });
+
+  it("keeps a medium proposal that carries no first-party evidence", () => {
+    const proposal = {
+      value: "AROMASE 艾瑪絲",
+      confidence: "medium" as const,
+      reason: "尾段是行銷文案",
+      evidence: [],
+    };
+
+    expect(enrichedDataFromDb({ _name_proposal: proposal }).nameProposal).toEqual(
+      proposal,
+    );
+  });
 });
 
 describe("enrichedDataToDb", () => {
