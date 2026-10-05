@@ -70,6 +70,7 @@ import {
 import { registry as defaultRegistry } from './registry'
 import { HEALTH_JOBS, QUALITY_CONTEXT_COMMANDS } from './jobs'
 import { evaluateQualityReports } from './detectors/quality'
+import { sanitizeJobError } from '../job-errors'
 import type { CommandResult } from '@/repo-worker/jobs'
 
 // ---------------------------------------------------------------------------
@@ -173,8 +174,12 @@ const DAY_MS = 86_400_000
 type QualityWorkerFailureKind =
   'clone-auth' | 'install' | 'vitest-exec' | 'knip-exec' | 'worker-transport'
 
-/** Header Vitest prints before its unhandled-errors block on stderr. */
-const VITEST_UNHANDLED_HEADER = 'Unhandled Errors'
+/**
+ * Part of the banner Vitest prints before its unhandled-errors block on stderr.
+ * The box-drawing rule keeps a test log line that merely mentions "Unhandled
+ * Errors" from becoming the anchor.
+ */
+const VITEST_UNHANDLED_BANNER = '⎯ Unhandled Errors ⎯'
 
 /**
  * Fits Vitest's unhandled-errors block: header, error, stack, origin file. A
@@ -185,21 +190,23 @@ const VITEST_UNHANDLED_LIMIT = 4000
 
 function boundedEvidence(
   value: string | undefined,
-  keep: 'head' | 'tail' | 'stderr' = 'head',
+  keep: 'head' | 'vitest' = 'head',
 ): string | undefined {
   if (!value) return undefined
-  const redacted = value
-    .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/g, '[REDACTED]')
-    .replace(/\b(?:Bearer|Basic)\s+\S+/gi, '[REDACTED]')
-    .replace(/\bgithub_pat_[A-Za-z0-9_]+\b/g, '[REDACTED]')
-    .replace(/\bgh[pousr]_[A-Za-z0-9_]+\b/g, '[REDACTED]')
-  if (keep === 'stderr') {
-    const header = redacted.lastIndexOf(VITEST_UNHANDLED_HEADER)
-    if (header >= 0) {
-      return redacted.slice(header, header + VITEST_UNHANDLED_LIMIT)
-    }
-  }
-  return keep === 'head' ? redacted.slice(0, 500) : redacted.slice(-500)
+  // sanitizeJobError covers JWTs, GitHub/OpenAI/Supabase keys, key=value
+  // secrets and connection strings: the vitest window carries test console
+  // output, which can print any of them.
+  const redacted = sanitizeJobError(
+    value
+      .replace(/-----BEGIN [^-]+-----[\s\S]*?-----END [^-]+-----/g, '[REDACTED]')
+      .replace(/\b(?:Bearer|Basic)\s+\S+/gi, '[REDACTED]'),
+    Number.POSITIVE_INFINITY,
+  )
+  if (keep === 'head') return redacted.slice(0, 500)
+  const banner = redacted.lastIndexOf(VITEST_UNHANDLED_BANNER)
+  return banner >= 0
+    ? redacted.slice(banner, banner + VITEST_UNHANDLED_LIMIT)
+    : redacted.slice(-500)
 }
 
 function qualityWorkerFailure(
@@ -209,6 +216,8 @@ function qualityWorkerFailure(
     code?: string
     message?: string
     command?: CommandResult
+    /** Splits the fingerprint for a distinct failure class of the same kind. */
+    variant?: string
   } = {},
 ): HealthFinding {
   const evidence: Record<string, string | number | boolean> = {
@@ -217,10 +226,14 @@ function qualityWorkerFailure(
   const stage = boundedEvidence(details.stage)
   const code = boundedEvidence(details.code)
   const message = boundedEvidence(details.message)
-  // A command reports its failure last; the head is setup noise. Vitest's
-  // unhandled-errors block ends in ~460 chars of fixed text that would fill a
-  // 500-char tail, so that block is kept from its header instead (DEV-1931).
-  const stderr = boundedEvidence(details.command?.stderr, 'stderr')
+  // Node prints a crash's error first, so most commands keep the head. Vitest
+  // reports last: its unhandled-errors block is kept from the banner (its
+  // ~460-char closing text alone would fill a 500-char tail), else the tail
+  // (DEV-1931).
+  const stderr = boundedEvidence(
+    details.command?.stderr,
+    kind === 'vitest-exec' ? 'vitest' : 'head',
+  )
   if (stage) evidence.stage = stage
   if (code) evidence.code = code
   if (message) evidence.message = message
@@ -231,8 +244,14 @@ function qualityWorkerFailure(
   }
   return {
     source: 'quality',
-    fingerprint: stableFingerprint('quality', 'worker-failure', kind),
-    title: `Quality worker failure: ${kind}`,
+    fingerprint: stableFingerprint(
+      'quality',
+      'worker-failure',
+      details.variant ? `${kind}:${details.variant}` : kind,
+    ),
+    title: details.variant
+      ? `Quality worker failure: ${kind} (${details.variant})`
+      : `Quality worker failure: ${kind}`,
     severity: 'high',
     evidence,
     mergePolicy: 'human',
@@ -246,8 +265,10 @@ function parseJsonOutput(stdout: string): unknown {
   } catch {
     const lines = trimmed.split('\n')
     for (let index = lines.length - 1; index >= 0; index -= 1) {
+      // Checked before joining: stdout now carries the default reporter's
+      // lines, and joining every suffix first is quadratic in its size.
+      if (!lines[index]?.trimStart().startsWith('{')) continue
       const candidate = lines.slice(index).join('\n').trim()
-      if (!candidate.startsWith('{')) continue
       try {
         return JSON.parse(candidate)
       } catch {
@@ -567,16 +588,23 @@ async function executeRunBody(
           const vitestFailure = evaluation.failures.find((failure) =>
             failure.startsWith('full-unit-suite:'),
           )
+          const vitestCode = vitestResult?.timedOut
+            ? 'command-timeout'
+            : vitestFailure === 'full-unit-suite:nonzero_exit_without_failures'
+              ? 'nonzero-exit-without-failures'
+              : 'invalid-report'
           vitestFindings.push(
             qualityWorkerFailure('vitest-exec', {
               stage: 'vitest',
-              code: vitestResult?.timedOut
-                ? 'command-timeout'
-                : vitestFailure === 'full-unit-suite:nonzero_exit_without_failures'
-                  ? 'nonzero-exit-without-failures'
-                  : 'invalid-report',
+              code: vitestCode,
               message: vitestFailure,
               command: vitestResult,
+              // A distinct problem from a broken report: its own fingerprint,
+              // so a recurrence files a fresh ticket instead of merging into
+              // an existing one's dedupe window.
+              ...(vitestCode === 'nonzero-exit-without-failures'
+                ? { variant: vitestCode }
+                : {}),
             }),
           )
         }

@@ -132,15 +132,13 @@ describe("emitAuditRecord", () => {
     );
     vi.useFakeTimers();
     try {
-      let released = false;
-      const emitted = emitAuditRecord(record(), async () => {}).then(() => {
-        released = true;
-      });
+      const emitted = emitAuditRecord(record(), async () => {});
       // Let the lazy `next/server` import settle so the budget timer exists.
       await vi.advanceTimersByTimeAsync(0);
       await vi.advanceTimersByTimeAsync(2_000);
+      // Fake time stops at the budget, before the write settles: if the caller
+      // still awaited the write, this would hang and the test would time out.
       await emitted;
-      expect(released).toBe(true);
       // Drains every attempt: the inline policy retries a failed write once.
       await vi.runAllTimersAsync();
     } finally {
