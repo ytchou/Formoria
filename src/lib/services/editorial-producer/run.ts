@@ -15,7 +15,10 @@ import {
   reserveModelCost,
   settleModelCost,
 } from "./budget";
-import { EDITORIAL_RULES } from "@/lib/prompts/editorial-producer";
+import {
+  EDITORIAL_DRAFT_INSTRUCTION,
+  EDITORIAL_RULES,
+} from "@/lib/prompts/editorial-producer";
 import { fetchSource, loadContext } from "./sources";
 import { RunStore } from "./store";
 import { LIMITS, type Claim, type Fact, type Run, type Stage } from "./types";
@@ -667,8 +670,7 @@ export async function runProducer(
                 reviewFailures: run.review.failures,
               }
             : {}),
-          instruction:
-            "Write the full natural zh-TW Markdown article. Put a [^f1] style marker right after every sentence that states a sourced fact, citing only the facts that sentence relies on; sentences without a marker must contain no product facts. Distinguish interpretations, make no unsupported product claims. Do not add footnote definitions; the service appends them with source links. All selections remain provisional; open decisions belong in openDecisions, not the article. Name each source by what its sourceUrl shows: a brand's own site is the brand's 官網, a marketplace such as Pinkoi or Shopee is that marketplace's 商品頁 with its seller; never call a marketplace page 官方頁面. Each sentence may state only what the excerpts of the facts it cites say: add no detail from fact claims beyond their excerpts, from other facts, or from your own knowledge. When you describe a use that has restriction or caution facts, state those restrictions with their markers in the same paragraph, or do not describe that use. The article contains no editorial to-do notes such as 出版前需補核; those belong in openDecisions. Name each product in full once, where its paragraph begins; within that paragraph refer to it as 它 or a short name. Choose the facts that matter to this reader's decision (for example size and storage for a small home, restrictions for the described use); a product paragraph is not an exhaustive spec list. The article speaks to readers: never mention internal process (candidates, catalog data, verification, human review, publication decisions) and never mention stock, availability, lead times, shipping or ordering. Frame an editorial interpretation as conditional once per product, then trust the reader; do not repeat that no product suits everyone. When previousDraft and reviewFailures are present, revise previousDraft to resolve every failure, changing only the sentences those failures concern and keeping every other sentence word for word; if a failure cannot be fixed with the provided facts, delete or narrow the offending sentence.",
+          instruction: EDITORIAL_DRAFT_INSTRUCTION,
         });
         await checkpoint("review", (current) => {
           current.draft = result.markdown;
