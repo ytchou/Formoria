@@ -307,6 +307,13 @@ export function mrr(retrieved: string[], expected: string[]): number {
 // Aggregation helpers (migrated from metrics.ts)
 // ---------------------------------------------------------------------------
 
+export function p50(values: number[]): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const index = Math.ceil(sorted.length * 0.5) - 1
+  return sorted[Math.max(0, index)]!
+}
+
 export function p95(values: number[]): number {
   if (values.length === 0) return 0
   const sorted = [...values].sort((a, b) => a - b)

@@ -16,6 +16,7 @@ import {
   recallAtK,
   mrr,
   mean,
+  p50,
   p95,
   ndcgAtK,
   bootstrapCI,
@@ -425,6 +426,15 @@ describe('p95 and mean migrated', () => {
 
   it('mean matches legacy value', () => {
     expect(mean([1, 2, 3])).toBe(2)
+  })
+})
+
+describe('p50', () => {
+  it('returns the nearest-rank median, 0 when empty', () => {
+    expect(p50([5, 1, 3])).toBe(3)
+    expect(p50([4, 1, 3, 2])).toBe(2)
+    expect(p50([7])).toBe(7)
+    expect(p50([])).toBe(0)
   })
 })
 
