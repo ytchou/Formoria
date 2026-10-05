@@ -7,14 +7,18 @@ import type { CommandInput } from "../editorial-producer/types";
 export const EDITORIAL_ROUTING_RULE =
   "For a HUMAN request to research, prepare, write or draft a Formoria article, call propose_action with kind start_editorial_producer and brief preserving the actual request. It displays a Start button before research begins. NEVER fire_routine for editorial articles. Do not research or draft inside Ops. Final selection and publication are human-owned.";
 
+/** Ops offers and relays editorial runs only once the worker is configured. */
+export function editorialProducerConfigured(): boolean {
+  return (
+    !!process.env.EDITORIAL_PRODUCER_URL &&
+    !!process.env.EDITORIAL_PRODUCER_TOKEN
+  );
+}
+
 export async function relayEditorialReply(
   request: OpsRequestRow,
 ): Promise<string | null> {
-  if (
-    !process.env.EDITORIAL_PRODUCER_URL ||
-    !process.env.EDITORIAL_PRODUCER_TOKEN
-  )
-    return null;
+  if (!editorialProducerConfigured()) return null;
   const original = await getEditorialThreadRequest(
     request.channelId,
     request.threadTs,

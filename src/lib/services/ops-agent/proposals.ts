@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { editorialProducerConfigured } from "./editorial";
 
 // ---------------------------------------------------------------------------
 // Proposal discriminated union
@@ -71,6 +72,11 @@ export async function validateProposal(
     }
 
     case "start_editorial_producer":
+      // No Start card for a worker that does not exist yet.
+      return editorialProducerConfigured()
+        ? { ok: true }
+        : { ok: false, error: "editorial_producer_not_configured" };
+
     case "rerun_job":
       return { ok: true };
   }

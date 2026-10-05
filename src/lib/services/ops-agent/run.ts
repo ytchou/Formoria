@@ -5,7 +5,11 @@
  * Never imports `next/server`.
  */
 
-import { EDITORIAL_ROUTING_RULE, relayEditorialReply } from "./editorial";
+import {
+  EDITORIAL_ROUTING_RULE,
+  editorialProducerConfigured,
+  relayEditorialReply,
+} from "./editorial";
 import { fetchLangfusePromptWithMeta } from "@/lib/langfuse/prompt";
 import {
   createAgentModel as defaultCreateAgentModel,
@@ -469,7 +473,8 @@ export async function runOpsAgent(
     await fetchLangfusePromptWithMeta("ops-agent-system");
   let systemPrompt = `${rawPrompt}\n\nAlways respond in English.`;
 
-  systemPrompt += "\n\n" + EDITORIAL_ROUTING_RULE;
+  if (editorialProducerConfigured())
+    systemPrompt += "\n\n" + EDITORIAL_ROUTING_RULE;
 
   if (priorMessages.length > 0) {
     systemPrompt += "\n\nPrior messages in this thread are context only — do not re-execute past actions unless explicitly asked.";
