@@ -116,5 +116,65 @@ test.describe("Discovery trail deep", () => {
     const trailLink = anonPage.getByRole("link").filter({ has: trailHeading });
     await expect(trailLink).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(trailLink).toHaveAttribute("href", TRAIL_URL);
+
+    // The product peek is a decorative `ul[aria-hidden="true"]` sibling of the
+    // card link, so role queries cannot see it. Scope it to this card's own
+    // `li` — a page-wide locator would let another card's peek satisfy it.
+    const card = anonPage.getByRole("listitem").filter({ has: trailLink });
+    const peekThumbs = card.locator(':scope > ul[aria-hidden="true"] > li');
+    await expect(peekThumbs.first()).toBeAttached({
+      timeout: BUDGET.RENDERED,
+    });
+    const peekCount = await peekThumbs.count();
+    expect(peekCount).toBeGreaterThanOrEqual(1);
+    expect(peekCount).toBeLessThanOrEqual(4);
+  });
+
+  test("trail section shows product tiles with notes", async ({ anonPage }) => {
+    const response = await anonPage.goto(TRAIL_URL);
+    test.skip(response?.status() === 503, "PREVIEW_MODE active");
+
+    const section = trail!.sections[0];
+    test.skip(!section, `trail "${trail!.slug}" has no sections`);
+
+    // The section number ("01") is aria-hidden, so the heading's accessible
+    // name is the bare section title.
+    const sectionHeading = anonPage.getByRole("heading", {
+      name: section.title,
+      level: 2,
+      exact: true,
+    });
+    const sectionEl = anonPage
+      .locator("section")
+      .filter({ has: sectionHeading });
+    await expect(sectionEl).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+
+    // A tile is a list item carrying the product name as a level-3 heading
+    // (inside the link to the brand page). The editorial note is the first
+    // paragraph directly after that link, ahead of the brand name and the
+    // longer product description.
+    const tiles = sectionEl
+      .getByRole("listitem")
+      .filter({ has: anonPage.getByRole("heading", { level: 3 }) });
+    const count = await tiles.count();
+    test.skip(
+      count === 0,
+      `trail "${trail!.slug}" section "${section.key}" has no product supply on this target`,
+    );
+    expect(count).toBeGreaterThanOrEqual(3);
+
+    for (let i = 0; i < count; i++) {
+      const tile = tiles.nth(i);
+      const name = tile.getByRole("heading", { level: 3 });
+      await expect(name).toBeVisible({ timeout: BUDGET.RENDERED });
+      const nameText = ((await name.textContent()) ?? "").trim();
+      expect(nameText.length).toBeGreaterThan(0);
+
+      const note = tile.locator("a:has(h3) + p");
+      await expect(note).toBeVisible({ timeout: BUDGET.RENDERED });
+      const noteText = ((await note.textContent()) ?? "").trim();
+      expect(noteText.length, `tile "${nameText}" note`).toBeGreaterThan(0);
+      expect(noteText, `tile "${nameText}" note`).not.toBe(nameText);
+    }
   });
 });

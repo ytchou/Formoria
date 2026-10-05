@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { extractPostgrestContext, summarizeUpstreamHtmlError } from '../sentry.server.config'
+import {
+  extractPostgrestContext,
+  SERVER_ACTION_SKEW,
+  summarizeUpstreamHtmlError,
+} from '../sentry.server.config'
 
 const cloudflare522 = (rayId: string, timestamp: string) => `<!DOCTYPE html>
 <html class="no-js" lang="en-US">
@@ -75,5 +79,25 @@ describe('summarizeUpstreamHtmlError', () => {
     expect(summarizeUpstreamHtmlError('Failed to fetch event foo: JWT expired')).toBe(
       'Failed to fetch event foo: JWT expired',
     )
+  })
+})
+
+describe('SERVER_ACTION_SKEW', () => {
+  // Verbatim from next@16 `action-handler.js` (E975, no-JS form POST) and
+  // `manifests-singleton.js` (E974, carries the action id).
+  const readMore = '\nRead more: https://nextjs.org/docs/messages/failed-to-find-server-action'
+
+  it('matches both Next.js skew messages', () => {
+    expect(SERVER_ACTION_SKEW.test(
+      `Failed to find Server Action. This request might be from an older or newer deployment.${readMore}`,
+    )).toBe(true)
+    expect(SERVER_ACTION_SKEW.test(
+      `Failed to find Server Action "7f3a9c". This request might be from an older or newer deployment.${readMore}`,
+    )).toBe(true)
+  })
+
+  it('does not match an unrelated server action failure', () => {
+    expect(SERVER_ACTION_SKEW.test('Failed to find Server Action manifest for page /admin')).toBe(false)
+    expect(SERVER_ACTION_SKEW.test('Server Action submitBrand failed: JWT expired')).toBe(false)
   })
 })

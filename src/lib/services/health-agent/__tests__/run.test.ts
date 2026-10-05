@@ -810,6 +810,252 @@ describe('runHealthAgent', () => {
     expect(reconcileCall?.[1].p_completed_sources).not.toContain('quality')
   })
 
+  it('keeps the tail of vitest stderr, where the failure is reported (DEV-1931)', async () => {
+    const client = stubClient()
+    // The head of a real run's stderr is fixed noise (the Vite config warning
+    // and expected checker output); the actionable error is printed last.
+    const stderr = `${'(!) config warning\n'.repeat(40)}Error: the real cause`
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'repo-root', stdout: '/repo\n', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'tracked-files', stdout: '', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'vitest', stdout: 'not-json', stderr, exitCode: 1, timedOut: false },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    await runHealthAgent(
+      baseDeps({
+        client,
+        registryOverride: qualityRegistry(),
+        workerClient: { run: runFn },
+      }),
+    )
+
+    const enqueue = rpcCalls(client).find(
+      ([name, params]) =>
+        name === 'enqueue_health_fix' &&
+        params.p_fingerprint === 'quality:worker-failure:vitest-exec',
+    )
+    const evidence = enqueue?.[1].p_evidence as { stderr: string }
+    expect(evidence.stderr.endsWith('Error: the real cause')).toBe(true)
+    expect(evidence.stderr.length).toBeLessThanOrEqual(500)
+  })
+
+  it('keeps the Vitest unhandled-errors block, not just its closing text (DEV-1931)', async () => {
+    const client = stubClient()
+    const testFile = 'src/some/long/path/to/a-test-file.test.ts'
+    const frame =
+      ' ❯ node_modules/.pnpm/@vitest+runner@4.1.9/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n'
+    // Shape copied from a real leaked-rejection run: Vitest's fixed closing
+    // text alone fills a 500-char tail, hiding the error and the file.
+    const block = [
+      '⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯',
+      '',
+      'Vitest caught 1 unhandled error during the test run.',
+      'This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.',
+      '',
+      '⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯',
+      // A leaked secret must not survive into ticket evidence.
+      'Error: DEV1931_LEAK apikey=eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.c2lnbmF0dXJlLXZhbHVl sk-proj-abcdefghijklmnopqrstuvwx',
+      ` ❯ ${testFile}:3:23`,
+      `${frame.repeat(7)}`,
+      `This error originated in "${testFile}" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.`,
+      'The latest test that might\'ve caused the error is "passes its assertions but leaks a rejection after the test body returns". It might mean one of the following:',
+      '- The error was thrown, while Vitest was running this test.',
+      '- If the error occurred after the test had been completed, this was the last documented test before it was thrown.',
+      '⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯',
+      '',
+    ].join('\n')
+    const stderr = `${'(!) config warning\n'.repeat(110)}${block}`
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'repo-root', stdout: '/repo\n', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'tracked-files', stdout: '', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'vitest', stdout: 'not-json', stderr, exitCode: 1, timedOut: false },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    await runHealthAgent(
+      baseDeps({
+        client,
+        registryOverride: qualityRegistry(),
+        workerClient: { run: runFn },
+      }),
+    )
+
+    const enqueue = rpcCalls(client).find(
+      ([name, params]) =>
+        name === 'enqueue_health_fix' &&
+        params.p_fingerprint === 'quality:worker-failure:vitest-exec',
+    )
+    const evidence = enqueue?.[1].p_evidence as { stderr: string }
+    expect(evidence.stderr).toContain('Error: DEV1931_LEAK')
+    expect(evidence.stderr).toContain('This error originated in')
+    expect(evidence.stderr).toContain(testFile)
+    expect(evidence.stderr).not.toContain('(!) config warning')
+    expect(evidence.stderr).not.toContain('eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.c2lnbmF0dXJlLXZhbHVl')
+    expect(evidence.stderr).not.toContain('sk-proj-abcdefghijklmnopqrstuvwx')
+    expect(evidence.stderr.length).toBeLessThanOrEqual(4000)
+  })
+
+  it('anchors on the Vitest banner, not on a log line that mentions it (DEV-1931)', async () => {
+    const client = stubClient()
+    // Test console output reaches stderr; a line naming "Unhandled Errors"
+    // without Vitest's banner must not pull the evidence window to it.
+    const stderr = `console.warn: no Unhandled Errors expected here\n${'(!) noise\n'.repeat(60)}Error: the real cause`
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'repo-root', stdout: '/repo\n', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'tracked-files', stdout: '', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'vitest', stdout: 'not-json', stderr, exitCode: 1, timedOut: false },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    await runHealthAgent(
+      baseDeps({
+        client,
+        registryOverride: qualityRegistry(),
+        workerClient: { run: runFn },
+      }),
+    )
+
+    const enqueue = rpcCalls(client).find(
+      ([name, params]) =>
+        name === 'enqueue_health_fix' &&
+        params.p_fingerprint === 'quality:worker-failure:vitest-exec',
+    )
+    const evidence = enqueue?.[1].p_evidence as { stderr: string }
+    expect(evidence.stderr.endsWith('Error: the real cause')).toBe(true)
+    expect(evidence.stderr.length).toBeLessThanOrEqual(500)
+  })
+
+  it('keeps the head of knip stderr, where Node prints the error (DEV-1931)', async () => {
+    const client = stubClient()
+    const frame = '    at Object.<anonymous> (/repo/node_modules/knip/dist/index.js:1:1)\n'
+    const stderr = `Error: knip config is invalid\n${frame.repeat(20)}\nNode.js v22.0.0`
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'repo-root', stdout: '/repo\n', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'tracked-files', stdout: '', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'vitest', stdout: JSON.stringify({
+          numFailedTestSuites: 0, numFailedTests: 0, numTotalTestSuites: 1,
+          numTotalTests: 1, success: true, testResults: [],
+        }), stderr: '', exitCode: 0, timedOut: false },
+        { id: 'knip', stdout: 'not-json', stderr, exitCode: 2, timedOut: false },
+      ],
+    }))
+
+    await runHealthAgent(
+      baseDeps({
+        client,
+        registryOverride: qualityRegistry(),
+        workerClient: { run: runFn },
+      }),
+    )
+
+    const enqueue = rpcCalls(client).find(
+      ([name, params]) =>
+        name === 'enqueue_health_fix' &&
+        params.p_fingerprint === 'quality:worker-failure:knip-exec',
+    )
+    const evidence = enqueue?.[1].p_evidence as { stderr: string }
+    expect(evidence.stderr.startsWith('Error: knip config is invalid')).toBe(true)
+  })
+
+  it('names a nonzero vitest exit with a clean report (DEV-1931)', async () => {
+    const client = stubClient()
+    // An unhandled error makes Vitest exit 1 while its JSON report reads clean.
+    const vitestJson = JSON.stringify({
+      numFailedTestSuites: 0,
+      numFailedTests: 0,
+      numTotalTestSuites: 1,
+      numTotalTests: 1,
+      success: true,
+      testResults: [],
+    })
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'repo-root', stdout: '/repo\n', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'tracked-files', stdout: '', stderr: '', exitCode: 0, timedOut: false },
+        {
+          id: 'vitest',
+          stdout: vitestJson,
+          stderr: 'Unhandled Rejection',
+          exitCode: 1,
+          timedOut: false,
+        },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    await runHealthAgent(
+      baseDeps({
+        client,
+        registryOverride: qualityRegistry(),
+        workerClient: { run: runFn },
+      }),
+    )
+
+    const enqueue = rpcCalls(client).find(
+      ([name, params]) =>
+        name === 'enqueue_health_fix' &&
+        params.p_fingerprint ===
+          'quality:worker-failure:vitest-exec:nonzero-exit-without-failures',
+    )
+    const evidence = enqueue?.[1].p_evidence as { code: string; message: string }
+    expect(evidence.code).toBe('nonzero-exit-without-failures')
+    expect(evidence.message).toBe('full-unit-suite:nonzero_exit_without_failures')
+  })
+
+  it('parses the JSON report when default-reporter lines precede it', async () => {
+    const client = stubClient()
+    const vitestJson = JSON.stringify({
+      numFailedTestSuites: 0,
+      numFailedTests: 0,
+      numTotalTestSuites: 1,
+      numTotalTests: 1,
+      success: true,
+      testResults: [],
+    })
+    const runFn = vi.fn(async () => ({
+      status: 'done' as const,
+      results: [
+        { id: 'repo-root', stdout: '/repo\n', stderr: '', exitCode: 0, timedOut: false },
+        { id: 'tracked-files', stdout: '', stderr: '', exitCode: 0, timedOut: false },
+        {
+          id: 'vitest',
+          stdout: ` ✓ src/a.test.ts (1 test)\n\n Test Files  1 passed (1)\n${vitestJson}`,
+          stderr: '',
+          exitCode: 0,
+          timedOut: false,
+        },
+        { id: 'knip', stdout: '{"issues":[]}', stderr: '', exitCode: 0, timedOut: false },
+      ],
+    }))
+
+    await runHealthAgent(
+      baseDeps({
+        client,
+        registryOverride: qualityRegistry(),
+        workerClient: { run: runFn },
+      }),
+    )
+
+    expect(
+      rpcCalls(client)
+        .filter(([name]) => name === 'enqueue_health_fix')
+        .map(([, params]) => params.p_fingerprint),
+    ).not.toContain('quality:worker-failure:vitest-exec')
+  })
+
   // ---- Task 6: repair trigger ----
 
   it('triggers auto-fix only for findings that opt in and are not report_only', async () => {

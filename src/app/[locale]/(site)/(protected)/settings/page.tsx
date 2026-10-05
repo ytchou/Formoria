@@ -36,17 +36,11 @@ export default async function SettingsPage({ params, searchParams }: Props) {
   ]);
 
   return (
-    <PageShell measure="form" className="py-section">
-      <h1 className="type-page-title">
-        {t("heading")}
-      </h1>
+    <PageShell as="main" measure="form" className="py-section">
+      <h1 className="type-page-title">{t("heading")}</h1>
       <p className="mt-2 type-body-sm">{t("subheading")}</p>
 
-      {saved && (
-        <div className="mt-4 panel-success">
-          {t("saved")}
-        </div>
-      )}
+      {saved && <div className="mt-4 panel-success">{t("saved")}</div>}
 
       <div className="mt-8">
         <SettingsForm
