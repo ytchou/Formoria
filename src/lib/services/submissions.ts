@@ -754,7 +754,23 @@ export function resolveSubmissionReviewImages(
   stagingImages: SubmissionReviewImage[],
   publishedImages: SubmissionReviewImage[],
 ): SubmissionReviewImage[] {
-  const normalizedStaging = normalizeSubmissionReviewImages(stagingImages);
+  // A refresh mirrors the gallery into submission_images with no storage path,
+  // so those rows arrive unsigned. Borrow the URL of the brand image each one
+  // mirrors: the review must keep the submission_images IDs, because those are
+  // the only IDs `save_submission_review` accepts.
+  const publishedUrlById = new Map(
+    publishedImages.map((image) => [image.id, image.url]),
+  );
+  const normalizedStaging = normalizeSubmissionReviewImages(
+    stagingImages.map((image) =>
+      !image.url.trim() && image.originBrandImageId
+        ? {
+            ...image,
+            url: publishedUrlById.get(image.originBrandImageId) ?? "",
+          }
+        : image,
+    ),
+  );
   if (normalizedStaging.some((image) => image.status === "active")) {
     return normalizedStaging;
   }
@@ -1388,7 +1404,6 @@ export async function createSubmission(
   );
 }
 
-
 const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   id,
   base_brand_data,
@@ -1598,13 +1613,15 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
-  // Refresh snapshots carry origin IDs instead of owning storage paths. Until
-  // new candidates are staged, their canonical review images are the live
-  // brand gallery, including while the refresh is still pending.
+  // Refresh snapshots carry origin IDs instead of owning storage paths, so
+  // their mirrored rows render from the live brand gallery. The gallery is
+  // also the fallback for a brand-linked row with no active staged image.
   const rowsMissingActiveImages = rows.filter((row) => {
     if (!row.brand_id) return false;
-    return !(reviewImagesBySubmission.get(row.id) ?? []).some(
-      (image) => image.status === "active" && image.url.trim(),
+    const staged = reviewImagesBySubmission.get(row.id) ?? [];
+    return (
+      staged.some((image) => image.originBrandImageId && !image.url.trim()) ||
+      !staged.some((image) => image.status === "active" && image.url.trim())
     );
   });
   const publishedImagesByBrand = new Map<string, BrandImageReviewRow[]>();
@@ -1617,33 +1634,34 @@ export async function getSubmissionsForReview(options?: {
   ];
   if (brandIdsMissingActiveImages.length > 0) {
     const publishedImageChunks = await Promise.all(
-      chunkValues(brandIdsMissingActiveImages, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
-        async (brandIds) => {
-          const chunkImages: BrandImageReviewRow[] = [];
-          for (let page = 0; ; page += 1) {
-            const { data: imageData, error: imagesError } = await supabase
-              .from("brand_images")
-              .select(
-                "id, brand_id, storage_path, source, status, sort_order, tags, width, height",
-              )
-              .in("brand_id", brandIds)
-              .eq("status", "active")
-              .order("brand_id", { ascending: true })
-              .order("sort_order", { ascending: true })
-              .order("id", { ascending: true })
-              .range(
-                page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
-                (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
-              );
-            if (imagesError) throw imagesError;
+      chunkValues(
+        brandIdsMissingActiveImages,
+        SUPABASE_IN_FILTER_CHUNK_SIZE,
+      ).map(async (brandIds) => {
+        const chunkImages: BrandImageReviewRow[] = [];
+        for (let page = 0; ; page += 1) {
+          const { data: imageData, error: imagesError } = await supabase
+            .from("brand_images")
+            .select(
+              "id, brand_id, storage_path, source, status, sort_order, tags, width, height",
+            )
+            .in("brand_id", brandIds)
+            .eq("status", "active")
+            .order("brand_id", { ascending: true })
+            .order("sort_order", { ascending: true })
+            .order("id", { ascending: true })
+            .range(
+              page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
+              (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
+            );
+          if (imagesError) throw imagesError;
 
-            const pageImages = (imageData ?? []) as BrandImageReviewRow[];
-            chunkImages.push(...pageImages);
-            if (pageImages.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE) break;
-          }
-          return chunkImages;
-        },
-      ),
+          const pageImages = (imageData ?? []) as BrandImageReviewRow[];
+          chunkImages.push(...pageImages);
+          if (pageImages.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE) break;
+        }
+        return chunkImages;
+      }),
     );
 
     for (const image of publishedImageChunks.flat()) {
@@ -2054,10 +2072,10 @@ export async function applyBrandRefresh(
       try {
         await materializeSubmissionFaq(submissionId, submission.brand_id);
       } catch (err) {
-        console.error(
-          "[applyBrandRefresh] materializeSubmissionFaq failed:",
-          { submissionId, error: err },
-        );
+        console.error("[applyBrandRefresh] materializeSubmissionFaq failed:", {
+          submissionId,
+          error: err,
+        });
       }
 
       return { brandId: submission.brand_id, cleanupFailed };
@@ -2460,10 +2478,10 @@ export async function approveSubmission(
       try {
         await materializeSubmissionFaq(submission.id, approval.brand_id);
       } catch (err) {
-        console.error(
-          "[approveSubmission] materializeSubmissionFaq failed:",
-          { submissionId: submission.id, error: err },
-        );
+        console.error("[approveSubmission] materializeSubmissionFaq failed:", {
+          submissionId: submission.id,
+          error: err,
+        });
       }
 
       return {
