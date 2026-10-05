@@ -24,6 +24,7 @@
 import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { StockistCandidate } from '@/lib/types/stockist'
+import { parseSubmissionStockists } from '@/lib/types/enriched-data'
 import type { EnrichmentTarget } from '../../_shared/enrichment-target'
 import type { EnrichBrand, EnrichPatch, EnrichPhase, EnrichScrapedData } from '../types'
 import type { ListingVerdict, BrandFactsResult, BrandFactsAttempt } from '../../brand-facts'
@@ -277,10 +278,9 @@ async function faqNode(
     return {}
   }
 
-  const pendingStockists = state.patch.stockists as StockistCandidate[] | undefined
   const result = await ctx.deps.runFaq({
     ...ctx.input,
-    ...(pendingStockists ? { pendingStockists } : {}),
+    pendingStockists: parseSubmissionStockists(state.patch.stockists) ?? undefined,
   })
   ctx.record('faq', result.phaseResult.status, phaseReason(result.phaseResult), start)
 

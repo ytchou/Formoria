@@ -12,6 +12,7 @@ import type {
   StockistLocationType,
   StockistSource,
 } from '@/lib/types/stockist'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
 import {
   CITY_SLUGS,
@@ -22,6 +23,13 @@ import {
 import { matchDistrict } from '@/lib/brands/district'
 
 export const MAX_ACTIVE_STOCKISTS_PER_BRAND = 5
+
+/** The slice of the Supabase client the enriched-stockist writers touch. */
+export type StockistsSupabase = Pick<SupabaseClient, 'from' | 'rpc'>
+
+function stockistsClient(client?: StockistsSupabase): StockistsSupabase {
+  return client ?? (createServiceClient() as unknown as StockistsSupabase)
+}
 const MAX_SUBMISSIONS_PER_DAY = 20
 
 const REGION_LABEL_MAP = CITY_NAMES_ZH
@@ -237,6 +245,30 @@ export async function getStockistsForBrand(
     rowToDisplayRow,
   )
   return groupStockistsForDisplay(displayRows)
+}
+
+/**
+ * Normalized names of this brand's rejected or removed `brand_channels` rows.
+ * `upsert_enriched_brand_channels` conflicts on (brand_id, normalized_name) and
+ * never updates such a row, so a pending candidate with one of these names is
+ * never materialized and must not count toward where-to-buy (DEV-1928).
+ */
+export async function getBlockedStockistNames(
+  brandId: string,
+): Promise<Set<string>> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brand_channels')
+    .select('normalized_name')
+    .eq('brand_id', brandId)
+    .or('owner_status.eq.rejected,removed_at.not.is.null')
+
+  if (error) throw error
+  return new Set(
+    ((data ?? []) as { normalized_name: string }[]).map(
+      (row) => row.normalized_name,
+    ),
+  )
 }
 
 export async function submitStockist(
@@ -528,6 +560,7 @@ export function buildEnrichedStockistRows(candidates: StockistCandidate[]): {
 export async function upsertEnrichedStockists(
   brandId: string,
   candidates: StockistCandidate[],
+  options: { client?: StockistsSupabase } = {},
 ): Promise<EnrichedStockistsResult> {
   return auditedCall(
     {
@@ -544,7 +577,7 @@ export async function upsertEnrichedStockists(
           : { ok: true, count: 0 }
       }
 
-      const supabase = createServiceClient()
+      const supabase = stockistsClient(options.client)
       const { data, error } = await supabase.rpc(
         'upsert_enriched_brand_channels',
         {
@@ -577,6 +610,7 @@ export async function upsertEnrichedStockists(
 export async function materializeSubmissionStockists(
   submissionId: string,
   brandId: string,
+  options: { client?: StockistsSupabase } = {},
 ): Promise<{ count: number } | null> {
   return auditedCall(
     {
@@ -585,7 +619,7 @@ export async function materializeSubmissionStockists(
       kind: 'service',
     },
     async () => {
-      const supabase = createServiceClient()
+      const supabase = stockistsClient(options.client)
       const { data, error } = await supabase
         .from('brand_submissions')
         .select('enriched_data')
@@ -604,7 +638,9 @@ export async function materializeSubmissionStockists(
       const candidates = parseSubmissionStockists(enrichedData?.stockists)
       if (!candidates) return null
 
-      const result = await upsertEnrichedStockists(brandId, candidates)
+      const result = await upsertEnrichedStockists(brandId, candidates, {
+        client: options.client,
+      })
       if (!result.ok) {
         throw new Error(
           `materializeSubmissionStockists: upsert failed (${result.code})`,

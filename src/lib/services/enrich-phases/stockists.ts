@@ -91,9 +91,6 @@ type StockistsDeps = {
 type StockistsPhaseOptions = {
   brand: EnrichBrand;
   phases: EnrichPhase[];
-  scrapedData?: unknown;
-  /** Accepted for caller symmetry; the phase writes nothing either way. */
-  dryRun?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
   deps?: StockistsDeps;

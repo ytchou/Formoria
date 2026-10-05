@@ -26,9 +26,10 @@ import {
   buildEnrichmentUserContent,
   type DescriptionEvidence,
 } from "../description-rewrite";
-import { getStockistsForBrand } from "../stockists";
+import { getBlockedStockistNames, getStockistsForBrand } from "../stockists";
 import { normalizeStockistName } from "@/lib/brands/stockist-display";
 import type { StockistCandidate } from "@/lib/types/stockist";
+import { parseSubmissionStockists } from "@/lib/types/enriched-data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadPersistedScrapeText } from "./descriptions";
 import {
@@ -86,21 +87,42 @@ type LiveStockistNames = {
 /**
  * Where-to-buy count for the FAQ context: every live stockist row plus each
  * pending candidate whose normalized name is not already live. A pending
- * candidate repeated within the batch counts once.
+ * candidate repeated within the batch counts once. A pending candidate whose
+ * normalized name is in `blocked` (the brand's rejected or removed rows) is
+ * never counted: the upsert RPC never materializes it.
  */
 export function countWhereToBuy(
   live: LiveStockistNames | null,
   pending: readonly Pick<StockistCandidate, "normalizedName">[] = [],
+  blocked: ReadonlySet<string> = new Set(),
 ): number {
   const liveRows = live ? [...live.confirmed, ...live.possible] : [];
   const seen = new Set(liveRows.map((row) => normalizeStockistName(row.name)));
   let count = liveRows.length;
   for (const candidate of pending) {
     if (seen.has(candidate.normalizedName)) continue;
+    if (blocked.has(candidate.normalizedName.trim())) continue;
     seen.add(candidate.normalizedName);
     count += 1;
   }
   return count;
+}
+
+/**
+ * The stockist candidates the FAQ should treat as pending: this run's
+ * stockists patch when there is one, otherwise the candidates already stored
+ * on the submission (stockists satisfied from history or not selected this
+ * run). Approval materializes those stored candidates too.
+ */
+export function resolvePendingStockists(
+  pendingStockists: readonly StockistCandidate[] | undefined,
+  brand: EnrichBrand,
+): readonly StockistCandidate[] {
+  return (
+    pendingStockists ??
+    parseSubmissionStockists((brand as Record<string, unknown>).stockists) ??
+    []
+  );
 }
 
 type FaqPhaseOutput = {
@@ -543,16 +565,25 @@ export async function runFaqPhase({
     overwrite === true || explicitPhases?.includes("faq") === true;
 
   const { result, durationMs } = await timePhase<FaqRunOutcome>(async () => {
-    // Compute stockist count: refresh submissions query live stockists;
-    // new submissions (no source_brand_id) have none live. Candidates the
-    // stockists phase authored this run count on top of either.
-    const [persistedScrape, stockistsResult] = await Promise.all([
-      loadPersistedScrapeText(auditTarget),
-      brand.source_brand_id
-        ? getStockistsForBrand(brand.source_brand_id)
-        : Promise.resolve(null),
-    ]);
-    const stockistCount = countWhereToBuy(stockistsResult, pendingStockists);
+    // Compute stockist count: refresh submissions query live stockists and
+    // the names the upsert will refuse; new submissions (no source_brand_id)
+    // have neither. Pending candidates (this run's, else the stored ones)
+    // count on top of either.
+    const [persistedScrape, stockistsResult, blockedStockistNames] =
+      await Promise.all([
+        loadPersistedScrapeText(auditTarget),
+        brand.source_brand_id
+          ? getStockistsForBrand(brand.source_brand_id)
+          : Promise.resolve(null),
+        brand.source_brand_id
+          ? getBlockedStockistNames(brand.source_brand_id)
+          : Promise.resolve(new Set<string>()),
+      ]);
+    const stockistCount = countWhereToBuy(
+      stockistsResult,
+      resolvePendingStockists(pendingStockists, brand),
+      blockedStockistNames,
+    );
 
     const peerStats = await getCategoryPeerStats(
       brand.category ?? null,

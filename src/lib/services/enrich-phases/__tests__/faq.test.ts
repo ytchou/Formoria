@@ -20,6 +20,7 @@ import {
   faqCoverageIsComplete,
   localizedCityLabel,
   resolveFaqAttempts,
+  resolvePendingStockists,
   runFaqPhase,
   validateFaqEntries,
 } from "../faq";
@@ -71,9 +72,13 @@ vi.mock("../../brand-faq", async (importOriginal) => ({
   upsertBrandFaqEntries,
 }));
 const getStockistsForBrand = vi.hoisted(() => vi.fn());
+const getBlockedStockistNames = vi.hoisted(() =>
+  vi.fn(async (_brandId: string) => new Set<string>()),
+);
 vi.mock("../../stockists", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../stockists")>()),
   getStockistsForBrand,
+  getBlockedStockistNames,
 }));
 
 /**
@@ -934,5 +939,48 @@ describe("countWhereToBuy", () => {
     expect(
       countWhereToBuy(null, [pending("小器 赤峰"), pending("小器赤峰")]),
     ).toBe(1);
+  });
+
+  it("skips_pending_stores_matching_a_rejected_or_removed_row", () => {
+    // The upsert RPC never updates a rejected or removed row, so a store the
+    // owner rejected stays off the page even when a refresh re-proposes it.
+    const blocked = new Set([normalizeStockistName("小器 赤峰")]);
+    expect(
+      countWhereToBuy(
+        { confirmed: [{ name: "誠品書店 信義店" }], possible: [] },
+        [pending("小器 赤峰"), pending("好丘 信義")],
+        blocked,
+      ),
+    ).toBe(2);
+    expect(countWhereToBuy(null, [pending("小器 赤峰")], blocked)).toBe(0);
+  });
+});
+
+describe("resolvePendingStockists", () => {
+  const stored = [
+    { name: "小器 赤峰", normalizedName: normalizeStockistName("小器 赤峰") },
+    { name: "好丘 信義", normalizedName: normalizeStockistName("好丘 信義") },
+  ];
+  const brandWithStored = {
+    id: "submission-1",
+    slug: "submission-submission-1",
+    stockists: stored,
+  } as EnrichBrand;
+
+  it("falls_back_to_the_stockists_stored_on_the_submission", () => {
+    const pendingStockists = resolvePendingStockists(undefined, brandWithStored);
+    expect(pendingStockists).toEqual(stored);
+    expect(countWhereToBuy(null, pendingStockists)).toBe(2);
+  });
+
+  it("prefers_this_runs_stockists_patch_over_the_stored_ones", () => {
+    const fresh = stored.slice(0, 1);
+    expect(resolvePendingStockists(fresh, brandWithStored)).toBe(fresh);
+  });
+
+  it("returns_none_when_nothing_is_pending_or_stored", () => {
+    expect(
+      resolvePendingStockists(undefined, { id: "s", slug: "s" }),
+    ).toEqual([]);
   });
 });

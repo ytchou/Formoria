@@ -970,11 +970,6 @@ function CatalogEditor({
 
 type ProductProposalStates = Map<string, CuratedProductProposalState>;
 
-/**
- * What the run proposed, and what the review decided about it. Read-only view:
- * it renders the SERVER copy, like every other section here, so a
- * `router.refresh()` after a save is what updates it.
- */
 function StockistProposalsReadOnly({
   stockists,
 }: {
@@ -988,7 +983,7 @@ function StockistProposalsReadOnly({
         {t("details.stockistsProposed", { count: stockists.length })}
       </p>
       <ul className="divide-y divide-rule border-y border-rule">
-        {stockists.map((stockist) => {
+        {stockists.map((stockist, index) => {
           // JSONB from an enrichment phase: an unknown type renders no badge
           // rather than a raw message key.
           const typeKey = `details.stockistLocationTypes.${stockist.locationType}`;
@@ -997,7 +992,7 @@ function StockistProposalsReadOnly({
 
           return (
             <li
-              key={stockist.normalizedName || stockist.name}
+              key={`${index}:${stockist.normalizedName || stockist.name}`}
               className="space-y-1 py-3"
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -1022,6 +1017,11 @@ function StockistProposalsReadOnly({
   );
 }
 
+/**
+ * What the run proposed, and what the review decided about it. Read-only view:
+ * it renders the SERVER copy, like every other section here, so a
+ * `router.refresh()` after a save is what updates it.
+ */
 function ProductProposalsReadOnly({
   proposals,
   keptKeys,

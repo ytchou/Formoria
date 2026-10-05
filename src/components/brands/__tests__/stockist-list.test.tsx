@@ -284,9 +284,10 @@ describe("StockistList", () => {
       ],
     });
 
-    expect(
-      screen.getByRole("link", { name: /前往官方頁面/ }),
-    ).toHaveAttribute("href", "https://pngl.com.tw/");
+    expect(screen.getByRole("link", { name: /前往官方頁面/ })).toHaveAttribute(
+      "href",
+      "https://pngl.com.tw/",
+    );
   });
 
   it("keeps the Maps link as the only way through when there is an address", () => {
@@ -397,6 +398,17 @@ describe("StockistList", () => {
       });
     }
 
+    // A row folds either by its own `hidden` or by a hidden overflow stack.
+    function isFolded(row: HTMLElement) {
+      return row.closest("[hidden]") !== null;
+    }
+
+    function chevron(button: HTMLElement) {
+      return button
+        .querySelector("[data-chevron]")
+        ?.getAttribute("data-chevron");
+    }
+
     function groups(container: HTMLElement) {
       return Array.from(
         container.querySelectorAll<HTMLElement>("[data-stockist-kind]"),
@@ -434,8 +446,9 @@ describe("StockistList", () => {
       const rows = Array.from(
         container.querySelectorAll<HTMLElement>("[data-stockist-row]"),
       );
-      expect(rows.filter((row) => !row.hasAttribute("hidden"))).toHaveLength(8);
-      expect(rows.filter((row) => row.hasAttribute("hidden"))).toHaveLength(12);
+      expect(rows).toHaveLength(20);
+      expect(rows.filter((row) => !isFolded(row))).toHaveLength(8);
+      expect(rows.filter(isFolded)).toHaveLength(12);
       expect(
         screen.getByRole("button", { name: "顯示其餘 12 家" }),
       ).toHaveAttribute("aria-expanded", "false");
@@ -452,35 +465,37 @@ describe("StockistList", () => {
         ),
       });
 
-      await user.click(
-        screen.getByRole("button", { name: "顯示全部 10 個地區" }),
-      );
+      const showAll = screen.getByRole("button", {
+        name: "顯示全部 10 個地區",
+      });
+      expect(chevron(showAll)).toBe("down");
+      await user.click(showAll);
       expect(
         groups(container).filter((group) => !group.hasAttribute("hidden")),
       ).toHaveLength(10);
       const collapseGroups = screen.getByRole("button", { name: "收合地區" });
       expect(collapseGroups).toHaveAttribute("aria-expanded", "true");
+      expect(chevron(collapseGroups)).toBe("up");
 
       await user.click(collapseGroups);
       expect(
         groups(container).filter((group) => !group.hasAttribute("hidden")),
       ).toHaveLength(6);
 
-      await user.click(screen.getByRole("button", { name: "顯示其餘 12 家" }));
+      const showRest = screen.getByRole("button", { name: "顯示其餘 12 家" });
+      expect(chevron(showRest)).toBe("down");
+      await user.click(showRest);
       const rows = () =>
         Array.from(
           container.querySelectorAll<HTMLElement>("[data-stockist-row]"),
         );
-      expect(rows().filter((row) => !row.hasAttribute("hidden"))).toHaveLength(
-        20,
-      );
+      expect(rows().filter((row) => !isFolded(row))).toHaveLength(20);
       const collapseRows = screen.getByRole("button", { name: "收合" });
       expect(collapseRows).toHaveAttribute("aria-expanded", "true");
+      expect(chevron(collapseRows)).toBe("up");
 
       await user.click(collapseRows);
-      expect(rows().filter((row) => !row.hasAttribute("hidden"))).toHaveLength(
-        8,
-      );
+      expect(rows().filter((row) => !isFolded(row))).toHaveLength(8);
     });
 
     // Content answering "where can I buy this" ships in the server HTML even
@@ -499,10 +514,11 @@ describe("StockistList", () => {
 
     it("renders no toggle buttons below both caps", () => {
       renderList({
-        confirmed: ["臺北市", "新北市", "桃園市"].flatMap((regionLabel, group) =>
-          Array.from({ length: 4 }, (_, index) =>
-            makeConfirmed(group * 10 + index + 1, regionLabel),
-          ),
+        confirmed: ["臺北市", "新北市", "桃園市"].flatMap(
+          (regionLabel, group) =>
+            Array.from({ length: 4 }, (_, index) =>
+              makeConfirmed(group * 10 + index + 1, regionLabel),
+            ),
         ),
       });
 

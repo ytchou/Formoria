@@ -2793,8 +2793,6 @@ export async function runEnrich(
                         const result = await runStockistsPhase({
                           brand: input.brand,
                           phases: input.phases,
-                          scrapedData: input.scrapedData ?? undefined,
-                          dryRun: input.dryRun,
                           target: input.target,
                           jobId: input.jobId,
                         });
@@ -3078,8 +3076,6 @@ export async function runEnrich(
                         const stockistsResult = await runStockistsPhase({
                           brand,
                           phases,
-                          scrapedData: state.scrapedData,
-                          dryRun: config.dryRun,
                           target: { type: targetType, id: brand.id },
                           jobId: config.jobId,
                         });

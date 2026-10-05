@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Check, ExternalLink } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,8 @@ const MAX_VISIBLE_CHIPS = 6;
 /**
  * Region groups and rows past these caps render with the `hidden` attribute,
  * never sliced out: the stockist list answers "where can I buy this", so every
- * entry must stay in the server HTML even while folded.
+ * group and row must stay in the server HTML even while folded. The chip stack
+ * (MAX_VISIBLE_CHIPS) is a pre-existing slice, deliberately left as-is.
  */
 const MAX_VISIBLE_GROUPS = 6;
 const MAX_VISIBLE_ROWS = 8;
@@ -71,10 +72,21 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
 type StockistListRowProps = {
   stockist: Stockist;
   t: Translate;
-  hidden?: boolean;
 };
 
-function StockistListRow({ stockist, t, hidden }: StockistListRowProps) {
+/** Chevron for a fold toggle: down while folded, up once expanded. */
+function ToggleChevron({ expanded }: { expanded: boolean }) {
+  const Icon = expanded ? ChevronUp : ChevronDown;
+  return (
+    <Icon
+      aria-hidden="true"
+      className="size-4"
+      data-chevron={expanded ? "up" : "down"}
+    />
+  );
+}
+
+function StockistListRow({ stockist, t }: StockistListRowProps) {
   // Every stockist is a physical place since DEV-1513, so the address is always
   // the location worth printing and the region label is its fallback — except
   // the chain sentinel, which is not a location at all.
@@ -103,7 +115,6 @@ function StockistListRow({ stockist, t, hidden }: StockistListRowProps) {
     <div
       className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between"
       data-stockist-row
-      hidden={hidden}
     >
       <div className="flex min-w-0 items-start gap-3">
         <StatusMarker confirmed={isConfirmed} />
@@ -256,9 +267,7 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
   }
 
   function renderRow(stockist: Stockist) {
-    return (
-      <StockistListRow key={stockist.id} stockist={stockist} t={t} />
-    );
+    return <StockistListRow key={stockist.id} stockist={stockist} t={t} />;
   }
 
   function renderRowStack(rows: Stockist[]) {
@@ -274,18 +283,23 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
     const isExpanded = expandedRowGroups[kind] === true;
     const hiddenRowCount = Math.max(rows.length - MAX_VISIBLE_ROWS, 0);
 
+    // Two sibling stacks, not one stack with hidden rows: a hidden last child
+    // would leave the 8th row's divider and bottom padding above the toggle.
+    // The overflow stack's top border and padding continue the row rhythm.
     return (
       <>
         <div className="divide-y divide-rule">
-          {rows.map((stockist, index) => (
-            <StockistListRow
-              key={stockist.id}
-              stockist={stockist}
-              t={t}
-              hidden={!isExpanded && index >= MAX_VISIBLE_ROWS}
-            />
-          ))}
+          {rows.slice(0, MAX_VISIBLE_ROWS).map(renderRow)}
         </div>
+        {hiddenRowCount > 0 ? (
+          <div
+            className="divide-y divide-rule border-t border-rule pt-4"
+            hidden={!isExpanded}
+            data-stockist-row-overflow
+          >
+            {rows.slice(MAX_VISIBLE_ROWS).map(renderRow)}
+          </div>
+        ) : null}
         {hiddenRowCount > 0 ? (
           <Button
             type="button"
@@ -302,6 +316,7 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
             {isExpanded
               ? t("channels.rows.collapse")
               : t("channels.chips.showRest", { count: hiddenRowCount })}
+            <ToggleChevron expanded={isExpanded} />
           </Button>
         ) : null}
       </>
@@ -409,6 +424,7 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
           {groupsExpanded
             ? t("channels.groups.collapse")
             : t("channels.groups.showAll", { count: displayGroups.length })}
+          <ToggleChevron expanded={groupsExpanded} />
         </Button>
       ) : null}
     </Accordion>

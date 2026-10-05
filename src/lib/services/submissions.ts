@@ -2048,6 +2048,10 @@ export async function applyBrandRefresh(
         );
       }
 
+      // Deliberate swallow: a failed stockists materialize is logged here and
+      // recorded as a failed auditedCall row; the submission is already applied
+      // and stays so. Recovery is a fresh refresh. Upgrade path: a retry queue,
+      // if failures start appearing in the audit rows.
       try {
         await materializeSubmissionStockists(submissionId, submission.brand_id);
       } catch (err) {
@@ -2441,6 +2445,10 @@ export async function approveSubmission(
         );
       }
 
+      // Deliberate swallow: a failed stockists materialize is logged here and
+      // recorded as a failed auditedCall row; the submission is already applied
+      // and stays so. Recovery is a fresh refresh. Upgrade path: a retry queue,
+      // if failures start appearing in the audit rows.
       try {
         await materializeSubmissionStockists(submission.id, approval.brand_id);
       } catch (err) {

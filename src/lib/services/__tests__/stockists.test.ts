@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest'
 import { parseSubmissionStockists } from '@/lib/types/enriched-data'
 import {
   buildEnrichedStockistRows,
+  materializeSubmissionStockists,
   STOCKIST_DETAIL_READ_SELECT,
+  type StockistsSupabase,
 } from '../stockists'
 
 const serviceSource = readFileSync(
@@ -294,11 +296,121 @@ describe('submission stockists materialize at apply/approve', () => {
     ])
   })
 
-  it('reads enriched_data.stockists and writes through upsertEnrichedStockists', () => {
-    const body = functionBody(serviceSource, 'materializeSubmissionStockists')
-    expect(body).toContain("operation: 'materializeSubmissionStockists'")
-    expect(body).toContain(".from('brand_submissions')")
-    expect(body).toContain('parseSubmissionStockists(enrichedData?.stockists)')
-    expect(body).toContain('upsertEnrichedStockists(brandId, candidates)')
+})
+
+/**
+ * A hand-built stand-in for the two client calls the materializer makes: the
+ * submission read and the upsert RPC. Injected through the `client` seam, so
+ * no Supabase or service module is mocked.
+ */
+function fakeStockistsClient(options: {
+  enrichedData?: Record<string, unknown> | null
+  rpcResult?: { data: unknown; error: { message: string } | null }
+}) {
+  const reads: { table: string; columns: string; id: unknown }[] = []
+  const rpcCalls: { name: string; args: Record<string, unknown> }[] = []
+  const client = {
+    from(table: string) {
+      return {
+        select(columns: string) {
+          return {
+            eq(_column: string, id: unknown) {
+              reads.push({ table, columns, id })
+              return {
+                single: async () =>
+                  options.enrichedData === null
+                    ? { data: null, error: { message: 'not found' } }
+                    : {
+                        data: { enriched_data: options.enrichedData ?? {} },
+                        error: null,
+                      },
+              }
+            },
+          }
+        },
+      }
+    },
+    async rpc(name: string, args: Record<string, unknown>) {
+      rpcCalls.push({ name, args })
+      return options.rpcResult ?? { data: null, error: null }
+    },
+  }
+  return {
+    client: client as unknown as StockistsSupabase,
+    reads,
+    rpcCalls,
+  }
+}
+
+describe('materializeSubmissionStockists', () => {
+  const stockists = [
+    {
+      name: '誠品生活松菸店',
+      normalizedName: '誠品生活松菸',
+      regionLabel: '臺北市',
+    },
+    { name: '小器 赤峰', normalizedName: '小器赤峰' },
+  ]
+
+  it('reads the submission and upserts rows built from its stockists', async () => {
+    const fake = fakeStockistsClient({ enrichedData: { stockists } })
+
+    const result = await materializeSubmissionStockists('sub-1', 'brand-1', {
+      client: fake.client,
+    })
+
+    expect(fake.reads).toEqual([
+      { table: 'brand_submissions', columns: 'enriched_data', id: 'sub-1' },
+    ])
+    expect(fake.rpcCalls).toEqual([
+      {
+        name: 'upsert_enriched_brand_channels',
+        args: {
+          p_brand_id: 'brand-1',
+          p_candidates: buildEnrichedStockistRows(stockists).rows,
+        },
+      },
+    ])
+    expect(result).toEqual({ count: 2 })
+  })
+
+  it('returns the count the RPC reports', async () => {
+    const fake = fakeStockistsClient({
+      enrichedData: { stockists },
+      rpcResult: { data: 1, error: null },
+    })
+
+    await expect(
+      materializeSubmissionStockists('sub-1', 'brand-1', { client: fake.client }),
+    ).resolves.toEqual({ count: 1 })
+  })
+
+  it('returns null and writes nothing when the submission has no stockists', async () => {
+    const fake = fakeStockistsClient({ enrichedData: { faq: {} } })
+
+    await expect(
+      materializeSubmissionStockists('sub-1', 'brand-1', { client: fake.client }),
+    ).resolves.toBeNull()
+    expect(fake.rpcCalls).toEqual([])
+  })
+
+  it('returns null when the submission is missing', async () => {
+    const fake = fakeStockistsClient({ enrichedData: null })
+
+    await expect(
+      materializeSubmissionStockists('sub-1', 'brand-1', { client: fake.client }),
+    ).resolves.toBeNull()
+    expect(fake.rpcCalls).toEqual([])
+  })
+
+  it('throws when the RPC fails', async () => {
+    const fake = fakeStockistsClient({
+      enrichedData: { stockists },
+      rpcResult: { data: null, error: { message: 'boom' } },
+    })
+
+    await expect(
+      materializeSubmissionStockists('sub-1', 'brand-1', { client: fake.client }),
+    ).rejects.toThrow('upsert failed (database_error)')
   })
 })
