@@ -12,6 +12,11 @@ import {
 import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
 import type { BrandFaqEntryRow } from "../../brand-faq";
+import {
+  type ExistingStockistRow,
+  upsertEnrichedStockists,
+  type StockistsSupabase,
+} from "../../stockists";
 import type { EnrichBrand, EnrichPhase } from "../types";
 import { normalizeStockistName } from "@/lib/brands/stockist-display";
 import {
@@ -72,17 +77,13 @@ vi.mock("../../brand-faq", async (importOriginal) => ({
   upsertBrandFaqEntries,
 }));
 const getStockistsForBrand = vi.hoisted(() => vi.fn());
-const getBlockedStockists = vi.hoisted(() =>
-  vi.fn(
-    async (
-      _brandId: string,
-    ): Promise<{ name: string; normalizedName: string; address: string | null }[]> => [],
-  ),
+const getStockistMatchPool = vi.hoisted(() =>
+  vi.fn(async (_brandId: string): Promise<ExistingStockistRow[]> => []),
 );
 vi.mock("../../stockists", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../stockists")>()),
   getStockistsForBrand,
-  getBlockedStockists,
+  getStockistMatchPool,
 }));
 
 /**
@@ -925,13 +926,24 @@ describe("countWhereToBuy", () => {
 
   it("adds_pending_stockists_not_already_live", () => {
     const live = { confirmed: [{ name: "誠品書店 信義店" }], possible: [] };
+    const existing = [
+      {
+        name: "誠品書店 信義店",
+        normalized_name: normalizeStockistName("誠品書店 信義店"),
+        address: null,
+      },
+    ];
     expect(
-      countWhereToBuy(live, [
-        // Same store, different whitespace: normalizes to the live name.
-        pending("誠品書店信義店"),
-        pending("小器 赤峰"),
-        pending("好丘 信義"),
-      ]),
+      countWhereToBuy(
+        live,
+        [
+          // Same store, different whitespace: normalizes to the live name.
+          pending("誠品書店信義店"),
+          pending("小器 赤峰"),
+          pending("好丘 信義"),
+        ],
+        existing,
+      ),
     ).toBe(3);
   });
 
@@ -949,64 +961,145 @@ describe("countWhereToBuy", () => {
   it("skips_pending_stores_matching_a_rejected_or_removed_row", () => {
     // The upsert RPC never updates a rejected or removed row, so a store the
     // owner rejected stays off the page even when a refresh re-proposes it.
-    const blocked = [
+    const existing = [
       {
         name: "小器 赤峰",
-        normalizedName: normalizeStockistName("小器 赤峰"),
+        normalized_name: normalizeStockistName("小器 赤峰"),
         address: null,
+        source: "enriched",
+        owner_status: "rejected",
+        removed_at: null,
       },
     ];
     expect(
       countWhereToBuy(
         { confirmed: [{ name: "誠品書店 信義店" }], possible: [] },
         [pending("小器 赤峰"), pending("好丘 信義")],
-        blocked,
+        existing,
       ),
     ).toBe(2);
-    expect(countWhereToBuy(null, [pending("小器 赤峰")], blocked)).toBe(0);
+    expect(countWhereToBuy(null, [pending("小器 赤峰")], existing)).toBe(0);
   });
 
   it("does_not_count_a_pending_near_duplicate_of_a_live_store", () => {
     // Staging `his-cross-concept` (DEV-1942): three live import rows and three
     // enriched candidates naming the same stores differently.
-    const live = {
-      confirmed: [
-        {
-          name: "Rocco Coffee 若渴咖啡",
-          address: "10491台北市中山區南京東路三段119號",
-        },
-        {
-          name: "Standfirm｜HIS 特約專櫃",
-          address: "台北市南港區南港路3段16巷8號2樓",
-        },
-        { name: "高雄以諾書房", address: "高雄市新興區中正三路70號" },
-      ],
-      possible: [],
-    };
+    const liveRows = [
+      {
+        name: "Rocco Coffee 若渴咖啡",
+        address: "10491台北市中山區南京東路三段119號",
+      },
+      {
+        name: "Standfirm｜HIS 特約專櫃",
+        address: "台北市南港區南港路3段16巷8號2樓",
+      },
+      { name: "高雄以諾書房", address: "高雄市新興區中正三路70號" },
+    ];
+    const existing = liveRows.map((row) => ({
+      ...row,
+      normalized_name: normalizeStockistName(row.name),
+    }));
     expect(
-      countWhereToBuy(live, [
+      countWhereToBuy({ confirmed: liveRows, possible: [] }, [
         pending("Rocco Coffee 若渴咖啡｜HIS 展售", "台北市中山區南京東路三段119號"),
         pending("台北 Standfirm 特約專櫃", "台北市南港區南港路三段16巷8號2樓"),
         pending("高雄以諾書房｜HIS 展售", "高雄市新興區中正三路70號"),
-      ]),
+      ], existing),
     ).toBe(3);
   });
 
   it("skips_a_pending_store_matching_a_blocked_row_by_address", () => {
-    const blocked = [
+    const existing = [
       {
         name: "Standfirm｜HIS 特約專櫃",
-        normalizedName: normalizeStockistName("Standfirm｜HIS 特約專櫃"),
+        normalized_name: normalizeStockistName("Standfirm｜HIS 特約專櫃"),
         address: "台北市南港區南港路3段16巷8號2樓",
+        owner_status: "rejected",
       },
     ];
     expect(
       countWhereToBuy(
         null,
         [pending("台北 Standfirm 特約專櫃", "台北市南港區南港路三段16巷8號2樓")],
-        blocked,
+        existing,
       ),
     ).toBe(0);
+  });
+
+  it("compares_live_rows_by_their_stored_normalized_name", () => {
+    // The import region-suffixed the live row, so a pending `好丘` with no
+    // address matches nothing and the upsert inserts it.
+    const existing = [
+      { name: "好丘", normalized_name: "好丘:台北市", address: null },
+    ];
+    expect(
+      countWhereToBuy(
+        { confirmed: [{ name: "好丘" }], possible: [] },
+        [pending("好丘")],
+        existing,
+      ),
+    ).toBe(2);
+  });
+
+  it("counts_exactly_the_rows_the_upsert_inserts", async () => {
+    const address = "高雄市新興區中正三路70號";
+    const existing: ExistingStockistRow[] = [
+      { name: "好丘", normalized_name: "好丘:台北市", address: null },
+      { name: "高雄以諾書房", normalized_name: "高雄以諾書房", address: null },
+      {
+        name: "小器 赤峰",
+        normalized_name: "小器赤峰",
+        address: null,
+        owner_status: "rejected",
+      },
+      {
+        name: "Standfirm",
+        normalized_name: "standfirm",
+        address: "台北市南港區南港路3段16巷8號2樓",
+        source: "community",
+        owner_status: "none",
+        removed_at: null,
+      },
+    ];
+    const candidates = [
+      pending("高雄以諾書房｜HIS 展售", address),
+      pending("高雄以諾書房", address),
+      pending("好丘"),
+      pending("小器 赤峰"),
+      pending("台北 Standfirm", "台北市南港區南港路三段16巷8號2樓"),
+    ];
+    const liveCount = 2;
+
+    let rpcRows: { normalized_name: string }[] = [];
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            order: () => ({
+              range: async () => ({ data: existing, error: null }),
+            }),
+          }),
+        }),
+      }),
+      rpc: async (_name: string, args: { p_candidates: typeof rpcRows }) => {
+        rpcRows = args.p_candidates;
+        return { data: null, error: null };
+      },
+    } as unknown as StockistsSupabase;
+    await upsertEnrichedStockists("brand-1", candidates, { client });
+    const existingNames = new Set(existing.map((row) => row.normalized_name));
+    const inserted = rpcRows.filter(
+      (row) => !existingNames.has(row.normalized_name),
+    ).length;
+
+    expect(inserted).toBe(2);
+    expect(
+      countWhereToBuy(
+        { confirmed: [{}, {}], possible: [] },
+        candidates,
+        existing,
+      ),
+    ).toBe(liveCount + inserted);
   });
 });
 

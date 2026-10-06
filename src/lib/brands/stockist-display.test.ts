@@ -546,16 +546,28 @@ describe("isSameStockist", () => {
     ).toBe(false);
   });
 
-  it("falls_back_to_equal_core_names_when_an_address_is_missing", () => {
+  it("does_not_match_core_names_without_an_address_on_both_sides", () => {
+    // A miss fails toward a duplicate row, never a lost store.
     expect(
       isSameStockist(
         { name: "高雄以諾書房" },
         { name: "高雄以諾書房｜HIS 展售", address: null },
       ),
-    ).toBe(true);
-    // Containment alone is not enough without an address to anchor it.
+    ).toBe(false);
     expect(
       isSameStockist({ name: "Standfirm｜HIS 特約專櫃" }, { name: "台北 Standfirm 特約專櫃" }),
+    ).toBe(false);
+  });
+
+  it("keeps_two_cities_branches_apart_without_addresses", () => {
+    expect(isSameStockist({ name: "台北 好丘" }, { name: "台中 好丘" })).toBe(
+      false,
+    );
+    expect(
+      isSameStockist(
+        { name: "台北 好丘" },
+        { name: "台中 好丘", address: "台中市西區民生路368巷4弄6號" },
+      ),
     ).toBe(false);
   });
 
@@ -571,21 +583,13 @@ describe("isSameStockist", () => {
     ).toBe(false);
   });
 
-  it("skips_the_core_name_fallback_when_asked", () => {
+  it("keeps_overseas_stores_with_different_house_numbers_apart", () => {
     expect(
       isSameStockist(
-        { name: "高雄以諾書房" },
-        { name: "高雄以諾書房｜HIS 展售" },
-        { coreNameFallback: false },
+        { name: "MoMA Design Store", address: "620 8th Ave, New York" },
+        { name: "MoMA Design Store Soho", address: "700 8th Ave, New York" },
       ),
     ).toBe(false);
-    expect(
-      isSameStockist(
-        { name: "高雄以諾書房", address: "高雄市新興區中正三路70號" },
-        { name: "高雄以諾書房｜HIS 展售", address: "高雄市新興區中正三路70號" },
-        { coreNameFallback: false },
-      ),
-    ).toBe(true);
   });
 
   it("matches_on_the_normalized_name_alone", () => {
@@ -602,6 +606,15 @@ describe("normalizeStockistAddress", () => {
   it("strips_a_leading_postcode_and_unifies_section_numerals", () => {
     expect(normalizeStockistAddress("10491 臺北市中山區南京東路三段119號")).toBe(
       "台北市中山區南京東路3段119號",
+    );
+  });
+
+  it("keeps_an_overseas_house_number", () => {
+    expect(normalizeStockistAddress("620 8th Ave, New York")).toBe(
+      "6208thAve,NewYork",
+    );
+    expect(normalizeStockistAddress("620 8th Ave, New York")).not.toBe(
+      normalizeStockistAddress("700 8th Ave, New York"),
     );
   });
 

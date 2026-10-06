@@ -149,14 +149,16 @@ const SECTION_NUMERALS: Readonly<Record<string, string>> = {
  * Address spelling differences seen between an import row and an enriched
  * candidate for one store: full-width forms, 臺/台, a leading postcode, and
  * 三段/3段. A lone numeral directly before 段 is the only one converted —
- * `中正三路` is a street name, not a section number.
+ * `中正三路` is a street name, not a section number. Leading digits are a
+ * postcode only when a CJK character follows them: in `620 8th Ave` they are
+ * the house number, and stripping them would make two stores one.
  */
 export function normalizeStockistAddress(address: string): string {
   return address
     .normalize("NFKC")
     .replace(/臺/g, "台")
     .replace(/\s+/g, "")
-    .replace(/^\d{3,6}/, "")
+    .replace(/^\d{3,6}(?=[\u3400-\u9fff])/, "")
     .replace(
       /(^|[^一二三四五六七八九十])([一二三四五六七八九十])段/g,
       (_match, before: string, numeral: string) =>
@@ -181,26 +183,16 @@ function stripLeadingCity(name: string): string {
 }
 
 /**
- * The store part of a stockist name: `normalizeStockistName` with a leading
- * city removed (`full`), and the same cut at a `｜` suffix such as `｜HIS 展售`
- * (`cut`). Each removal applies only when something is left, so a name is never
- * reduced to nothing.
+ * The store part of a stockist name: `normalizeStockistName`, cut at a `｜`
+ * suffix such as `｜HIS 展售`, with a leading city removed. Each removal
+ * applies only when something is left, so a name is never reduced to nothing.
  */
-function coreStockistNames(name: string): {
-  full: string;
-  cut: string;
-  hasSeparator: boolean;
-} {
+function coreStockistName(name: string): string {
   const normalized = normalizeStockistName(name);
   const separator = normalized.search(/[｜|]/);
-  const hasSeparator = separator > 0;
-  return {
-    full: stripLeadingCity(normalized),
-    cut: stripLeadingCity(
-      hasSeparator ? normalized.slice(0, separator) : normalized,
-    ),
-    hasSeparator,
-  };
+  return stripLeadingCity(
+    separator > 0 ? normalized.slice(0, separator) : normalized,
+  );
 }
 
 export type StockistIdentity = {
@@ -210,52 +202,51 @@ export type StockistIdentity = {
   address?: string | null;
 };
 
+/** A `StockistIdentity` normalized once, for repeated `matchesStockistKey` calls. */
+export type StockistMatchKey = {
+  normalizedName: string;
+  /** `normalizeStockistAddress`, or "" when the row has no address. */
+  address: string;
+  core: string;
+};
+
+export function stockistMatchKey(row: StockistIdentity): StockistMatchKey {
+  return {
+    normalizedName: row.normalizedName?.trim() || normalizeStockistName(row.name),
+    address: row.address ? normalizeStockistAddress(row.address) : "",
+    core: coreStockistName(row.name),
+  };
+}
+
+/** `isSameStockist` on precomputed keys. */
+export function matchesStockistKey(
+  a: StockistMatchKey,
+  b: StockistMatchKey,
+): boolean {
+  if (a.normalizedName === b.normalizedName) return true;
+  if (!a.address || a.address !== b.address) return false;
+  if (!a.core || !b.core) return false;
+  return a.core.includes(b.core) || b.core.includes(a.core);
+}
+
 /**
  * Whether two stockist rows name one physical store (DEV-1942).
  *
  * 1. Equal normalized names: the `upsert_enriched_brand_channels` conflict key.
- * 2. Both addresses present: equal normalized addresses AND one cut core name
+ * 2. Both addresses present: equal normalized addresses AND one core name
  *    containing the other. An address alone is not enough — two airport shops
  *    or two counters in one mall share a street address.
- * 3. An address missing (skipped when `coreNameFallback` is false): equal
- *    uncut core names, or exactly one name has a `｜` suffix and the part
- *    before it equals the other core. Two suffixed names never match on their
- *    shared prefix — `Tcf. | 台北信義店` and `Tcf. | 台中店` are two branches.
  *
- * A miss is a duplicate row for any spelling `normalizeStockistAddress` does
- * not cover. A false match drops a store: rule 3 still matches two branches
- * whose names differ only by a leading city (`台北 好丘` / `台中 好丘`) when
- * an address is missing. Callers that hold rows the import split by region
- * (`withRegionSuffix` in `stockist-import/plan.ts`) pass
- * `coreNameFallback: false`.
+ * Nothing else matches. Without an address on both sides, two names that
+ * differ only by a city (`台北 好丘` / `台中 好丘`) are two branches as often as
+ * they are one store, so a miss is the accepted failure: it fails toward a
+ * duplicate row, never toward a lost store.
  */
 export function isSameStockist(
   a: StockistIdentity,
   b: StockistIdentity,
-  options: { coreNameFallback?: boolean } = {},
 ): boolean {
-  const normalizedA = a.normalizedName?.trim() || normalizeStockistName(a.name);
-  const normalizedB = b.normalizedName?.trim() || normalizeStockistName(b.name);
-  if (normalizedA === normalizedB) return true;
-
-  const coreA = coreStockistNames(a.name);
-  const coreB = coreStockistNames(b.name);
-  if (!coreA.cut || !coreB.cut) return false;
-
-  const addressA = a.address ? normalizeStockistAddress(a.address) : "";
-  const addressB = b.address ? normalizeStockistAddress(b.address) : "";
-  if (addressA && addressB) {
-    return (
-      addressA === addressB &&
-      (coreA.cut.includes(coreB.cut) || coreB.cut.includes(coreA.cut))
-    );
-  }
-  if (options.coreNameFallback === false) return false;
-  if (coreA.full === coreB.full) return true;
-  if (coreA.hasSeparator === coreB.hasSeparator) return false;
-  return coreA.hasSeparator
-    ? coreA.cut === coreB.full
-    : coreB.cut === coreA.full;
+  return matchesStockistKey(stockistMatchKey(a), stockistMatchKey(b));
 }
 
 type StockistDisplayRow = {
