@@ -7,6 +7,7 @@ import {
 import {
   STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
   STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  STOCKISTS_NONE_FOUND_SKIP_DETAIL,
   type EnrichBrand,
   type EnrichPhase,
 } from "../types";
@@ -169,7 +170,7 @@ describe("runStockistsPhase", () => {
     ]);
   });
 
-  it("succeeds with an empty patch when the model finds no stockists", async () => {
+  it("skips with the none-found detail when the model finds no stockists", async () => {
     createClient.mockReturnValue({
       chat: vi.fn().mockResolvedValue({
         response: { ok: true },
@@ -186,8 +187,8 @@ describe("runStockistsPhase", () => {
       },
     });
 
-    expect(output.phaseResult.status).toBe("succeeded");
-    expect(output.phaseResult.changedFields).toEqual([]);
+    expect(output.phaseResult.status).toBe("skipped");
+    expect(output.phaseResult.detail).toBe(STOCKISTS_NONE_FOUND_SKIP_DETAIL);
     expect(output.patch).toEqual({});
   });
 
