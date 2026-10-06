@@ -501,7 +501,7 @@ export async function deliverRun(
       const message = error instanceof Error ? error.message : String(error);
       console.error("[editorial-producer] preview not rendered", message);
       await store.journal(id, {
-        provider: "chromium",
+        provider: "playwright",
         operation: "render_preview",
         response: { error: message },
       });
