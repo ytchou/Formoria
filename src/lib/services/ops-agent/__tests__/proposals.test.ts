@@ -66,6 +66,20 @@ describe("validateProposal", () => {
     );
   });
 
+  it("start_editorial_producer is rejected until the worker is configured", async () => {
+    const proposal = { kind: "start_editorial_producer" as const, brief: "聖誕節送禮" };
+    vi.stubEnv("EDITORIAL_PRODUCER_URL", "");
+    vi.stubEnv("EDITORIAL_PRODUCER_TOKEN", "");
+    expect(await validateProposal(proposal, {})).toEqual({
+      ok: false,
+      error: "editorial_producer_not_configured",
+    });
+    vi.stubEnv("EDITORIAL_PRODUCER_URL", "https://editorial.example");
+    vi.stubEnv("EDITORIAL_PRODUCER_TOKEN", "fixture-token");
+    expect(await validateProposal(proposal, {})).toEqual({ ok: true });
+    vi.unstubAllEnvs();
+  });
+
   it("rerun_job validates mode", async () => {
     const result1 = await validateProposal(
       { kind: "rerun_job", jobId: "job-1", mode: "rerun" },

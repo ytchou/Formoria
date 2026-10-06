@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
-import { loadPersistedScrapeText } from "./descriptions";
+import { effectiveOwnedSiteHosts, loadPersistedScrapeText } from "./descriptions";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -20,18 +20,18 @@ import {
 } from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
+  STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+  STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  STOCKISTS_NONE_FOUND_SKIP_DETAIL,
   timePhase,
   type EnrichBrand,
+  type EnrichPatch,
   type EnrichPhase,
 } from "./types";
-import {
-  upsertEnrichedStockists,
-  MAX_ACTIVE_STOCKISTS_PER_BRAND,
-} from "../stockists";
+import { MAX_ACTIVE_STOCKISTS_PER_BRAND } from "../stockists";
 import { normalizeStockistName } from "@/lib/brands/stockist-display";
 import { CITY_NAMES_ZH, CITY_SLUGS } from "@/lib/constants/taiwan-cities";
 import { matchDistrict } from "@/lib/brands/district";
-import { createServiceClient } from "@/lib/supabase/service";
 
 const SIGNAL_WORDS = [
   // Location types (zh)
@@ -81,47 +81,106 @@ const STOCKISTS_SCHEMA = {
   schema: toStrictJsonSchema(stockistsShape),
 };
 
+/**
+ * Dependency overrides. Production supplies none; unit tests inject a fake
+ * scrape reader here rather than mocking the service module, which
+ * `scripts/check-test-boundaries.mjs` refuses.
+ */
+type StockistsDeps = {
+  loadPersistedScrapeText?: typeof loadPersistedScrapeText;
+};
+
 type StockistsPhaseOptions = {
   brand: EnrichBrand;
   phases: EnrichPhase[];
-  scrapedData?: unknown;
-  overwrite?: boolean;
-  dryRun?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
+  /**
+   * Patch accumulated by earlier phases this run. Required (may be undefined)
+   * so no caller can forget it: the owned-site allow-list must see a
+   * `purchase_website` this run revoked or patched (review BS1, DEV-1943).
+   */
+  pendingPatch: EnrichPatch | undefined;
+  deps?: StockistsDeps;
 };
 
+/**
+ * The phase authors `patch.stockists`; it never writes `brand_channels`. The
+ * candidates ride the submission's `enriched_data` blob and are materialized
+ * at apply/approve time, the same door FAQ entries use (DEV-1928).
+ */
 type StockistsPhaseOutput = {
   phaseResult: PhaseResult;
-  patch: Record<string, unknown>;
+  patch: { stockists?: StockistCandidate[] };
 };
+
+const URL_PREFIX = "URL: ";
 
 /**
  * Filters siteContent to paragraphs containing stockist signal words.
  * Sections tagged as `stockistPageText` (prefixed with "Stockist Page:") pass
- * unfiltered. Returns null when no signal paragraphs are found.
+ * unfiltered. A section's `URL:` line is kept ahead of its first kept
+ * paragraph and never on its own: a URL is not evidence, and `/store/` in a
+ * marketplace path matched "store" (DEV-1941). Returns null when no signal
+ * paragraphs are found.
  */
 export function filterStockistEvidence(siteContent: string): string | null {
   const paragraphs = siteContent.split(/\n/);
   const kept: string[] = [];
+  let pendingUrlLine: string | null = null;
 
   for (const paragraph of paragraphs) {
     const trimmed = paragraph.trim();
     if (!trimmed) continue;
 
-    // stockistPageText sections pass unfiltered
-    if (trimmed.startsWith("Stockist Page:") || trimmed.startsWith("stockistPageText:")) {
-      kept.push(trimmed);
+    if (trimmed.startsWith(URL_PREFIX)) {
+      pendingUrlLine = trimmed;
       continue;
     }
 
+    // stockistPageText sections pass unfiltered
     const lower = trimmed.toLowerCase();
-    if (SIGNAL_WORDS.some((word) => lower.includes(word.toLowerCase()))) {
+    if (
+      trimmed.startsWith("Stockist Page:") ||
+      trimmed.startsWith("stockistPageText:") ||
+      SIGNAL_WORDS.some((word) => lower.includes(word.toLowerCase()))
+    ) {
+      if (pendingUrlLine) kept.push(pendingUrlLine);
+      pendingUrlLine = null;
       kept.push(trimmed);
     }
   }
 
   return kept.length > 0 ? kept.join("\n") : null;
+}
+
+/**
+ * Pins each candidate's `sourceUrl` to a URL that labels a section of the
+ * evidence the model read. The model's citation stands only when it names one
+ * of those URLs; otherwise a single-section evidence supplies its URL, and
+ * anything ambiguous is cleared rather than guessed (DEV-1941).
+ */
+export function attributeSourceUrls(
+  candidates: StockistCandidate[],
+  evidence: string,
+): StockistCandidate[] {
+  const evidenceUrls = [
+    ...new Set(
+      evidence
+        .split("\n")
+        .filter((line) => line.startsWith(URL_PREFIX))
+        .map((line) => line.slice(URL_PREFIX.length).trim()),
+    ),
+  ];
+  const onlyUrl = evidenceUrls.length === 1 ? evidenceUrls[0] : null;
+
+  return candidates.map((candidate) => ({
+    ...candidate,
+    sourceUrl:
+      candidate.sourceUrl && evidenceUrls.includes(candidate.sourceUrl)
+        ? candidate.sourceUrl
+        : onlyUrl,
+  }));
 }
 
 const VALID_CITY_SLUGS = new Set<string>(CITY_SLUGS);
@@ -173,25 +232,13 @@ function isValidLocationType(value: unknown): value is StockistCandidate["locati
   return typeof value === "string" && VALID_LOCATION_TYPES.has(value);
 }
 
-async function hasEnrichedStockists(brandId: string): Promise<boolean> {
-  const supabase = createServiceClient();
-  const { count } = await supabase
-    .from("brand_channels")
-    .select("id", { count: "exact", head: true })
-    .eq("brand_id", brandId)
-    .eq("source", "enriched")
-    .not("name", "is", null)
-    .is("removed_at", null);
-  return (count ?? 0) > 0;
-}
-
 export async function runStockistsPhase({
   brand,
   phases,
-  overwrite = false,
-  dryRun = false,
   target,
   jobId,
+  pendingPatch,
+  deps = {},
 }: StockistsPhaseOptions): Promise<StockistsPhaseOutput> {
   if (!phases.includes("stockists")) {
     return {
@@ -207,48 +254,31 @@ export async function runStockistsPhase({
     };
   }
 
-  if (target?.type === "submission") {
-    return {
-      phaseResult: buildPhaseResult(
-        "stockists",
-        "skipped",
-        [],
-        0,
-        undefined,
-        "stockists phase does not run for submission targets",
-      ),
-      patch: {},
-    };
-  }
-
-  if (!overwrite && (await hasEnrichedStockists(brand.id))) {
-    return {
-      phaseResult: buildPhaseResult(
-        "stockists",
-        "skipped",
-        [],
-        0,
-        undefined,
-        "enriched stockists already exist",
-      ),
-      patch: {},
-    };
-  }
-
   return auditedCall(
     { provider: "enrich", operation: "runStockistsPhase", kind: "service" },
     async (_ctx) => {
       const { result, durationMs } = await timePhase(async () => {
         const auditTarget = target ?? brandTarget(brand.id);
-        const persistedScrape = await loadPersistedScrapeText(auditTarget);
+        const loadScrape =
+          deps.loadPersistedScrapeText ?? loadPersistedScrapeText;
+        const persistedScrape = await loadScrape(
+          auditTarget,
+          effectiveOwnedSiteHosts(brand, pendingPatch),
+        );
 
         if (!persistedScrape.siteContent) {
-          return { candidates: [], skippedReason: "no stockist evidence" };
+          return {
+            candidates: [],
+            skippedReason: STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+          };
         }
 
         const filteredEvidence = filterStockistEvidence(persistedScrape.siteContent);
         if (!filteredEvidence) {
-          return { candidates: [], skippedReason: "no stockist signal in evidence" };
+          return {
+            candidates: [],
+            skippedReason: STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+          };
         }
 
         const evidence = filteredEvidence.length > 12_000
@@ -314,7 +344,10 @@ export async function runStockistsPhase({
           ? validatedContent.data
           : { stockists: [] };
         const rawEntries = parsed.stockists;
-        const candidates = validateStockistCandidates(rawEntries);
+        const candidates = attributeSourceUrls(
+          validateStockistCandidates(rawEntries),
+          evidence,
+        );
         const now = new Date().toISOString();
         const timestamped = candidates.map((c) => ({ ...c, fetchedAt: now }));
         return { candidates: timestamped };
@@ -350,6 +383,10 @@ export async function runStockistsPhase({
         };
       }
 
+      // The model read the evidence and found no stockists. The skip detail is
+      // a no-op (NO_OP_SKIP_DETAILS), so a rerun that only gets this far never
+      // supersedes an earlier succeeded run at the apply gate (DEV-1928 staging
+      // check; amends design D13).
       if (result.candidates.length === 0) {
         return {
           phaseResult: buildPhaseResult(
@@ -358,26 +395,10 @@ export async function runStockistsPhase({
             [],
             durationMs,
             undefined,
-            "no stockists found in evidence",
+            STOCKISTS_NONE_FOUND_SKIP_DETAIL,
           ),
           patch: {},
         };
-      }
-
-      if (!dryRun) {
-        const upsertResult = await upsertEnrichedStockists(brand.id, result.candidates);
-        if (!upsertResult.ok) {
-          return {
-            phaseResult: buildPhaseResult(
-              "stockists",
-              "failed",
-              [],
-              durationMs,
-              `stockist upsert failed: ${upsertResult.code}`,
-            ),
-            patch: {},
-          };
-        }
       }
 
       return {
@@ -387,7 +408,7 @@ export async function runStockistsPhase({
           [`${result.candidates.length} stockist(s)`],
           durationMs,
         ),
-        patch: {},
+        patch: { stockists: result.candidates },
       };
     },
     {

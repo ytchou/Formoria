@@ -3,6 +3,27 @@ import { test, expect } from "@playwright/test";
 import { load } from "cheerio";
 import { seedBrand, type SeededBrand } from "../helpers/seed";
 
+test("Opening the language menu does not report mismatched native buttons", async ({
+  page,
+}) => {
+  const buttonErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().includes("nativeButton")) {
+      buttonErrors.push(message.text());
+    }
+  });
+
+  await page.goto("/");
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: "切換語言" })
+    .click();
+  await expect(page.getByRole("menuitem", { name: "English" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: "English" })).toBeHidden();
+  expect(buttonErrors).toEqual([]);
+});
+
 function renderedDocument(html: string) {
   const $ = load(html);
   $("script, style, noscript").remove();

@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
-import { fetchHtml, fetchXml, resolveUrl } from '../fetch-guards'
+import { fetchHtml, fetchHtmlWithMetadata, fetchXml, resolveUrl } from '../fetch-guards'
+import { isOwnedSiteHost } from '../input-detector'
 import { ONLINE_STORES, type OnlineStoreCamelField } from '@/lib/brands/online-stores'
 import {
   emptyResult,
@@ -10,11 +11,11 @@ import {
   MAX_JSON_LD_IMAGES,
 } from '../parse/extractors'
 import { mergePurchaseLinks } from '../merge'
+import { classifyCandidate, getPageText, type CandidateKind } from '../parse/page-kind'
 import { SinglePageStrategy } from './single-page'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { ScrapeContext, ScrapeStrategy } from './types'
 
-type CandidateKind = 'about' | 'products' | 'contact' | 'stockist' | 'other'
 type SocialLinkFields = Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook'>
 type PurchaseLinkFields = Pick<
   ScrapedBrandData,
@@ -51,6 +52,19 @@ function getRegistrableDomain(urlString: string): string | null {
   }
 }
 
+/**
+ * True when `pageUrl` is on the landing page's own host or a subdomain of it.
+ * `getRegistrableDomain` is a heuristic: it lets brand.myshopify.com vouch for
+ * other.myshopify.com, so stockist text checks the host instead (DEV-1943).
+ */
+function isOnLandingHost(pageUrl: string, landingUrl: string): boolean {
+  try {
+    return isOwnedSiteHost(pageUrl, new Set([new URL(landingUrl).hostname]))
+  } catch {
+    return false
+  }
+}
+
 function normalizeUrl(urlString: string): string | null {
   try {
     const parsed = new URL(urlString)
@@ -70,30 +84,6 @@ function isAssetUrl(urlString: string): boolean {
   } catch {
     return true
   }
-}
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
-function classifyCandidate(urlString: string, text: string): CandidateKind {
-  let path = ''
-  try {
-    path = new URL(urlString).pathname
-  } catch {
-    return 'other'
-  }
-
-  const haystack = safeDecode(`${path} ${text}`).toLowerCase()
-  if (/(about|story|關於|品牌)/i.test(haystack)) return 'about'
-  if (/(product|shop|商品)/i.test(haystack)) return 'products'
-  if (/(contact|聯絡)/i.test(haystack)) return 'contact'
-  if (/(where.to.buy|stores?|stockist|retailer|通路|銷售通路|購買通路|據點|門市|哪裡買)/i.test(haystack)) return 'stockist'
-  return 'other'
 }
 
 function priorityFor(kind: CandidateKind): number {
@@ -170,7 +160,8 @@ function discoverShellCandidates(
 
 async function discoverCandidates(
   html: string,
-  pageUrl: string
+  pageUrl: string,
+  skipStockist: boolean
 ): Promise<CrawlCandidate[]> {
   const landingDomain = getRegistrableDomain(pageUrl)
   if (!landingDomain) return []
@@ -182,19 +173,22 @@ async function discoverCandidates(
   discoverShellCandidates(candidates, $, pageUrl, landingDomain)
 
   return [...candidates.values()]
+    .filter((candidate) => !(skipStockist && candidate.kind === 'stockist'))
     .sort((a, b) => priorityFor(a.kind) - priorityFor(b.kind))
     .slice(0, MAX_CRAWL_PAGES)
 }
 
 async function fetchCandidatePages(candidates: CrawlCandidate[]) {
-  const pages: Array<CrawlCandidate & { html: string }> = []
+  const pages: Array<CrawlCandidate & { html: string; finalUrl: string | null }> = []
 
   for (let i = 0; i < candidates.length; i += CRAWL_CONCURRENCY) {
     const chunk = candidates.slice(i, i + CRAWL_CONCURRENCY)
     const fetched = await Promise.all(
       chunk.map(async (candidate) => {
-        const html = await fetchHtml(candidate.url)
-        return html ? { ...candidate, html } : null
+        const { text: html, finalUrl } = await fetchHtmlWithMetadata(candidate.url, {
+          includeFinalUrl: true,
+        })
+        return html ? { ...candidate, html, finalUrl: finalUrl ?? null } : null
       })
     )
 
@@ -202,11 +196,6 @@ async function fetchCandidatePages(candidates: CrawlCandidate[]) {
   }
 
   return pages
-}
-
-function getPageText($: cheerio.CheerioAPI): string | null {
-  const text = ($('main').text() || $('body').text()).replace(/\s+/g, ' ').trim()
-  return text || null
 }
 
 function mergeSocialLinks(
@@ -242,7 +231,13 @@ export class CrawlStrategy implements ScrapeStrategy {
         ...ctx,
         prefetchedHtml: landingHtml,
       })
-      const candidates = await discoverCandidates(landingHtml, url)
+      // A landing page that is itself a store locator already supplied the
+      // venue list, so no crawl slot goes to a stockist sub-page.
+      const candidates = await discoverCandidates(
+        landingHtml,
+        url,
+        Boolean(result.stockistPageText)
+      )
       const pages = await fetchCandidatePages(
         candidates.slice(0, ctx.maxCrawlPages ?? MAX_CRAWL_PAGES)
       )
@@ -261,7 +256,9 @@ export class CrawlStrategy implements ScrapeStrategy {
       let categoryHints = result.categoryHints
       let description = result.description
       let story = result.story
-      let stockistPageText: string | null = null
+      // A landing URL that is itself a store-locator page keeps its own text;
+      // a stockist sub-page only fills the gap (DEV-1943).
+      let stockistPageText: string | null = result.stockistPageText
 
       const jsonLdImageSet = new Set(result.jsonLdImageUrls)
 
@@ -288,8 +285,15 @@ export class CrawlStrategy implements ScrapeStrategy {
           }
         }
 
-        if (page.kind === 'stockist' && !stockistPageText) {
-          const pageText = getPageText($)
+        // Both the linked URL and where its redirects landed must stay on the
+        // landing host: a sibling tenant or a retailer lists its own venues.
+        if (
+          page.kind === 'stockist' &&
+          !stockistPageText &&
+          isOnLandingHost(page.url, url) &&
+          (page.finalUrl === null || isOnLandingHost(page.finalUrl, url))
+        ) {
+          const pageText = pageResult.stockistPageText ?? getPageText($)
           if (pageText) stockistPageText = pageText
         }
 

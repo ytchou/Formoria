@@ -1186,6 +1186,22 @@ describe('acquire fold', () => {
     )
   })
 
+  // DEV-1943: every scrape the agent runs carries the brand's owned site hosts,
+  // so stockist text from any other host is dropped before it is persisted.
+  it('acquire_scrapes_with_the_brand_owned_site_hosts', async () => {
+    plannedAgent()
+    scraperMocks.scrapeBrandUrls.mockResolvedValue({ data: emptyResult(FOLD_PAGE), statuses: [] })
+
+    await foldRun()
+    const deps = acquisitionMocks.runAcquisition.mock.calls[0][1]
+    await deps.scrapeBrandUrls([FOLD_PAGE], {})
+
+    expect(scraperMocks.scrapeBrandUrls).toHaveBeenCalledWith(
+      [FOLD_PAGE],
+      expect.objectContaining({ ownedSiteHosts: new Set(['foldbrand.com']) }),
+    )
+  })
+
   it('acquire_uses_createAgentModel_acquisition', async () => {
     plannedAgent()
 

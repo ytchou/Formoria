@@ -94,16 +94,19 @@ export function planToDirectives(
       fetch: s.fetch,
       reason: s.reason,
     }
-    // Map plan's strategy names to InputType (single-page → official-site for scraper)
+    // Map plan's strategy names to InputType (single-page → official-site for scraper).
+    // `official-site` is deliberately absent: the planner applies it to every brand
+    // homepage, and forcing it bypasses the detector's crawl verdict — crawl is the
+    // only producer of stockistPageText (DEV-1939). Left unset, the detector decides.
     if (s.strategy) {
-      const strategyMap: Record<string, SurfaceDirective['strategy']> = {
-        'official-site': 'official-site',
+      const strategyMap: Partial<Record<string, SurfaceDirective['strategy']>> = {
         'social': 'social',
         'e-commerce': 'e-commerce',
         'deep-multi-page': 'deep-multi-page',
         'single-page': 'official-site',
       }
-      directive.strategy = strategyMap[s.strategy]
+      const mapped = strategyMap[s.strategy]
+      if (mapped) directive.strategy = mapped
     }
     map.set(s.url, directive)
   }

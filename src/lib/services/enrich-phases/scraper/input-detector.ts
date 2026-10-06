@@ -168,6 +168,33 @@ export function isNonBrandSiteHost(url: string): boolean {
 }
 
 /**
+ * True when the URL's `www.`-stripped host equals one of the brand's owned site
+ * hosts or is a subdomain of one. `ownedHosts` comes from `ownedSiteHostsFor`.
+ *
+ * The allow-list behind stockist text (DEV-1943): a deny-list of known third
+ * parties let any unlisted host's "stores" page through. Matching is by host,
+ * never by registrable domain, so `a.myshopify.com` never vouches for
+ * `b.myshopify.com`. Fails closed: an empty or absent set and a malformed URL
+ * both return false.
+ */
+export function isOwnedSiteHost(
+  url: string,
+  ownedHosts: ReadonlySet<string> | undefined,
+): boolean {
+  if (!ownedHosts || ownedHosts.size === 0) return false
+  try {
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+    for (const owned of ownedHosts) {
+      const domain = owned.toLowerCase().replace(/^www\./, '')
+      if (domain && hostnameMatches(hostname, domain)) return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
  * True for a page that belongs to a third party rather than to any brand we
  * scrape it for — an expo organiser, a directory, a delivery app, a publishing
  * platform.

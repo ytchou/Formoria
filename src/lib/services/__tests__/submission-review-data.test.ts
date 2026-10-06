@@ -299,6 +299,35 @@ describe("normalizeSubmissionReviewImages", () => {
       "https://cdn.example.com/rejected.webp",
     ]);
   });
+
+  it("keeps a refresh's mirrored rows, resolved to their origin brand image", () => {
+    // A refresh copies the gallery into submission_images with no storage
+    // path, so the rows reach here unsigned. The save RPC accepts only
+    // submission_images IDs, so the review must keep these rows rather than
+    // swap in the brand_images they mirror.
+    const publishedGallery = activeImages.map((image) => ({
+      ...image,
+      id: `brand-${image.id}`,
+      storagePath: `brands/${image.id}.webp`,
+      originBrandImageId: `brand-${image.id}`,
+    }));
+    const mirroredRows = activeImages.map((image) => ({
+      ...image,
+      id: `mirror-${image.id}`,
+      storagePath: null,
+      url: "",
+      originBrandImageId: `brand-${image.id}`,
+    }));
+
+    expect(
+      resolveSubmissionReviewImages(mirroredRows, publishedGallery).map(
+        (image) => [image.id, image.url],
+      ),
+    ).toEqual([
+      ["mirror-hero", "https://cdn.example.com/hero.webp"],
+      ["mirror-detail", "https://cdn.example.com/detail.webp"],
+    ]);
+  });
 });
 
 describe("normalizeDuplicateNameKey", () => {

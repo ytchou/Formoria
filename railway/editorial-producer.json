@@ -1,0 +1,20 @@
+{
+  "$comment": "Documentation only: apply these settings to the dedicated Railway service after merging; this file does not provision Railway.",
+  "service": "editorial-producer",
+  "dockerfilePath": "Dockerfile.curation-worker",
+  "startCommand": "pnpm editorial:producer",
+  "serverless": true,
+  "replicas": 1,
+  "healthcheckPath": "/health",
+  "volumeMountPath": "/data/editorial-producer",
+  "envVars": [
+    "EDITORIAL_PRODUCER_TOKEN",
+    "EDITORIAL_PRODUCER_RUNS_DIR",
+    "OPENAI_API_KEY",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SLACK_BOT_TOKEN"
+  ],
+  "runsDir": "/data/editorial-producer/runs",
+  "cronSchedule": null
+}

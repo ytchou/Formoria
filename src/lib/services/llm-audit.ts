@@ -5,8 +5,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertAiCallResult } from "./_shared/ai-results";
 import { readResponseFormat } from "./eval/llm-usage-sink";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
-import { createOpenAIClient, type ChatMessage } from "./openai-client";
-import { priceUsage } from "./llm-pricing";
+import {
+  createOpenAIClient,
+  type ChatMessage,
+  type AttemptLifecycle,
+} from "./openai-client";
+import { priceUsage, costFromUsage, type PriceRow } from "./llm-pricing";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
 import type { PromptMeta } from "@/lib/langfuse/prompt";
 import {
@@ -34,6 +38,8 @@ export const PROMPT_TRUNCATION_MARK = "…";
 const LANGFUSE_INPUT_MAX_BYTES = 900_000;
 
 export type LlmAuditContext = {
+  attemptLifecycle?: AttemptLifecycle;
+  recordedPrice?: PriceRow;
   jobId?: string;
   target?: EnrichmentTarget;
   phase: string;
@@ -72,6 +78,8 @@ export type CapturedCall = {
   /** The full conversation as the caller sent it, untruncated. A legacy `{system,user}` call becomes two messages; its `images` are not copied. */
   messages: ChatMessage[];
   response: CapturedResponse;
+  /** The learned parameter overrides that changed this attempt (`openai-client.ts`); absent when none did. */
+  paramFallback?: string[];
 };
 
 let captureSeam: ((call: CapturedCall) => void) | null = null;
@@ -102,7 +110,7 @@ const OMITTED_DATA_URI = { omitted: "data-uri" } as const;
  * The full logical request as the caller sent it, for replay. `v` versions the
  * shape. Images are rewritten so a data URI is never stored.
  */
-type LoggedRequest = { v: 1 } & Record<string, unknown>;
+export type LoggedRequest = { v: 1 } & Record<string, unknown>;
 
 // Denylist by construction: every ChatInput key must be listed (the
 // `satisfies` fails typecheck on a new field), and only `signal` is dropped.
@@ -130,8 +138,9 @@ function isDataUri(url: unknown): boolean {
 
 /**
  * Legacy `images[i]` that are data URIs become `meta.imageUrls[i]` when the two
- * lengths match; otherwise every data URI becomes a placeholder, since a
- * shifted URL would replay the wrong image.
+ * lengths match and that entry is an http(s) URL; otherwise the data URI
+ * becomes a placeholder, since a shifted URL would replay the wrong image and
+ * an empty string or storage path cannot be fetched at all.
  */
 function sanitizeImages(images: unknown, meta: unknown): unknown {
   if (!Array.isArray(images)) return images;
@@ -145,7 +154,7 @@ function sanitizeImages(images: unknown, meta: unknown): unknown {
       typeof image === "string" ? image : (image as { url?: unknown })?.url;
     if (!isDataUri(url)) return image;
     const replacement = urls?.[index];
-    return typeof replacement === "string" && !isDataUri(replacement)
+    return typeof replacement === "string" && /^https?:\/\//i.test(replacement)
       ? replacement
       : OMITTED_DATA_URI;
   });
@@ -235,7 +244,9 @@ function capturedResponse(
 ): CapturedResponse {
   const message = (
     event.data as {
-      choices?: Array<{ message?: { content?: string | null; tool_calls?: unknown } }>;
+      choices?: Array<{
+        message?: { content?: string | null; tool_calls?: unknown };
+      }>;
     } | null
   )?.choices?.[0]?.message;
   // Trimmed, matching the `content` the client hands its caller.
@@ -262,6 +273,7 @@ function capture(
 ): void {
   if (!captureSeam) return;
   try {
+    const paramFallback = event.meta?.paramFallback;
     captureSeam({
       phase: context.phase,
       profileKey,
@@ -270,6 +282,9 @@ function capture(
       promptName: context.prompt?.name ?? null,
       messages: capturedMessages(input),
       response: capturedResponse(input, event),
+      ...(Array.isArray(paramFallback) && paramFallback.length > 0
+        ? { paramFallback: paramFallback.map(String) }
+        : {}),
     });
   } catch {
     // Capture is an offline observer; it must never fail the call.
@@ -331,7 +346,9 @@ export function emitLangfuseGeneration(
   try {
     const trace = getAuditContext().langfuseTrace;
     if (trace) {
-      const langfuseTrace = trace as { generation: (input: Record<string, unknown>) => void };
+      const langfuseTrace = trace as {
+        generation: (input: Record<string, unknown>) => void;
+      };
       const responseFormat = readResponseFormat(event.meta);
       const { input, truncation } = generationInput(event, logged?.request);
       langfuseTrace.generation({
@@ -462,6 +479,7 @@ function createAuditedClient(
         async (ctx) => {
           const client = createOpenAIClient({
             ...options,
+            attemptLifecycle: context.attemptLifecycle,
             onChatComplete: async (event) => {
               capture(context, profileKey, input, event);
               ctx.model = event.model;
@@ -476,7 +494,9 @@ function createAuditedClient(
                 ctx.cacheWriteTokens =
                   event.usage.prompt_tokens_details?.cache_write_tokens ?? 0;
                 try {
-                  const cost = await priceUsage(event.model ?? "", event.usage);
+                  const cost = context.recordedPrice
+                    ? costFromUsage(event.usage, context.recordedPrice)
+                    : await priceUsage(event.model ?? "", event.usage);
                   ctx.costUsd = cost.costUsd;
                   costUsd = cost.costUsd;
                 } catch {

@@ -18,7 +18,10 @@ import type {
   CuratedProductProposal,
   EnrichedData,
 } from "@/lib/types/enriched-data";
-import { enrichedDataFromDb } from "@/lib/types/enriched-data";
+import {
+  enrichedDataFromDb,
+  parseSubmissionStockists,
+} from "@/lib/types/enriched-data";
 import type { StockistCandidate } from "@/lib/types/stockist";
 import type {
   CurationDispatchStatus,
@@ -26,6 +29,7 @@ import type {
 } from "@/lib/services/curation-jobs";
 import {
   deriveSubmissionReviewStage,
+  selectStageTarget,
   type SubmissionReviewStage,
 } from "./submission-review-stage";
 import { ConflictError, NotFoundError } from "@/lib/errors";
@@ -55,7 +59,7 @@ import {
 } from "./_shared/signed-urls";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { upsertEnrichedStockists } from "./stockists";
+import { materializeSubmissionStockists } from "./stockists";
 import { promoteApprovedBrandImages } from "./promote-submission-images";
 import { materializeSubmissionFaq } from "./brand-faq";
 import { normalizeCommunityWebsite } from "./community-submissions";
@@ -85,6 +89,7 @@ type CurationTargetHistoryRow = Pick<
   | "current_phase"
   | "error"
   | "created_at"
+  | "no_op"
 >;
 type CurationJobReviewRow = Pick<
   Database["public"]["Tables"]["curation_jobs"]["Row"],
@@ -143,7 +148,13 @@ export type SubmissionReviewData = {
   blurbEn: string | null;
   city: string | null;
   reputationSummary: Json | null;
-  channels?: StockistCandidate[];
+  /**
+   * Stockist candidates proposed by enrichment (`enriched_data.stockists`),
+   * shown read-only in the review. Never written back by a review save:
+   * `materializeSubmissionStockists` reads the enrichment blob directly at
+   * apply/approve time.
+   */
+  stockists?: StockistCandidate[];
   /**
    * Curated-product proposals from the enrichment run (DEV-1469), seeded from
    * `enriched_data.products` and editable in the review like every other
@@ -172,16 +183,6 @@ export type SubmissionReviewData = {
   socialFacebook: string | null;
   otherUrls: OtherUrl[];
 } & { [Field in OnlineStoreCamelField]: string | null };
-/**
- * `channels` is submission-only, so it is widened here. Curated-product
- * proposals are NOT: `products` lives on `EnrichedData` itself, which is what
- * puts it through `enrichedDataToDb`/`enrichedDataFromDb` and therefore through
- * `enrichedDataFromSubmissionDb` below. Re-declaring it here would be a second
- * copy of the same contract, free to drift.
- */
-type EnrichedSubmissionData = EnrichedData & {
-  channels?: StockistCandidate[];
-};
 type SubmissionReviewMissingField =
   | "description"
   | "categorySlug"
@@ -217,7 +218,7 @@ export type BrandSubmissionForReview = BrandSubmissionWithCategoryNote & {
   baseBrandData: Json | null;
   baseBrandUpdatedAt: string | null;
   reviewOverrides: Json;
-  enriched_data: EnrichedSubmissionData | null;
+  enriched_data: EnrichedData | null;
   /** Refresh-only suggestion, kept outside the editable baseline. */
   nameProposal: BrandNameProposal | null;
   latestCurationTargetStatus: CurationTargetStatus | null;
@@ -454,19 +455,8 @@ function submissionToInsert(
   };
 }
 
-function isEnrichedData(value: unknown): value is EnrichedSubmissionData {
+function isEnrichedData(value: unknown): value is EnrichedData {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function enrichedDataFromSubmissionDb(
-  value: Record<string, unknown>,
-): EnrichedSubmissionData {
-  return {
-    ...enrichedDataFromDb(value),
-    ...(Array.isArray(value.channels)
-      ? { channels: value.channels as StockistCandidate[] }
-      : {}),
-  };
 }
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -752,7 +742,23 @@ export function resolveSubmissionReviewImages(
   stagingImages: SubmissionReviewImage[],
   publishedImages: SubmissionReviewImage[],
 ): SubmissionReviewImage[] {
-  const normalizedStaging = normalizeSubmissionReviewImages(stagingImages);
+  // A refresh mirrors the gallery into submission_images with no storage path,
+  // so those rows arrive unsigned. Borrow the URL of the brand image each one
+  // mirrors: the review must keep the submission_images IDs, because those are
+  // the only IDs `save_submission_review` accepts.
+  const publishedUrlById = new Map(
+    publishedImages.map((image) => [image.id, image.url]),
+  );
+  const normalizedStaging = normalizeSubmissionReviewImages(
+    stagingImages.map((image) =>
+      !image.url.trim() && image.originBrandImageId
+        ? {
+            ...image,
+            url: publishedUrlById.get(image.originBrandImageId) ?? "",
+          }
+        : image,
+    ),
+  );
   if (normalizedStaging.some((image) => image.status === "active")) {
     return normalizedStaging;
   }
@@ -779,7 +785,7 @@ type SubmissionReviewSource = Pick<
 
 export function buildSubmissionReviewData(
   submission: SubmissionReviewSource,
-  enrichedData: EnrichedSubmissionData | null | undefined,
+  enrichedData: EnrichedData | null | undefined,
   images: SubmissionReviewImage[],
 ): SubmissionReviewData {
   const originalTags = originalSuggestedSubcategories(
@@ -813,7 +819,7 @@ export function buildSubmissionReviewData(
     blurbEn: normalizeString(enrichedData?.blurbEn),
     city: normalizeString(enrichedData?.city),
     reputationSummary: enrichedData?.reputationSummary ?? null,
-    channels: enrichedData?.channels,
+    stockists: enrichedData?.stockists,
     products: enrichedData?.products,
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
@@ -917,13 +923,17 @@ export function buildRefreshSubmissionReviewData(
   fallback: SubmissionReviewData,
 ): SubmissionReviewData {
   const baseReview = reviewDataFromDb(baseBrandData, fallback);
-  return reviewDataFromDb(enrichedData, baseReview);
+  const stockists = parseSubmissionStockists(enrichedData.stockists);
+  return {
+    ...reviewDataFromDb(enrichedData, baseReview),
+    stockists: stockists ?? undefined,
+  };
 }
 
 function buildReviewLayers(
   row: SubmissionRowWithCategoryNote,
   submission: BrandSubmissionWithCategoryNote,
-  enrichedData: EnrichedSubmissionData | null,
+  enrichedData: EnrichedData | null,
   images: SubmissionReviewImage[] = [],
 ): {
   baseline: SubmissionReviewData;
@@ -1125,7 +1135,7 @@ function submissionReviewDataToBrandInsert(
   };
 }
 
-function submissionReviewDataToDb(
+export function submissionReviewDataToDb(
   data: SubmissionReviewData,
 ): Record<string, Json | undefined> {
   const { mapped, purchaseFields } = submissionReviewDataPrefix(data);
@@ -1138,7 +1148,6 @@ function submissionReviewDataToDb(
     blurb_en: data.blurbEn,
     city: data.city,
     reputation_summary: data.reputationSummary,
-    channels: data.channels as unknown as Json,
     // Same key the enrichment blob uses, so `buildRefreshSubmissionReviewData`
     // reads proposals straight out of `enriched_data` through the same mapper
     // that reads them back out of `review_overrides`. `kept_product_keys` only
@@ -1206,12 +1215,9 @@ function reviewDataFromDb(
       data.reputation_summary === undefined
         ? fallback.reputationSummary
         : (data.reputation_summary as Json | null),
-    channels:
-      data.channels === undefined
-        ? fallback.channels
-        : Array.isArray(data.channels)
-          ? (data.channels as StockistCandidate[])
-          : fallback.channels,
+    // Read-only in the review: never stored in `review_overrides`, so the
+    // fallback (the enrichment proposal) always wins.
+    stockists: fallback.stockists,
     products:
       data.products === undefined
         ? fallback.products
@@ -1386,7 +1392,6 @@ export async function createSubmission(
   );
 }
 
-
 const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   id,
   base_brand_data,
@@ -1472,7 +1477,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: pageData, error: targetHistoryError } = await supabase
               .from("curation_job_targets")
               .select(
-                "id, target_id, job_id, status, current_phase, error, created_at",
+                "id, target_id, job_id, status, current_phase, error, created_at, no_op",
               )
               .eq("target_type", "submission")
               .in("target_id", targetIds)
@@ -1505,10 +1510,23 @@ export async function getSubmissionsForReview(options?: {
       error: string | null;
     }
   >();
-  for (const target of targetHistory ?? []) {
-    if (!latestTargetBySubmission.has(target.target_id)) {
-      latestTargetBySubmission.set(target.target_id, target);
-    }
+  // A submission's rows all sit in one chunk, and its pages are concatenated
+  // in query order, so each group below is complete and newest first.
+  const targetHistoryBySubmission = new Map<
+    string,
+    CurationTargetHistoryRow[]
+  >();
+  for (const target of targetHistory) {
+    const history = targetHistoryBySubmission.get(target.target_id);
+    if (history) history.push(target);
+    else targetHistoryBySubmission.set(target.target_id, [target]);
+  }
+  // Mirrors the SQL apply/approve gates where they agree with the drop RPC:
+  // a no-op rerun yields to an earlier `succeeded` run, and otherwise the true
+  // latest row decides the stage (DEV-1929). See `selectStageTarget`.
+  for (const [submissionId, history] of targetHistoryBySubmission) {
+    const stageTarget = selectStageTarget(history);
+    if (stageTarget) latestTargetBySubmission.set(submissionId, stageTarget);
   }
 
   const latestJobIds = [
@@ -1583,13 +1601,15 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
-  // Refresh snapshots carry origin IDs instead of owning storage paths. Until
-  // new candidates are staged, their canonical review images are the live
-  // brand gallery, including while the refresh is still pending.
+  // Refresh snapshots carry origin IDs instead of owning storage paths, so
+  // their mirrored rows render from the live brand gallery. The gallery is
+  // also the fallback for a brand-linked row with no active staged image.
   const rowsMissingActiveImages = rows.filter((row) => {
     if (!row.brand_id) return false;
-    return !(reviewImagesBySubmission.get(row.id) ?? []).some(
-      (image) => image.status === "active" && image.url.trim(),
+    const staged = reviewImagesBySubmission.get(row.id) ?? [];
+    return (
+      staged.some((image) => image.originBrandImageId && !image.url.trim()) ||
+      !staged.some((image) => image.status === "active" && image.url.trim())
     );
   });
   const publishedImagesByBrand = new Map<string, BrandImageReviewRow[]>();
@@ -1602,33 +1622,34 @@ export async function getSubmissionsForReview(options?: {
   ];
   if (brandIdsMissingActiveImages.length > 0) {
     const publishedImageChunks = await Promise.all(
-      chunkValues(brandIdsMissingActiveImages, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
-        async (brandIds) => {
-          const chunkImages: BrandImageReviewRow[] = [];
-          for (let page = 0; ; page += 1) {
-            const { data: imageData, error: imagesError } = await supabase
-              .from("brand_images")
-              .select(
-                "id, brand_id, storage_path, source, status, sort_order, tags, width, height",
-              )
-              .in("brand_id", brandIds)
-              .eq("status", "active")
-              .order("brand_id", { ascending: true })
-              .order("sort_order", { ascending: true })
-              .order("id", { ascending: true })
-              .range(
-                page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
-                (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
-              );
-            if (imagesError) throw imagesError;
+      chunkValues(
+        brandIdsMissingActiveImages,
+        SUPABASE_IN_FILTER_CHUNK_SIZE,
+      ).map(async (brandIds) => {
+        const chunkImages: BrandImageReviewRow[] = [];
+        for (let page = 0; ; page += 1) {
+          const { data: imageData, error: imagesError } = await supabase
+            .from("brand_images")
+            .select(
+              "id, brand_id, storage_path, source, status, sort_order, tags, width, height",
+            )
+            .in("brand_id", brandIds)
+            .eq("status", "active")
+            .order("brand_id", { ascending: true })
+            .order("sort_order", { ascending: true })
+            .order("id", { ascending: true })
+            .range(
+              page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
+              (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
+            );
+          if (imagesError) throw imagesError;
 
-            const pageImages = (imageData ?? []) as BrandImageReviewRow[];
-            chunkImages.push(...pageImages);
-            if (pageImages.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE) break;
-          }
-          return chunkImages;
-        },
-      ),
+          const pageImages = (imageData ?? []) as BrandImageReviewRow[];
+          chunkImages.push(...pageImages);
+          if (pageImages.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE) break;
+        }
+        return chunkImages;
+      }),
     );
 
     for (const image of publishedImageChunks.flat()) {
@@ -1685,7 +1706,7 @@ export async function getSubmissionsForReview(options?: {
       : undefined;
     const submission = submissionToDomain(row);
     const enrichedData = isEnrichedData(row.enriched_data)
-      ? enrichedDataFromSubmissionDb(
+      ? enrichedDataFromDb(
           row.enriched_data as Record<string, unknown>,
         )
       : null;
@@ -2039,8 +2060,21 @@ export async function applyBrandRefresh(
       try {
         await materializeSubmissionFaq(submissionId, submission.brand_id);
       } catch (err) {
+        console.error("[applyBrandRefresh] materializeSubmissionFaq failed:", {
+          submissionId,
+          error: err,
+        });
+      }
+
+      // Deliberate swallow: a failed stockists materialize is logged here and
+      // recorded as a failed auditedCall row; the submission is already applied
+      // and stays so. Recovery is a fresh refresh. Upgrade path: a retry queue,
+      // if failures start appearing in the audit rows.
+      try {
+        await materializeSubmissionStockists(submissionId, submission.brand_id);
+      } catch (err) {
         console.error(
-          "[applyBrandRefresh] materializeSubmissionFaq failed:",
+          "[applyBrandRefresh] materializeSubmissionStockists failed:",
           { submissionId, error: err },
         );
       }
@@ -2108,7 +2142,7 @@ export async function getSubmissionProductReview(
     other_urls: normalizeOtherUrls(data.other_urls),
   } as unknown as SubmissionRowWithCategoryNote;
   const enrichedData = isEnrichedData(row.enriched_data)
-    ? enrichedDataFromSubmissionDb(row.enriched_data as Record<string, unknown>)
+    ? enrichedDataFromDb(row.enriched_data as Record<string, unknown>)
     : null;
 
   // Images are not passed: the only thing they can change on the effective
@@ -2150,7 +2184,7 @@ export async function saveSubmissionReview(
       const submissionRow = row as unknown as SubmissionRowWithCategoryNote;
       const submission = submissionToDomain(submissionRow);
       const enrichedData = isEnrichedData(submissionRow.enriched_data)
-        ? enrichedDataFromSubmissionDb(
+        ? enrichedDataFromDb(
             submissionRow.enriched_data as Record<string, unknown>,
           )
         : null;
@@ -2322,10 +2356,10 @@ export async function approveSubmission(
       }
 
       const enrichedDataRaw = submission.enriched_data;
-      const enrichedData: EnrichedSubmissionData | null = isEnrichedData(
+      const enrichedData: EnrichedData | null = isEnrichedData(
         enrichedDataRaw,
       )
-        ? enrichedDataFromSubmissionDb(
+        ? enrichedDataFromDb(
             enrichedDataRaw as Record<string, unknown>,
           )
         : null;
@@ -2420,33 +2454,24 @@ export async function approveSubmission(
       // `scripts/enrichment/images/promote-submission-images.ts`) and a failed approval is not.
       await promoteApprovedBrandImages(approval.brand_id);
 
-      // The maps producer is gone, but pending submissions can still carry legacy
-      // channels. Keep draining those rows until the Phase 2 importer takes over.
-      if (reviewData.channels) {
-        try {
-          const stockistsResult = await upsertEnrichedStockists(
-            approval.brand_id,
-            reviewData.channels,
-          );
-          if (!stockistsResult.ok) {
-            console.error(
-              "[approveSubmission] Failed to upsert enriched channels:",
-              stockistsResult.code,
-            );
-          }
-        } catch (stockistError) {
-          console.error(
-            "[approveSubmission] Failed to upsert enriched channels:",
-            stockistError,
-          );
-        }
-      }
-
       try {
         await materializeSubmissionFaq(submission.id, approval.brand_id);
       } catch (err) {
+        console.error("[approveSubmission] materializeSubmissionFaq failed:", {
+          submissionId: submission.id,
+          error: err,
+        });
+      }
+
+      // Deliberate swallow: a failed stockists materialize is logged here and
+      // recorded as a failed auditedCall row; the submission is already applied
+      // and stays so. Recovery is a fresh refresh. Upgrade path: a retry queue,
+      // if failures start appearing in the audit rows.
+      try {
+        await materializeSubmissionStockists(submission.id, approval.brand_id);
+      } catch (err) {
         console.error(
-          "[approveSubmission] materializeSubmissionFaq failed:",
+          "[approveSubmission] materializeSubmissionStockists failed:",
           { submissionId: submission.id, error: err },
         );
       }

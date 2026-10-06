@@ -46,6 +46,114 @@ type SlackMetadataOk = { ok: true; metadata: SlackMessageMetadata | null };
 
 const TIMEOUT_MS = 8_000;
 
+export async function getFileUploadUrl(
+  filename: string,
+  length: number,
+): Promise<{ fileId: string; uploadUrl: string }> {
+  return auditedCall(
+    { provider: "slack", operation: "get_upload_url", kind: "external" },
+    async () => {
+      const response = await fetch(
+        "https://slack.com/api/files.getUploadURLExternal",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + getToken(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ filename, length }),
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        },
+      );
+      const data = (await response.json()) as {
+        ok: boolean;
+        file_id?: string;
+        upload_url?: string;
+        error?: string;
+      };
+      if (!response.ok || !data.ok || !data.file_id || !data.upload_url)
+        throw new Error(
+          "Slack file admission failed: " + (data.error ?? response.status),
+        );
+      const url = new URL(data.upload_url);
+      if (
+        url.protocol !== "https:" ||
+        !(
+          url.hostname === "files.slack.com" ||
+          url.hostname.endsWith(".slack.com")
+        )
+      )
+        throw new Error("Invalid Slack upload host");
+      return { fileId: data.file_id, uploadUrl: data.upload_url };
+    },
+  );
+}
+
+export async function uploadFileBytes(
+  uploadUrl: string,
+  contents: string,
+): Promise<void> {
+  return auditedCall(
+    { provider: "slack", operation: "upload_file", kind: "external" },
+    async () => {
+      const url = new URL(uploadUrl);
+      if (
+        url.protocol !== "https:" ||
+        !(
+          url.hostname === "files.slack.com" ||
+          url.hostname.endsWith(".slack.com")
+        )
+      )
+        throw new Error("Invalid Slack upload host");
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        body: contents,
+        headers: { "Content-Type": "application/octet-stream" },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        redirect: "error",
+      });
+      if (!response.ok)
+        throw new Error("Slack file upload failed: " + response.status);
+    },
+  );
+}
+
+export class SlackUploadRejected extends Error {}
+
+export async function completeFileUpload(input: {
+  fileId: string;
+  title: string;
+  channelId: string;
+  threadTs: string;
+}): Promise<void> {
+  return auditedCall(
+    { provider: "slack", operation: "complete_upload", kind: "external" },
+    async () => {
+      const response = await fetch(
+        "https://slack.com/api/files.completeUploadExternal",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + getToken(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            files: [{ id: input.fileId, title: input.title }],
+            channel_id: input.channelId,
+            thread_ts: input.threadTs,
+          }),
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        },
+      );
+      const data = (await response.json()) as { ok: boolean; error?: string };
+      if (!response.ok || !data.ok)
+        throw new SlackUploadRejected(
+          "Slack file completion failed: " + (data.error ?? response.status),
+        );
+    },
+  );
+}
+
 function getToken(): string {
   const token = process.env.SLACK_BOT_TOKEN;
   if (!token) throw new Error("SLACK_BOT_TOKEN is not set");
@@ -78,7 +186,11 @@ export async function postMessage(
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
 
-      const data = (await response.json()) as { ok: boolean; ts?: string; error?: string };
+      const data = (await response.json()) as {
+        ok: boolean;
+        ts?: string;
+        error?: string;
+      };
       if (data.ok) {
         return { ok: true as const, ts: data.ts! };
       }

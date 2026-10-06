@@ -31,7 +31,10 @@ vi.mock("@/i18n/navigation", () => ({
   ),
 }));
 
-vi.mock("next-intl", () => ({ useLocale: () => "zh-TW", useTranslations: () => (key: string) => key }));
+vi.mock("next-intl", () => ({
+  useLocale: () => "zh-TW",
+  useTranslations: () => (key: string) => key,
+}));
 
 vi.mock("@/components/ui/photo-band", () => ({
   PhotoBand: ({
@@ -58,16 +61,8 @@ describe("HeroSection — the editorial opener", () => {
     expect(heading).toHaveTextContent("headline");
     expect(screen.getByText("subheadline")).toBeInTheDocument();
     expect(screen.getByText("lede")).toBeInTheDocument();
-    expect(screen.getByRole("searchbox", { name: "searchLabel" })).toBeInTheDocument();
-  });
-
-  it("offers style discovery beside the search field", async () => {
-    render(await HeroSection());
-
-    expect(screen.getByText("browsePrefix")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /browseCta/ })).toHaveAttribute(
-      "href",
-      "/discover",
-    );
+    expect(
+      screen.getByRole("searchbox", { name: "searchLabel" }),
+    ).toBeInTheDocument();
   });
 });

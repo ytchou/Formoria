@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { scrapeBrandUrls } from '../index'
+import { SinglePageStrategy } from '../strategies/single-page'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -44,5 +45,24 @@ describe('SinglePageStrategy via scrapeBrandUrls', () => {
     )))
     const { data: r } = await scrapeBrandUrls(['https://acme.tw'])
     expect(r.heroImageUrl).toBe('https://cdn.acme.tw/hero.jpg')
+  })
+})
+
+// DEV-1943: a URL that is itself a store-locator page carries its own venue list.
+describe('SinglePageStrategy stockist landing page', () => {
+  const html = '<html><head>' +
+    '<script type="application/ld+json">{"@type":"Product","name":"Widget","image":"https://cdn.acme.tw/a.jpg"}</script>' +
+    '</head><body><main>誠品書店 信義店 台北市信義區松高路11號</main></body></html>'
+
+  it('keeps JSON-LD images and sets stockistPageText for a /stores URL', async () => {
+    const r = await new SinglePageStrategy().scrape('https://acme.tw/stores', { prefetchedHtml: html })
+    expect(r.jsonLdImageUrls).toContain('https://cdn.acme.tw/a.jpg')
+    expect(r.stockistPageText).toContain('誠品書店 信義店')
+    expect(r.stockistPageText).not.toContain('Widget')
+  })
+
+  it('leaves stockistPageText null for a page that is not a stockist page', async () => {
+    const r = await new SinglePageStrategy().scrape('https://acme.tw/', { prefetchedHtml: html })
+    expect(r.stockistPageText).toBeNull()
   })
 })

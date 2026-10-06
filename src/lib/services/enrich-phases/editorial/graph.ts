@@ -5,12 +5,14 @@
  * finalize
  *
  * This is a WRAPPER agent: the generate nodes call the existing phase functions
- * so their multi-step LLM flows and their DB writes (stockists rows, FAQ rows)
- * are untouched. What the graph adds on top is the cross-output pass — one code
- * validation over the combined patch and, when it finds something, ONE repair
- * turn. `repair` is reachable only from `validate` and leads straight to
- * `finalize`, so "at most one repair turn" is a property of the edges rather
- * than of a counter someone can forget to increment.
+ * so their multi-step LLM flows are untouched. Neither the stockists nor the
+ * FAQ phase writes rows: they author `patch.stockists` / `patch.faq`, which are
+ * materialized at apply time, and the faq node is handed the pending stockists
+ * so its where-to-buy count includes them. What the graph adds on top is the
+ * cross-output pass — one code validation over the combined patch and, when it
+ * finds something, ONE repair turn. `repair` is reachable only from `validate`
+ * and leads straight to `finalize`, so "at most one repair turn" is a property
+ * of the edges rather than of a counter someone can forget to increment.
  *
  * Every dependency is injected through `EditorialDeps`, so the graph is
  * exercised end to end with fakes and no service mock
@@ -21,6 +23,8 @@
 
 import { Annotation, END, START, StateGraph, GraphRecursionError } from '@langchain/langgraph'
 import type { PhaseResult } from '@/lib/types/curation'
+import type { StockistCandidate } from '@/lib/types/stockist'
+import { parseSubmissionStockists } from '@/lib/types/enriched-data'
 import type { EnrichmentTarget } from '../../_shared/enrichment-target'
 import type { EnrichBrand, EnrichPatch, EnrichPhase, EnrichScrapedData } from '../types'
 import type { ListingVerdict, BrandFactsResult, BrandFactsAttempt } from '../../brand-facts'
@@ -83,7 +87,10 @@ type FaqPhaseOutput = {
 export type EditorialDeps = {
   runDescriptions: (input: EditorialInput) => Promise<DescriptionsPhaseOutput>
   runStockists: (input: EditorialInput) => Promise<StockistsPhaseOutput>
-  runFaq: (input: EditorialInput) => Promise<FaqPhaseOutput>
+  /** `pendingStockists` is the stockists node's patch, not yet materialized. */
+  runFaq: (
+    input: EditorialInput & { pendingStockists?: StockistCandidate[] },
+  ) => Promise<FaqPhaseOutput>
   /** Cross-output validator: checks all outputs together for consistency issues. */
   validateCrossOutput: (patch: Record<string, unknown>, phaseResults: PhaseResult[]) => CrossOutputFailure[]
   /** One LLM repair call with cross-output failures. Returns only changed fields. */
@@ -271,7 +278,10 @@ async function faqNode(
     return {}
   }
 
-  const result = await ctx.deps.runFaq(ctx.input)
+  const result = await ctx.deps.runFaq({
+    ...ctx.input,
+    pendingStockists: parseSubmissionStockists(state.patch.stockists) ?? undefined,
+  })
   ctx.record('faq', result.phaseResult.status, phaseReason(result.phaseResult), start)
 
   return ctx.commit({

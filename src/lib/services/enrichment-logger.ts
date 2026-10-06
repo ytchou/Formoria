@@ -73,7 +73,9 @@ export const formatEnrichPatchField = (key: string, value: unknown): string => {
     ? `[${value.length} items]`
     : typeof value === 'string' && value.length > 60
       ? `${value.slice(0, 60)}…`
-      : value
+      : typeof value === 'object' && value !== null
+        ? `{${Object.keys(value).join(', ')}}`
+        : value
 
   return `  ${ENRICH_PREFIX} ${key}: ${display}`
 }

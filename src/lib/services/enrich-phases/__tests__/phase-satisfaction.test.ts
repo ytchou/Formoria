@@ -3,10 +3,20 @@ import {
   checkPhaseSatisfaction,
   fetchPhaseHistory,
   filterSatisfiedPhases,
+  isNoOpTarget,
   type PhaseHistory,
 } from "../phase-satisfaction";
 import { DEFERRED_PHASES, ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
 import type { PhaseOutputStore, PhaseOutputRow } from "@/lib/services/enrich-blocks/phase-outputs";
+import type { PhaseResult } from "@/lib/types/curation";
+import {
+  buildPhaseResult,
+  PRODUCTS_NO_CHANNEL_SKIP_DETAIL,
+  SATISFIED_FROM_HISTORY_SKIP_DETAIL,
+  STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+  STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  STOCKISTS_NONE_FOUND_SKIP_DETAIL,
+} from "../types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -274,5 +284,98 @@ describe("history-based phase satisfaction", () => {
 
     expect(checkPhaseSatisfaction("acquire", history)).toBe("unsatisfied");
     expect(checkPhaseSatisfaction("descriptions", history)).toBe("unsatisfied");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isNoOpTarget (DEV-1929)
+// ---------------------------------------------------------------------------
+
+function skippedPhase(phase: string, detail?: string): PhaseResult {
+  return buildPhaseResult(phase, "skipped", [], 0, undefined, detail);
+}
+
+/**
+ * The live phase_results of the bobo-and-puff rerun (job 0a346020): every
+ * phase was satisfied from history or does not apply, and the job wrote no
+ * checkpoints. Its `skipped` row hid the earlier `succeeded` run from the
+ * apply gate.
+ */
+const NO_OP_RERUN_PHASE_RESULTS: PhaseResult[] = [
+  ...["detect", "slugs", "acquire", "names", "descriptions", "faq"].map((phase) =>
+    skippedPhase(phase, SATISFIED_FROM_HISTORY_SKIP_DETAIL),
+  ),
+  skippedPhase("stockists", STOCKISTS_NO_EVIDENCE_SKIP_DETAIL),
+  skippedPhase("products", PRODUCTS_NO_CHANNEL_SKIP_DETAIL),
+];
+
+/** The bobo-and-puff rerun with one phase's result swapped for `replacement`. */
+function rerunWith(replacement: PhaseResult): PhaseResult[] {
+  return NO_OP_RERUN_PHASE_RESULTS.map((result) =>
+    result.phase === replacement.phase ? replacement : result,
+  );
+}
+
+describe("a target counts as a no-op only when it ran nothing", () => {
+  it("is true for a rerun with zero checkpoints and every phase satisfied or not applicable", () => {
+    expect(
+      isNoOpTarget({ phaseResults: NO_OP_RERUN_PHASE_RESULTS, checkpointCount: 0 }),
+    ).toBe(true);
+  });
+
+  it("is false when the run owns a checkpoint", () => {
+    expect(
+      isNoOpTarget({ phaseResults: NO_OP_RERUN_PHASE_RESULTS, checkpointCount: 1 }),
+    ).toBe(false);
+  });
+
+  it("is false when any phase succeeded or failed", () => {
+    for (const status of ["succeeded", "failed"] as const) {
+      const phaseResults: PhaseResult[] = [
+        ...NO_OP_RERUN_PHASE_RESULTS,
+        { phase: "names", status, changedFields: [], durationMs: 10 },
+      ];
+      expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
+    }
+  });
+
+  it("is false when no phase result was recorded", () => {
+    expect(isNoOpTarget({ phaseResults: [], checkpointCount: 0 })).toBe(false);
+  });
+
+  it("is false when a forced acquire rerun ran out of wall clock", () => {
+    const phaseResults = rerunWith(skippedPhase("acquire", "wall_clock_exhausted"));
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
+  });
+
+  it("is false when products could not run for a missing API key", () => {
+    const phaseResults = rerunWith(
+      skippedPhase("products", "OPENAI_API_KEY is not configured"),
+    );
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
+  });
+
+  it("treats each pre-model stockists skip as a no-op", () => {
+    for (const detail of [
+      STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+      STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+    ]) {
+      const phaseResults = rerunWith(skippedPhase("stockists", detail));
+      expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(true);
+    }
+  });
+
+  it("is true when the stockists model ran and found nothing", () => {
+    // Staging (DEV-1928): a rerun whose only executed phase found no stockists
+    // must not supersede the earlier succeeded run at the apply gate.
+    const phaseResults = rerunWith(
+      skippedPhase("stockists", STOCKISTS_NONE_FOUND_SKIP_DETAIL),
+    );
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(true);
+  });
+
+  it("is false when a skipped phase carries no detail", () => {
+    const phaseResults = rerunWith(skippedPhase("names"));
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
   });
 });

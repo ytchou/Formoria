@@ -1,6 +1,7 @@
 import { boundedSlackText } from "@/lib/adapters/slack/notification";
 
 type SlackBlock = Record<string, unknown>;
+const SLACK_FIELD_TEXT_LIMIT = 2000;
 
 type ProposalCardInput = {
   requestId: string;
@@ -8,6 +9,7 @@ type ProposalCardInput = {
   proposal: string;
   rationale: string;
   expiresAt: string;
+  confirmLabel?: "Start";
 };
 
 type ResultCardInput = {
@@ -35,11 +37,11 @@ export function renderProposalCard(input: ProposalCardInput): SlackBlock[] {
       fields: [
         {
           type: "mrkdwn",
-          text: boundedSlackText(`*Action*\n${proposal}`),
+          text: truncatePlain(`*Action*\n${proposal}`, SLACK_FIELD_TEXT_LIMIT),
         },
         {
           type: "mrkdwn",
-          text: boundedSlackText(`*Why*\n${rationale}`),
+          text: truncatePlain(`*Why*\n${rationale}`, SLACK_FIELD_TEXT_LIMIT),
         },
         {
           type: "mrkdwn",
@@ -56,7 +58,7 @@ export function renderProposalCard(input: ProposalCardInput): SlackBlock[] {
       elements: [
         {
           type: "button",
-          text: { type: "plain_text", text: "Confirm" },
+          text: { type: "plain_text", text: input.confirmLabel ?? "Confirm" },
           style: "primary",
           action_id: "ops_confirm",
           value: requestId,

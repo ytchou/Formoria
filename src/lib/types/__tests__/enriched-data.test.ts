@@ -3,7 +3,9 @@ import {
   enrichedDataFromDb,
   enrichedDataToDb,
   parseSubmissionFaqPatch,
+  parseSubmissionStockists,
 } from "../enriched-data";
+import type { StockistCandidate } from "@/lib/types/stockist";
 
 describe("enrichedDataFromDb", () => {
   it("maps subcategories to subcategories", () => {
@@ -107,6 +109,19 @@ describe("enrichedDataFromDb", () => {
 
     expect(domain.nameProposal).toEqual(proposal);
     expect(enrichedDataToDb(domain)).toEqual({ _name_proposal: proposal });
+  });
+
+  it("keeps a medium proposal that carries no first-party evidence", () => {
+    const proposal = {
+      value: "AROMASE 艾瑪絲",
+      confidence: "medium" as const,
+      reason: "尾段是行銷文案",
+      evidence: [],
+    };
+
+    expect(enrichedDataFromDb({ _name_proposal: proposal }).nameProposal).toEqual(
+      proposal,
+    );
   });
 });
 
@@ -222,5 +237,65 @@ describe("parseSubmissionFaqPatch", () => {
     expect(result!.entries).toHaveLength(1);
     expect(result!.entries[0]!.presetId).toBe("main-products");
     expect(result!.explicit).toBe(false);
+  });
+});
+
+const stockistCandidate = (name: string): StockistCandidate => ({
+  name,
+  normalizedName: name.toLowerCase(),
+  regionLabel: "臺北市",
+  address: "臺北市大安區復興南路一段 1 號",
+  url: null,
+  sourceUrl: "https://example.com/stores",
+  locationType: "stockist",
+  country: "TW",
+  district: "大安區",
+  source: "enriched",
+  fetchedAt: "2026-10-05T00:00:00.000Z",
+});
+
+describe("enriched_data.stockists blob contract", () => {
+  it("stockists_round_trip_through_db_adapters", () => {
+    const input = {
+      stockists: [stockistCandidate("Shop A"), stockistCandidate("Shop B")],
+    };
+
+    const stored = enrichedDataToDb(input);
+    expect(stored).toEqual({ stockists: input.stockists });
+    expect(enrichedDataFromDb(stored)).toEqual(input);
+  });
+
+  it("stockists_absent_stays_absent", () => {
+    expect(enrichedDataToDb({ description: "x" })).not.toHaveProperty(
+      "stockists",
+    );
+    expect(enrichedDataFromDb({ description: "x" })).not.toHaveProperty(
+      "stockists",
+    );
+  });
+});
+
+describe("parseSubmissionStockists", () => {
+  it("keeps_valid_candidates_and_drops_malformed_items", () => {
+    const valid = stockistCandidate("Shop A");
+    const result = parseSubmissionStockists([
+      valid,
+      { name: "", normalizedName: "x" },
+      { name: "   ", normalizedName: "x" },
+      { name: "No normalized" },
+      { name: 42, normalizedName: "x" },
+      null,
+      "Shop C",
+      [valid],
+    ]);
+
+    expect(result).toEqual([valid]);
+  });
+
+  it("returns_null_for_non_arrays", () => {
+    expect(parseSubmissionStockists(undefined)).toBeNull();
+    expect(parseSubmissionStockists(null)).toBeNull();
+    expect(parseSubmissionStockists({ name: "Shop A" })).toBeNull();
+    expect(parseSubmissionStockists("Shop A")).toBeNull();
   });
 });

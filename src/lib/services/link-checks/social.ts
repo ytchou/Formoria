@@ -5,8 +5,10 @@
  *
  * NOT-FOUND vs BLOCKED:
  * - A 404/410 on a social URL is a dead link (the profile does not exist).
- * - A 403/429 or redirect to a login page is a blocked probe — the profile
- *   may still be live, so we record it in the summary but never as a finding.
+ * - Any other failure — 400, 403, 429, 5xx, a network error, or a redirect
+ *   to a login page — is a blocked probe. Facebook answers 400 to anonymous
+ *   probes of live pages, so only a not-found status carries signal. These
+ *   count in the summary but never as a finding.
  */
 
 import { stableFingerprint, type HealthFinding } from '@/lib/services/health-agent/contracts'
@@ -36,6 +38,9 @@ type SocialColumn = (typeof SOCIAL_COLUMNS)[number]
  * live. A probe that ends on one of these paths is blocked, never dead.
  */
 const LOGIN_WALL_PATHS = ['/login', '/accounts/login']
+
+/** The only statuses that mean the profile is gone. */
+const DEAD_STATUSES = new Set([404, 410])
 
 function isLoginWall(resolvedUrl: string | null): boolean {
   if (!resolvedUrl) return false
@@ -141,9 +146,14 @@ export async function checkSocialLinks(
 
   await mapWithConcurrency(tasks, LINK_CHECK_CONCURRENCY, async (task) => {
     const result = await deps.checkUrl(task.url)
-    if (result.status === 'blocked' || isLoginWall(result.resolvedUrl)) {
-      blocked += 1
-    } else if (result.status === 'broken') {
+    const loginWall = isLoginWall(result.resolvedUrl)
+    if (result.status === 'ok' && !loginWall) return
+    if (
+      result.status === 'broken' &&
+      result.statusCode !== null &&
+      DEAD_STATUSES.has(result.statusCode) &&
+      !loginWall
+    ) {
       dead += 1
       deadLinks.push({
         brandId: task.brand.id,
@@ -152,6 +162,8 @@ export async function checkSocialLinks(
         url: task.url,
         statusCode: result.statusCode,
       })
+    } else {
+      blocked += 1
     }
   })
 

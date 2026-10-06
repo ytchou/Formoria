@@ -97,6 +97,8 @@ import {
 import type { OpenAIJsonSchema } from "@/lib/services/openai-client";
 import {
   buildPhaseResult,
+  PRODUCTS_NO_CHANNEL_SKIP_DETAIL,
+  PRODUCTS_SUBMISSION_ONLY_SKIP_DETAIL,
   timePhase,
   type EnrichBrand,
   type EnrichPatch,
@@ -995,7 +997,7 @@ export async function runProductsPhase({
   // has no brand-target path left anyway (a live brand is refreshed through a
   // refresh submission), so this costs no reachable coverage.
   if (effectiveTarget.type !== "submission")
-    return skipped("products phase runs only for submission targets");
+    return skipped(PRODUCTS_SUBMISSION_ONLY_SKIP_DETAIL);
 
   const token = process.env.OPENAI_API_KEY;
   if (!token) return skipped("OPENAI_API_KEY is not configured");
@@ -1023,7 +1025,7 @@ export async function runProductsPhase({
   ];
   const site = httpUrl(channelUrls[0]);
   if (!site)
-    return skipped("no verified purchase channel to propose products from");
+    return skipped(PRODUCTS_NO_CHANNEL_SKIP_DETAIL);
 
   // Catalog discovery now runs in the images phase (DEV-1633). The products
   // phase receives the result as an input. Fall back to empty when the

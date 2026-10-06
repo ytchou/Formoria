@@ -24,7 +24,7 @@ describe('health agent job definitions', () => {
 
   it('runs Vitest in test mode when the worker environment is production', () => {
     expect(HEALTH_JOBS.vitest.commands[0]!.run).toBe(
-      'NODE_ENV=test pnpm exec vitest run --reporter=json',
+      'NODE_ENV=test pnpm exec vitest run --reporter=default --reporter=json',
     )
   })
 

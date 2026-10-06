@@ -16,6 +16,7 @@ import type {
   CuratedProductProposal,
   SubmissionFaqPatch,
 } from "@/lib/types/enriched-data";
+import type { StockistCandidate } from "@/lib/types/stockist";
 import { LINK_FIELD_TO_COLUMN } from "@/lib/types/link-fields";
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number];
@@ -116,6 +117,8 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     _name_proposal: BrandNameProposal;
     /** FAQ entries proposed by the enrichment run; materialized at apply time. */
     faq: SubmissionFaqPatch;
+    /** Stockist candidates proposed by the enrichment run; materialized at apply time. */
+    stockists: StockistCandidate[];
     /** Storage path for the hero image, written by acquire for submission targets. */
     hero_image_storage_path: string | null;
     /** Curated product proposals, written by the products phase. */
@@ -156,6 +159,7 @@ export type PhaseOutputSlots = {
       | "founding_year"
       | "_cleared_fields"
       | "faq"
+      | "stockists"
     >
   >;
   categoryDerivation: Partial<Pick<EnrichPatch, "category">>;
@@ -208,6 +212,7 @@ const EDITORIAL_KEYS = [
   "founding_year",
   "_cleared_fields",
   "faq",
+  "stockists",
 ] as const satisfies readonly (keyof PhaseOutputSlots["editorial"] & string)[];
 const ACQUIRE_EXTRA_KEYS = [
   "hero_image_url",
@@ -324,6 +329,27 @@ export async function timePhase<T>(
     durationMs: performance.now() - startedAt,
   };
 }
+
+// Skip details that mean a phase executed nothing: it was satisfied from
+// history or does not apply to the target. `isNoOpTarget` allowlists exactly
+// these, so every write site uses the constant rather than retyping the text.
+// They live here, not in their writers, because `enrich-blocks/runner.ts` must
+// not import phase runners and already sits in an import cycle with
+// `phase-satisfaction.ts` (DEV-1929).
+/** Written by `pushSkippedResults` in `enrich-blocks/runner.ts`. */
+export const SATISFIED_FROM_HISTORY_SKIP_DETAIL = "phase output already satisfied";
+/** Written by `runStockistsPhase` when the target has no persisted scrape. */
+export const STOCKISTS_NO_EVIDENCE_SKIP_DETAIL = "no stockist evidence";
+/** Written by `runStockistsPhase` when the scrape holds no stockist signal. */
+export const STOCKISTS_NO_SIGNAL_SKIP_DETAIL = "no stockist signal in evidence";
+/** Written by `runStockistsPhase` when the model read the evidence and found none. */
+export const STOCKISTS_NONE_FOUND_SKIP_DETAIL = "no stockists found in evidence";
+/** Written by `runProductsPhase` for a non-submission target. */
+export const PRODUCTS_SUBMISSION_ONLY_SKIP_DETAIL =
+  "products phase runs only for submission targets";
+/** Written by `runProductsPhase` when no purchase channel resolves. */
+export const PRODUCTS_NO_CHANNEL_SKIP_DETAIL =
+  "no verified purchase channel to propose products from";
 
 export function buildPhaseResult(
   phase: string,

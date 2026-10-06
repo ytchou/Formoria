@@ -362,6 +362,8 @@ function normalizePathname(pathname: string): string {
 }
 
 function getBrandDetailSlug(segments: string[]): string | null {
+  // Recruitment is a static localized route, not a prefixless brand-detail page.
+  if (segments.at(-1) === "join") return null;
   if (segments.length === 2 && segments[0] === "brands")
     return segments[1] ?? null;
   if (

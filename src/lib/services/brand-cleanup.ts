@@ -224,6 +224,11 @@ const SEGMENT_SPLIT_REGEX = /(?:\s*[┃｜|—]\s*|\s+[-–]\s+)/u
  */
 const PAGE_TITLE_BOILERPLATE = new Set([
   '首頁',
+  // Marketplace and site "about" pages (DEV-1930). An exact-match deny-list only
+  // catches labels already seen; the `names` arbiter remains the real judge.
+  '賣家介紹',
+  '品牌介紹',
+  '關於我們',
   '官網',
   '官方網站',
   '官方網',

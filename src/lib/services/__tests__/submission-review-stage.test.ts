@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveSubmissionReviewStage,
   isSubmissionEnrichmentFailure,
+  selectStageTarget,
 } from "../submission-review-stage";
 
 describe("deriveSubmissionReviewStage", () => {
@@ -113,5 +114,45 @@ describe("isSubmissionEnrichmentFailure", () => {
     },
   ] as const)("still reports genuine target and batch failures", (state) => {
     expect(isSubmissionEnrichmentFailure(state)).toBe(true);
+  });
+});
+
+describe("a no-op rerun yields its stage only to an earlier succeeded run", () => {
+  const run = (id: string, status: string, no_op = false) => ({
+    id,
+    status,
+    no_op,
+  });
+
+  it("uses the true latest row when it actually ran", () => {
+    const latest = run("t3", "failed");
+    expect(
+      selectStageTarget([latest, run("t2", "succeeded"), run("t1", "skipped", true)]),
+    ).toBe(latest);
+  });
+
+  it("uses the latest run that ran when it succeeded behind a no-op rerun", () => {
+    const succeeded = run("t1", "succeeded");
+    expect(
+      selectStageTarget([
+        run("t3", "skipped", true),
+        run("t2", "skipped", true),
+        succeeded,
+      ]),
+    ).toBe(succeeded);
+  });
+
+  it("keeps the no-op rerun when the run before it failed, matching the drop RPC", () => {
+    const noOp = run("t2", "skipped", true);
+    expect(selectStageTarget([noOp, run("t1", "failed")])).toBe(noOp);
+  });
+
+  it("keeps the no-op rerun when no row ever ran", () => {
+    const noOp = run("t1", "skipped", true);
+    expect(selectStageTarget([noOp])).toBe(noOp);
+  });
+
+  it("returns nothing for a submission with no target rows", () => {
+    expect(selectStageTarget([])).toBeUndefined();
   });
 });

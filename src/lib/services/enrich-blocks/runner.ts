@@ -9,6 +9,7 @@ import { mapWithConcurrency } from '../_shared/concurrency'
 import { recordPhaseOutputs, isUsablePhaseOutput, isUsablePhaseCheckpoint, mergeSelectedPhaseOutputs, type PhaseOutputRow } from './phase-outputs'
 import { checkPhaseSatisfaction, phaseHistoryFromOutputs } from '../enrich-phases/phase-satisfaction'
 import { validateRecoveryPlan } from './plan'
+import { SATISFIED_FROM_HISTORY_SKIP_DETAIL } from '../enrich-phases/types'
 import type { PhaseOutputStore } from './phase-outputs'
 import type { PhaseResult } from '@/lib/types/curation'
 import type {
@@ -336,7 +337,7 @@ function pushSkippedResults(
     hooks.onPhaseResult?.(ctx, phase, {
       phase,
       status: 'skipped',
-      detail: 'phase output already satisfied',
+      detail: SATISFIED_FROM_HISTORY_SKIP_DETAIL,
       changedFields: [],
       durationMs: 0,
     })

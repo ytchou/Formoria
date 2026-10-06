@@ -66,8 +66,6 @@
     "unavailable": "官方連結目前無法使用",
     "relatedStories": "繼續閱讀",
     "relatedTrails": "其他風格",
-    "derivedStories": "相關專題",
-    "derivedStoriesAriaLabel": "相關專題文章",
     "exploreMore": "探索更多"
   },
   "products": {
@@ -485,13 +483,18 @@
       "provideInfo": "提供實體通路",
       "groups": {
         "all_taiwan": "全台",
-        "overseas": "海外"
+        "overseas": "海外",
+        "showAll": "顯示全部 {count} 個地區",
+        "collapse": "收合地區"
       },
       "confirmed": {
         "officialPageLink": "前往官方頁面"
       },
       "chips": {
         "showRest": "顯示其餘 {count} 家"
+      },
+      "rows": {
+        "collapse": "收合"
       },
       "provenance": {
         "owner": "品牌確認",

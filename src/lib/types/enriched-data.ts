@@ -2,6 +2,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import type { OtherUrl } from "@/lib/types/brand";
 import { subcategoryBySlug } from "@/lib/taxonomy/ontology";
 import { FAQ_PRESETS } from "@/lib/brands/faq-presets";
+import type { StockistCandidate } from "@/lib/types/stockist";
 
 /**
  * One provenance citation on a proposed product. Mirrors
@@ -68,8 +69,9 @@ export type BrandNameEvidence = {
 
 export type BrandNameProposal = {
   value: string;
-  confidence: "high";
+  confidence: "high" | "medium";
   reason: string;
+  /** Empty when the chosen candidate came from a non-first-party source. */
   evidence: BrandNameEvidence[];
 };
 
@@ -123,6 +125,11 @@ export type EnrichedData = {
   nameProposal?: BrandNameProposal;
   /** FAQ entries proposed by enrichment; materialized at apply/approve time. */
   faq?: SubmissionFaqPatch;
+  /**
+   * Stockist candidates proposed by enrichment; materialized into
+   * `brand_channels` at apply/approve time. Items are camelCase passthrough.
+   */
+  stockists?: StockistCandidate[];
 };
 
 export function isBrandNameProposal(value: unknown): value is BrandNameProposal {
@@ -133,10 +140,9 @@ export function isBrandNameProposal(value: unknown): value is BrandNameProposal 
   if (
     typeof proposal.value !== "string" ||
     proposal.value.trim() === "" ||
-    proposal.confidence !== "high" ||
+    (proposal.confidence !== "high" && proposal.confidence !== "medium") ||
     typeof proposal.reason !== "string" ||
-    !Array.isArray(proposal.evidence) ||
-    proposal.evidence.length === 0
+    !Array.isArray(proposal.evidence)
   ) {
     return false;
   }
@@ -214,6 +220,29 @@ export function parseSubmissionFaqPatch(
     entries,
     explicit: typeof obj.explicit === "boolean" ? obj.explicit : false,
   };
+}
+
+/**
+ * Reads `enriched_data.stockists`. Keeps only items with a non-empty string
+ * `name` and a string `normalizedName` — the two fields the materializer keys
+ * on. Anything other than an array is null, so a malformed blob never reads as
+ * "this run found zero stockists".
+ */
+export function parseSubmissionStockists(
+  value: unknown,
+): StockistCandidate[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.filter((raw): raw is StockistCandidate => {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      return false;
+    }
+    const item = raw as Record<string, unknown>;
+    return (
+      typeof item.name === "string" &&
+      item.name.trim() !== "" &&
+      typeof item.normalizedName === "string"
+    );
+  });
 }
 
 function adaptProductProposal(value: unknown): CuratedProductProposal | null {
@@ -364,6 +393,12 @@ export function enrichedDataFromDb(
           return parsed ? { faq: parsed } : {};
         })()
       : {}),
+    ...(json.stockists !== undefined
+      ? (() => {
+          const parsed = parseSubmissionStockists(json.stockists);
+          return parsed ? { stockists: parsed } : {};
+        })()
+      : {}),
   };
 }
 
@@ -405,5 +440,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.otherUrls !== undefined) result.other_urls = data.otherUrls;
   if (data.products !== undefined) result.products = data.products;
   if (data.faq !== undefined) result.faq = data.faq;
+  if (data.stockists !== undefined) result.stockists = data.stockists;
   return result;
 }

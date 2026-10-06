@@ -185,7 +185,7 @@ export const EXCLUDED_SOURCE_FILES = new Map([
   // --- Scraper and search keyword lists. Chinese query strings sent to search
   // engines and crawlers, matched against third-party pages, never displayed.
   [
-    "lib/services/enrich-phases/scraper/strategies/crawl.ts",
+    "lib/services/enrich-phases/scraper/parse/page-kind.ts",
     "scraper keyword regex",
   ],
   ["lib/services/enrich-phases/scraper/search.ts", "search-query keywords"],

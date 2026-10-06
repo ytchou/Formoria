@@ -14,10 +14,12 @@ import {
   LINK_FIELDS,
   type LinkField,
   linkColumnFor,
+  ownedSiteHostsFor,
   pageKey,
   pageKeyHost,
   sameUrl,
   scrapeKey,
+  uniqueUrls,
 } from '../link-enrichment'
 import {
   canonicalizeBilingualBrandName,
@@ -28,6 +30,7 @@ import {
 import type { NameCandidate } from '../name-arbiter'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
 import { scrapeBrandUrls, type ScrapeBrandUrlsOptions } from './scraper'
+import { SCRAPE_SNIPPET_MAX_CHARS } from './descriptions'
 import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
 import type { PhaseResult } from '@/lib/types/curation'
 import { MAX_IMAGE_POOL_BYTES, compactToBytes } from '../phase-results'
@@ -191,23 +194,6 @@ export type QuarantineGroup = {
   unverifiable?: boolean
 }
 
-function uniqueUrls(urls: string[]): string[] {
-  const seen = new Set<string>()
-  const unique: string[] = []
-
-  for (const url of urls) {
-    const normalized = url.trim()
-    if (!normalized || seen.has(normalized)) {
-      continue
-    }
-
-    seen.add(normalized)
-    unique.push(normalized)
-  }
-
-  return unique
-}
-
 /**
  * The brand's own site among the SERP URLs, normalised to its root. This is what
  * puts a brand's domain into `purchase_website`, and the batch image-search
@@ -310,7 +296,7 @@ function boundedScrapeSnippets(extracted: unknown): string[] {
   const record = extracted as Record<string, unknown>
   return [record.description, record.story, record.stockistPageText]
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .map((value) => value.slice(0, 4_000))
+    .map((value) => value.slice(0, SCRAPE_SNIPPET_MAX_CHARS))
 }
 
 /**
@@ -738,10 +724,14 @@ export async function runAcquirePhase({
     // These URLs are raw SERP results, so the brand name is the only thing
     // separating this brand's accounts from a same-ranking stranger's.
     const urlExtracted = extractLinksFromUrls(discoveredUrls, brand.name)
-    const confirmedSourceUrls = new Set(knownUrls.map(scrapeKey))
     const scrapeOptions: ScrapeBrandUrlsOptions = {
       brandName: brand.name,
-      confirmedSourceUrls,
+      // From the brand row's own-site fields (website_url, purchase_website)
+      // as they stand here — including any value this run's link expansion
+      // already merged into `brand` — but never from acquire's own
+      // `discoveredUrls`. Stockist text survives only from these hosts
+      // (DEV-1943).
+      ownedSiteHosts: ownedSiteHostsFor(brand),
       renderProvider: renderForBrand,
       onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startAudit({

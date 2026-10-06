@@ -210,3 +210,6 @@ scripts/.remove-backup-*.json
 # Production restore data from category cleanups (large, and it is a copy of rows
 # that were deleted from production — belongs on disk, never in the repo history).
 backups/
+
+# Private Editorial Producer checkpoints and adapter payloads.
+.local/editorial-producer/

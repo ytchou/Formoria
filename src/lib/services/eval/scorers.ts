@@ -307,11 +307,20 @@ export function mrr(retrieved: string[], expected: string[]): number {
 // Aggregation helpers (migrated from metrics.ts)
 // ---------------------------------------------------------------------------
 
-export function p95(values: number[]): number {
+/** Nearest-rank percentile, `p` in [0, 1]; 0 for an empty list. */
+export function percentile(values: number[], p: number): number {
   if (values.length === 0) return 0
   const sorted = [...values].sort((a, b) => a - b)
-  const index = Math.ceil(sorted.length * 0.95) - 1
+  const index = Math.ceil(sorted.length * p) - 1
   return sorted[Math.max(0, index)]!
+}
+
+export function p50(values: number[]): number {
+  return percentile(values, 0.5)
+}
+
+export function p95(values: number[]): number {
+  return percentile(values, 0.95)
 }
 
 export function mean(values: number[]): number {

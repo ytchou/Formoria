@@ -26,9 +26,17 @@ import {
   buildEnrichmentUserContent,
   type DescriptionEvidence,
 } from "../description-rewrite";
-import { getStockistsForBrand } from "../stockists";
+import {
+  buildEnrichedStockistRows,
+  getStockistMatchPool,
+  getStockistsForBrand,
+  resolveEnrichedStockistRows,
+  type ExistingStockistRow,
+} from "../stockists";
+import type { StockistCandidate } from "@/lib/types/stockist";
+import { parseSubmissionStockists } from "@/lib/types/enriched-data";
 import { createServiceClient } from "@/lib/supabase/service";
-import { loadPersistedScrapeText } from "./descriptions";
+import { effectiveOwnedSiteHosts, loadPersistedScrapeText } from "./descriptions";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -47,6 +55,7 @@ import {
   getDisplayBrandName,
   timePhase,
   type EnrichBrand,
+  type EnrichPatch,
   type EnrichPhase,
   type EnrichScrapedData,
 } from "./types";
@@ -68,7 +77,62 @@ type FaqPhaseOptions = {
   supabase?: FaqSupabase;
   /** The caller's original explicit phase list, before step expansion. */
   explicitPhases?: readonly string[];
+  /**
+   * Stockist candidates this run authored but has not materialized yet. They
+   * count toward where-to-buy so the FAQ does not answer "無" for a brand the
+   * stockists phase just found stores for (DEV-1928).
+   */
+  pendingStockists?: readonly StockistCandidate[];
+  /**
+   * Patch accumulated by earlier phases this run. Required (may be undefined)
+   * so no caller can forget it: the owned-site allow-list must see a
+   * `purchase_website` this run revoked or patched (review BS1, DEV-1943).
+   */
+  pendingPatch: EnrichPatch | undefined;
 };
+
+type LiveStockists = {
+  confirmed: readonly unknown[];
+  possible: readonly unknown[];
+};
+
+/**
+ * Where-to-buy count for the FAQ context: every live stockist row plus each
+ * pending candidate the upsert would insert as a new row. Pending candidates
+ * go through `resolveEnrichedStockistRows` against `existing` (the brand's
+ * `getStockistMatchPool`), the same resolver `upsertEnrichedStockists` runs,
+ * so the two agree by construction (DEV-1928, DEV-1942). A candidate that
+ * lands on any existing row is not counted: a live row is already counted,
+ * and a rejected, removed, or pending community row stays off the page after
+ * the upsert. A candidate repeated within the batch counts once, and one with
+ * an invalid name never reaches the RPC.
+ */
+export function countWhereToBuy(
+  live: LiveStockists | null,
+  pending: readonly StockistCandidate[] = [],
+  existing: readonly ExistingStockistRow[] = [],
+): number {
+  const liveCount = live ? live.confirmed.length + live.possible.length : 0;
+  const { rows } = buildEnrichedStockistRows(pending);
+  return liveCount + resolveEnrichedStockistRows(rows, existing).newRowCount;
+}
+
+/**
+ * The stockist candidates the FAQ should treat as pending: this run's
+ * stockists patch when there is one, otherwise the candidates already stored
+ * on the submission (stockists satisfied from history or not selected this
+ * run). Approval materializes those stored candidates too.
+ */
+export function resolvePendingStockists(
+  pendingStockists: readonly StockistCandidate[] | undefined,
+  brand: EnrichBrand,
+): readonly StockistCandidate[] {
+  return (
+    pendingStockists ??
+    parseSubmissionStockists((brand as Record<string, unknown>).stockists) ??
+    []
+  );
+}
 
 type FaqPhaseOutput = {
   phaseResult: PhaseResult;
@@ -494,6 +558,8 @@ export async function runFaqPhase({
   jobId,
   supabase,
   explicitPhases,
+  pendingStockists,
+  pendingPatch,
 }: FaqPhaseOptions): Promise<FaqPhaseOutput> {
   if (!phases.includes("faq")) return skipped("faq phase not requested");
   if (target?.type !== "submission")
@@ -509,17 +575,28 @@ export async function runFaqPhase({
     overwrite === true || explicitPhases?.includes("faq") === true;
 
   const { result, durationMs } = await timePhase<FaqRunOutcome>(async () => {
-    // Compute stockist count: refresh submissions query live stockists;
-    // new submissions (no source_brand_id) default to 0.
-    const [persistedScrape, stockistsResult] = await Promise.all([
-      loadPersistedScrapeText(auditTarget),
-      brand.source_brand_id
-        ? getStockistsForBrand(brand.source_brand_id)
-        : Promise.resolve(null),
-    ]);
-    const stockistCount = stockistsResult
-      ? stockistsResult.confirmed.length + stockistsResult.possible.length
-      : 0;
+    // Compute stockist count: refresh submissions query live stockists and
+    // the rows the upsert matches against; new submissions (no
+    // source_brand_id) have neither. Pending candidates (this run's, else the stored ones)
+    // count on top of either.
+    const [persistedScrape, stockistsResult, stockistMatchPool] =
+      await Promise.all([
+        loadPersistedScrapeText(
+          auditTarget,
+          effectiveOwnedSiteHosts(brand, pendingPatch),
+        ),
+        brand.source_brand_id
+          ? getStockistsForBrand(brand.source_brand_id)
+          : Promise.resolve(null),
+        brand.source_brand_id
+          ? getStockistMatchPool(brand.source_brand_id)
+          : Promise.resolve([]),
+      ]);
+    const stockistCount = countWhereToBuy(
+      stockistsResult,
+      resolvePendingStockists(pendingStockists, brand),
+      stockistMatchPool,
+    );
 
     const peerStats = await getCategoryPeerStats(
       brand.category ?? null,

@@ -12,12 +12,20 @@ import {
 import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
 import type { BrandFaqEntryRow } from "../../brand-faq";
+import {
+  type ExistingStockistRow,
+  upsertEnrichedStockists,
+  type StockistsSupabase,
+} from "../../stockists";
 import type { EnrichBrand, EnrichPhase } from "../types";
+import { normalizeStockistName } from "@/lib/brands/stockist-display";
 import {
   contextFacts,
+  countWhereToBuy,
   faqCoverageIsComplete,
   localizedCityLabel,
   resolveFaqAttempts,
+  resolvePendingStockists,
   runFaqPhase,
   validateFaqEntries,
 } from "../faq";
@@ -69,9 +77,13 @@ vi.mock("../../brand-faq", async (importOriginal) => ({
   upsertBrandFaqEntries,
 }));
 const getStockistsForBrand = vi.hoisted(() => vi.fn());
+const getStockistMatchPool = vi.hoisted(() =>
+  vi.fn(async (_brandId: string): Promise<ExistingStockistRow[]> => []),
+);
 vi.mock("../../stockists", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../stockists")>()),
   getStockistsForBrand,
+  getStockistMatchPool,
 }));
 
 /**
@@ -668,6 +680,7 @@ describe("runFaqPhase langfuse variables", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
@@ -705,6 +718,35 @@ describe("runFaqPhase submission-only contract", () => {
     vi.unstubAllEnvs();
   });
 
+  // Review BS1: a purchase_website this run revoked must not stay owned.
+  it("reads persisted scrape text without a host this run's pendingPatch revoked", async () => {
+    getCategoryPeerStats.mockResolvedValue(null);
+    loadPersistedScrapeText.mockResolvedValue({
+      snippets: [],
+      siteContent: null,
+    });
+    getBrandFaqEntries.mockResolvedValue([]);
+    getStockistsForBrand.mockResolvedValue({ confirmed: [], possible: [] });
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ entries: [] }),
+      }),
+    });
+    const target = { type: "submission" as const, id: "sub-1" };
+
+    await runFaqPhase({
+      brand: { ...ENRICH_BRAND, purchase_website: "https://brand.com" },
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+      target,
+      pendingPatch: { purchase_website: null },
+    });
+
+    expect(loadPersistedScrapeText).toHaveBeenCalledWith(target, new Set());
+  });
+
   it("refuses_non_submission_targets", async () => {
     const output = await runFaqPhase({
       brand: ENRICH_BRAND,
@@ -712,6 +754,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "brand", id: BRAND.id },
+      pendingPatch: undefined,
     });
 
     expect(output.phaseResult.status).toBe("skipped");
@@ -742,6 +785,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(output.phaseResult.status).toBe("succeeded");
@@ -779,6 +823,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(output.patch).toEqual({});
@@ -807,6 +852,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(createClient).toHaveBeenCalled();
@@ -856,6 +902,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(output.phaseResult.status).toBe("skipped");
@@ -885,6 +932,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
       overwrite: true,
     });
 
@@ -893,5 +941,229 @@ describe("runFaqPhase submission-only contract", () => {
       explicit: boolean;
     };
     expect(faqPatch.explicit).toBe(true);
+  });
+});
+
+describe("countWhereToBuy", () => {
+  const pending = (name: string, address: string | null = null) => ({
+    name,
+    normalizedName: normalizeStockistName(name),
+    address,
+  });
+
+  it("counts_live_rows_when_nothing_is_pending", () => {
+    const live = {
+      confirmed: [{ name: "誠品書店 信義店" }],
+      possible: [{ name: "小器 赤峰" }],
+    };
+    expect(countWhereToBuy(live)).toBe(2);
+    expect(countWhereToBuy(live, [])).toBe(2);
+  });
+
+  it("adds_pending_stockists_not_already_live", () => {
+    const live = { confirmed: [{ name: "誠品書店 信義店" }], possible: [] };
+    const existing = [
+      {
+        name: "誠品書店 信義店",
+        normalized_name: normalizeStockistName("誠品書店 信義店"),
+        address: null,
+      },
+    ];
+    expect(
+      countWhereToBuy(
+        live,
+        [
+          // Same store, different whitespace: normalizes to the live name.
+          pending("誠品書店信義店"),
+          pending("小器 赤峰"),
+          pending("好丘 信義"),
+        ],
+        existing,
+      ),
+    ).toBe(3);
+  });
+
+  it("counts_pending_alone_for_a_new_submission", () => {
+    expect(countWhereToBuy(null, [pending("小器 赤峰")])).toBe(1);
+    expect(countWhereToBuy(null)).toBe(0);
+  });
+
+  it("counts_a_repeated_pending_store_once", () => {
+    expect(
+      countWhereToBuy(null, [pending("小器 赤峰"), pending("小器赤峰")]),
+    ).toBe(1);
+  });
+
+  it("skips_pending_stores_matching_a_rejected_or_removed_row", () => {
+    // The upsert RPC never updates a rejected or removed row, so a store the
+    // owner rejected stays off the page even when a refresh re-proposes it.
+    const existing = [
+      {
+        name: "小器 赤峰",
+        normalized_name: normalizeStockistName("小器 赤峰"),
+        address: null,
+        source: "enriched",
+        owner_status: "rejected",
+        removed_at: null,
+      },
+    ];
+    expect(
+      countWhereToBuy(
+        { confirmed: [{ name: "誠品書店 信義店" }], possible: [] },
+        [pending("小器 赤峰"), pending("好丘 信義")],
+        existing,
+      ),
+    ).toBe(2);
+    expect(countWhereToBuy(null, [pending("小器 赤峰")], existing)).toBe(0);
+  });
+
+  it("does_not_count_a_pending_near_duplicate_of_a_live_store", () => {
+    // Staging `his-cross-concept` (DEV-1942): three live import rows and three
+    // enriched candidates naming the same stores differently.
+    const liveRows = [
+      {
+        name: "Rocco Coffee 若渴咖啡",
+        address: "10491台北市中山區南京東路三段119號",
+      },
+      {
+        name: "Standfirm｜HIS 特約專櫃",
+        address: "台北市南港區南港路3段16巷8號2樓",
+      },
+      { name: "高雄以諾書房", address: "高雄市新興區中正三路70號" },
+    ];
+    const existing = liveRows.map((row) => ({
+      ...row,
+      normalized_name: normalizeStockistName(row.name),
+    }));
+    expect(
+      countWhereToBuy({ confirmed: liveRows, possible: [] }, [
+        pending("Rocco Coffee 若渴咖啡｜HIS 展售", "台北市中山區南京東路三段119號"),
+        pending("台北 Standfirm 特約專櫃", "台北市南港區南港路三段16巷8號2樓"),
+        pending("高雄以諾書房｜HIS 展售", "高雄市新興區中正三路70號"),
+      ], existing),
+    ).toBe(3);
+  });
+
+  it("skips_a_pending_store_matching_a_blocked_row_by_address", () => {
+    const existing = [
+      {
+        name: "Standfirm｜HIS 特約專櫃",
+        normalized_name: normalizeStockistName("Standfirm｜HIS 特約專櫃"),
+        address: "台北市南港區南港路3段16巷8號2樓",
+        owner_status: "rejected",
+      },
+    ];
+    expect(
+      countWhereToBuy(
+        null,
+        [pending("台北 Standfirm 特約專櫃", "台北市南港區南港路三段16巷8號2樓")],
+        existing,
+      ),
+    ).toBe(0);
+  });
+
+  it("compares_live_rows_by_their_stored_normalized_name", () => {
+    // The import region-suffixed the live row, so a pending `好丘` with no
+    // address matches nothing and the upsert inserts it.
+    const existing = [
+      { name: "好丘", normalized_name: "好丘:台北市", address: null },
+    ];
+    expect(
+      countWhereToBuy(
+        { confirmed: [{ name: "好丘" }], possible: [] },
+        [pending("好丘")],
+        existing,
+      ),
+    ).toBe(2);
+  });
+
+  it("counts_exactly_the_rows_the_upsert_inserts", async () => {
+    const address = "高雄市新興區中正三路70號";
+    const existing: ExistingStockistRow[] = [
+      { name: "好丘", normalized_name: "好丘:台北市", address: null },
+      { name: "高雄以諾書房", normalized_name: "高雄以諾書房", address: null },
+      {
+        name: "小器 赤峰",
+        normalized_name: "小器赤峰",
+        address: null,
+        owner_status: "rejected",
+      },
+      {
+        name: "Standfirm",
+        normalized_name: "standfirm",
+        address: "台北市南港區南港路3段16巷8號2樓",
+        source: "community",
+        owner_status: "none",
+        removed_at: null,
+      },
+    ];
+    const candidates = [
+      pending("高雄以諾書房｜HIS 展售", address),
+      pending("高雄以諾書房", address),
+      pending("好丘"),
+      pending("小器 赤峰"),
+      pending("台北 Standfirm", "台北市南港區南港路三段16巷8號2樓"),
+    ];
+    const liveCount = 2;
+
+    let rpcRows: { normalized_name: string }[] = [];
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            order: () => ({
+              range: async () => ({ data: existing, error: null }),
+            }),
+          }),
+        }),
+      }),
+      rpc: async (_name: string, args: { p_candidates: typeof rpcRows }) => {
+        rpcRows = args.p_candidates;
+        return { data: null, error: null };
+      },
+    } as unknown as StockistsSupabase;
+    await upsertEnrichedStockists("brand-1", candidates, { client });
+    const existingNames = new Set(existing.map((row) => row.normalized_name));
+    const inserted = rpcRows.filter(
+      (row) => !existingNames.has(row.normalized_name),
+    ).length;
+
+    expect(inserted).toBe(2);
+    expect(
+      countWhereToBuy(
+        { confirmed: [{}, {}], possible: [] },
+        candidates,
+        existing,
+      ),
+    ).toBe(liveCount + inserted);
+  });
+});
+
+describe("resolvePendingStockists", () => {
+  const stored = [
+    { name: "小器 赤峰", normalizedName: normalizeStockistName("小器 赤峰") },
+    { name: "好丘 信義", normalizedName: normalizeStockistName("好丘 信義") },
+  ];
+  const brandWithStored = {
+    id: "submission-1",
+    slug: "submission-submission-1",
+    stockists: stored,
+  } as EnrichBrand;
+
+  it("falls_back_to_the_stockists_stored_on_the_submission", () => {
+    const pendingStockists = resolvePendingStockists(undefined, brandWithStored);
+    expect(pendingStockists).toEqual(stored);
+    expect(countWhereToBuy(null, pendingStockists)).toBe(2);
+  });
+
+  it("prefers_this_runs_stockists_patch_over_the_stored_ones", () => {
+    const fresh = stored.slice(0, 1);
+    expect(resolvePendingStockists(fresh, brandWithStored)).toBe(fresh);
+  });
+
+  it("returns_none_when_nothing_is_pending_or_stored", () => {
+    expect(
+      resolvePendingStockists(undefined, { id: "s", slug: "s" }),
+    ).toEqual([]);
   });
 });

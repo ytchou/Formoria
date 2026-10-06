@@ -43,7 +43,7 @@ const ALLOWLIST = [
   "lib/json-ld.ts",
   // Non-display Chinese: a comment and scraper keyword regex.
   "lib/constants.ts",
-  "lib/services/enrich-phases/scraper/strategies/crawl.ts",
+  "lib/services/enrich-phases/scraper/parse/page-kind.ts",
   // Scraper search query uses Chinese keywords to find Taiwan brand websites (not UI copy).
   "lib/services/enrich-phases/scraper/search.ts",
   // Search Console query clustering uses Chinese regex patterns to classify search

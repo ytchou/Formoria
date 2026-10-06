@@ -24,6 +24,7 @@ import {
   INTENT_PARSE_DATASET,
   cmdDatasetValidate,
   cmdDatasetSplit,
+  cmdReplay,
   writeGoldenItems,
   type GoldenWriteApi,
   type GoldenWriteBody,
@@ -36,6 +37,7 @@ import { adapterFor } from '@/lib/services/eval/phase-adapters'
 import type { GoldenItemBody } from '@/lib/services/eval/golden-capture'
 import type { PromptApi, SnapshotFile } from '@/lib/services/eval/prompt-sync'
 import { buildNameArbiterUserContent } from '@/lib/services/name-arbiter'
+import { REPLAY_STEPS } from '@/lib/services/eval/request-replay-steps'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1906,5 +1908,78 @@ describe('dataset split (DEV-1898 D9a)', () => {
       cmdDatasetSplit({ dataset: 'name-arbiter-confidence-golden', seed: 's', apply: false, pin: [], getDataset, log: () => {} }),
     ).rejects.toThrow(/harvest-name-arbiter-golden/)
     expect(getDataset).not.toHaveBeenCalled()
+  })
+})
+
+describe('parseCliArgs — replay (DEV-1917)', () => {
+  it('parses one step and one model arm with the default limit and panel cap', () => {
+    expect(parseCliArgs(['replay', '--step', 'faq', '--arm', 'model:gpt-6-luna'])).toEqual({
+      command: 'replay',
+      steps: ['faq'],
+      arm: { kind: 'model', model: 'gpt-6-luna' },
+      limit: 50,
+      panelMax: 30,
+      confirm: false,
+    })
+  })
+
+  it('parses --since, --limit, --panel-max, --seed and --confirm', () => {
+    expect(
+      parseCliArgs([
+        'replay', '--step', 'detect', '--arm', 'model: gpt-6-luna ',
+        '--since', '2026-10-04', '--limit', '10', '--panel-max', '5', '--seed', 's1', '--confirm',
+      ]),
+    ).toEqual({
+      command: 'replay',
+      steps: ['detect'],
+      arm: { kind: 'model', model: 'gpt-6-luna' },
+      since: '2026-10-04',
+      limit: 10,
+      panelMax: 5,
+      seed: 's1',
+      confirm: true,
+    })
+  })
+
+  it('expands --step all to every catalog step, in catalog order', () => {
+    const parsed = parseCliArgs(['replay', '--step', 'all', '--arm', 'model:gpt-6-luna'])
+    expect(parsed).toMatchObject({ command: 'replay', steps: REPLAY_STEPS.map((s) => s.name) })
+  })
+
+  it('rejects an unknown step, listing the valid steps', () => {
+    expect(() => parseCliArgs(['replay', '--step', 'nope', '--arm', 'model:gpt-6-luna'])).toThrow(
+      /Unknown replay step: nope \(valid: detect, facts/,
+    )
+    expect(() => parseCliArgs(['replay', '--arm', 'model:gpt-6-luna'])).toThrow('--step is required')
+  })
+
+  it('rejects a non-model arm, two arms, or no arm', () => {
+    expect(() => parseCliArgs(['replay', '--step', 'faq', '--arm', 'prompt:3'])).toThrow('needs a model arm')
+    expect(() =>
+      parseCliArgs(['replay', '--step', 'faq', '--arm', 'model:gpt-6-luna', '--arm', 'model:gpt-5-mini']),
+    ).toThrow('exactly one --arm')
+    expect(() => parseCliArgs(['replay', '--step', 'faq'])).toThrow('--arm model:<id> is required')
+  })
+
+  it('rejects a bad --limit, --panel-max or --since', () => {
+    const base = ['replay', '--step', 'faq', '--arm', 'model:gpt-6-luna']
+    expect(() => parseCliArgs([...base, '--limit', '0'])).toThrow('--limit must be a positive integer')
+    expect(() => parseCliArgs([...base, '--panel-max', 'x'])).toThrow('--panel-max')
+    expect(() => parseCliArgs([...base, '--since', 'soon'])).toThrow('--since must be a date')
+  })
+})
+
+describe('cmdReplay production guard (DEV-1917)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('refuses the production project without --confirm, before any read', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', `https://${PRODUCTION_PROJECT_REF}.supabase.co`)
+    const parsed = parseCliArgs(['replay', '--step', 'faq', '--arm', 'model:gpt-6-luna'])
+    if (parsed.command !== 'replay') throw new Error('expected a replay command')
+
+    await expect(cmdReplay(parsed, 'production')).rejects.toThrow('without --confirm')
+    await expect(cmdReplay(parsed, 'staging')).rejects.toThrow('names the production project')
   })
 })

@@ -1,52 +1,56 @@
-'use client'
+"use client";
 
-import Link, { useLinkStatus } from 'next/link'
-import { Loader2 } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-import { usePathname, useSearchParams } from 'next/navigation'
-import { trackDirectoryPageNavigated } from '@/lib/analytics'
-import { getPageRange } from '@/lib/pagination'
+import Link, { useLinkStatus } from "next/link";
+import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { usePathname, useSearchParams } from "next/navigation";
+import { trackDirectoryPageNavigated } from "@/lib/analytics";
+import { getPageRange } from "@/lib/pagination";
 
 interface PaginationProps {
-  totalCount: number
-  currentPage: number
-  pageSize: number
+  totalCount: number;
+  currentPage: number;
+  pageSize: number;
 }
 
-function buildPageUrl(pathname: string, searchParams: URLSearchParams, page: number): string {
-  const params = new URLSearchParams(searchParams.toString())
+function buildPageUrl(
+  pathname: string,
+  searchParams: URLSearchParams,
+  page: number,
+): string {
+  const params = new URLSearchParams(searchParams.toString());
   if (page > 1) {
-    params.set('page', String(page))
+    params.set("page", String(page));
   } else {
-    params.delete('page')
+    params.delete("page");
   }
-  const str = params.toString()
-  return str ? `${pathname}?${str}` : pathname
+  const str = params.toString();
+  return str ? `${pathname}?${str}` : pathname;
 }
 
 const navLinkClass =
-  'relative inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  "relative inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 const pageLinkClass =
-  'relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-control type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  "relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-control type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 function PaginationLinkStatus() {
-  const { pending } = useLinkStatus()
+  const { pending } = useLinkStatus();
 
   return (
     <Loader2
       aria-hidden="true"
-      className={`pointer-events-none absolute right-1 top-1/2 size-3 -translate-y-1/2 transition-opacity ${pending ? 'animate-spin opacity-100' : 'opacity-0'}`}
+      className={`pointer-events-none absolute right-1 top-1/2 size-3 -translate-y-1/2 transition-opacity ${pending ? "animate-spin opacity-100" : "opacity-0"}`}
     />
-  )
+  );
 }
 
 function getPageDirection(
   targetPage: number,
   currentPage: number,
-): 'prev' | 'next' | 'jump' {
-  if (targetPage < currentPage) return 'prev'
-  if (targetPage === currentPage + 1) return 'next'
-  return 'jump'
+): "prev" | "next" | "jump" {
+  if (targetPage < currentPage) return "prev";
+  if (targetPage === currentPage + 1) return "next";
+  return "jump";
 }
 
 export function Pagination({
@@ -54,42 +58,48 @@ export function Pagination({
   currentPage,
   pageSize,
 }: PaginationProps) {
-  const t = useTranslations('brands')
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const totalPages = Math.ceil(totalCount / pageSize)
+  const t = useTranslations("brands");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const totalPages = Math.ceil(totalCount / pageSize);
 
-  if (totalPages <= 1) return null
+  if (totalPages <= 1) return null;
 
-  const pages = getPageRange(currentPage, totalPages)
+  const pages = getPageRange(currentPage, totalPages);
 
   return (
-    <nav aria-label={t('pagination.label')} className="mt-10 flex items-center justify-center gap-1">
+    <nav
+      aria-label={t("pagination.label")}
+      className="mt-10 flex flex-wrap items-center justify-center gap-1"
+    >
       {/* Previous */}
       {currentPage > 1 ? (
         <Link
           href={buildPageUrl(pathname, searchParams, currentPage - 1)}
           className={navLinkClass}
-          aria-label={t('pagination.previousAria')}
+          aria-label={t("pagination.previousAria")}
           prefetch={false}
           scroll={false}
           onClick={() =>
-            trackDirectoryPageNavigated(currentPage - 1, 'prev', totalPages)
+            trackDirectoryPageNavigated(currentPage - 1, "prev", totalPages)
           }
           data-ph-no-autocapture
         >
-          {t('pagination.previous')}
+          {t("pagination.previous")}
           <PaginationLinkStatus />
         </Link>
       ) : (
-        <span className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50">
-          {t('pagination.previous')}
+        <span
+          aria-disabled="true"
+          className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50"
+        >
+          {t("pagination.previous")}
         </span>
       )}
 
       {/* Page numbers */}
       {pages.map((page, i) => {
-        if (page === 'ellipsis') {
+        if (page === "ellipsis") {
           return (
             <span
               key={`ellipsis-${i}`}
@@ -97,10 +107,10 @@ export function Pagination({
             >
               …
             </span>
-          )
+          );
         }
 
-        const isActive = page === currentPage
+        const isActive = page === currentPage;
 
         if (isActive) {
           return (
@@ -111,7 +121,7 @@ export function Pagination({
             >
               {page}
             </span>
-          )
+          );
         }
 
         return (
@@ -133,7 +143,7 @@ export function Pagination({
             {page}
             <PaginationLinkStatus />
           </Link>
-        )
+        );
       })}
 
       {/* Next */}
@@ -141,22 +151,25 @@ export function Pagination({
         <Link
           href={buildPageUrl(pathname, searchParams, currentPage + 1)}
           className={navLinkClass}
-          aria-label={t('pagination.nextAria')}
+          aria-label={t("pagination.nextAria")}
           prefetch={false}
           scroll={false}
           onClick={() =>
-            trackDirectoryPageNavigated(currentPage + 1, 'next', totalPages)
+            trackDirectoryPageNavigated(currentPage + 1, "next", totalPages)
           }
           data-ph-no-autocapture
         >
-          {t('pagination.next')}
+          {t("pagination.next")}
           <PaginationLinkStatus />
         </Link>
       ) : (
-        <span className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50">
-          {t('pagination.next')}
+        <span
+          aria-disabled="true"
+          className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50"
+        >
+          {t("pagination.next")}
         </span>
       )}
     </nav>
-  )
+  );
 }

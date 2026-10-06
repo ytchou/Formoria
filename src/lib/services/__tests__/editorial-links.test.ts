@@ -4,7 +4,6 @@ import {
   deriveBrandStoryLinks,
   deriveCategoryEditorialLinks,
   deriveStoryRelatedTrails,
-  deriveTrailRelatedContent,
 } from "../editorial-links";
 
 // ---------------------------------------------------------------------------
@@ -221,55 +220,3 @@ describe("deriveStoryRelatedTrails", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// deriveTrailRelatedContent
-// ---------------------------------------------------------------------------
-
-describe("deriveTrailRelatedContent", () => {
-  it("returns category slugs and story slugs related to the trail's brands", () => {
-    const trailPlacements: ProductPlacement[] = [
-      {
-        brandSlug: "yuyu",
-        trailSlug: "small-space-reading-corner",
-        trailTitle: "小坪數閱讀角落",
-        category: "home",
-        subcategories: ["candles"],
-      },
-      {
-        brandSlug: "pang",
-        trailSlug: "small-space-reading-corner",
-        trailTitle: "小坪數閱讀角落",
-        category: "beauty",
-        subcategories: [],
-      },
-    ];
-
-    const stories: StoryBrandsRecord[] = [
-      {
-        slug: "expo-guide",
-        title: "Expo Guide",
-        brands: ["yuyu", "other-brand"],
-      },
-      {
-        slug: "unrelated",
-        title: "Unrelated",
-        brands: ["no-match"],
-      },
-    ];
-
-    const result = deriveTrailRelatedContent(trailPlacements, stories);
-
-    expect(result.categories).toHaveLength(2);
-    const categorySlugs = result.categories.map((c) => c.slug).sort();
-    expect(categorySlugs).toEqual(["beauty", "home"]);
-
-    expect(result.stories).toHaveLength(1);
-    expect(result.stories[0]!.slug).toBe("expo-guide");
-  });
-
-  it("returns empty when trail has no placements", () => {
-    const result = deriveTrailRelatedContent([], []);
-    expect(result.categories).toEqual([]);
-    expect(result.stories).toEqual([]);
-  });
-});

@@ -19,7 +19,10 @@ type FetchReason =
   | 'timeout'
   | 'network_error'
 
+type FetchOptions = { signal?: AbortSignal; includeFinalUrl?: boolean }
+
 export type FetchMetadata = {
+  finalUrl?: string | null
   text: string | null
   status: number | null
   latencyMs: number
@@ -88,7 +91,9 @@ async function fetchTextWithMetadata(
   accept: string,
   isAllowedContentType: (contentType: string) => boolean,
   operation: FetchOperation,
+  options: FetchOptions = {},
 ): Promise<FetchMetadata> {
+  let finalUrl: string | null = null
   const result = await auditedCall(
     { provider: 'http', operation, kind: 'external' },
     async (ctx): Promise<FetchOutcome> => {
@@ -120,12 +125,13 @@ async function fetchTextWithMetadata(
 
         try {
           const response = await fetch(url, {
-            signal: controller.signal,
+            signal: options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal,
             headers: {
               'User-Agent': SCRAPER_USER_AGENT,
               Accept: accept,
             },
           })
+          finalUrl = response.url || url
           // Redirects are followed by default, so the input-url check above says
           // nothing about where the body actually came from. Re-check the final
           // url. Guarded on truthiness and inequality: mocked `new Response(body)`
@@ -265,7 +271,8 @@ async function fetchTextWithMetadata(
     },
   )
 
-  return withoutFetchReason(result)
+  const metadata = withoutFetchReason(result)
+  return options.includeFinalUrl ? { ...metadata, finalUrl } : metadata
 }
 
 export async function fetchHtml(url: string): Promise<string | null> {
@@ -275,10 +282,11 @@ export async function fetchHtml(url: string): Promise<string | null> {
   )
 }
 
-export async function fetchHtmlWithMetadata(url: string): Promise<FetchMetadata> {
+export async function fetchHtmlWithMetadata(url: string, options: FetchOptions = {}): Promise<FetchMetadata> {
   return fetchTextWithMetadata(url, 'text/html', (contentType) =>
     contentType.includes('text/html'),
     'fetch_html_with_metadata',
+    options,
   )
 }
 

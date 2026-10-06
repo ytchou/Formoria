@@ -679,6 +679,51 @@ describe("chat capture seam", () => {
     expect(captured[0]!.user).toHaveLength(5_000);
   });
 
+  it("capture carries the call's paramFallback, absent when none applied (DEV-1917)", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              error: {
+                message: "Unsupported parameter: 'max_tokens'",
+                type: "invalid_request_error",
+                param: "max_tokens",
+                code: "unsupported_parameter",
+              },
+            }),
+            { status: 400 },
+          ),
+        )
+        .mockImplementation(() =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({ choices: [{ message: { content: "answer" } }] }),
+              { status: 200 },
+            ),
+          ),
+        ),
+    );
+    const captured: CapturedCall[] = [];
+    setChatCaptureSeam((call) => captured.push(call));
+    // A model name no other test teaches a parameter shape to.
+    const client = createAuditedOpenAIClient(
+      { phase: "facts" },
+      { apiKey: "k", model: "gpt-4o-mini-dev-1917-capture" },
+    );
+
+    await client.chat({ system: "s", user: "u", maxTokens: 50 });
+
+    expect(captured).toHaveLength(2);
+    expect(captured[0]).not.toHaveProperty("paramFallback");
+    expect(captured[1]!.paramFallback).toEqual([
+      "max_tokens->max_completion_tokens",
+    ]);
+  });
+
   it("capture records the full request and the response", async () => {
     vi.stubGlobal(
       "fetch",
@@ -988,6 +1033,45 @@ describe("full request logging", () => {
       { omitted: "data-uri" },
     ]);
     expect(JSON.stringify(inserts[0]?.request)).not.toContain("data:image");
+  });
+
+  it('buildLoggedRequest replaces a data URI with the placeholder when the matching imageUrl is ""', async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "classify-images", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({
+      system: "sys",
+      user: "u",
+      images: ["data:image/webp;base64,AAAA", "data:image/webp;base64,BBBB"],
+      meta: { imageUrls: ["", "https://x/2.webp"] },
+    });
+
+    expect((inserts[0]?.request as { images: unknown }).images).toEqual([
+      { omitted: "data-uri" },
+      "https://x/2.webp",
+    ]);
+  });
+
+  it("buildLoggedRequest replaces a data URI with the placeholder when the matching imageUrl is not http(s)", async () => {
+    const inserts: InsertedRow[] = [];
+    const client = createAuditedOpenAIClient(
+      { target, phase: "classify-images", supabase: fakeSupabase(inserts) },
+      { apiKey: "k" },
+    );
+
+    await client.chat({
+      system: "sys",
+      user: "u",
+      images: ["data:image/webp;base64,AAAA"],
+      meta: { imageUrls: ["submissions/x.webp"] },
+    });
+
+    expect((inserts[0]?.request as { images: unknown }).images).toEqual([
+      { omitted: "data-uri" },
+    ]);
   });
 
   it("request builder exhaustive over ChatInput keys", async () => {

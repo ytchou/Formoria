@@ -651,21 +651,19 @@ describe("createOpenAIClient", () => {
     it("does_not_fall_back_on_non_400_mentioning_response_format", async () => {
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
       vi.spyOn(console, "error").mockImplementation(() => undefined);
-      const fetchSpy = vi
-        .spyOn(globalThis, "fetch")
-        .mockImplementation(() =>
-          Promise.resolve(
-            errorResponse(
-              {
-                error: {
-                  message:
-                    "response_format 'json_schema' is not supported with this model",
-                },
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+        Promise.resolve(
+          errorResponse(
+            {
+              error: {
+                message:
+                  "response_format 'json_schema' is not supported with this model",
               },
-              500,
-            ),
+            },
+            500,
           ),
-        );
+        ),
+      );
       const client = createOpenAIClient({ apiKey: "k" });
 
       const result = await withFakeTimers(() =>
@@ -1557,5 +1555,57 @@ describe("createOpenAIClient", () => {
 
       expect(warnSpy).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+it("stops before spending when durable attempt admission fails", async () => {
+  const fetch = vi.spyOn(globalThis, "fetch");
+  const client = createOpenAIClient({
+    apiKey: "fixture-provider-token",
+    attemptLifecycle: {
+      before: async () => {
+        throw new Error("Model dollar budget exhausted");
+      },
+      after: async () => {},
+    },
+  });
+  await expect(
+    client.chat({
+      messages: [{ role: "user", content: "為小宅整理一份聖誕選物提案" }],
+      maxTokens: 100,
+    }),
+  ).rejects.toThrow("budget");
+  expect(fetch.mock.calls).toHaveLength(0);
+});
+it("surfaces lost durable capture without retrying a completed paid request", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        choices: [{ message: { content: "已完成提案" } }],
+        usage: { prompt_tokens: 120, completion_tokens: 30 },
+      }),
+    ),
+  );
+  const captured: unknown[] = [];
+  const client = createOpenAIClient({
+    apiKey: "fixture-provider-token",
+    attemptLifecycle: {
+      before: async (request) => {
+        captured.push(request);
+      },
+      after: async () => {
+        throw new Error("Durable disk unavailable");
+      },
+    },
+  });
+  await expect(
+    client.chat({
+      messages: [{ role: "user", content: "為小宅整理一份聖誕選物提案" }],
+      maxTokens: 100,
+    }),
+  ).rejects.toThrow("disk");
+  expect(captured).toHaveLength(1);
+  expect(captured.at(0)).toMatchObject({
+    messages: [{ role: "user", content: "為小宅整理一份聖誕選物提案" }],
   });
 });

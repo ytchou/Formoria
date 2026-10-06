@@ -64,7 +64,10 @@ export const HEALTH_JOBS: Record<string, HealthJobDefinition> = {
     commands: [
       {
         id: 'vitest',
-        run: 'NODE_ENV=test pnpm exec vitest run --reporter=json',
+        // Order is load-bearing: `default` prints unhandled errors to stderr
+        // (the JSON reporter drops them), and `json` last keeps the report on
+        // the final stdout line for parseJsonOutput (DEV-1931).
+        run: 'NODE_ENV=test pnpm exec vitest run --reporter=default --reporter=json',
         timeoutMs: VITEST_TIMEOUT_MS,
       },
     ],

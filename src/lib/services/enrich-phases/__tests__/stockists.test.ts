@@ -1,8 +1,28 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   validateStockistCandidates,
   filterStockistEvidence,
+  attributeSourceUrls,
+  runStockistsPhase,
 } from "../stockists";
+import {
+  STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+  STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  STOCKISTS_NONE_FOUND_SKIP_DETAIL,
+  type EnrichBrand,
+  type EnrichPhase,
+} from "../types";
+
+/**
+ * `llm-audit` wraps the OpenAI adapter and is on the boundary allowlist in
+ * `check:test-boundaries`. The persisted-scrape reader is injected through
+ * `deps` instead of mocked, because it is an internal service.
+ */
+const createClient = vi.hoisted(() => vi.fn());
+vi.mock("../../llm-audit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../llm-audit")>()),
+  createProfiledOpenAIClient: createClient,
+}));
 
 vi.mock("@/lib/langfuse/prompt", () => ({
   fetchLangfusePrompt: vi.fn((_n: string) => Promise.resolve("mock-prompt")),
@@ -98,5 +118,236 @@ describe("filterStockistEvidence", () => {
     const result = filterStockistEvidence(text);
     expect(result).not.toBeNull();
     expect(result).toContain("Stockist Page: indented content here");
+  });
+
+  // DEV-1941: `/store/` in a Pinkoi URL matched the "store" signal word, so the
+  // URL line alone survived and the model cited it for another site's stockists.
+  it("drops a URL line whose section contributes no evidence", () => {
+    const text = [
+      "URL: https://www.pinkoi.com/store/histhygift",
+      "Description: 手作杯子與生活小物",
+    ].join("\n");
+    expect(filterStockistEvidence(text)).toBeNull();
+  });
+
+  it("keeps the URL line ahead of the section it labels", () => {
+    const text = [
+      "URL: https://www.pinkoi.com/store/histhygift",
+      "Description: 手作杯子與生活小物",
+      "URL: https://histhygift.com",
+      "Stockist Page: 若渴咖啡 高雄市新興區",
+    ].join("\n");
+    expect(filterStockistEvidence(text)).toBe(
+      "URL: https://histhygift.com\nStockist Page: 若渴咖啡 高雄市新興區",
+    );
+  });
+});
+
+describe("attributeSourceUrls", () => {
+  const [candidate] = validateStockistCandidates([
+    {
+      name: "若渴咖啡",
+      regionSlug: "kaohsiung",
+      address: null,
+      locationType: "stockist",
+      sourceUrl: "https://www.pinkoi.com/store/histhygift",
+    },
+  ]);
+
+  it("replaces a cited URL absent from the evidence with the only evidence URL", () => {
+    const evidence = "URL: https://histhygift.com\nStockist Page: 若渴咖啡";
+    expect(attributeSourceUrls([candidate], evidence)[0].sourceUrl).toBe(
+      "https://histhygift.com",
+    );
+  });
+
+  it("keeps a cited URL that labels an evidence section", () => {
+    const evidence = [
+      "URL: https://a.example.com",
+      "Stockist Page: 若渴咖啡",
+      "URL: https://www.pinkoi.com/store/histhygift",
+      "Description: 門市在高雄",
+    ].join("\n");
+    expect(attributeSourceUrls([candidate], evidence)[0].sourceUrl).toBe(
+      "https://www.pinkoi.com/store/histhygift",
+    );
+  });
+
+  it("clears a cited URL absent from evidence that has several sections", () => {
+    const evidence = [
+      "URL: https://a.example.com",
+      "Stockist Page: 若渴咖啡",
+      "URL: https://b.example.com",
+      "Description: 門市在高雄",
+    ].join("\n");
+    expect(attributeSourceUrls([candidate], evidence)[0].sourceUrl).toBeNull();
+  });
+});
+
+describe("runStockistsPhase", () => {
+  const brand: EnrichBrand = {
+    id: "00000000-0000-4000-8000-000000000001",
+    slug: "island-studio",
+    name: "小島工坊",
+  };
+  const target = {
+    type: "submission" as const,
+    id: "00000000-0000-4000-8000-000000000002",
+  };
+  const phases = ["stockists"] as EnrichPhase[];
+  const modelEntry = {
+    name: "誠品書店 信義店",
+    regionSlug: "taipei",
+    address: "台北市信義區松高路11號",
+    locationType: "stockist",
+    sourceUrl: "https://example.com/stores",
+  };
+  const scrape = (siteContent: string | null) =>
+    vi.fn().mockResolvedValue({ snippets: [], siteContent });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("runs for a submission target and returns the candidates as a patch", async () => {
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ stockists: [modelEntry] }),
+      }),
+    });
+
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      pendingPatch: undefined,
+      deps: {
+        loadPersistedScrapeText: scrape(
+          "URL: https://example.com/stores\n我們的門市在台北信義區，歡迎參觀。",
+        ),
+      },
+    });
+
+    expect(output.phaseResult.status).toBe("succeeded");
+    expect(output.phaseResult.changedFields).toEqual(["1 stockist(s)"]);
+    const [expected] = validateStockistCandidates([modelEntry]);
+    expect(output.patch.stockists).toEqual([
+      { ...expected, fetchedAt: expect.any(String) },
+    ]);
+  });
+
+  it("cites the evidence section's URL, not the URL the model guessed", async () => {
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({
+          stockists: [
+            { ...modelEntry, sourceUrl: "https://www.pinkoi.com/store/histhygift" },
+          ],
+        }),
+      }),
+    });
+
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      pendingPatch: undefined,
+      deps: {
+        loadPersistedScrapeText: scrape(
+          [
+            "URL: https://www.pinkoi.com/store/histhygift",
+            "Description: 手作杯子與生活小物",
+            "URL: https://histhygift.com",
+            "Stockist Page: 誠品書店 信義店 台北市信義區松高路11號",
+          ].join("\n"),
+        ),
+      },
+    });
+
+    expect(output.patch.stockists?.[0].sourceUrl).toBe("https://histhygift.com");
+  });
+
+  it("skips with the none-found detail when the model finds no stockists", async () => {
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ stockists: [] }),
+      }),
+    });
+
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      pendingPatch: undefined,
+      deps: {
+        loadPersistedScrapeText: scrape("我們的門市在台北信義區，歡迎參觀。"),
+      },
+    });
+
+    expect(output.phaseResult.status).toBe("skipped");
+    expect(output.phaseResult.detail).toBe(STOCKISTS_NONE_FOUND_SKIP_DETAIL);
+    expect(output.patch).toEqual({});
+  });
+
+  it("skips with the no-evidence detail when no scrape was persisted", async () => {
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      pendingPatch: undefined,
+      deps: { loadPersistedScrapeText: scrape(null) },
+    });
+
+    expect(output.phaseResult.status).toBe("skipped");
+    expect(output.phaseResult.detail).toBe(STOCKISTS_NO_EVIDENCE_SKIP_DETAIL);
+    expect(output.patch).toEqual({});
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  // DEV-1943: the read-time guard needs the brand's owned site hosts.
+  it("reads persisted scrape text against the brand's owned site hosts", async () => {
+    const load = scrape(null);
+    await runStockistsPhase({
+      brand: { ...brand, website_url: "https://www.island.tw" },
+      phases,
+      target,
+      pendingPatch: undefined,
+      deps: { loadPersistedScrapeText: load },
+    });
+
+    expect(load).toHaveBeenCalledWith(target, new Set(["island.tw"]));
+  });
+
+  // Review BS1: a purchase_website this run revoked must not stay owned.
+  it("drops a purchase_website host this run's pendingPatch revoked", async () => {
+    const load = scrape(null);
+    await runStockistsPhase({
+      brand: { ...brand, purchase_website: "https://brand.com" },
+      phases,
+      target,
+      pendingPatch: { purchase_website: null },
+      deps: { loadPersistedScrapeText: load },
+    });
+
+    expect(load).toHaveBeenCalledWith(target, new Set());
+  });
+
+  it("skips with the no-signal detail when the scrape names no stockist", async () => {
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      pendingPatch: undefined,
+      deps: {
+        loadPersistedScrapeText: scrape("A paragraph about the founders."),
+      },
+    });
+
+    expect(output.phaseResult.detail).toBe(STOCKISTS_NO_SIGNAL_SKIP_DETAIL);
+    expect(output.patch).toEqual({});
+    expect(createClient).not.toHaveBeenCalled();
   });
 });

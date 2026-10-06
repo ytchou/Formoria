@@ -94,13 +94,17 @@ async function defaultAuditWrite(record: AuditRecord): Promise<AuditWriteError |
  * `auditedCall(` sites (the curation worker and ~20 script entrypoints) actually
  * execute. An unavailable audit DB would otherwise add the full IN_PROCESS
  * backoff to every one of those calls. The inline path therefore gets one retry
- * instead of two and a hard wall-clock budget on top; past the budget the record
- * is dropped and counted, and the audited call proceeds.
+ * instead of two and a hard wall-clock budget on top; past the budget the
+ * audited call stops waiting and proceeds.
  *
- * The write that overran is left to settle on its own rather than cancelled --
- * it may still land -- which is why a record is reported at most once
- * (`onceReporter`). Double-counting would poison the very loss signal that
- * decides whether the bounded-queue upgrade is worth building.
+ * The write that overran is left to settle on its own rather than cancelled,
+ * and it is counted as lost only if it settles in failure. It usually lands:
+ * the one 2026-10-04 alert fired at the budget for a write that was persisted
+ * (DEV-1934), and false losses poison the very signal that decides whether the
+ * bounded-queue upgrade is worth building. Ceiling: a write still in flight
+ * when the process exits is never counted, and only Node fetch's default
+ * 300s header/body timeouts bound how long one stays in flight. Upgrade path:
+ * the bounded queue with a flush on shutdown (see envelope.ts).
  */
 const INLINE_POLICY: RetryPolicy = { ...IN_PROCESS, attempts: 2 };
 const INLINE_BUDGET_MS = 2_000;
@@ -199,27 +203,16 @@ function snapshotRecord(record: AuditRecord): AuditRecord {
   return { ...record, summary };
 }
 
-/** A dropped record must reach the counter exactly once -- see INLINE_POLICY. */
-function onceReporter(): (error: AuditWriteError) => void {
-  let reported = false;
-  return (error) => {
-    if (reported) return;
-    reported = true;
-    reportWriteLoss(error);
-  };
-}
-
 async function runWrite(
   record: AuditRecord,
   wait: (ms: number) => Promise<void>,
   policy: RetryPolicy,
-  report: (error: AuditWriteError) => void,
 ): Promise<void> {
   try {
     const error = await writeWithRetry(record, wait, policy);
-    if (error) report(error);
+    if (error) reportWriteLoss(error);
   } catch (error) {
-    report({
+    reportWriteLoss({
       message: error instanceof Error ? error.message : String(error),
     });
   }
@@ -229,25 +222,17 @@ async function writeInline(
   record: AuditRecord,
   wait: (ms: number) => Promise<void>,
 ): Promise<void> {
-  const report = onceReporter();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const budget = new Promise<"expired">((resolve) => {
-    timer = setTimeout(() => resolve("expired"), INLINE_BUDGET_MS);
+  const budget = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, INLINE_BUDGET_MS);
     // The budget timer must never be the reason a worker or script stays alive.
     timer.unref?.();
   });
 
-  const outcome = await Promise.race([
-    runWrite(record, wait, INLINE_POLICY, report).then(() => "settled" as const),
-    budget,
-  ]);
+  // Past the budget, the write keeps settling and reports its own failure --
+  // see INLINE_POLICY.
+  await Promise.race([runWrite(record, wait, INLINE_POLICY), budget]);
   clearTimeout(timer);
-
-  if (outcome === "expired") {
-    report({
-      message: `Audit write exceeded the ${INLINE_BUDGET_MS}ms inline budget; record dropped`,
-    });
-  }
 }
 
 async function scheduleWrite(
@@ -264,7 +249,7 @@ async function scheduleWrite(
     const { after } = await import("next/server");
     // Deferred past the response, so the full retry budget costs the caller
     // nothing and needs no cap.
-    after(() => runWrite(record, wait, IN_PROCESS, onceReporter()));
+    after(() => runWrite(record, wait, IN_PROCESS));
   } catch {
     await writeInline(record, wait);
   }

@@ -4,8 +4,10 @@ import { CLEARED_FIELDS_KEY } from '@/lib/services/brand-write-policy'
 import {
   buildDescriptionEvidence,
   buildFoundingFactSources,
+  effectiveOwnedSiteHosts,
   loadPersistedScrapeStructure,
   preferPatched,
+  projectPersistedScrapeRows,
 } from '../descriptions'
 import type { EnrichBrand, EnrichPatch } from '../types'
 
@@ -174,5 +176,110 @@ describe('loadPersistedScrapeStructure', () => {
       makeClientDouble([]) as never,
     )
     expect(result).toEqual({})
+  })
+})
+
+// Review BS1: the read-time allow-list follows this run's purchase_website.
+describe('effectiveOwnedSiteHosts', () => {
+  const site = { ...brand, purchase_website: 'https://brand.com' }
+
+  it('excludes a purchase_website this run revoked via _cleared_fields', () => {
+    expect(
+      effectiveOwnedSiteHosts(site, {
+        [CLEARED_FIELDS_KEY]: ['purchase_website'],
+      } as unknown as EnrichPatch),
+    ).toEqual(new Set())
+  })
+
+  it('excludes a purchase_website this run revoked with an explicit null', () => {
+    expect(effectiveOwnedSiteHosts(site, { purchase_website: null })).toEqual(
+      new Set(),
+    )
+  })
+
+  it('uses a purchase_website this run patched', () => {
+    expect(
+      effectiveOwnedSiteHosts(site, { purchase_website: 'https://www.new.com' }),
+    ).toEqual(new Set(['new.com']))
+  })
+
+  it('falls back to the stored purchase_website with no patch', () => {
+    expect(effectiveOwnedSiteHosts(site, undefined)).toEqual(
+      new Set(['brand.com']),
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// projectPersistedScrapeRows — read-time stockist ownership guard (DEV-1943)
+// ---------------------------------------------------------------------------
+
+describe('projectPersistedScrapeRows', () => {
+  const owned = new Set(['brand.com'])
+  // The shape `acquire` writes: the extracted fields spread onto raw_response.
+  const scrapeRow = (url: string, stockistPageText: string) => ({
+    urls: [url],
+    snippets: [],
+    raw_response: { url, classification: 'official-site', stockistPageText },
+    call_status: 'succeeded',
+  })
+
+  it('drops stockist text persisted from a host the brand does not own', () => {
+    const result = projectPersistedScrapeRows(
+      [scrapeRow('https://mall.example/stores', '寶雅 屈臣氏 Costco')],
+      owned,
+    )
+    expect(result.siteContent ?? '').not.toContain('Stockist Page:')
+    expect(result.siteContent ?? '').not.toContain('寶雅')
+  })
+
+  it('keeps stockist text persisted from the brand own site', () => {
+    const result = projectPersistedScrapeRows(
+      [scrapeRow('https://brand.com/stores', '誠品書店 信義店')],
+      owned,
+    )
+    expect(result.siteContent).toContain('Stockist Page: 誠品書店 信義店')
+  })
+
+  it('fails closed when the brand owns no site host', () => {
+    const result = projectPersistedScrapeRows(
+      [scrapeRow('https://brand.com/stores', '誠品書店 信義店')],
+      new Set(),
+    )
+    expect(result.siteContent ?? '').not.toContain('Stockist Page:')
+  })
+
+  // Legacy rows: acquire's boundedScrapeSnippets copied stockistPageText into
+  // the snippets column, so the guard must strip that copy too (review B1).
+  const legacyRow = (url: string, snippets: string[], stockistPageText: string) => ({
+    ...scrapeRow(url, stockistPageText),
+    snippets,
+  })
+
+  it('drops the snippets copy of stockist text from a host the brand does not own', () => {
+    const venueText = '寶雅 屈臣氏 Costco'
+    const result = projectPersistedScrapeRows(
+      [legacyRow('https://mall.example/stores', ['品牌介紹', venueText], venueText)],
+      owned,
+    )
+    expect(result.snippets).toEqual(['品牌介紹'])
+  })
+
+  it('drops the 4000-char bounded snippets copy of a long non-owned stockist text', () => {
+    const venueText = `  ${'寶雅 '.repeat(2_000)}`
+    const result = projectPersistedScrapeRows(
+      [legacyRow('https://mall.example/stores', ['品牌介紹', venueText.slice(0, 4_000)], venueText)],
+      owned,
+    )
+    expect(result.snippets).toEqual(['品牌介紹'])
+  })
+
+  it('keeps the snippets copy of stockist text from the brand own site', () => {
+    const venueText = '誠品書店 信義店'
+    const result = projectPersistedScrapeRows(
+      [legacyRow('https://brand.com/stores', ['品牌介紹', venueText], venueText)],
+      owned,
+    )
+    expect(result.snippets).toEqual(['品牌介紹', venueText])
   })
 })

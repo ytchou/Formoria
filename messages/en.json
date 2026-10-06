@@ -66,8 +66,6 @@
     "unavailable": "The official link is currently unavailable",
     "relatedStories": "Continue reading",
     "relatedTrails": "More styles",
-    "derivedStories": "Related stories",
-    "derivedStoriesAriaLabel": "Related stories",
     "exploreMore": "Explore More"
   },
   "products": {
@@ -485,13 +483,18 @@
       "provideInfo": "Provide a stockist",
       "groups": {
         "all_taiwan": "Across Taiwan",
-        "overseas": "Overseas"
+        "overseas": "Overseas",
+        "showAll": "Show all {count} regions",
+        "collapse": "Show fewer regions"
       },
       "confirmed": {
         "officialPageLink": "Official page"
       },
       "chips": {
         "showRest": "Show {count} more"
+      },
+      "rows": {
+        "collapse": "Show less"
       },
       "provenance": {
         "owner": "Brand confirmed",
@@ -2412,6 +2415,7 @@
         "nameProposal": {
           "proposedName": "Proposed brand name",
           "high": "High confidence",
+          "medium": "Medium confidence",
           "confidenceReason": "{confidence} — {reason}",
           "use": "Use proposed name",
           "sources": {
@@ -2433,6 +2437,17 @@
         },
         "catalog": "Catalog classification",
         "products": "Curated product proposals",
+        "stockists": "Stockists",
+        "stockistsProposed": "{count} proposed by this update, written on approval",
+        "stockistLocationTypes": {
+          "stockist": "Stockist",
+          "distributor_retailer": "Distributor / retailer",
+          "direct_store": "Brand store",
+          "department_store_counter": "Department store counter",
+          "showroom_studio": "Showroom / studio",
+          "shop_in_shop": "Shop-in-shop",
+          "other_physical_retail": "Other retail"
+        },
         "productEditor": {
           "item": "Proposal {number}",
           "keep": "Keep {name}",

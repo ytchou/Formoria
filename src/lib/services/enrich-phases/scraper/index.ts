@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { auditedCall, type AuditStatus } from '@/lib/audit'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { fetchHtmlWithMetadata } from './fetch-guards'
-import { classifyByDomain, detectInputType, isThirdPartyDirectoryHost } from './input-detector'
+import { classifyByDomain, detectInputType, isOwnedSiteHost, isThirdPartyDirectoryHost } from './input-detector'
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import { mergeScrapedData } from './merge'
 import { emptyResult } from './parse/extractors'
@@ -25,7 +25,11 @@ export type ScrapeAttemptHandle = {
 
 export type ScrapeBrandUrlsOptions = {
   brandName?: string | null
-  confirmedSourceUrls?: ReadonlySet<string>
+  /**
+   * The brand's own site hosts (`ownedSiteHostsFor`). Stockist text is kept only
+   * from a page on one of them. Absent means none: stockist text is dropped.
+   */
+  ownedSiteHosts?: ReadonlySet<string>
   renderProvider?: RenderProvider
   directives?: ReadonlyMap<string, SurfaceDirective>
   onAttempt?: (input: { url: string; classification: InputType; spanId: string }) => Promise<ScrapeAttemptHandle | undefined>
@@ -59,19 +63,48 @@ export const MAX_SCRAPE_URLS_PER_BRAND = 6
  * exhibitor listing carries its blurb and product shots — but the accounts
  * linked from it belong to whoever runs the page. Those are the fields that
  * published a stranger's Facebook page as 23 brands' own (DEV-1332), so they are
- * the only ones dropped. Applied before `hasContent` and before the audit
- * snapshot, so the trail records what we actually kept.
+ * dropped. Applied before `hasContent` and before the audit snapshot, so the
+ * trail records what we actually kept.
  */
 function withoutThirdPartyLinks(url: string, data: ScrapedBrandData): ScrapedBrandData {
   if (!isThirdPartyDirectoryHost(url)) return data
 
   return {
     ...data,
+    // Defense in depth: `keepOwnedStockistText` already drops it unless a
+    // directory host was listed as owned.
+    stockistPageText: null,
     socialInstagram: null,
     socialThreads: null,
     socialFacebook: null,
     ...Object.fromEntries(ONLINE_STORES.map((channel) => [channel.camel, null])),
   }
+}
+
+/**
+ * Keeps stockist text only from a page on one of the brand's own site hosts.
+ * Any other site's "where to buy" page lists that site's venues, and the
+ * stockists phase reads it unfiltered (DEV-1939). A deny-list let every
+ * unlisted host through, so this is an allow-list, and an absent
+ * `ownedSiteHosts` drops the text (DEV-1943).
+ *
+ * Checks the requested URL and every URL a fetch for it landed on: redirects
+ * are followed, so brand.com/where-to-buy can serve a retailer's locator. An
+ * empty `landedUrls` (the strategy fetched the page itself, so the redirect
+ * target was never seen) falls back to the requested URL alone. Ceiling:
+ * that path covers only known social/marketplace hosts, which are rarely
+ * owned; thread the final URL out of the strategies if one ever is.
+ * Applied before `hasContent` and before the audit snapshot.
+ */
+function keepOwnedStockistText(
+  url: string,
+  landedUrls: readonly string[],
+  data: ScrapedBrandData,
+  ownedSiteHosts: ReadonlySet<string> | undefined,
+): ScrapedBrandData {
+  if (!data.stockistPageText) return data
+  const owned = [url, ...landedUrls].every((candidate) => isOwnedSiteHost(candidate, ownedSiteHosts))
+  return owned ? data : { ...data, stockistPageText: null }
 }
 
 function hasContent(data: ScrapedBrandData): boolean {
@@ -172,6 +205,8 @@ export async function scrapeBrandUrls(
 
           try {
             let prefetchedHtml: string | null = null
+            // Every URL a fetch of `url` ended on after redirects (DEV-1943).
+            const landedUrls: string[] = []
 
             // Directive: render — use the render provider to fetch the page,
             // bypassing the static prefetch entirely.
@@ -180,6 +215,7 @@ export async function scrapeBrandUrls(
                 const renderResult = await render.fetchRendered(url)
                 prefetchedHtml = renderResult.html
                 httpStatus = renderResult.status
+                landedUrls.push(renderResult.finalUrl)
               } catch (renderErr) {
                 const message = renderErr instanceof Error ? renderErr.message.slice(0, 1_000) : String(renderErr).slice(0, 1_000)
                 await finishAudit({
@@ -207,10 +243,12 @@ export async function scrapeBrandUrls(
               // Default static prefetch for URLs that aren't known social/ecommerce domains.
               // This avoids consuming the same Response body twice (detectInputType +
               // strategy.scrape both call fetchHtml otherwise).
-              const prefetched = classifyByDomain(url) === null ? await fetchHtmlWithMetadata(url) : null
+              const prefetched =
+                classifyByDomain(url) === null ? await fetchHtmlWithMetadata(url, { includeFinalUrl: true }) : null
               prefetchedHtml = prefetched?.text ?? null
               httpStatus = prefetched?.status ?? null
               error = prefetched?.error ?? null
+              if (prefetched?.finalUrl) landedUrls.push(prefetched.finalUrl)
             }
 
             const type = await detectInputType(url, prefetchedHtml)
@@ -221,6 +259,7 @@ export async function scrapeBrandUrls(
                 rendered = true
                 const result = await render.fetchRendered(renderUrl)
                 httpStatus = result.status
+                if (renderUrl === url) landedUrls.push(result.finalUrl)
                 return result
               },
               ...(render.fetchRenderedBatch
@@ -232,12 +271,15 @@ export async function scrapeBrandUrls(
                   }
                 : {}),
             } : undefined
-            const data = withoutThirdPartyLinks(
+            const scraped = await strategy.scrape(url, {
+              render: trackedRender,
+              prefetchedHtml,
+            })
+            const data = keepOwnedStockistText(
               url,
-              await strategy.scrape(url, {
-                render: trackedRender,
-                prefetchedHtml,
-              }),
+              landedUrls,
+              withoutThirdPartyLinks(url, scraped),
+              options.ownedSiteHosts,
             )
             const ok = hasContent(data)
             const uniqueSources = [

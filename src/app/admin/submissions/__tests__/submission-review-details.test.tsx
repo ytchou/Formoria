@@ -10,6 +10,7 @@ import type {
 } from "@/lib/services/submissions";
 import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
 import type { CuratedProductProposal } from "@/lib/types/enriched-data";
+import type { StockistCandidate } from "@/lib/types/stockist";
 import { SubmissionReviewDetails } from "../submission-review-details";
 
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
@@ -559,6 +560,65 @@ function productsSection() {
   return screen.getByText("Curated product proposals").closest("section")!;
 }
 
+/**
+ * Stockists ride `enriched_data.stockists` and are materialized into
+ * `brand_channels` only on approval/apply, so the review shows them read-only.
+ */
+describe("SubmissionReviewDetails — proposed stockists", () => {
+  const stockists: StockistCandidate[] = [
+    {
+      name: "誠品生活松菸店",
+      normalizedName: "誠品生活松菸",
+      regionLabel: "臺北市",
+      address: "臺北市信義區菸廠路88號",
+      locationType: "department_store_counter",
+    },
+    {
+      name: "小日子商號 赤峰店",
+      normalizedName: "小日子商號赤峰",
+      regionLabel: "臺北市",
+      address: null,
+      locationType: "direct_store",
+    },
+  ];
+
+  function withStockists(
+    value: StockistCandidate[] | undefined,
+  ): BrandSubmissionForReview {
+    return makeSubmission({
+      enriched_data: value ? { stockists: value } : null,
+      reviewData: { ...reviewData, stockists: value },
+    });
+  }
+
+  it("shows proposed stockists read-only", () => {
+    renderDetails(withStockists(stockists));
+
+    const section = screen.getByText("Stockists").closest("section")!;
+    expect(within(section).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(section).getByText("誠品生活松菸店")).toBeInTheDocument();
+    expect(within(section).getByText("小日子商號 赤峰店")).toBeInTheDocument();
+    expect(
+      within(section).getByText("臺北市信義區菸廠路88號"),
+    ).toBeInTheDocument();
+    expect(
+      within(section).getByText("2 proposed by this update, written on approval"),
+    ).toBeInTheDocument();
+    expect(
+      within(section).queryByRole("button", { name: "Edit" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the section without stockists", () => {
+    const { unmount } = renderDetails(withStockists([]));
+    expect(screen.queryByText("Stockists")).not.toBeInTheDocument();
+    unmount();
+
+    renderDetails(withStockists(undefined));
+    expect(screen.queryByText("Stockists")).not.toBeInTheDocument();
+  });
+});
+
 const mugProposal: CuratedProductProposal = {
   key: "chai-shao-shou-kan-ma-ko-pei",
   nameZh: "柴燒手感馬克杯",
@@ -596,7 +656,7 @@ const trayProposal: CuratedProductProposal = {
 
 /**
  * The proposals ride `enriched_data`, and the service seeds `reviewData.products`
- * from it — the same relationship `channels` has. Both are set here so the
+ * from it — the same relationship `stockists` has. Both are set here so the
  * fixture stays readable as the real thing rather than as UI-only state.
  */
 function withProposals(

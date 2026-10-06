@@ -116,6 +116,7 @@ type TargetProgressPatch = {
   error?: string;
   completed_at?: string;
   duration_ms?: number;
+  no_op?: boolean;
 };
 
 export async function runJob(
@@ -701,6 +702,7 @@ async function persistTargetProgressBatch(
         ...(patch.duration_ms !== undefined && {
           duration_ms: patch.duration_ms,
         }),
+        ...(patch.no_op !== undefined && { no_op: patch.no_op }),
       });
     }
 
@@ -738,7 +740,7 @@ async function persistTargetProgressBatch(
   }
 }
 
-function buildTargetProgressPatch(
+export function buildTargetProgressPatch(
   event: CurationTargetProgressEvent,
 ): TargetProgressPatch {
   const isTerminal = event.status !== "running";
@@ -758,9 +760,13 @@ function buildTargetProgressPatch(
     ...(event.error !== undefined && {
       error: sanitizeJobError(event.error),
     }),
+    // Every terminal write sets no_op explicitly, so a later terminal write
+    // (e.g. failBrand after a committed no-op skip) resets it rather than the
+    // RPC's coalesce keeping a stale true. Running events omit it (DEV-1929).
     ...(isTerminal && {
       completed_at: new Date().toISOString(),
       duration_ms: Math.max(0, Math.round(event.durationMs ?? 0)),
+      no_op: event.noOp === true,
     }),
   };
 }
