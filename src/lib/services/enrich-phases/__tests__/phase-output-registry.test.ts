@@ -35,6 +35,18 @@ describe("depositPhaseOutput", () => {
 
     expect(() => depositPhaseOutput(state, "detect", output)).toThrow(/bogus/);
   });
+
+  it("accepts stockists in the editorial slot", () => {
+    const state = { outputs: {} as PhaseOutputRegistry };
+    const stockists = [
+      { name: "Shop A", normalizedName: "shop a", source: "enriched" as const },
+    ];
+
+    expect(() =>
+      depositPhaseOutput(state, "editorial", { stockists }),
+    ).not.toThrow();
+    expect(state.outputs.editorial).toEqual({ stockists });
+  });
 });
 
 describe("buildPendingPatch", () => {

@@ -20,19 +20,16 @@ import {
 } from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
-  STOCKISTS_SUBMISSION_SKIP_DETAIL,
+  STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+  STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
   timePhase,
   type EnrichBrand,
   type EnrichPhase,
 } from "./types";
-import {
-  upsertEnrichedStockists,
-  MAX_ACTIVE_STOCKISTS_PER_BRAND,
-} from "../stockists";
+import { MAX_ACTIVE_STOCKISTS_PER_BRAND } from "../stockists";
 import { normalizeStockistName } from "@/lib/brands/stockist-display";
 import { CITY_NAMES_ZH, CITY_SLUGS } from "@/lib/constants/taiwan-cities";
 import { matchDistrict } from "@/lib/brands/district";
-import { createServiceClient } from "@/lib/supabase/service";
 
 const SIGNAL_WORDS = [
   // Location types (zh)
@@ -82,19 +79,31 @@ const STOCKISTS_SCHEMA = {
   schema: toStrictJsonSchema(stockistsShape),
 };
 
+/**
+ * Dependency overrides. Production supplies none; unit tests inject a fake
+ * scrape reader here rather than mocking the service module, which
+ * `scripts/check-test-boundaries.mjs` refuses.
+ */
+type StockistsDeps = {
+  loadPersistedScrapeText?: typeof loadPersistedScrapeText;
+};
+
 type StockistsPhaseOptions = {
   brand: EnrichBrand;
   phases: EnrichPhase[];
-  scrapedData?: unknown;
-  overwrite?: boolean;
-  dryRun?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
+  deps?: StockistsDeps;
 };
 
+/**
+ * The phase authors `patch.stockists`; it never writes `brand_channels`. The
+ * candidates ride the submission's `enriched_data` blob and are materialized
+ * at apply/approve time, the same door FAQ entries use (DEV-1928).
+ */
 type StockistsPhaseOutput = {
   phaseResult: PhaseResult;
-  patch: Record<string, unknown>;
+  patch: { stockists?: StockistCandidate[] };
 };
 
 /**
@@ -174,25 +183,12 @@ function isValidLocationType(value: unknown): value is StockistCandidate["locati
   return typeof value === "string" && VALID_LOCATION_TYPES.has(value);
 }
 
-async function hasEnrichedStockists(brandId: string): Promise<boolean> {
-  const supabase = createServiceClient();
-  const { count } = await supabase
-    .from("brand_channels")
-    .select("id", { count: "exact", head: true })
-    .eq("brand_id", brandId)
-    .eq("source", "enriched")
-    .not("name", "is", null)
-    .is("removed_at", null);
-  return (count ?? 0) > 0;
-}
-
 export async function runStockistsPhase({
   brand,
   phases,
-  overwrite = false,
-  dryRun = false,
   target,
   jobId,
+  deps = {},
 }: StockistsPhaseOptions): Promise<StockistsPhaseOutput> {
   if (!phases.includes("stockists")) {
     return {
@@ -208,48 +204,28 @@ export async function runStockistsPhase({
     };
   }
 
-  if (target?.type === "submission") {
-    return {
-      phaseResult: buildPhaseResult(
-        "stockists",
-        "skipped",
-        [],
-        0,
-        undefined,
-        STOCKISTS_SUBMISSION_SKIP_DETAIL,
-      ),
-      patch: {},
-    };
-  }
-
-  if (!overwrite && (await hasEnrichedStockists(brand.id))) {
-    return {
-      phaseResult: buildPhaseResult(
-        "stockists",
-        "skipped",
-        [],
-        0,
-        undefined,
-        "enriched stockists already exist",
-      ),
-      patch: {},
-    };
-  }
-
   return auditedCall(
     { provider: "enrich", operation: "runStockistsPhase", kind: "service" },
     async (_ctx) => {
       const { result, durationMs } = await timePhase(async () => {
         const auditTarget = target ?? brandTarget(brand.id);
-        const persistedScrape = await loadPersistedScrapeText(auditTarget);
+        const loadScrape =
+          deps.loadPersistedScrapeText ?? loadPersistedScrapeText;
+        const persistedScrape = await loadScrape(auditTarget);
 
         if (!persistedScrape.siteContent) {
-          return { candidates: [], skippedReason: "no stockist evidence" };
+          return {
+            candidates: [],
+            skippedReason: STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+          };
         }
 
         const filteredEvidence = filterStockistEvidence(persistedScrape.siteContent);
         if (!filteredEvidence) {
-          return { candidates: [], skippedReason: "no stockist signal in evidence" };
+          return {
+            candidates: [],
+            skippedReason: STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+          };
         }
 
         const evidence = filteredEvidence.length > 12_000
@@ -365,22 +341,6 @@ export async function runStockistsPhase({
         };
       }
 
-      if (!dryRun) {
-        const upsertResult = await upsertEnrichedStockists(brand.id, result.candidates);
-        if (!upsertResult.ok) {
-          return {
-            phaseResult: buildPhaseResult(
-              "stockists",
-              "failed",
-              [],
-              durationMs,
-              `stockist upsert failed: ${upsertResult.code}`,
-            ),
-            patch: {},
-          };
-        }
-      }
-
       return {
         phaseResult: buildPhaseResult(
           "stockists",
@@ -388,7 +348,7 @@ export async function runStockistsPhase({
           [`${result.candidates.length} stockist(s)`],
           durationMs,
         ),
-        patch: {},
+        patch: { stockists: result.candidates },
       };
     },
     {

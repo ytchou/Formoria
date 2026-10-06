@@ -79,14 +79,28 @@ export function isUsablePhaseOutput(value: unknown): value is PhaseOutput {
   return patch !== null && typeof patch === 'object' && !Array.isArray(patch)
 }
 
+/**
+ * Phases that share the editorial slot with `descriptions` and own a narrower
+ * key set. `descriptions` owns whatever editorial keys none of them claim, so a
+ * new editorial-slot phase listed here is excluded from descriptions by
+ * construction.
+ */
+const EDITORIAL_SLOT_PHASE_KEYS = {
+  stockists: new Set(['stockists']),
+  faq: new Set(['faq']),
+} satisfies Partial<Record<EnrichPhaseName, ReadonlySet<string>>>
+
+const OTHER_EDITORIAL_KEYS = new Set(
+  Object.values(EDITORIAL_SLOT_PHASE_KEYS).flatMap((keys) => [...keys]),
+)
+
 const PHASE_PATCH_KEYS: Partial<Record<EnrichPhaseName, ReadonlySet<string>>> = {
   detect: new Set(),
   slugs: SLOT_ALLOWED_KEYS.detect,
   acquire: SLOT_ALLOWED_KEYS.acquire,
   names: SLOT_ALLOWED_KEYS.names,
-  descriptions: new Set([...SLOT_ALLOWED_KEYS.editorial].filter((key) => key !== 'faq')),
-  stockists: new Set(),
-  faq: new Set(['faq']),
+  descriptions: new Set([...SLOT_ALLOWED_KEYS.editorial].filter((key) => !OTHER_EDITORIAL_KEYS.has(key))),
+  ...EDITORIAL_SLOT_PHASE_KEYS,
   products: SLOT_ALLOWED_KEYS.products,
 }
 

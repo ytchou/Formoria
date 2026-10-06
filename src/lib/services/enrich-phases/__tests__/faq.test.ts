@@ -13,11 +13,14 @@ import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
 import type { BrandFaqEntryRow } from "../../brand-faq";
 import type { EnrichBrand, EnrichPhase } from "../types";
+import { normalizeStockistName } from "@/lib/brands/stockist-display";
 import {
   contextFacts,
+  countWhereToBuy,
   faqCoverageIsComplete,
   localizedCityLabel,
   resolveFaqAttempts,
+  resolvePendingStockists,
   runFaqPhase,
   validateFaqEntries,
 } from "../faq";
@@ -69,9 +72,13 @@ vi.mock("../../brand-faq", async (importOriginal) => ({
   upsertBrandFaqEntries,
 }));
 const getStockistsForBrand = vi.hoisted(() => vi.fn());
+const getBlockedStockistNames = vi.hoisted(() =>
+  vi.fn(async (_brandId: string) => new Set<string>()),
+);
 vi.mock("../../stockists", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../stockists")>()),
   getStockistsForBrand,
+  getBlockedStockistNames,
 }));
 
 /**
@@ -893,5 +900,87 @@ describe("runFaqPhase submission-only contract", () => {
       explicit: boolean;
     };
     expect(faqPatch.explicit).toBe(true);
+  });
+});
+
+describe("countWhereToBuy", () => {
+  const pending = (name: string) => ({
+    name,
+    normalizedName: normalizeStockistName(name),
+  });
+
+  it("counts_live_rows_when_nothing_is_pending", () => {
+    const live = {
+      confirmed: [{ name: "誠品書店 信義店" }],
+      possible: [{ name: "小器 赤峰" }],
+    };
+    expect(countWhereToBuy(live)).toBe(2);
+    expect(countWhereToBuy(live, [])).toBe(2);
+  });
+
+  it("adds_pending_stockists_not_already_live", () => {
+    const live = { confirmed: [{ name: "誠品書店 信義店" }], possible: [] };
+    expect(
+      countWhereToBuy(live, [
+        // Same store, different whitespace: normalizes to the live name.
+        pending("誠品書店信義店"),
+        pending("小器 赤峰"),
+        pending("好丘 信義"),
+      ]),
+    ).toBe(3);
+  });
+
+  it("counts_pending_alone_for_a_new_submission", () => {
+    expect(countWhereToBuy(null, [pending("小器 赤峰")])).toBe(1);
+    expect(countWhereToBuy(null)).toBe(0);
+  });
+
+  it("counts_a_repeated_pending_store_once", () => {
+    expect(
+      countWhereToBuy(null, [pending("小器 赤峰"), pending("小器赤峰")]),
+    ).toBe(1);
+  });
+
+  it("skips_pending_stores_matching_a_rejected_or_removed_row", () => {
+    // The upsert RPC never updates a rejected or removed row, so a store the
+    // owner rejected stays off the page even when a refresh re-proposes it.
+    const blocked = new Set([normalizeStockistName("小器 赤峰")]);
+    expect(
+      countWhereToBuy(
+        { confirmed: [{ name: "誠品書店 信義店" }], possible: [] },
+        [pending("小器 赤峰"), pending("好丘 信義")],
+        blocked,
+      ),
+    ).toBe(2);
+    expect(countWhereToBuy(null, [pending("小器 赤峰")], blocked)).toBe(0);
+  });
+});
+
+describe("resolvePendingStockists", () => {
+  const stored = [
+    { name: "小器 赤峰", normalizedName: normalizeStockistName("小器 赤峰") },
+    { name: "好丘 信義", normalizedName: normalizeStockistName("好丘 信義") },
+  ];
+  const brandWithStored = {
+    id: "submission-1",
+    slug: "submission-submission-1",
+    stockists: stored,
+  } as EnrichBrand;
+
+  it("falls_back_to_the_stockists_stored_on_the_submission", () => {
+    const pendingStockists = resolvePendingStockists(undefined, brandWithStored);
+    expect(pendingStockists).toEqual(stored);
+    expect(countWhereToBuy(null, pendingStockists)).toBe(2);
+  });
+
+  it("prefers_this_runs_stockists_patch_over_the_stored_ones", () => {
+    const fresh = stored.slice(0, 1);
+    expect(resolvePendingStockists(fresh, brandWithStored)).toBe(fresh);
+  });
+
+  it("returns_none_when_nothing_is_pending_or_stored", () => {
+    expect(
+      resolvePendingStockists(undefined, { id: "s", slug: "s" }),
+    ).toEqual([]);
   });
 });

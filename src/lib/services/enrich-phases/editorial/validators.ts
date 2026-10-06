@@ -15,9 +15,9 @@
  *    city closed set from `taiwan-cities`, the preset ids from `faq-presets`.
  *    A second copy would drift, and the drift would be invisible.
  * 2. **The repair edits the descriptions patch only.** The stockists and FAQ
- *    nodes already upserted their rows into `brand_channels` and
- *    `brand_faq_entries` before `validate` ran, so a repair that rewrote them
- *    would leave the rows and the patch describing different content
+ *    nodes authored `patch.stockists` and `patch.faq` before `validate` ran,
+ *    and each owns its own checkpoint; a repair that rewrote them would make
+ *    the descriptions checkpoint carry fields another phase owns
  *    (tweakable #2). Cross-output therefore re-checks exactly what a
  *    description rewrite can break.
  */

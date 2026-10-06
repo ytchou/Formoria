@@ -1,8 +1,26 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   validateStockistCandidates,
   filterStockistEvidence,
+  runStockistsPhase,
 } from "../stockists";
+import {
+  STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
+  STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  type EnrichBrand,
+  type EnrichPhase,
+} from "../types";
+
+/**
+ * `llm-audit` wraps the OpenAI adapter and is on the boundary allowlist in
+ * `check:test-boundaries`. The persisted-scrape reader is injected through
+ * `deps` instead of mocked, because it is an internal service.
+ */
+const createClient = vi.hoisted(() => vi.fn());
+vi.mock("../../llm-audit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../llm-audit")>()),
+  createProfiledOpenAIClient: createClient,
+}));
 
 vi.mock("@/lib/langfuse/prompt", () => ({
   fetchLangfusePrompt: vi.fn((_n: string) => Promise.resolve("mock-prompt")),
@@ -98,5 +116,85 @@ describe("filterStockistEvidence", () => {
     const result = filterStockistEvidence(text);
     expect(result).not.toBeNull();
     expect(result).toContain("Stockist Page: indented content here");
+  });
+});
+
+describe("runStockistsPhase", () => {
+  const brand: EnrichBrand = {
+    id: "00000000-0000-4000-8000-000000000001",
+    slug: "island-studio",
+    name: "小島工坊",
+  };
+  const target = {
+    type: "submission" as const,
+    id: "00000000-0000-4000-8000-000000000002",
+  };
+  const phases = ["stockists"] as EnrichPhase[];
+  const modelEntry = {
+    name: "誠品書店 信義店",
+    regionSlug: "taipei",
+    address: "台北市信義區松高路11號",
+    locationType: "stockist",
+    sourceUrl: "https://example.com/stores",
+  };
+  const scrape = (siteContent: string | null) =>
+    vi.fn().mockResolvedValue({ snippets: [], siteContent });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("runs for a submission target and returns the candidates as a patch", async () => {
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ stockists: [modelEntry] }),
+      }),
+    });
+
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      deps: {
+        loadPersistedScrapeText: scrape("我們的門市在台北信義區，歡迎參觀。"),
+      },
+    });
+
+    expect(output.phaseResult.status).toBe("succeeded");
+    expect(output.phaseResult.changedFields).toEqual(["1 stockist(s)"]);
+    const [expected] = validateStockistCandidates([modelEntry]);
+    expect(output.patch.stockists).toEqual([
+      { ...expected, fetchedAt: expect.any(String) },
+    ]);
+  });
+
+  it("skips with the no-evidence detail when no scrape was persisted", async () => {
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      deps: { loadPersistedScrapeText: scrape(null) },
+    });
+
+    expect(output.phaseResult.status).toBe("skipped");
+    expect(output.phaseResult.detail).toBe(STOCKISTS_NO_EVIDENCE_SKIP_DETAIL);
+    expect(output.patch).toEqual({});
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it("skips with the no-signal detail when the scrape names no stockist", async () => {
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      deps: {
+        loadPersistedScrapeText: scrape("A paragraph about the founders."),
+      },
+    });
+
+    expect(output.phaseResult.detail).toBe(STOCKISTS_NO_SIGNAL_SKIP_DETAIL);
+    expect(output.patch).toEqual({});
+    expect(createClient).not.toHaveBeenCalled();
   });
 });

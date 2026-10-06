@@ -237,6 +237,25 @@ describe("mergeSubmissionEnrichedData", () => {
  * enrichment run makes ride the submission blob, so the blob's transforms and
  * its rerun merge are the two places a proposal can be silently corrupted.
  */
+describe("enriched_data.stockists[] merge contract", () => {
+  const candidate = (name: string) => ({
+    name,
+    normalizedName: name.toLowerCase(),
+    source: "enriched",
+  });
+
+  // Object arrays: a Set union is a no-op on identity, so without the replace
+  // rule every rerun would append its whole candidate list to the stored one.
+  it("stockists_merge_replaces_not_unions", () => {
+    const merged = mergeSubmissionEnrichedData(
+      { stockists: [candidate("A"), candidate("B")] },
+      { stockists: [candidate("C")] },
+    );
+
+    expect(merged.stockists).toEqual([candidate("C")]);
+  });
+});
+
 describe("enriched_data.products[] payload contract", () => {
   const proposal = (key: string): CuratedProductProposal => ({
     key,

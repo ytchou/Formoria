@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   assertCarryBounded,
+  isUsablePhaseCheckpoint,
   mergeSelectedPhaseOutputs,
   toAcquireCarry,
   latestPhaseOutputs,
@@ -314,4 +315,21 @@ it('an FAQ-only merge rejects description fields hidden inside its checkpoint', 
     ['faq', { patch: { faq: { entries: [], explicit: true } } }],
     ['products', { patch: { products: [] } }],
   ]))).toEqual({ faq: { entries: [], explicit: true } })
+})
+
+it('a stockists checkpoint owns only its key', () => {
+  const row = (phase: string, patch: Record<string, unknown>): PhaseOutputRow => ({
+    id: 'row-1', job_id: 'job-1', target_id: 'sub-1', target_type: 'submission',
+    phase, status: 'succeeded', output: { patch } as never, persisted_at: null,
+    created_at: '2026-01-01T00:00:00Z',
+  })
+  const stockists = [{ name: 'Shop A', normalizedName: 'shop a' }]
+
+  expect(isUsablePhaseCheckpoint(row('stockists', { stockists }))).toBe(true)
+  expect(isUsablePhaseCheckpoint(row('descriptions', { stockists }))).toBe(false)
+  expect(isUsablePhaseCheckpoint(row('stockists', { description: 'x' }))).toBe(false)
+  expect(mergeSelectedPhaseOutputs(['stockists'], new Map([
+    ['stockists', { patch: { stockists } as never }],
+    ['faq', { patch: { faq: { entries: [], explicit: true } } }],
+  ]))).toEqual({ stockists })
 })

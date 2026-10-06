@@ -1262,6 +1262,10 @@ describe("editorial agent integration", () => {
 
   it("editorial_agent_replaces_individual_calls", async () => {
     delete process.env.EDITORIAL_AGENT;
+    const stockists = [
+      { name: "誠品書店 信義店", normalizedName: "誠品書店信義", source: "enriched" },
+    ];
+    const stockistsResult = { phase: "stockists", status: "succeeded", changedFields: ["1 stockist(s)"], durationMs: 10 };
 
     // Acquire must succeed so the brand reaches the editorial block.
     mocks.runAcquirePhase.mockResolvedValue(acquireOutput());
@@ -1271,11 +1275,16 @@ describe("editorial agent integration", () => {
       agentOutcome: "generated",
       phaseResults: [
         { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 },
-        { phase: "stockists", status: "skipped", changedFields: [], durationMs: 10 },
+        stockistsResult,
         { phase: "faq", status: "succeeded", changedFields: [], durationMs: 50 },
       ],
-      phaseOutputs: [{ phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 }, patch: { description: "A test description" } }],
-      patch: { description: "A test description" },
+      // The stockists checkpoint now carries its candidates, and the runner's
+      // ownership check (`isPhasePatch`) has to accept them.
+      phaseOutputs: [
+        { phaseResult: { phase: "descriptions", status: "succeeded", changedFields: ["description"], durationMs: 100 }, patch: { description: "A test description" } },
+        { phaseResult: stockistsResult, patch: { stockists } },
+      ],
+      patch: { description: "A test description", stockists },
       listingVerdict: null,
       descriptionRewrite: null,
       brandFacts: null,
@@ -1290,7 +1299,7 @@ describe("editorial agent integration", () => {
       social_instagram: "https://www.instagram.com/editorialbrand",
     });
 
-    await runEnrich(
+    const result = await runEnrich(
       {
         target: "submissions",
         submissionIds: [target.id],
@@ -1301,6 +1310,7 @@ describe("editorial agent integration", () => {
       fakeSupabase([target]),
     );
 
+    expect(JSON.stringify(result)).not.toContain("owned by another phase");
     expect(mocks.runEditorialAgent).toHaveBeenCalledOnce();
     expect(mocks.runDescriptionsPhase).not.toHaveBeenCalled();
     expect(mocks.runStockistsPhase).not.toHaveBeenCalled();
@@ -1365,9 +1375,12 @@ describe("editorial agent integration", () => {
       factsAttempts: [],
       listingVerdict: null,
     });
+    const stockists = [
+      { name: "誠品書店 信義店", normalizedName: "誠品書店信義", source: "enriched" },
+    ];
     mocks.runStockistsPhase.mockResolvedValueOnce({
-      phaseResult: { phase: "stockists", status: "skipped", changedFields: [], durationMs: 0 },
-      patch: {},
+      phaseResult: { phase: "stockists", status: "succeeded", changedFields: ["1 stockist(s)"], durationMs: 0 },
+      patch: { stockists },
     });
     mocks.runFaqPhase.mockResolvedValueOnce({
       phaseResult: { phase: "faq", status: "skipped", changedFields: [], durationMs: 0 },
@@ -1393,6 +1406,13 @@ describe("editorial agent integration", () => {
 
     expect(mocks.runEditorialAgent).toHaveBeenCalledOnce();
     expect(mocks.runDescriptionsPhase).toHaveBeenCalled();
+    // The fallback FAQ call sees the candidates the stockists phase just authored.
+    expect(mocks.runFaqPhase).toHaveBeenCalledWith(
+      expect.objectContaining({ pendingStockists: stockists }),
+    );
+    expect(mocks.runStockistsPhase).toHaveBeenCalledWith(
+      expect.not.objectContaining({ overwrite: expect.anything() }),
+    );
   });
 });
 

@@ -36,6 +36,7 @@ import {
   subcategoryDisplayLabel,
 } from "@/lib/taxonomy/ontology";
 import type { OtherUrl } from "@/lib/types";
+import type { StockistCandidate } from "@/lib/types/stockist";
 import type {
   BrandNameProposal,
   CuratedProductProposal,
@@ -536,6 +537,17 @@ export function ReviewDetailsEditor({
             </InlineEditSection>
           )}
 
+          {/*
+            Read-only: stockists ride `enriched_data.stockists` and are written
+            to `brand_channels` only when the submission is approved/applied.
+            Hidden when the run proposed none, like products above.
+          */}
+          {(data.stockists?.length ?? 0) > 0 && (
+            <InlineEditSection title={t("details.stockists")} canEdit={false}>
+              <StockistProposalsReadOnly stockists={data.stockists ?? []} />
+            </InlineEditSection>
+          )}
+
           <InlineEditSection
             title={t("details.links")}
             canEdit={canEdit}
@@ -957,6 +969,53 @@ function CatalogEditor({
 }
 
 type ProductProposalStates = Map<string, CuratedProductProposalState>;
+
+function StockistProposalsReadOnly({
+  stockists,
+}: {
+  stockists: StockistCandidate[];
+}) {
+  const t = useTranslations("admin.submissions");
+
+  return (
+    <div className="space-y-3">
+      <p className="type-body-sm text-ink-muted">
+        {t("details.stockistsProposed", { count: stockists.length })}
+      </p>
+      <ul className="divide-y divide-rule border-y border-rule">
+        {stockists.map((stockist, index) => {
+          // JSONB from an enrichment phase: an unknown type renders no badge
+          // rather than a raw message key.
+          const typeKey = `details.stockistLocationTypes.${stockist.locationType}`;
+          const typeLabel =
+            stockist.locationType && t.has(typeKey) ? t(typeKey) : null;
+
+          return (
+            <li
+              key={`${index}:${stockist.normalizedName || stockist.name}`}
+              className="space-y-1 py-3"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="type-body-sm font-semibold text-ink">
+                  {stockist.name}
+                </p>
+                {stockist.regionLabel ? (
+                  <span className="type-body-sm text-ink-soft">
+                    {stockist.regionLabel}
+                  </span>
+                ) : null}
+                {typeLabel ? <Badge variant="outline">{typeLabel}</Badge> : null}
+              </div>
+              {stockist.address ? (
+                <p className="type-body-sm text-ink-muted">{stockist.address}</p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 /**
  * What the run proposed, and what the review decided about it. Read-only view:

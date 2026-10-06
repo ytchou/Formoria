@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Check, ExternalLink } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,14 @@ import type { Stockist } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE_CHIPS = 6;
+/**
+ * Region groups and rows past these caps render with the `hidden` attribute,
+ * never sliced out: the stockist list answers "where can I buy this", so every
+ * group and row must stay in the server HTML even while folded. The chip stack
+ * (MAX_VISIBLE_CHIPS) is a pre-existing slice, deliberately left as-is.
+ */
+const MAX_VISIBLE_GROUPS = 6;
+const MAX_VISIBLE_ROWS = 8;
 /** Below this count the grouping is noise — entries render without headings. */
 const GROUPED_LAYOUT_MIN_STOCKISTS = 4;
 
@@ -65,6 +73,18 @@ type StockistListRowProps = {
   stockist: Stockist;
   t: Translate;
 };
+
+/** Chevron for a fold toggle: down while folded, up once expanded. */
+function ToggleChevron({ expanded }: { expanded: boolean }) {
+  const Icon = expanded ? ChevronUp : ChevronDown;
+  return (
+    <Icon
+      aria-hidden="true"
+      className="size-4"
+      data-chevron={expanded ? "up" : "down"}
+    />
+  );
+}
 
 function StockistListRow({ stockist, t }: StockistListRowProps) {
   // Every stockist is a physical place since DEV-1513, so the address is always
@@ -231,6 +251,10 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
   const [expandedChipGroups, setExpandedChipGroups] = useState<
     Partial<Record<string, boolean>>
   >({});
+  const [expandedRowGroups, setExpandedRowGroups] = useState<
+    Partial<Record<string, boolean>>
+  >({});
+  const [groupsExpanded, setGroupsExpanded] = useState(false);
 
   const displayGroups = groupStockistsByRegion(allStockists);
 
@@ -243,15 +267,60 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
   }
 
   function renderRow(stockist: Stockist) {
-    return (
-      <StockistListRow key={stockist.id} stockist={stockist} t={t} />
-    );
+    return <StockistListRow key={stockist.id} stockist={stockist} t={t} />;
   }
 
   function renderRowStack(rows: Stockist[]) {
     if (rows.length === 0) return null;
 
     return <div className="divide-y divide-rule">{rows.map(renderRow)}</div>;
+  }
+
+  /** The grouped layout's row stack: rows past the cap fold behind a toggle. */
+  function renderCappedRowStack(kind: string, rows: Stockist[]) {
+    if (rows.length === 0) return null;
+
+    const isExpanded = expandedRowGroups[kind] === true;
+    const hiddenRowCount = Math.max(rows.length - MAX_VISIBLE_ROWS, 0);
+
+    // Two sibling stacks, not one stack with hidden rows: a hidden last child
+    // would leave the 8th row's divider and bottom padding above the toggle.
+    // The overflow stack's top border and padding continue the row rhythm.
+    return (
+      <>
+        <div className="divide-y divide-rule">
+          {rows.slice(0, MAX_VISIBLE_ROWS).map(renderRow)}
+        </div>
+        {hiddenRowCount > 0 ? (
+          <div
+            className="divide-y divide-rule border-t border-rule pt-4"
+            hidden={!isExpanded}
+            data-stockist-row-overflow
+          >
+            {rows.slice(MAX_VISIBLE_ROWS).map(renderRow)}
+          </div>
+        ) : null}
+        {hiddenRowCount > 0 ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            aria-expanded={isExpanded}
+            onClick={() =>
+              setExpandedRowGroups((current) => ({
+                ...current,
+                [kind]: !isExpanded,
+              }))
+            }
+          >
+            {isExpanded
+              ? t("channels.rows.collapse")
+              : t("channels.chips.showRest", { count: hiddenRowCount })}
+            <ToggleChevron expanded={isExpanded} />
+          </Button>
+        ) : null}
+      </>
+    );
   }
 
   function renderChipStack(kind: string, chips: Stockist[]) {
@@ -291,7 +360,7 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
     );
   }
 
-  function renderGroup(group: StockistRegionGroup) {
+  function renderGroup(group: StockistRegionGroup, index: number) {
     const rowStockists = group.stockists.filter(rendersAsRow);
     const chipStockists = group.stockists.filter(
       (stockist) => !rendersAsRow(stockist),
@@ -305,13 +374,14 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
       <AccordionItem
         key={group.key}
         data-stockist-kind={group.key}
+        hidden={!groupsExpanded && index >= MAX_VISIBLE_GROUPS}
         title={
           <h3 className="type-body-sm font-semibold text-ink">{`${heading} (${group.stockists.length})`}</h3>
         }
         panelClassName="space-y-4 px-4 py-4"
       >
         {renderChipStack(group.key, chipStockists)}
-        {renderRowStack(rowStockists)}
+        {renderCappedRowStack(group.key, rowStockists)}
       </AccordionItem>
     );
   }
@@ -333,7 +403,30 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
     );
   }
 
+  const hiddenGroupCount = Math.max(
+    displayGroups.length - MAX_VISIBLE_GROUPS,
+    0,
+  );
+
+  // The group toggle is the Accordion's last child, so it sits after the last
+  // visible group in both states: hidden groups take no space.
   return (
-    <Accordion data-stockist-list>{displayGroups.map(renderGroup)}</Accordion>
+    <Accordion data-stockist-list>
+      {displayGroups.map(renderGroup)}
+      {hiddenGroupCount > 0 ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="compact"
+          aria-expanded={groupsExpanded}
+          onClick={() => setGroupsExpanded((current) => !current)}
+        >
+          {groupsExpanded
+            ? t("channels.groups.collapse")
+            : t("channels.groups.showAll", { count: displayGroups.length })}
+          <ToggleChevron expanded={groupsExpanded} />
+        </Button>
+      ) : null}
+    </Accordion>
   );
 }

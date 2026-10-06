@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   applySubmissionReviewOverrides,
   buildRefreshSubmissionReviewData,
+  buildSubmissionReviewData,
   buildSubmissionReviewOverrides,
+  submissionReviewDataToDb,
   type SubmissionReviewData,
 } from "../submissions";
+import type { StockistCandidate } from "@/lib/types/stockist";
 
 const baseline: SubmissionReviewData = {
   name: "PERMEATE",
@@ -14,7 +17,6 @@ const baseline: SubmissionReviewData = {
   blurbEn: null,
   city: "Taipei",
   reputationSummary: null,
-  channels: [],
   siteContent: null,
   foundingYear: 2020,
   heroImageUrl: "https://example.com/hero.webp",
@@ -135,5 +137,90 @@ describe("refresh review overrides", () => {
       description: "Admin description",
       heroImageUrl: "https://example.com/hero.webp",
     });
+  });
+});
+
+const proposedStockists: StockistCandidate[] = [
+  {
+    name: "誠品生活松菸店",
+    normalizedName: "誠品生活松菸",
+    regionLabel: "臺北市",
+    address: "臺北市信義區菸廠路88號",
+    locationType: "department_store_counter",
+  },
+  {
+    name: "小日子商號 赤峰店",
+    normalizedName: "小日子商號赤峰",
+    regionLabel: "臺北市",
+    address: null,
+    locationType: "direct_store",
+  },
+];
+
+describe("review data exposes enriched stockists", () => {
+  it("reads stockists from enriched_data on a refresh", () => {
+    const review = buildRefreshSubmissionReviewData(
+      { name: "PERMEATE" },
+      { stockists: proposedStockists },
+      baseline,
+    );
+
+    expect(review.stockists).toEqual(proposedStockists);
+    // The effective layer keeps them through an unrelated admin override.
+    expect(
+      applySubmissionReviewOverrides(review, { city: "Taichung" }).stockists,
+    ).toEqual(proposedStockists);
+  });
+
+  it("leaves stockists undefined when the refresh proposed none", () => {
+    expect(
+      buildRefreshSubmissionReviewData({ name: "PERMEATE" }, {}, baseline)
+        .stockists,
+    ).toBeUndefined();
+  });
+
+  it("reads stockists from enriched data on a new submission", () => {
+    const review = buildSubmissionReviewData(
+      {
+        brandName: "PERMEATE",
+        description: null,
+        websiteUrl: null,
+        heroImageUrl: null,
+        socialInstagram: null,
+        socialThreads: null,
+        socialFacebook: null,
+        otherUrls: [],
+        suggestedSubcategories: [],
+        purchaseWebsite: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+        purchaseMyship: null,
+      },
+      { stockists: proposedStockists },
+      [],
+    );
+
+    expect(review.stockists).toEqual(proposedStockists);
+  });
+});
+
+describe("review save never writes stockists", () => {
+  it("omits stockists and channels from the stored review row", () => {
+    const row = submissionReviewDataToDb({
+      ...baseline,
+      stockists: proposedStockists,
+    });
+
+    expect(row).not.toHaveProperty("stockists");
+    expect(row).not.toHaveProperty("channels");
+  });
+
+  it("never records a stockist change as a review override", () => {
+    expect(
+      buildSubmissionReviewOverrides(baseline, {
+        ...baseline,
+        stockists: proposedStockists,
+      }),
+    ).toEqual({});
   });
 });
