@@ -169,6 +169,28 @@ describe("runStockistsPhase", () => {
     ]);
   });
 
+  it("succeeds with an empty patch when the model finds no stockists", async () => {
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ stockists: [] }),
+      }),
+    });
+
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      deps: {
+        loadPersistedScrapeText: scrape("我們的門市在台北信義區，歡迎參觀。"),
+      },
+    });
+
+    expect(output.phaseResult.status).toBe("succeeded");
+    expect(output.phaseResult.changedFields).toEqual([]);
+    expect(output.patch).toEqual({});
+  });
+
   it("skips with the no-evidence detail when no scrape was persisted", async () => {
     const output = await runStockistsPhase({
       brand,
