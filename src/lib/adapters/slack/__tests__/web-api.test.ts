@@ -4,7 +4,12 @@ import {
   setAuditWriteSeam,
   type AuditRecord,
 } from "@/lib/audit";
-import { postMessage, readMessageMetadata, updateMessage } from "../web-api";
+import {
+  getFileUploadUrl,
+  postMessage,
+  readMessageMetadata,
+  updateMessage,
+} from "../web-api";
 
 let writes: AuditRecord[] = [];
 
@@ -64,6 +69,33 @@ describe("postMessage", () => {
     });
 
     expect(result).toEqual({ ok: false, error: "channel_not_found" });
+  });
+});
+
+describe("getFileUploadUrl", () => {
+  // Slack ignores a JSON body on files.getUploadURLExternal and answers
+  // invalid_arguments ("missing required field: length"), verified live.
+  it("sends filename and length form-encoded", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        ok: true,
+        file_id: "F123",
+        upload_url: "https://files.slack.com/upload/v1/abc",
+      }),
+    );
+
+    const result = await getFileUploadUrl("aaaaaaaaaaaa-trail.mdx", 1234);
+
+    expect(result).toEqual({
+      fileId: "F123",
+      uploadUrl: "https://files.slack.com/upload/v1/abc",
+    });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("https://slack.com/api/files.getUploadURLExternal");
+    expect(init!.body).toBeInstanceOf(URLSearchParams);
+    const body = init!.body as URLSearchParams;
+    expect(body.get("filename")).toBe("aaaaaaaaaaaa-trail.mdx");
+    expect(body.get("length")).toBe("1234");
   });
 });
 

@@ -53,15 +53,14 @@ export async function getFileUploadUrl(
   return auditedCall(
     { provider: "slack", operation: "get_upload_url", kind: "external" },
     async () => {
+      // Form-encoded on purpose: this method ignores a JSON body and answers
+      // invalid_arguments, although Slack's docs list JSON as accepted.
       const response = await fetch(
         "https://slack.com/api/files.getUploadURLExternal",
         {
           method: "POST",
-          headers: {
-            Authorization: "Bearer " + getToken(),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ filename, length }),
+          headers: { Authorization: "Bearer " + getToken() },
+          body: new URLSearchParams({ filename, length: String(length) }),
           signal: AbortSignal.timeout(TIMEOUT_MS),
         },
       );
