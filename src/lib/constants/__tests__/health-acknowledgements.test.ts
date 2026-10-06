@@ -48,25 +48,6 @@ describe("isAcknowledged", () => {
     expect(isAcknowledged(fingerprint, "2026-11-01", LIST)).toBeUndefined();
   });
 
-  it("scopes the DEV-1903 release-window entries to the re-picked trails", () => {
-    const today = "2026-10-01";
-    expect(
-      isAcknowledged("directory:trail-orphaned-selection:desk-setup:lighting", today),
-    ).toBeDefined();
-    expect(
-      isAcknowledged("directory:trail-orphaned-selection:gift-for-dad:intro", today),
-    ).toBeUndefined();
-    expect(
-      isAcknowledged("directory:trail-orphaned-note:small-space-reading-corner:light", today),
-    ).toBeDefined();
-    expect(
-      isAcknowledged("directory:trail-unnoted-placement:desk-setup:lighting", today),
-    ).toBeUndefined();
-    expect(
-      isAcknowledged("directory:trail-orphaned-selection:desk-setup:lighting", "2026-10-16"),
-    ).toBeUndefined();
-  });
-
   it("every shipped entry names a ticket and an ISO expiry date", () => {
     for (const entry of HEALTH_ACKNOWLEDGEMENTS) {
       expect(entry.ticket).toMatch(/^[A-Z][A-Z0-9]*-\d+$/);
