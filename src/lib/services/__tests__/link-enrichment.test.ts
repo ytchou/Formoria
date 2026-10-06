@@ -773,6 +773,26 @@ describe('ownedSiteHostsFor', () => {
     ).toEqual(new Set(['brand.com', 'shop.brand.com']))
   })
 
+  it('reads only website_url and purchase_website, never platform link columns', () => {
+    // shopee.com.tw and fb.com are absent from the deny-list, so deriving from
+    // every link column would mark them owned (review finding B2).
+    expect(
+      ownedSiteHostsFor({
+        purchase_website: 'https://www.brand.com',
+        purchase_shopee: 'https://shopee.com.tw/x',
+        social_facebook: 'https://fb.com/x',
+      }),
+    ).toEqual(new Set(['brand.com']))
+  })
+
+  it('drops a marketplace URL typed into purchase_website', () => {
+    expect(
+      ownedSiteHostsFor({
+        purchase_website: 'https://www.pinkoi.com/store/brand',
+      }).size,
+    ).toBe(0)
+  })
+
   it('is empty when the brand has no own site on record', () => {
     expect(
       ownedSiteHostsFor({

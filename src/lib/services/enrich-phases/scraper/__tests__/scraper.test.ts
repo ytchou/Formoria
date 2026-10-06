@@ -400,6 +400,26 @@ describe('scrapeBrandUrls stockist ownership guard', () => {
     const unguarded = await scrapeBrandUrls([locator])
     expect(unguarded.data.stockistPageText).toBeNull()
   })
+
+  // Redirects are followed, so the requested host says nothing about whose
+  // venue list the body is.
+  it('drops stockist text when an owned URL redirects to a host the brand does not own', async () => {
+    const requested = 'https://brand.com/where-to-buy'
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((u: string) => {
+      if (String(u) !== requested) return Promise.resolve(new Response('x', { status: 404 }))
+      const redirected = new Response(
+        '<html><head><meta property="og:title" content="Retailer"></head><body><main>寶雅 屈臣氏 Costco</main></body></html>',
+        { status: 200, headers: { 'content-type': 'text/html' } },
+      )
+      Object.defineProperty(redirected, 'url', { value: 'https://retailer.example/store-locator' })
+      return Promise.resolve(redirected)
+    }))
+
+    const { data } = await scrapeBrandUrls([requested], { ownedSiteHosts: new Set(['brand.com']) })
+
+    expect(data.brandName).toBe('Retailer')
+    expect(data.stockistPageText).toBeNull()
+  })
 })
 
 describe('mergeSocialLinks (flat output)', () => {

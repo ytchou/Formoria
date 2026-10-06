@@ -151,6 +151,7 @@ describe('buildDescriptionTask', () => {
       category: 'food',
       slug: 'test-brand',
       description: 'existing desc',
+      purchase_website: 'https://brand.example',
     }
 
     const mockScrapeText = {
@@ -190,8 +191,11 @@ describe('buildDescriptionTask', () => {
     })
 
     // loadPersistedScrapeText called with brandTarget(brand.id) and the
-    // brand's owned site hosts (none on this fixture)
-    expect(loadScrapeTextFn).toHaveBeenCalledWith({ type: 'brand', id: 'brand-1' }, new Set())
+    // brand's owned site hosts
+    expect(loadScrapeTextFn).toHaveBeenCalledWith(
+      { type: 'brand', id: 'brand-1' },
+      new Set(['brand.example']),
+    )
 
     // buildDescriptionEvidence called with brand, undefined pendingPatch, []
     expect(buildEvidenceFn).toHaveBeenCalledWith(brand, undefined, [])

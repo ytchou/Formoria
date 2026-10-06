@@ -235,22 +235,26 @@ export function collectKnownUrls(
 }
 
 /**
- * The `www.`-stripped hosts of the brand's own site: `ownedUrlsFor` minus every
- * social, marketplace, aggregator and platform host. The allow-list that
- * stockist text must pass, both when a scrape is persisted and when persisted
- * rows are read back (DEV-1943). Empty when the brand has no own site on
- * record, which drops all page-scraped stockist text for it.
+ * The `www.`-stripped hosts of the brand's own site, taken ONLY from
+ * `website_url` and `purchase_website` — the two fields that name the brand's
+ * own site. Every other link column names a third-party platform (social,
+ * marketplace), so deriving from them would let an unlisted platform host such
+ * as `shopee.com.tw` or `fb.com` count as owned, subdomains included. A
+ * marketplace URL typed into `purchase_website` is still dropped by the
+ * `isNonBrandSiteHost` filter. The allow-list that stockist text must pass,
+ * both when a scrape is persisted and when persisted rows are read back
+ * (DEV-1943). Empty when the brand has no own site on record, which drops all
+ * page-scraped stockist text for it.
  */
-export function ownedSiteHostsFor(brand: OwnedUrlSource): ReadonlySet<string> {
+export function ownedSiteHostsFor(
+  brand: OwnedUrlSource,
+): ReadonlySet<string> {
   const hosts = new Set<string>()
-  for (const url of ownedUrlsFor(brand)) {
+  for (const url of [brand.website_url, brand.purchase_website]) {
     const href = sanitizeHref(url)
     if (!href || isNonBrandSiteHost(href)) continue
-    try {
-      hosts.add(new URL(href).hostname.toLowerCase().replace(/^www\./, ''))
-    } catch {
-      // Not a URL, so not a host the brand can own.
-    }
+    const host = bareHostname(href)
+    if (host) hosts.add(host)
   }
   return hosts
 }

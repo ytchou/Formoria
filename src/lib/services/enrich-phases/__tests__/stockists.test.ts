@@ -221,6 +221,7 @@ describe("runStockistsPhase", () => {
       brand,
       phases,
       target,
+      pendingPatch: undefined,
       deps: {
         loadPersistedScrapeText: scrape(
           "URL: https://example.com/stores\n我們的門市在台北信義區，歡迎參觀。",
@@ -252,6 +253,7 @@ describe("runStockistsPhase", () => {
       brand,
       phases,
       target,
+      pendingPatch: undefined,
       deps: {
         loadPersistedScrapeText: scrape(
           [
@@ -279,6 +281,7 @@ describe("runStockistsPhase", () => {
       brand,
       phases,
       target,
+      pendingPatch: undefined,
       deps: {
         loadPersistedScrapeText: scrape("我們的門市在台北信義區，歡迎參觀。"),
       },
@@ -294,6 +297,7 @@ describe("runStockistsPhase", () => {
       brand,
       phases,
       target,
+      pendingPatch: undefined,
       deps: { loadPersistedScrapeText: scrape(null) },
     });
 
@@ -310,10 +314,25 @@ describe("runStockistsPhase", () => {
       brand: { ...brand, website_url: "https://www.island.tw" },
       phases,
       target,
+      pendingPatch: undefined,
       deps: { loadPersistedScrapeText: load },
     });
 
     expect(load).toHaveBeenCalledWith(target, new Set(["island.tw"]));
+  });
+
+  // Review BS1: a purchase_website this run revoked must not stay owned.
+  it("drops a purchase_website host this run's pendingPatch revoked", async () => {
+    const load = scrape(null);
+    await runStockistsPhase({
+      brand: { ...brand, purchase_website: "https://brand.com" },
+      phases,
+      target,
+      pendingPatch: { purchase_website: null },
+      deps: { loadPersistedScrapeText: load },
+    });
+
+    expect(load).toHaveBeenCalledWith(target, new Set());
   });
 
   it("skips with the no-signal detail when the scrape names no stockist", async () => {
@@ -321,6 +340,7 @@ describe("runStockistsPhase", () => {
       brand,
       phases,
       target,
+      pendingPatch: undefined,
       deps: {
         loadPersistedScrapeText: scrape("A paragraph about the founders."),
       },

@@ -2738,6 +2738,7 @@ export async function runEnrich(
                           phases: input.phases,
                           target: input.target,
                           jobId: input.jobId,
+                          pendingPatch: input.pendingPatch,
                         });
                         return {
                           phaseResult: result.phaseResult,
@@ -2756,6 +2757,7 @@ export async function runEnrich(
                           jobId: input.jobId,
                           explicitPhases: input.explicitPhases ?? [],
                           pendingStockists: input.pendingStockists,
+                          pendingPatch: input.pendingPatch,
                         });
                         return {
                           phaseResult: result.phaseResult,
@@ -3021,6 +3023,7 @@ export async function runEnrich(
                           phases,
                           target: { type: targetType, id: brand.id },
                           jobId: config.jobId,
+                          pendingPatch: buildPendingPatch(state.outputs),
                         });
                         phaseOutputs.push({ phaseResult: stockistsResult.phaseResult, output: { patch: stockistsResult.patch } });
                         state.phaseResults.push(stockistsResult.phaseResult);
@@ -3045,6 +3048,7 @@ export async function runEnrich(
                           explicitPhases: bctx.plan?.explicit ?? config.explicitPhases ?? [],
                           // Only the stockists phase above writes this key.
                           pendingStockists: editorialFallbackPatch.stockists,
+                          pendingPatch: buildPendingPatch(state.outputs),
                         });
                         phaseOutputs.push({ phaseResult: faqResult.phaseResult, output: { patch: faqResult.patch } });
                         state.phaseResults.push(faqResult.phaseResult);

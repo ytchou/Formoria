@@ -12,7 +12,7 @@ import {
   filterHeroImage,
   toImageSources,
 } from '../parse/extractors'
-import { classifyCandidate, getPageText } from '../parse/page-kind'
+import { getPageText, isStoreLocatorPath } from '../parse/page-kind'
 import type { ScrapeContext, ScrapeStrategy } from './types'
 
 function getMetaContent($: cheerio.CheerioAPI, selector: string): string | null {
@@ -54,11 +54,11 @@ export class SinglePageStrategy implements ScrapeStrategy {
 
       const { socialInstagram, socialThreads, socialFacebook } = extractSocialLinks($)
       const purchaseLinks = extractPurchaseLinks($)
+      const categoryHints = extractCategoryHints($)
       // A URL that is itself a store-locator page carries its own venue list
-      // (DEV-1943). `getPageText` strips script nodes, JSON-LD included, so it
-      // reads a fresh document rather than the one the extractors above used.
-      const stockistPageText =
-        classifyCandidate(url, '') === 'stockist' ? getPageText(cheerio.load(html)) : null
+      // (DEV-1943). `getPageText` strips script nodes from `$`, so it runs
+      // after every extractor above.
+      const stockistPageText = isStoreLocatorPath(url) ? getPageText($) : null
       return {
         brandName,
         description,
@@ -70,7 +70,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
         socialThreads,
         socialFacebook,
         ...purchaseLinks,
-        categoryHints: extractCategoryHints($),
+        categoryHints,
         websiteUrl: url,
         rawJsonLd,
         stockistPageText,

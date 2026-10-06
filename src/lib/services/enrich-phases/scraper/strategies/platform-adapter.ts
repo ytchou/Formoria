@@ -16,6 +16,7 @@ import { ninetyOneAppAdapter } from './adapters/ninety-one-app'
 import { cyberbizAdapter } from './adapters/cyberbiz'
 import { MARKETPLACE_GALLERY_LIMIT } from './adapters/create-marketplace-adapter'
 import { identifyPlatform } from '../platforms'
+import { getPageText, isStoreLocatorPath } from '../parse/page-kind'
 import { extractCatalogRoutes } from '../../catalog-discovery'
 import type { PlatformAdapter } from './adapters/types'
 import type { ScrapedImageSource } from '@/lib/types/scraper'
@@ -135,6 +136,16 @@ export class PlatformAdapterStrategy implements ScrapeStrategy {
               ...newSources,
             ],
           }
+        }
+      }
+
+      // A Shopline / 91App / Cyberbiz store-locator page carries its venue
+      // list like any other site's; adapters parse catalog fields only
+      // (DEV-1943). The owned-host guard in `scrapeBrandUrls` still applies.
+      if (!result.stockistPageText && isStoreLocatorPath(url)) {
+        result = {
+          ...result,
+          stockistPageText: getPageText(cheerio.load(parsedHtml)),
         }
       }
 

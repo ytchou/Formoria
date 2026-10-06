@@ -228,9 +228,30 @@ export async function loadPersistedScrapeText(
 }
 
 /**
+ * Per-entry cap acquire's `boundedScrapeSnippets` applies when it copies
+ * description, story and stockist text into a scrape row's `snippets` column.
+ * The read guard below must match it to recognise a bounded stockist copy.
+ */
+export const SCRAPE_SNIPPET_MAX_CHARS = 4_000;
+
+/**
+ * True when `snippet` is the `snippets`-column copy of the raw (untrimmed)
+ * `stockistPageText`: acquire sliced the raw value, then nothing trimmed it.
+ */
+function isStockistSnippet(snippet: string, stockistPageText: string): boolean {
+  const trimmed = snippet.trim();
+  return (
+    trimmed === stockistPageText.trim() ||
+    trimmed === stockistPageText.slice(0, SCRAPE_SNIPPET_MAX_CHARS).trim()
+  );
+}
+
+/**
  * Pure row-to-evidence projection behind `loadPersistedScrapeText`. A row's
  * `Stockist Page:` line is kept only when its page URL passes
- * `isOwnedSiteHost`, so an empty `ownedSiteHosts` drops every one.
+ * `isOwnedSiteHost`, so an empty `ownedSiteHosts` drops every one. The same
+ * guard strips the row's `snippets` copy of that text, which acquire wrote into
+ * the column on rows persisted before the write-time guard.
  */
 export function projectPersistedScrapeRows(
   rows: readonly PersistedScrapeRow[],
@@ -250,17 +271,24 @@ export function projectPersistedScrapeRows(
     const description = stringValue(raw.description);
     const story = stringValue(raw.story);
     const jsonLd = raw.jsonLd ?? raw.json_ld ?? null;
+    const pageUrl =
+      row.urls?.at(0) ?? stringValue(raw.pageUrl) ?? stringValue(raw.url);
+    const owned = Boolean(pageUrl && isOwnedSiteHost(pageUrl, ownedSiteHosts));
+    const stockistPageText = owned ? stringValue(raw.stockistPageText) : null;
+    const rawStockistPageText = raw.stockistPageText;
+    const rowSnippets =
+      owned ||
+      typeof rawStockistPageText !== "string" ||
+      !rawStockistPageText.trim()
+        ? (row.snippets ?? [])
+        : (row.snippets ?? []).filter(
+            (snippet) => !isStockistSnippet(snippet, rawStockistPageText),
+          );
     snippets.push(
-      ...(row.snippets ?? []),
+      ...rowSnippets,
       ...(description ? [description] : []),
       ...(story ? [story] : []),
     );
-    const pageUrl =
-      row.urls?.at(0) ?? stringValue(raw.pageUrl) ?? stringValue(raw.url);
-    const stockistPageText =
-      pageUrl && isOwnedSiteHost(pageUrl, ownedSiteHosts)
-        ? stringValue(raw.stockistPageText)
-        : null;
     siteContentParts.push(
       pageUrl ? `URL: ${pageUrl}` : "",
       description ? `Description: ${description}` : "",
@@ -379,6 +407,27 @@ export function preferPatched(
   if (typeof brandValue === "string" && brandValue.trim().length > 0)
     return brandValue.trim();
   return null;
+}
+
+/**
+ * `ownedSiteHostsFor` over this run's effective own site: a `purchase_website`
+ * the run patched counts as owned, and one the run revoked (site-identity
+ * striking a contaminated host) does not, so its persisted stockist text is
+ * dropped with it. `pendingPatch` is a required positional argument on purpose:
+ * omitting it would silently read the pre-run snapshot and undo a revocation.
+ */
+export function effectiveOwnedSiteHosts(
+  brand: EnrichBrand,
+  pendingPatch: EnrichPatch | undefined,
+): ReadonlySet<string> {
+  return ownedSiteHostsFor({
+    website_url: brand.website_url,
+    purchase_website: preferPatched(
+      pendingPatch,
+      brand.purchase_website,
+      "purchase_website",
+    ),
+  });
 }
 
 export function buildDescriptionEvidence(
@@ -528,7 +577,10 @@ export async function runDescriptionsPhase({
     async (ctx) => {
       const effectiveTarget = target ?? brandTarget(brand.id);
       const [persistedScrape, persistedStructure] = await Promise.all([
-        loadPersistedScrapeText(effectiveTarget, ownedSiteHostsFor(brand)),
+        loadPersistedScrapeText(
+          effectiveTarget,
+          effectiveOwnedSiteHosts(brand, pendingPatch),
+        ),
         loadPersistedScrapeStructure(effectiveTarget),
       ]);
       const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets];

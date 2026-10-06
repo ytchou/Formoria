@@ -1,8 +1,8 @@
 import type { CheerioAPI } from 'cheerio'
 
 /**
- * Page classification and page text shared by the crawl and single-page
- * strategies. Lives here because `single-page.ts` cannot import `crawl.ts`:
+ * Page classification and page text shared by the crawl, single-page and
+ * platform-adapter strategies. Lives here because `single-page.ts` cannot import `crawl.ts`:
  * crawl already imports single-page.
  */
 
@@ -30,6 +30,34 @@ export function classifyCandidate(urlString: string, text: string): CandidateKin
   if (/(contact|聯絡)/i.test(haystack)) return 'contact'
   if (/(where.to.buy|stores?|stockist|retailer|通路|銷售通路|購買通路|據點|門市|哪裡買)/i.test(haystack)) return 'stockist'
   return 'other'
+}
+
+// One whole path segment, optionally with a `.html` / `.htm` extension. English
+// words are anchored on segment boundaries so `/store`, `/storefront`,
+// `/restore-kit` and `/bookstore-collab` never match. zh-TW segments may join
+// the vocabulary words (`門市據點`) but nothing else, so `/門市開幕` misses.
+const STORE_LOCATOR_SEGMENT_RE =
+  /^(?:where[-_]?to[-_]?buy|stores|store[-_]?locators?|stockists?|retailers?|(?:(?:銷售|購買)?通路|據點|門市|哪裡買)+)(?:\.html?)?$/i
+
+/**
+ * True when the URL itself is a store-locator page: one path segment is a
+ * store-locator word (`/stores`, `/pages/store-locator`, `/about/stores`,
+ * `/where-to-buy`, `/門市據點`). For a page we were handed directly.
+ *
+ * Stricter than `classifyCandidate`, which also reads link text and matches
+ * substrings anywhere in the path; that looseness is fine for ranking crawl
+ * links but misread `/store` and `/blogs/news/store-opening` as venue lists.
+ */
+export function isStoreLocatorPath(urlString: string): boolean {
+  let path = ''
+  try {
+    path = new URL(urlString).pathname
+  } catch {
+    return false
+  }
+  return safeDecode(path)
+    .split('/')
+    .some((segment) => STORE_LOCATOR_SEGMENT_RE.test(segment))
 }
 
 /**

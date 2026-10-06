@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
-import { fetchHtml, fetchXml, resolveUrl } from '../fetch-guards'
+import { fetchHtml, fetchHtmlWithMetadata, fetchXml, resolveUrl } from '../fetch-guards'
+import { isOwnedSiteHost } from '../input-detector'
 import { ONLINE_STORES, type OnlineStoreCamelField } from '@/lib/brands/online-stores'
 import {
   emptyResult,
@@ -48,6 +49,19 @@ function getRegistrableDomain(urlString: string): string | null {
     return labels.slice(-suffixLabelCount).join('.')
   } catch {
     return null
+  }
+}
+
+/**
+ * True when `pageUrl` is on the landing page's own host or a subdomain of it.
+ * `getRegistrableDomain` is a heuristic: it lets brand.myshopify.com vouch for
+ * other.myshopify.com, so stockist text checks the host instead (DEV-1943).
+ */
+function isOnLandingHost(pageUrl: string, landingUrl: string): boolean {
+  try {
+    return isOwnedSiteHost(pageUrl, new Set([new URL(landingUrl).hostname]))
+  } catch {
+    return false
   }
 }
 
@@ -146,7 +160,8 @@ function discoverShellCandidates(
 
 async function discoverCandidates(
   html: string,
-  pageUrl: string
+  pageUrl: string,
+  skipStockist: boolean
 ): Promise<CrawlCandidate[]> {
   const landingDomain = getRegistrableDomain(pageUrl)
   if (!landingDomain) return []
@@ -158,19 +173,22 @@ async function discoverCandidates(
   discoverShellCandidates(candidates, $, pageUrl, landingDomain)
 
   return [...candidates.values()]
+    .filter((candidate) => !(skipStockist && candidate.kind === 'stockist'))
     .sort((a, b) => priorityFor(a.kind) - priorityFor(b.kind))
     .slice(0, MAX_CRAWL_PAGES)
 }
 
 async function fetchCandidatePages(candidates: CrawlCandidate[]) {
-  const pages: Array<CrawlCandidate & { html: string }> = []
+  const pages: Array<CrawlCandidate & { html: string; finalUrl: string | null }> = []
 
   for (let i = 0; i < candidates.length; i += CRAWL_CONCURRENCY) {
     const chunk = candidates.slice(i, i + CRAWL_CONCURRENCY)
     const fetched = await Promise.all(
       chunk.map(async (candidate) => {
-        const html = await fetchHtml(candidate.url)
-        return html ? { ...candidate, html } : null
+        const { text: html, finalUrl } = await fetchHtmlWithMetadata(candidate.url, {
+          includeFinalUrl: true,
+        })
+        return html ? { ...candidate, html, finalUrl: finalUrl ?? null } : null
       })
     )
 
@@ -213,7 +231,13 @@ export class CrawlStrategy implements ScrapeStrategy {
         ...ctx,
         prefetchedHtml: landingHtml,
       })
-      const candidates = await discoverCandidates(landingHtml, url)
+      // A landing page that is itself a store locator already supplied the
+      // venue list, so no crawl slot goes to a stockist sub-page.
+      const candidates = await discoverCandidates(
+        landingHtml,
+        url,
+        Boolean(result.stockistPageText)
+      )
       const pages = await fetchCandidatePages(
         candidates.slice(0, ctx.maxCrawlPages ?? MAX_CRAWL_PAGES)
       )
@@ -261,8 +285,15 @@ export class CrawlStrategy implements ScrapeStrategy {
           }
         }
 
-        if (page.kind === 'stockist' && !stockistPageText) {
-          const pageText = getPageText($)
+        // Both the linked URL and where its redirects landed must stay on the
+        // landing host: a sibling tenant or a retailer lists its own venues.
+        if (
+          page.kind === 'stockist' &&
+          !stockistPageText &&
+          isOnLandingHost(page.url, url) &&
+          (page.finalUrl === null || isOnLandingHost(page.finalUrl, url))
+        ) {
+          const pageText = pageResult.stockistPageText ?? getPageText($)
           if (pageText) stockistPageText = pageText
         }
 
