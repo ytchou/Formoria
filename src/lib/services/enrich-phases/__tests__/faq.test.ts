@@ -72,13 +72,17 @@ vi.mock("../../brand-faq", async (importOriginal) => ({
   upsertBrandFaqEntries,
 }));
 const getStockistsForBrand = vi.hoisted(() => vi.fn());
-const getBlockedStockistNames = vi.hoisted(() =>
-  vi.fn(async (_brandId: string) => new Set<string>()),
+const getBlockedStockists = vi.hoisted(() =>
+  vi.fn(
+    async (
+      _brandId: string,
+    ): Promise<{ name: string; normalizedName: string; address: string | null }[]> => [],
+  ),
 );
 vi.mock("../../stockists", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../stockists")>()),
   getStockistsForBrand,
-  getBlockedStockistNames,
+  getBlockedStockists,
 }));
 
 /**
@@ -904,9 +908,10 @@ describe("runFaqPhase submission-only contract", () => {
 });
 
 describe("countWhereToBuy", () => {
-  const pending = (name: string) => ({
+  const pending = (name: string, address: string | null = null) => ({
     name,
     normalizedName: normalizeStockistName(name),
+    address,
   });
 
   it("counts_live_rows_when_nothing_is_pending", () => {
@@ -944,7 +949,13 @@ describe("countWhereToBuy", () => {
   it("skips_pending_stores_matching_a_rejected_or_removed_row", () => {
     // The upsert RPC never updates a rejected or removed row, so a store the
     // owner rejected stays off the page even when a refresh re-proposes it.
-    const blocked = new Set([normalizeStockistName("小器 赤峰")]);
+    const blocked = [
+      {
+        name: "小器 赤峰",
+        normalizedName: normalizeStockistName("小器 赤峰"),
+        address: null,
+      },
+    ];
     expect(
       countWhereToBuy(
         { confirmed: [{ name: "誠品書店 信義店" }], possible: [] },
@@ -953,6 +964,49 @@ describe("countWhereToBuy", () => {
       ),
     ).toBe(2);
     expect(countWhereToBuy(null, [pending("小器 赤峰")], blocked)).toBe(0);
+  });
+
+  it("does_not_count_a_pending_near_duplicate_of_a_live_store", () => {
+    // Staging `his-cross-concept` (DEV-1942): three live import rows and three
+    // enriched candidates naming the same stores differently.
+    const live = {
+      confirmed: [
+        {
+          name: "Rocco Coffee 若渴咖啡",
+          address: "10491台北市中山區南京東路三段119號",
+        },
+        {
+          name: "Standfirm｜HIS 特約專櫃",
+          address: "台北市南港區南港路3段16巷8號2樓",
+        },
+        { name: "高雄以諾書房", address: "高雄市新興區中正三路70號" },
+      ],
+      possible: [],
+    };
+    expect(
+      countWhereToBuy(live, [
+        pending("Rocco Coffee 若渴咖啡｜HIS 展售", "台北市中山區南京東路三段119號"),
+        pending("台北 Standfirm 特約專櫃", "台北市南港區南港路三段16巷8號2樓"),
+        pending("高雄以諾書房｜HIS 展售", "高雄市新興區中正三路70號"),
+      ]),
+    ).toBe(3);
+  });
+
+  it("skips_a_pending_store_matching_a_blocked_row_by_address", () => {
+    const blocked = [
+      {
+        name: "Standfirm｜HIS 特約專櫃",
+        normalizedName: normalizeStockistName("Standfirm｜HIS 特約專櫃"),
+        address: "台北市南港區南港路3段16巷8號2樓",
+      },
+    ];
+    expect(
+      countWhereToBuy(
+        null,
+        [pending("台北 Standfirm 特約專櫃", "台北市南港區南港路三段16巷8號2樓")],
+        blocked,
+      ),
+    ).toBe(0);
   });
 });
 

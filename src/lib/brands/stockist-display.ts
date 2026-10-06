@@ -132,6 +132,132 @@ export function normalizeStockistName(name: string): string {
   return normalized;
 }
 
+const SECTION_NUMERALS: Readonly<Record<string, string>> = {
+  一: "1",
+  二: "2",
+  三: "3",
+  四: "4",
+  五: "5",
+  六: "6",
+  七: "7",
+  八: "8",
+  九: "9",
+  十: "10",
+};
+
+/**
+ * Address spelling differences seen between an import row and an enriched
+ * candidate for one store: full-width forms, 臺/台, a leading postcode, and
+ * 三段/3段. A lone numeral directly before 段 is the only one converted —
+ * `中正三路` is a street name, not a section number.
+ */
+export function normalizeStockistAddress(address: string): string {
+  return address
+    .normalize("NFKC")
+    .replace(/臺/g, "台")
+    .replace(/\s+/g, "")
+    .replace(/^\d{3,6}/, "")
+    .replace(
+      /(^|[^一二三四五六七八九十])([一二三四五六七八九十])段/g,
+      (_match, before: string, numeral: string) =>
+        `${before}${SECTION_NUMERALS[numeral]}段`,
+    );
+}
+
+const LEADING_CITY = new RegExp(
+  `^(?:${[
+    ...new Set(
+      Object.values(CITY_NAMES_ZH).map((label) =>
+        label.replace(/臺/g, "台").replace(/[市縣]$/, ""),
+      ),
+    ),
+  ].join("|")})[市縣]?`,
+);
+
+function stripLeadingCity(name: string): string {
+  const core = name.replace(/臺/g, "台");
+  const withoutCity = core.replace(LEADING_CITY, "");
+  return withoutCity || core;
+}
+
+/**
+ * The store part of a stockist name: `normalizeStockistName` with a leading
+ * city removed (`full`), and the same cut at a `｜` suffix such as `｜HIS 展售`
+ * (`cut`). Each removal applies only when something is left, so a name is never
+ * reduced to nothing.
+ */
+function coreStockistNames(name: string): {
+  full: string;
+  cut: string;
+  hasSeparator: boolean;
+} {
+  const normalized = normalizeStockistName(name);
+  const separator = normalized.search(/[｜|]/);
+  const hasSeparator = separator > 0;
+  return {
+    full: stripLeadingCity(normalized),
+    cut: stripLeadingCity(
+      hasSeparator ? normalized.slice(0, separator) : normalized,
+    ),
+    hasSeparator,
+  };
+}
+
+export type StockistIdentity = {
+  name: string;
+  /** Falls back to `normalizeStockistName(name)` when absent or blank. */
+  normalizedName?: string | null;
+  address?: string | null;
+};
+
+/**
+ * Whether two stockist rows name one physical store (DEV-1942).
+ *
+ * 1. Equal normalized names: the `upsert_enriched_brand_channels` conflict key.
+ * 2. Both addresses present: equal normalized addresses AND one cut core name
+ *    containing the other. An address alone is not enough — two airport shops
+ *    or two counters in one mall share a street address.
+ * 3. An address missing (skipped when `coreNameFallback` is false): equal
+ *    uncut core names, or exactly one name has a `｜` suffix and the part
+ *    before it equals the other core. Two suffixed names never match on their
+ *    shared prefix — `Tcf. | 台北信義店` and `Tcf. | 台中店` are two branches.
+ *
+ * A miss is a duplicate row for any spelling `normalizeStockistAddress` does
+ * not cover. A false match drops a store: rule 3 still matches two branches
+ * whose names differ only by a leading city (`台北 好丘` / `台中 好丘`) when
+ * an address is missing. Callers that hold rows the import split by region
+ * (`withRegionSuffix` in `stockist-import/plan.ts`) pass
+ * `coreNameFallback: false`.
+ */
+export function isSameStockist(
+  a: StockistIdentity,
+  b: StockistIdentity,
+  options: { coreNameFallback?: boolean } = {},
+): boolean {
+  const normalizedA = a.normalizedName?.trim() || normalizeStockistName(a.name);
+  const normalizedB = b.normalizedName?.trim() || normalizeStockistName(b.name);
+  if (normalizedA === normalizedB) return true;
+
+  const coreA = coreStockistNames(a.name);
+  const coreB = coreStockistNames(b.name);
+  if (!coreA.cut || !coreB.cut) return false;
+
+  const addressA = a.address ? normalizeStockistAddress(a.address) : "";
+  const addressB = b.address ? normalizeStockistAddress(b.address) : "";
+  if (addressA && addressB) {
+    return (
+      addressA === addressB &&
+      (coreA.cut.includes(coreB.cut) || coreB.cut.includes(coreA.cut))
+    );
+  }
+  if (options.coreNameFallback === false) return false;
+  if (coreA.full === coreB.full) return true;
+  if (coreA.hasSeparator === coreB.hasSeparator) return false;
+  return coreA.hasSeparator
+    ? coreA.cut === coreB.full
+    : coreB.cut === coreA.full;
+}
+
 type StockistDisplayRow = {
   id: string;
   name: string;

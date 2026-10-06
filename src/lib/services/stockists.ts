@@ -2,6 +2,7 @@ import {
   applyPendingCommunityStockistFilter,
   applyPublicStockistVisibility,
   groupStockistsForDisplay,
+  isSameStockist,
   normalizeStockistName,
 } from '@/lib/brands/stockist-display'
 import { auditedCall } from '@/lib/audit'
@@ -47,7 +48,8 @@ type SubmitStockistResult =
   { ok: true; id: string } | { ok: false; code: SubmitStockistErrorCode }
 
 type EnrichedStockistsResult =
-  | { ok: true; count: number }
+  /** `resolvedCount`: rows sent to the RPC after in-batch near duplicates are dropped. */
+  | { ok: true; count: number; resolvedCount: number }
   | { ok: false; code: 'database_error' | 'invalid_name' }
 
 type StockistTableRow = {
@@ -248,27 +250,33 @@ export async function getStockistsForBrand(
 }
 
 /**
- * Normalized names of this brand's rejected or removed `brand_channels` rows.
- * `upsert_enriched_brand_channels` conflicts on (brand_id, normalized_name) and
- * never updates such a row, so a pending candidate with one of these names is
- * never materialized and must not count toward where-to-buy (DEV-1928).
+ * This brand's rejected or removed `brand_channels` rows.
+ * `upsert_enriched_brand_channels` never updates such a row, and
+ * `upsertEnrichedStockists` folds a matching candidate onto it, so a pending
+ * candidate that `isSameStockist` matches to one is never materialized and must
+ * not count toward where-to-buy (DEV-1928, DEV-1942).
  */
-export async function getBlockedStockistNames(
+export async function getBlockedStockists(
   brandId: string,
-): Promise<Set<string>> {
+): Promise<{ name: string; normalizedName: string; address: string | null }[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brand_channels')
-    .select('normalized_name')
+    .select('name, normalized_name, address')
     .eq('brand_id', brandId)
     .or('owner_status.eq.rejected,removed_at.not.is.null')
 
   if (error) throw error
-  return new Set(
-    ((data ?? []) as { normalized_name: string }[]).map(
-      (row) => row.normalized_name,
-    ),
-  )
+  return (
+    (data ?? []) as Pick<
+      ExistingStockistRow,
+      'name' | 'normalized_name' | 'address'
+    >[]
+  ).map((row) => ({
+    name: row.name,
+    normalizedName: row.normalized_name,
+    address: row.address,
+  }))
 }
 
 export async function submitStockist(
@@ -557,6 +565,85 @@ export function buildEnrichedStockistRows(candidates: StockistCandidate[]): {
   return { rows, invalidCount }
 }
 
+type ExistingStockistRow = {
+  name: string
+  normalized_name: string
+  address: string | null
+  region_label: string | null
+  country: string | null
+}
+
+/**
+ * Whether the stockist import region-suffixed this row's normalized name.
+ * Mirrors `withRegionSuffix` and its call in
+ * `scripts/enrichment/data/stockist-import/plan.ts` — keep the two in step.
+ * The first check keeps an ordinary name that happens to end in `:<region>`
+ * from misfiring.
+ */
+function carriesRegionSuffix(row: {
+  name: string
+  normalized_name: string
+  region_label?: string | null
+  country?: string | null
+}): boolean {
+  const region = row.region_label ?? row.country ?? 'unknown'
+  return (
+    row.normalized_name !== normalizeStockistName(row.name) &&
+    row.normalized_name.endsWith(`:${region}`)
+  )
+}
+
+/**
+ * Folds near-duplicate candidates onto the brand's existing rows (DEV-1942).
+ * A row that `isSameStockist` matches to an existing row takes that row's
+ * `normalized_name`, so the RPC's `on conflict` path handles it: an active row
+ * is coalesce-filled, a rejected or removed row is left untouched. A row that
+ * matches an earlier row in the same batch is dropped — on the normalized name
+ * or an anchored address only, never on the address-less core-name fallback:
+ * the stockist import deliberately region-suffixes same-name stores in
+ * different cities (`withRegionSuffix`), and those must all survive.
+ */
+export function resolveEnrichedStockistRows(
+  rows: EnrichedStockistRow[],
+  existing: readonly ExistingStockistRow[],
+): EnrichedStockistRow[] {
+  const identity = (row: Pick<ExistingStockistRow, 'name' | 'normalized_name' | 'address'>) => ({
+    name: row.name,
+    normalizedName: row.normalized_name,
+    address: row.address,
+  })
+  const resolved: EnrichedStockistRow[] = []
+  for (const row of rows) {
+    // An exact conflict-key match wins over a near match to another row.
+    const match =
+      existing.find(
+        (candidate) => candidate.normalized_name === row.normalized_name,
+      ) ??
+      existing.find((candidate) =>
+        // A region-suffixed row on either side is one city's store: the
+        // core-name fallback would fold it onto another city's row. Accepted
+        // cost: an older unsuffixed row stays beside the new suffixed rows —
+        // a duplicate, never a lost store.
+        isSameStockist(identity(row), identity(candidate), {
+          coreNameFallback: !(
+            carriesRegionSuffix(candidate) || carriesRegionSuffix(row)
+          ),
+        }),
+      )
+    const next = match ? { ...row, normalized_name: match.normalized_name } : row
+    if (
+      resolved.some((kept) =>
+        isSameStockist(identity(next), identity(kept), {
+          coreNameFallback: false,
+        }),
+      )
+    )
+      continue
+    resolved.push(next)
+  }
+  return resolved
+}
+
 export async function upsertEnrichedStockists(
   brandId: string,
   candidates: StockistCandidate[],
@@ -574,15 +661,27 @@ export async function upsertEnrichedStockists(
       if (rows.length === 0) {
         return invalidCount > 0
           ? { ok: false, code: 'invalid_name' }
-          : { ok: true, count: 0 }
+          : { ok: true, count: 0, resolvedCount: 0 }
       }
 
       const supabase = stockistsClient(options.client)
+      // No status filter: a rejected or removed row must absorb its near
+      // duplicate too, or the store the owner rejected comes back renamed.
+      const existing = await supabase
+        .from('brand_channels')
+        .select('name, normalized_name, address, region_label, country')
+        .eq('brand_id', brandId)
+      if (existing.error) return { ok: false, code: 'database_error' }
+      const resolvedRows = resolveEnrichedStockistRows(
+        rows,
+        (existing.data ?? []) as ExistingStockistRow[],
+      )
+
       const { data, error } = await supabase.rpc(
         'upsert_enriched_brand_channels',
         {
           p_brand_id: brandId,
-          p_candidates: rows,
+          p_candidates: resolvedRows,
         },
       )
 
@@ -592,8 +691,8 @@ export async function upsertEnrichedStockists(
           ? data
           : Array.isArray(data)
             ? data.length
-            : rows.length
-      return { ok: true, count }
+            : resolvedRows.length
+      return { ok: true, count, resolvedCount: resolvedRows.length }
     },
   )
 }

@@ -5,6 +5,8 @@ import {
   CHAIN_REGION_LABEL,
   groupStockistsByRegion,
   groupStockistsForDisplay,
+  isSameStockist,
+  normalizeStockistAddress,
   normalizeStockistName,
   PENDING_COMMUNITY_EXCLUSION,
 } from "./stockist-display";
@@ -492,5 +494,120 @@ describe("groupStockistsByRegion", () => {
     } finally {
       localeCompare.mockRestore();
     }
+  });
+});
+
+/**
+ * The three enriched rows that duplicated `his-cross-concept`'s import rows on
+ * staging (DEV-1942): the same store, renamed with a `｜HIS …` suffix or a
+ * leading city, at an address that differs only by postcode or 3段/三段.
+ */
+const HIS_STAGING_PAIRS = [
+  [
+    { name: "Rocco Coffee 若渴咖啡", address: "10491台北市中山區南京東路三段119號" },
+    { name: "Rocco Coffee 若渴咖啡｜HIS 展售", address: "台北市中山區南京東路三段119號" },
+  ],
+  [
+    { name: "Standfirm｜HIS 特約專櫃", address: "台北市南港區南港路3段16巷8號2樓" },
+    { name: "台北 Standfirm 特約專櫃", address: "台北市南港區南港路三段16巷8號2樓" },
+  ],
+  [
+    { name: "高雄以諾書房", address: "高雄市新興區中正三路70號" },
+    { name: "高雄以諾書房｜HIS 展售", address: "高雄市新興區中正三路70號" },
+  ],
+] as const;
+
+describe("isSameStockist", () => {
+  it.each(HIS_STAGING_PAIRS)(
+    "matches_the_staging_near_duplicate_%#",
+    (existing, enriched) => {
+      expect(isSameStockist(existing, enriched)).toBe(true);
+      expect(isSameStockist(enriched, existing)).toBe(true);
+    },
+  );
+
+  it("keeps_distinct_stores_at_one_building_address_apart", () => {
+    // Two airport shops share the terminal's street address; matching on the
+    // address alone would drop a real store.
+    expect(
+      isSameStockist(
+        { name: "桃園國際機場 原住民精藝品展售館", address: "桃園市大園區航站南路9號" },
+        { name: "桃園國際機場 新東陽-台灣特色商品館", address: "桃園市大園區航站南路9號" },
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps_two_branches_with_one_core_name_apart", () => {
+    expect(
+      isSameStockist(
+        { name: "台北 好丘", address: "台北市信義區松勤街54號" },
+        { name: "台中 好丘", address: "台中市西區民生路368巷4弄6號" },
+      ),
+    ).toBe(false);
+  });
+
+  it("falls_back_to_equal_core_names_when_an_address_is_missing", () => {
+    expect(
+      isSameStockist(
+        { name: "高雄以諾書房" },
+        { name: "高雄以諾書房｜HIS 展售", address: null },
+      ),
+    ).toBe(true);
+    // Containment alone is not enough without an address to anchor it.
+    expect(
+      isSameStockist({ name: "Standfirm｜HIS 特約專櫃" }, { name: "台北 Standfirm 特約專櫃" }),
+    ).toBe(false);
+  });
+
+  it("keeps_two_branches_cut_from_one_prefix_apart_without_addresses", () => {
+    const taipei = { name: "Tcf. | 台北信義店" };
+    const taichung = { name: "Tcf. | 台中店" };
+    expect(isSameStockist(taipei, taichung)).toBe(false);
+    expect(
+      isSameStockist(
+        { ...taipei, address: "台北市信義區松高路11號" },
+        taichung,
+      ),
+    ).toBe(false);
+  });
+
+  it("skips_the_core_name_fallback_when_asked", () => {
+    expect(
+      isSameStockist(
+        { name: "高雄以諾書房" },
+        { name: "高雄以諾書房｜HIS 展售" },
+        { coreNameFallback: false },
+      ),
+    ).toBe(false);
+    expect(
+      isSameStockist(
+        { name: "高雄以諾書房", address: "高雄市新興區中正三路70號" },
+        { name: "高雄以諾書房｜HIS 展售", address: "高雄市新興區中正三路70號" },
+        { coreNameFallback: false },
+      ),
+    ).toBe(true);
+  });
+
+  it("matches_on_the_normalized_name_alone", () => {
+    expect(
+      isSameStockist(
+        { name: "誠品書店 信義店", address: "台北市信義區松高路11號" },
+        { name: "誠品書店信義", address: "台中市西區公益路68號" },
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("normalizeStockistAddress", () => {
+  it("strips_a_leading_postcode_and_unifies_section_numerals", () => {
+    expect(normalizeStockistAddress("10491 臺北市中山區南京東路三段119號")).toBe(
+      "台北市中山區南京東路3段119號",
+    );
+  });
+
+  it("leaves_numerals_that_do_not_precede_a_section_alone", () => {
+    expect(normalizeStockistAddress("高雄市新興區中正三路70號")).toBe(
+      "高雄市新興區中正三路70號",
+    );
   });
 });

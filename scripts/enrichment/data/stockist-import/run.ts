@@ -126,9 +126,21 @@ async function main(): Promise<void> {
         if (!result.ok) {
           throw new Error(`${brand.brandSlug}: ${result.code}`)
         }
-        if (result.count !== brand.candidates.length) {
+        // Invalid names and near duplicates of an earlier candidate (DEV-1942)
+        // are dropped before the RPC, so it owes one upsert per resolved row,
+        // not per candidate.
+        const dropped = brand.candidates.length - result.resolvedCount
+        if (dropped > 0) {
+          console.log(
+            JSON.stringify({
+              brandSlug: brand.brandSlug,
+              droppedBeforeUpsert: dropped,
+            }),
+          )
+        }
+        if (result.count !== result.resolvedCount) {
           throw new Error(
-            `${brand.brandSlug}: expected ${brand.candidates.length} upserts, received ${result.count}`,
+            `${brand.brandSlug}: expected ${result.resolvedCount} upserts, received ${result.count}`,
           )
         }
       }),

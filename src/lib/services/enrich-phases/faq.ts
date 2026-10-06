@@ -26,8 +26,11 @@ import {
   buildEnrichmentUserContent,
   type DescriptionEvidence,
 } from "../description-rewrite";
-import { getBlockedStockistNames, getStockistsForBrand } from "../stockists";
-import { normalizeStockistName } from "@/lib/brands/stockist-display";
+import { getBlockedStockists, getStockistsForBrand } from "../stockists";
+import {
+  isSameStockist,
+  type StockistIdentity,
+} from "@/lib/brands/stockist-display";
 import type { StockistCandidate } from "@/lib/types/stockist";
 import { parseSubmissionStockists } from "@/lib/types/enriched-data";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -79,30 +82,32 @@ type FaqPhaseOptions = {
   pendingStockists?: readonly StockistCandidate[];
 };
 
-type LiveStockistNames = {
-  confirmed: readonly { name: string }[];
-  possible: readonly { name: string }[];
+type LiveStockists = {
+  confirmed: readonly { name: string; address?: string | null }[];
+  possible: readonly { name: string; address?: string | null }[];
 };
 
 /**
  * Where-to-buy count for the FAQ context: every live stockist row plus each
- * pending candidate whose normalized name is not already live. A pending
- * candidate repeated within the batch counts once. A pending candidate whose
- * normalized name is in `blocked` (the brand's rejected or removed rows) is
- * never counted: the upsert RPC never materializes it.
+ * pending candidate that `isSameStockist` matches to no live row. A pending
+ * candidate repeated within the batch counts once. A pending candidate that
+ * matches a `blocked` row (the brand's rejected or removed rows) is never
+ * counted: the upsert never materializes it (DEV-1928, DEV-1942).
  */
 export function countWhereToBuy(
-  live: LiveStockistNames | null,
-  pending: readonly Pick<StockistCandidate, "normalizedName">[] = [],
-  blocked: ReadonlySet<string> = new Set(),
+  live: LiveStockists | null,
+  pending: readonly Pick<
+    StockistCandidate,
+    "name" | "normalizedName" | "address"
+  >[] = [],
+  blocked: readonly StockistIdentity[] = [],
 ): number {
   const liveRows = live ? [...live.confirmed, ...live.possible] : [];
-  const seen = new Set(liveRows.map((row) => normalizeStockistName(row.name)));
+  const seen: StockistIdentity[] = [...liveRows, ...blocked];
   let count = liveRows.length;
   for (const candidate of pending) {
-    if (seen.has(candidate.normalizedName)) continue;
-    if (blocked.has(candidate.normalizedName.trim())) continue;
-    seen.add(candidate.normalizedName);
+    if (seen.some((row) => isSameStockist(candidate, row))) continue;
+    seen.push(candidate);
     count += 1;
   }
   return count;
@@ -569,20 +574,20 @@ export async function runFaqPhase({
     // the names the upsert will refuse; new submissions (no source_brand_id)
     // have neither. Pending candidates (this run's, else the stored ones)
     // count on top of either.
-    const [persistedScrape, stockistsResult, blockedStockistNames] =
+    const [persistedScrape, stockistsResult, blockedStockists] =
       await Promise.all([
         loadPersistedScrapeText(auditTarget),
         brand.source_brand_id
           ? getStockistsForBrand(brand.source_brand_id)
           : Promise.resolve(null),
         brand.source_brand_id
-          ? getBlockedStockistNames(brand.source_brand_id)
-          : Promise.resolve(new Set<string>()),
+          ? getBlockedStockists(brand.source_brand_id)
+          : Promise.resolve([]),
       ]);
     const stockistCount = countWhereToBuy(
       stockistsResult,
       resolvePendingStockists(pendingStockists, brand),
-      blockedStockistNames,
+      blockedStockists,
     );
 
     const peerStats = await getCategoryPeerStats(
