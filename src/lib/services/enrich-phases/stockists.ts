@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
 import { loadPersistedScrapeText } from "./descriptions";
+import { ownedSiteHostsFor } from "../link-enrichment";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -253,7 +254,10 @@ export async function runStockistsPhase({
         const auditTarget = target ?? brandTarget(brand.id);
         const loadScrape =
           deps.loadPersistedScrapeText ?? loadPersistedScrapeText;
-        const persistedScrape = await loadScrape(auditTarget);
+        const persistedScrape = await loadScrape(
+          auditTarget,
+          ownedSiteHostsFor(brand),
+        );
 
         if (!persistedScrape.siteContent) {
           return {

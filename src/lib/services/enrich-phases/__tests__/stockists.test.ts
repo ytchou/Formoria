@@ -303,6 +303,19 @@ describe("runStockistsPhase", () => {
     expect(createClient).not.toHaveBeenCalled();
   });
 
+  // DEV-1943: the read-time guard needs the brand's owned site hosts.
+  it("reads persisted scrape text against the brand's owned site hosts", async () => {
+    const load = scrape(null);
+    await runStockistsPhase({
+      brand: { ...brand, website_url: "https://www.island.tw" },
+      phases,
+      target,
+      deps: { loadPersistedScrapeText: load },
+    });
+
+    expect(load).toHaveBeenCalledWith(target, new Set(["island.tw"]));
+  });
+
   it("skips with the no-signal detail when the scrape names no stockist", async () => {
     const output = await runStockistsPhase({
       brand,

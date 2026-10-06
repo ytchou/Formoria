@@ -6,6 +6,7 @@ import {
   buildFoundingFactSources,
   loadPersistedScrapeStructure,
   preferPatched,
+  projectPersistedScrapeRows,
 } from '../descriptions'
 import type { EnrichBrand, EnrichPatch } from '../types'
 
@@ -174,5 +175,45 @@ describe('loadPersistedScrapeStructure', () => {
       makeClientDouble([]) as never,
     )
     expect(result).toEqual({})
+  })
+})
+
+// ---------------------------------------------------------------------------
+// projectPersistedScrapeRows — read-time stockist ownership guard (DEV-1943)
+// ---------------------------------------------------------------------------
+
+describe('projectPersistedScrapeRows', () => {
+  const owned = new Set(['brand.com'])
+  // The shape `acquire` writes: the extracted fields spread onto raw_response.
+  const scrapeRow = (url: string, stockistPageText: string) => ({
+    urls: [url],
+    snippets: [],
+    raw_response: { url, classification: 'official-site', stockistPageText },
+    call_status: 'succeeded',
+  })
+
+  it('drops stockist text persisted from a host the brand does not own', () => {
+    const result = projectPersistedScrapeRows(
+      [scrapeRow('https://mall.example/stores', '寶雅 屈臣氏 Costco')],
+      owned,
+    )
+    expect(result.siteContent ?? '').not.toContain('Stockist Page:')
+    expect(result.siteContent ?? '').not.toContain('寶雅')
+  })
+
+  it('keeps stockist text persisted from the brand own site', () => {
+    const result = projectPersistedScrapeRows(
+      [scrapeRow('https://brand.com/stores', '誠品書店 信義店')],
+      owned,
+    )
+    expect(result.siteContent).toContain('Stockist Page: 誠品書店 信義店')
+  })
+
+  it('fails closed when the brand owns no site host', () => {
+    const result = projectPersistedScrapeRows(
+      [scrapeRow('https://brand.com/stores', '誠品書店 信義店')],
+      new Set(),
+    )
+    expect(result.siteContent ?? '').not.toContain('Stockist Page:')
   })
 })

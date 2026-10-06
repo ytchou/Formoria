@@ -14,6 +14,7 @@ import {
   isInstitutionalHost,
   linkIdentifiesBrand,
   linkColumnFor,
+  ownedSiteHostsFor,
   type LinkField,
 } from '../link-enrichment'
 
@@ -756,5 +757,28 @@ describe('buildImageEnrichPatch', () => {
     const storedUrls = [null, null]
     const patch = buildImageEnrichPatch(brand, storedUrls)
     expect(Object.keys(patch)).toHaveLength(0)
+  })
+})
+
+// DEV-1943: the allow-list behind the stockist-text guard, at write and read time.
+describe('ownedSiteHostsFor', () => {
+  it('takes website_url and own-site link columns, www-stripped, and drops platforms', () => {
+    expect(
+      ownedSiteHostsFor({
+        website_url: 'www.brand.com',
+        purchase_website: 'https://shop.brand.com/',
+        social_instagram: 'https://www.instagram.com/brand',
+        purchase_pinkoi: 'https://www.pinkoi.com/store/brand',
+      }),
+    ).toEqual(new Set(['brand.com', 'shop.brand.com']))
+  })
+
+  it('is empty when the brand has no own site on record', () => {
+    expect(
+      ownedSiteHostsFor({
+        website_url: null,
+        social_instagram: 'https://www.instagram.com/brand',
+      }).size,
+    ).toBe(0)
   })
 })

@@ -54,4 +54,25 @@ describe('CrawlStrategy', () => {
     expect(r.stockistPageText).not.toContain('window.theme')
     expect(r.jsonLdImageUrls).toContain('https://cdn.brand.com/widget.jpg')
   })
+
+  // DEV-1943: the landing URL was never classified, so a planned store-locator
+  // surface lost its own venue list.
+  it('keeps a stockist landing page own text as stockistPageText', async () => {
+    const pages: Record<string, string> = {
+      'https://brand.com/where-to-buy': `<html><head><meta property="og:title" content="Brand"></head><body>
+        <nav><a href="/about">關於</a></nav><main>寶雅 屈臣氏 Costco</main></body></html>`,
+      'https://brand.com/about': '<html><head><meta name="description" content="A Taiwan studio since 2015."></head><body></body></html>',
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((u: string) => {
+      const body = pages[String(u).replace(/\/$/, '')]
+      return Promise.resolve(body
+        ? new Response(body, { status: 200, headers: { 'content-type': 'text/html' } })
+        : new Response('x', { status: 404 }))
+    }))
+
+    const r = await new CrawlStrategy().scrape('https://brand.com/where-to-buy', {})
+
+    expect(r.stockistPageText).toContain('寶雅')
+    expect(r.stockistPageText).toContain('Costco')
+  })
 })

@@ -10,11 +10,11 @@ import {
   MAX_JSON_LD_IMAGES,
 } from '../parse/extractors'
 import { mergePurchaseLinks } from '../merge'
+import { classifyCandidate, getPageText, type CandidateKind } from '../parse/page-kind'
 import { SinglePageStrategy } from './single-page'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { ScrapeContext, ScrapeStrategy } from './types'
 
-type CandidateKind = 'about' | 'products' | 'contact' | 'stockist' | 'other'
 type SocialLinkFields = Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook'>
 type PurchaseLinkFields = Pick<
   ScrapedBrandData,
@@ -70,30 +70,6 @@ function isAssetUrl(urlString: string): boolean {
   } catch {
     return true
   }
-}
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
-function classifyCandidate(urlString: string, text: string): CandidateKind {
-  let path = ''
-  try {
-    path = new URL(urlString).pathname
-  } catch {
-    return 'other'
-  }
-
-  const haystack = safeDecode(`${path} ${text}`).toLowerCase()
-  if (/(about|story|關於|品牌)/i.test(haystack)) return 'about'
-  if (/(product|shop|商品)/i.test(haystack)) return 'products'
-  if (/(contact|聯絡)/i.test(haystack)) return 'contact'
-  if (/(where.to.buy|stores?|stockist|retailer|通路|銷售通路|購買通路|據點|門市|哪裡買)/i.test(haystack)) return 'stockist'
-  return 'other'
 }
 
 function priorityFor(kind: CandidateKind): number {
@@ -204,14 +180,6 @@ async function fetchCandidatePages(candidates: CrawlCandidate[]) {
   return pages
 }
 
-function getPageText($: cheerio.CheerioAPI): string | null {
-  // Inline theme CSS and scripts are text nodes too; left in, they ate a third
-  // of the 4 KB stockist cap (DEV-1941).
-  $('script, style, noscript, template').remove()
-  const text = ($('main').text() || $('body').text()).replace(/\s+/g, ' ').trim()
-  return text || null
-}
-
 function mergeSocialLinks(
   base: SocialLinkFields,
   next: SocialLinkFields
@@ -264,7 +232,9 @@ export class CrawlStrategy implements ScrapeStrategy {
       let categoryHints = result.categoryHints
       let description = result.description
       let story = result.story
-      let stockistPageText: string | null = null
+      // A landing URL that is itself a store-locator page keeps its own text;
+      // a stockist sub-page only fills the gap (DEV-1943).
+      let stockistPageText: string | null = result.stockistPageText
 
       const jsonLdImageSet = new Set(result.jsonLdImageUrls)
 

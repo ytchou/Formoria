@@ -26,6 +26,8 @@ import {
 import type { PhaseResult } from "@/lib/types/curation";
 import { auditedCall } from "@/lib/audit";
 import type { EnrichScrapedData } from "./types";
+import { isOwnedSiteHost } from "./scraper/input-detector";
+import { ownedSiteHostsFor } from "../link-enrichment";
 import {
   brandTarget,
   type EnrichmentTarget,
@@ -171,7 +173,7 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
   return changedFields;
 }
 
-type PersistedScrapeRow = {
+export type PersistedScrapeRow = {
   urls: string[] | null;
   snippets: string[] | null;
   raw_response: unknown;
@@ -193,8 +195,17 @@ export type PersistedScrapeText = {
   siteContent: string | null;
 };
 
+/**
+ * Reads the target's recent scrape rows back as description/stockist evidence.
+ *
+ * `ownedSiteHosts` (from `ownedSiteHostsFor`) is required: a row's stockist
+ * text is emitted only when its page is on one of the brand's own site hosts.
+ * Rows written before the write-time guard (DEV-1943) can still carry another
+ * site's venue list, and this read is not scoped to a job.
+ */
 export async function loadPersistedScrapeText(
   targetOrBrandId: EnrichmentTarget | string,
+  ownedSiteHosts: ReadonlySet<string>,
 ): Promise<PersistedScrapeText> {
   const supabase = createServiceClient();
   const target =
@@ -210,7 +221,21 @@ export async function loadPersistedScrapeText(
     .order("created_at", { ascending: false })
     .limit(20);
 
-  const rows = (data ?? []) as PersistedScrapeRow[];
+  return projectPersistedScrapeRows(
+    (data ?? []) as PersistedScrapeRow[],
+    ownedSiteHosts,
+  );
+}
+
+/**
+ * Pure row-to-evidence projection behind `loadPersistedScrapeText`. A row's
+ * `Stockist Page:` line is kept only when its page URL passes
+ * `isOwnedSiteHost`, so an empty `ownedSiteHosts` drops every one.
+ */
+export function projectPersistedScrapeRows(
+  rows: readonly PersistedScrapeRow[],
+  ownedSiteHosts: ReadonlySet<string>,
+): PersistedScrapeText {
   if (rows.length === 0) {
     return { snippets: [], siteContent: null };
   }
@@ -224,7 +249,6 @@ export async function loadPersistedScrapeText(
     const raw = isRecord(outer.extracted) ? outer.extracted : outer;
     const description = stringValue(raw.description);
     const story = stringValue(raw.story);
-    const stockistPageText = stringValue(raw.stockistPageText);
     const jsonLd = raw.jsonLd ?? raw.json_ld ?? null;
     snippets.push(
       ...(row.snippets ?? []),
@@ -233,6 +257,10 @@ export async function loadPersistedScrapeText(
     );
     const pageUrl =
       row.urls?.at(0) ?? stringValue(raw.pageUrl) ?? stringValue(raw.url);
+    const stockistPageText =
+      pageUrl && isOwnedSiteHost(pageUrl, ownedSiteHosts)
+        ? stringValue(raw.stockistPageText)
+        : null;
     siteContentParts.push(
       pageUrl ? `URL: ${pageUrl}` : "",
       description ? `Description: ${description}` : "",
@@ -500,7 +528,7 @@ export async function runDescriptionsPhase({
     async (ctx) => {
       const effectiveTarget = target ?? brandTarget(brand.id);
       const [persistedScrape, persistedStructure] = await Promise.all([
-        loadPersistedScrapeText(effectiveTarget),
+        loadPersistedScrapeText(effectiveTarget, ownedSiteHostsFor(brand)),
         loadPersistedScrapeStructure(effectiveTarget),
       ]);
       const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets];

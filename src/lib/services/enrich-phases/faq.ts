@@ -37,6 +37,7 @@ import type { StockistCandidate } from "@/lib/types/stockist";
 import { parseSubmissionStockists } from "@/lib/types/enriched-data";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadPersistedScrapeText } from "./descriptions";
+import { ownedSiteHostsFor } from "../link-enrichment";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -573,7 +574,7 @@ export async function runFaqPhase({
     // count on top of either.
     const [persistedScrape, stockistsResult, stockistMatchPool] =
       await Promise.all([
-        loadPersistedScrapeText(auditTarget),
+        loadPersistedScrapeText(auditTarget, ownedSiteHostsFor(brand)),
         brand.source_brand_id
           ? getStockistsForBrand(brand.source_brand_id)
           : Promise.resolve(null),

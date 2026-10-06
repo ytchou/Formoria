@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { auditedCall, type AuditStatus } from '@/lib/audit'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { fetchHtmlWithMetadata } from './fetch-guards'
-import { classifyByDomain, detectInputType, isThirdPartyDirectoryHost } from './input-detector'
+import { classifyByDomain, detectInputType, isOwnedSiteHost, isThirdPartyDirectoryHost } from './input-detector'
 import { ONLINE_STORES } from '@/lib/brands/online-stores'
 import { mergeScrapedData } from './merge'
 import { emptyResult } from './parse/extractors'
@@ -25,7 +25,11 @@ export type ScrapeAttemptHandle = {
 
 export type ScrapeBrandUrlsOptions = {
   brandName?: string | null
-  confirmedSourceUrls?: ReadonlySet<string>
+  /**
+   * The brand's own site hosts (`ownedSiteHostsFor`). Stockist text is kept only
+   * from a page on one of them. Absent means none: stockist text is dropped.
+   */
+  ownedSiteHosts?: ReadonlySet<string>
   renderProvider?: RenderProvider
   directives?: ReadonlyMap<string, SurfaceDirective>
   onAttempt?: (input: { url: string; classification: InputType; spanId: string }) => Promise<ScrapeAttemptHandle | undefined>
@@ -59,16 +63,29 @@ export const MAX_SCRAPE_URLS_PER_BRAND = 6
  * exhibitor listing carries its blurb and product shots — but the accounts
  * linked from it belong to whoever runs the page. Those are the fields that
  * published a stranger's Facebook page as 23 brands' own (DEV-1332), so they are
- * dropped. So is crawled stockist text: an organiser's "where to buy" page lists
- * the organiser's venues, and the stockists phase reads it unfiltered (DEV-1939).
+ * dropped.
+ *
+ * Stockist text is held to a stricter rule: it is kept only when the page is on
+ * one of the brand's own site hosts. Any other site's "where to buy" page lists
+ * that site's venues, and the stockists phase reads it unfiltered (DEV-1939). A
+ * deny-list let every unlisted host through, so this is an allow-list checked
+ * on every URL, and an absent `ownedSiteHosts` drops the text (DEV-1943).
  * Applied before `hasContent` and before the audit snapshot, so the trail records
  * what we actually kept.
  */
-function withoutThirdPartyLinks(url: string, data: ScrapedBrandData): ScrapedBrandData {
-  if (!isThirdPartyDirectoryHost(url)) return data
+function withoutThirdPartyLinks(
+  url: string,
+  data: ScrapedBrandData,
+  ownedSiteHosts: ReadonlySet<string> | undefined,
+): ScrapedBrandData {
+  const owned =
+    data.stockistPageText && !isOwnedSiteHost(url, ownedSiteHosts)
+      ? { ...data, stockistPageText: null }
+      : data
+  if (!isThirdPartyDirectoryHost(url)) return owned
 
   return {
-    ...data,
+    ...owned,
     stockistPageText: null,
     socialInstagram: null,
     socialThreads: null,
@@ -241,6 +258,7 @@ export async function scrapeBrandUrls(
                 render: trackedRender,
                 prefetchedHtml,
               }),
+              options.ownedSiteHosts,
             )
             const ok = hasContent(data)
             const uniqueSources = [

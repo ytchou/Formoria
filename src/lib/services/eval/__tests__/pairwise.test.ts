@@ -189,8 +189,9 @@ describe('buildDescriptionTask', () => {
       },
     })
 
-    // loadPersistedScrapeText called with brandTarget(brand.id)
-    expect(loadScrapeTextFn).toHaveBeenCalledWith({ type: 'brand', id: 'brand-1' })
+    // loadPersistedScrapeText called with brandTarget(brand.id) and the
+    // brand's owned site hosts (none on this fixture)
+    expect(loadScrapeTextFn).toHaveBeenCalledWith({ type: 'brand', id: 'brand-1' }, new Set())
 
     // buildDescriptionEvidence called with brand, undefined pendingPatch, []
     expect(buildEvidenceFn).toHaveBeenCalledWith(brand, undefined, [])

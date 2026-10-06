@@ -14,6 +14,7 @@ import {
   LINK_FIELDS,
   type LinkField,
   linkColumnFor,
+  ownedSiteHostsFor,
   pageKey,
   pageKeyHost,
   sameUrl,
@@ -738,10 +739,11 @@ export async function runAcquirePhase({
     // These URLs are raw SERP results, so the brand name is the only thing
     // separating this brand's accounts from a same-ranking stranger's.
     const urlExtracted = extractLinksFromUrls(discoveredUrls, brand.name)
-    const confirmedSourceUrls = new Set(knownUrls.map(scrapeKey))
     const scrapeOptions: ScrapeBrandUrlsOptions = {
       brandName: brand.name,
-      confirmedSourceUrls,
+      // From the brand row (website_url + link columns), never from this run's
+      // SERP URLs: stockist text survives only from these hosts (DEV-1943).
+      ownedSiteHosts: ownedSiteHostsFor(brand),
       renderProvider: renderForBrand,
       onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startAudit({
