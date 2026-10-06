@@ -90,7 +90,7 @@ export async function getFileUploadUrl(
 
 export async function uploadFileBytes(
   uploadUrl: string,
-  contents: string,
+  contents: string | Uint8Array,
 ): Promise<void> {
   return auditedCall(
     { provider: "slack", operation: "upload_file", kind: "external" },
@@ -106,7 +106,10 @@ export async function uploadFileBytes(
         throw new Error("Invalid Slack upload host");
       const response = await fetch(uploadUrl, {
         method: "POST",
-        body: contents,
+        // Copied into a plain Uint8Array: a Buffer is typed over ArrayBufferLike,
+        // which fetch's BodyInit does not accept.
+        body:
+          typeof contents === "string" ? contents : new Uint8Array(contents),
         headers: { "Content-Type": "application/octet-stream" },
         signal: AbortSignal.timeout(TIMEOUT_MS),
         redirect: "error",
@@ -119,9 +122,9 @@ export async function uploadFileBytes(
 
 export class SlackUploadRejected extends Error {}
 
+/** Completes every file in one call, so Slack posts them as one message. */
 export async function completeFileUpload(input: {
-  fileId: string;
-  title: string;
+  files: Array<{ fileId: string; title: string }>;
   channelId: string;
   threadTs: string;
 }): Promise<void> {
@@ -137,7 +140,10 @@ export async function completeFileUpload(input: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            files: [{ id: input.fileId, title: input.title }],
+            files: input.files.map((file) => ({
+              id: file.fileId,
+              title: file.title,
+            })),
             channel_id: input.channelId,
             thread_ts: input.threadTs,
           }),

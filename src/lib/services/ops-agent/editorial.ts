@@ -71,7 +71,12 @@ export async function relayEditorialReply(
           command: command ?? "answer",
           ...(answer ? { answer } : {}),
         });
-  if (!response.ok) return response.error;
+  if (!response.ok)
+    return response.error === "Delivery is already in progress"
+      ? "Attachments are already being delivered; they will appear in this thread shortly."
+      : response.error;
+  if (command === "retry_delivery")
+    return "Re-sending the attachments; they will appear in this thread shortly.";
   return (
     "Editorial Producer: " +
     response.status +

@@ -6,10 +6,21 @@ import {
   SlackUploadRejected,
 } from "@/lib/adapters/slack/web-api";
 import matter from "gray-matter";
-import { renderThreadNotice } from "@/lib/adapters/slack/blocks";
+import {
+  escapeSlackMrkdwn,
+  renderThreadNotice,
+} from "@/lib/adapters/slack/blocks";
 import { EDITORIAL_BYLINE } from "@/lib/prompts/editorial-producer";
 import { pickNoteKey } from "@/lib/trails/note-key";
-import { LIMITS, type Run } from "./types";
+import { previewHtml, renderPreview, type PreviewDeps } from "./preview";
+import { checkZhTw, MARKER, stripMarkers } from "./trail-prose";
+import {
+  LIMITS,
+  TERMINAL,
+  type Run,
+  type RunStatus,
+  type TrailDraft,
+} from "./types";
 import type { RunStore } from "./store";
 
 export function evidencePacket(run: Run): string {
@@ -99,12 +110,16 @@ export function evidencePacket(run: Run): string {
     "\n```\n\n" +
     (run.trail
       ? "## Before publishing\n\n" +
-        "- Save trail.mdx as content/trails/" +
+        "- Save " +
+        run.trail.slug +
+        ".mdx as content/trails/" +
         run.trail.slug +
         ".mdx and add heroImage, heroImageAlt, reviewedAt and reviewDueAt; node scripts/checks/trail-frontmatter.mjs names anything missing.\n" +
         "- Review the picks, then place them with npx tsx scripts/trails/apply-picks.ts --trail " +
         run.trail.slug +
-        " --picks picks.json --dry-run, and again without --dry-run.\n" +
+        " --picks " +
+        run.trail.slug +
+        ".picks.json --dry-run, and again without --dry-run.\n" +
         "- Set draft: false only after human editorial and publication approval.\n\n"
       : "") +
     "## Actual usage\n\n```json\n" +
@@ -122,10 +137,6 @@ export function evidencePacket(run: Run): string {
     "\n```\n\n" +
     "Ops routing and Railway hosting are separate charges. Model review may share writer blind spots; human spot-check required. Full adapter payloads and checkpoints remain in private worker storage. No measured efficiency gain is claimed.\n"
   );
-}
-const MARKER = /\s*\[\^([^\]]+)\]/g;
-function stripMarkers(text: string): string {
-  return text.replace(MARKER, "").trim();
 }
 function catalogEntry(run: Run, productId: string) {
   const product = run.catalog?.find((item) => item.id === productId);
@@ -247,12 +258,77 @@ export function trailPicks(run: Run): string {
     ) + "\n"
   );
 }
-export async function notifyRun(store: RunStore, id: string): Promise<void> {
-  const run = await store.read(id);
-  const body =
-    run.status === "awaiting_input"
-      ? (run.question?.text ?? "Reply with your editorial decision.")
-      : "Status: " +
+const PREVIEW = "preview.png";
+function shortId(id: string): string {
+  return id.slice(0, 8);
+}
+function usageLine(run: Run): string {
+  return (
+    "Model usage: US$" +
+    run.budget.costUsd.toFixed(2) +
+    " of the US$" +
+    LIMITS.costUsd +
+    " cap." +
+    (run.budget.costUncertain
+      ? " Additional usage is uncertain; further spending stopped."
+      : "")
+  );
+}
+function slackText(text: string): string {
+  return escapeSlackMrkdwn(stripMarkers(text));
+}
+function checksLine(trail: TrailDraft): string {
+  const check = checkZhTw(trail);
+  if (check.pass) return "zh-TW ✓";
+  const terms = check.bannedTerms
+    .slice(0, 5)
+    .map((hit) => hit.term + "→" + hit.replacement);
+  const more = check.bannedTerms.length - terms.length;
+  return (
+    "⚠ zh-TW check: " +
+    Math.round(check.hanShare * 100) +
+    "% Han / banned terms: " +
+    (terms.join(", ") || "none") +
+    (more > 0 ? ", +" + more + " more" : "")
+  );
+}
+const ENDED: Partial<Record<RunStatus, { title: string; sentence: string }>> = {
+  ready_for_review: {
+    title: "Editorial run finished",
+    sentence: "The run finished without a trail draft",
+  },
+  blocked: {
+    title: "Editorial run blocked",
+    sentence: "The run stopped before producing a reviewable draft",
+  },
+  budget_exhausted: {
+    title: "Editorial run hit its budget",
+    sentence: "The run reached its usage limit before finishing",
+  },
+  cancelled: {
+    title: "Editorial run cancelled",
+    sentence: "The run was cancelled",
+  },
+};
+
+/** The thread notice for a run: the review summary once it has ended. */
+export function runNotice(run: Run): {
+  title: string;
+  body: string;
+  context: string;
+} {
+  const context = "Run " + shortId(run.id);
+  if (run.status === "awaiting_input")
+    return {
+      title: "Editorial Producer",
+      body: run.question?.text ?? "Reply with your editorial decision.",
+      context,
+    };
+  if (!TERMINAL.has(run.status))
+    return {
+      title: "Editorial Producer",
+      body:
+        "Status: " +
         run.status +
         ". Stage: " +
         run.stage +
@@ -263,12 +339,62 @@ export async function notifyRun(store: RunStore, id: string): Promise<void> {
         (run.budget.costUncertain
           ? " Additional usage is uncertain; further spending stopped."
           : "") +
-        " Reply status, resume, cancel, or retry delivery in this thread.";
-  const notice = renderThreadNotice({
-    title: "Editorial Producer",
-    body,
-    context: "Run: " + run.id,
-  });
+        " Reply status, resume, cancel, or retry delivery in this thread.",
+      context,
+    };
+  const trail = run.trail;
+  if (run.status === "ready_for_review" && trail) {
+    const preview = !!run.delivery.files[PREVIEW]?.completed;
+    return {
+      title: "Editorial draft ready for review",
+      body: [
+        "*" + slackText(trail.title) + "*",
+        slackText(trail.description),
+        "",
+        "*Sections*",
+        ...trail.sections.map(
+          (section) =>
+            "• " +
+            slackText(section.title) +
+            " — " +
+            section.picks.length +
+            (section.picks.length === 1 ? " product" : " products"),
+        ),
+        "",
+        "*Checks:* " + checksLine(trail),
+        ...(preview
+          ? []
+          : [
+              "The preview image could not be rendered; read the .mdx file instead.",
+            ]),
+        usageLine(run),
+        "Next: review the " +
+          (preview ? "preview and files" : "files") +
+          " above. Reply `status`, `cancel`, or `retry delivery` in this thread.",
+      ].join("\n"),
+      context,
+    };
+  }
+  const ended = ENDED[run.status] ?? {
+    title: "Editorial run ended",
+    sentence: "The run ended as " + run.status,
+  };
+  return {
+    title: ended.title,
+    body:
+      ended.sentence +
+      (run.error
+        ? ": " + escapeSlackMrkdwn(run.error.replace(/\.$/, ""))
+        : "") +
+      ".\n" +
+      usageLine(run) +
+      "\nNext: review the files above. Reply `status` or `retry delivery` in this thread.",
+    context,
+  };
+}
+export async function notifyRun(store: RunStore, id: string): Promise<void> {
+  const run = await store.read(id);
+  const notice = renderThreadNotice(runNotice(run));
   const response = await postMessage({
     channel: run.channelId,
     threadTs: run.threadTs,
@@ -283,69 +409,167 @@ export async function notifyRun(store: RunStore, id: string): Promise<void> {
   if (!response.ok)
     throw new Error("Slack notification failed: " + response.error);
 }
-export async function deliverRun(store: RunStore, id: string): Promise<void> {
+
+/**
+ * Best-effort thread notice that attachment delivery failed. It never throws:
+ * callers run it inside their own failure handling.
+ */
+export async function notifyDeliveryFailure(
+  store: RunStore,
+  id: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const run = await store.read(id);
+    const notice = renderThreadNotice({
+      title: "Attachment delivery failed",
+      body:
+        escapeSlackMrkdwn(reason.replace(/\.$/, "")) +
+        ". Reply `retry delivery` in this thread to try again.",
+      context: "Run " + shortId(id),
+    });
+    const response = await postMessage({
+      channel: run.channelId,
+      threadTs: run.threadTs,
+      ...notice,
+    });
+    await store.journal(id, {
+      provider: "slack",
+      operation: "post_message",
+      request: { channel: run.channelId, threadTs: run.threadTs, ...notice },
+      response,
+    });
+    if (!response.ok)
+      throw new Error("Slack notification failed: " + response.error);
+  } catch (error) {
+    console.error(
+      "[editorial-producer] failure notice not posted",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+export type DeliveryDeps = PreviewDeps;
+type Attachment = {
+  name: string;
+  title: string;
+  contents: string | Uint8Array;
+};
+
+/**
+ * Saves the packet, uploads each file, then completes them in one Slack call so
+ * the thread gets a single message with every attachment, followed by the
+ * review summary.
+ */
+export async function deliverRun(
+  store: RunStore,
+  id: string,
+  deps: DeliveryDeps = {},
+): Promise<void> {
   let run = await store.read(id);
-  const files = {
-    ...(run.trail
-      ? { "trail.mdx": trailFile(run), "picks.json": trailPicks(run) }
-      : {}),
-    "evidence.md": evidencePacket(run),
-  };
+  const trail = run.trail;
+  const base = trail?.slug ?? "editorial-" + shortId(id);
+  const files: Attachment[] = trail
+    ? [
+        { name: "trail.mdx", title: base + ".mdx", contents: trailFile(run) },
+        {
+          name: "picks.json",
+          title: base + ".picks.json",
+          contents: trailPicks(run),
+        },
+      ]
+    : [];
+  files.push({
+    name: "evidence.md",
+    title: base + ".evidence.md",
+    contents: evidencePacket(run),
+  });
+  // Once any attachment is in the thread, a late preview would post a second
+  // message, so the preview is rendered only while nothing has been completed.
+  const fresh = !Object.values(run.delivery.files).some(
+    (file) => file.completed,
+  );
+  if (trail && fresh)
+    try {
+      files.unshift({
+        name: PREVIEW,
+        title: base + "-preview.png",
+        contents: await renderPreview(previewHtml(run), deps),
+      });
+    } catch (error) {
+      // The preview is a convenience; the summary says when it is missing.
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("[editorial-producer] preview not rendered", message);
+      await store.journal(id, {
+        provider: "playwright",
+        operation: "render_preview",
+        response: { error: message },
+      });
+    }
   // Save every file before uploading any, so a Slack failure still leaves the
   // complete packet on the volume.
-  for (const [name, contents] of Object.entries(files))
-    await store.artifact(id, name, contents);
-  for (const [name, contents] of Object.entries(files)) {
-    let file = run.delivery.files[name];
-    if (file?.completed) continue;
-    // A lost completion acknowledgement cannot be replayed: Slack accepts completion once.
-    if (!file?.uploaded || file.completionStarted) {
-      const admission = await getFileUploadUrl(
-        id.slice(0, 12) + "-" + name,
-        Buffer.byteLength(contents),
-      );
-      await store.journal(id, {
-        provider: "slack",
-        operation: "get_upload_url",
-        request: { filename: name, length: Buffer.byteLength(contents) },
-        response: { fileId: admission.fileId },
-      });
-      run = await store.update(id, (current) => {
-        current.delivery.files[name] = {
-          fileId: admission.fileId,
-          uploaded: false,
-          completed: false,
-        };
-      });
-      await uploadFileBytes(admission.uploadUrl, contents);
-      await store.journal(id, {
-        provider: "slack",
-        operation: "upload_file",
-        request: { fileId: admission.fileId, contents },
-        response: { uploaded: true },
-      });
-      run = await store.update(id, (current) => {
-        current.delivery.files[name]!.uploaded = true;
-      });
-      file = run.delivery.files[name];
-    }
-    if (!file) throw new Error("Upload checkpoint missing");
+  for (const file of files) await store.artifact(id, file.name, file.contents);
+  const pending = files.filter(
+    (file) => !run.delivery.files[file.name]?.completed,
+  );
+  for (const file of pending) {
+    const saved = run.delivery.files[file.name];
+    // A lost completion acknowledgement cannot be replayed: Slack accepts
+    // completion once, so a started completion needs a fresh upload.
+    if (saved?.uploaded && !saved.completionStarted) continue;
+    const length = Buffer.byteLength(file.contents);
+    const admission = await getFileUploadUrl(file.title, length);
+    await store.journal(id, {
+      provider: "slack",
+      operation: "get_upload_url",
+      request: { filename: file.title, length },
+      response: { fileId: admission.fileId },
+    });
+    run = await store.update(id, (current) => {
+      current.delivery.files[file.name] = {
+        fileId: admission.fileId,
+        uploaded: false,
+        completed: false,
+      };
+    });
+    await uploadFileBytes(admission.uploadUrl, file.contents);
+    await store.journal(id, {
+      provider: "slack",
+      operation: "upload_file",
+      request: {
+        fileId: admission.fileId,
+        ...(typeof file.contents === "string"
+          ? { contents: file.contents }
+          : { bytes: length }),
+      },
+      response: { uploaded: true },
+    });
+    run = await store.update(id, (current) => {
+      current.delivery.files[file.name]!.uploaded = true;
+    });
+  }
+  if (pending.length) {
     const completion = {
-      fileId: file.fileId,
-      title: name,
+      files: pending.map((file) => {
+        const saved = run.delivery.files[file.name];
+        if (!saved) throw new Error("Upload checkpoint missing");
+        return { fileId: saved.fileId, title: file.title };
+      }),
       channelId: run.channelId,
       threadTs: run.threadTs,
     };
-    await store.update(id, (current) => {
-      current.delivery.files[name]!.completionStarted = true;
-    });
+    const mark = (started: boolean) =>
+      store.update(id, (current) => {
+        for (const file of pending)
+          current.delivery.files[file.name]!.completionStarted = started;
+      });
+    // Every file in the batch shares one completion: if its acknowledgement is
+    // lost, all of them are re-uploaded on retry.
+    await mark(true);
     try {
       await completeFileUpload(completion);
     } catch (error) {
-      if (error instanceof SlackUploadRejected)
-        await store.update(id, (current) => {
-          current.delivery.files[name]!.completionStarted = false;
-        });
+      if (error instanceof SlackUploadRejected) await mark(false);
       throw error;
     }
     await store.journal(id, {
@@ -355,8 +579,10 @@ export async function deliverRun(store: RunStore, id: string): Promise<void> {
       response: { completed: true },
     });
     run = await store.update(id, (current) => {
-      current.delivery.files[name]!.completed = true;
-      current.delivery.files[name]!.completionStarted = false;
+      for (const file of pending) {
+        current.delivery.files[file.name]!.completed = true;
+        current.delivery.files[file.name]!.completionStarted = false;
+      }
     });
   }
   if (!run.delivery.summarySent) {

@@ -314,7 +314,12 @@ it("pauses on an editorial fork and resumes from the saved stage without resetti
   expect(waiting.status, waiting.error).toBe("awaiting_input");
   expect(waiting.stage).toBe("overlap");
   const question = waiting.question!;
-  const controller = new ProducerController(store);
+  // No browser in unit tests: the preview fails and delivery continues without it.
+  const controller = new ProducerController(store, {
+    launch: async () => {
+      throw new Error("No browser in unit tests");
+    },
+  });
   try {
     await controller.command({
       runId: id,

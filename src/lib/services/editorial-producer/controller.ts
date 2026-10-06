@@ -1,4 +1,9 @@
-import { deliverRun, notifyRun } from "./delivery";
+import {
+  deliverRun,
+  notifyDeliveryFailure,
+  notifyRun,
+  type DeliveryDeps,
+} from "./delivery";
 import { runProducer } from "./run";
 import { RunStore } from "./store";
 import {
@@ -22,25 +27,31 @@ export function runSummary(run: Run) {
   };
 }
 export class ProducerController {
-  private deliveries = new Set<string>();
+  private deliveries = new Map<string, Promise<void>>();
   private tasks = new Map<
     string,
     { abort: AbortController; promise: Promise<void> }
   >();
-  constructor(readonly store: RunStore) {}
+  constructor(
+    readonly store: RunStore,
+    private readonly deps: DeliveryDeps = {},
+  ) {}
   private launch(id: string) {
     if (this.tasks.has(id)) return;
     const abort = new AbortController();
     const promise = (async () => {
+      let delivering = false;
       try {
         const run = await runProducer(this.store, id, abort.signal);
-        if (TERMINAL.has(run.status)) await deliverRun(this.store, id);
+        delivering = TERMINAL.has(run.status);
+        if (delivering) await deliverRun(this.store, id, this.deps);
         else await notifyRun(this.store, id);
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         await this.store.update(id, (run) => {
-          run.delivery.error =
-            error instanceof Error ? error.message : String(error);
+          run.delivery.error = message;
         });
+        if (delivering) await notifyDeliveryFailure(this.store, id, message);
       }
     })()
       .catch((error) => {
@@ -53,6 +64,36 @@ export class ProducerController {
         this.tasks.delete(id);
       });
     this.tasks.set(id, { abort, promise });
+  }
+  /**
+   * Redelivers in the background: uploads take several seconds per file, longer
+   * than the caller's request timeout, and a timed-out caller retries.
+   */
+  private redeliver(id: string) {
+    const promise = (async () => {
+      try {
+        await deliverRun(this.store, id, this.deps);
+        await this.store.update(id, (current) => {
+          delete current.delivery.error;
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await this.store.update(id, (current) => {
+          current.delivery.error = message;
+        });
+        await notifyDeliveryFailure(this.store, id, message);
+      }
+    })()
+      .catch((error) => {
+        console.error(
+          "[editorial-producer] checkpoint failure",
+          error instanceof Error ? error.message : String(error),
+        );
+      })
+      .finally(() => {
+        this.deliveries.delete(id);
+      });
+    this.deliveries.set(id, promise);
   }
   async start(input: StartInput) {
     const result = await this.store.start(input);
@@ -93,12 +134,8 @@ export class ProducerController {
         );
       if (this.tasks.has(run.id) || this.deliveries.has(run.id))
         throw new Error("Delivery is already in progress");
-      this.deliveries.add(run.id);
-      try {
-        await deliverRun(this.store, run.id);
-      } finally {
-        this.deliveries.delete(run.id);
-      }
+      this.redeliver(run.id);
+      // Serialised store writes put this before any failure the retry records.
       await this.store.update(run.id, (current) => {
         current.processedEvents.push(input.eventId);
         delete current.delivery.error;
@@ -141,6 +178,9 @@ export class ProducerController {
   async shutdown(): Promise<void> {
     const tasks = [...this.tasks.values()];
     tasks.forEach((task) => task.abort.abort("worker_shutdown"));
-    await Promise.all(tasks.map((task) => task.promise));
+    await Promise.all([
+      ...tasks.map((task) => task.promise),
+      ...this.deliveries.values(),
+    ]);
   }
 }

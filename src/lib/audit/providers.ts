@@ -23,7 +23,7 @@ const PROVIDERS = {
   ],
   posthog: ["run_query"],
   "editorial-producer": ["dispatch"],
-  playwright: ["fetch_rendered"],
+  playwright: ["fetch_rendered", "render_preview"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],
   railway: ["run_cron_now", "get_customer_usage"],
   // DEV-1854: staging e2e agent claims/completes ops-bot dispatches on prod.
