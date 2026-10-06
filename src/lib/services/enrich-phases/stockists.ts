@@ -22,6 +22,7 @@ import {
   buildPhaseResult,
   STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
   STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  STOCKISTS_NONE_FOUND_SKIP_DETAIL,
   timePhase,
   type EnrichBrand,
   type EnrichPhase,
@@ -327,17 +328,19 @@ export async function runStockistsPhase({
         };
       }
 
-      // The model read the evidence and found no stockists: a real, complete
-      // answer, so it succeeds with an empty patch. A `skipped` result here
-      // stayed unsatisfied, re-ran on every rerun, and blocked the apply gate
-      // (DEV-1928 staging check; amends design D13).
+      // The model read the evidence and found no stockists. The skip detail is
+      // a no-op (NO_OP_SKIP_DETAILS), so a rerun that only gets this far never
+      // supersedes an earlier succeeded run at the apply gate (DEV-1928 staging
+      // check; amends design D13).
       if (result.candidates.length === 0) {
         return {
           phaseResult: buildPhaseResult(
             "stockists",
-            "succeeded",
+            "skipped",
             [],
             durationMs,
+            undefined,
+            STOCKISTS_NONE_FOUND_SKIP_DETAIL,
           ),
           patch: {},
         };

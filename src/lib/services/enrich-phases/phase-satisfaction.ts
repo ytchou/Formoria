@@ -18,6 +18,7 @@ import {
   SATISFIED_FROM_HISTORY_SKIP_DETAIL,
   STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
   STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  STOCKISTS_NONE_FOUND_SKIP_DETAIL,
 } from "./types";
 
 /**
@@ -139,12 +140,16 @@ export function filterSatisfiedPhases(
  * skip (wall clock or budget exhausted, a missing API key, a model call that
  * found nothing) means the phase started or could not run, so the target is not
  * a no-op. The stockists evidence skips are listed because they fire before any
- * model call, so the phase wrote and spent nothing.
+ * model call, so the phase wrote and spent nothing. Stockists "none found" is
+ * the one model-ran exception: it writes nothing, and keeping it fail-closed made
+ * every rerun on a brand without listed stores block the apply gate (DEV-1928
+ * staging check). Its cost is one small model call per rerun.
  */
 const NO_OP_SKIP_DETAILS: ReadonlySet<string> = new Set([
   SATISFIED_FROM_HISTORY_SKIP_DETAIL,
   STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
   STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  STOCKISTS_NONE_FOUND_SKIP_DETAIL,
   PRODUCTS_SUBMISSION_ONLY_SKIP_DETAIL,
   PRODUCTS_NO_CHANNEL_SKIP_DETAIL,
 ]);

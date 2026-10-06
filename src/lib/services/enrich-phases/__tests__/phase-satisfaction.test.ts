@@ -4,10 +4,8 @@ import {
   fetchPhaseHistory,
   filterSatisfiedPhases,
   isNoOpTarget,
-  phaseHistoryFromOutputs,
   type PhaseHistory,
 } from "../phase-satisfaction";
-import { isUsablePhaseCheckpoint } from "@/lib/services/enrich-blocks/phase-outputs";
 import { DEFERRED_PHASES, ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
 import type { PhaseOutputStore, PhaseOutputRow } from "@/lib/services/enrich-blocks/phase-outputs";
 import type { PhaseResult } from "@/lib/types/curation";
@@ -17,6 +15,7 @@ import {
   SATISFIED_FROM_HISTORY_SKIP_DETAIL,
   STOCKISTS_NO_EVIDENCE_SKIP_DETAIL,
   STOCKISTS_NO_SIGNAL_SKIP_DETAIL,
+  STOCKISTS_NONE_FOUND_SKIP_DETAIL,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -366,23 +365,13 @@ describe("a target counts as a no-op only when it ran nothing", () => {
     }
   });
 
-  it("satisfies stockists on a rerun after the model found nothing", () => {
-    // A model run that finds no stockists succeeds with an empty patch, so the
-    // rerun skips it from history instead of blocking the apply gate.
-    const row: PhaseOutputRow = {
-      id: "row-1",
-      job_id: "job-1",
-      target_id: "sub-1",
-      target_type: "submission",
-      phase: "stockists",
-      status: "succeeded",
-      output: { patch: {} },
-      persisted_at: null,
-      created_at: "2026-10-06T00:00:00.000Z",
-    };
-    expect(isUsablePhaseCheckpoint(row)).toBe(true);
-    const history = phaseHistoryFromOutputs([row]);
-    expect(checkPhaseSatisfaction("stockists", history, false, undefined, ["stockists"])).toBe("satisfied");
+  it("is true when the stockists model ran and found nothing", () => {
+    // Staging (DEV-1928): a rerun whose only executed phase found no stockists
+    // must not supersede the earlier succeeded run at the apply gate.
+    const phaseResults = rerunWith(
+      skippedPhase("stockists", STOCKISTS_NONE_FOUND_SKIP_DETAIL),
+    );
+    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(true);
   });
 
   it("is false when a skipped phase carries no detail", () => {

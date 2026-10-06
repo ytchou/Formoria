@@ -342,6 +342,8 @@ export const SATISFIED_FROM_HISTORY_SKIP_DETAIL = "phase output already satisfie
 export const STOCKISTS_NO_EVIDENCE_SKIP_DETAIL = "no stockist evidence";
 /** Written by `runStockistsPhase` when the scrape holds no stockist signal. */
 export const STOCKISTS_NO_SIGNAL_SKIP_DETAIL = "no stockist signal in evidence";
+/** Written by `runStockistsPhase` when the model read the evidence and found none. */
+export const STOCKISTS_NONE_FOUND_SKIP_DETAIL = "no stockists found in evidence";
 /** Written by `runProductsPhase` for a non-submission target. */
 export const PRODUCTS_SUBMISSION_ONLY_SKIP_DETAIL =
   "products phase runs only for submission targets";
