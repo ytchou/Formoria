@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   validateStockistCandidates,
   filterStockistEvidence,
+  attributeSourceUrls,
   runStockistsPhase,
 } from "../stockists";
 import {
@@ -118,6 +119,69 @@ describe("filterStockistEvidence", () => {
     expect(result).not.toBeNull();
     expect(result).toContain("Stockist Page: indented content here");
   });
+
+  // DEV-1941: `/store/` in a Pinkoi URL matched the "store" signal word, so the
+  // URL line alone survived and the model cited it for another site's stockists.
+  it("drops a URL line whose section contributes no evidence", () => {
+    const text = [
+      "URL: https://www.pinkoi.com/store/histhygift",
+      "Description: 手作杯子與生活小物",
+    ].join("\n");
+    expect(filterStockistEvidence(text)).toBeNull();
+  });
+
+  it("keeps the URL line ahead of the section it labels", () => {
+    const text = [
+      "URL: https://www.pinkoi.com/store/histhygift",
+      "Description: 手作杯子與生活小物",
+      "URL: https://histhygift.com",
+      "Stockist Page: 若渴咖啡 高雄市新興區",
+    ].join("\n");
+    expect(filterStockistEvidence(text)).toBe(
+      "URL: https://histhygift.com\nStockist Page: 若渴咖啡 高雄市新興區",
+    );
+  });
+});
+
+describe("attributeSourceUrls", () => {
+  const [candidate] = validateStockistCandidates([
+    {
+      name: "若渴咖啡",
+      regionSlug: "kaohsiung",
+      address: null,
+      locationType: "stockist",
+      sourceUrl: "https://www.pinkoi.com/store/histhygift",
+    },
+  ]);
+
+  it("replaces a cited URL absent from the evidence with the only evidence URL", () => {
+    const evidence = "URL: https://histhygift.com\nStockist Page: 若渴咖啡";
+    expect(attributeSourceUrls([candidate], evidence)[0].sourceUrl).toBe(
+      "https://histhygift.com",
+    );
+  });
+
+  it("keeps a cited URL that labels an evidence section", () => {
+    const evidence = [
+      "URL: https://a.example.com",
+      "Stockist Page: 若渴咖啡",
+      "URL: https://www.pinkoi.com/store/histhygift",
+      "Description: 門市在高雄",
+    ].join("\n");
+    expect(attributeSourceUrls([candidate], evidence)[0].sourceUrl).toBe(
+      "https://www.pinkoi.com/store/histhygift",
+    );
+  });
+
+  it("clears a cited URL absent from evidence that has several sections", () => {
+    const evidence = [
+      "URL: https://a.example.com",
+      "Stockist Page: 若渴咖啡",
+      "URL: https://b.example.com",
+      "Description: 門市在高雄",
+    ].join("\n");
+    expect(attributeSourceUrls([candidate], evidence)[0].sourceUrl).toBeNull();
+  });
 });
 
 describe("runStockistsPhase", () => {
@@ -158,7 +222,9 @@ describe("runStockistsPhase", () => {
       phases,
       target,
       deps: {
-        loadPersistedScrapeText: scrape("我們的門市在台北信義區，歡迎參觀。"),
+        loadPersistedScrapeText: scrape(
+          "URL: https://example.com/stores\n我們的門市在台北信義區，歡迎參觀。",
+        ),
       },
     });
 
@@ -168,6 +234,37 @@ describe("runStockistsPhase", () => {
     expect(output.patch.stockists).toEqual([
       { ...expected, fetchedAt: expect.any(String) },
     ]);
+  });
+
+  it("cites the evidence section's URL, not the URL the model guessed", async () => {
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({
+          stockists: [
+            { ...modelEntry, sourceUrl: "https://www.pinkoi.com/store/histhygift" },
+          ],
+        }),
+      }),
+    });
+
+    const output = await runStockistsPhase({
+      brand,
+      phases,
+      target,
+      deps: {
+        loadPersistedScrapeText: scrape(
+          [
+            "URL: https://www.pinkoi.com/store/histhygift",
+            "Description: 手作杯子與生活小物",
+            "URL: https://histhygift.com",
+            "Stockist Page: 誠品書店 信義店 台北市信義區松高路11號",
+          ].join("\n"),
+        ),
+      },
+    });
+
+    expect(output.patch.stockists?.[0].sourceUrl).toBe("https://histhygift.com");
   });
 
   it("skips with the none-found detail when the model finds no stockists", async () => {

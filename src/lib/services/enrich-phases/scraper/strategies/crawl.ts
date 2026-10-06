@@ -205,6 +205,9 @@ async function fetchCandidatePages(candidates: CrawlCandidate[]) {
 }
 
 function getPageText($: cheerio.CheerioAPI): string | null {
+  // Inline theme CSS and scripts are text nodes too; left in, they ate a third
+  // of the 4 KB stockist cap (DEV-1941).
+  $('script, style, noscript, template').remove()
   const text = ($('main').text() || $('body').text()).replace(/\s+/g, ' ').trim()
   return text || null
 }

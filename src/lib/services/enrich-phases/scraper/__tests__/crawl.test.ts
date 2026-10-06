@@ -27,7 +27,7 @@ const STOCKIST_PAGES: Record<string, string> = {
     </nav>
   </body></html>`,
   'https://brand.com/about': '<html><head><meta name="description" content="A Taiwan studio since 2015."></head><body></body></html>',
-  'https://brand.com/where-to-buy': '<html><head></head><body><main>寶雅 屈臣氏 Costco 全聯 康是美</main></body></html>',
+  'https://brand.com/where-to-buy': '<html><head></head><body><main><style>.section-template__main-padding { padding-top: 36px; }</style><script>window.theme = {}</script>寶雅 屈臣氏 Costco 全聯 康是美</main></body></html>',
 }
 
 function stockistRouter(url: string) {
@@ -50,6 +50,8 @@ describe('CrawlStrategy', () => {
     const r = await new CrawlStrategy().scrape('https://brand.com', {})
     expect(r.stockistPageText).toContain('寶雅')
     expect(r.stockistPageText).toContain('Costco')
+    expect(r.stockistPageText).not.toContain('padding-top')
+    expect(r.stockistPageText).not.toContain('window.theme')
     expect(r.jsonLdImageUrls).toContain('https://cdn.brand.com/widget.jpg')
   })
 })
