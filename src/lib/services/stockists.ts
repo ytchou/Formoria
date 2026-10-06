@@ -2,7 +2,11 @@ import {
   applyPendingCommunityStockistFilter,
   applyPublicStockistVisibility,
   groupStockistsForDisplay,
+  matchesStockistKey,
   normalizeStockistName,
+  stockistMatchKey,
+  type StockistIdentity,
+  type StockistMatchKey,
 } from '@/lib/brands/stockist-display'
 import { auditedCall } from '@/lib/audit'
 import { parseSubmissionStockists } from '@/lib/types/enriched-data'
@@ -47,7 +51,23 @@ type SubmitStockistResult =
   { ok: true; id: string } | { ok: false; code: SubmitStockistErrorCode }
 
 type EnrichedStockistsResult =
-  | { ok: true; count: number }
+  | {
+      ok: true
+      /** Rows the RPC inserted or updated. */
+      count: number
+      /** Rows sent to the RPC. */
+      resolvedCount: number
+      /** Candidates dropped for a blank or over-long name. */
+      invalidCount: number
+      /** Candidates dropped as the same store as another candidate in the batch. */
+      nearDuplicateCount: number
+      /**
+       * Resolved rows that land on an existing rejected or removed row. The RPC
+       * leaves those untouched and does not count them, so
+       * `count === resolvedCount - blockedCount` when nothing raced the write.
+       */
+      blockedCount: number
+    }
   | { ok: false; code: 'database_error' | 'invalid_name' }
 
 type StockistTableRow = {
@@ -248,27 +268,17 @@ export async function getStockistsForBrand(
 }
 
 /**
- * Normalized names of this brand's rejected or removed `brand_channels` rows.
- * `upsert_enriched_brand_channels` conflicts on (brand_id, normalized_name) and
- * never updates such a row, so a pending candidate with one of these names is
- * never materialized and must not count toward where-to-buy (DEV-1928).
+ * Every `brand_channels` row of this brand, in the shape
+ * `resolveEnrichedStockistRows` matches against: the same read
+ * `upsertEnrichedStockists` makes, so the FAQ's where-to-buy count resolves
+ * pending candidates exactly as the upsert will (DEV-1928, DEV-1942).
  */
-export async function getBlockedStockistNames(
+export async function getStockistMatchPool(
   brandId: string,
-): Promise<Set<string>> {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brand_channels')
-    .select('normalized_name')
-    .eq('brand_id', brandId)
-    .or('owner_status.eq.rejected,removed_at.not.is.null')
-
-  if (error) throw error
-  return new Set(
-    ((data ?? []) as { normalized_name: string }[]).map(
-      (row) => row.normalized_name,
-    ),
-  )
+): Promise<ExistingStockistRow[]> {
+  const rows = await readExistingStockistRows(stockistsClient(), brandId)
+  if (!rows) throw new Error(`getStockistMatchPool: read failed for ${brandId}`)
+  return rows
 }
 
 export async function submitStockist(
@@ -517,7 +527,9 @@ export async function reviewCommunityStockist(
   )
 }
 
-export function buildEnrichedStockistRows(candidates: StockistCandidate[]): {
+export function buildEnrichedStockistRows(
+  candidates: readonly StockistCandidate[],
+): {
   rows: EnrichedStockistRow[]
   invalidCount: number
 } {
@@ -557,6 +569,193 @@ export function buildEnrichedStockistRows(candidates: StockistCandidate[]): {
   return { rows, invalidCount }
 }
 
+/** The `brand_channels` columns stockist matching reads (all NOT NULL but `address` and `removed_at`). */
+export type ExistingStockistRow = {
+  name: string
+  normalized_name: string
+  address: string | null
+  source?: string
+  owner_status?: string
+  removed_at?: string | null
+}
+
+const EXISTING_STOCKIST_SELECT =
+  'name, normalized_name, address, source, owner_status, removed_at'
+const EXISTING_STOCKIST_PAGE_SIZE = 1000
+
+/**
+ * Every row of one brand, paged past PostgREST's 1000-row `db-max-rows` cap.
+ * `normalized_name` is unique per brand, so ordering on it keeps `.range()`
+ * pages from repeating or skipping a row. Null on a read error.
+ */
+async function readExistingStockistRows(
+  supabase: StockistsSupabase,
+  brandId: string,
+): Promise<ExistingStockistRow[] | null> {
+  const rows: ExistingStockistRow[] = []
+  for (let from = 0; ; from += EXISTING_STOCKIST_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('brand_channels')
+      .select(EXISTING_STOCKIST_SELECT)
+      .eq('brand_id', brandId)
+      .order('normalized_name')
+      .range(from, from + EXISTING_STOCKIST_PAGE_SIZE - 1)
+    if (error) return null
+    const page = (data ?? []) as ExistingStockistRow[]
+    rows.push(...page)
+    if (page.length < EXISTING_STOCKIST_PAGE_SIZE) return rows
+  }
+}
+
+function toStockistIdentity(
+  row: Pick<ExistingStockistRow, 'name' | 'normalized_name' | 'address'>,
+): StockistIdentity {
+  return {
+    name: row.name,
+    normalizedName: row.normalized_name,
+    address: row.address,
+  }
+}
+
+/** Mirrors `applyPendingCommunityStockistFilter` minus `removed_at`, per DEV-1942. */
+function isPendingCommunity(row: ExistingStockistRow): boolean {
+  return row.source === 'community' && row.owner_status === 'none'
+}
+
+/** The rows `upsert_enriched_brand_channels` refuses to update. */
+function isBlocked(row: ExistingStockistRow): boolean {
+  return row.owner_status === 'rejected' || row.removed_at != null
+}
+
+/** The columns `upsert_enriched_brand_channels` coalesces on conflict. */
+const COALESCED_STOCKIST_COLUMNS = [
+  'region_label',
+  'district',
+  'address',
+  'url',
+  'source_url',
+  'fetched_at',
+  'location_type',
+  'country',
+  'last_confirmed_at',
+  'provider_metadata',
+] as const satisfies readonly (keyof EnrichedStockistRow)[]
+
+/** Fills each of `kept`'s null coalesced columns from `dropped`. */
+function mergeCoalescedColumns(
+  kept: EnrichedStockistRow,
+  dropped: EnrichedStockistRow,
+): void {
+  const target = kept as Record<string, unknown>
+  for (const column of COALESCED_STOCKIST_COLUMNS) {
+    if (target[column] == null && dropped[column] != null) {
+      target[column] = dropped[column]
+    }
+  }
+}
+
+export type StockistResolution = {
+  /** The rows to send to the RPC. */
+  rows: EnrichedStockistRow[]
+  /** Candidates dropped as the same store as another candidate in the batch. */
+  nearDuplicateCount: number
+  /** `rows` that land on an existing rejected or removed row. */
+  blockedCount: number
+  /** `rows` that match no existing row: the RPC inserts them. */
+  newRowCount: number
+}
+
+/**
+ * Folds near-duplicate candidates onto the brand's existing rows (DEV-1942).
+ *
+ * Pass 1 matches each candidate to an existing row — the exact conflict key
+ * first, then `isSameStockist` — and gives it that row's `normalized_name`, so
+ * the RPC's `on conflict` path handles it: an active row is coalesce-filled, a
+ * rejected or removed row is left untouched. A pending community row
+ * (`source = 'community'`, `owner_status = 'none'`) is a stranger's unreviewed
+ * claim: it takes exact conflict-key matches, as the RPC would, but no near
+ * match, so it never absorbs an enriched store.
+ *
+ * Pass 2 takes the unmatched candidates, after every matched one is placed,
+ * so a weaker near duplicate cannot claim an existing row's slot first. A
+ * candidate naming the same store as a row already placed is dropped, and its
+ * non-null coalesced columns fill the kept row's nulls.
+ *
+ * Misses fail toward a duplicate row, never a lost store: two rows without
+ * addresses on both sides never near-match, so the import's region-suffixed
+ * same-name stores (`withRegionSuffix` in `stockist-import/plan.ts`) all
+ * survive.
+ *
+ * Ceiling: a pairwise scan, O(candidates × (existing + kept)) key
+ * comparisons — fine for per-brand sets of hundreds. Index the keys by
+ * normalized address if a brand reaches thousands of rows.
+ */
+export function resolveEnrichedStockistRows(
+  rows: readonly EnrichedStockistRow[],
+  existing: readonly ExistingStockistRow[],
+): StockistResolution {
+  const byName = new Map(existing.map((row) => [row.normalized_name, row]))
+  const nearPool = existing
+    .filter((row) => !isPendingCommunity(row))
+    .map((row) => ({ row, key: stockistMatchKey(toStockistIdentity(row)) }))
+  const candidates = rows.map((row) => ({
+    row,
+    key: stockistMatchKey(toStockistIdentity(row)),
+    match: byName.get(row.normalized_name),
+  }))
+  for (const candidate of candidates) {
+    if (candidate.match) continue
+    candidate.match = nearPool.find((entry) =>
+      matchesStockistKey(candidate.key, entry.key),
+    )?.row
+  }
+
+  const kept: { row: EnrichedStockistRow; key: StockistMatchKey }[] = []
+  let nearDuplicateCount = 0
+  const place = (
+    row: EnrichedStockistRow,
+    key: StockistMatchKey,
+    isTwin: (other: StockistMatchKey) => boolean,
+  ) => {
+    const twin = kept.find((entry) => isTwin(entry.key))
+    if (twin) {
+      mergeCoalescedColumns(twin.row, row)
+      nearDuplicateCount += 1
+      return
+    }
+    kept.push({ row, key })
+  }
+  // Two candidates matched to different existing rows stay two rows, even
+  // when those existing rows are themselves near duplicates.
+  for (const { row, key, match } of candidates) {
+    if (!match) continue
+    const normalizedName = match.normalized_name
+    place(
+      { ...row, normalized_name: normalizedName },
+      { ...key, normalizedName },
+      (other) => other.normalizedName === normalizedName,
+    )
+  }
+  for (const { row, key, match } of candidates) {
+    if (match) continue
+    place({ ...row }, key, (other) => matchesStockistKey(key, other))
+  }
+
+  let blockedCount = 0
+  let newRowCount = 0
+  for (const { row } of kept) {
+    const target = byName.get(row.normalized_name)
+    if (!target) newRowCount += 1
+    else if (isBlocked(target)) blockedCount += 1
+  }
+  return {
+    rows: kept.map((entry) => entry.row),
+    nearDuplicateCount,
+    blockedCount,
+    newRowCount,
+  }
+}
+
 export async function upsertEnrichedStockists(
   brandId: string,
   candidates: StockistCandidate[],
@@ -574,15 +773,33 @@ export async function upsertEnrichedStockists(
       if (rows.length === 0) {
         return invalidCount > 0
           ? { ok: false, code: 'invalid_name' }
-          : { ok: true, count: 0 }
+          : {
+              ok: true,
+              count: 0,
+              resolvedCount: 0,
+              invalidCount: 0,
+              nearDuplicateCount: 0,
+              blockedCount: 0,
+            }
       }
 
       const supabase = stockistsClient(options.client)
+      // No status filter: a rejected or removed row must absorb its near
+      // duplicate too, or the store the owner rejected comes back renamed.
+      // Shortcut: read-then-RPC is not atomic. A row a concurrent writer adds
+      // between the read and the RPC is not near-matched, so its near duplicate
+      // inserts beside it — a duplicate row, never a lost store — and the
+      // import's count check may throw. Move the matching into the RPC if
+      // concurrent stockist writers appear.
+      const existing = await readExistingStockistRows(supabase, brandId)
+      if (!existing) return { ok: false, code: 'database_error' }
+      const resolution = resolveEnrichedStockistRows(rows, existing)
+
       const { data, error } = await supabase.rpc(
         'upsert_enriched_brand_channels',
         {
           p_brand_id: brandId,
-          p_candidates: rows,
+          p_candidates: resolution.rows,
         },
       )
 
@@ -592,8 +809,15 @@ export async function upsertEnrichedStockists(
           ? data
           : Array.isArray(data)
             ? data.length
-            : rows.length
-      return { ok: true, count }
+            : resolution.rows.length - resolution.blockedCount
+      return {
+        ok: true,
+        count,
+        resolvedCount: resolution.rows.length,
+        invalidCount,
+        nearDuplicateCount: resolution.nearDuplicateCount,
+        blockedCount: resolution.blockedCount,
+      }
     },
   )
 }

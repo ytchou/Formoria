@@ -5,9 +5,12 @@ import { describe, expect, it } from 'vitest'
 import { parseSubmissionStockists } from '@/lib/types/enriched-data'
 import {
   buildEnrichedStockistRows,
+  type ExistingStockistRow,
   materializeSubmissionStockists,
+  resolveEnrichedStockistRows,
   STOCKIST_DETAIL_READ_SELECT,
   type StockistsSupabase,
+  upsertEnrichedStockists,
 } from '../stockists'
 
 const serviceSource = readFileSync(
@@ -299,15 +302,18 @@ describe('submission stockists materialize at apply/approve', () => {
 })
 
 /**
- * A hand-built stand-in for the two client calls the materializer makes: the
- * submission read and the upsert RPC. Injected through the `client` seam, so
- * no Supabase or service module is mocked.
+ * A hand-built stand-in for the three client calls the materializer makes: the
+ * submission read, the brand's existing `brand_channels` read, and the upsert
+ * RPC. Injected through the `client` seam, so no Supabase or service module is
+ * mocked.
  */
 function fakeStockistsClient(options: {
   enrichedData?: Record<string, unknown> | null
+  existing?: ExistingStockistRow[]
   rpcResult?: { data: unknown; error: { message: string } | null }
 }) {
   const reads: { table: string; columns: string; id: unknown }[] = []
+  const ranges: [number, number][] = []
   const rpcCalls: { name: string; args: Record<string, unknown> }[] = []
   const client = {
     from(table: string) {
@@ -315,6 +321,22 @@ function fakeStockistsClient(options: {
         select(columns: string) {
           return {
             eq(_column: string, id: unknown) {
+              if (table === 'brand_channels') {
+                return {
+                  order() {
+                    return {
+                      async range(from: number, to: number) {
+                        reads.push({ table, columns, id })
+                        ranges.push([from, to])
+                        return {
+                          data: (options.existing ?? []).slice(from, to + 1),
+                          error: null,
+                        }
+                      },
+                    }
+                  },
+                }
+              }
               reads.push({ table, columns, id })
               return {
                 single: async () =>
@@ -338,6 +360,7 @@ function fakeStockistsClient(options: {
   return {
     client: client as unknown as StockistsSupabase,
     reads,
+    ranges,
     rpcCalls,
   }
 }
@@ -361,6 +384,12 @@ describe('materializeSubmissionStockists', () => {
 
     expect(fake.reads).toEqual([
       { table: 'brand_submissions', columns: 'enriched_data', id: 'sub-1' },
+      {
+        table: 'brand_channels',
+        columns:
+          'name, normalized_name, address, source, owner_status, removed_at',
+        id: 'brand-1',
+      },
     ])
     expect(fake.rpcCalls).toEqual([
       {
@@ -372,6 +401,296 @@ describe('materializeSubmissionStockists', () => {
       },
     ])
     expect(result).toEqual({ count: 2 })
+  })
+
+  it('reuses_the_existing_rows_normalized_name_for_a_near_duplicate', async () => {
+    // Staging `his-cross-concept` (DEV-1942): three import rows, then three
+    // enriched candidates naming the same stores differently.
+    const existing = [
+      {
+        name: 'Rocco Coffee 若渴咖啡',
+        normalized_name: 'roccocoffee若渴咖啡',
+        address: '10491台北市中山區南京東路三段119號',
+      },
+      {
+        name: 'Standfirm｜HIS 特約專櫃',
+        normalized_name: 'standfirm｜his特約專櫃',
+        address: '台北市南港區南港路3段16巷8號2樓',
+      },
+      {
+        name: '高雄以諾書房',
+        normalized_name: '高雄以諾書房',
+        address: '高雄市新興區中正三路70號',
+      },
+    ]
+    const enriched = [
+      {
+        name: 'Rocco Coffee 若渴咖啡｜HIS 展售',
+        normalizedName: 'roccocoffee若渴咖啡｜his展售',
+        address: '台北市中山區南京東路三段119號',
+      },
+      {
+        name: '台北 Standfirm 特約專櫃',
+        normalizedName: '台北standfirm特約專櫃',
+        address: '台北市南港區南港路三段16巷8號2樓',
+      },
+      {
+        name: '高雄以諾書房｜HIS 展售',
+        normalizedName: '高雄以諾書房｜his展售',
+        address: '高雄市新興區中正三路70號',
+      },
+    ]
+    const fake = fakeStockistsClient({
+      enrichedData: { stockists: enriched },
+      existing,
+    })
+
+    await materializeSubmissionStockists('sub-1', 'brand-1', {
+      client: fake.client,
+    })
+
+    const payload = fake.rpcCalls[0]?.args.p_candidates as {
+      normalized_name: string
+    }[]
+    expect(payload.map((row) => row.normalized_name)).toEqual(
+      existing.map((row) => row.normalized_name),
+    )
+  })
+
+  it('drops_a_near_duplicate_repeated_within_the_batch', async () => {
+    const fake = fakeStockistsClient({
+      enrichedData: {
+        stockists: [
+          {
+            name: '高雄以諾書房',
+            normalizedName: '高雄以諾書房',
+            address: '高雄市新興區中正三路70號',
+          },
+          {
+            name: '高雄以諾書房｜HIS 展售',
+            normalizedName: '高雄以諾書房｜his展售',
+            address: '高雄市新興區中正三路70號',
+          },
+        ],
+      },
+    })
+
+    await materializeSubmissionStockists('sub-1', 'brand-1', {
+      client: fake.client,
+    })
+
+    const payload = fake.rpcCalls[0]?.args.p_candidates as { name: string }[]
+    expect(payload.map((row) => row.name)).toEqual(['高雄以諾書房'])
+  })
+
+  it('keeps_same_name_candidates_the_import_split_by_region', () => {
+    // scripts/enrichment/data/stockist-import/plan.ts region-suffixes the
+    // normalized name of same-name stores in different cities. Without an
+    // address on both sides they never near-match: not each other, and not an
+    // older unsuffixed row.
+    const { rows } = buildEnrichedStockistRows([
+      { name: '好丘', normalizedName: '好丘:台北市', regionLabel: '台北市' },
+      { name: '好丘', normalizedName: '好丘:台中市', regionLabel: '台中市' },
+    ])
+    const existing = [
+      { name: '好丘', normalized_name: '好丘', address: null },
+    ]
+
+    for (const pool of [[], existing]) {
+      const resolution = resolveEnrichedStockistRows(rows, pool)
+      expect(resolution.rows.map((row) => row.normalized_name)).toEqual([
+        '好丘:台北市',
+        '好丘:台中市',
+      ])
+      expect(resolution.newRowCount).toBe(2)
+    }
+  })
+
+  it('keeps_taipei_and_taichung_branches_apart_without_coalescing_an_address', () => {
+    const taichungAddress = '台中市西區民生路368巷4弄6號'
+    const { rows } = buildEnrichedStockistRows([
+      { name: '台北 好丘', normalizedName: '台北好丘' },
+      { name: '台中 好丘', normalizedName: '台中好丘', address: taichungAddress },
+    ])
+
+    const inBatch = resolveEnrichedStockistRows(rows, [])
+    expect(inBatch.rows.map((row) => [row.normalized_name, row.address])).toEqual([
+      ['台北好丘', null],
+      ['台中好丘', taichungAddress],
+    ])
+    expect(inBatch.nearDuplicateCount).toBe(0)
+
+    const againstExisting = resolveEnrichedStockistRows(rows.slice(1), [
+      { name: '台北 好丘', normalized_name: '台北好丘', address: null },
+    ])
+    expect(againstExisting.rows.map((row) => row.normalized_name)).toEqual([
+      '台中好丘',
+    ])
+    expect(againstExisting.newRowCount).toBe(1)
+  })
+
+  it('near_matches_no_pending_community_row_but_still_exact_matches_one', () => {
+    const address = '台北市南港區南港路三段16巷8號2樓'
+    const pendingCommunity = {
+      name: 'Standfirm｜HIS 特約專櫃',
+      normalized_name: 'standfirm｜his特約專櫃',
+      address,
+      source: 'community',
+      owner_status: 'none',
+      removed_at: null,
+    }
+
+    const near = resolveEnrichedStockistRows(
+      buildEnrichedStockistRows([
+        { name: '台北 Standfirm 特約專櫃', normalizedName: '台北standfirm特約專櫃', address },
+      ]).rows,
+      [pendingCommunity],
+    )
+    expect(near.rows.map((row) => row.normalized_name)).toEqual([
+      '台北standfirm特約專櫃',
+    ])
+    expect(near.newRowCount).toBe(1)
+
+    const exact = resolveEnrichedStockistRows(
+      buildEnrichedStockistRows([
+        { name: 'Standfirm｜HIS 特約專櫃', normalizedName: 'standfirm｜his特約專櫃' },
+      ]).rows,
+      [pendingCommunity],
+    )
+    expect(exact.rows.map((row) => row.normalized_name)).toEqual([
+      'standfirm｜his特約專櫃',
+    ])
+    expect(exact.newRowCount).toBe(0)
+  })
+
+  it('resolves_matched_candidates_before_deduping_unmatched_ones', () => {
+    // The existing row has no address, so only the exact-key candidate
+    // matches it; the other shares that candidate's address. Either order,
+    // the existing row gets the exact-key candidate and nothing is inserted.
+    const address = '高雄市新興區中正三路70號'
+    const exactKey = {
+      name: '高雄以諾書房',
+      normalizedName: '高雄以諾書房',
+      address,
+    }
+    const weaker = {
+      name: '高雄以諾書房｜HIS 展售',
+      normalizedName: '高雄以諾書房｜his展售',
+      address,
+    }
+    const existing = [
+      { name: '高雄以諾書房', normalized_name: '高雄以諾書房', address: null },
+    ]
+
+    for (const candidates of [
+      [weaker, exactKey],
+      [exactKey, weaker],
+    ]) {
+      const resolution = resolveEnrichedStockistRows(
+        buildEnrichedStockistRows(candidates).rows,
+        existing,
+      )
+      expect(resolution.rows.map((row) => row.name)).toEqual(['高雄以諾書房'])
+      expect(resolution.nearDuplicateCount).toBe(1)
+      expect(resolution.newRowCount).toBe(0)
+    }
+  })
+
+  it('merges_a_dropped_near_duplicates_fields_into_the_kept_row', () => {
+    const address = '高雄市新興區中正三路70號'
+    const { rows } = buildEnrichedStockistRows([
+      {
+        name: '高雄以諾書房',
+        normalizedName: '高雄以諾書房',
+        address,
+        url: 'https://enoch.example/kept',
+      },
+      {
+        name: '高雄以諾書房｜HIS 展售',
+        normalizedName: '高雄以諾書房｜his展售',
+        address,
+        url: 'https://enoch.example/dropped',
+        regionLabel: '高雄市',
+        district: '新興區',
+        country: 'TW',
+        sourceUrl: 'https://his.example/stores',
+      },
+    ])
+
+    const resolution = resolveEnrichedStockistRows(rows, [])
+    expect(resolution.rows).toEqual([
+      expect.objectContaining({
+        name: '高雄以諾書房',
+        url: 'https://enoch.example/kept',
+        region_label: '高雄市',
+        district: '新興區',
+        country: 'TW',
+        source_url: 'https://his.example/stores',
+      }),
+    ])
+    // The input rows are not mutated.
+    expect(rows[0]?.region_label).toBeNull()
+  })
+
+  it('reports_invalid_near_duplicate_and_blocked_counts', async () => {
+    const address = '高雄市新興區中正三路70號'
+    const fake = fakeStockistsClient({
+      existing: [
+        {
+          name: '小器 赤峰',
+          normalized_name: '小器赤峰',
+          address: null,
+          source: 'enriched',
+          owner_status: 'rejected',
+          removed_at: null,
+        },
+      ],
+      rpcResult: { data: 1, error: null },
+    })
+
+    await expect(
+      upsertEnrichedStockists(
+        'brand-1',
+        [
+          { name: '高雄以諾書房', normalizedName: '高雄以諾書房', address },
+          {
+            name: '高雄以諾書房｜HIS 展售',
+            normalizedName: '高雄以諾書房｜his展售',
+            address,
+          },
+          { name: '小器 赤峰', normalizedName: '小器赤峰' },
+          { name: ' ', normalizedName: ' ' },
+        ],
+        { client: fake.client },
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      count: 1,
+      resolvedCount: 2,
+      invalidCount: 1,
+      nearDuplicateCount: 1,
+      blockedCount: 1,
+    })
+  })
+
+  it('pages_the_existing_row_read', async () => {
+    const existing = Array.from({ length: 1001 }, (_, index) => ({
+      name: `store ${index}`,
+      normalized_name: `store${index}`,
+      address: null,
+    }))
+    const fake = fakeStockistsClient({ existing })
+
+    await upsertEnrichedStockists(
+      'brand-1',
+      [{ name: 'store 1000', normalizedName: 'store1000' }],
+      { client: fake.client },
+    )
+
+    expect(fake.ranges).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ])
   })
 
   it('returns the count the RPC reports', async () => {

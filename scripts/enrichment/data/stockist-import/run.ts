@@ -126,9 +126,26 @@ async function main(): Promise<void> {
         if (!result.ok) {
           throw new Error(`${brand.brandSlug}: ${result.code}`)
         }
-        if (result.count !== brand.candidates.length) {
+        if (result.nearDuplicateCount > 0 || result.blockedCount > 0) {
+          console.log(
+            JSON.stringify({
+              brandSlug: brand.brandSlug,
+              nearDuplicateCount: result.nearDuplicateCount,
+              blockedCount: result.blockedCount,
+            }),
+          )
+        }
+        if (result.invalidCount > 0) {
           throw new Error(
-            `${brand.brandSlug}: expected ${brand.candidates.length} upserts, received ${result.count}`,
+            `${brand.brandSlug}: ${result.invalidCount} candidates have an invalid name`,
+          )
+        }
+        // Near duplicates (DEV-1942) never reach the RPC, and it leaves a row
+        // resolved onto a rejected or removed row untouched and uncounted.
+        const expected = result.resolvedCount - result.blockedCount
+        if (result.count !== expected) {
+          throw new Error(
+            `${brand.brandSlug}: expected ${expected} upserts, received ${result.count}`,
           )
         }
       }),

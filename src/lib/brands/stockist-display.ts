@@ -132,6 +132,123 @@ export function normalizeStockistName(name: string): string {
   return normalized;
 }
 
+const SECTION_NUMERALS: Readonly<Record<string, string>> = {
+  一: "1",
+  二: "2",
+  三: "3",
+  四: "4",
+  五: "5",
+  六: "6",
+  七: "7",
+  八: "8",
+  九: "9",
+  十: "10",
+};
+
+/**
+ * Address spelling differences seen between an import row and an enriched
+ * candidate for one store: full-width forms, 臺/台, a leading postcode, and
+ * 三段/3段. A lone numeral directly before 段 is the only one converted —
+ * `中正三路` is a street name, not a section number. Leading digits are a
+ * postcode only when a CJK character follows them: in `620 8th Ave` they are
+ * the house number, and stripping them would make two stores one.
+ */
+export function normalizeStockistAddress(address: string): string {
+  return address
+    .normalize("NFKC")
+    .replace(/臺/g, "台")
+    .replace(/\s+/g, "")
+    .replace(/^\d{3,6}(?=[\u3400-\u9fff])/, "")
+    .replace(
+      /(^|[^一二三四五六七八九十])([一二三四五六七八九十])段/g,
+      (_match, before: string, numeral: string) =>
+        `${before}${SECTION_NUMERALS[numeral]}段`,
+    );
+}
+
+const LEADING_CITY = new RegExp(
+  `^(?:${[
+    ...new Set(
+      Object.values(CITY_NAMES_ZH).map((label) =>
+        label.replace(/臺/g, "台").replace(/[市縣]$/, ""),
+      ),
+    ),
+  ].join("|")})[市縣]?`,
+);
+
+function stripLeadingCity(name: string): string {
+  const core = name.replace(/臺/g, "台");
+  const withoutCity = core.replace(LEADING_CITY, "");
+  return withoutCity || core;
+}
+
+/**
+ * The store part of a stockist name: `normalizeStockistName`, cut at a `｜`
+ * suffix such as `｜HIS 展售`, with a leading city removed. Each removal
+ * applies only when something is left, so a name is never reduced to nothing.
+ */
+function coreStockistName(name: string): string {
+  const normalized = normalizeStockistName(name);
+  const separator = normalized.search(/[｜|]/);
+  return stripLeadingCity(
+    separator > 0 ? normalized.slice(0, separator) : normalized,
+  );
+}
+
+export type StockistIdentity = {
+  name: string;
+  /** Falls back to `normalizeStockistName(name)` when absent or blank. */
+  normalizedName?: string | null;
+  address?: string | null;
+};
+
+/** A `StockistIdentity` normalized once, for repeated `matchesStockistKey` calls. */
+export type StockistMatchKey = {
+  normalizedName: string;
+  /** `normalizeStockistAddress`, or "" when the row has no address. */
+  address: string;
+  core: string;
+};
+
+export function stockistMatchKey(row: StockistIdentity): StockistMatchKey {
+  return {
+    normalizedName: row.normalizedName?.trim() || normalizeStockistName(row.name),
+    address: row.address ? normalizeStockistAddress(row.address) : "",
+    core: coreStockistName(row.name),
+  };
+}
+
+/** `isSameStockist` on precomputed keys. */
+export function matchesStockistKey(
+  a: StockistMatchKey,
+  b: StockistMatchKey,
+): boolean {
+  if (a.normalizedName === b.normalizedName) return true;
+  if (!a.address || a.address !== b.address) return false;
+  if (!a.core || !b.core) return false;
+  return a.core.includes(b.core) || b.core.includes(a.core);
+}
+
+/**
+ * Whether two stockist rows name one physical store (DEV-1942).
+ *
+ * 1. Equal normalized names: the `upsert_enriched_brand_channels` conflict key.
+ * 2. Both addresses present: equal normalized addresses AND one core name
+ *    containing the other. An address alone is not enough — two airport shops
+ *    or two counters in one mall share a street address.
+ *
+ * Nothing else matches. Without an address on both sides, two names that
+ * differ only by a city (`台北 好丘` / `台中 好丘`) are two branches as often as
+ * they are one store, so a miss is the accepted failure: it fails toward a
+ * duplicate row, never toward a lost store.
+ */
+export function isSameStockist(
+  a: StockistIdentity,
+  b: StockistIdentity,
+): boolean {
+  return matchesStockistKey(stockistMatchKey(a), stockistMatchKey(b));
+}
+
 type StockistDisplayRow = {
   id: string;
   name: string;

@@ -26,8 +26,13 @@ import {
   buildEnrichmentUserContent,
   type DescriptionEvidence,
 } from "../description-rewrite";
-import { getBlockedStockistNames, getStockistsForBrand } from "../stockists";
-import { normalizeStockistName } from "@/lib/brands/stockist-display";
+import {
+  buildEnrichedStockistRows,
+  getStockistMatchPool,
+  getStockistsForBrand,
+  resolveEnrichedStockistRows,
+  type ExistingStockistRow,
+} from "../stockists";
 import type { StockistCandidate } from "@/lib/types/stockist";
 import { parseSubmissionStockists } from "@/lib/types/enriched-data";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -79,33 +84,30 @@ type FaqPhaseOptions = {
   pendingStockists?: readonly StockistCandidate[];
 };
 
-type LiveStockistNames = {
-  confirmed: readonly { name: string }[];
-  possible: readonly { name: string }[];
+type LiveStockists = {
+  confirmed: readonly unknown[];
+  possible: readonly unknown[];
 };
 
 /**
  * Where-to-buy count for the FAQ context: every live stockist row plus each
- * pending candidate whose normalized name is not already live. A pending
- * candidate repeated within the batch counts once. A pending candidate whose
- * normalized name is in `blocked` (the brand's rejected or removed rows) is
- * never counted: the upsert RPC never materializes it.
+ * pending candidate the upsert would insert as a new row. Pending candidates
+ * go through `resolveEnrichedStockistRows` against `existing` (the brand's
+ * `getStockistMatchPool`), the same resolver `upsertEnrichedStockists` runs,
+ * so the two agree by construction (DEV-1928, DEV-1942). A candidate that
+ * lands on any existing row is not counted: a live row is already counted,
+ * and a rejected, removed, or pending community row stays off the page after
+ * the upsert. A candidate repeated within the batch counts once, and one with
+ * an invalid name never reaches the RPC.
  */
 export function countWhereToBuy(
-  live: LiveStockistNames | null,
-  pending: readonly Pick<StockistCandidate, "normalizedName">[] = [],
-  blocked: ReadonlySet<string> = new Set(),
+  live: LiveStockists | null,
+  pending: readonly StockistCandidate[] = [],
+  existing: readonly ExistingStockistRow[] = [],
 ): number {
-  const liveRows = live ? [...live.confirmed, ...live.possible] : [];
-  const seen = new Set(liveRows.map((row) => normalizeStockistName(row.name)));
-  let count = liveRows.length;
-  for (const candidate of pending) {
-    if (seen.has(candidate.normalizedName)) continue;
-    if (blocked.has(candidate.normalizedName.trim())) continue;
-    seen.add(candidate.normalizedName);
-    count += 1;
-  }
-  return count;
+  const liveCount = live ? live.confirmed.length + live.possible.length : 0;
+  const { rows } = buildEnrichedStockistRows(pending);
+  return liveCount + resolveEnrichedStockistRows(rows, existing).newRowCount;
 }
 
 /**
@@ -566,23 +568,23 @@ export async function runFaqPhase({
 
   const { result, durationMs } = await timePhase<FaqRunOutcome>(async () => {
     // Compute stockist count: refresh submissions query live stockists and
-    // the names the upsert will refuse; new submissions (no source_brand_id)
-    // have neither. Pending candidates (this run's, else the stored ones)
+    // the rows the upsert matches against; new submissions (no
+    // source_brand_id) have neither. Pending candidates (this run's, else the stored ones)
     // count on top of either.
-    const [persistedScrape, stockistsResult, blockedStockistNames] =
+    const [persistedScrape, stockistsResult, stockistMatchPool] =
       await Promise.all([
         loadPersistedScrapeText(auditTarget),
         brand.source_brand_id
           ? getStockistsForBrand(brand.source_brand_id)
           : Promise.resolve(null),
         brand.source_brand_id
-          ? getBlockedStockistNames(brand.source_brand_id)
-          : Promise.resolve(new Set<string>()),
+          ? getStockistMatchPool(brand.source_brand_id)
+          : Promise.resolve([]),
       ]);
     const stockistCount = countWhereToBuy(
       stockistsResult,
       resolvePendingStockists(pendingStockists, brand),
-      blockedStockistNames,
+      stockistMatchPool,
     );
 
     const peerStats = await getCategoryPeerStats(
