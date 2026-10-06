@@ -124,6 +124,13 @@ export function costFromUsage(
   };
 }
 
+export async function getModelPrice(
+  model: string,
+  at: Date = new Date(),
+): Promise<PriceRow | null> {
+  return selectPrice(await loadPrices(), model, at);
+}
+
 export async function priceUsage(
   model: string,
   usage: TokenUsage,

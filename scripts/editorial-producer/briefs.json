@@ -1,0 +1,64 @@
+{
+  "$comment": "Golden briefs for the Editorial Producer pilot harness. answers are keyed by question stage and each is used at most once; a second question at the same stage stops the run as an unanswered checkpoint. expect.status lists acceptable final states; expect.stage pins the stage a paused run must stop at.",
+  "briefs": [
+    {
+      "id": "christmas-small-apartment",
+      "brief": "準備一篇聖誕節文章：讀者要送禮給住在小套房的朋友，優先使用 Formoria 已收錄的商品。",
+      "answers": {
+        "overlap": "另寫一篇獨立的聖誕節文章，角度是適合小空間、不占位的禮物；不要更動既有的 year-end-gifts 或 small-space-reading-corner 路線。"
+      },
+      "expect": {
+        "status": ["ready_for_review"],
+        "maxQuestions": 1
+      },
+      "humanAudit": "Spot-check every cited sentence against its excerpt and every provisional selection reason."
+    },
+    {
+      "id": "desk-setup-duplicate",
+      "brief": "幫我寫一篇文章，介紹怎麼用台灣品牌的商品打造舒適的工作桌面。",
+      "answers": {},
+      "expect": {
+        "status": ["awaiting_input"],
+        "stage": "overlap",
+        "maxQuestions": 1,
+        "noDraft": true
+      },
+      "humanAudit": "The pending question must name the existing desk-setup trail and offer maintaining it."
+    },
+    {
+      "id": "no-catalog-supply",
+      "brief": "寫一篇電動車家用充電樁的選購指南，只用 Formoria 已收錄的商品。",
+      "answers": {
+        "catalog": "不要改變主題。如果型錄裡沒有合適的商品，就直接結束。"
+      },
+      "expect": {
+        "status": ["blocked"],
+        "maxQuestions": 1,
+        "noDraft": true
+      }
+    },
+    {
+      "id": "unsupported-specification",
+      "brief": "推薦幾件可以放進洗碗機清洗的台灣品牌餐具，寫成一篇選物文章。",
+      "answers": {
+        "overlap": "另寫一篇獨立文章，只聚焦官方頁面明確標示可放入洗碗機的餐具；不要更動 everyday-table 路線。"
+      },
+      "expect": {
+        "status": ["ready_for_review", "blocked"],
+        "maxQuestions": 1
+      },
+      "humanAudit": "No sentence may claim dishwasher safety unless an official excerpt states it for that exact product."
+    },
+    {
+      "id": "vague-brief",
+      "brief": "寫一篇文章。",
+      "answers": {},
+      "expect": {
+        "status": ["awaiting_input"],
+        "stage": "brief",
+        "maxQuestions": 1,
+        "noDraft": true
+      }
+    }
+  ]
+}

@@ -6,6 +6,33 @@ import type { OpsRequestRow, OpsRequestStatus } from "./types";
 type DbRow = Database["public"]["Tables"]["ops_agent_requests"]["Row"];
 type SupabaseClient = ReturnType<typeof createServiceClient>;
 
+export async function getEditorialThreadRequest(
+  channelId: string,
+  threadTs: string,
+): Promise<OpsRequestRow | null> {
+  return auditedCall(
+    {
+      provider: "ops-agent",
+      operation: "getEditorialThreadRequest",
+      kind: "service",
+    },
+    async () => {
+      const { data, error } = await createServiceClient()
+        .from("ops_agent_requests")
+        .select("*")
+        .eq("channel_id", channelId)
+        .eq("thread_ts", threadTs)
+        .contains("proposal", { kind: "start_editorial_producer" })
+        .in("status", ["executed", "running", "failed"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error("Editorial thread lookup failed");
+      return data ? toCamel(data) : null;
+    },
+  );
+}
+
 const THREAD_HISTORY_LIMIT = 10;
 
 function toCamel(row: DbRow): OpsRequestRow {
@@ -48,8 +75,7 @@ export type CreateRequestInput = {
 };
 
 export type CreateRequestResult =
-  | { duplicate: true }
-  | { duplicate: false; row: OpsRequestRow };
+  { duplicate: true } | { duplicate: false; row: OpsRequestRow };
 
 export async function createRequest(
   input: CreateRequestInput,
@@ -169,7 +195,9 @@ export async function isActiveThread(
           .is("completed_at", null);
 
         if (error) {
-          console.warn(`[ops-agent] isActiveThread query failed: ${error.message}`);
+          console.warn(
+            `[ops-agent] isActiveThread query failed: ${error.message}`,
+          );
           return false;
         }
 

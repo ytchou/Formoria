@@ -84,6 +84,12 @@ export interface InventoryEntry {
 }
 
 export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
+  EDITORIAL_PRODUCER_URL:
+    "Dedicated authenticated Editorial Producer HTTP worker origin.",
+  EDITORIAL_PRODUCER_TOKEN:
+    "Shared internal Ops-to-editorial-worker authentication token.",
+  EDITORIAL_PRODUCER_RUNS_DIR:
+    "Private durable Editorial Producer artifact directory on a mounted volume.",
   CHALLENGE_SECRET:
     "Internal challenge-cookie signing secret, not a provider service.",
   FORMORIA_LINK_HEALTH_URL: "Optional internal health-agent link target.",

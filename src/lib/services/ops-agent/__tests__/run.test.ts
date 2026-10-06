@@ -139,6 +139,8 @@ describe("runOpsAgent", () => {
 
     const passedPrompt = runGraphMock.mock.calls[0][2] as string;
     expect(passedPrompt).toContain("Always respond in English");
+    // The editorial routing rule appears only once the worker is configured.
+    expect(passedPrompt).not.toContain("start_editorial_producer");
   });
 
   // ---------------------------------------------------------------------------

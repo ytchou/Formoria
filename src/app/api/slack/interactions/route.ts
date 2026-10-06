@@ -2,7 +2,11 @@ import { captureException } from "@sentry/nextjs";
 import { after, NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { verifySlackSignature } from "@/lib/adapters/slack/signature";
-import { postMessage, updateMessage } from "@/lib/adapters/slack/web-api";
+import {
+  postMessage,
+  updateMessage,
+  resolveChannelName,
+} from "@/lib/adapters/slack/web-api";
 import { renderResultCard } from "@/lib/adapters/slack/blocks";
 import {
   getRequest,
@@ -28,6 +32,7 @@ import {
   enqueueCurationRecovery,
 } from "@/lib/services/curation-jobs";
 import { dispatchCurationJob } from "@/lib/services/curation-dispatch";
+import { evaluateGuards } from "@/lib/services/ops-agent/guards";
 import { runE2eAgentNow } from "@/lib/adapters/railway/api";
 
 export const runtime = "nodejs";
@@ -151,6 +156,24 @@ export function createInteractionsHandler(
       return NextResponse.json({});
     }
 
+    if (
+      (row.proposal as OpsProposal | null)?.kind === "start_editorial_producer"
+    ) {
+      if (
+        channelId !== row.channelId ||
+        !userId ||
+        !evaluateGuards({
+          env: deps.env,
+          slackUserId: userId,
+          channelName: await resolveChannelName(row.channelId),
+        }).ok
+      )
+        return NextResponse.json(
+          { error: "Editorial action is no longer authorized" },
+          { status: 403 },
+        );
+    }
+
     if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
       await deps.transitionRequest(row.id, ["awaiting_confirm"], "expired", {
         result: { reason: "expired" },
@@ -215,6 +238,7 @@ export function createInteractionsHandler(
         const proposal = row.proposal as OpsProposal;
         const ctx: ExecuteContext = {
           operatorEmail: row.operatorEmail ?? "",
+          operatorSlackId: row.slackUserId,
           requestId: row.id,
           channel: row.channelId,
           threadTs: row.threadTs,

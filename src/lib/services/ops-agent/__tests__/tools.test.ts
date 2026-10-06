@@ -111,7 +111,6 @@ describe("query_db", () => {
 // ---------------------------------------------------------------------------
 
 describe("fire_routine", () => {
-
   it("returns ok with description on valid args", async () => {
     const tools = createOpsTools(makeDeps(), makeCtx());
     const tool = tools.find((t) => t.definition.name === "fire_routine")!;
@@ -279,6 +278,7 @@ describe("propose_action", () => {
     expect(params.properties).not.toHaveProperty("instruction");
     expect(Object.keys(params.properties)).toEqual([
       "kind",
+      "brief",
       "slug",
       "jobId",
       "mode",
@@ -299,7 +299,7 @@ describe("propose_action", () => {
     expect(description).toContain('"unknown_brand"');
   });
 
-  it("has 3 kinds (no code_fix)", () => {
+  it("supports editorial initiation without arbitrary code execution", () => {
     const tools = createOpsTools(makeDeps(), makeCtx());
     const tool = tools.find((t) => t.definition.name === "propose_action")!;
     const params = tool.definition.parameters as {
@@ -309,6 +309,7 @@ describe("propose_action", () => {
       "refresh_brand",
       "rerun_job",
       "dispatch_workflow",
+      "start_editorial_producer",
     ]);
   });
 

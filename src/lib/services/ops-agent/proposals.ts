@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { editorialProducerConfigured } from "./editorial";
 
 // ---------------------------------------------------------------------------
 // Proposal discriminated union
@@ -24,10 +25,16 @@ const DispatchWorkflow = z.object({
   mode: z.literal("preflight").default("preflight"),
 });
 
+const StartEditorialProducer = z.object({
+  kind: z.literal("start_editorial_producer"),
+  brief: z.string().min(1).max(6000),
+});
+
 export const OpsProposalSchema = z.discriminatedUnion("kind", [
   RefreshBrand,
   RerunJob,
   DispatchWorkflow,
+  StartEditorialProducer,
 ]);
 
 export type OpsProposal = z.infer<typeof OpsProposalSchema>;
@@ -64,6 +71,12 @@ export async function validateProposal(
       return { ok: true };
     }
 
+    case "start_editorial_producer":
+      // No Start card for a worker that does not exist yet.
+      return editorialProducerConfigured()
+        ? { ok: true }
+        : { ok: false, error: "editorial_producer_not_configured" };
+
     case "rerun_job":
       return { ok: true };
   }
@@ -78,6 +91,7 @@ export type ProposalDescription = {
   steps: string;
   why: string;
   cost: string;
+  confirmLabel?: "Start";
 };
 
 export function describeProposal(proposal: OpsProposal): ProposalDescription {
@@ -104,6 +118,16 @@ export function describeProposal(proposal: OpsProposal): ProposalDescription {
         steps: `1. Trigger ${proposal.workflow} agent on Railway`,
         why: `${proposal.workflow} workflow requested`,
         cost: "1 e2e agent run",
+      };
+
+    case "start_editorial_producer":
+      return {
+        action: "Prepare article: " + proposal.brief,
+        steps:
+          "Research official catalog sources, draft zh-TW article, independently review claims, attach draft and evidence",
+        why: "Human-requested editorial preparation; final selection and publication remain yours",
+        cost: "Producer model cap US$1; 15 active minutes; 12 source pages; 24 fetch/render attempts; 20 physical model requests; 3 revisions. Ops routing and hosting billed separately.",
+        confirmLabel: "Start",
       };
 
     default:
