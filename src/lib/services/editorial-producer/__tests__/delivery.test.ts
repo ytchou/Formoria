@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -126,6 +126,9 @@ it("retries failed attachment completion using the saved file without regenerati
     throw new Error("Unexpected provider call");
   });
   await expect(deliverRun(store, run.id)).rejects.toThrow("ratelimited");
+  expect((await readdir(join(root, run.id))).sort()).toEqual(
+    expect.arrayContaining(["evidence.md", "picks.json", "trail.mdx"]),
+  );
   expect((await store.read(run.id)).delivery.files["trail.mdx"]).toMatchObject({
     fileId: "F_MARIA_1",
     uploaded: true,

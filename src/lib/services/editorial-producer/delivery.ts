@@ -291,8 +291,11 @@ export async function deliverRun(store: RunStore, id: string): Promise<void> {
       : {}),
     "evidence.md": evidencePacket(run),
   };
-  for (const [name, contents] of Object.entries(files)) {
+  // Save every file before uploading any, so a Slack failure still leaves the
+  // complete packet on the volume.
+  for (const [name, contents] of Object.entries(files))
     await store.artifact(id, name, contents);
+  for (const [name, contents] of Object.entries(files)) {
     let file = run.delivery.files[name];
     if (file?.completed) continue;
     // A lost completion acknowledgement cannot be replayed: Slack accepts completion once.
