@@ -15,6 +15,7 @@ import {
   ONLINE_STORES,
 } from '@/lib/brands/online-stores'
 import { isNonBrandSiteHost } from './enrich-phases/scraper/input-detector'
+import { sanitizeHref } from '@/lib/url'
 
 const MAX_PRODUCT_PHOTOS = 5
 
@@ -171,6 +172,91 @@ export function pageKeyHost(url: string): string {
 
 export function sameUrl(a: string, b: string): boolean {
   return pageKey(a) === pageKey(b)
+}
+
+/** Trimmed, non-empty, first-seen-order URLs. Exported for golden capture (DEV-1873). */
+export function uniqueUrls(urls: string[]): string[] {
+  const seen = new Set<string>()
+  const unique: string[] = []
+
+  for (const url of urls) {
+    const normalized = url.trim()
+    if (!normalized || seen.has(normalized)) {
+      continue
+    }
+
+    seen.add(normalized)
+    unique.push(normalized)
+  }
+
+  return unique
+}
+
+/** The brand fields that name its own URLs: `website_url` plus the link columns. */
+export type OwnedUrlSource = { website_url?: string | null } & Partial<
+  Pick<BrandFlatLinkColumns, LinkColumn>
+>
+
+/**
+ * A brand's own URLs, shared by the probe list and detect's search-result
+ * ownership tags. The submitted `website_url` leads (D15): it is the one URL
+ * the brand itself named, so the probe cap must never push it out. A
+ * schemeless `website_url` gets `https://` (fetch throws on it otherwise), and
+ * scheme, `www.` and trailing-slash variants of one page collapse to the first,
+ * so duplicates cannot eat MAX_PROBE_URLS slots.
+ */
+export function ownedUrlsFor(brand: OwnedUrlSource): string[] {
+  const seen = new Set<string>()
+  const owned: string[] = []
+  for (const url of [
+    sanitizeHref(brand.website_url) ?? '',
+    ...collectKnownUrls(brand),
+  ]) {
+    if (!url) continue
+    // pageKey ignores the query, so two same-path owned URLs differing only
+    // by query collapse; no link column holds two such URLs for one brand.
+    const key = pageKey(url)
+    if (seen.has(key)) continue
+    seen.add(key)
+    owned.push(url)
+  }
+  return owned
+}
+
+/** Reads only the link columns, so any brand-shaped row can be passed. */
+export function collectKnownUrls(
+  brand: Partial<Pick<BrandFlatLinkColumns, LinkColumn>>,
+): string[] {
+  const linkUrls = LINK_FIELDS.map(
+    (field) => brand[linkColumnFor(field)],
+  ).filter((url): url is string => hasLinkValue(url))
+
+  return uniqueUrls(linkUrls)
+}
+
+/**
+ * The `www.`-stripped hosts of the brand's own site, taken ONLY from
+ * `website_url` and `purchase_website` — the two fields that name the brand's
+ * own site. Every other link column names a third-party platform (social,
+ * marketplace), so deriving from them would let an unlisted platform host such
+ * as `shopee.com.tw` or `fb.com` count as owned, subdomains included. A
+ * marketplace URL typed into `purchase_website` is still dropped by the
+ * `isNonBrandSiteHost` filter. The allow-list that stockist text must pass,
+ * both when a scrape is persisted and when persisted rows are read back
+ * (DEV-1943). Empty when the brand has no own site on record, which drops all
+ * page-scraped stockist text for it.
+ */
+export function ownedSiteHostsFor(
+  brand: OwnedUrlSource,
+): ReadonlySet<string> {
+  const hosts = new Set<string>()
+  for (const url of [brand.website_url, brand.purchase_website]) {
+    const href = sanitizeHref(url)
+    if (!href || isNonBrandSiteHost(href)) continue
+    const host = bareHostname(href)
+    if (host) hosts.add(host)
+  }
+  return hosts
 }
 
 /**

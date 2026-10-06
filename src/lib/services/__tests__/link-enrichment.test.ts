@@ -14,6 +14,7 @@ import {
   isInstitutionalHost,
   linkIdentifiesBrand,
   linkColumnFor,
+  ownedSiteHostsFor,
   type LinkField,
 } from '../link-enrichment'
 
@@ -756,5 +757,48 @@ describe('buildImageEnrichPatch', () => {
     const storedUrls = [null, null]
     const patch = buildImageEnrichPatch(brand, storedUrls)
     expect(Object.keys(patch)).toHaveLength(0)
+  })
+})
+
+// DEV-1943: the allow-list behind the stockist-text guard, at write and read time.
+describe('ownedSiteHostsFor', () => {
+  it('takes website_url and own-site link columns, www-stripped, and drops platforms', () => {
+    expect(
+      ownedSiteHostsFor({
+        website_url: 'www.brand.com',
+        purchase_website: 'https://shop.brand.com/',
+        social_instagram: 'https://www.instagram.com/brand',
+        purchase_pinkoi: 'https://www.pinkoi.com/store/brand',
+      }),
+    ).toEqual(new Set(['brand.com', 'shop.brand.com']))
+  })
+
+  it('reads only website_url and purchase_website, never platform link columns', () => {
+    // shopee.com.tw and fb.com are absent from the deny-list, so deriving from
+    // every link column would mark them owned (review finding B2).
+    expect(
+      ownedSiteHostsFor({
+        purchase_website: 'https://www.brand.com',
+        purchase_shopee: 'https://shopee.com.tw/x',
+        social_facebook: 'https://fb.com/x',
+      }),
+    ).toEqual(new Set(['brand.com']))
+  })
+
+  it('drops a marketplace URL typed into purchase_website', () => {
+    expect(
+      ownedSiteHostsFor({
+        purchase_website: 'https://www.pinkoi.com/store/brand',
+      }).size,
+    ).toBe(0)
+  })
+
+  it('is empty when the brand has no own site on record', () => {
+    expect(
+      ownedSiteHostsFor({
+        website_url: null,
+        social_instagram: 'https://www.instagram.com/brand',
+      }).size,
+    ).toBe(0)
   })
 })

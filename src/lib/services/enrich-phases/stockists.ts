@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
-import { loadPersistedScrapeText } from "./descriptions";
+import { effectiveOwnedSiteHosts, loadPersistedScrapeText } from "./descriptions";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -25,6 +25,7 @@ import {
   STOCKISTS_NONE_FOUND_SKIP_DETAIL,
   timePhase,
   type EnrichBrand,
+  type EnrichPatch,
   type EnrichPhase,
 } from "./types";
 import { MAX_ACTIVE_STOCKISTS_PER_BRAND } from "../stockists";
@@ -94,6 +95,12 @@ type StockistsPhaseOptions = {
   phases: EnrichPhase[];
   target?: EnrichmentTarget;
   jobId?: string;
+  /**
+   * Patch accumulated by earlier phases this run. Required (may be undefined)
+   * so no caller can forget it: the owned-site allow-list must see a
+   * `purchase_website` this run revoked or patched (review BS1, DEV-1943).
+   */
+  pendingPatch: EnrichPatch | undefined;
   deps?: StockistsDeps;
 };
 
@@ -230,6 +237,7 @@ export async function runStockistsPhase({
   phases,
   target,
   jobId,
+  pendingPatch,
   deps = {},
 }: StockistsPhaseOptions): Promise<StockistsPhaseOutput> {
   if (!phases.includes("stockists")) {
@@ -253,7 +261,10 @@ export async function runStockistsPhase({
         const auditTarget = target ?? brandTarget(brand.id);
         const loadScrape =
           deps.loadPersistedScrapeText ?? loadPersistedScrapeText;
-        const persistedScrape = await loadScrape(auditTarget);
+        const persistedScrape = await loadScrape(
+          auditTarget,
+          effectiveOwnedSiteHosts(brand, pendingPatch),
+        );
 
         if (!persistedScrape.siteContent) {
           return {

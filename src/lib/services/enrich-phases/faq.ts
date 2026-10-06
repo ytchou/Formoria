@@ -36,7 +36,7 @@ import {
 import type { StockistCandidate } from "@/lib/types/stockist";
 import { parseSubmissionStockists } from "@/lib/types/enriched-data";
 import { createServiceClient } from "@/lib/supabase/service";
-import { loadPersistedScrapeText } from "./descriptions";
+import { effectiveOwnedSiteHosts, loadPersistedScrapeText } from "./descriptions";
 import {
   buildProfiledEnrichmentConfig,
   createProfiledOpenAIClient,
@@ -55,6 +55,7 @@ import {
   getDisplayBrandName,
   timePhase,
   type EnrichBrand,
+  type EnrichPatch,
   type EnrichPhase,
   type EnrichScrapedData,
 } from "./types";
@@ -82,6 +83,12 @@ type FaqPhaseOptions = {
    * stockists phase just found stores for (DEV-1928).
    */
   pendingStockists?: readonly StockistCandidate[];
+  /**
+   * Patch accumulated by earlier phases this run. Required (may be undefined)
+   * so no caller can forget it: the owned-site allow-list must see a
+   * `purchase_website` this run revoked or patched (review BS1, DEV-1943).
+   */
+  pendingPatch: EnrichPatch | undefined;
 };
 
 type LiveStockists = {
@@ -552,6 +559,7 @@ export async function runFaqPhase({
   supabase,
   explicitPhases,
   pendingStockists,
+  pendingPatch,
 }: FaqPhaseOptions): Promise<FaqPhaseOutput> {
   if (!phases.includes("faq")) return skipped("faq phase not requested");
   if (target?.type !== "submission")
@@ -573,7 +581,10 @@ export async function runFaqPhase({
     // count on top of either.
     const [persistedScrape, stockistsResult, stockistMatchPool] =
       await Promise.all([
-        loadPersistedScrapeText(auditTarget),
+        loadPersistedScrapeText(
+          auditTarget,
+          effectiveOwnedSiteHosts(brand, pendingPatch),
+        ),
         brand.source_brand_id
           ? getStockistsForBrand(brand.source_brand_id)
           : Promise.resolve(null),

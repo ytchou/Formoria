@@ -13,7 +13,6 @@ import {
   resolveRefreshEnrichmentPatch,
 } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
-import type { LinkColumn } from "@/lib/types/link-fields";
 import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
@@ -29,18 +28,18 @@ import { runBlocks } from "./enrich-blocks/runner";
 import { restoreAcquireCheckpoint } from "./enrich-blocks/hydration";
 import { createSupabasePhaseOutputStore, toAcquireCarry, isUsablePhaseOutput, mergeSelectedPhaseOutputs } from "./enrich-blocks/phase-outputs";
 import { isNoOpTarget } from "./enrich-phases/phase-satisfaction";
-import { normalizeToRootUrl, sanitizeHref } from "@/lib/url";
+import { normalizeToRootUrl } from "@/lib/url";
 import {
   ONLINE_STORES,
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
 import {
   buildLinkEnrichPatch,
+  collectKnownUrls,
   extractLinksFromUrls,
   hasLinkValue,
-  LINK_FIELDS,
-  linkColumnFor,
-  pageKey,
+  ownedUrlsFor,
+  uniqueUrls,
 } from "./link-enrichment";
 import {
   collectHubUrls,
@@ -142,6 +141,9 @@ import {
 
 export type { CurationConfig, OperationResult };
 export { shouldSkipForNonBrand } from "./enrich-phases/detect";
+// Moved to link-enrichment so enrich-phases can share them without an import
+// cycle (DEV-1943); re-exported to keep this module's public interface.
+export { collectKnownUrls, ownedUrlsFor, uniqueUrls } from "./link-enrichment";
 
 type EnrichOperationResult = OperationResult & {
   enrichmentSummary: EnrichmentSummary;
@@ -556,24 +558,6 @@ export function mergeSubmissionEnrichedData(
   return merged;
 }
 
-/** Trimmed, non-empty, first-seen-order URLs. Exported for golden capture (DEV-1873). */
-export function uniqueUrls(urls: string[]): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-
-  for (const url of urls) {
-    const normalized = url.trim();
-    if (!normalized || seen.has(normalized)) {
-      continue;
-    }
-
-    seen.add(normalized);
-    unique.push(normalized);
-  }
-
-  return unique;
-}
-
 /**
  * Every Gate A message starts with this marker. It is the only thing that
  * survives the throw -> per-brand catch -> persisted target round trip, so it
@@ -889,47 +873,6 @@ export function serpNameQuery(name: string, handle: string | null): string {
   return handle && isUsableHandle(handle)
     ? `${name} ${handle} 台灣`
     : `${name} 台灣`;
-}
-
-/**
- * A brand's own URLs, shared by the probe list and detect's search-result
- * ownership tags. The submitted `website_url` leads (D15): it is the one URL
- * the brand itself named, so the probe cap must never push it out. A
- * schemeless `website_url` gets `https://` (fetch throws on it otherwise), and
- * scheme, `www.` and trailing-slash variants of one page collapse to the first,
- * so duplicates cannot eat MAX_PROBE_URLS slots.
- */
-export function ownedUrlsFor(
-  brand: { website_url?: string | null } & Partial<
-    Pick<BrandFlatLinkColumns, LinkColumn>
-  >,
-): string[] {
-  const seen = new Set<string>();
-  const owned: string[] = [];
-  for (const url of [
-    sanitizeHref(brand.website_url) ?? "",
-    ...collectKnownUrls(brand),
-  ]) {
-    if (!url) continue;
-    // pageKey ignores the query, so two same-path owned URLs differing only
-    // by query collapse; no link column holds two such URLs for one brand.
-    const key = pageKey(url);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    owned.push(url);
-  }
-  return owned;
-}
-
-/** Reads only the link columns, so any brand-shaped row can be passed. */
-export function collectKnownUrls(
-  brand: Partial<Pick<BrandFlatLinkColumns, LinkColumn>>,
-): string[] {
-  const linkUrls = LINK_FIELDS.map(
-    (field) => brand[linkColumnFor(field)],
-  ).filter((url): url is string => hasLinkValue(url));
-
-  return uniqueUrls(linkUrls);
 }
 
 /**
@@ -2795,6 +2738,7 @@ export async function runEnrich(
                           phases: input.phases,
                           target: input.target,
                           jobId: input.jobId,
+                          pendingPatch: input.pendingPatch,
                         });
                         return {
                           phaseResult: result.phaseResult,
@@ -2813,6 +2757,7 @@ export async function runEnrich(
                           jobId: input.jobId,
                           explicitPhases: input.explicitPhases ?? [],
                           pendingStockists: input.pendingStockists,
+                          pendingPatch: input.pendingPatch,
                         });
                         return {
                           phaseResult: result.phaseResult,
@@ -3078,6 +3023,7 @@ export async function runEnrich(
                           phases,
                           target: { type: targetType, id: brand.id },
                           jobId: config.jobId,
+                          pendingPatch: buildPendingPatch(state.outputs),
                         });
                         phaseOutputs.push({ phaseResult: stockistsResult.phaseResult, output: { patch: stockistsResult.patch } });
                         state.phaseResults.push(stockistsResult.phaseResult);
@@ -3102,6 +3048,7 @@ export async function runEnrich(
                           explicitPhases: bctx.plan?.explicit ?? config.explicitPhases ?? [],
                           // Only the stockists phase above writes this key.
                           pendingStockists: editorialFallbackPatch.stockists,
+                          pendingPatch: buildPendingPatch(state.outputs),
                         });
                         phaseOutputs.push({ phaseResult: faqResult.phaseResult, output: { patch: faqResult.patch } });
                         state.phaseResults.push(faqResult.phaseResult);

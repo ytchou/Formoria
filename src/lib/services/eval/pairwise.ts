@@ -4,6 +4,7 @@ import type { PersistedScrapeText } from '@/lib/services/enrich-phases/descripti
 import type { DescriptionEvidence } from '@/lib/services/description-rewrite'
 import type { DescriptionRewriteOutput } from '@/lib/services/description-rewrite'
 import type { EnrichBrand } from '@/lib/services/enrich-phases/types'
+import { ownedSiteHostsFor, type OwnedUrlSource } from '@/lib/services/link-enrichment'
 import {
   pairByOfficialUrl,
   driftRate,
@@ -20,7 +21,7 @@ export type PairwiseBrand = {
   category: string | null
   slug: string
   description: string | null
-}
+} & OwnedUrlSource
 
 type BlindMapping = { left: 'a' | 'b'; right: 'a' | 'b' }
 
@@ -58,7 +59,10 @@ export type PairwiseReportResult = {
 // ---------------------------------------------------------------------------
 
 export type BuildDescriptionTaskDeps = {
-  loadPersistedScrapeText: (target: EnrichmentTarget) => Promise<PersistedScrapeText>
+  loadPersistedScrapeText: (
+    target: EnrichmentTarget,
+    ownedSiteHosts: ReadonlySet<string>,
+  ) => Promise<PersistedScrapeText>
   buildDescriptionEvidence: (
     brand: EnrichBrand,
     pendingPatch: undefined,
@@ -196,7 +200,7 @@ export async function buildDescriptionTask({
   deps: BuildDescriptionTaskDeps
 }): Promise<DescriptionRewriteOutput | null> {
   const target = brandTarget(brand.id)
-  const scrapeText = await deps.loadPersistedScrapeText(target)
+  const scrapeText = await deps.loadPersistedScrapeText(target, ownedSiteHostsFor(brand))
   const evidence = deps.buildDescriptionEvidence(
     brand as unknown as EnrichBrand,
     undefined,

@@ -2433,6 +2433,7 @@ async function cmdPairwiseRun(
   const { loadPersistedScrapeText, buildDescriptionEvidence } = await import(
     '@/lib/services/enrich-phases/descriptions'
   )
+  const { ownedSiteHostsFor } = await import('@/lib/services/link-enrichment')
 
   if (armSpecs.length !== 2) {
     console.error('Pairwise run requires exactly 2 arms')
@@ -2490,7 +2491,7 @@ async function cmdPairwiseRun(
       console.log(`\nRunning arm "${label}" on ${sampled.length} brands...`)
       for (const brand of sampled) {
         try {
-          const scrapeText = await loadPersistedScrapeText(brand.id)
+          const scrapeText = await loadPersistedScrapeText(brand.id, ownedSiteHostsFor(brand))
           const evidence = buildDescriptionEvidence(
             brand as Parameters<typeof buildDescriptionEvidence>[0],
             undefined,

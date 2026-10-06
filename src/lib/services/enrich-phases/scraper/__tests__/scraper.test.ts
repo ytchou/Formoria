@@ -337,6 +337,91 @@ describe('scrapeBrandUrls directives', () => {
   })
 })
 
+// DEV-1943: stockist text is kept only from a page on one of the brand's own
+// site hosts. A deny-list let any unlisted third-party host through.
+describe('scrapeBrandUrls stockist ownership guard', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function stubPages(pages: Record<string, string>) {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((u: string) => {
+      const body = pages[String(u).replace(/\/$/, '')]
+      return Promise.resolve(body
+        ? new Response(body, { status: 200, headers: { 'content-type': 'text/html' } })
+        : new Response('x', { status: 404 }))
+    }))
+  }
+
+  const crawlDirective = (url: string) => new Map([
+    [url, { fetch: 'static' as const, strategy: 'deep-multi-page' as const, reason: 'listing' }],
+  ])
+
+  it('drops stockist text crawled from a host the brand does not own', async () => {
+    stubPages({
+      'https://mall.example/brand': `<html><head><meta property="og:title" content="Brand"></head><body>
+        <nav><a href="/stores">門市</a></nav></body></html>`,
+      'https://mall.example/stores': '<html><body><main>寶雅 屈臣氏 Costco</main></body></html>',
+    })
+
+    const { data } = await scrapeBrandUrls(['https://mall.example/brand'], {
+      directives: crawlDirective('https://mall.example/brand'),
+      ownedSiteHosts: new Set(['brand.com']),
+    })
+
+    expect(data.brandName).toBe('Brand')
+    expect(data.stockistPageText).toBeNull()
+  })
+
+  it('keeps stockist text crawled from the brand own site', async () => {
+    stubPages({
+      'https://brand.com': `<html><head><meta property="og:title" content="Brand"></head><body>
+        <nav><a href="/stores">門市</a></nav></body></html>`,
+      'https://brand.com/stores': '<html><body><main>誠品書店 信義店</main></body></html>',
+    })
+
+    const { data } = await scrapeBrandUrls(['https://brand.com'], {
+      directives: crawlDirective('https://brand.com'),
+      ownedSiteHosts: new Set(['brand.com']),
+    })
+
+    expect(data.stockistPageText).toContain('誠品書店')
+  })
+
+  it('reads a directly scraped store-locator page as stockist text only on an owned host', async () => {
+    const locator = 'https://shop.brand.com/pages/store-locator'
+    stubPages({
+      [locator]: '<html><head><title>Store locator</title></head><body><main>誠品書店 信義店 台北市信義區松高路11號</main></body></html>',
+    })
+
+    const owned = await scrapeBrandUrls([locator], { ownedSiteHosts: new Set(['brand.com']) })
+    expect(owned.data.stockistPageText).toContain('誠品書店 信義店')
+
+    const unguarded = await scrapeBrandUrls([locator])
+    expect(unguarded.data.stockistPageText).toBeNull()
+  })
+
+  // Redirects are followed, so the requested host says nothing about whose
+  // venue list the body is.
+  it('drops stockist text when an owned URL redirects to a host the brand does not own', async () => {
+    const requested = 'https://brand.com/where-to-buy'
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((u: string) => {
+      if (String(u) !== requested) return Promise.resolve(new Response('x', { status: 404 }))
+      const redirected = new Response(
+        '<html><head><meta property="og:title" content="Retailer"></head><body><main>寶雅 屈臣氏 Costco</main></body></html>',
+        { status: 200, headers: { 'content-type': 'text/html' } },
+      )
+      Object.defineProperty(redirected, 'url', { value: 'https://retailer.example/store-locator' })
+      return Promise.resolve(redirected)
+    }))
+
+    const { data } = await scrapeBrandUrls([requested], { ownedSiteHosts: new Set(['brand.com']) })
+
+    expect(data.brandName).toBe('Retailer')
+    expect(data.stockistPageText).toBeNull()
+  })
+})
+
 describe('mergeSocialLinks (flat output)', () => {
   it('later source wins for flat fields when merging scraped data', () => {
     const base = {

@@ -680,6 +680,7 @@ describe("runFaqPhase langfuse variables", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(fetchLangfusePromptWithMeta).toHaveBeenCalledWith(
@@ -717,6 +718,35 @@ describe("runFaqPhase submission-only contract", () => {
     vi.unstubAllEnvs();
   });
 
+  // Review BS1: a purchase_website this run revoked must not stay owned.
+  it("reads persisted scrape text without a host this run's pendingPatch revoked", async () => {
+    getCategoryPeerStats.mockResolvedValue(null);
+    loadPersistedScrapeText.mockResolvedValue({
+      snippets: [],
+      siteContent: null,
+    });
+    getBrandFaqEntries.mockResolvedValue([]);
+    getStockistsForBrand.mockResolvedValue({ confirmed: [], possible: [] });
+    createClient.mockReturnValue({
+      chat: vi.fn().mockResolvedValue({
+        response: { ok: true },
+        content: JSON.stringify({ entries: [] }),
+      }),
+    });
+    const target = { type: "submission" as const, id: "sub-1" };
+
+    await runFaqPhase({
+      brand: { ...ENRICH_BRAND, purchase_website: "https://brand.com" },
+      phases: ["faq"] as EnrichPhase[],
+      scrapedData: null,
+      serpSnippets: [],
+      target,
+      pendingPatch: { purchase_website: null },
+    });
+
+    expect(loadPersistedScrapeText).toHaveBeenCalledWith(target, new Set());
+  });
+
   it("refuses_non_submission_targets", async () => {
     const output = await runFaqPhase({
       brand: ENRICH_BRAND,
@@ -724,6 +754,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "brand", id: BRAND.id },
+      pendingPatch: undefined,
     });
 
     expect(output.phaseResult.status).toBe("skipped");
@@ -754,6 +785,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(output.phaseResult.status).toBe("succeeded");
@@ -791,6 +823,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(output.patch).toEqual({});
@@ -819,6 +852,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(createClient).toHaveBeenCalled();
@@ -868,6 +902,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
     });
 
     expect(output.phaseResult.status).toBe("skipped");
@@ -897,6 +932,7 @@ describe("runFaqPhase submission-only contract", () => {
       scrapedData: null,
       serpSnippets: [],
       target: { type: "submission", id: "sub-1" },
+      pendingPatch: undefined,
       overwrite: true,
     });
 

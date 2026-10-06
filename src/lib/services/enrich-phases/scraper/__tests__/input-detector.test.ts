@@ -4,6 +4,7 @@ import {
   detectInputType,
   isLinkAggregatorHost,
   isNonBrandSiteHost,
+  isOwnedSiteHost,
   isPublishingPlatformSubdomain,
   isThirdPartyDirectoryHost,
 } from '../input-detector'
@@ -149,6 +150,41 @@ describe('isPublishingPlatformSubdomain', () => {
     'not-a-url',
   ])('is false for %s', (url) => {
     expect(isPublishingPlatformSubdomain(url)).toBe(false)
+  })
+})
+
+// DEV-1943: stockist text is kept only from a page on the brand's own site.
+describe('isOwnedSiteHost', () => {
+  const owned = new Set(['brand.com'])
+
+  it('matches the exact host', () => {
+    expect(isOwnedSiteHost('https://brand.com/stores', owned)).toBe(true)
+  })
+
+  it('matches the www. variant', () => {
+    expect(isOwnedSiteHost('https://www.brand.com/stores', owned)).toBe(true)
+  })
+
+  it('matches a subdomain of an owned host', () => {
+    expect(isOwnedSiteHost('https://shop.brand.com/pages/store-locator', owned)).toBe(true)
+  })
+
+  it('rejects an unrelated host, including a suffix look-alike', () => {
+    expect(isOwnedSiteHost('https://mall.example/stores', owned)).toBe(false)
+    expect(isOwnedSiteHost('https://notbrand.com/stores', owned)).toBe(false)
+  })
+
+  it('treats sibling subdomains on a shared platform as different owners', () => {
+    expect(isOwnedSiteHost('https://b.myshopify.com/pages/stores', new Set(['a.myshopify.com']))).toBe(false)
+  })
+
+  it('fails closed for an empty or absent owned-host set', () => {
+    expect(isOwnedSiteHost('https://brand.com/stores', new Set())).toBe(false)
+    expect(isOwnedSiteHost('https://brand.com/stores', undefined)).toBe(false)
+  })
+
+  it('returns false for a malformed URL', () => {
+    expect(isOwnedSiteHost('not-a-url', owned)).toBe(false)
   })
 })
 

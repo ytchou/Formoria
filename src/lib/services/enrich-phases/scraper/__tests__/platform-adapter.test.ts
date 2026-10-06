@@ -161,4 +161,24 @@ describe('PlatformAdapterStrategy', () => {
 
     mockedFetchHtml.mockReset()
   })
+
+  // DEV-1943: a platform store-locator page carries its own venue list.
+  it('sets stockistPageText for a Shopline store-locator page only', async () => {
+    const html =
+      '<script>Shopline.theme={}</script><a href="/products/cup"><img src="https://img.shoplineapp.com/cup.jpg"></a>' +
+      '<main>誠品書店 信義店 台北市信義區松高路11號</main>'
+
+    const locator = await new PlatformAdapterStrategy().scrape(
+      'https://shop.example/pages/store-locator',
+      { prefetchedHtml: html },
+    )
+    expect(locator.stockistPageText).toContain('誠品書店 信義店')
+    expect(locator.stockistPageText).not.toContain('Shopline.theme')
+
+    const product = await new PlatformAdapterStrategy().scrape(
+      'https://shop.example/products/cup',
+      { prefetchedHtml: html },
+    )
+    expect(product.stockistPageText).toBeNull()
+  })
 })
