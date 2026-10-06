@@ -4,6 +4,8 @@ import {
   planToDirectives,
   boundedPlan,
 } from '../plan'
+import { selectStrategy } from '../../scraper/router'
+import { CrawlStrategy } from '../../scraper/strategies/crawl'
 // The single Zod → JSON Schema converter. `plan.ts` used to keep a local copy.
 import { toStrictJsonSchema } from '../../../_shared/zod-schema'
 
@@ -111,6 +113,22 @@ describe('AcquisitionPlan', () => {
       strategy: 'official-site',
       reason: 'spa',
     })
+  })
+
+  // DEV-1939: the planner labels every brand homepage `official-site`; forcing
+  // that over the detector suppressed the crawl that produces stockistPageText.
+  it('planToDirectives_defers_official_site_to_detector', () => {
+    const plan = AcquisitionPlan.parse({
+      ...validPlan,
+      surfaces: [
+        { url: 'https://a.com', fetch: 'static', strategy: 'official-site', reason: 'home' },
+      ],
+    })
+    const directive = planToDirectives(plan).get('https://a.com')
+    expect(directive).toEqual({ fetch: 'static', reason: 'home' })
+    expect(selectStrategy('deep-multi-page', 'https://a.com', directive)).toBeInstanceOf(
+      CrawlStrategy,
+    )
   })
 
   it('boundedPlan truncates plan above 8 KB', () => {

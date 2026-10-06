@@ -59,14 +59,17 @@ export const MAX_SCRAPE_URLS_PER_BRAND = 6
  * exhibitor listing carries its blurb and product shots — but the accounts
  * linked from it belong to whoever runs the page. Those are the fields that
  * published a stranger's Facebook page as 23 brands' own (DEV-1332), so they are
- * the only ones dropped. Applied before `hasContent` and before the audit
- * snapshot, so the trail records what we actually kept.
+ * dropped. So is crawled stockist text: an organiser's "where to buy" page lists
+ * the organiser's venues, and the stockists phase reads it unfiltered (DEV-1939).
+ * Applied before `hasContent` and before the audit snapshot, so the trail records
+ * what we actually kept.
  */
 function withoutThirdPartyLinks(url: string, data: ScrapedBrandData): ScrapedBrandData {
   if (!isThirdPartyDirectoryHost(url)) return data
 
   return {
     ...data,
+    stockistPageText: null,
     socialInstagram: null,
     socialThreads: null,
     socialFacebook: null,

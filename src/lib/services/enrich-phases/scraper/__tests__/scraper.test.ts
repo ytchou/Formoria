@@ -311,6 +311,30 @@ describe('scrapeBrandUrls directives', () => {
     expect(data.brandName).toBe('My Brand | Official')
     expect(renderProvider.fetchRendered).toHaveBeenCalled()
   })
+
+  // DEV-1939: a crawled organiser page's "where to buy" list is the organiser's
+  // venues, and stockist text skips the stockists phase's filter.
+  it('drops stockistPageText harvested from a third-party directory host', async () => {
+    const pages: Record<string, string> = {
+      'https://creativexpo.tw/exhibitor/brand': `<html><head><meta property="og:title" content="Brand"></head><body>
+        <nav><a href="/about">關於</a><a href="/where-to-buy">通路</a></nav></body></html>`,
+      'https://creativexpo.tw/where-to-buy': '<html><body><main>寶雅 屈臣氏 Costco</main></body></html>',
+    }
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((u: string) => {
+      const body = pages[String(u).replace(/\/$/, '')]
+      return Promise.resolve(body
+        ? new Response(body, { status: 200, headers: { 'content-type': 'text/html' } })
+        : new Response('x', { status: 404 }))
+    }))
+
+    const directives = new Map([
+      ['https://creativexpo.tw/exhibitor/brand', { fetch: 'static' as const, strategy: 'deep-multi-page' as const, reason: 'listing' }],
+    ])
+    const { data } = await scrapeBrandUrls(['https://creativexpo.tw/exhibitor/brand'], { directives })
+
+    expect(data.brandName).toBe('Brand')
+    expect(data.stockistPageText).toBeNull()
+  })
 })
 
 describe('mergeSocialLinks (flat output)', () => {
