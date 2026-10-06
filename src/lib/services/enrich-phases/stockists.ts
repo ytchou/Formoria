@@ -107,32 +107,73 @@ type StockistsPhaseOutput = {
   patch: { stockists?: StockistCandidate[] };
 };
 
+const URL_PREFIX = "URL: ";
+
 /**
  * Filters siteContent to paragraphs containing stockist signal words.
  * Sections tagged as `stockistPageText` (prefixed with "Stockist Page:") pass
- * unfiltered. Returns null when no signal paragraphs are found.
+ * unfiltered. A section's `URL:` line is kept ahead of its first kept
+ * paragraph and never on its own: a URL is not evidence, and `/store/` in a
+ * marketplace path matched "store" (DEV-1941). Returns null when no signal
+ * paragraphs are found.
  */
 export function filterStockistEvidence(siteContent: string): string | null {
   const paragraphs = siteContent.split(/\n/);
   const kept: string[] = [];
+  let pendingUrlLine: string | null = null;
 
   for (const paragraph of paragraphs) {
     const trimmed = paragraph.trim();
     if (!trimmed) continue;
 
-    // stockistPageText sections pass unfiltered
-    if (trimmed.startsWith("Stockist Page:") || trimmed.startsWith("stockistPageText:")) {
-      kept.push(trimmed);
+    if (trimmed.startsWith(URL_PREFIX)) {
+      pendingUrlLine = trimmed;
       continue;
     }
 
+    // stockistPageText sections pass unfiltered
     const lower = trimmed.toLowerCase();
-    if (SIGNAL_WORDS.some((word) => lower.includes(word.toLowerCase()))) {
+    if (
+      trimmed.startsWith("Stockist Page:") ||
+      trimmed.startsWith("stockistPageText:") ||
+      SIGNAL_WORDS.some((word) => lower.includes(word.toLowerCase()))
+    ) {
+      if (pendingUrlLine) kept.push(pendingUrlLine);
+      pendingUrlLine = null;
       kept.push(trimmed);
     }
   }
 
   return kept.length > 0 ? kept.join("\n") : null;
+}
+
+/**
+ * Pins each candidate's `sourceUrl` to a URL that labels a section of the
+ * evidence the model read. The model's citation stands only when it names one
+ * of those URLs; otherwise a single-section evidence supplies its URL, and
+ * anything ambiguous is cleared rather than guessed (DEV-1941).
+ */
+export function attributeSourceUrls(
+  candidates: StockistCandidate[],
+  evidence: string,
+): StockistCandidate[] {
+  const evidenceUrls = [
+    ...new Set(
+      evidence
+        .split("\n")
+        .filter((line) => line.startsWith(URL_PREFIX))
+        .map((line) => line.slice(URL_PREFIX.length).trim()),
+    ),
+  ];
+  const onlyUrl = evidenceUrls.length === 1 ? evidenceUrls[0] : null;
+
+  return candidates.map((candidate) => ({
+    ...candidate,
+    sourceUrl:
+      candidate.sourceUrl && evidenceUrls.includes(candidate.sourceUrl)
+        ? candidate.sourceUrl
+        : onlyUrl,
+  }));
 }
 
 const VALID_CITY_SLUGS = new Set<string>(CITY_SLUGS);
@@ -292,7 +333,10 @@ export async function runStockistsPhase({
           ? validatedContent.data
           : { stockists: [] };
         const rawEntries = parsed.stockists;
-        const candidates = validateStockistCandidates(rawEntries);
+        const candidates = attributeSourceUrls(
+          validateStockistCandidates(rawEntries),
+          evidence,
+        );
         const now = new Date().toISOString();
         const timestamped = candidates.map((c) => ({ ...c, fetchedAt: now }));
         return { candidates: timestamped };
