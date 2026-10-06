@@ -14,6 +14,7 @@ import {
   type EnrichmentTarget,
 } from './_shared/enrichment-target'
 import { uploadWithRetry } from './storage-retry'
+import { visionDataUri } from './vision-image'
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
 const MIN_IMAGE_SIZE_BYTES = 5_120
@@ -369,6 +370,49 @@ export async function applyProductionImageGates(
     phash,
     processed,
   }
+}
+
+/**
+ * Re-fetches one image by URL through production's gates and the vision
+ * encoder, with no DB or Storage access. Used by eval replay to rebuild the
+ * picture an acquire-path call saw. Every failure resolves to null; the caller
+ * records the skip.
+ */
+export async function fetchVisionImage(
+  url: string,
+  deps: { fetch?: typeof fetch } = {},
+): Promise<string | null> {
+  const fetchImpl = deps.fetch ?? fetch
+  return auditedCall(
+    { provider: 'images', operation: 'fetchVisionImage', kind: 'service' },
+    async (ctx) => {
+      ctx.summary.url = url
+      const controller = new AbortController()
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        IMAGE_FETCH_TIMEOUT_MS,
+      )
+      try {
+        const response = await fetchImpl(url, { signal: controller.signal })
+        ctx.summary.status = response.status
+        if (!response.ok) return null
+        const contentType = response.headers.get('content-type') ?? ''
+        const buffer = Buffer.from(await response.arrayBuffer())
+        const { processed } = await applyProductionImageGates(
+          buffer,
+          contentType,
+        )
+        return await visionDataUri(processed.buffer)
+      } catch (error) {
+        ctx.summary.error =
+          imageRejectionCode(error) ??
+          (error instanceof Error ? error.message : String(error))
+        return null
+      } finally {
+        clearTimeout(timeoutId)
+      }
+    },
+  )
 }
 
 function hammingDistance(a: string, b: string): number {

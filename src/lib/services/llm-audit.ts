@@ -72,6 +72,8 @@ export type CapturedCall = {
   /** The full conversation as the caller sent it, untruncated. A legacy `{system,user}` call becomes two messages; its `images` are not copied. */
   messages: ChatMessage[];
   response: CapturedResponse;
+  /** The learned parameter overrides that changed this attempt (`openai-client.ts`); absent when none did. */
+  paramFallback?: string[];
 };
 
 let captureSeam: ((call: CapturedCall) => void) | null = null;
@@ -102,7 +104,7 @@ const OMITTED_DATA_URI = { omitted: "data-uri" } as const;
  * The full logical request as the caller sent it, for replay. `v` versions the
  * shape. Images are rewritten so a data URI is never stored.
  */
-type LoggedRequest = { v: 1 } & Record<string, unknown>;
+export type LoggedRequest = { v: 1 } & Record<string, unknown>;
 
 // Denylist by construction: every ChatInput key must be listed (the
 // `satisfies` fails typecheck on a new field), and only `signal` is dropped.
@@ -130,8 +132,9 @@ function isDataUri(url: unknown): boolean {
 
 /**
  * Legacy `images[i]` that are data URIs become `meta.imageUrls[i]` when the two
- * lengths match; otherwise every data URI becomes a placeholder, since a
- * shifted URL would replay the wrong image.
+ * lengths match and that entry is an http(s) URL; otherwise the data URI
+ * becomes a placeholder, since a shifted URL would replay the wrong image and
+ * an empty string or storage path cannot be fetched at all.
  */
 function sanitizeImages(images: unknown, meta: unknown): unknown {
   if (!Array.isArray(images)) return images;
@@ -145,7 +148,7 @@ function sanitizeImages(images: unknown, meta: unknown): unknown {
       typeof image === "string" ? image : (image as { url?: unknown })?.url;
     if (!isDataUri(url)) return image;
     const replacement = urls?.[index];
-    return typeof replacement === "string" && !isDataUri(replacement)
+    return typeof replacement === "string" && /^https?:\/\//i.test(replacement)
       ? replacement
       : OMITTED_DATA_URI;
   });
@@ -262,6 +265,7 @@ function capture(
 ): void {
   if (!captureSeam) return;
   try {
+    const paramFallback = event.meta?.paramFallback;
     captureSeam({
       phase: context.phase,
       profileKey,
@@ -270,6 +274,9 @@ function capture(
       promptName: context.prompt?.name ?? null,
       messages: capturedMessages(input),
       response: capturedResponse(input, event),
+      ...(Array.isArray(paramFallback) && paramFallback.length > 0
+        ? { paramFallback: paramFallback.map(String) }
+        : {}),
     });
   } catch {
     // Capture is an offline observer; it must never fail the call.

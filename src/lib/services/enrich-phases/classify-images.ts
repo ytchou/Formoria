@@ -65,7 +65,7 @@ const IMAGE_CLASSIFY_BATCH_SIZE = 10;
 
 const IMAGE_DOWNLOAD_CONCURRENCY = 4;
 
-async function loadVisionDataUri(image: {
+export async function loadVisionDataUri(image: {
   storage_path?: string | null;
   url?: string | null;
 }): Promise<string | null> {
@@ -1181,12 +1181,10 @@ async function classifyChunk(
       timeoutMs: 120_000,
     }),
     meta: {
+      // Replay rebuilds stored images from Storage by id. No `imageUrls`:
+      // brand_images.url is often "" or a storage path, which the audit logger
+      // would otherwise record as an unfetchable stand-in for the data URI.
       imageIds: sendable.map(({ image }) => image.id),
-      // INVARIANT: canonical brand_images.url, never the data URIs we actually
-      // sent. `scripts/enrichment/run/curate-brands.ts` zips this by index against the
-      // classifications to key golden-set labels by URL, and base64 here would
-      // also dump megabytes into every audit row.
-      imageUrls: sendable.map(({ image }) => image.url),
     },
   };
   const response = await client.chat(chatParams);
