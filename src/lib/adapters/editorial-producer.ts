@@ -17,6 +17,11 @@ export type ProducerResult =
       deliveryError: string | null;
     }
   | { ok: false; error: string };
+// The Railway worker sleeps when idle and refuses connections for ~6s while it
+// boots, so retries span ~15s of waiting. Safe because requestId makes a
+// repeated start idempotent; raise the last delay if cold starts grow.
+const RETRY_DELAYS_MS = [0, 1_000, 2_000, 4_000, 8_000];
+const LAST_ATTEMPT = RETRY_DELAYS_MS.length - 1;
 async function dispatch(
   path: string,
   input: StartInput | CommandInput,
@@ -31,9 +36,11 @@ async function dispatch(
       ctx.summary.request = { path, input };
       const attempts: unknown[] = [];
       ctx.summary.attempts = attempts;
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt++) {
         if (attempt)
-          await new Promise((done) => setTimeout(done, attempt * 1000));
+          await new Promise((done) =>
+            setTimeout(done, RETRY_DELAYS_MS[attempt]),
+          );
         const started = Date.now();
         try {
           const response = await fetch(base + path, {
@@ -46,7 +53,10 @@ async function dispatch(
             signal: AbortSignal.timeout(20_000),
             redirect: "error",
           });
-          if ([502, 503, 504].includes(response.status) && attempt < 2) {
+          if (
+            [502, 503, 504].includes(response.status) &&
+            attempt < LAST_ATTEMPT
+          ) {
             attempts.push({
               attempt,
               status: response.status,
@@ -106,7 +116,7 @@ async function dispatch(
             status: "network_or_invalid_response",
             latencyMs: Date.now() - started,
           });
-          if (attempt === 2)
+          if (attempt === LAST_ATTEMPT)
             return {
               ok: false,
               error:
