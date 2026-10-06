@@ -4,8 +4,10 @@ overrides:
   cheerio>undici: 7.29.1
   js-yaml@>=3.0.0 <3.15.2: 3.15.2
   js-yaml@>=4.0.0 <4.3.2: 4.3.2
+  proxy-addr@<2.0.8: 2.0.8
   jsdom>undici: 7.29.1
   smol-toml@<=1.7.0: 1.7.1
+  source-map-js@<1.2.2: 1.2.2
   vite: '>=8.1.2'
   ws: '>=8.21.0'
   undici: '>=8.10.2'

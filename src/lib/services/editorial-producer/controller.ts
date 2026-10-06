@@ -14,7 +14,7 @@ import {
   type StartInput,
 } from "./types";
 
-export function runSummary(run: Run) {
+function runSummary(run: Run) {
   return {
     runId: run.id,
     status: run.status,

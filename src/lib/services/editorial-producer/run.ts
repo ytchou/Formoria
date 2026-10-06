@@ -100,7 +100,7 @@ const DraftSchema = z.object({
   openDecisions: z.array(z.string()),
 });
 /** Mirrors NOTE_MAX_CHARS in scripts/trails/lib.ts and the trail frontmatter check. */
-export const NOTE_MAX_CHARS = 20;
+const NOTE_MAX_CHARS = 20;
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ReviewSchema = z.object({
   issues: z.array(
@@ -147,7 +147,7 @@ export function deriveClaims(markdown: string): Claim[] {
  * line carrying its note's fact markers so review and the claim ledger cover
  * card notes as well as prose. Delivery renders the MDX from run.trail.
  */
-export function trailMarkdown(
+function trailMarkdown(
   run: Pick<Run, "catalog">,
   trail: TrailDraft,
 ): string {

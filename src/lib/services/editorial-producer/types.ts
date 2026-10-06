@@ -10,7 +10,7 @@ export const LIMITS = {
   modelAttempts: 20,
   revisions: 3,
 } as const;
-export const OwnerSchema = z.object({
+const OwnerSchema = z.object({
   operatorSlackId: z.string().min(1),
   channelId: z.string().min(1),
   threadTs: z.string().min(1),
@@ -82,7 +82,7 @@ export type ContentIntent = {
   content: string;
   hash: string;
 };
-export type Brief = {
+type Brief = {
   topic: string;
   audience: string;
   intent: string;
@@ -90,7 +90,7 @@ export type Brief = {
   requirements: string[];
   question: string | null;
 };
-export type Candidate = { productId: string; reason: string };
+type Candidate = { productId: string; reason: string };
 export type Source = {
   id: string;
   productId: string;
@@ -109,7 +109,7 @@ export type Fact = {
   excerpt: string;
 };
 export type Claim = { text: string; factIds: string[] };
-export type TrailPick = { productId: string; note: string; factIds: string[] };
+type TrailPick = { productId: string; note: string; factIds: string[] };
 /** The writer's trail, in content/trails/*.mdx shape; prose keeps [^fN] markers. */
 export type TrailDraft = {
   title: string;
@@ -127,7 +127,7 @@ export type TrailDraft = {
   }>;
   closing: string;
 };
-export type Question = { id: string; stage: Stage; text: string };
+type Question = { id: string; stage: Stage; text: string };
 export type Run = Owner & {
   version: 1;
   id: string;
