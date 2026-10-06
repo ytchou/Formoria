@@ -4,8 +4,10 @@ import {
   fetchPhaseHistory,
   filterSatisfiedPhases,
   isNoOpTarget,
+  phaseHistoryFromOutputs,
   type PhaseHistory,
 } from "../phase-satisfaction";
+import { isUsablePhaseCheckpoint } from "@/lib/services/enrich-blocks/phase-outputs";
 import { DEFERRED_PHASES, ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
 import type { PhaseOutputStore, PhaseOutputRow } from "@/lib/services/enrich-blocks/phase-outputs";
 import type { PhaseResult } from "@/lib/types/curation";
@@ -364,11 +366,23 @@ describe("a target counts as a no-op only when it ran nothing", () => {
     }
   });
 
-  it("is false when the stockists model ran and found nothing", () => {
-    const phaseResults = rerunWith(
-      skippedPhase("stockists", "no stockists found in evidence"),
-    );
-    expect(isNoOpTarget({ phaseResults, checkpointCount: 0 })).toBe(false);
+  it("satisfies stockists on a rerun after the model found nothing", () => {
+    // A model run that finds no stockists succeeds with an empty patch, so the
+    // rerun skips it from history instead of blocking the apply gate.
+    const row: PhaseOutputRow = {
+      id: "row-1",
+      job_id: "job-1",
+      target_id: "sub-1",
+      target_type: "submission",
+      phase: "stockists",
+      status: "succeeded",
+      output: { patch: {} },
+      persisted_at: null,
+      created_at: "2026-10-06T00:00:00.000Z",
+    };
+    expect(isUsablePhaseCheckpoint(row)).toBe(true);
+    const history = phaseHistoryFromOutputs([row]);
+    expect(checkPhaseSatisfaction("stockists", history, false, undefined, ["stockists"])).toBe("satisfied");
   });
 
   it("is false when a skipped phase carries no detail", () => {
