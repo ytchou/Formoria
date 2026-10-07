@@ -434,7 +434,7 @@ describe("proxy-owned 404s", () => {
 
   // Without the proxy these match `[locale]` with an invalid locale, whose
   // notFound() in the root layout renders Next's unbranded default 404.
-  it.each(["/foo/bar", "/ab", "/Foo"])(
+  it.each(["/foo/bar", "/ab"])(
     "rewrites %s, which no route serves, to the zh-TW not-found page",
     async (pathname) => {
       const response = await proxy(requestFor(pathname));
@@ -448,6 +448,20 @@ describe("proxy-owned 404s", () => {
       ).toBe("zh-TW");
     },
   );
+
+  it("lowercases /Foo before the not-found rewrite can see it", async () => {
+    const response = await proxy(requestFor("/Foo"));
+
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toMatch(/\/foo$/);
+  });
+
+  it("passes malformed percent-encoding through to Next", async () => {
+    const response = await proxy(requestFor("/foo/%e0%a4%a"));
+
+    expect(response.status).not.toBe(404);
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+  });
 
   it("passes a file-like path through to Next untouched", async () => {
     const response = await proxy(requestFor("/llms.txt"));
@@ -466,6 +480,7 @@ describe("isOutsideAppRoutes", () => {
   );
 
   it.each([
+    "/foo/%e0%a4%a",
     "/",
     "/en",
     "/en/foo",

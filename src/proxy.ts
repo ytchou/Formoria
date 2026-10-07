@@ -365,6 +365,13 @@ export function isOutsideAppRoutes(pathname: string): boolean {
   const [firstSegment] = segments;
   if (firstSegment === undefined) return false;
   if (segments.some((segment) => segment.includes("."))) return false;
+  // Malformed percent-encoding passes through: Next decodes the original URL
+  // even after a rewrite and would answer 500 (see the slug-decode branch).
+  try {
+    segments.forEach((segment) => decodeURIComponent(segment));
+  } catch {
+    return false;
+  }
 
   return (
     !KNOWN_LOCALES.has(firstSegment) &&
