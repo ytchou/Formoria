@@ -139,7 +139,7 @@ const NEXT_INTL_LOCALE_HEADER = "X-NEXT-INTL-LOCALE";
  * `/<locale>/<this>`, which lands on `[locale]/(site)/[...rest]/page.tsx` and
  * renders the branded not-found page instead of an empty body.
  */
-const NOT_FOUND_REWRITE_SEGMENT = "__proxy-not-found__";
+export const NOT_FOUND_REWRITE_SEGMENT = "__proxy-not-found__";
 const NON_LOCALIZED_AUTH_ROUTES = new Set([
   routes.auth.callback(),
   routes.auth.signOut(),
@@ -330,6 +330,47 @@ function isSoftLimitPath(pathname: string) {
 
   return SOFT_LIMIT_PREFIXES.some((prefix) =>
     normalizedPathname.startsWith(prefix),
+  );
+}
+
+/**
+ * First path segments Next.js serves that are neither a locale, a reserved
+ * route, nor a localized public segment. `route-registration.test.ts` checks
+ * every top-level `src/app` route and `public/` entry against
+ * `isOutsideAppRoutes`, so a new one cannot be rewritten to a 404 unnoticed.
+ */
+export const PASS_THROUGH_ROOT_SEGMENTS: ReadonlySet<string> = new Set([
+  // The same-origin image proxy, `src/app/i/[...path]`. Too short for
+  // SLUG_PATTERN, so RESERVED_ROUTES does not list it.
+  "i",
+  // Top-level directories of `public/`.
+  "data",
+  "images",
+  // RFC 8615 well-known URIs (security.txt, app links) served from `public/`.
+  ".well-known",
+  // Sentry's tunnel route, if `tunnelRoute` in next.config.ts is enabled.
+  "monitoring",
+  // The PostHog reverse-proxy path, if one is configured.
+  "ingest",
+]);
+
+/**
+ * True when the path can only match `[locale]` with an invalid locale. That
+ * match calls notFound() in the root layout, where Next renders its unbranded
+ * default 404, so the proxy rewrites these to the branded page instead.
+ * File-like paths (any segment with a `.`) always pass through to Next.
+ */
+export function isOutsideAppRoutes(pathname: string): boolean {
+  const segments = pathname.split("/").filter(Boolean);
+  const [firstSegment] = segments;
+  if (firstSegment === undefined) return false;
+  if (segments.some((segment) => segment.includes("."))) return false;
+
+  return (
+    !KNOWN_LOCALES.has(firstSegment) &&
+    !RESERVED_ROUTES.has(firstSegment) &&
+    !PUBLIC_INTL_SEGMENTS.has(firstSegment) &&
+    !PASS_THROUGH_ROOT_SEGMENTS.has(firstSegment)
   );
 }
 
@@ -926,11 +967,10 @@ async function runProxy(request: NextRequest) {
       decodedSlug = decodeURIComponent(brandSlug);
     } catch (error) {
       reportProxyFailure("slug-decode", error, "warning");
-      const locale = isAppLocale(segments[0]) ? segments[0] : "zh-TW";
-      return finalizeResponse(
-        rewriteToLocalizedNotFound(request, locale),
-        staging,
-      );
+      // Not rewritten to the branded page: Next decodes the original URL even
+      // after a rewrite and answers 500. Malformed percent-encoding never comes
+      // from a real link, so an empty 404 is enough.
+      return finalizeResponse(new NextResponse(null, { status: 404 }), staging);
     }
 
     const redirectSlug = await resolveApprovedBrandRedirect(decodedSlug);
@@ -977,6 +1017,13 @@ async function runProxy(request: NextRequest) {
         staging,
       );
     }
+  }
+
+  if (isOutsideAppRoutes(pathname)) {
+    return finalizeResponse(
+      rewriteToLocalizedNotFound(request, "zh-TW"),
+      staging,
+    );
   }
 
   const isPublicPath = isLocalizedPublicPath(pathname);

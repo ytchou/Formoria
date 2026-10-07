@@ -110,9 +110,6 @@ const nextConfig: NextConfig = {
   transpilePackages: ["react-simple-maps"],
   experimental: {
     turbopackFileSystemCacheForDev: false,
-    // Enables `src/app/global-not-found.tsx` — the app has several root
-    // layouts, so no root `not-found.tsx` can brand unmatched URLs.
-    globalNotFound: true,
     serverActions: {
       bodySizeLimit: "5mb",
     },

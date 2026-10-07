@@ -53,8 +53,14 @@ vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
   };
 });
 
-const { proxy, isOriginGuardExempt, resetProxyTelemetryForTests, config } =
-  await import("@/proxy");
+const {
+  proxy,
+  isOriginGuardExempt,
+  isOutsideAppRoutes,
+  NOT_FOUND_REWRITE_SEGMENT,
+  resetProxyTelemetryForTests,
+  config,
+} = await import("@/proxy");
 const { VISITOR_COOKIE_NAME } = await import(
   "@/lib/security/visitor-identity"
 );
@@ -399,15 +405,12 @@ describe("proxy-owned 404s", () => {
     });
   });
 
-  it("rewrites a malformed brand slug to the not-found page of the requested locale", async () => {
+  it("answers a malformed brand slug with an empty 404, not a rewrite Next would 500 on", async () => {
     const response = await proxy(requestFor("/en/brands/%e0%a4%a"));
 
     expect(response.status).toBe(404);
     expect(response.headers.get("location")).toBeNull();
-    expect(rewritePathname(response)).toMatch(/^\/en\/[^/]+$/);
-    expect(
-      response.headers.get("x-middleware-request-x-next-intl-locale"),
-    ).toBe("en");
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
 
     // The decode failure fires a lazy `import('@sentry/nextjs')`. Let it settle
     // here: an import still pending when a later case issues its own races in
@@ -427,6 +430,63 @@ describe("proxy-owned 404s", () => {
       );
       expect(response.headers.get("x-middleware-rewrite")).toBeNull();
     }, '[{"id":"brand-1"}]');
+  });
+
+  // Without the proxy these match `[locale]` with an invalid locale, whose
+  // notFound() in the root layout renders Next's unbranded default 404.
+  it.each(["/foo/bar", "/ab", "/Foo"])(
+    "rewrites %s, which no route serves, to the zh-TW not-found page",
+    async (pathname) => {
+      const response = await proxy(requestFor(pathname));
+
+      expect(response.status).toBe(404);
+      expect(rewritePathname(response)).toBe(
+        `/zh-TW/${NOT_FOUND_REWRITE_SEGMENT}`,
+      );
+      expect(
+        response.headers.get("x-middleware-request-x-next-intl-locale"),
+      ).toBe("zh-TW");
+    },
+  );
+
+  it("passes a file-like path through to Next untouched", async () => {
+    const response = await proxy(requestFor("/llms.txt"));
+
+    expect(response.status).not.toBe(404);
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+  });
+});
+
+describe("isOutsideAppRoutes", () => {
+  it.each(["/foo/bar", "/ab", "/Foo", "/foo"])(
+    "flags %s, which can only reach [locale] with an invalid locale",
+    (pathname) => {
+      expect(isOutsideAppRoutes(pathname)).toBe(true);
+    },
+  );
+
+  it.each([
+    "/",
+    "/en",
+    "/en/foo",
+    "/zh-TW/foo",
+    "/brands",
+    "/brands/x",
+    "/admin/x",
+    "/api/x",
+    "/i/brands/x.webp",
+    "/i/brands/x",
+    "/auth/callback",
+    "/robots.txt",
+    "/llms.txt",
+    "/sitemap.xml",
+    "/manifest.webmanifest",
+    "/data/x.json",
+    "/images/x/y",
+    "/.well-known/security.txt",
+    "/foo/bar.png",
+  ])("passes %s through", (pathname) => {
+    expect(isOutsideAppRoutes(pathname)).toBe(false);
   });
 });
 
