@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
 import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
+import { e2eBrandImageKey } from "../helpers/image-refs";
 import { BUDGET, POLL } from "../budgets";
 
 async function openStockistGroup(page: Page, key: string) {
@@ -370,6 +371,93 @@ test.describe("Brand detail — product shelf focus", () => {
       .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))
       .toBe("0");
   });
+});
+
+test.describe("Brand detail — hero gallery at desktop widths", () => {
+  // DEV-1948: from xl (1280px) up, the hero frame is a grid item beside the
+  // vertical thumbnail rail. With `mx-auto` and no definite width it shrank to
+  // its only content, an absolutely positioned image, and measured 0×0.
+  // Two images are needed: the rail and the grid exist only for a gallery.
+  const ONE_PIXEL_WEBP = Buffer.from(
+    "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==",
+    "base64",
+  );
+  let seeded: SeededBrand;
+  let imageKeys: string[] = [];
+
+  test.beforeAll(async ({}, workerInfo) => {
+    seeded = await seedBrand({
+      name: "hero-gallery",
+      status: "approved",
+      workerIndex: workerInfo.workerIndex,
+    });
+    const supabase = getServiceClient();
+    imageKeys = [
+      e2eBrandImageKey(seeded.brand.id, "hero.webp"),
+      e2eBrandImageKey(seeded.brand.id, "detail.webp"),
+    ];
+    for (const key of imageKeys) {
+      const { error } = await supabase.storage
+        .from("brand-images")
+        .upload(key, ONE_PIXEL_WEBP, {
+          contentType: "image/webp",
+          upsert: true,
+        });
+      if (error) throw new Error(`Failed to seed ${key}: ${error.message}`);
+    }
+    const { error: imageError } = await supabase.from("brand_images").insert(
+      imageKeys.map((key, index) => ({
+        brand_id: seeded.brand.id,
+        storage_path: key,
+        source_url: key,
+        source: "legacy",
+        status: "active",
+        sort_order: index,
+      })),
+    );
+    if (imageError) throw imageError;
+    const { error: heroError } = await supabase
+      .from("brands")
+      .update({ hero_image_storage_path: imageKeys[0] })
+      .eq("id", seeded.brand.id);
+    if (heroError) throw heroError;
+  });
+
+  test.afterAll(async () => {
+    await seeded?.cleanup();
+    if (imageKeys.length > 0) {
+      const { error } = await getServiceClient()
+        .storage.from("brand-images")
+        .remove(imageKeys);
+      if (error) throw new Error(`Failed to clean images: ${error.message}`);
+    }
+  });
+
+  for (const width of [1280, 1440]) {
+    test(`the hero frame and its first image render at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/brands/${seeded.slug}`);
+
+      const hero = page.locator("[data-brand-hero]");
+      await expect(hero).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+      const box = await hero.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThan(0);
+      expect(box?.height ?? 0).toBeGreaterThan(0);
+
+      const firstImage = hero.locator("img").first();
+      await expect
+        .poll(
+          () =>
+            firstImage.evaluate((img: HTMLImageElement) =>
+              img.complete ? img.naturalWidth : 0,
+            ),
+          POLL.UI,
+        )
+        .toBeGreaterThan(0);
+    });
+  }
 });
 
 test.describe("Brand detail — brand without links", () => {
