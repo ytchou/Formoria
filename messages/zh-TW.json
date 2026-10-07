@@ -136,15 +136,14 @@
       "description": "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣品牌探索與選物平台，從生活出發認識產品與品牌。"
     },
     "hero": {
-      "headline": "生活可以更像自己一點",
-      "subheadline": "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌",
+      "headline": "生活可以<wbr></wbr>更像自己一點",
       "searchLabel": "搜尋台灣商品",
       "searchPlaceholder": "例：送長輩的茶具、帆布包、春池",
       "browseCta": "從風格開始",
       "eyebrow": "台灣品牌探索與選物",
-      "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方",
+      "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
       "browsePrefix": "或",
-      "allBrands": "全部品牌"
+      "situationsLabel": "從一個情境開始找"
     },
     "selectedProducts": {
       "productCta": "前往品牌官方網站",
@@ -179,13 +178,15 @@
       "allCategories": "全部"
     },
     "missionCloser": {
-      "headline": "讓好東西，被更多人遇見。",
-      "subtitle": "超過 {count} 個台灣品牌加入收錄，從產品出發認識品牌。",
-      "cta": "認識更多台灣品牌"
+      "headline": "喜歡的東西，不該只是偶然遇見",
+      "subtitle": "從一件東西出發，走到做它的品牌",
+      "cta": "去品牌目錄"
     },
     "brands": {
-      "count": "超過 {count} 個台灣品牌加入收錄",
-      "browseAll": "瀏覽所有品牌"
+      "count": "{approximate, select, true {已收錄 {count} 多個台灣品牌} other {已收錄 {count} 個台灣品牌}}",
+      "browseAll": "看全部品牌",
+      "pauseMarquee": "暫停品牌輪播",
+      "playMarquee": "播放品牌輪播"
     }
   },
   "newsletter": {

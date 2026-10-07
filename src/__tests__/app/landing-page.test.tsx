@@ -125,8 +125,8 @@ vi.mock("@/components/landing/brand-strip", () => ({
     brands: { id: string; name: string }[];
     totalCount: number;
   }) => (
-    <div data-testid="brand-strip">
-      <h2>{en.landing.brands.count.replace("{count}", String(totalCount))}</h2>
+    <div data-testid="brand-strip" data-total-count={totalCount}>
+      <h2>brands.count</h2>
       <span>{brands.length} brands</span>
       <a href="/brands">{en.landing.brands.browseAll}</a>
     </div>
@@ -134,15 +134,10 @@ vi.mock("@/components/landing/brand-strip", () => ({
 }));
 
 vi.mock("@/components/landing/mission-closer", () => ({
-  default: ({ brandCount }: { brandCount: number }) => (
+  default: () => (
     <div data-testid="mission-closer">
       <h2>{en.landing.missionCloser.headline}</h2>
-      <p>
-        {en.landing.missionCloser.subtitle.replace(
-          "{count}",
-          String(brandCount),
-        )}
-      </p>
+      <p>{en.landing.missionCloser.subtitle}</p>
       <a href="/brands">{en.landing.missionCloser.cta}</a>
     </div>
   ),
@@ -503,21 +498,21 @@ describe("landing page zones", () => {
     ).toHaveAttribute("href", "/brands");
   });
 
-  it.each([
-    [291, "Over 250 "],
-    [700, "Over 650 "],
-    [30, "Over 30 "],
-  ])(
-    "rounds brand count %i down to a 50 step that 'Over' keeps true",
-    async (totalBrandCount, expected) => {
+  // BrandStrip rounds the count itself (displayBrandCount), so the zones hand
+  // it the exact total; the mission closer carries no count at all.
+  it.each([291, 700, 7])(
+    "passes the exact brand total %i to BrandStrip only",
+    async (totalBrandCount) => {
       const { container } = await renderZones({ totalBrandCount });
 
-      for (const zone of ["directory", "manifesto"]) {
-        const el = container.querySelector<HTMLElement>(
-          `[data-landing-zone="${zone}"]`,
-        )!;
-        expect(el.textContent).toContain(expected);
-      }
+      expect(screen.getByTestId("brand-strip")).toHaveAttribute(
+        "data-total-count",
+        String(totalBrandCount),
+      );
+      const manifesto = container.querySelector<HTMLElement>(
+        '[data-landing-zone="manifesto"]',
+      )!;
+      expect(manifesto.textContent).not.toMatch(/\d/);
     },
   );
 

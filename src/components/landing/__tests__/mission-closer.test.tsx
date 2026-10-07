@@ -46,9 +46,7 @@ describe("MissionCloser", () => {
   });
 
   it("renders headline and cta", async () => {
-    render(
-      await MissionCloser({ brandCount: 700 }),
-    );
+    render(await MissionCloser());
 
     const heading = screen.getByRole("heading", { level: 2 });
     expect(heading).toHaveTextContent("missionCloser.headline");
@@ -58,9 +56,7 @@ describe("MissionCloser", () => {
   });
 
   it("cta links to brands", async () => {
-    render(
-      await MissionCloser({ brandCount: 700 }),
-    );
+    render(await MissionCloser());
 
     const cta = screen.getByText("missionCloser.cta");
     expect(cta.closest("a")).toHaveAttribute("href", "/brands");

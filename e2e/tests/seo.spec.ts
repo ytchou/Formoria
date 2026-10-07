@@ -39,25 +39,25 @@ test.describe("SEO deep", () => {
         description:
           "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
         heading: "生活可以更像自己一點",
-        positioning:
-          "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌",
-        manifestoHeading: "讓好東西，被更多人遇見。",
+        lede: "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
+        manifestoHeading: "喜歡的東西，不該只是偶然遇見",
       },
       {
         path: "/en",
         title: "Formoria — Taiwanese Brand Discovery & Curation",
         // `landing.metadata.description` as DEV-1486 reconciled it. The literal
         // that stood here asserted no rendered value at all: it spliced
-        // `about.hero.subtitle` onto a variant of `landing.subheadline`, so the
-        // EN half of this test could never pass while the zh-TW half — which
-        // does quote `landing.metadata.description` — always did. Nothing caught
+        // `about.hero.subtitle` onto a variant of the hero subheadline (since
+        // deleted, DEV-1965), so the EN half of this test could never pass
+        // while the zh-TW half — which does quote
+        // `landing.metadata.description` — always did. Nothing caught
         // it because the suite only runs against deployed staging (DEV-1489).
         description:
           "Taiwanese brand discovery and curation: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path.",
-        heading: "Life can look a little more like you",
-        positioning:
-          "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands",
-        manifestoHeading: "Helping good things find more people.",
+        heading: "Life can feel a little more like you",
+        lede: "Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+        manifestoHeading:
+          "The things you love shouldn't just be chance encounters",
       },
     ] as const;
     const aboutLocales = [
@@ -91,13 +91,13 @@ test.describe("SEO deep", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: locale.heading }),
       ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-      await expect(
-        page.getByText(locale.positioning, { exact: true }),
-      ).toBeVisible();
+      // The hero lede carries the brand-voice scene line under the promise;
+      // the positioning subheadline it replaced was deleted in DEV-1965.
+      await expect(page.getByText(locale.lede, { exact: true })).toBeVisible();
       // The trust line "收錄與選物，清楚分開" left the homepage on 2026-08-17
       // when the manifesto band replaced the trust seam. It ships on /faq and
-      // the /og/trust card. What the homepage states here now is the positioning
-      // line.
+      // the /og/trust card. What the homepage closes on now is the manifesto
+      // heading.
       await expect(
         page.getByRole("heading", { name: locale.manifestoHeading, level: 2 }),
       ).toBeVisible();

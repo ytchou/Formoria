@@ -136,15 +136,14 @@
       "description": "Taiwanese brand discovery and curation: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path."
     },
     "hero": {
-      "headline": "Life can look a little more like you",
-      "subheadline": "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands",
+      "headline": "Life can feel a little more like you",
       "searchLabel": "Search Taiwanese products",
       "searchPlaceholder": "Try: tea sets for elders, canvas bags, Spring Pool",
       "browseCta": "Start from a style",
       "eyebrow": "Taiwanese brand discovery and curation",
-      "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it",
+      "lede": "Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
       "browsePrefix": "or",
-      "allBrands": "All Brands"
+      "situationsLabel": "Start from a situation"
     },
     "selectedProducts": {
       "productCta": "Go to the brand's official website",
@@ -179,13 +178,15 @@
       "allCategories": "All"
     },
     "missionCloser": {
-      "headline": "Helping good things find more people.",
-      "subtitle": "Over {count} Taiwanese brands in the directory — discover brands through their products.",
-      "cta": "Discover more Taiwanese brands"
+      "headline": "The things you love shouldn't just be chance encounters",
+      "subtitle": "Start from one thing and find the brand that makes it",
+      "cta": "Go to the brand directory"
     },
     "brands": {
-      "count": "Over {count} Taiwanese brands in the directory",
-      "browseAll": "Browse all brands"
+      "count": "{approximate, select, true {More than {count} Taiwanese brands listed} other {{count, plural, one {# Taiwanese brand listed} other {# Taiwanese brands listed}}}}",
+      "browseAll": "See all brands",
+      "pauseMarquee": "Pause brand carousel",
+      "playMarquee": "Play brand carousel"
     }
   },
   "newsletter": {
