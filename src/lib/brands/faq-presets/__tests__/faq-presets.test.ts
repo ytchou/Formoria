@@ -210,6 +210,22 @@ describe("FAQ preset catalog", () => {
     ]);
   });
 
+  // DEV-1954: the category already shows on the brand page, and the model
+  // wrote it 25+ ways, some asking about other brands. Peer stats used to be
+  // the only gate, so they must no longer re-admit it.
+  it("category-position is never authorable, even with peer stats", () => {
+    const withPeers = makeContext({ peerStats: { peerCount: 12 } });
+
+    expect(presetById("category-position").authorable?.(withPeers)).toBe(false);
+    expect(eligibleFaqPresets(withPeers).map((item) => item.id)).not.toContain(
+      "category-position",
+    );
+    // Still in the catalog, so stored rows keep a known preset id.
+    expect(FAQ_PRESETS.map((preset) => preset.id)).toContain(
+      "category-position",
+    );
+  });
+
   it("main-products render eligibility is per locale", () => {
     const mainProducts = presetById("main-products");
     const zhOnly = makeContext({
@@ -392,6 +408,29 @@ describe("FAQ preset catalog", () => {
         expect(prompt).toContain(fragment);
       }
     }
+  });
+
+  // DEV-1954: questions drifted from `brands.name` (「Golday Jewelry 日常金工」
+  // against the h1 「日常金工 golday.jewelry」). The rule is code-side, so it
+  // reaches the model without a Langfuse push.
+  it("buildFaqSystemPrompt pins the exact brand name", async () => {
+    const context = makeContext({
+      brand: makeBrand({ name: "日常金工 golday.jewelry" }),
+    });
+    const prompt = await buildFaqSystemPrompt(
+      FAQ_PREAMBLE,
+      eligibleFaqPresets(context),
+      context,
+      resolveFromSnapshot,
+    );
+
+    expect(prompt).toContain(
+      "Brand name: write it exactly as 「日常金工 golday.jewelry」 in every question and answer",
+    );
+    expect(prompt).toContain("never add, drop, translate, or reorder parts of it");
+    expect(prompt).toContain(
+      "Ask only about this brand, never about its category or other brands.",
+    );
   });
 
   it("noCommerceClaims rejects an NT$ answer", () => {

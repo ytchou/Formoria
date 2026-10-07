@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { localizeToTW, stripAiToolArtifacts } from "./taiwan-localization";
+import {
+  foldFullWidthAlphanumerics,
+  localizeToTW,
+  stripAiToolArtifacts,
+} from "./taiwan-localization";
 
 const FORMATTING_LABEL = /^(markdown|emoji|punctuation):/u;
 
@@ -85,6 +89,72 @@ describe("localizeToTW — punctuation", () => {
   it("preserves half-width punctuation in English context", () => {
     const r = localizeToTW("Hello, world! 你好");
     expect(r.text).toContain("Hello, world!");
+  });
+});
+
+// DEV-1954: the language-purity gate counted full-width letters as CJK, so the
+// model "Chinese-ified" model numbers (MD-860S -> ＭＤ－８６０Ｓ) to pass it.
+// Latin letters, digits and model numbers stay half-width in either language.
+describe("localizeToTW — half-width alphanumerics", () => {
+  it.each([
+    ["a model number", "吸塵器 MD-860S 重量輕"],
+    ["a certification name", "通過 OEKO-TEX 認證"],
+    ["a digit-letter token", "配置 3D 立體揹帶"],
+  ])("leaves a half-width %s untouched", (_label, source) => {
+    const r = localizeToTW(source);
+    expect(r.text).toBe(source);
+    expect(r.substitutions).toEqual([]);
+  });
+
+  it.each([
+    ["a model number", "吸塵器ＭＤ－８６０Ｓ重量輕", "吸塵器MD-860S重量輕"],
+    ["a certification name", "通過ＯＥＫＯ－ＴＥＸ認證", "通過OEKO-TEX認證"],
+    ["a digit-letter token", "配置３Ｄ立體揹帶", "配置3D立體揹帶"],
+  ])("folds a full-width %s to half-width", (_label, source, expected) => {
+    const r = localizeToTW(source);
+    expect(r.text).toBe(expected);
+    expect(r.substitutions).toContain("alphanumeric:half-width");
+  });
+
+  it("keeps CJK punctuation full-width while folding the model number", () => {
+    const r = localizeToTW("吸塵器ＭＤ－８６０Ｓ重量輕，收納方便。");
+    expect(r.text).toBe("吸塵器MD-860S重量輕，收納方便。");
+  });
+
+  it("leaves a full-width joiner between Han characters alone", () => {
+    const r = localizeToTW("台灣－製造／設計");
+    expect(r.text).toBe("台灣－製造／設計");
+    expect(r.substitutions).toEqual([]);
+  });
+
+  it("folds English prose too", () => {
+    const r = localizeToTW("The ＭＤ－８６０Ｓ vacuum", { language: "en" });
+    expect(r.text).toBe("The MD-860S vacuum");
+    expect(r.substitutions).toContain("alphanumeric:half-width");
+  });
+
+  it("leaves the protected brand name span untouched", () => {
+    const r = localizeToTW("ＡＢＣ工作室推出ＭＤ－１型", {
+      brandName: "ＡＢＣ工作室",
+    });
+    expect(r.text).toBe("ＡＢＣ工作室推出MD-1型");
+  });
+});
+
+describe("foldFullWidthAlphanumerics", () => {
+  it.each([
+    ["letters, digits and a hyphen", "ＭＤ－８６０Ｓ", "MD-860S"],
+    ["lowercase letters", "ｉｎＢｌｏｏｏｍ", "inBlooom"],
+    ["a decimal point", "３．５公分", "3.5公分"],
+    ["a slash and a plus", "Ａ／Ｂ與Ｃ＋＋", "A/B與C＋＋"],
+  ])("folds %s", (_label, source, expected) => {
+    expect(foldFullWidthAlphanumerics(source)).toBe(expected);
+  });
+
+  it("keeps CJK punctuation full-width", () => {
+    expect(foldFullWidthAlphanumerics("品牌（台北）：好，讚。")).toBe(
+      "品牌（台北）：好，讚。",
+    );
   });
 });
 

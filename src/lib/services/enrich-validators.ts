@@ -2,7 +2,7 @@ import { languagePurity, lengthBand, type LanguageLocale, type LengthBand } from
 
 export type LocalizedTextValidation = {
   ok: boolean
-  reasons: string[]   // hard failures (language_purity) — field gets nulled
+  reasons: string[]   // hard failures (language_purity, fullwidth_alphanumeric) — field gets nulled
   warnings: string[]  // soft signals (length_band) — field kept, logged
 }
 
@@ -12,6 +12,14 @@ const LANGUAGE_PURITY_THRESHOLD: Record<LanguageLocale, number> = {
 }
 
 const LATIN_WORD_REGEX = /^[A-Za-z][A-Za-z'&.-]*$/u
+
+/**
+ * Full-width Latin letters and digits. The model learned to pass the purity gate
+ * by full-widthing model numbers (MD-860S -> ＭＤ－８６０Ｓ), which also slips
+ * past LATIN_WORD_REGEX. Any occurrence is a hard failure, in either locale, so
+ * the field is nulled and retried before save (DEV-1954).
+ */
+const FULLWIDTH_ALPHANUMERIC_REGEX = /[Ａ-Ｚａ-ｚ０-９]/u
 const MAX_LATIN_WORD_RUN_IN_ZH = 2
 
 /**
@@ -96,6 +104,10 @@ export function validateLocalizedText(
 
   if (failsLanguagePurity(text, locale, exemptPhrase)) {
     reasons.push('language_purity')
+  }
+
+  if (FULLWIDTH_ALPHANUMERIC_REGEX.test(stripExemptPhrase(text, exemptPhrase))) {
+    reasons.push('fullwidth_alphanumeric')
   }
 
   if (!lengthBand(text, band)) {

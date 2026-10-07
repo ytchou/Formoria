@@ -40,8 +40,8 @@ export const FAQ_PRESETS: readonly FaqPreset[] = [
  * Can the model author this preset for this brand? Distinct from
  * `preset.eligible`, which asks only whether the template floor can render
  * from request-time evidence. Presets that need nothing extra share one
- * predicate. `category-position` overrides it because its prompt needs peer
- * stats the request path never loads.
+ * predicate. `main-products` overrides it to judge on the zh tags alone;
+ * `category-position` overrides it to `false` (DEV-1954).
  */
 function isFaqPresetAuthorable(
   preset: FaqPreset,
@@ -56,6 +56,15 @@ export function eligibleFaqPresets(ctx: FaqBrandContext): FaqPreset[] {
 }
 
 const FAQ_CUSTOM_LIMIT_PROMPT = `Custom questions: at most ${CUSTOM_QUESTION_CEILING}; zero is valid.`;
+
+/**
+ * Code-side, like the custom limit, so it needs no Langfuse push. DEV-1954:
+ * questions drifted from `brands.name` (「Golday Jewelry 日常金工」 against the
+ * h1 「日常金工 golday.jewelry」) and some asked about other brands.
+ */
+function faqBrandNamePrompt(name: string): string {
+  return `Brand name: write it exactly as 「${name}」 in every question and answer — never add, drop, translate, or reorder parts of it. Ask only about this brand, never about its category or other brands.`;
+}
 
 function orderedContributors(presets: readonly FaqPreset[]): FaqPreset[] {
   const byId = new Map(presets.map((preset) => [preset.id, preset]));
@@ -91,9 +100,12 @@ export async function buildFaqSystemPrompt(
       .map((fragment) => resolve(fragment.prompt, fragment.variables(ctx))),
   );
 
-  return [preamble, FAQ_CUSTOM_LIMIT_PROMPT, ...fragments.filter(Boolean)].join(
-    "\n\n",
-  );
+  return [
+    preamble,
+    FAQ_CUSTOM_LIMIT_PROMPT,
+    faqBrandNamePrompt(ctx.brand.name),
+    ...fragments.filter(Boolean),
+  ].join("\n\n");
 }
 
 export * from "./types";

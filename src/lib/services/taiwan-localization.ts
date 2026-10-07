@@ -4,9 +4,13 @@
  * Vocabulary substitution was removed deliberately: a blind zh-CN -> zh-TW
  * word-swap table corrupted correct zh-TW prose (it rewrote the standard
  * approval phrase, the "made in Taiwan" support phrase, and the word for a
- * floor lamp). This function now only strips markdown, strips emoji, and
- * normalizes punctuation. Banned-term handling belongs to a curated,
- * review-gated list elsewhere -- never re-add automatic rewriting here.
+ * floor lamp). This function now only strips markdown, strips emoji, folds
+ * full-width letters and digits, and normalizes punctuation. Banned-term
+ * handling belongs to a curated, review-gated list elsewhere -- never re-add
+ * automatic rewriting here.
+ *
+ * Latin letters, digits and model numbers stay half-width (MD-860S, OEKO-TEX,
+ * 3D); only punctuation adjacent to Han goes full-width (DEV-1954).
  */
 type LocalizationOptions = {
   brandName?: string;
@@ -114,6 +118,41 @@ function stripEmoji(text: string, substitutions: string[]): string {
   return stripped;
 }
 
+const FULL_WIDTH_ALPHANUMERIC = /[０-９Ａ-Ｚａ-ｚ]/gu;
+const FULL_WIDTH_JOINER = /(?<=[A-Za-z0-9])[－．／＋](?=[A-Za-z0-9])/gu;
+const HALF_WIDTH_JOINER: Record<string, string> = {
+  "－": "-",
+  "．": ".",
+  "／": "/",
+  "＋": "+",
+};
+/** Full-width forms (U+FF01–FF5E) sit at a fixed offset from ASCII. */
+const FULL_WIDTH_OFFSET = 0xfee0;
+
+/**
+ * Folds full-width Latin letters and digits to half-width, then folds the
+ * joiners － ． ／ ＋ only where they sit between two ASCII letters or digits,
+ * so 「ＭＤ－８６０Ｓ」 becomes 「MD-860S」 while 「台灣－製造」 and CJK
+ * punctuation such as ，。：（） stay full-width.
+ *
+ * DEV-1954: the language-purity scorer counted full-width letters as CJK, so the
+ * model learned to pass it by full-widthing model numbers. Folding them here
+ * repairs that output wherever it is localized.
+ */
+export function foldFullWidthAlphanumerics(text: string): string {
+  return text
+    .replace(FULL_WIDTH_ALPHANUMERIC, (char) =>
+      String.fromCharCode(char.charCodeAt(0) - FULL_WIDTH_OFFSET),
+    )
+    .replace(FULL_WIDTH_JOINER, (joiner) => HALF_WIDTH_JOINER[joiner] ?? joiner);
+}
+
+function foldAlphanumerics(text: string, substitutions: string[]): string {
+  const folded = foldFullWidthAlphanumerics(text);
+  if (folded !== text) substitutions.push("alphanumeric:half-width");
+  return folded;
+}
+
 function normalizePunctuation(text: string, substitutions: string[]): string {
   let normalized = text;
   let changed = false;
@@ -184,6 +223,7 @@ export function localizeToTW(
 
   let localized = stripMarkdown(protectedText.text, substitutions);
   localized = stripEmoji(localized, substitutions);
+  localized = foldAlphanumerics(localized, substitutions);
   if (options.language !== "en") {
     localized = normalizePunctuation(localized, substitutions);
   }

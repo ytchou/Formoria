@@ -223,14 +223,30 @@ export function localizedCityLabel(
   return CITY_LABELS[city] ?? city;
 }
 
+/**
+ * The name the brand publishes under, which `buildFaqSystemPrompt` pins
+ * verbatim (DEV-1954). A new submission publishes the `names` phase's accepted
+ * name from this same run, so the row's pre-rename value would pin a name the
+ * page never shows. A refresh only stages that rename as a proposal
+ * (`routeSubmissionNamePatch`), so it keeps the stored name.
+ */
+export function faqBrandName(
+  brand: EnrichBrand,
+  pendingPatch: EnrichPatch | undefined,
+): string {
+  if (!brand.source_brand_id && pendingPatch?.name) return pendingPatch.name;
+  return getDisplayBrandName(brand);
+}
+
 function submissionFaqContext(
   brand: EnrichBrand,
+  name: string,
   peerStats: FaqBrandContext["peerStats"],
   stockistCount = 0,
 ): FaqBrandContext {
   return {
     brand: {
-      name: getDisplayBrandName(brand),
+      name,
       categorySlug: brand.category ?? null,
       categoryLabel: categoryLabelZh(brand.category),
       city: brand.city ?? null,
@@ -603,12 +619,17 @@ export async function runFaqPhase({
       brand.source_brand_id ?? brand.id,
       supabase,
     );
-    const ctx = submissionFaqContext(brand, peerStats, stockistCount);
+    const ctx = submissionFaqContext(
+      brand,
+      faqBrandName(brand, pendingPatch),
+      peerStats,
+      stockistCount,
+    );
     // A preset with a null `promptFragment` is never model-authored. It is
     // excluded from both the prompt and the accepted set.
-    // `authorable` is the preset's own answer to "does the model have enough
-    // evidence to write this?", which is a stricter question than render
-    // eligibility (category-position needs peer stats the request path lacks).
+    // `authorable` is the preset's own answer to "should the model write
+    // this?", which is a stricter question than render eligibility
+    // (category-position is never authored — DEV-1954).
     // It defaults to `eligible` when a preset does not override it.
     const authorable = eligibleFaqPresets(ctx).filter(
       (preset) =>
@@ -695,7 +716,8 @@ export async function runFaqPhase({
       productCategoryZh: categoryLabelZh(brand.category),
       imageAlts,
     };
-    const displayName = getDisplayBrandName(brand);
+    // The same name the system prompt pins, so the brief and the rule agree.
+    const displayName = ctx.brand.name;
     const content = buildEnrichmentUserContent(
       displayName,
       brand.description ?? null,

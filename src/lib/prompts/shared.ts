@@ -66,13 +66,14 @@ export const MATERIAL_VOCAB_BLOCK = MATERIALS.map(
 ).join("\n");
 
 export const TAIWAN_USAGE_RULES = `- Use Taiwanese Traditional Chinese terms: 影片 (not 視頻), 品質 (not 質量), 資訊 (not 信息), 網路 (not 網絡), 軟體 (not 軟件), 螢幕 (not 屏幕), 連結 (not 鏈接), 使用者 (not 用戶), 預設 (not 默認)
-- Use full-width punctuation: ，。：；！？「」; use ⋯⋯ for ellipsis; use 、 for parallel items
-- Forbidden terms: 「賦能」「閉環」「抓手」and other abstract jargon — replace with concrete descriptions (who can do what, from where to where)
-- Avoid empty phrases: 「標誌著」「見證了」「體現了」「彰顯了」「在當今」「隨著⋯⋯發展」「未來充滿可能」「不只是A更是B」
+- Use full-width punctuation: ，。：；！？「」; use ⋯⋯ for ellipsis; use 、 for parallel items. Latin letters, Arabic numerals, model numbers, and standard and certification names stay half-width exactly as in the source (MD-860S, OEKO-TEX, 3D, 2012年); never convert them to full-width letters (ＭＤ) or Chinese numerals (八六〇、二〇一二)
+- Forbidden terms: 「賦能」「閉環」「抓手」「打造」「兼顧」「呈現」「轉化為」「致力於」and other abstract jargon — replace with concrete descriptions (who makes what, from which material, for which use)
+- Avoid empty phrases: 「標誌著」「見證了」「體現了」「彰顯了」「在當今」「隨著⋯⋯發展」「未來充滿可能」「不只是A更是B」「值得一提的是」「總而言之」「綜上所述」
 - Avoid unsourced positive claims: 「廣受好評」「獲得多家媒體報導」require a specific source, otherwise delete
 - Every sentence must contain a concrete fact unique to this brand — delete and rewrite any sentence that still holds true after removing the brand name
 - Descriptions need no closing flourish or future outlook — end on the last concrete fact
-- Avoid the "from X to Y" pattern claiming the brand covers all aspects, unless the source explicitly states this
+- Never use the 「從…到…」 range construction (e.g. 「從選料到車縫」「從日常到出遊」) — name the specific steps or uses instead
+- Do not open a description, blurb, or sentence with 「以…」 (e.g. 「以城市色彩打造托特包」); the first clause names a concrete product and a fact
 - Vary sentence structure: no more than 3 consecutive sentences with the same pattern; no summary sentence at the end of every paragraph
 - Output plain text only, no Markdown syntax (no **bold**, # headings, - lists)`;
 
