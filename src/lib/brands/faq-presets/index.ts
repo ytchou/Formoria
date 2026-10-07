@@ -59,8 +59,8 @@ const FAQ_CUSTOM_LIMIT_PROMPT = `Custom questions: at most ${CUSTOM_QUESTION_CEI
 
 /**
  * Code-side, like the custom limit, so it needs no Langfuse push. DEV-1954:
- * questions drifted from `brands.name` (「Golday Jewelry 日常金工」 against the
- * h1 「日常金工 golday.jewelry」) and some asked about other brands.
+ * questions drifted from `brands.name` (reordering or translating the zh and
+ * en parts of the name against the h1) and some asked about other brands.
  */
 function faqBrandNamePrompt(name: string): string {
   return `Brand name: write it exactly as 「${name}」 in every question and answer — never add, drop, translate, or reorder parts of it. Ask only about this brand, never about its category or other brands.`;
