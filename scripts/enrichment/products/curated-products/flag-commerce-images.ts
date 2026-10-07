@@ -6,6 +6,7 @@ import { loadVisionDataUri } from "@/lib/services/enrich-phases/classify-images"
 import { readImageTextFromDataUri } from "@/lib/services/image-text";
 import { curatedProductStorageKeyFromPublicUrl } from "@/lib/services/image-upload";
 import { createServiceClient } from "@/lib/supabase/service";
+import { loadScriptTarget } from "../../../shared/target";
 
 import {
   assertRevalidationConfigured,
@@ -21,9 +22,12 @@ import {
  * WRITTEN FOR DEV-1962 AND NOT EXECUTED AS PART OF ITS PR. Run it against
  * staging first, read the dry-run list, then production.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/flag-commerce-images.ts
- *   …--brand=<slug>   scope the run to one brand (e.g. the LAB52 brand)
- *   …--apply          clear the flagged rows' stored image
+ *   pnpm exec tsx scripts/enrichment/products/curated-products/flag-commerce-images.ts
+ *   …--brand=<slug>          scope the run to one brand (e.g. the LAB52 brand)
+ *   …--apply                 clear the flagged rows' stored image
+ *   …--target=production     defaults to staging; see scripts/shared/target.ts
+ *                            (the vision call also needs OPENAI_API_KEY in the
+ *                            chosen env file)
  *
  * The ingest gate in `prepareCuratedProductImage` stops NEW promo images; this
  * finds the ones stored before it existed. Each stored object is read from
@@ -250,7 +254,9 @@ function errorMessage(error: unknown): string {
 }
 
 async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
+  // Strips `--target` and proves the credentials belong to that project
+  // before any client opens. Staging is the default.
+  const { argv } = loadScriptTarget();
   const apply = parseApplyOption(argv);
   const brandSlug = parseBrandOption(argv);
   // Preflight BEFORE the first write: a clear that lands while revalidation is
