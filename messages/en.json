@@ -1849,8 +1849,8 @@
   },
   "submit": {
     "metadata": {
-      "title": "Recommend a Brand",
-      "description": "Recommend a Taiwanese brand worth discovering; approved brands join the Formoria directory"
+      "title": "Recommend a brand",
+      "description": "Recommend a Taiwanese brand to Formoria. Once approved, it's added to the brand directory."
     },
     "overview": {
       "heading": "Recommend a Taiwanese Brand",
@@ -1871,232 +1871,87 @@
       "ownerPoint3": "Once the page is listed on Formoria, you keep the brand’s details up to date",
       "ownerCtaLoggedIn": "Build my brand page"
     },
-    "wizard": {
-      "heading": "Recommend a Brand",
-      "subheading": "Share a Taiwanese brand with the community",
-      "next": "Next",
-      "submitting": "Sending...",
-      "submitBrand": "Send Recommendation",
-      "steps": {
-        "brandInfo": "Brand Info",
-        "tags": "Categories & Values",
-        "products": "Products",
-        "links": "Links",
-        "review": "Review"
-      }
-    },
-    "url": {
-      "heading": "Recommend a brand you love",
-      "subheading": "Share a Taiwanese brand with the community",
-      "label": "Brand Website URL",
-      "socialLinksLabel": "Social Links",
-      "addLink": "Add link",
-      "purchaseWebsite": "Official Website",
-      "purchaseShopee": "Shopee",
-      "urlInvalid": "Please enter a valid URL.",
-      "loading": "Fetching brand information...",
-      "cancel": "Cancel",
-      "retry": "Try again",
-      "skip": "Skip, fill in manually"
-    },
     "attribution": {
       "bought_product": "Bought their products",
       "saw_at_market": "Saw at a market or a stockist",
       "found_online": "Found online",
       "friend_recommended": "Friend recommended",
-      "work_there": "Work there"
+      "work_there": "I work for this brand"
     },
-    "city": "Brand founding city",
-    "cityPlaceholder": "Select the founding county/city (optional)",
     "fields": {
-      "brandName": "Brand Name",
-      "brandNamePlaceholder": "e.g. Rain Boot Studio",
-      "heroImage": "Brand Hero Image",
-      "heroImageHelper": "Optional — an image you provide is used directly; if there is none, we'll search automatically (quality not guaranteed).",
-      "heroImageDescription": "Recommended: upload your brand logo or a representative product photo",
-      "productPhotos": "Product Photos",
-      "productPhotosHelper": "Optional — up to 5 product photos to help us understand this brand better.",
-      "suggestedName": "Suggested name:",
-      "applySuggestion": "Apply",
-      "brandDescription": "Brand Description",
-      "brandDescriptionPlaceholder": "Tell us what this brand makes…",
-      "brandDescriptionHint": "Write a specific, verifiable description (at least 40 characters) — what the brand makes, which materials it uses, and how it is founded, designed, or made in Taiwan.",
-      "mitSmileMarkNumber": "MIT Smile mark number",
-      "mitSmileMarkNumberPlaceholder": "e.g. 01200024-02134",
-      "mitSmileMarkNumberHint": "After verification, the brand page will show a MIT Smile certification tag.",
-      "charCount": "{count} / {max} max characters",
-      "photos": "Brand Photos",
-      "photosDragHint": "Drag to reorder. The first photo becomes the hero image.",
-      "noPhotos": "No photos found from the website",
-      "addPhotos": "Add photos",
-      "addMorePhotos": "Add more photos",
-      "fromWebsite": "from website",
-      "uploaded": "uploaded",
-      "category": "Brand category",
-      "categoryPlaceholder": "Select a category",
-      "tags": "Tags",
-      "tagsHint": "Add up to 5 tags to help people find this brand",
-      "tagsInputPlaceholder": "Type and press Enter to add a tag",
-      "removeTag": "Remove tag {tag}",
-      "logoRequired": "Logo *",
-      "logoOptional": "Logo (optional)",
-      "logoHint": "Upload the brand logo (max 5MB, will be resized to max 1200px)",
-      "productPhotosHint": "Upload up to 9 photos to showcase the products",
-      "brandHighlights": "Brand Highlights",
-      "brandHighlightsHint": "What sets this brand apart from others?",
-      "brandHighlightsPlaceholder": "e.g. Handcrafted with local Taiwanese cedar...",
-      "purchaseLinksRequired": "Purchase Links *",
-      "purchaseLinksOptional": "Purchase Links (optional)",
-      "purchaseLinksHint": "Add links where the products can be bought",
-      "purchaseLinkError": "Please add at least one purchase link",
-      "addAnotherLink": "Add another link",
-      "platform": "Platform",
-      "socialLinks": "Social Links",
-      "storeName": "Store name",
-      "address": "Address",
-      "addLocation": "Add location",
-      "region": "Founding city or county",
-      "regionPlaceholder": "Select the founding city or county",
-      "regionHint": "The county or city where the brand was founded",
-      "regionOptionalHint": "optional",
-      "categoryMultiSelect": "",
-      "categoryHint": "Select the brand category that fits best",
-      "categoryFreeTextToggle": "None of the above?",
-      "categoryFreeTextToggleHint": "— Enter a brand category manually",
-      "categoryNoteLabel": "Describe the brand category",
-      "categoryNoteHint": "We'll review this suggestion",
-      "categoryNotePlaceholder": "e.g. leather goods",
-      "ubn": "Unified Business Number (optional)",
-      "ubnHint": "8-digit number issued by the Ministry of Economic Affairs",
-      "ubnDuplicateTitle": "A brand with this UBN already exists in the directory",
-      "ubnDuplicateSeeExisting": "See existing brand:",
       "nameDuplicateTitle": "Similar brand names found",
-      "websiteDuplicateTitle": "This website is already listed for a brand",
+      "websiteDuplicateTitle": "Another brand in the directory already uses this URL",
       "nameDuplicateConfirmLabel": "I confirm this is not a duplicate brand",
+      "duplicateConfirmRequired": "Confirm this isn't a duplicate brand first",
       "duplicateReasonCjk": "similar Chinese name",
-      "duplicateReasonLatin": "similar English name",
-      "checking": "Checking",
-      "next": "Next",
-      "dedup_check_failed": "Unable to check for duplicates. Please try again."
+      "duplicateReasonLatin": "similar English name"
     },
     "review": {
-      "brandInfo": "Brand Info",
-      "productPhotos": "Product Photos",
-      "edit": "Edit",
-      "brandName": "Brand Name",
-      "description": "Description",
-      "category": "Category",
-      "tags": "Tags",
-      "logo": "Logo",
-      "pdpaConsent": "I agree to the collection and use of my personal data in accordance with the <privacyPolicy>Privacy Policy</privacyPolicy>, and understand my rights under the Personal Data Protection Act.",
-      "socialLinks": "Social links",
-      "purchaseLinks": "Purchase links",
-      "purchaseWebsite": "Official Website",
-      "purchaseShopee": "Shopee"
+      "pdpaConsent": "I agree that Formoria may collect and use my personal data under the <privacyPolicy>Privacy Policy</privacyPolicy>, and I understand my rights under Taiwan's Personal Data Protection Act."
     },
     "confirmation": {
       "metadata": {
-        "title": "Brand Details Received",
-        "description": "We have received the brand details and they are under review."
+        "title": "Recommendation received",
+        "description": "We've received the brand details and are reviewing them."
       },
-      "heading": "Thanks for the recommendation!",
       "subheading": "We’ve received your brand recommendation",
       "timeline": {
         "review": {
-          "label": "Under Review",
-          "description": "Our team typically completes the review within 2 business days"
+          "label": "In review",
+          "description": "Reviews usually take about 7 business days."
         },
         "result": {
-          "label": "Brand Listing",
-          "description": "Once reviewed, approved brands appear in the Formoria directory. If an email address was provided, we’ll send the review result."
+          "label": "Added to the directory",
+          "description": "Approved brands are added to the brand directory. If you left an email address, we'll send you the result."
         }
       },
       "cta": {
-        "explore": "Explore the Formoria Directory",
-        "submitAnother": "Recommend Another Brand"
+        "explore": "Back to home",
+        "submitAnother": "Recommend another brand"
       },
       "whatNext": {
-        "heading": "What Happens Next",
-        "reviewTime": {
-          "question": "How long does review take?",
-          "answer": "Our team typically completes reviews within 2 business days."
-        },
-        "contact": {
-          "question": "How will I be contacted?",
-          "answer": "We'll reach out via the email address provided."
-        },
-        "afterApproval": {
-          "question": "What happens after approval?",
-          "answer": "Approved brands appear in the Formoria directory for visitors to discover."
-        },
         "learnMore": {
-          "question": "Want to learn more?",
-          "answer": "For details about reviews, brand claims, and updating information, read our <link>FAQ</link>."
+          "answer": "Want to know how reviews, brand claims, and updates work? See the <link>FAQ</link>."
         }
       }
     },
     "validation": {
-      "nameMinLength": "Brand name must be at least 2 characters",
-      "descriptionRequired": "Please add a brand description",
+      "nameMinLength": "Brand name needs at least 2 characters",
+      "descriptionRequired": "Add a brand description",
       "heroImageRequired": "Please upload a brand hero image",
       "emailInvalid": "Please enter a valid email address",
       "emailRequiredForNewsletter": "Enter an email address to subscribe to the newsletter",
       "platformRequired": "Please select a platform",
-      "urlInvalid": "Please enter a valid URL",
-      "pdpaRequired": "Please agree to the privacy policy",
-      "turnstileRequired": "Please complete verification"
+      "urlInvalid": "Enter the full URL, for example https://brand.com",
+      "pdpaRequired": "Check the box to agree to the Privacy Policy",
+      "turnstileRequired": "Complete the verification check"
     },
     "errors": {
-      "notAuthenticated": "Please sign in before building your brand page",
-      "rateLimit": "Too many requests, please try again later.",
-      "validation": "Validation failed, please try again.",
-      "unexpected": "An unexpected error occurred, please try again.",
-      "turnstileError": "Verification failed. Please refresh and try again."
+      "rateLimit": "Too many attempts. Try again in a few minutes.",
+      "validation": "Verification didn't go through. Refresh the page and try again.",
+      "unexpected": "Your recommendation didn't go through. Try again.",
+      "turnstileError": "Verification didn't load. Refresh the page and try again."
     },
     "recommendForm": {
-      "heading": "Recommend a Brand",
-      "subheading": "Share the brand name and URL so we can review this Taiwanese brand.",
-      "websiteLabel": "Official Brand URL",
-      "websiteHint": "Give the brand's official website — a social profile is fine if it doesn't have one.",
+      "heading": "Recommend a brand",
+      "subheading": "Tell us the brand name and website, and we'll review it for the directory.",
+      "websiteLabel": "Brand website",
+      "websiteHint": "The brand's own website. If it doesn't have one, an Instagram or Facebook page works too.",
       "websitePlaceholder": "https://brand.example",
-      "brandNameLabel": "Brand Name",
+      "brandNameLabel": "Brand name",
       "brandNamePlaceholder": "e.g. Warmwood Living",
-      "brandNameHint": "Use the official brand name so we can check and review it.",
+      "brandNameHint": "The name the brand uses publicly, so we can look it up.",
       "guestEmailLabel": "Email",
-      "guestEmailHint": "Leave an email address to be notified of the review result.",
+      "guestEmailHint": "Leave your email if you'd like to hear the result.",
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "Extra context (optional)",
-      "descriptionHint": "If you know the brand story, products, or background, add it here to help us review.",
+      "descriptionHint": "If you know the brand's story, products, or background, add it here to help our review.",
       "descriptionPlaceholder": "For example: The brand designs in Tainan and works with local workshops in Taiwan.",
       "sourceLabel": "How do you know this brand?",
-      "sourcePlaceholder": "Select how you know this brand",
+      "sourcePlaceholder": "Choose one",
       "requiredHint": "indicates a required field",
-      "submitButton": "Send Recommendation",
+      "submitButton": "Send recommendation",
       "submittingButton": "Sending…",
-      "suggestedName": "Suggested name:",
-      "suggestedUrl": "Suggested URL:",
-      "applySuggestion": "Apply"
-    },
-    "submissionWizard": {
-      "heading": "Fill in Brand Details",
-      "subheading": "Complete each step so the brand is accurately represented.",
-      "backButton": "Back",
-      "submitButton": "Send Brand Details",
-      "submittingButton": "Sending…"
-    },
-    "form": {
-      "heading": "Recommend a Brand",
-      "subheading": "Share a Taiwanese brand with the community",
-      "websiteLabel": "Official Brand Website",
-      "websitePlaceholder": "https://yourbrand.com",
-      "brandNameLabel": "Brand Name",
-      "brandNamePlaceholder": "e.g. Rain Boot Studio",
-      "brandNameHint": "This will be used as the brand name. We also use it to search for brand information online, so accuracy is important.",
-      "sourceLabel": "How do you know this brand?",
-      "sourcePlaceholder": "Select how you know this brand",
-      "requiredHint": "indicates a required field",
-      "submitButton": "Send Recommendation",
-      "submittingButton": "Sending...",
       "suggestedName": "Suggested name:",
       "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"

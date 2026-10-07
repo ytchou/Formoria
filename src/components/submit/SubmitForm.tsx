@@ -16,6 +16,7 @@ import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
   createRecommendationSubmissionSchema,
+  normalizeWebsiteUrl,
   type SubmissionFormData,
 } from "@/lib/validations/submission";
 import {
@@ -115,6 +116,7 @@ export default function SubmitForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const tSchema = useMemo(
     () => (key: string) => t(key as Parameters<typeof t>[0]),
@@ -136,7 +138,8 @@ export default function SubmitForm({
     setValue,
     getValues,
     trigger,
-    formState: { errors, isValid },
+    setFocus,
+    formState: { errors },
   } = useForm<SubmissionFormData>({
     resolver,
     defaultValues: {
@@ -162,6 +165,7 @@ export default function SubmitForm({
     name: "marketingEmailOptIn",
   });
   const duplicateConfirmed = useWatch({ control, name: "duplicateConfirmed" });
+  const turnstileToken = useWatch({ control, name: "turnstileToken" });
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null);
   const [nameMatches, setNameMatches] = useState<DuplicateCandidate[]>([]);
   const [websiteMatches, setWebsiteMatches] = useState<DuplicateCandidate[]>(
@@ -169,6 +173,12 @@ export default function SubmitForm({
   );
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Duplicate confirmation is client state, not schema: the matches come from
+  // the inspection call, so the resolver cannot know about them.
+  const hasUnconfirmedDuplicates =
+    (nameMatches.length > 0 || websiteMatches.length > 0) &&
+    !duplicateConfirmed;
 
   // A confirmation only speaks for the exact name/website pair it was shown
   // for, so any edit to either field drops both the matches and the tick.
@@ -203,6 +213,7 @@ export default function SubmitForm({
         <Label className="flex cursor-pointer items-start gap-3">
           <Checkbox
             id="submit-duplicate-confirmed"
+            ref={field.ref}
             checked={field.value ?? false}
             onCheckedChange={(checked) => field.onChange(checked)}
             className="mt-0.5 size-[18px] shrink-0"
@@ -258,7 +269,16 @@ export default function SubmitForm({
     setValue("turnstileToken", "", { shouldValidate: true });
   }, [setValue]);
 
-  async function handleWebsiteBlur(value: string) {
+  async function handleWebsiteBlur(rawValue: string) {
+    // Show the visitor the URL the schema will submit (`brand.com` becomes
+    // `https://brand.com`). setValue skips the input's onChange, so clear the
+    // duplicate state here; the inspection below bumps the request counter.
+    const value = normalizeWebsiteUrl(rawValue);
+    if (value !== rawValue) {
+      setValue("website", value, { shouldValidate: true });
+      clearDuplicateState();
+    }
+
     if (!value || !value.includes("?")) {
       setUrlSuggestion(null);
     } else {
@@ -286,8 +306,10 @@ export default function SubmitForm({
     }
   }
 
-  const websiteRegistration = register("website");
+  // Registration order is the order react-hook-form walks to focus the first
+  // invalid field on submit, so it follows the visual order.
   const nameRegistration = register("name");
+  const websiteRegistration = register("website");
 
   useEffect(() => {
     if (!pendingRedirect) return;
@@ -349,7 +371,14 @@ export default function SubmitForm({
 
   const onSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
-      void handleSubmit(submitForm, (validationErrors) => {
+      setSubmitAttempted(true);
+      void handleSubmit(async (data) => {
+        if (hasUnconfirmedDuplicates) {
+          setFocus("duplicateConfirmed");
+          return;
+        }
+        await submitForm(data);
+      }, (validationErrors) => {
         for (const [fieldName, error] of Object.entries(validationErrors)) {
           if (error?.message) {
             trackSubmissionFormErrorShown(
@@ -361,32 +390,29 @@ export default function SubmitForm({
         }
       })(event);
     },
-    [handleSubmit, submitForm],
+    [handleSubmit, submitForm, hasUnconfirmedDuplicates, setFocus],
   );
 
-  const isSubmitDisabled =
-    !isValid ||
-    !pdpaConsent ||
-    ((nameMatches.length > 0 || websiteMatches.length > 0) &&
-      !duplicateConfirmed) ||
-    isSubmitting;
+  // The non-field reasons a submit is refused. Field errors stay inline under
+  // their fields; these have no field of their own to sit under.
+  const submitBlockers = [
+    !pdpaConsent ? t("validation.pdpaRequired") : null,
+    !turnstileToken ? t("validation.turnstileRequired") : null,
+    hasUnconfirmedDuplicates ? t("fields.duplicateConfirmRequired") : null,
+  ].filter((message): message is string => message !== null);
 
   return (
-    <PageShell measure="form" className="py-20">
+    <PageShell as="main" measure="form" className="py-20">
       <div className="mb-10">
         <h1 className="text-balance text-center type-page-title">
           {tForm("heading")}
         </h1>
-        <span
-          className="mx-auto mt-4 block h-0.5 w-8 bg-accent"
-          aria-hidden="true"
-        />
         <p className="mt-4 text-center type-body-sm">
           {tForm("subheading")}
         </p>
       </div>
 
-      <StandardForm onSubmit={onSubmit} noValidate className="bg-white">
+      <StandardForm onSubmit={onSubmit} noValidate>
         <div className="flex flex-col gap-5">
           <p className="type-metadata">
             <span className="text-danger">*</span> {tForm("requiredHint")}
@@ -460,8 +486,9 @@ export default function SubmitForm({
             >
               <Input
                 id="submit-website"
-                type="url"
-                autoComplete="off"
+                type="text"
+                inputMode="url"
+                autoComplete="url"
                 placeholder={tForm("websitePlaceholder")}
                 {...websiteRegistration}
                 onBlur={async (event) => {
@@ -514,9 +541,15 @@ export default function SubmitForm({
             <Controller
               name="sourceAttribution"
               control={control}
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <NativeSelect
                   id="submit-source"
+                  ref={field.ref}
+                  aria-required="true"
+                  aria-invalid={fieldState.invalid || undefined}
+                  aria-describedby={
+                    fieldState.error ? "submit-source-error" : undefined
+                  }
                   className={cn(
                     field.value ? "text-ink" : "text-ink-muted",
                   )}
@@ -608,10 +641,17 @@ export default function SubmitForm({
                   <Label className="flex min-h-12 cursor-pointer items-start gap-3 sm:min-h-0">
                     <Checkbox
                       id="submit-pdpa"
+                      ref={field.ref}
                       checked={field.value}
                       onCheckedChange={(checked) => field.onChange(checked)}
                       className="mt-0.5 size-[18px] shrink-0"
                       aria-required="true"
+                      // The message itself lives in the submit blockers under
+                      // the button; repeating it here showed it twice.
+                      aria-invalid={fieldState.invalid || undefined}
+                      aria-describedby={
+                        fieldState.invalid ? "submit-blockers" : undefined
+                      }
                     />
                     <span className="type-body-sm text-ink-soft font-normal">
                       {tReview.rich("pdpaConsent", {
@@ -632,9 +672,6 @@ export default function SubmitForm({
                       </span>
                     </span>
                   </Label>
-                  {fieldState.error ? (
-                    <p className="type-metadata text-danger">{fieldState.error.message}</p>
-                  ) : null}
                 </div>
               )}
             />
@@ -665,13 +702,24 @@ export default function SubmitForm({
             </p>
           ) : null}
 
-          <SubmitButton
-            variant="primary"
-            disabled={isSubmitDisabled}
-            isSubmitting={isSubmitting}
-            idleLabel={tForm("submitButton")}
-            submittingLabel={tForm("submittingButton")}
-          />
+          <div className="space-y-2">
+            <SubmitButton
+              variant="primary"
+              disabled={isSubmitting}
+              isSubmitting={isSubmitting}
+              idleLabel={tForm("submitButton")}
+              submittingLabel={tForm("submittingButton")}
+            />
+            <div id="submit-blockers" role="status" aria-live="polite">
+              {submitAttempted
+                ? submitBlockers.map((message) => (
+                    <p key={message} className="type-metadata text-danger">
+                      {message}
+                    </p>
+                  ))
+                : null}
+            </div>
+          </div>
         </div>
       </StandardForm>
     </PageShell>
