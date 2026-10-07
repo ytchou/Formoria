@@ -285,7 +285,7 @@ function sortStockistsForDisplay(a: Stockist, b: Stockist): number {
 }
 
 function regionLabelToSlug(regionLabel: string): string | null {
-  return REGION_SLUG_BY_LABEL[regionLabel] ?? null;
+  return REGION_SLUG_BY_LABEL[regionLabel.replaceAll("臺", "台")] ?? null;
 }
 
 export function groupStockistsByRegion(

@@ -28,10 +28,10 @@ export type CitySlug = typeof TAIWAN_CITIES[number]['slug']
 export const CITY_SLUGS = TAIWAN_CITIES.map(c => c.slug) as [CitySlug, ...CitySlug[]]
 
 /**
- * SHORT zh-TW city labels, keyed by slug — "台北", not "臺北市".
+ * SHORT zh-TW city labels, keyed by slug — "台北", not "台北市".
  *
- * These are region chips (channel/location grouping), deliberately clipped and
- * using the 台 variant. For the full names the brand page renders, use
+ * These are region chips (channel/location grouping), deliberately clipped.
+ * For the full names the brand page renders, use
  * `CITY_NAMES_ZH` below — the two are not interchangeable.
  *
  * Lives here rather than in a message catalog because the enrichment pipeline
@@ -78,11 +78,11 @@ export const CITY_REGION_LABELS_ZH: Readonly<Record<string, string>> = {
  * module resolution. Tests can import the catalog freely; runtime code cannot.
  */
 export const CITY_NAMES_ZH: Readonly<Record<string, string>> = {
-  taipei: '臺北市',
+  taipei: '台北市',
   new_taipei: '新北市',
   taoyuan: '桃園市',
-  taichung: '臺中市',
-  tainan: '臺南市',
+  taichung: '台中市',
+  tainan: '台南市',
   kaohsiung: '高雄市',
   keelung: '基隆市',
   hsinchu_city: '新竹市',
@@ -96,7 +96,7 @@ export const CITY_NAMES_ZH: Readonly<Record<string, string>> = {
   pingtung: '屏東縣',
   yilan: '宜蘭縣',
   hualien: '花蓮縣',
-  taitung: '臺東縣',
+  taitung: '台東縣',
   penghu: '澎湖縣',
   kinmen: '金門縣',
   lienchiang: '連江縣',
@@ -108,6 +108,6 @@ const CITY_SLUG_BY_NAME_ZH = new Map(
 
 export function citySlugFromName(name: string | null | undefined): CitySlug | null {
   if (!name) return null
-  return CITY_SLUG_BY_NAME_ZH.get(name.replaceAll('台', '臺')) ?? null
+  return CITY_SLUG_BY_NAME_ZH.get(name.replaceAll('臺', '台')) ?? null
 }
 

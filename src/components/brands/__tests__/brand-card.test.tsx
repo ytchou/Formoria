@@ -133,7 +133,7 @@ describe("BrandCard directory variant", () => {
 
   it("shows category · city, omitting city when null", () => {
     const withCity = renderCard(<BrandCard brand={buildBrand()} />);
-    expect(screen.getByText("居家生活 · 臺北市")).toBeInTheDocument();
+    expect(screen.getByText("居家生活 · 台北市")).toBeInTheDocument();
     withCity.unmount();
 
     renderCard(<BrandCard brand={buildBrand({ city: null })} />);

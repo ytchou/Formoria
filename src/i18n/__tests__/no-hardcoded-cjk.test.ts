@@ -95,7 +95,9 @@ const ALLOWLIST = [
   // here is test-only. TODO remove the static fallback and drop this entry.
   "lib/validations/submission.ts",
   // MIT verification normalizes Taiwanese legal-entity suffixes (not UI copy).
-  // Share card is a satori-rendered PNG image (same as OG images) — zh-TW headline by design.
+  // Share card is a satori-rendered PNG image (same as OG images). The headline
+  // comes from the catalog; the literal formoria.com URL footer is what the
+  // rendered-English scan below still flags.
   "lib/growth/share-card.tsx",
   // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
   "lib/growth/share-assets.ts",

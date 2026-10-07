@@ -7,7 +7,7 @@ import { SubcategoryField } from "../subcategory-field";
 const LABELS = {
   search: "Product subcategories",
   searchHint: "Type to filter, then pick a chip.",
-  selected: "Selected (tap to remove)",
+  selected: "Selected (select to remove)",
   options: "Subcategories you can add",
   limit: "Up to 5 subcategories.",
   rejected: "That term is not in the list — pick the closest chip below.",

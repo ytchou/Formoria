@@ -40,7 +40,7 @@ test.describe('Newsletter subscribe flow', () => {
     await page.goto('/');
 
     // --- Newsletter section heading ---
-    const heading = page.getByRole('heading', { name: '掌握最新動態' });
+    const heading = page.getByRole('heading', { name: '收到新的專題和選物' });
     await heading.scrollIntoViewIfNeeded();
     await expect(heading).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
@@ -50,9 +50,10 @@ test.describe('Newsletter subscribe flow', () => {
     await expect(curatedPicksChip).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(curatedPicksChip).toHaveAttribute('aria-pressed', 'true');
 
-    // --- Toggle "Brand Stories" chip on ---
-    // zh-TW label: "品牌故事 Brand Stories"
-    const brandStoriesChip = page.getByRole('button', { name: /品牌故事/ });
+    // --- Toggle the brand-stories chip on ---
+    // zh-TW label: "專題" (the stored slug stays `brand-stories`). Exact, so it
+    // cannot match another button whose name merely contains 專題.
+    const brandStoriesChip = page.getByRole('button', { name: '專題', exact: true });
     await expect(brandStoriesChip).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(brandStoriesChip).toHaveAttribute('aria-pressed', 'false');
     await brandStoriesChip.click();

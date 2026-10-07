@@ -145,7 +145,7 @@ describe("StockistList", () => {
     });
 
     expect(
-      screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
+      screen.getByRole("heading", { level: 3, name: "台北市 (3)" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 3, name: "海外 (1)" }),
@@ -161,7 +161,7 @@ describe("StockistList", () => {
     expect(overseas).not.toHaveAttribute("open");
 
     await user.click(
-      screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
+      screen.getByRole("heading", { level: 3, name: "台北市 (3)" }),
     );
     await user.click(
       screen.getByRole("heading", { level: 3, name: "海外 (1)" }),
