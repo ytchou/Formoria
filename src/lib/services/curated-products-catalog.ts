@@ -131,7 +131,7 @@ export type CatalogQueryOptions = {
   category?: string | null;
   /** Restrict the read to these L1 categories when `category` is unset.
    *  /discover passes its visible L1s so the unfiltered listing counts the
-   *  same products as the sidebar's 全部. Ignored when `category` is set,
+   *  same products as the sidebar's all-categories total. Ignored when `category` is set,
    *  when empty, and in ids mode. */
   categories?: readonly string[];
   subcategories?: string[];
