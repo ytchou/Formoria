@@ -20,10 +20,13 @@ export type TrailTileLabels = {
 };
 
 /**
- * The 3:2 ratio follows the photograph while the height floor protects the
- * copy stack — on a ~320px phone 3:2 alone is ~213px and clips the copy, so the
- * base floor is 224px. A single-column band also has a ceiling so it cannot
- * grow taller than the viewport-scale section it belongs to.
+ * The 3:2 ratio follows the photograph while the copy stack sets the floor
+ * below md: `overflow-clip` (not `overflow-hidden`, which makes a scroll
+ * container) and no fixed `min-h` leave the aspect-ratio box its content-based
+ * minimum, so a three-line promise grows the tile instead of pushing the title
+ * off its top edge, as the old fixed 224px floor did at 390px. md and up keep
+ * a 320px floor. A single-column band also has a ceiling so it cannot grow
+ * taller than the viewport-scale section it belongs to.
  *
  * The optional peek sits BELOW the band, inside the same list item, and is
  * decorative: the one card link already carries the trail's name.
@@ -81,9 +84,11 @@ export function TrailTile({
         prefetch={false}
         aria-labelledby={titleId}
         data-ph-no-autocapture
-        onClick={() => trackTrailCardClicked(trail.slug, position, trailSurface)}
+        onClick={() =>
+          trackTrailCardClicked(trail.slug, position, trailSurface)
+        }
         className={cn(
-          "group relative flex aspect-[3/2] min-h-56 flex-col justify-end overflow-hidden rounded-surface bg-ink p-5 text-ground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3 md:min-h-80 md:p-8",
+          "group relative flex aspect-[3/2] flex-col justify-end overflow-clip rounded-surface bg-ink p-5 text-ground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3 md:min-h-80 md:p-8",
           singleColumn && "max-h-[35rem]",
         )}
       >
@@ -96,35 +101,47 @@ export function TrailTile({
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
           />
         ) : null}
-        <span
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/55 via-35% to-transparent"
-        />
-        <span className="relative z-10 flex max-w-xl flex-col items-start gap-3">
-          <span className="rounded-full border border-ground/30 bg-ink px-3 py-1 type-eyebrow text-ground">
-            {labels.eyebrow}
-          </span>
-          {/*
+        {/*
+          The scrim belongs to the copy block, not the tile. A tile-wide
+          gradient fades out at a fixed height, but the copy's height varies
+          (two-line titles, three-line promises, a 224px phone tile), so text
+          that rose above the dark stop sat on bare photograph at 1.3–2.7:1.
+          Sized by the copy, ink/80 or darker sits behind every line (ground
+          8.5:1, on-ink 5.8:1 even over pure white), the fade above it is a
+          fixed band, and everything higher stays photograph. The negative
+          margins carry the block to the tile's edges through its padding.
+        */}
+        <span className="relative z-10 -mx-5 -mb-5 bg-gradient-to-t from-ink/90 to-ink/80 px-5 pt-1 pb-5 md:-mx-8 md:-mb-8 md:px-8 md:pb-8">
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 bottom-full h-16 bg-gradient-to-t from-ink/80 to-transparent md:h-24"
+          />
+          <span className="flex max-w-xl flex-col items-start gap-3">
+            <span className="rounded-full border border-ground/30 bg-ink px-3 py-1 type-eyebrow text-ground">
+              {labels.eyebrow}
+            </span>
+            {/*
             `lang` on the title and promise only: the eyebrow and CTA are UI
             labels in the page's own language.
           */}
-          <Heading
-            id={titleId}
-            lang={contentLang}
-            className="line-clamp-2 type-card-title text-ground md:type-section md:text-ground"
-          >
-            {title}
-          </Heading>
-          {promise ? (
-            <span
+            <Heading
+              id={titleId}
               lang={contentLang}
-              className="type-body text-on-ink line-clamp-3"
+              className="line-clamp-2 type-card-title text-ground md:type-section md:text-ground"
             >
-              {promise}
+              {title}
+            </Heading>
+            {promise ? (
+              <span
+                lang={contentLang}
+                className="type-body text-on-ink line-clamp-3"
+              >
+                {promise}
+              </span>
+            ) : null}
+            <span className="inline-flex min-h-12 items-center font-medium text-ground underline underline-offset-4 transition-colors group-hover:text-ground/80">
+              {labels.cta}
             </span>
-          ) : null}
-          <span className="inline-flex min-h-12 items-center font-medium text-ground underline underline-offset-4 transition-colors group-hover:text-ground/80">
-            {labels.cta}
           </span>
         </span>
       </Link>

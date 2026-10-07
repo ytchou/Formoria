@@ -113,9 +113,7 @@ function renderTile(
 }
 
 function peekList(container: HTMLElement): HTMLUListElement | null {
-  return container.querySelector<HTMLUListElement>(
-    'ul[aria-hidden="true"]',
-  );
+  return container.querySelector<HTMLUListElement>('ul[aria-hidden="true"]');
 }
 
 describe("TrailTile", () => {
@@ -264,15 +262,21 @@ describe("TrailTile", () => {
     expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
   });
 
-  it("keeps the scrim light at the top so the photograph shows", () => {
+  it("puts the scrim behind the copy, not over the whole photograph", () => {
     const { container } = renderTile();
 
-    const scrim = container.querySelector('a > span[aria-hidden="true"]');
-    expect(scrim).not.toBeNull();
-    expect(scrim!.className).toContain("from-ink/90");
-    expect(scrim!.className).toContain("via-ink/55");
-    expect(scrim!.className).toContain("via-35%");
-    expect(scrim!.className).toContain("to-transparent");
+    // No tile-wide overlay: the photograph above the copy stays uncovered.
+    expect(container.querySelector('a > span[aria-hidden="true"]')).toBeNull();
+
+    const copy = container.querySelector("a > span.relative");
+    expect(copy).not.toBeNull();
+    expect(copy!.className).toContain("from-ink/90");
+    expect(copy!.className).toContain("to-ink/80");
+
+    const fade = copy!.querySelector(':scope > span[aria-hidden="true"]');
+    expect(fade).not.toBeNull();
+    expect(fade!.className).toContain("bottom-full");
+    expect(fade!.className).toContain("to-transparent");
   });
 
   describe("content language", () => {
