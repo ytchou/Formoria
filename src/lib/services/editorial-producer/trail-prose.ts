@@ -7,7 +7,7 @@ export function stripMarkers(text: string): string {
 }
 
 /** Every reader-facing string of the trail, citation markers removed. */
-export function trailProse(trail: TrailDraft): string[] {
+function trailProse(trail: TrailDraft): string[] {
   return [
     trail.title,
     trail.description,

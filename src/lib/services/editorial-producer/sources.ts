@@ -23,7 +23,7 @@ export async function loadContext() {
     throw new Error("Incomplete catalog snapshot");
   return { catalog: catalog.products, content };
 }
-export async function loadContent(): Promise<ContentIntent[]> {
+async function loadContent(): Promise<ContentIntent[]> {
   const groups = await Promise.all(
     (["story", "trail"] as const).map(async (kind) => {
       const files = await readdir(

@@ -312,7 +312,7 @@ const ENDED: Partial<Record<RunStatus, { title: string; sentence: string }>> = {
 };
 
 /** The thread notice for a run: the review summary once it has ended. */
-export function runNotice(run: Run): {
+function runNotice(run: Run): {
   title: string;
   body: string;
   context: string;
