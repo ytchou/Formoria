@@ -1207,7 +1207,9 @@ describe("validateProductProposals", () => {
       {
         products: [
           rawProposal({ name_zh: "陶".repeat(201) }),
-          rawProposal({ name_en: "Clay Plate ".repeat(30) }),
+          // Over the 200-char name bound, and NOT a repeated name: a repeated
+          // one would be collapsed to a single copy by the name normaliser.
+          rawProposal({ name_en: "Clay Plate ".repeat(29) + "Bowl" }),
           rawProposal({
             official_url: `${SITE}/products/${"a".repeat(2100)}`,
           }),

@@ -53,8 +53,8 @@ export function isShopSkuToken(token: string): boolean {
   return true;
 }
 
-/** `X X` → `X`, where `X` may itself contain spaces (`T Torch T Torch`). */
-const DOUBLED_NAME = /^(.+?)\s+\1$/u;
+/** `X X`, `X X X`, … → `X`, where `X` may itself contain spaces (`T Torch T Torch`). */
+const DOUBLED_NAME = /^(.+?)(?:\s+\1)+$/u;
 
 /**
  * Strips a trailing shop SKU token, then collapses a name written twice.

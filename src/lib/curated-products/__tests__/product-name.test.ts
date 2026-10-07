@@ -51,6 +51,13 @@ describe("normalizeCuratedProductName", () => {
     expect(normalizeCuratedProductName("T Torch T Torch")).toBe("T Torch");
   });
 
+  it("collapses a name written more than twice to one copy", () => {
+    expect(normalizeCuratedProductName("T Torch T Torch T Torch")).toBe("T Torch");
+    expect(
+      normalizeCuratedProductName("啵啵杯710ml 啵啵杯710ml 啵啵杯710ml 啵啵杯710ml"),
+    ).toBe("啵啵杯710ml");
+  });
+
   it("handles both defects on one name", () => {
     expect(normalizeCuratedProductName("啵啵杯710ml 啵啵杯710ml 7cFSL8yz")).toBe("啵啵杯710ml");
   });
