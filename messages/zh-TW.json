@@ -1924,7 +1924,8 @@
       "platformRequired": "請選擇平台",
       "urlInvalid": "請輸入完整網址，例如 https://brand.com",
       "pdpaRequired": "請勾選同意隱私權政策",
-      "turnstileRequired": "請完成真人驗證"
+      "turnstileRequired": "請完成真人驗證",
+      "sourceRequired": "請選擇你認識這個品牌的方式"
     },
     "errors": {
       "rateLimit": "送出次數太多，請過幾分鐘再試。",

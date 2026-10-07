@@ -248,6 +248,27 @@ describe('recommendation website normalization', () => {
     expect(result.success).toBe(false)
   })
 
+  it.each(['not a url', 'https://not a url', 'brand'])(
+    'rejects %j, which is not a dotted host once the scheme is added',
+    (website) => {
+      const result = createRecommendationSubmissionSchema().safeParse({
+        ...base,
+        website,
+      })
+
+      expect(result.success).toBe(false)
+    },
+  )
+
+  it('accepts an internationalised domain', () => {
+    const result = createRecommendationSubmissionSchema().safeParse({
+      ...base,
+      website: '品牌.台灣',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
   it('still rejects an empty website', () => {
     const result = createRecommendationSubmissionSchema(t).safeParse({
       ...base,
@@ -258,6 +279,21 @@ describe('recommendation website normalization', () => {
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.website).toContain(
         'validation.urlInvalid',
+      )
+    }
+  })
+
+  it('reports a missing source with its translated message', () => {
+    const result = createRecommendationSubmissionSchema(t).safeParse({
+      ...base,
+      website: 'https://brand.com',
+      sourceAttribution: undefined,
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.sourceAttribution).toContain(
+        'validation.sourceRequired',
       )
     }
   })

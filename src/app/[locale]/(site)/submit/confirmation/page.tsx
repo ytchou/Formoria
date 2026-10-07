@@ -28,6 +28,9 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
     description,
     // A post-submit receipt: nothing to rank, but its links are real.
     robots: { index: false, follow: true },
+    // Empty, not omitted: an absent key inherits the (site) layout's home
+    // canonical and hreflang set, which would point this page at `/`.
+    alternates: {},
     ...buildOpenGraph({
       title,
       description,

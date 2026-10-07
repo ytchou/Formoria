@@ -1924,7 +1924,8 @@
       "platformRequired": "Please select a platform",
       "urlInvalid": "Enter the full URL, for example https://brand.com",
       "pdpaRequired": "Check the box to agree to the Privacy Policy",
-      "turnstileRequired": "Complete the verification check"
+      "turnstileRequired": "Complete the verification check",
+      "sourceRequired": "Choose how you know this brand"
     },
     "errors": {
       "rateLimit": "Too many attempts. Try again in a few minutes.",

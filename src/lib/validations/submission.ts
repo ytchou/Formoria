@@ -14,12 +14,27 @@ function hasHttpScheme(value: string): boolean {
   }
 }
 
+// Chrome's URL parser percent-encodes spaces in a host (`https://not a url`
+// parses), Node's throws — so the client resolver passed what the server
+// action then rejected with a generic error. Require dotted DNS labels after
+// parsing; IDN hosts arrive here already punycoded.
+const DOTTED_HOSTNAME = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i
+
+function hasDottedHostname(value: string): boolean {
+  try {
+    return DOTTED_HOSTNAME.test(new URL(value).hostname)
+  } catch {
+    return false
+  }
+}
+
 function httpUrl(message?: string) {
   return z
     .string()
     .trim()
     .url(message)
     .refine(hasHttpScheme, message ?? 'Invalid URL scheme')
+    .refine(hasDottedHostname, message ?? 'Invalid URL')
     .refine((value) => !isPrivateUrl(value), message ?? 'Invalid URL')
 }
 
@@ -146,11 +161,10 @@ const zhT = (key: string): string => {
     'validation.urlInvalid': '請輸入完整網址，例如 https://brand.com',
     'validation.pdpaRequired': '請勾選同意隱私權政策',
     'validation.turnstileRequired': '請完成真人驗證',
+    'validation.sourceRequired': '請選擇你認識這個品牌的方式',
   }
   return map[key] ?? key
 }
-
-const sourceAttributionEnum = z.enum(SOURCE_ATTRIBUTION_VALUES)
 
 function optionalEmail(message: string) {
   return z.string().email(message).or(z.literal('')).optional().default('')
@@ -176,7 +190,10 @@ function baseSubmissionSchema(t: Translator) {
 function recommendationSubmissionObject(t: Translator) {
   return baseSubmissionSchema(t).merge(
     z.object({
-      sourceAttribution: sourceAttributionEnum,
+      // Without an errorMap an empty select reports zod's English "Required".
+      sourceAttribution: z.enum(SOURCE_ATTRIBUTION_VALUES, {
+        errorMap: () => ({ message: t('validation.sourceRequired') }),
+      }),
       guestEmail: optionalEmail(t('validation.emailInvalid')),
       marketingEmailOptIn: z.boolean().default(false),
       duplicateConfirmed: z.boolean().default(false),
@@ -252,7 +269,7 @@ export type SubmissionFormData = {
   guestEmail?: string
   marketingEmailOptIn?: boolean
   duplicateConfirmed?: boolean
-  sourceAttribution?: z.infer<typeof sourceAttributionEnum>
+  sourceAttribution?: (typeof SOURCE_ATTRIBUTION_VALUES)[number]
   city?: CitySlug
   mitSmileCert?: string
   pdpaConsent: boolean
