@@ -147,9 +147,9 @@
       "allBrands": "All Brands"
     },
     "selectedProducts": {
-      "productCta": "Go to the brand's official website",
-      "brandSiteCta": "Go to the brand's website",
-      "unavailable": "This product page is temporarily unreachable.",
+      "productCta": "View on the brand's site",
+      "brandSiteCta": "Visit the brand's site",
+      "unavailable": "The brand's product page isn't loading right now.",
       "madeInTaiwan": "Made in Taiwan"
     },
     "trustSeam": {
@@ -163,19 +163,19 @@
     "latestStories": {
       "heading": "Stories",
       "note": "Start from one scene in daily life, then get to know the products, the brands, and the people who make them.",
-      "linkText": "View All Stories"
+      "linkText": "See all stories"
     },
     "trails": {
       "heading": "Styles",
-      "note": "A corner, a slice of everyday life",
-      "linkText": "See every style",
+      "note": "Products picked for one specific situation",
+      "linkText": "See all styles",
       "eyebrow": "Style",
-      "cta": "Explore this style →"
+      "cta": "See this style →"
     },
     "selection": {
-      "headline": "Every pick has a reason",
-      "subtitle": "Moving in, setting up a shop, switching a lamp — these are the products we chose for those moments",
-      "cta": "Explore all selections",
+      "headline": "This season's selection",
+      "subtitle": "Moving in, styling a shop, changing a lamp: a few things to start with",
+      "cta": "See all products",
       "allCategories": "All"
     },
     "missionCloser": {
