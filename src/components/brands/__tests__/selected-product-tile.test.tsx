@@ -427,43 +427,63 @@ describe("SelectedProductTile", () => {
   });
 
   // --- shelf mode ---
+  // DEV-1950: every shelf tile is a route onward — an internal link wrapping
+  // image + name, and an outbound route row (DESIGN.md §8 ProductCard).
 
-  it("renders image-led tile with hover scrim in shelf mode", () => {
+  it("links the shelf image and name to the product anchor", () => {
     const { container } = renderWallTile({ mode: "shelf" });
 
-    const img = container.querySelector("img")!;
-    expect(img.className).toContain("object-cover");
-
-    // The scrim caption div carries sm:bg-ground/95 (responsive prefix)
-    const scrim = [...container.querySelectorAll("div")].find((el) =>
-      el.className.includes("bg-ground/95"),
-    );
-    expect(scrim).toBeDefined();
-
-    // Name and description present in the DOM
-    expect(container.textContent).toContain("Pour-over kettle");
-    expect(container.textContent).toContain(
-      "Steady in the hand, made for small kitchens",
-    );
+    // Anchored: the route-row chip's name ends with ": Pour-over kettle".
+    const link = screen.getByRole("link", { name: /^Pour-over kettle/ });
+    expect(link).toHaveAttribute("href", "/brands/kettle-co#product-kettle");
+    expect(link.querySelector("img")).not.toBeNull();
+    expect(link.querySelector("h3")?.textContent).toBe("Pour-over kettle");
+    const image = container.querySelector("img")!;
+    expect(image.className).toContain("object-cover");
+    expect(image.className).toContain("group-hover:scale-[1.03]");
   });
 
-  it("hides description on mobile in shelf mode", () => {
+  it("keeps the save button outside the shelf link", () => {
+    renderWallTile({ mode: "shelf" });
+
+    const save = screen.getByTestId("save-button");
+    expect(save.closest("a")).toBeNull();
+  });
+
+  it("renders the outbound product chip in the shelf route row", () => {
+    renderWallTile({ mode: "shelf" });
+
+    const chip = screen.getByRole("link", { name: /Visit product/ });
+    expect(chip).toHaveAttribute("href", "https://example.com/kettle");
+    expect(chip).toHaveAttribute("target", "_blank");
+    expect(chip).toHaveAttribute("data-link-surface", "selected_product");
+  });
+
+  it("falls back to the brand site chip when the shelf product link is broken", () => {
+    renderWallTile({
+      mode: "shelf",
+      product: buildProduct({ linkState: "broken" }),
+    });
+
+    expect(
+      screen.getByRole("link", { name: /Visit brand site/ }),
+    ).toHaveAttribute("href", "https://example.com");
+    expect(screen.queryByRole("link", { name: /Visit product/ })).toBeNull();
+    expect(screen.getByText("Link unavailable")).toBeInTheDocument();
+  });
+
+  it("drops the hover scrim and the focus-only wrapper in shelf mode", () => {
     const { container } = renderWallTile({ mode: "shelf" });
 
-    // The description lives inside the scrim overlay, which carries sm: prefix
-    // classes for visibility. The description itself is hidden on mobile via
-    // `hidden sm:block`.
+    expect(container.querySelector("[tabindex]")).toBeNull();
+    expect(container.innerHTML).not.toContain("bg-ground/95");
+
+    // The description shows at every viewport, clamped to two lines.
     const descEl = screen.getByText(
       "Steady in the hand, made for small kitchens",
     );
-    expect(descEl.className).toContain("hidden");
-    expect(descEl.className).toContain("sm:block");
-
-    // It must be inside the scrim div, not in a separate in-flow block
-    const scrim = [...container.querySelectorAll("div")].find((el) =>
-      el.className.includes("bg-ground/95"),
-    )!;
-    expect(scrim.contains(descEl)).toBe(true);
+    expect(descEl.className).toContain("line-clamp-2");
+    expect(descEl.className).not.toMatch(/\bhidden\b/);
   });
 
   it("keeps product anchor id in shelf mode", () => {
@@ -472,16 +492,42 @@ describe("SelectedProductTile", () => {
     expect(container.querySelector("#product-kettle")).not.toBeNull();
   });
 
-  it("renders no outbound chip in shelf mode", () => {
+  it("renders nothing for a photo-less product in shelf mode", () => {
+    const { container } = renderWallTile({
+      mode: "shelf",
+      product: buildProduct({ imageUrl: null }),
+    });
+
+    expect(container.querySelector("[data-testid=image-fallback]")).toBeNull();
+    expect(container.querySelector("li")).toBeNull();
+  });
+
+  // WCAG 3.1.2: an EN page falling back to zh text marks that part as zh.
+  it("marks the zh name fallback with lang on an EN shelf tile", () => {
+    renderWallTile({ mode: "shelf", product: buildProduct({ nameEn: null }) });
+
+    expect(screen.getByRole("heading", { name: "手沖壺" })).toHaveAttribute(
+      "lang",
+      "zh-Hant-TW",
+    );
+  });
+
+  it("marks the zh description fallback with lang on an EN shelf tile", () => {
+    renderWallTile({
+      mode: "shelf",
+      product: buildProduct({ productDescriptionEn: null }),
+    });
+
+    expect(screen.getByText("手感穩定，適合小空間")).toHaveAttribute(
+      "lang",
+      "zh-Hant-TW",
+    );
+  });
+
+  it("sets no lang attribute when both EN fields are present", () => {
     const { container } = renderWallTile({ mode: "shelf" });
 
-    // No link with CTA text — shelf tiles are not clickable
-    expect(screen.queryByRole("link", { name: /Visit product/ })).toBeNull();
-    expect(
-      screen.queryByRole("link", { name: /Visit brand site/ }),
-    ).toBeNull();
-    // No <a> elements at all
-    expect(container.querySelectorAll("a").length).toBe(0);
+    expect(container.querySelector("[lang]")).toBeNull();
   });
 });
 

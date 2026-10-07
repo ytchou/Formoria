@@ -78,10 +78,11 @@ const BROKEN_LINK_STATE = "broken";
 
 /**
  * The selected-product tile stays server-rendered. Trail cards keep their
- * outbound product chip; brand-page cards rely on the brand-level link above
- * them. The wall turns the whole tile into one accessible link to that brand's
- * page. The optional client link child adds click tracking without moving the
- * tile into the client graph.
+ * outbound product chip. Brand-page shelf cards are a route onward (DEV-1950):
+ * image and name link to the product's anchor, and a route row carries the
+ * outbound chip. The wall turns the whole tile into one accessible link to
+ * that brand's page. The optional client link child adds click tracking
+ * without moving the tile into the client graph.
  */
 export function SelectedProductTile({
   locale,
@@ -112,12 +113,24 @@ export function SelectedProductTile({
   const productDescription = isEnglish
     ? (product.productDescriptionEn ?? product.productDescriptionZh)
     : product.productDescriptionZh;
+  // WCAG 3.1.2: an EN page showing the zh fallback marks that part as zh.
+  const nameLang = isEnglish && !product.nameEn ? "zh-Hant-TW" : undefined;
+  const descriptionLang =
+    isEnglish && !product.productDescriptionEn && product.productDescriptionZh
+      ? "zh-Hant-TW"
+      : undefined;
   const imageSrc = safeImageSrc(product.imageUrl);
+  // Render-side guard: a 選物 shelf tile never draws a letter placeholder. The
+  // data-side publish precondition (no photo, no publish) is a separate ticket.
+  if (mode === "shelf" && !imageSrc) return null;
   const subcategoryName = product.subcategory
     ? subcategoryDisplayLabel(product.subcategory, locale)
     : null;
   const isBroken = product.linkState === BROKEN_LINK_STATE;
-  const visitLink = mode === "trail" && brand ? getBrandVisitLink(brand) : null;
+  const visitLink =
+    (mode === "trail" || mode === "shelf") && brand
+      ? getBrandVisitLink(brand)
+      : null;
   const productHref = sanitizeHref(product.officialUrl);
   const chipHref = isBroken ? (visitLink?.href ?? null) : productHref;
   const chipLabel = isBroken ? labels.brandSiteCta : labels.cta;
@@ -128,6 +141,21 @@ export function SelectedProductTile({
     size: "compact",
     className: cn("mt-auto max-w-full justify-center"),
   });
+  // The untracked outbound chip, shared by the trail and the shelf route row.
+  const plainChip = chipHref ? (
+    <a
+      href={chipHref}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={chipClassName}
+      data-brand-slug={brand?.slug}
+      data-link-type={chipLinkType}
+      data-link-surface="selected_product"
+    >
+      <span className="min-w-0 truncate">{chipLabel}</span>
+      {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
+    </a>
+  ) : null;
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
   /*
    * The WALL lands on the top of the brand page; every other mode keeps the
@@ -250,6 +278,7 @@ export function SelectedProductTile({
           as="h3"
           variant="cardTitle"
           className="group-hover:text-accent"
+          lang={nameLang}
         >
           {name}
         </Typography>
@@ -269,68 +298,63 @@ export function SelectedProductTile({
     </div>
   );
 
-  const shelfCaptionClass = cn(
-    "flex flex-col gap-1 pt-3",
-    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-surface sm:bg-ground/95 sm:p-4",
-    "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
-    "[@media(hover:hover)]:sm:opacity-0",
-    "[@media(hover:hover)]:sm:group-hover:opacity-100",
-    "[@media(hover:hover)]:sm:group-focus-visible:opacity-100",
-  );
-
   const shelfContent = (
-    <div
-      tabIndex={0}
-      className="group relative flex h-full flex-col rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
-    >
-      <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
-        {imageSrc ? (
-          <SurfaceImage
-            src={imageSrc}
-            alt={name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 80vw, (max-width: 1024px) 45vw, (max-width: 1600px) 23vw, 368px"
-          />
-        ) : (
-          <BrandImageFallback
-            name={name}
-            category={product.category}
-            size="card"
-          />
-        )}
-        {originBadge}
-        <SaveButton
-          kind="product"
-          id={product.id}
-          slug={product.key}
-          variant="overlay"
-        />
-      </div>
-
-      <div className={shelfCaptionClass}>
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/95 to-transparent sm:block"
-        />
-        <Typography as="h3" variant="cardTitle">
+    <div className="relative flex h-full flex-col">
+      <Link
+        href={internalHref}
+        prefetch={false}
+        className="group flex flex-col rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
+        data-ph-no-autocapture
+      >
+        <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
+          {imageSrc ? (
+            <SurfaceImage
+              src={imageSrc}
+              alt={name}
+              fill
+              className="object-cover transition-transform duration-300 ease-(--ease-settle) group-hover:scale-[1.03]"
+              sizes="(max-width: 640px) 80vw, (max-width: 1024px) 45vw, (max-width: 1600px) 23vw, 368px"
+            />
+          ) : null}
+          {originBadge}
+        </div>
+        <Typography
+          as="h3"
+          variant="cardTitle"
+          className="mt-3 group-hover:text-accent"
+          lang={nameLang}
+        >
           {name}
         </Typography>
-        {productDescription ? (
-          <Typography
-            as="p"
-            variant="body"
-            className="line-clamp-3 hidden sm:block"
-          >
-            {productDescription}
-          </Typography>
-        ) : null}
-        {subcategoryName ? (
-          <Badge variant="declared" className="self-start">
-            {subcategoryName}
-          </Badge>
-        ) : null}
-      </div>
+      </Link>
+      {/* A sibling of the link, never inside it: a button inside an `<a>` is
+          invalid. The overlay variant pins it to this box's top-right corner,
+          which is the image's corner because the link starts at the top. */}
+      <SaveButton
+        kind="product"
+        id={product.id}
+        slug={product.key}
+        variant="overlay"
+      />
+      {productDescription ? (
+        <p
+          className="mt-1 type-body-sm text-ink-muted line-clamp-2"
+          lang={descriptionLang}
+        >
+          {productDescription}
+        </p>
+      ) : null}
+      {subcategoryName ? (
+        <Badge variant="declared" className="mt-2 self-start">
+          {subcategoryName}
+        </Badge>
+      ) : null}
+      {isBroken ? (
+        <Typography as="p" variant="metadata" className="mt-2">
+          {labels.unavailable}
+        </Typography>
+      ) : null}
+      {plainChip ? <div className="mt-auto pt-3">{plainChip}</div> : null}
     </div>
   );
 
@@ -407,6 +431,7 @@ export function SelectedProductTile({
                 as="h3"
                 variant="cardTitle"
                 className="hover:text-accent"
+                lang={nameLang}
               >
                 {name}
               </Typography>
@@ -421,13 +446,14 @@ export function SelectedProductTile({
                 as="h3"
                 variant="cardTitle"
                 className="hover:text-accent"
+                lang={nameLang}
               >
                 {name}
               </Typography>
             </Link>
           )
         ) : (
-          <Typography as="h3" variant="cardTitle">
+          <Typography as="h3" variant="cardTitle" lang={nameLang}>
             {name}
           </Typography>
         )}
@@ -454,11 +480,12 @@ export function SelectedProductTile({
                 "type-body-sm text-ink-muted line-clamp-2",
                 note && "hidden sm:block",
               )}
+              lang={descriptionLang}
             >
               {productDescription}
             </p>
           ) : (
-            <Typography as="p" variant="body">
+            <Typography as="p" variant="body" lang={descriptionLang}>
               {productDescription}
             </Typography>
           )
@@ -485,18 +512,7 @@ export function SelectedProductTile({
               {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
             </SelectedProductExternalLink>
           ) : (
-            <a
-              href={chipHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={chipClassName}
-              data-brand-slug={brand?.slug}
-              data-link-type={chipLinkType}
-              data-link-surface="selected_product"
-            >
-              <span className="min-w-0 truncate">{chipLabel}</span>
-              {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
-            </a>
+            plainChip
           )
         ) : null}
       </div>
