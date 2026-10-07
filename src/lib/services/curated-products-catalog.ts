@@ -129,6 +129,11 @@ const CATALOG_MAX_RANGES = 200;
 
 export type CatalogQueryOptions = {
   category?: string | null;
+  /** Restrict the read to these L1 categories when `category` is unset.
+   *  /discover passes its visible L1s so the unfiltered listing counts the
+   *  same products as the sidebar's 全部. Ignored when `category` is set,
+   *  when empty, and in ids mode. */
+  categories?: readonly string[];
   subcategories?: string[];
   materials?: string[];
   sort?: "newest" | "alphabetical";
@@ -156,6 +161,7 @@ export async function getPublishedCuratedProducts(
 ): Promise<{ products: CatalogProduct[]; totalCount: number }> {
   const {
     category,
+    categories,
     subcategories,
     materials,
     sort = "newest",
@@ -235,6 +241,9 @@ export async function getPublishedCuratedProducts(
         .eq("curated_product_sources.state", "active")
         .eq("brands.status", "approved");
       if (category) query = query.eq("category", category);
+      else if (categories && categories.length > 0) {
+        query = query.in("category", [...categories]);
+      }
       if (subcategories && subcategories.length > 0) {
         query = legacy
           ? query.overlaps("subcategories", subcategories)

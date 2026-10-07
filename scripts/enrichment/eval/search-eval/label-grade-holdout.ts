@@ -64,6 +64,7 @@ export async function cmdExportGrades(values: Record<string, unknown>) {
       pageSize: 100,
       category: item.category ?? null,
       enableIntentParse: false,
+      relevanceFloor: false, // raw candidate pool for labels
     })
 
     const products = result.products
