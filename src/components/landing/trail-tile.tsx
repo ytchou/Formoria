@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale } from "next-intl";
+
 import { SurfaceImage } from "@/components/ui/image";
 
 import { Link } from "@/i18n/navigation";
@@ -10,6 +12,7 @@ import { TRAIL_PEEK_SIZE } from "@/lib/services/curated-products.constants";
 import type { TrailEntry } from "@/lib/services/trails";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
+import { contentLangFor } from "@/lib/trails/content-lang";
 
 export type TrailTileLabels = {
   eyebrow: string;
@@ -46,6 +49,9 @@ export function TrailTile({
   className?: string;
 }) {
   const Heading = headingLevel;
+  // Trails are authored in zh-TW and listed on /en too; mark the copy so a
+  // screen reader switches voice instead of reading 中文 with an English one.
+  const contentLang = contentLangFor(trail.frontmatter.locale, useLocale());
   const peekItems = (peek ?? []).slice(0, TRAIL_PEEK_SIZE);
   const title = trail.frontmatter.title;
   const promise =
@@ -92,20 +98,28 @@ export function TrailTile({
         ) : null}
         <span
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-ink/95 via-ink/75 via-[75%] to-ink/10"
+          className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/55 via-35% to-transparent"
         />
         <span className="relative z-10 flex max-w-xl flex-col items-start gap-3">
           <span className="rounded-full border border-ground/30 bg-ink px-3 py-1 type-eyebrow text-ground">
             {labels.eyebrow}
           </span>
+          {/*
+            `lang` on the title and promise only: the eyebrow and CTA are UI
+            labels in the page's own language.
+          */}
           <Heading
             id={titleId}
+            lang={contentLang}
             className="line-clamp-2 type-card-title text-ground md:type-section md:text-ground"
           >
             {title}
           </Heading>
           {promise ? (
-            <span className="type-body text-on-ink line-clamp-3">
+            <span
+              lang={contentLang}
+              className="type-body text-on-ink line-clamp-3"
+            >
               {promise}
             </span>
           ) : null}
