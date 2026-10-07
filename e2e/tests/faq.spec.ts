@@ -80,7 +80,7 @@ test.describe("FAQ page", () => {
     await purchaseDetails.locator("summary").click();
     await expect(
       purchaseDetails.getByText(
-        "不行。Formoria 不接單，也不處理結帳。價格、規格、庫存、出貨和售後都由品牌或販售通路負責；我們負責幫你找到它，再把你交到品牌手上。",
+        "不行。Formoria 不接單，也不處理結帳。價格、規格、庫存、出貨和售後都由品牌或販售的店家負責；我們負責幫你找到它，再把你交到品牌手上。",
         { exact: true },
       ),
     ).toBeVisible();

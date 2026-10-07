@@ -1459,7 +1459,7 @@
       "description": "Formoria 常見問題：收錄與選物的差別、在哪裡買、怎麼推薦品牌、審核要多久。"
     },
     "title": "常見問題",
-    "intro": "這裡回答收錄規則、選物標示和購買通路最常被問到的問題。沒找到答案的話，請<contact>聯絡我們</contact>。",
+    "intro": "這裡回答收錄規則、選物標示和去哪裡買最常被問到的問題。沒找到答案的話，請<contact>聯絡我們</contact>。",
     "sections": {
       "navigation": "常見問題分類",
       "listing": "收錄與選物",
@@ -1469,7 +1469,7 @@
     "items": {
       "whatIsFormoria": {
         "question": "Formoria 是什麼？",
-        "answer": "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。"
+        "answer": "Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色，以及品牌官方的線上購買與實體通路；由 Formoria 挑選的內容會另外標示。"
       },
       "listingVsSelection": {
         "question": "收錄品牌和 Formoria 選物有什麼不同？",
@@ -1477,7 +1477,7 @@
       },
       "purchaseThroughFormoria": {
         "question": "可以直接在 Formoria 購買嗎？",
-        "answer": "不行。Formoria 不接單，也不處理結帳。價格、規格、庫存、出貨和售後都由品牌或販售通路負責；我們負責幫你找到它，再把你交到品牌手上。"
+        "answer": "不行。Formoria 不接單，也不處理結帳。價格、規格、庫存、出貨和售後都由品牌或販售的店家負責；我們負責幫你找到它，再把你交到品牌手上。"
       },
       "whoCanSubmit": {
         "question": "誰可以推薦品牌？",
