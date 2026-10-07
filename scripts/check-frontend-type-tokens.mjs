@@ -66,22 +66,6 @@ export const allowedMatches = [
     ],
   },
   {
-    file: "src/components/brands/brand-links.tsx",
-    names: ["raw hex color class", "raw hex color literal"],
-    values: [
-      "text-[#E1306C]",
-      "#E1306C",
-      "text-[#1877F2]",
-      "#1877F2",
-      "text-[#E05B6F]",
-      "#E05B6F",
-      "text-[#EE4D2D]",
-      "#EE4D2D",
-      "text-[#FF6600]",
-      "#FF6600",
-    ],
-  },
-  {
     file: "src/components/ui/button.tsx",
     names: ["arbitrary numeric text size"],
     values: ["text-[0.8125rem]"],

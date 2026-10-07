@@ -367,7 +367,14 @@
       "pinkoi": "Pinkoi",
       "shopee": "蝦皮購物",
       "myship": "7-ELEVEN 賣貨便",
-      "unknown": "尚無已知連結"
+      "missingChannels": "還沒有其他通路的連結。",
+      "noChannels": "還沒有線上購買的連結。",
+      "noSocialLinks": "還沒有社群連結。",
+      "correctionPrompt": "知道其他通路？",
+      "correctionAction": "告訴我們",
+      "correctionPurchase": "線上購買連結",
+      "correctionStockist": "實體通路",
+      "correctionSocial": "社群連結"
     },
     "report": {
       "trigger": "回報問題",
@@ -477,18 +484,10 @@
       "groups": {
         "all_taiwan": "全台",
         "overseas": "海外",
-        "showAll": "顯示全部 {count} 個地區",
-        "collapse": "收合地區"
+        "count": "{count} 家"
       },
-      "confirmed": {
-        "officialPageLink": "前往官方頁面"
-      },
-      "chips": {
-        "showRest": "顯示其餘 {count} 家"
-      },
-      "rows": {
-        "collapse": "收合"
-      },
+      "showAll": "看全部 {count} 家",
+      "collapse": "收合",
       "provenance": {
         "owner": "品牌確認",
         "formoria": "站方確認",
@@ -571,7 +570,7 @@
       "whereToBuy": {
         "question": "{brandName} 在哪裡可以買到？",
         "answer": "{brandName} 的產品可以透過{channels}購買。{stockistNote}{context}",
-        "stockistSuffix": "另有 {count} 個線下合作店家。",
+        "stockistSuffix": "也可以在 {count} 個實體通路找到。",
         "noOnlineChannels": "實體通路"
       },
       "originStory": {
