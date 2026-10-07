@@ -7,13 +7,16 @@ import {
   type CatalogProduct,
 } from "../curated-products-catalog";
 
+/** A mirrored, same-origin image: renderable whatever the env. */
+const IMAGE = "/i/curated-products/test.webp";
+
 describe("aggregateProductFacetRows", () => {
   it("counts each canonical scalar subcategory once per product", () => {
     expect(
       aggregateProductFacetRows([
-        { category: "home", subcategory: "candles", material: ["wax", "ceramic"] },
-        { category: "home", subcategory: "candles", material: ["wax"] },
-        { category: "home", subcategory: "tableware", material: ["ceramic"] },
+        { category: "home", subcategory: "candles", material: ["wax", "ceramic"], image_url: IMAGE },
+        { category: "home", subcategory: "candles", material: ["wax"], image_url: IMAGE },
+        { category: "home", subcategory: "tableware", material: ["ceramic"], image_url: IMAGE },
       ]),
     ).toEqual({
       categoryCounts: [{ slug: "home", count: 3 }],
@@ -30,19 +33,38 @@ describe("aggregateProductFacetRows", () => {
 
   it("counts products per category across the corpus, sorted by count desc", () => {
     const { categoryCounts } = aggregateProductFacetRows([
-      { category: "home", subcategory: "candles", material: null },
-      { category: "food", subcategory: null, material: null },
-      { category: "food", subcategory: null, material: null },
-      { category: "home", subcategory: "tableware", material: null },
-      { category: "food", subcategory: null, material: null },
-      { category: "fashion", subcategory: null, material: null },
-      { category: null, subcategory: null, material: null },
+      { category: "home", subcategory: "candles", material: null, image_url: IMAGE },
+      { category: "food", subcategory: null, material: null, image_url: IMAGE },
+      { category: "food", subcategory: null, material: null, image_url: IMAGE },
+      { category: "home", subcategory: "tableware", material: null, image_url: IMAGE },
+      { category: "food", subcategory: null, material: null, image_url: IMAGE },
+      { category: "fashion", subcategory: null, material: null, image_url: IMAGE },
+      { category: null, subcategory: null, material: null, image_url: IMAGE },
     ]);
     expect(categoryCounts).toEqual([
       { slug: "food", count: 3 },
       { slug: "home", count: 2 },
       { slug: "fashion", count: 1 },
     ]);
+  });
+
+  it("does not count a photo-less product the list hides (DEV-1962)", () => {
+    expect(
+      aggregateProductFacetRows([
+        { category: "home", subcategory: "candles", material: ["wax"], image_url: IMAGE },
+        { category: "home", subcategory: "candles", material: ["wax"], image_url: null },
+        {
+          category: "home",
+          subcategory: "tableware",
+          material: ["ceramic"],
+          image_url: "//evil.example/a.jpg",
+        },
+      ]),
+    ).toEqual({
+      categoryCounts: [{ slug: "home", count: 1 }],
+      subcategoryCounts: [{ slug: "candles", count: 1 }],
+      materialCounts: [{ slug: "wax", count: 1 }],
+    });
   });
 });
 
@@ -54,7 +76,7 @@ const baseRow = {
   category: "home",
   subcategory: "candles",
   created_at: "2026-08-29T12:00:00.000Z",
-  image_url: "https://example.com/image.jpg",
+  image_url: "/i/curated-products/test-product.webp",
   official_url: "https://example.com/product",
   product_description_zh: "手工硼玻璃杯身搭配可拆矽膠圈",
   product_description_en: null,
@@ -84,7 +106,7 @@ describe("transformCatalogRow", () => {
       subcategory: "candles",
       material: [],
       createdAt: "2026-08-29T12:00:00.000Z",
-      imageUrl: "https://example.com/image.jpg",
+      imageUrl: "/i/curated-products/test-product.webp",
       officialUrl: "https://example.com/product",
       brandSlug: "test-brand",
       brandName: "Test Brand",
@@ -243,6 +265,7 @@ describe("getPublishedCuratedProducts", () => {
   function createMockClient() {
     const ranges: [number, number][] = [];
     const equals: [string, unknown][] = [];
+    const nots: [string, string, unknown][] = [];
     const overlaps: [string, unknown][] = [];
     const ins: [string, unknown][] = [];
     const orders: [string, { ascending: boolean }][] = [];
@@ -252,11 +275,19 @@ describe("getPublishedCuratedProducts", () => {
         id: `product-${String(index).padStart(3, "0")}`,
         key: `product-${index}`,
         created_at: `2026-08-${String(28 - (index % 20)).padStart(2, "0")}T12:00:00.000Z`,
-        image_url: null,
       })),
       [
-        { ...baseRow, id: "product-500", key: "product-500", image_url: null },
-        { ...baseRow, id: "product-501", key: "product-501", image_url: null },
+        { ...baseRow, id: "product-500", key: "product-500" },
+        { ...baseRow, id: "product-501", key: "product-501" },
+        // Photo-less rows the stub returns anyway (it evaluates no filter):
+        // the TypeScript gate must drop them (DEV-1962).
+        { ...baseRow, id: "product-502", key: "product-502", image_url: null },
+        {
+          ...baseRow,
+          id: "product-503",
+          key: "product-503",
+          image_url: "//evil.example/a.jpg",
+        },
       ],
     ];
     let pageIndex = 0;
@@ -266,7 +297,10 @@ describe("getPublishedCuratedProducts", () => {
         equals.push([column, value]);
         return chain;
       },
-      not: () => chain,
+      not(column: string, operator: string, value: unknown) {
+        nots.push([column, operator, value]);
+        return chain;
+      },
       contains: () => chain,
       overlaps(column: string, value: unknown) {
         overlaps.push([column, value]);
@@ -294,11 +328,11 @@ describe("getPublishedCuratedProducts", () => {
       },
     };
     const client = { from: () => chain } as never;
-    return { client, ranges, equals, overlaps, ins, orders };
+    return { client, ranges, equals, nots, overlaps, ins, orders };
   }
 
   it("reads the full corpus in bounded ranges before slicing and uses in-filter for subcategory", async () => {
-    const { client, ranges, ins } = createMockClient();
+    const { client, ranges, ins, nots } = createMockClient();
 
     const result = await getPublishedCuratedProducts(
       { category: "home", subcategories: ["candles"], page: 42, pageSize: 12 },
@@ -310,11 +344,15 @@ describe("getPublishedCuratedProducts", () => {
       [500, 999],
     ]);
     expect(ins).toContainEqual(["subcategory", ["candles"]]);
+    expect(nots).toContainEqual(["image_url", "is", null]);
+    // 504 rows read, the two photo-less ones dropped (DEV-1962).
     expect(result.totalCount).toBe(502);
     expect(result.products).toHaveLength(10);
-    expect(result.products.every((product) => product.imageUrl === null)).toBe(
-      true,
-    );
+    expect(
+      result.products.every(
+        (product) => product.imageUrl === "/i/curated-products/test-product.webp",
+      ),
+    ).toBe(true);
   });
 
   it("filters by multiple subcategories using in-filter on scalar column", async () => {

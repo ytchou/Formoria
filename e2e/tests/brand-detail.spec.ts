@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
 import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
 import { BUDGET, POLL } from "../budgets";
+import { e2eProxyImageUrl } from "../helpers/image-refs";
 
 async function openStockistGroup(page: Page, key: string) {
   const group = page.locator(`details[data-stockist-kind="${key}"]`);
@@ -315,6 +316,10 @@ test.describe("Brand detail — product shelf focus", () => {
         source_checked_at: new Date().toISOString(),
         product_description_zh:
           "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
+        // Public reads drop a product with no renderable image (DEV-1962).
+        image_url: e2eProxyImageUrl(
+          `curated-products/${seeded.brand.id}/${productKey}/e2e.webp`,
+        ),
         visible: true,
       })
       .select("id")

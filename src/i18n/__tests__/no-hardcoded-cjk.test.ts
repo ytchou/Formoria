@@ -101,6 +101,9 @@ const ALLOWLIST = [
   "lib/growth/share-assets.ts",
   // Stockist name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
   "lib/brands/stockist-display.ts",
+  // Commerce-truth markers are Chinese regex patterns matched against image text
+  // (data constants, not UI copy).
+  "lib/curated-products/commerce-text.ts",
   // Product description rewrite prompt uses Chinese field labels (LLM prompt, not UI copy).
   "lib/services/curated-products/materialize.ts",
   // FAQ phase prompt fragments and repair instructions are Chinese model

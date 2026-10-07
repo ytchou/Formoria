@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import { L2_SUBCATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
+import { hasRenderableCuratedImage } from "@/lib/curated-products/image-eligibility";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,6 +72,14 @@ function canonicalCatalogSubcategory(row: CatalogProductRow): string | null {
         : null;
   const subcategory = candidate ? subcategoryBySlug(candidate) : null;
   return subcategory?.category === row.category ? subcategory.slug : null;
+}
+
+/** A row the catalog can render: a canonical L2 and a photo the tile shows. */
+function isCatalogEligible(row: CatalogProductRow): boolean {
+  return (
+    canonicalCatalogSubcategory(row) !== null &&
+    hasRenderableCuratedImage(row.image_url)
+  );
 }
 
 export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
@@ -147,8 +156,10 @@ type CatalogFilterQuery = {
  * Published curated products for the /discover catalog, with optional category
  * filtering and pagination. Shares the publication/evidence gates of the
  * homepage read: visible, has official_url, source_checked_at, at least one
- * active source and approved brand. Products without mirrored images remain
- * eligible.
+ * active source and approved brand. A product must also have a renderable
+ * image (DEV-1962): `image_url` is required in the query, so ranges and
+ * counts stay correct, and a URL the tile would not render is dropped in
+ * TypeScript. A curated-selection tile without a photo renders a letter placeholder.
  */
 export async function getPublishedCuratedProducts(
   options: CatalogQueryOptions = {},
@@ -180,6 +191,7 @@ export async function getPublishedCuratedProducts(
         .eq("visible", true)
         .not("official_url", "is", null)
         .not("source_checked_at", "is", null)
+        .not("image_url", "is", null)
         .eq("curated_product_sources.state", "active")
         .eq("brands.status", "approved");
       const filtered = excludeTestBrands(
@@ -209,7 +221,7 @@ export async function getPublishedCuratedProducts(
     }
 
     const products = rawRows
-      .filter((row) => canonicalCatalogSubcategory(row) !== null)
+      .filter(isCatalogEligible)
       .map(transformCatalogRow);
 
     // Reorder to match the caller's ids order
@@ -232,6 +244,7 @@ export async function getPublishedCuratedProducts(
         .eq("visible", true)
         .not("official_url", "is", null)
         .not("source_checked_at", "is", null)
+        .not("image_url", "is", null)
         .eq("curated_product_sources.state", "active")
         .eq("brands.status", "approved");
       if (category) query = query.eq("category", category);
@@ -280,7 +293,7 @@ export async function getPublishedCuratedProducts(
   }
 
   const allProducts = rawRows
-    .filter((row) => canonicalCatalogSubcategory(row) !== null)
+    .filter(isCatalogEligible)
     .map(transformCatalogRow);
   const ordered =
     sort === "alphabetical"
@@ -384,8 +397,14 @@ type ProductFacetRow = {
   category: string | null;
   subcategory: string | null;
   material: string[] | null;
+  image_url: string | null;
 };
 
+/**
+ * Counts what the catalog list renders. A photo-less row is skipped here for
+ * the same reason the list drops it (DEV-1962), so a facet never promises a
+ * product the grid then hides.
+ */
 export function aggregateProductFacetRows(
   rows: readonly ProductFacetRow[],
 ): FacetCounts {
@@ -393,6 +412,7 @@ export function aggregateProductFacetRows(
   const subCounts = new Map<string, number>();
   const matCounts = new Map<string, number>();
   for (const row of rows) {
+    if (!hasRenderableCuratedImage(row.image_url)) continue;
     if (row.category) {
       catCounts.set(row.category, (catCounts.get(row.category) ?? 0) + 1);
     }
@@ -436,11 +456,12 @@ const getCachedProductFacetCounts = unstable_cache(
       let query = supabase
         .from("curated_products")
         .select(
-          "category, subcategory, material, curated_product_sources!inner(id), brands!inner(slug, name, status)",
+          "category, subcategory, material, image_url, curated_product_sources!inner(id), brands!inner(slug, name, status)",
         )
         .eq("visible", true)
         .not("official_url", "is", null)
         .not("source_checked_at", "is", null)
+        .not("image_url", "is", null)
         .eq("curated_product_sources.state", "active")
         .eq("brands.status", "approved");
       if (category) query = query.eq("category", category);
