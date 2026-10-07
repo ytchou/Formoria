@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
 import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
+import { e2eProxyImageUrl } from "../helpers/image-refs";
 import { BUDGET, POLL } from "../budgets";
 
 async function openStockistGroup(page: Page, key: string) {
@@ -312,6 +313,9 @@ test.describe("Brand detail — product shelf focus", () => {
         subcategory: "lighting",
         official_url:
           "https://sammm-studio.com/products/perch-wireless-table-lamp",
+        // The shelf skips photo-less products (DEV-1950), so the seed needs a
+        // path `safeImageSrc` accepts. The image need not resolve for this spec.
+        image_url: e2eProxyImageUrl(`curated-products/e2e/${productKey}.webp`),
         source_checked_at: new Date().toISOString(),
         product_description_zh:
           "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
@@ -342,7 +346,10 @@ test.describe("Brand detail — product shelf focus", () => {
     await seeded?.cleanup();
   });
 
-  test("a pointer click does not pin the product caption open", async ({
+  // DEV-1950 replaced the hover-only caption and its focus-only wrapper with a
+  // static name and a real link, so the old "caption does not pin open" check
+  // has nothing left to test. This asserts the new contract instead.
+  test("shelf tile shows its name at rest and links onward", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1920, height: 929 });
@@ -351,24 +358,27 @@ test.describe("Brand detail — product shelf focus", () => {
     const tile = page.locator(`#product-${productKey}`);
     await expect(tile).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await tile.scrollIntoViewIfNeeded();
-    const focusTarget = tile.locator('[tabindex="0"]').first();
-    const image = focusTarget.locator(":scope > div").first();
-    const caption = tile
-      .getByRole("heading", { name: productName })
-      .locator("..");
 
-    await page.keyboard.press("Tab");
-    await focusTarget.focus();
-    await expect
-      .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))
-      .toBe("1");
-    await focusTarget.evaluate((node) => (node as HTMLElement).blur());
+    await expect(
+      tile.getByRole("heading", { name: productName }),
+    ).toBeVisible();
 
-    await image.click({ force: true });
-    await page.mouse.move(0, 0);
-    await expect
-      .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))
-      .toBe("0");
+    const productLink = tile.getByRole("link", {
+      name: new RegExp(`^${productName}`),
+    });
+    await expect(productLink).toHaveAttribute(
+      "href",
+      new RegExp(`#product-${productKey}$`),
+    );
+    await expect(tile.locator('[tabindex="0"]:not(button)')).toHaveCount(0);
+    await expect(productLink.locator("button")).toHaveCount(0);
+
+    await expect(
+      tile.getByRole("link", { name: /前往品牌官方網站/ }),
+    ).toHaveAttribute(
+      "href",
+      "https://sammm-studio.com/products/perch-wireless-table-lamp",
+    );
   });
 });
 
