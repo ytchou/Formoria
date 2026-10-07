@@ -7,8 +7,8 @@ import zhTW from '../../messages/zh-TW.json';
 /**
  * Crowd-QA corrections (DEV-1170).
  *
- * Journey: an anonymous visitor spots a wrong value in the brand header, taps
- * the single quiet "回報資料有誤" trigger next to the 品牌資訊 heading, picks which
+ * Journey: an anonymous visitor spots a wrong value in the brand header, opens
+ * the hero's ⋯ menu and taps the single quiet "回報資料有誤" item, picks which
  * field is wrong, proposes a different value, and submits. No account required.
  * The proposal lands in a pending queue and the public page keeps showing the
  * original value until an admin approves it.
@@ -28,8 +28,10 @@ import zhTW from '../../messages/zh-TW.json';
 
 // zh-TW is the default locale (playwright.config sets `locale: 'zh-TW'`).
 // Strings below are the literal values in messages/zh-TW.json.
-// The trigger has no aria-label: its visible text IS its accessible name
-// (WCAG 2.5.3), so one constant covers both the role query and the text check.
+// The trigger is a menu item in the hero's ⋯ overflow menu. It has no
+// aria-label: its visible text IS its accessible name (WCAG 2.5.3), so one
+// constant covers both the role query and the text check.
+const MORE_ACTIONS_LABEL = '更多選項'; // brandDetail.label.moreActions
 const CORRECTION_TRIGGER_TEXT = '回報資料有誤'; // brandDetail.correction.trigger
 const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.title
 const FIELD_PICKER_LABEL = '修正項目'; // brandDetail.correction.fieldPickerLabel
@@ -114,38 +116,48 @@ async function openSeededBrand(page: Page, seeded: SeededBrand): Promise<void> {
   }).toPass(POLL.DB);
 }
 
+function moreActionsButton(page: Page) {
+  return page.getByRole('button', { name: MORE_ACTIONS_LABEL, exact: true });
+}
+
 function correctionTrigger(page: Page) {
-  return page.getByRole('button', { name: CORRECTION_TRIGGER_TEXT, exact: true });
+  return page.getByRole('menuitem', { name: CORRECTION_TRIGGER_TEXT, exact: true });
+}
+
+// The menu item exists only while the ⋯ menu is open; open it unless it is
+// already open (a second click on the trigger would close it again).
+async function openMoreActionsMenu(page: Page) {
+  if (!(await correctionTrigger(page).isVisible())) await moreActionsButton(page).click();
 }
 
 function correctionDialog(page: Page) {
   return page.getByRole('dialog', { name: CORRECTION_DIALOG_TITLE });
 }
 
-// The 品牌類別 value cell. Scoping here matters: the category value also appears
-// in the breadcrumb and the related-brands rail. `:text-is` is exact on purpose
-// so this can never select the 商品子類別 row.
+// The hero metadata line (category · city · founded year). Anchored on the
+// seeded founding year: the category value alone also appears in the
+// breadcrumb and the related-brands rail.
 function categoryValue(page: Page) {
-  return page
-    .locator('#brand-info-section > dl > div')
-    .filter({ has: page.locator('dt:text-is("品牌類別")') })
-    .locator('dd');
+  return page.getByRole('main').getByText(/· 2020 年創立$/);
 }
 
 // The brand page is statically served and hydrates afterwards, so a click that
 // lands too early is a no-op. Retry the (idempotent) open until the dialog is up
 // rather than sleeping on a guessed hydration delay.
 async function openCorrectionDialog(page: Page, field: 'category' | 'subcategories') {
-  // The trigger ships in the server-rendered HTML, so a missing one is never a
-  // hydration race — it means the page under test doesn't have this feature at
-  // all. Assert it up front: folded into the retry loop below it surfaces as an
-  // opaque "predicate timed out" pointing at the dialog, which reads like a
+  // The ⋯ trigger ships in the server-rendered HTML, so a missing one is never
+  // a hydration race — it means the page under test doesn't have this feature
+  // at all. Assert it up front: folded into the retry loop below it surfaces as
+  // an opaque "predicate timed out" pointing at the dialog, which reads like a
   // broken dialog selector and sends debugging the wrong way.
-  await expect(correctionTrigger(page)).toBeVisible();
+  await expect(moreActionsButton(page)).toBeVisible();
 
   const dialog = correctionDialog(page);
   await expect(async () => {
-    if (!(await dialog.isVisible())) await correctionTrigger(page).click();
+    if (!(await dialog.isVisible())) {
+      await openMoreActionsMenu(page);
+      await correctionTrigger(page).click();
+    }
     await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   }).toPass(POLL.UI);
   // The field picker is the one control that is still a real <select>. The
@@ -207,11 +219,13 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 
-      // One quiet trigger beside the 品牌資訊 heading, named by its own visible
-      // text. The field is picked inside the dialog.
-      const trigger = correctionTrigger(anonPage);
-      await expect(trigger).toBeVisible();
-      await expect(trigger).toHaveText(CORRECTION_TRIGGER_TEXT);
+      // One quiet item in the hero's ⋯ menu, named by its own visible text.
+      // The field is picked inside the dialog.
+      await expect(async () => {
+        await openMoreActionsMenu(anonPage);
+        await expect(correctionTrigger(anonPage)).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+      }).toPass(POLL.UI);
+      await expect(correctionTrigger(anonPage)).toHaveText(CORRECTION_TRIGGER_TEXT);
 
       const dialog = await openCategoryDialog(anonPage);
       await expect(dialog.getByRole('button', { name: CANCEL_LABEL, exact: true })).toBeVisible();

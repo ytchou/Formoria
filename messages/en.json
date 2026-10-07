@@ -311,12 +311,7 @@
       "fallbackDescription": "Explore {name}, a Taiwanese brand featured on Formoria."
     },
     "tabNav": {
-      "overview": "On this page",
-      "social": "Social",
-      "purchase": "Purchase",
-      "locations": "Stockists",
-      "selectedProducts": "Formoria Selected",
-      "faq": "FAQ"
+      "overview": "On this page"
     },
     "selectedProducts": {
       "heading": "Formoria Selected",
@@ -331,14 +326,11 @@
     },
     "verified": "Brand-managed",
     "foundingYear": "Est. {year}",
-    "sectionTitle": "Brand information",
-    "unknown": "Not available",
     "label": {
-      "location": "Founding city or county",
-      "foundingYear": "Founded",
       "category": "Brand category",
       "subcategories": "Product subcategory",
-      "certification": "Verification"
+      "founded": "Founded {year}",
+      "moreActions": "More options"
     },
     "actions": {
       "visitWebsite": "Visit Website",
@@ -378,14 +370,14 @@
       "unknown": "No link known yet"
     },
     "report": {
-      "trigger": "Report",
-      "title": "Report Brand",
-      "description": "Select a reason and we'll review the report and take appropriate action.",
+      "trigger": "Report a problem",
+      "title": "Report a problem",
+      "description": "Choose what's wrong. We'll review it and update or act as needed.",
       "success": "Thank you for your report. We'll review it shortly.",
       "close": "Close",
       "cancel": "Cancel",
       "alreadyReported": "This brand has already been reported",
-      "reasonHeading": "Select a report reason",
+      "reasonHeading": "What's the problem?",
       "reasonIncorrectInfo": "Incorrect information",
       "reasonBrokenLink": "Broken link",
       "reasonInappropriate": "Inappropriate content",
@@ -411,10 +403,10 @@
       "notesLabel": "Additional notes (optional)",
       "notesPlaceholder": "Provide any details that will help us review this report",
       "submitting": "Submitting…",
-      "submit": "Submit Report",
+      "submit": "Send report",
       "errors": {
         "missingBrandId": "Missing brand ID",
-        "invalidReason": "Please select a valid report reason",
+        "invalidReason": "Choose a problem type",
         "notesTooLong": "Additional notes must be 1000 characters or fewer",
         "rateLimited": "Too many reports. Please try again later.",
         "unknown": "An unknown error occurred",
@@ -422,7 +414,7 @@
       }
     },
     "correction": {
-      "trigger": "Report incorrect information",
+      "trigger": "Suggest a correction",
       "title": "Correct brand information",
       "purchaseTrigger": "Provide a purchase link",
       "purchaseTitle": "Provide a purchase link",
@@ -471,12 +463,13 @@
       "directory": "Brands"
     },
     "sections": {
-      "about": "About",
+      "about": "Brand story",
+      "whereToBuy": "Where to buy",
       "tags": "Tags",
       "photos": "Photos",
       "locations": "Locations",
       "retailLocations": "Stockists",
-      "faq": "Frequently Asked Questions"
+      "faq": "Frequently asked questions"
     },
     "channels": {
       "subtitle": "Places where this brand may be available, with some information provided by the community",

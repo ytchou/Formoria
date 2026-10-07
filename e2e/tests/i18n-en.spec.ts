@@ -89,10 +89,8 @@ test.describe("i18n English browse", () => {
     for (const text of [
       "Brands",
       "Visit Website",
-      "Brand information",
-      "Founded",
-      "Brand category",
-      "Product subcategory",
+      "Where to buy",
+      "Founded 2020",
       "Home & Living",
     ]) {
       expect(document.mainText).toContain(text);
@@ -100,10 +98,8 @@ test.describe("i18n English browse", () => {
     for (const text of [
       "品牌目錄",
       "前往官網",
-      "品牌資訊",
-      "創立年份",
-      "品牌類別",
-      "商品子類別",
+      "哪裡買得到",
+      "2020 年創立",
       "居家生活",
     ]) {
       expect(document.mainText).not.toContain(text);
@@ -126,10 +122,8 @@ test.describe("i18n English browse", () => {
     for (const text of [
       "品牌目錄",
       "前往官網",
-      "品牌資訊",
-      "創立年份",
-      "品牌類別",
-      "商品子類別",
+      "哪裡買得到",
+      "2020 年創立",
       "居家生活",
     ]) {
       expect(document.mainText).toContain(text);
@@ -137,10 +131,8 @@ test.describe("i18n English browse", () => {
     for (const text of [
       "Brand Directory",
       "Visit Website",
-      "Brand information",
+      "Where to buy",
       "Founded",
-      "Brand category",
-      "Product subcategory",
       "Home & Living",
     ]) {
       expect(document.mainText).not.toContain(text);

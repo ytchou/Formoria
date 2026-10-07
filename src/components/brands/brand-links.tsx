@@ -223,7 +223,7 @@ function LinkSection({
   );
 }
 
-function BrandSocialLinks({
+export function BrandSocialLinks({
   brand,
   sectionIds,
   sectionClassName,
@@ -274,7 +274,7 @@ function BrandSocialLinks({
   );
 }
 
-function BrandPurchaseLinks({
+export function BrandPurchaseLinks({
   brand,
   sectionIds,
   sectionClassName,
@@ -312,7 +312,7 @@ function BrandPurchaseLinks({
   );
 }
 
-function BrandOtherLinks({ brand, sectionClassName }: BrandLinksProps) {
+export function BrandOtherLinks({ brand, sectionClassName }: BrandLinksProps) {
   const t = useTranslations("brandDetail");
 
   const otherSlots: LinkSlot[] = brand.otherUrls.flatMap((otherUrl) => {

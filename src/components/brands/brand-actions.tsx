@@ -1,8 +1,8 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
-import { ExternalLink } from 'lucide-react'
+import { Ellipsis, ExternalLink, Flag, Pencil } from 'lucide-react'
 import { trackExternalLinkClicked } from '@/lib/analytics'
 import type { BrandVisitLinkKind } from '@/lib/brands/link-fallback'
 import {
@@ -10,8 +10,16 @@ import {
   onlineStoreByKey,
   type OnlineStoreKey,
 } from '@/lib/brands/online-stores'
+import { CorrectionDialog } from '@/components/brands/correction-dialog'
 import { ReportDialog } from '@/components/brands/report-dialog'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { BrandRouteOutBar } from './brand-route-out-bar'
 import { SaveBrandButton } from './save-brand-button'
 import { ShareDialog } from './share-dialog'
 
@@ -53,6 +61,8 @@ interface BrandActionsProps {
   brandName: string
   brandImageUrl?: string
   categoryLabel?: string | null
+  categorySlug?: string | null
+  subcategories?: string[]
 }
 
 export function BrandActions({
@@ -64,9 +74,17 @@ export function BrandActions({
   brandName,
   brandImageUrl,
   categoryLabel,
+  categorySlug = null,
+  subcategories = [],
 }: BrandActionsProps) {
   const t = useTranslations('brandDetail')
   const visitLabel = t(VISIT_LABEL_KEYS[visitKind])
+  // The mobile route-out bar watches this CTA and appears once it scrolls away.
+  const visitCtaRef = useRef<HTMLAnchorElement>(null)
+  // The two crowd-correction dialogs live outside the menu so they survive the
+  // menu closing; a menu item only flips the dialog open.
+  const [reportOpen, setReportOpen] = useState(false)
+  const [correctionOpen, setCorrectionOpen] = useState(false)
   const handleWebsiteClick = () => {
     trackExternalLinkClicked(
       brandSlug,
@@ -75,48 +93,100 @@ export function BrandActions({
       'detail_page',
       brandId,
     )
-
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      {websiteUrl ? (
-        <a
-          href={websiteUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'primary', width: 'full', className: 'sm:flex-1' })}
-          data-ph-no-autocapture
-          onClick={handleWebsiteClick}
-        >
-          <ExternalLink className="size-[15px]" />
-          {visitLabel}
-        </a>
-      ) : (
-        <span className={buttonVariants({ variant: 'secondary', width: 'full', className: 'cursor-default opacity-50 sm:flex-1' })} aria-disabled="true">
-          <ExternalLink className="size-[15px]" />
-          <span className="line-through">{visitLabel}</span>
-        </span>
-      )}
+    <>
       {/*
-        The visit CTA and this secondary group share one row from `sm` up (the
-        CTA takes the remaining width); below `sm` they stack, and the secondary
-        buttons take the `compact` size's height and internal gap with padding
-        one step tighter than compact so the group fits a 390px viewport.
-        `flex-nowrap` holds the line rather than silently wrapping again.
+        One row at every width: the visit CTA takes the remaining space and the
+        secondary actions are 44px icon buttons. Geometry comes only from the
+        Button `size` axis (DESIGN.md §7/§8) — no height or padding overrides.
       */}
-      <div className="flex flex-nowrap gap-2 sm:shrink-0 max-sm:gap-1 max-sm:[&_button]:h-10 max-sm:[&_button]:gap-1 max-sm:[&_button]:px-2.5">
+      <div className="flex items-center gap-2">
+        {websiteUrl ? (
+          <a
+            ref={visitCtaRef}
+            href={websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonVariants({ variant: 'primary', className: 'flex-1' })}
+            data-ph-no-autocapture
+            onClick={handleWebsiteClick}
+          >
+            <ExternalLink className="size-[15px]" />
+            {visitLabel}
+          </a>
+        ) : (
+          <span className={buttonVariants({ variant: 'secondary', className: 'flex-1 cursor-default opacity-50' })} aria-disabled="true">
+            <ExternalLink className="size-[15px]" />
+            <span className="line-through">{visitLabel}</span>
+          </span>
+        )}
         <ShareDialog
           brandSlug={brandSlug}
           brandName={brandName}
           brandId={brandId}
           brandImageUrl={brandImageUrl}
           categoryLabel={categoryLabel}
+          iconOnly
         />
-        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-control" />}
-        {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
+        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" iconOnly />}
+        {brandId && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={t('label.moreActions')}
+              render={<Button variant="secondary" size="icon" />}
+            >
+              <Ellipsis className="size-4" />
+            </DropdownMenuTrigger>
+            {/*
+              `w-auto`: the popup defaults to the trigger's width (44px, floored
+              at min-w-32), which wraps the EN labels onto two lines.
+            */}
+            <DropdownMenuContent align="end" className="w-auto">
+              <DropdownMenuItem onClick={() => setReportOpen(true)}>
+                <Flag className="size-4" />
+                {t('report.trigger')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCorrectionOpen(true)}>
+                <Pencil className="size-4" />
+                {t('correction.trigger')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {adminSlot}
       </div>
-    </div>
+      {brandId && (
+        <>
+          <ReportDialog
+            brandId={brandId}
+            brandSlug={brandSlug}
+            open={reportOpen}
+            onOpenChange={setReportOpen}
+          />
+          <CorrectionDialog
+            brandId={brandId}
+            brandSlug={brandSlug}
+            mode="brandInfo"
+            categorySlug={categorySlug}
+            subcategories={subcategories}
+            open={correctionOpen}
+            onOpenChange={setCorrectionOpen}
+          />
+        </>
+      )}
+      {websiteUrl && (
+        <BrandRouteOutBar
+          ctaRef={visitCtaRef}
+          href={websiteUrl}
+          label={visitLabel}
+          brandName={brandName}
+          brandId={brandId}
+          brandSlug={brandSlug}
+          onVisitClick={handleWebsiteClick}
+        />
+      )}
+    </>
   )
 }

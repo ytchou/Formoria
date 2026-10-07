@@ -311,12 +311,7 @@
       "fallbackDescription": "探索 {name} 的品牌故事、產品與官方連結。"
     },
     "tabNav": {
-      "overview": "本頁導覽",
-      "social": "社群平台",
-      "purchase": "購買資訊",
-      "locations": "實體通路",
-      "selectedProducts": "Formoria 選物",
-      "faq": "常見問題"
+      "overview": "本頁導覽"
     },
     "selectedProducts": {
       "heading": "Formoria 選物",
@@ -331,14 +326,11 @@
     },
     "verified": "品牌經營",
     "foundingYear": "創立於 {year}",
-    "sectionTitle": "品牌資訊",
-    "unknown": "尚無資料",
     "label": {
-      "location": "創立縣市",
-      "foundingYear": "創立年份",
       "category": "品牌類別",
       "subcategories": "商品子類別",
-      "certification": "認證"
+      "founded": "{year} 年創立",
+      "moreActions": "更多選項"
     },
     "actions": {
       "visitWebsite": "前往官網",
@@ -378,14 +370,14 @@
       "unknown": "尚無已知連結"
     },
     "report": {
-      "trigger": "檢舉",
-      "title": "檢舉品牌",
-      "description": "請選擇檢舉原因，我們會審核內容並採取適當行動。",
+      "trigger": "回報問題",
+      "title": "回報問題",
+      "description": "請選擇問題類型，我們會審核內容，必要時更新或處理。",
       "success": "感謝你的回報，我們會盡快審核。",
       "close": "關閉",
       "cancel": "取消",
       "alreadyReported": "這個品牌已經回報過了",
-      "reasonHeading": "選擇檢舉原因",
+      "reasonHeading": "問題類型",
       "reasonIncorrectInfo": "資訊有誤",
       "reasonBrokenLink": "連結失效",
       "reasonInappropriate": "不當內容",
@@ -411,14 +403,14 @@
       "notesLabel": "補充說明（選填）",
       "notesPlaceholder": "請提供更多資訊，以協助我們更快處理",
       "submitting": "送出中…",
-      "submit": "送出檢舉",
+      "submit": "送出回報",
       "errors": {
         "missingBrandId": "缺少品牌 ID",
-        "invalidReason": "請選擇有效的檢舉原因",
+        "invalidReason": "請選擇問題類型",
         "notesTooLong": "補充說明不得超過 1000 字",
-        "rateLimited": "檢舉次數過多，請稍後再試。",
+        "rateLimited": "回報次數太多，請稍後再試。",
         "unknown": "發生未知錯誤",
-        "notLoggedIn": "請先登入後再提交檢舉"
+        "notLoggedIn": "請先登入再回報"
       }
     },
     "correction": {
@@ -471,7 +463,8 @@
       "directory": "品牌目錄"
     },
     "sections": {
-      "about": "品牌簡介",
+      "about": "品牌故事",
+      "whereToBuy": "哪裡買得到",
       "tags": "標籤",
       "photos": "照片",
       "locations": "地點",
