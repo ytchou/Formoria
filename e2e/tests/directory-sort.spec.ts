@@ -21,7 +21,7 @@ test.describe("Directory sort deep", () => {
     ).toBeVisible();
   });
 
-  test('@smoke selecting "A-Z" updates URL to ?sort=name', async ({ page }) => {
+  test('@smoke selecting "名稱" updates URL to ?sort=name', async ({ page }) => {
     await page.goto("/brands");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });

@@ -157,6 +157,16 @@ test.describe("Product catalog (formerly category landings) deep", () => {
       expect((await request.get(path)).status(), path).toBe(404);
     }
 
+    // Unknown categories 404 on /brands exactly as on /discover (DS-34), even
+    // beside a valid one, instead of serving every brand under that URL.
+    for (const path of [
+      "/brands?category=food",
+      "/brands?category=home,food",
+      "/discover?category=food",
+    ]) {
+      expect((await request.get(path)).status(), path).toBe(404);
+    }
+
     // Sub params without a category or with a mismatched category are silently
     // dropped by the filter sidebar — the page returns 200, not 404.
     for (const path of [

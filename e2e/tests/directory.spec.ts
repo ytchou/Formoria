@@ -150,6 +150,10 @@ test.describe("Directory deep", () => {
   test("category landing loads with filtered brands", async ({ page }) => {
     const response = await page.goto("/brands?category=home");
     expect(response?.status()).toBe(200);
+    // The sitemap submits this URL, so the page must not noindex it (SP-03).
+    await expect(
+      page.locator('meta[name="robots"][content*="noindex"]'),
+    ).toHaveCount(0);
     // `home` is a launch category, so an empty result here is a regression,
     // not a data state — asserted as real brands rather than "results OR the
     // empty state", which passed on both.
@@ -227,7 +231,7 @@ test.describe("Directory deep", () => {
 
     const emptyState = page.locator("[data-empty]");
     await expect(
-      emptyState.getByRole("heading", { name: "找不到符合的品牌" }),
+      emptyState.getByRole("heading", { name: "沒有符合這些條件的品牌" }),
     ).toBeVisible();
 
     await expect(

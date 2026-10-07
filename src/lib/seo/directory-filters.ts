@@ -34,6 +34,14 @@ export function hasDeferredCategoryFilter(
   );
 }
 
+/** Whether any requested category slug is outside `validSlugs` (DS-34: 404s). */
+export function hasInvalidCategoryFilter(
+  value: string | string[] | undefined,
+  validSlugs: ReadonlySet<string>,
+): boolean {
+  return parseCommaParam(value).some((slug) => !validSlugs.has(slug));
+}
+
 export function parseDirectoryViewFilters(
   searchParams: DirectorySearchParams,
   validCategorySlugs: ReadonlySet<string>,
