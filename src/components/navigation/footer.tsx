@@ -10,13 +10,15 @@ import { PageShell } from "@/components/ui/page-shell";
  * print, `border-rule-on-ink` for the divider. THE ACCENT NEVER APPEARS ON
  * INK — `accent` against `ink` is barely two luminance points apart, so it
  * would read as invisible rather than as a control. That includes the focus
- * ring, which uses `on-ink` here instead.
+ * ring: the base layer draws a 2px `accent` outline on every `:focus-visible`
+ * element, and the links here keep its width and offset but swap its colour
+ * for `on-ink`, so exactly one ring is drawn and it can be seen.
  *
  * `rule-on-ink` is a non-text rule only. It does not meet a text contrast floor
  * and must never carry type.
  */
 const linkClasses =
-  "inline-flex min-h-11 items-center type-nav text-on-ink hover:underline underline-offset-4 rounded-control focus-visible:ring-2 focus-visible:ring-on-ink focus-visible:ring-offset-2 focus-visible:ring-offset-ink";
+  "inline-flex min-h-11 items-center type-nav text-on-ink hover:underline underline-offset-4 rounded-control focus-visible:outline-on-ink";
 
 const columnHeadingClasses = "type-eyebrow text-on-ink-muted";
 
@@ -25,7 +27,7 @@ export function Footer() {
   const locale = useLocale();
 
   return (
-    <footer role="contentinfo" className="bg-ink py-section">
+    <footer role="contentinfo" className="bg-ink pt-section pb-12">
       {/* THE SAME SHELL AS THE PAGE ABOVE IT, and no route knowledge of its
           own. The footer is rendered by the site layout, so it cannot know its
           route; it used to track the page through an overridable custom
@@ -43,21 +45,30 @@ export function Footer() {
             {/* `footer.tagline` is byte-pinned by brand-identity-copy.test.ts
                 as the canonical promise derivative — do not punctuate it here. */}
             <p className="mt-4 type-body-sm text-on-ink-muted">{t("tagline")}</p>
+            {/* The non-seller disclosure (DESIGN.md §8): every purchase routes
+                out to the brand's own channel, and the footer says so on
+                every page. */}
+            <p className="mt-2 type-body-sm text-on-ink-muted">{t("disclosure")}</p>
           </div>
 
           <div className="grid flex-1 grid-cols-2 gap-stack sm:grid-cols-3">
-            {/* Discover */}
+            {/* Browse — products first, the same order as the header. */}
             <div>
               <p className={columnHeadingClasses}>{t("discoverHeading")}</p>
               <ul className="mt-4 flex list-none flex-col p-0">
                 <li>
-                  <Link href={routes.style()} prefetch={false} className={linkClasses}>
-                    {t("discover")}
+                  <Link href={routes.discover()} prefetch={false} className={linkClasses}>
+                    {t("products")}
                   </Link>
                 </li>
                 <li>
                   <Link href={routes.brands()} prefetch={false} className={linkClasses}>
                     {t("directory")}
+                  </Link>
+                </li>
+                <li>
+                  <Link href={routes.style()} prefetch={false} className={linkClasses}>
+                    {t("style")}
                   </Link>
                 </li>
                 <li>
@@ -96,7 +107,7 @@ export function Footer() {
               </ul>
             </div>
 
-            {/* Contact — the legal column folded in with it, as in the mock. */}
+            {/* Contact. The legal documents sit in the bottom row instead. */}
             <div>
               <p className={columnHeadingClasses}>{t("connectHeading")}</p>
               <ul className="mt-4 flex list-none flex-col p-0">
@@ -105,25 +116,30 @@ export function Footer() {
                     {t("contact")}
                   </Link>
                 </li>
-                <li>
-                  <Link href={routes.terms()} prefetch={false} className={linkClasses}>
-                    {t("terms")}
-                  </Link>
-                </li>
-                <li>
-                  <Link href={routes.privacy()} prefetch={false} className={linkClasses}>
-                    {t("privacy")}
-                  </Link>
-                </li>
               </ul>
             </div>
           </div>
         </div>
 
-        <div className="mt-stack border-t border-rule-on-ink pt-6">
+        {/* Copyright left, the legal documents right; they wrap under it on
+            a phone. The links keep the 44px `min-h-11` hit area, so the row
+            centres the copyright against them. */}
+        <div className="mt-stack flex flex-wrap items-center justify-between gap-x-6 border-t border-rule-on-ink pt-6">
           <p className="type-metadata text-on-ink-muted">
             {t("copyright", { year: new Date().getFullYear() })}
           </p>
+          <ul className="flex list-none flex-wrap gap-x-6 p-0">
+            <li>
+              <Link href={routes.terms()} prefetch={false} className={linkClasses}>
+                {t("terms")}
+              </Link>
+            </li>
+            <li>
+              <Link href={routes.privacy()} prefetch={false} className={linkClasses}>
+                {t("privacy")}
+              </Link>
+            </li>
+          </ul>
         </div>
       </PageShell>
     </footer>

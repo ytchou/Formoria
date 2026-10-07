@@ -438,8 +438,16 @@
   @apply font-hei text-[0.6875rem] font-medium leading-[1.3] tracking-wide text-ink-muted;
 }
 
+/* 12px, not 11px: at 11px the CJK strokes of a 黑體 eyebrow fill in on
+   ordinary screens. Letter-spacing is a Latin small-caps device — tracked CJK
+   reads as gapped characters, not as an eyebrow — so it applies only under an
+   English `lang`. The ink stays in the first `@apply`: the photo-band contrast
+   check reads each role's ink from the utility body up to its first `}`. */
 @utility type-eyebrow {
-  @apply font-hei text-[0.6875rem] font-semibold uppercase tracking-widest text-ink-muted;
+  @apply font-hei text-[0.75rem] font-semibold uppercase text-ink-muted;
+  &:lang(en) {
+    @apply tracking-widest;
+  }
 }
 
 /*
@@ -524,9 +532,26 @@
      the highest-leverage selector in the stylesheet, so it names v2 tokens
      directly: `rule` is the v2 hairline, and the outline follows `accent`,
      which is what `--ring` already aliased. Anything that needs a different
-     border states one; this is only the fallback. */
+     border states one; this is only the fallback. The outline is full-strength
+     accent: at 50% alpha it fell under the 3:1 non-text contrast WCAG 1.4.11
+     asks of a focus indicator against `ground`. */
   * {
-    @apply border-rule outline-accent/50;
+    @apply border-rule outline-accent;
+  }
+  /* DESIGN.md §7: every interactive element has a drawn focus state, and the
+     ring is 2px accent. Declared here so an element that styles no focus of its
+     own still draws one. It sits in the base layer, so any component that sets
+     `focus-visible:outline-none` and draws its own ring still wins. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+  /* SP-23: CJK display headings broke mid-word on mobile. `balance` evens the
+     line lengths; `auto-phrase` keeps CJK phrases whole in Chromium and is
+     ignored as an unknown value elsewhere. */
+  h1,
+  h2 {
+    text-wrap: balance;
+    word-break: auto-phrase;
   }
   /* The page ground is the v2 `ground`/`ink` pair, not the v1 `background`/
      `foreground` pair. `--background` (#FDFCFA) is a quarter-step lighter than

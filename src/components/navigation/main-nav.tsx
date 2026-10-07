@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { Menu } from "lucide-react";
@@ -21,8 +21,79 @@ import { trackCtaClicked } from "@/lib/analytics";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
+/**
+ * A primary link is current on its own route and on every route beneath it
+ * (`/brands` is current on `/brands/<slug>`). One test for both lists, so the
+ * desktop row and the mobile sheet cannot disagree about which link is lit.
+ */
+function isActiveHref(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+/**
+ * Whether the homepage hero's search is on screen, so the header can stand its
+ * own search down rather than offer two identical fields in one viewport.
+ *
+ * SHORTCUT: the selector couples to the hidden `src=hero` input that
+ * `ProductSearchBoxCompact` renders inside the hero's form. Ceiling: one hero
+ * search on one page. Upgrade path: if the hero gains a second search, or
+ * another page wants the same hand-off, lift the hero's form ref into a shared
+ * context instead of querying the DOM.
+ *
+ * Starts `true` on `/` so first paint never shows both fields, and fails OPEN
+ * everywhere else: with no IntersectionObserver, or while the hero (which sits
+ * in a Suspense boundary and may mount after this effect) has not appeared, it
+ * reports `false` and the header search shows.
+ */
+function useHeroSearchInView(isHome: boolean) {
+  const [inView, setInView] = useState(isHome);
+
+  useEffect(() => {
+    if (!isHome) return;
+
+    const findHero = () =>
+      document
+        .querySelector('input[name="src"][value="hero"]')
+        ?.closest("form") ?? null;
+
+    if (typeof IntersectionObserver === "undefined") {
+      queueMicrotask(() => setInView(false));
+      return;
+    }
+
+    const intersection = new IntersectionObserver(([entry]) => {
+      if (entry) setInView(entry.isIntersecting);
+    });
+    let mutation: MutationObserver | null = null;
+
+    const hero = findHero();
+    if (hero) {
+      intersection.observe(hero);
+    } else {
+      queueMicrotask(() => setInView(false));
+      mutation = new MutationObserver(() => {
+        const late = findHero();
+        if (!late) return;
+        mutation?.disconnect();
+        mutation = null;
+        intersection.observe(late);
+      });
+      mutation.observe(document.body, { childList: true, subtree: true });
+    }
+
+    return () => {
+      intersection.disconnect();
+      mutation?.disconnect();
+    };
+  }, [isHome]);
+
+  return isHome && inView;
+}
+
 export function MainNav() {
   const [open, setOpen] = useState(false);
+  // The popup itself (Base UI gives it `tabIndex={-1}`) takes focus on open.
+  const sheetRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("nav");
   // Reads `user` with no loading gate: the only thing it drives is whether the
   // signed-out LocaleSwitcher renders, and ViewerProvider commits `user` in the
@@ -30,6 +101,7 @@ export function MainNav() {
   // that depends on `viewer` needs a `viewerLoading` gate first.
   const { user } = useUser();
   const pathname = usePathname();
+  const hideNavSearch = useHeroSearchInView(pathname === routes.home());
 
   /**
    * The five primary destinations: products, brands, style, stories, about.
@@ -67,13 +139,21 @@ export function MainNav() {
             vectorized mark is still the favicon and still opens the auth
             layout; in the nav it competed with the wordmark beside it at
             32px. */}
-        <Link href={routes.home()} className="shrink-0 type-card-title">
+        <Link
+          href={routes.home()}
+          className="inline-flex min-h-11 shrink-0 items-center type-card-title"
+        >
           Formoria
         </Link>
 
         {/* NavSearchInput hides on /brands and /discover, which own their forms.
-            Homepage nav and hero have distinct accessible names. */}
-        <div className="hidden flex-1 md:block">
+            Homepage nav and hero have distinct accessible names. On `/` the
+            field is also `invisible` while the hero's search is on screen:
+            visibility rather than unmounting, so the links to its right keep
+            their place, and `visibility: hidden` takes it out of the tab order
+            and the accessibility tree as well. Only this desktop copy yields —
+            the one in the mobile sheet stays. */}
+        <div className={cn("hidden flex-1 md:block", hideNavSearch && "invisible")}>
           <NavSearchInput />
         </div>
 
@@ -83,15 +163,23 @@ export function MainNav() {
           aria-label={t("navigation")}
           className="hidden items-center gap-5 lg:flex"
         >
-          {primaryLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="type-nav transition-colors hover:text-accent"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {primaryLinks.map((link) => {
+            const isActive = isActiveHref(pathname, link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "inline-flex min-h-11 items-center type-nav transition-colors hover:text-accent",
+                  isActive &&
+                    "text-accent underline decoration-accent decoration-2 underline-offset-[6px]",
+                )}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
           {!user ? <LocaleSwitcher /> : null}
           <Link
             href={routes.submit.index()}
@@ -135,7 +223,15 @@ export function MainNav() {
                 made. The `w-72` that used to sit here never applied at all —
                 the shell's `data-[side=right]` width outranks a plain `w-*`
                 from a call site. */}
-            <SheetContent side="right" size="panel">
+            {/* `initialFocus` on the popup: Base UI would otherwise focus the
+                first tabbable element, which is the search field, and on a
+                phone that raises the keyboard over the menu it just opened. */}
+            <SheetContent
+              ref={sheetRef}
+              initialFocus={sheetRef}
+              side="right"
+              size="panel"
+            >
               {/* NO `SheetHeader`. The title here is `sr-only`, and a ruled
                   header above an invisible title draws a hairline over nothing.
                   `pt-14` (3.5rem) is what clears the absolutely-positioned
@@ -155,11 +251,12 @@ export function MainNav() {
                 {/* Primary navigation links */}
                 <nav aria-label={t("navigation")} className="mt-6 flex flex-col gap-1 px-2">
                   {primaryLinks.map((link) => {
-                    const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+                    const isActive = isActiveHref(pathname, link.href);
                     return (
                       <Link
                         key={link.href}
                         href={link.href}
+                        aria-current={isActive ? "page" : undefined}
                         className={cn(
                           "flex min-h-12 items-center rounded-control px-3 font-hei text-base font-medium transition-colors",
                           isActive
