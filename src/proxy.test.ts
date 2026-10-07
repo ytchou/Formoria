@@ -69,10 +69,17 @@ function requestFor(pathname: string, headers: Record<string, string> = {}) {
   });
 }
 
-async function withRedirectLookupServer<T>(callback: () => Promise<T>) {
+/**
+ * Serves every Supabase REST lookup the proxy makes with `body`. The default
+ * `[]` reads as "no such row": no approved brand, no historical redirect.
+ */
+async function withRedirectLookupServer<T>(
+  callback: () => Promise<T>,
+  body = "[]",
+) {
   const server = createServer((_request, response) => {
     response.writeHead(200, { "content-type": "application/json" });
-    response.end("[]");
+    response.end(body);
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -363,6 +370,63 @@ describe("default-locale URL canonicalization", () => {
         /\/brands\/hero-herb$/,
       );
     });
+  });
+});
+
+/**
+ * The proxy's own 404s used to be empty-bodied responses, so a crawler or
+ * visitor saw a blank page. They now rewrite onto the localized catch-all,
+ * which renders the branded not-found page; the 404 status rides the rewrite.
+ */
+describe("proxy-owned 404s", () => {
+  function rewritePathname(response: Response): string | null {
+    const rewrite = response.headers.get("x-middleware-rewrite");
+    return rewrite === null ? null : new URL(rewrite).pathname;
+  }
+
+  it("rewrites an unknown bare slug to the zh-TW not-found page with a 404 instead of an empty response", async () => {
+    await withRedirectLookupServer(async () => {
+      const response = await proxy(requestFor("/e2e-unknown-brand"));
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get("location")).toBeNull();
+      const pathname = rewritePathname(response);
+      expect(pathname).toMatch(/^\/zh-TW\/[^/]+$/);
+      expect(pathname).not.toBe("/zh-TW/e2e-unknown-brand");
+      expect(
+        response.headers.get("x-middleware-request-x-next-intl-locale"),
+      ).toBe("zh-TW");
+    });
+  });
+
+  it("rewrites a malformed brand slug to the not-found page of the requested locale", async () => {
+    const response = await proxy(requestFor("/en/brands/%e0%a4%a"));
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("location")).toBeNull();
+    expect(rewritePathname(response)).toMatch(/^\/en\/[^/]+$/);
+    expect(
+      response.headers.get("x-middleware-request-x-next-intl-locale"),
+    ).toBe("en");
+
+    // The decode failure fires a lazy `import('@sentry/nextjs')`. Let it settle
+    // here: an import still pending when a later case issues its own races in
+    // Vitest's mock registry and can hand that case the real SDK.
+    for (let turn = 0; turn < 3; turn += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  });
+
+  it("still 301-redirects an approved bare slug to its brand page", async () => {
+    await withRedirectLookupServer(async () => {
+      const response = await proxy(requestFor("/hero-herb"));
+
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toMatch(
+        /\/brands\/hero-herb$/,
+      );
+      expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    }, '[{"id":"brand-1"}]');
   });
 });
 

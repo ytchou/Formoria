@@ -134,6 +134,12 @@ const intlMiddleware = createMiddleware(routing);
 const KNOWN_LOCALES = new Set<string>(routing.locales);
 const ADMIN_DEFAULT_LOCALE = "en";
 const NEXT_INTL_LOCALE_HEADER = "X-NEXT-INTL-LOCALE";
+/**
+ * A path segment no route defines. The proxy's own 404s rewrite to
+ * `/<locale>/<this>`, which lands on `[locale]/(site)/[...rest]/page.tsx` and
+ * renders the branded not-found page instead of an empty body.
+ */
+const NOT_FOUND_REWRITE_SEGMENT = "__proxy-not-found__";
 const NON_LOCALIZED_AUTH_ROUTES = new Set([
   routes.auth.callback(),
   routes.auth.signOut(),
@@ -550,6 +556,24 @@ async function refreshSupabaseSession(
   return supabaseResponse;
 }
 
+/**
+ * A 404 that the app renders. The proxy does not re-run on a rewrite, so the
+ * locale header is set here for next-intl.
+ */
+function rewriteToLocalizedNotFound(
+  request: NextRequest,
+  locale: string,
+): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = `/${locale}/${NOT_FOUND_REWRITE_SEGMENT}`;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(NEXT_INTL_LOCALE_HEADER, locale);
+  return NextResponse.rewrite(url, {
+    status: 404,
+    request: { headers: requestHeaders },
+  });
+}
+
 function finalizeResponse(
   response: NextResponse,
   staging: boolean,
@@ -902,7 +926,11 @@ async function runProxy(request: NextRequest) {
       decodedSlug = decodeURIComponent(brandSlug);
     } catch (error) {
       reportProxyFailure("slug-decode", error, "warning");
-      return finalizeResponse(new NextResponse(null, { status: 404 }), staging);
+      const locale = isAppLocale(segments[0]) ? segments[0] : "zh-TW";
+      return finalizeResponse(
+        rewriteToLocalizedNotFound(request, locale),
+        staging,
+      );
     }
 
     const redirectSlug = await resolveApprovedBrandRedirect(decodedSlug);
@@ -937,7 +965,7 @@ async function runProxy(request: NextRequest) {
       const decision = decideBareBrandSlug(slug, isApproved);
       if (decision.action === "not-found") {
         return finalizeResponse(
-          new NextResponse(null, { status: decision.status }),
+          rewriteToLocalizedNotFound(request, "zh-TW"),
           staging,
         );
       }

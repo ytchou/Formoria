@@ -182,6 +182,46 @@ test.describe("SEO deep", () => {
 
     expect(response.status()).toBe(404);
     expect(response.headers().location).toBeUndefined();
+    // The proxy used to answer with an empty body. It now hands the 404 to the
+    // app, which renders the branded page.
+    const html = await response.text();
+    expect(html).toContain('<html lang="zh-TW"');
+    expect(html).toContain("找不到此頁面");
+  });
+
+  test("unknown URLs render the branded 404 in the right locale", async ({
+    request,
+  }) => {
+    for (const { path, lang, title } of [
+      // Localized catch-all: `[locale]/(site)/[...rest]`.
+      {
+        path: "/en/this-does-not-exist-e2e",
+        lang: "en",
+        title: "Page Not Found",
+      },
+      // Outside any locale route: `global-not-found.tsx`.
+      { path: "/foo/bar-e2e", lang: "zh-TW", title: "找不到此頁面" },
+    ]) {
+      const response = await request.get(path, { maxRedirects: 0 });
+      expect(response.status(), path).toBe(404);
+      const html = await response.text();
+      expect(html, path).toContain(`<html lang="${lang}"`);
+      expect(html, path).toContain(title);
+    }
+  });
+
+  test("an unknown brand detail 404 is noindex with no canonical", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      `/brands/e2e-unknown-brand-${Date.now()}`,
+      { maxRedirects: 0 },
+    );
+
+    expect(response.status()).toBe(404);
+    const html = await response.text();
+    expect(html).not.toContain('rel="canonical"');
+    expect(extractMetaContent(html, "robots")).toMatch(/noindex/i);
   });
 
   // --- i18n: default-locale URL stability ---
