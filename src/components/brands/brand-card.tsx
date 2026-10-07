@@ -12,7 +12,6 @@ import {
 } from "@/lib/analytics";
 import { useSavedBrands } from "@/hooks/use-saved-brands";
 import { surfaceCardStyles } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { brandImageFill } from "@/lib/images/fill";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
@@ -86,19 +85,15 @@ export function BrandCard({
         brand.blurb ??
         brand.description)
       : (brand.blurb ?? brand.description);
-  // Directory and editorial cards are whole-card click targets with a save
-  // affordance; recommendation cards use an explicit button instead.
-  const isWholeCardLink = variant === "directory" || variant === "editorial";
   // One link element for every variant: the whole-card overlay and the click
   // analytics must not drift between the directory and the other layouts.
+  // Every variant is a whole-card click target: the name link's `::after`
+  // covers the `relative` article.
   const nameLink = (
     <Link
       href={routes.brand(brand.slug)}
       prefetch={variant === "directory" ? false : undefined}
-      className={cn(
-        "focus-visible:outline-none",
-        isWholeCardLink && "after:absolute after:inset-0",
-      )}
+      className="focus-visible:outline-none after:absolute after:inset-0"
       onClick={() => {
         if (variant === "recommendation") {
           trackRecommendationBrandClicked(
@@ -126,7 +121,10 @@ export function BrandCard({
     </Link>
   );
 
-  if (variant === "directory") {
+  // Recommendation cards (related brands, search fallbacks) share the
+  // directory layout; they keep their own variant so the click analytics above
+  // still report them as recommendations. They carry no save control.
+  if (variant === "directory" || variant === "recommendation") {
     const cityLabel =
       brand.city && tCities.has(brand.city) ? tCities(brand.city) : null;
     const metadata = [categoryLabel, cityLabel].filter(Boolean).join(" · ");
@@ -147,7 +145,9 @@ export function BrandCard({
         })}
       >
         <div className="flex h-full flex-col gap-3 p-5">
-          <div className="flex items-start justify-between gap-3">
+          {/* The save control overlays the mark's corner, as on /discover;
+              z-20 lifts it above the whole-card link's overlay. */}
+          <div className="relative w-fit shrink-0">
             <BrandAvatar
               name={brand.name}
               imageSrc={safeImageSrc(brand.heroImageUrl)}
@@ -155,12 +155,15 @@ export function BrandCard({
               showName={false}
               preload={preload}
             />
-            <SaveBrandButton
-              brandId={brand.id}
-              slug={brand.slug}
-              variant="inline"
-              className="relative z-20"
-            />
+            {variant === "directory" ? (
+              <SaveBrandButton
+                brandId={brand.id}
+                slug={brand.slug}
+                name={brand.name}
+                variant="overlay"
+                className="-right-3 -top-3 z-20"
+              />
+            ) : null}
           </div>
           <h3 className="type-card-title line-clamp-2 text-ink">{nameLink}</h3>
           {metadata ? (
@@ -196,8 +199,8 @@ export function BrandCard({
     );
   }
 
-  // The directory card leads with the logo mark, so only the other variants
-  // need the selected cover image.
+  // Only the editorial variant reaches here: the directory and recommendation
+  // cards lead with the logo mark, so only it needs the selected cover image.
   const selectedImage = selectBrandCardImage(brand);
   const imageSrc = selectedImage?.src ?? null;
   const showImage = imageSrc != null && !imgError;
@@ -237,18 +240,17 @@ export function BrandCard({
             size="card"
           />
         )}
-        {isWholeCardLink ? (
-          <SaveBrandButton
-            brandId={brand.id}
-            slug={brand.slug}
-            variant="overlay"
-          />
-        ) : null}
+        <SaveBrandButton
+          brandId={brand.id}
+          slug={brand.slug}
+          name={brand.name}
+          variant="overlay"
+        />
       </div>
 
       {/* Content */}
       <div className="p-4">
-        {variant === "editorial" && eyebrow ? (
+        {eyebrow ? (
           /*
            * Micro-text, not a `Badge`: three grey pills across a `<BrandRow>`
            * read as chrome inside prose. `type-eyebrow` is the declared
@@ -261,77 +263,41 @@ export function BrandCard({
            * Editorial titles get two lines with a reserved two-line height: at
            * the ~229px card width of a 3-up row `truncate` cut real brand names
            * mid-word, and an unreserved clamp let a 1-line card ride up out of
-           * line with its neighbours. The recommendation variant keeps
-           * `truncate` — that surface must not change.
+           * line with its neighbours.
            */}
-          <h3
-            className={cn(
-              "min-w-0 type-body-sm font-semibold text-ink",
-              variant === "editorial" ? "line-clamp-2 min-h-10" : "truncate",
-            )}
-          >
+          <h3 className="min-w-0 line-clamp-2 min-h-10 type-body-sm font-semibold text-ink">
             {nameLink}
           </h3>
         </div>
-        {variant === "recommendation" ? (
-          <>
-            {categoryLabel ? (
-              <p className="mt-1 truncate type-body-sm">{categoryLabel}</p>
-            ) : null}
-            <Link
-              href={routes.brand(brand.slug)}
-              className={buttonVariants({
-                variant: "secondary",
-                size: "large",
-                width: "full",
-                className: "relative z-20 mt-4",
-              })}
-              onClick={() =>
-                trackRecommendationBrandClicked(
-                  brand.id,
-                  brand.slug,
-                  sourceBrandSlug ?? "",
-                  position,
-                )
-              }
-              data-ph-no-autocapture
-            >
-              {t("card.viewBrand")}
-            </Link>
-          </>
-        ) : (
-          <>
-            {/*
-              A reserved block: a fixed
-              minimum height plus a two-line clamp so every card in a
-              `<BrandGrid>` row lands its badge row on the same baseline,
-              whatever length note the author wrote. Rendered unconditionally
-              (with a space) for the same reason — a card without a note must
-              still occupy the block, or it pulls its badges up out of line.
-            */}
-            {/*
-              Curator note first, directory blurb second: a lineup card with no
-              note said nothing about the brand at all, and the blurb is the
-              same copy the directory card shows for it.
-            */}
-            {/*
-              Repeated card copy, so it is kept out of Google's snippet
-              selection — see NO_SNIPPET. The brand's own description still
-              serves snippets from its detail page.
-            */}
-            <p
-              {...NO_SNIPPET}
-              className="mt-1.5 min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2"
-            >
-              {note ?? blurb ?? " "}
-            </p>
-            {categoryLabel ? (
-              <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
-                <Badge variant="secondary">{categoryLabel}</Badge>
-              </div>
-            ) : null}
-          </>
-        )}
+        {/*
+          A reserved block: a fixed
+          minimum height plus a two-line clamp so every card in a
+          `<BrandGrid>` row lands its badge row on the same baseline,
+          whatever length note the author wrote. Rendered unconditionally
+          (with a space) for the same reason — a card without a note must
+          still occupy the block, or it pulls its badges up out of line.
+        */}
+        {/*
+          Curator note first, directory blurb second: a lineup card with no
+          note said nothing about the brand at all, and the blurb is the
+          same copy the directory card shows for it.
+        */}
+        {/*
+          Repeated card copy, so it is kept out of Google's snippet
+          selection — see NO_SNIPPET. The brand's own description still
+          serves snippets from its detail page.
+        */}
+        <p
+          {...NO_SNIPPET}
+          className="mt-1.5 min-h-[2.625rem] type-body-sm text-ink-soft line-clamp-2"
+        >
+          {note ?? blurb ?? " "}
+        </p>
+        {categoryLabel ? (
+          <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
+            <Badge variant="secondary">{categoryLabel}</Badge>
+          </div>
+        ) : null}
       </div>
     </article>
   );

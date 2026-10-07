@@ -7,6 +7,8 @@ type SaveBrandButtonProps = {
   slug: string
   variant?: 'overlay' | 'inline'
   className?: string
+  /** Brand name, so each card's save control has a distinct accessible name. */
+  name?: string
 }
 
 export function SaveBrandButton({
@@ -14,6 +16,7 @@ export function SaveBrandButton({
   slug,
   variant = 'overlay',
   className,
+  name,
 }: SaveBrandButtonProps) {
   return (
     <SaveButton
@@ -22,6 +25,7 @@ export function SaveBrandButton({
       slug={slug}
       variant={variant}
       className={className}
+      name={name}
     />
   )
 }

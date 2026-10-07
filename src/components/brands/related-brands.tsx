@@ -46,7 +46,12 @@ export async function RelatedBrands({
               {t("relatedBrands.heading", { category: displayLabel })}
             </Typography>
             <p className="type-body-sm">
-              {t("relatedBrands.subtext", { count })}
+              {/* `count` is the category total, this brand included; the
+                  subtext counts the others. */}
+              {t("relatedBrands.subtext", {
+                count: Math.max(count - 1, 0),
+                category: displayLabel,
+              })}
             </p>
           </div>
           <Link
@@ -55,7 +60,7 @@ export async function RelatedBrands({
               className: "self-start sm:self-auto",
             })}
           >
-            {displayLabel}
+            {t("relatedBrands.viewAll", { count, category: displayLabel })}
             <ArrowRight aria-hidden="true" />
           </Link>
         </div>
