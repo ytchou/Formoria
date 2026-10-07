@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Building2, HelpCircle, Mail } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { CopyTextButton } from '@/components/shared/copy-text-button'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { PageShell } from '@/components/ui/page-shell'
@@ -63,7 +64,7 @@ export default async function ContactPage({ params }: PageProps) {
   const ctaClassName = buttonVariants({
     variant: 'secondary',
     size: 'large',
-    className: 'mt-5 w-fit',
+    className: 'w-fit',
   })
 
   return (
@@ -79,25 +80,46 @@ export default async function ContactPage({ params }: PageProps) {
       <section className="py-10">
         <div className="grid gap-4 md:grid-cols-3">
           {channels.map(({ key, icon: Icon, href, external }) => (
-            <article key={key} className={surfaceCardStyles()}>
-              <div className="flex size-8 items-center justify-center rounded-full bg-accent text-ground">
-                <Icon aria-hidden="true" className="size-4" />
-              </div>
+            <article
+              key={key}
+              className={surfaceCardStyles({ className: 'flex flex-col' })}
+            >
+              <Icon aria-hidden="true" className="size-5 text-ink-soft" />
               <h2 className="mt-4 type-card-title">
                 {t(`channels.${key}.title`)}
               </h2>
               <p className="mt-2 type-body-sm">
                 {t(`channels.${key}.body`)}
               </p>
-              {external ? (
-                <a href={href} className={ctaClassName}>
-                  {t(`channels.${key}.cta`)}
-                </a>
-              ) : (
-                <Link href={href} className={ctaClassName}>
-                  {t(`channels.${key}.cta`)}
-                </Link>
-              )}
+              {/* `mt-auto` pins the CTA to the card's foot so the three
+                  buttons line up whatever each body's length. The address
+                  therefore sits ABOVE the mail button, not below it: below,
+                  it would lift that one button out of line with the others. */}
+              <div className="mt-auto pt-5">
+                {external ? (
+                  <>
+                    {/* The address in plain sight: a mailto link does
+                        nothing for a reader with no mail client set up. */}
+                    <div className="mb-3 flex flex-wrap items-center gap-x-2">
+                      <span className="select-all break-all type-body-sm text-ink">
+                        {CONTACT_EMAILS.contact}
+                      </span>
+                      <CopyTextButton
+                        text={CONTACT_EMAILS.contact}
+                        label={t(`channels.${key}.copy`)}
+                        copiedLabel={t(`channels.${key}.copied`)}
+                      />
+                    </div>
+                    <a href={href} className={ctaClassName}>
+                      {t(`channels.${key}.cta`)}
+                    </a>
+                  </>
+                ) : (
+                  <Link href={href} className={ctaClassName}>
+                    {t(`channels.${key}.cta`)}
+                  </Link>
+                )}
+              </div>
             </article>
           ))}
         </div>

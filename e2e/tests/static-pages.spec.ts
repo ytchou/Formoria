@@ -1,6 +1,22 @@
 import { test, expect } from "../fixtures/auth";
 
 import { BUDGET } from "../budgets";
+import zhTW from "../../messages/zh-TW.json";
+
+/**
+ * Every legal section as `[id, heading]`, read from the catalogue: a section is
+ * the object carrying a `heading`. The in-page contents nav is expected to link
+ * each one by its id, so a section added to the copy and not to the page fails.
+ */
+function legalSections(doc: Record<string, unknown>): Array<[string, string]> {
+  return Object.entries(doc).flatMap(([key, value]) =>
+    typeof value === "object" && value !== null && "heading" in value
+      ? [[key, String(value.heading)] as [string, string]]
+      : [],
+  );
+}
+const PRIVACY_SECTIONS = legalSections(zhTW.legal.privacy);
+const TERMS_SECTIONS = legalSections(zhTW.legal.terms);
 
 /**
  * Static & Compliance Pages
@@ -11,8 +27,10 @@ import { BUDGET } from "../budgets";
  *  - vision routes remain absent
  *  - /mission remains absent
  *  - /getting-started remains absent
- *  - /privacy renders with heading
- *  - /terms renders with heading
+ *  - /privacy and /terms render an h1, a 本頁內容 nav linking every section,
+ *    and their contact addresses as mailto links
+ *  - /contact shows its heading, the address in plain text with a copy
+ *    button, and a meta description without 許願
  *  - /challenge renders the localized verification heading with Turnstile container
  *  - /submit landing renders heading and links to the recommendation flow
  *
@@ -95,8 +113,20 @@ test.describe("Static & compliance pages", () => {
       return;
     }
     await expect(
-      anonPage.getByRole("heading", { name: "隱私權政策" }),
+      anonPage.getByRole("heading", { name: "隱私權政策", level: 1 }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+
+    const toc = anonPage.getByRole("navigation", { name: "本頁內容" });
+    await expect(toc.getByRole("link")).toHaveCount(PRIVACY_SECTIONS.length);
+    for (const [id, heading] of PRIVACY_SECTIONS) {
+      await expect(
+        toc.getByRole("link", { name: heading, exact: true }),
+      ).toHaveAttribute("href", `#${id}`);
+    }
+
+    await expect(
+      anonPage.locator('a[href="mailto:privacy@formoria.com"]').first(),
+    ).toBeVisible();
   });
 
   test("terms page renders", async ({ anonPage }) => {
@@ -106,8 +136,45 @@ test.describe("Static & compliance pages", () => {
       return;
     }
     await expect(
-      anonPage.getByRole("heading", { name: "服務條款" }),
+      anonPage.getByRole("heading", { name: "服務條款", level: 1 }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+
+    const toc = anonPage.getByRole("navigation", { name: "本頁內容" });
+    await expect(toc.getByRole("link")).toHaveCount(TERMS_SECTIONS.length);
+    for (const [id, heading] of TERMS_SECTIONS) {
+      await expect(
+        toc.getByRole("link", { name: heading, exact: true }),
+      ).toHaveAttribute("href", `#${id}`);
+    }
+
+    await expect(
+      anonPage.locator('a[href="mailto:hello@formoria.com"]').first(),
+    ).toBeVisible();
+  });
+
+  // The address used to sit behind a mailto button only, which does nothing
+  // for a reader with no mail client. It is now printed with a copy button.
+  test("contact page shows the address and a copy button", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto("/contact", { timeout: BUDGET.GATED_UI });
+
+    await expect(
+      anonPage.getByRole("heading", {
+        name: "要聯絡我們，先選對管道",
+        level: 1,
+      }),
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(
+      anonPage.getByRole("main").getByText("hello@formoria.com", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      anonPage.getByRole("button", { name: "複製信箱" }),
+    ).toBeVisible();
+    await expect(anonPage.locator('meta[name="description"]')).not.toHaveAttribute(
+      "content",
+      /許願/,
+    );
   });
 
   test("legal page titles are single-suffixed", async ({ anonPage }) => {
