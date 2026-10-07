@@ -34,6 +34,7 @@ import {
 } from "@/lib/services/curated-products-catalog";
 import {
   searchProductsBySituation,
+  SituationQueryError,
   type SearchResult,
 } from "@/lib/services/product-situation-search";
 import { shouldAttemptIntentParse } from "@/lib/services/query-intent-parse";
@@ -287,7 +288,11 @@ export default async function DiscoverPage({
       facets = facetResult;
     }
   } catch (err) {
-    captureReadFailure("discover.catalog")(err);
+    // A rejected query (e.g. one character from the GET form) is visitor
+    // input, not a failed read: render the empty result without an alert.
+    if (!(err instanceof SituationQueryError)) {
+      captureReadFailure("discover.catalog")(err);
+    }
   }
 
   // Effective filters: the URL's own values plus what the search inferred.
