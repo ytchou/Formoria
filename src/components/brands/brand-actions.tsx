@@ -144,11 +144,17 @@ export function BrandActions({
               at min-w-32), which wraps the EN labels onto two lines.
             */}
             <DropdownMenuContent align="end" className="w-auto">
-              <DropdownMenuItem onClick={() => setReportOpen(true)}>
+              <DropdownMenuItem
+                size="touch"
+                onClick={() => setReportOpen(true)}
+              >
                 <Flag className="size-4" />
                 {t('report.trigger')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCorrectionOpen(true)}>
+              <DropdownMenuItem
+                size="touch"
+                onClick={() => setCorrectionOpen(true)}
+              >
                 <Pencil className="size-4" />
                 {t('correction.trigger')}
               </DropdownMenuItem>

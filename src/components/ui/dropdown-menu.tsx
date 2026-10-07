@@ -14,8 +14,9 @@ function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
   return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />
 }
 
+// `size` axis: "touch" is the 44px touch-target floor from DESIGN.md §7.
 const dropdownMenuItemClassName =
-  "group/dropdown-menu-item relative flex cursor-default items-center gap-1.5 rounded-surface px-1.5 py-1 text-sm outline-hidden select-none focus:bg-accent focus:text-ground not-data-[variant=destructive]:focus:**:text-ground data-inset:pl-7 data-[variant=destructive]:text-danger data-[variant=destructive]:focus:bg-danger/10 data-[variant=destructive]:focus:**:text-danger data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-danger"
+  "group/dropdown-menu-item relative flex cursor-default items-center gap-1.5 rounded-surface px-1.5 py-1 text-sm data-[size=touch]:min-h-11 data-[size=touch]:px-3 outline-hidden select-none focus:bg-accent focus:text-ground not-data-[variant=destructive]:focus:**:text-ground data-inset:pl-7 data-[variant=destructive]:text-danger data-[variant=destructive]:focus:bg-danger/10 data-[variant=destructive]:focus:**:text-danger data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-danger"
 
 function DropdownMenuContent({
   align = "start",
@@ -52,18 +53,21 @@ function DropdownMenuItem({
   className,
   inset,
   variant = "default",
+  size = "default",
   render,
   nativeButton,
   ...props
 }: MenuPrimitive.Item.Props & {
   inset?: boolean
   variant?: "default" | "destructive"
+  size?: "default" | "touch"
 }) {
   return (
     <MenuPrimitive.Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
+      data-size={size}
       className={cn(dropdownMenuItemClassName, className)}
       {...props}
       render={render}
@@ -80,16 +84,19 @@ function DropdownMenuLinkItem({
   className,
   inset,
   variant = "default",
+  size = "default",
   ...props
 }: MenuPrimitive.LinkItem.Props & {
   inset?: boolean
   variant?: "default" | "destructive"
+  size?: "default" | "touch"
 }) {
   return (
     <MenuPrimitive.LinkItem
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
+      data-size={size}
       className={cn(dropdownMenuItemClassName, className)}
       {...props}
     />
