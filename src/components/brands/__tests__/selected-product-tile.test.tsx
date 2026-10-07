@@ -358,17 +358,16 @@ describe("SelectedProductTile", () => {
     view.unmount();
   });
 
-  it("contains rather than crops the trail image", () => {
+  it("covers rather than contains the trail image", () => {
+    // DS-26: the trail is a three-up grid, so products sit side by side and a
+    // letterboxed edge breaks the row (DESIGN.md §6). A covered image only
+    // shows its box while loading, so the trail takes the same
+    // `bg-surface-deep` plate as every other mode.
     const { view, img, box } = renderImageBox("trail");
 
-    expect(img.className).toContain("object-contain");
-    expect(img.className).not.toContain("object-cover");
-    // A contained image letterboxes permanently, so the box must match the
-    // `surfaceCardStyles` surface it sits in — the image plate would show as a
-    // visible band. Covered modes take `bg-surface-deep` as a loading tint;
-    // this one must not, which is what the negative pins.
-    expect(box.className).toContain("bg-surface");
-    expect(box.className).not.toContain("bg-surface-deep");
+    expect(img.className).toContain("object-cover");
+    expect(img.className).not.toContain("object-contain");
+    expect(box.className).toContain("bg-surface-deep");
     view.unmount();
   });
 
@@ -416,6 +415,40 @@ describe("SelectedProductTile", () => {
       "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1600px) 25vw, 362px",
     );
     unmount();
+  });
+
+  // DS-10: the caption sits in flow below the photograph at every viewport —
+  // never a hover-revealed scrim over it.
+  it("renders the wall caption in flow below the image", () => {
+    const { container } = renderWallTile();
+
+    const name = screen.getByRole("heading", { name: "Pour-over kettle" });
+    const caption = name.parentElement!;
+    expect(caption.textContent).toContain("Kettle Co");
+    expect(caption.className).not.toMatch(/sm:absolute/);
+    expect(caption.className).not.toMatch(/opacity-0/);
+    expect(caption.className).not.toContain("bg-ground/95");
+    expect(container.innerHTML).not.toContain("bg-gradient-to-t");
+    expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
+    // The image box precedes the caption; the caption is not inside it.
+    const box = container.querySelector("[data-wall-ratio]")!;
+    expect(box.contains(caption)).toBe(false);
+    expect(
+      box.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("insets the wall caption when the tile sits on a ground plate", () => {
+    // DS-12: the homepage band passes `bg-ground` on the tile; the ancestor
+    // variant keeps the caption text off the plate's edge at every width.
+    renderWallTile({ className: "bg-ground" });
+
+    const caption = screen.getByRole("heading", {
+      name: "Pour-over kettle",
+    }).parentElement!;
+    expect(caption.className).toContain("in-[.bg-ground]:px-3");
+    expect(caption.className).toContain("in-[.bg-ground]:pb-3");
+    expect(caption.className).not.toContain("max-sm:px-3");
   });
 
   it("suppresses the brand-page furniture in wall mode", () => {
@@ -570,13 +603,36 @@ describe("SelectedProductTile trail note", () => {
   });
 
   it("trail mode clamps description to 2 lines and hides it on mobile", () => {
+    // DS-25: `sm:block` overrode the `display: -webkit-box` that `line-clamp`
+    // needs, so the clamp never applied. `max-sm:hidden` hides on phones and
+    // sets no display above `sm`.
     const view = renderTrailTile();
 
     const descriptionElement = view.getByText(description);
-    expect(descriptionElement.className).toContain("line-clamp-2");
-    expect(descriptionElement.className).toContain("hidden");
-    expect(descriptionElement.className).toContain("sm:block");
+    const classes = descriptionElement.className.split(/\s+/);
+    expect(classes).toContain("line-clamp-2");
+    expect(classes).toContain("max-sm:hidden");
+    expect(classes).not.toContain("hidden");
+    expect(classes).not.toContain("sm:block");
     view.unmount();
+  });
+
+  it("trail name link has a 44px hit area without resizing the text", () => {
+    // DS-39 / DESIGN.md §7: the overlay grows the target, not the type.
+    for (const tracking of [
+      undefined,
+      { brandSlug: "kettle-co", position: 0, surface: "trail:t:s" },
+    ]) {
+      const view = renderTrailTile({ tracking });
+
+      const link = view.getByRole("link", { name: "Pour-over kettle" });
+      const classes = link.className.split(/\s+/);
+      expect(classes).toContain("relative");
+      expect(classes).toContain("after:absolute");
+      expect(classes).toContain("after:min-h-11");
+      expect(link.querySelector("h3")?.className).toContain("type-card-title");
+      view.unmount();
+    }
   });
 
   it("trail mode shows the description at every width when there is no note", () => {

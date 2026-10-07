@@ -201,21 +201,16 @@ export function SelectedProductTile({
    * editorial choice for a specific context, argued in the trail that gathers
    * it. (Cited by section, not by line number: the line moved once already.)
    *
-   * This band still exists for the name and brand: mobile puts it in flow
-   * beneath the photograph, and from `sm` it is an absolutely positioned scrim
-   * over the lower edge of the image, revealed on hover and focus.
-   *
-   * The scrim is SOLID canvas at 95% alpha, not a gradient: against a pure
-   * black underlying pixel, `--ink-muted` measures 4.607:1. The 16px lead-in
-   * above it fades, and deliberately carries no text.
+   * The name and brand stay, in flow beneath the photograph at EVERY
+   * viewport (DS-10). They used to be a hover-revealed scrim from `sm`, which
+   * left desktop readers a sheet of unlabelled photographs at rest and hid
+   * them from anyone who never hovers.
    */
   const wallCaptionClass = cn(
     "flex flex-col gap-1 pt-3",
-    "sm:absolute sm:inset-x-0 sm:bottom-0 sm:z-10 sm:rounded-b-surface sm:bg-ground/95 sm:p-4",
-    "sm:transition-opacity sm:duration-300 motion-reduce:sm:duration-[0.01ms]",
-    "[@media(hover:hover)]:sm:opacity-0",
-    "[@media(hover:hover)]:sm:group-hover:opacity-100",
-    "[@media(hover:hover)]:sm:group-focus-within:opacity-100",
+    // Ancestor variant (`:where(.bg-ground) &`): on the homepage band's ground
+    // plate the caption is inset from the plate's edge; a bare wall stays flush.
+    "in-[.bg-ground]:px-3 in-[.bg-ground]:pb-3",
   );
   const originBadge =
     product.mitQualified && labels.madeInTaiwan ? (
@@ -270,10 +265,6 @@ export function SelectedProductTile({
       </div>
 
       <div className={wallCaptionClass}>
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -top-4 hidden h-4 bg-gradient-to-t from-ground/95 to-transparent sm:block"
-        />
         <Typography
           as="h3"
           variant="cardTitle"
@@ -283,8 +274,8 @@ export function SelectedProductTile({
           {name}
         </Typography>
         {brandName ? (
-          // 13px muted is the floor: measured 4.6:1 over the scrim, AA with
-          // almost no margin. Never smaller, never lighter.
+          // 13px muted is the floor for AA on the ground. Never smaller, never
+          // lighter.
           <Typography as="p" variant="metadata">
             {brandName}
           </Typography>
@@ -358,6 +349,11 @@ export function SelectedProductTile({
     </div>
   );
 
+  // DESIGN.md §7: a 44px-tall centered `::after` overlay (`min-h-11`) grows
+  // the trail name's hit area without resizing its text (DS-39).
+  const trailNameLinkClassName =
+    "relative rounded-control after:absolute after:inset-x-0 after:top-1/2 after:h-full after:min-h-11 after:-translate-y-1/2 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
   const content = (
     <>
       {/*
@@ -368,21 +364,12 @@ export function SelectedProductTile({
        *
        * Fit mode is per-surface, as DEV-1407 established: cover where products
        * are compared side by side in a grid and a ragged edge would break the
-       * row, contain where one product is shown large and losing its edges is
-       * the worse cost.
+       * row, contain where one product is shown large. Every mode here is a
+       * grid — the trail included, three-up since DS-26 — so all of them cover.
        */}
-      <div
-        className={cn(
-          "relative aspect-square w-full overflow-hidden",
-          // Not cosmetic. A contained image letterboxes PERMANENTLY, so the
-          // box must disappear into the `surfaceCardStyles` tone it sits in,
-          // and that tone is still `bg-card` — `surfaceCardStyles` carries no
-          // `bg-muted` to migrate, so this branch does not move with the rest.
-          // A covered image only shows its box while loading, which is why
-          // every other mode takes the `surface-deep` plate instead.
-          mode === "trail" ? "bg-surface" : "bg-surface-deep",
-        )}
-      >
+      {/* A covered image only shows its box while loading, so the box takes
+          the `surface-deep` placeholder plate (DESIGN.md §2). */}
+      <div className="relative aspect-square w-full overflow-hidden bg-surface-deep">
         {imageSrc ? (
           <SurfaceImage
             src={imageSrc}
@@ -391,9 +378,7 @@ export function SelectedProductTile({
             // `brandImageFill` is the single definition of cover-vs-contain
             // (DESIGN.md §5). `null` meta is the point: curated products carry
             // no per-image framing data — see DEV-1519.
-            className={brandImageFill(null, {
-              fit: mode === "trail" ? "contain" : "cover",
-            })}
+            className={brandImageFill(null, { fit: "cover" })}
             // NO `sizes` OVERRIDE, IN EITHER MODE. Both the brand page and the
             // trail lay these tiles out with `Grid cols="thirds"`
             // (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`), which is exactly
@@ -421,7 +406,7 @@ export function SelectedProductTile({
           tracking ? (
             <SelectedProductTileLink
               href={internalHref}
-              className="rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={trailNameLinkClassName}
               productKey={product.key}
               brandSlug={tracking.brandSlug}
               position={tracking.position}
@@ -439,7 +424,7 @@ export function SelectedProductTile({
           ) : (
             <Link
               href={internalHref}
-              className="rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={trailNameLinkClassName}
               data-ph-no-autocapture
             >
               <Typography
@@ -476,9 +461,11 @@ export function SelectedProductTile({
             // two lines, and dropped on phones where the note carries the pick.
             // With no note it is the only text, so it shows at every width.
             <p
+              // `max-sm:hidden`, never `hidden sm:block`: `sm:block` overrides
+              // the `-webkit-box` display `line-clamp` needs (DS-25).
               className={cn(
                 "type-body-sm text-ink-muted line-clamp-2",
-                note && "hidden sm:block",
+                note && "max-sm:hidden",
               )}
               lang={descriptionLang}
             >
@@ -520,8 +507,8 @@ export function SelectedProductTile({
   );
 
   if (mode === "wall") {
-    // The wall tile is a photograph, not a card: no border, no card surface, so
-    // the caption band can sit flush over the lower edge of the image.
+    // The wall tile is a photograph, not a card: no border, no card surface; the
+    // caption sits in flow beneath the image.
     return (
       <li
         id={`product-${product.key}`}
