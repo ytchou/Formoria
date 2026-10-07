@@ -1,6 +1,10 @@
 import { getTranslations } from 'next-intl/server'
 
-import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
+import {
+  MissingBrandNotice,
+  shouldShowMissingBrandNotice,
+  type BrandLoaderSeam,
+} from './brand-card-mdx'
 import {
   getBrandImageFields,
   getPublicBrandsBySlugs,
@@ -39,6 +43,8 @@ export async function BrandGallery({
   const t = await getTranslations('stories')
 
   if (!brand) {
+    // Dev and staging only; production drops the gallery (DEV-1963).
+    if (!shouldShowMissingBrandNotice()) return null
     return <MissingBrandNotice label={t('brandMissing', { slug })} />
   }
 

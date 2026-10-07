@@ -67,11 +67,15 @@ export function StoryRow({
         <span aria-hidden="true" className="md:w-36 md:shrink-0" />
       )}
       <div className="min-w-0 flex-1 space-y-2">
-        <Heading
-          className="type-card-title group-hover:underline"
-          lang={isForeignLanguage ? storyLocale : undefined}
-        >
-          {story.frontmatter.title}
+        {/*
+          `lang` on the title span, not the heading: the badge is page-locale
+          text ("In Chinese"), and inside a zh-TW heading a screen reader would
+          read it with zh-TW pronunciation rules.
+        */}
+        <Heading className="type-card-title group-hover:underline">
+          <span lang={isForeignLanguage ? storyLocale : undefined}>
+            {story.frontmatter.title}
+          </span>
           {isForeignLanguage ? (
             <Badge variant="outline" className="ml-2 align-middle">
               {t("languageBadge")}
