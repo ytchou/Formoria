@@ -5,20 +5,7 @@ import * as Sentry from '@sentry/nextjs'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { PageShell } from '@/components/ui/page-shell'
-
-/**
- * A tab left open across a deploy posts a Server Action ID the new build no
- * longer has. Next.js surfaces this two ways — server-side as "Failed to find
- * Server Action", client-side as the router's generic "unexpected response".
- * Neither is recoverable by `reset()`, which re-runs the same stale bundle, so
- * these need a hard reload instead (DEV-1340 / FORMORIA-4R, FORMORIA-55).
- */
-function isDeploymentSkewError(error: Error): boolean {
-  return (
-    error.message.includes('Failed to find Server Action') ||
-    error.message.includes('An unexpected response was received from the server')
-  )
-}
+import { isDeploymentSkewError } from '@/lib/observability/deployment-skew'
 
 type RouteErrorProps = {
   error: Error & { digest?: string }
