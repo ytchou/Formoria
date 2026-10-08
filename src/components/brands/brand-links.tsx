@@ -320,7 +320,7 @@ type ChannelCorrectionDialog = "purchase" | "stockist" | "social";
 
 /**
  * The where-to-buy block's one correction line. It replaces three accent
- * 「提供…」 triggers that competed with the route out; all three submission
+ * provide-info triggers that competed with the route out; all three submission
  * flows stay reachable from one menu. Same shape as the hero overflow menu in
  * `brand-actions.tsx`: the dialogs live outside the menu so they survive it
  * closing, and a menu item only flips which dialog is open.

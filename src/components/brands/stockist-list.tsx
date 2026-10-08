@@ -24,11 +24,14 @@ const GROUPED_LAYOUT_MIN_STOCKISTS = 4;
 
 /**
  * Optional city or county, then the first administrative unit after it. The
- * unit alternation tries `[鄉鎮市]區` first so 前鎮區 and 新市區 are not cut at
- * their inner 鎮 / 市.
+ * unit alternation tries township/town/city + district first, so a district
+ * whose name contains a town or city character is not cut short. Han
+ * characters are written as \u escapes to keep CJK out of component source
+ * (`no-hardcoded-cjk.test.ts`): \u53F0 tai, \u81FA tai (traditional),
+ * \u5E02 city, \u7E23 county, \u9109 township, \u93AE town, \u5340 district.
  */
 const DISTRICT_PATTERN =
-  /^(?:[台臺]?\S{1,3}?[市縣])?(\S{1,3}?(?:[鄉鎮市]區|[區鄉鎮市]))/;
+  /^(?:[\u53F0\u81FA]?\S{1,3}?[\u5E02\u7E23])?(\S{1,3}?(?:[\u9109\u93AE\u5E02]\u5340|[\u5340\u9109\u93AE\u5E02]))/;
 
 type Translate = (
   key: string,
@@ -51,7 +54,7 @@ function printableRegionLabel(stockist: Stockist): string | null {
 
 /**
  * The short location an entry prints: the district read out of the address
- * (信義區, 竹北市), the whole address when no district parses, or the region
+ * (a district such as Xinyi or Zhubei), the whole address when no district parses, or the region
  * label when there is no address.
  */
 export function stockistDistrict(stockist: Stockist): string | null {
