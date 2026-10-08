@@ -58,6 +58,11 @@ describe("normalizeCuratedProductName", () => {
     ).toBe("啵啵杯710ml");
   });
 
+  it("keeps a single Latin word said twice, which is the name itself", () => {
+    expect(normalizeCuratedProductName("Bloom Bloom")).toBe("Bloom Bloom");
+    expect(normalizeCuratedProductName("Bloom Bloom 造型貼紙卷")).toBe("Bloom Bloom 造型貼紙卷");
+  });
+
   it("handles both defects on one name", () => {
     expect(normalizeCuratedProductName("啵啵杯710ml 啵啵杯710ml 7cFSL8yz")).toBe("啵啵杯710ml");
   });

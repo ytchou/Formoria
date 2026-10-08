@@ -57,6 +57,13 @@ export function isShopSkuToken(token: string): boolean {
 const DOUBLED_NAME = /^(.+?)(?:\s+\1)+$/u;
 
 /**
+ * A single Latin word said twice is usually the name itself (`Bloom Bloom`,
+ * `Bye Bye`), not a copy-paste defect. Only a repeated segment with a space,
+ * a digit or a non-Latin character (`T Torch`, `啵啵杯710ml`) is collapsed.
+ */
+const SINGLE_LATIN_WORD = /^[A-Za-z]+$/;
+
+/**
  * Strips a trailing shop SKU token, then collapses a name written twice.
  * Idempotent, and returns the input unchanged (bar trimming) when neither
  * defect is present, so it is safe on every write path.
@@ -71,7 +78,9 @@ export function normalizeCuratedProductName(name: string): string {
   }
 
   const doubled = DOUBLED_NAME.exec(normalized);
-  if (doubled) normalized = doubled[1]!.trim();
+  if (doubled && !SINGLE_LATIN_WORD.test(doubled[1]!.trim())) {
+    normalized = doubled[1]!.trim();
+  }
 
   return normalized;
 }
