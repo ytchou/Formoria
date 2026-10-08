@@ -3272,6 +3272,7 @@ export type Database = {
         Args: { input: string; prefix_mode?: boolean }
         Returns: unknown
       }
+      brand_trgm_floor: { Args: { p_query: string }; Returns: number }
       brand_trgm_rank: {
         Args: {
           p_blurb_en: string
