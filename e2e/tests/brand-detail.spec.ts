@@ -7,7 +7,7 @@ import { load } from "cheerio";
 import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
 import { e2eBrandImageKey, e2eProxyImageUrl } from "../helpers/image-refs";
 import { BUDGET, POLL } from "../budgets";
-import { e2eProxyImageUrl } from "../helpers/image-refs";
+import { waitForViewerReady } from "../helpers/viewer-ready";
 
 /**
  * The three channel corrections (purchase link, stockist, social link) share
@@ -32,6 +32,9 @@ async function openChannelCorrection(
     exact: true,
   });
   const dialog = page.getByRole("dialog", { name: dialogTitle });
+  // Gate on the app's readiness signal first: on a slow runner hydration can
+  // outlast the retry window below, which then reads as "the dialog is broken".
+  await waitForViewerReady(page);
   await expect(async () => {
     if (!(await dialog.isVisible())) {
       // A second click on an open menu's trigger would close it again.
@@ -356,13 +359,12 @@ test.describe("Brand detail — product shelf focus", () => {
         subcategory: "lighting",
         official_url:
           "https://sammm-studio.com/products/perch-wireless-table-lamp",
-        // The shelf skips photo-less products (DEV-1950), so the seed needs a
-        // path `safeImageSrc` accepts. The image need not resolve for this spec.
-        image_url: e2eProxyImageUrl(`curated-products/e2e/${productKey}.webp`),
         source_checked_at: new Date().toISOString(),
         product_description_zh:
           "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
-        // Public reads drop a product with no renderable image (DEV-1962).
+        // The shelf skips photo-less products (DEV-1950) and public reads drop
+        // a product with no renderable image (DEV-1962), so the seed needs a
+        // path `safeImageSrc` accepts. The image need not resolve for this spec.
         image_url: e2eProxyImageUrl(
           `curated-products/${seeded.brand.id}/${productKey}/e2e.webp`,
         ),
@@ -657,9 +659,15 @@ test.describe("Brand detail — hidden brand", () => {
     await expect(
       page.getByRole("heading", { name: seeded.brand.name }),
     ).toHaveCount(0);
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-      "content",
-      /noindex/i,
+    // A not-found response carries two robots tags (the page's own and the one
+    // Next adds for a 404). Every one of them must say noindex.
+    const robots = page.locator('meta[name="robots"]');
+    await expect(robots).not.toHaveCount(0);
+    const directives = await robots.evaluateAll((tags) =>
+      tags.map((tag) => tag.getAttribute("content") ?? ""),
+    );
+    expect(directives.filter((content) => !/noindex/i.test(content))).toEqual(
+      [],
     );
   });
 });

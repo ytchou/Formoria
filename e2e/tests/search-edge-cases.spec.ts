@@ -251,6 +251,12 @@ test.describe.serial('Public brand search edge cases', () => {
         !url.searchParams.has('page'),
     );
     await expect(headerSearch).toHaveValue(exactQuery);
+    // The URL changes before the filtered results arrive. A click on 清除搜尋
+    // that lands while that transition is pending is a silent no-op, so wait
+    // for the seeded brand's card, which proves the results have rendered.
+    await expect(
+      page.locator('#main-content').getByRole('heading', { name: exactName }),
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     await headerSearch
       .locator('..')
@@ -337,9 +343,13 @@ test.describe.serial('Public brand search edge cases', () => {
 
     const missingQuery = `<img src=x onerror=alert(1)>-${randomUUID()}`;
     await page.goto(`/brands?search=${encodeURIComponent(missingQuery)}`);
-    const emptyState = page.locator('[data-empty]');
+    // Scoped to #main-content: a hidden copy of the page can sit beside it, and
+    // a bare [data-empty] then resolves to both (strict-mode violation).
+    const emptyState = page.locator('#main-content [data-empty]');
     await expect(emptyState).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    await expect(page.getByText('共 0 個品牌', { exact: true })).toBeVisible();
+    await expect(
+      page.locator('#main-content').getByText('共 0 個品牌', { exact: true }),
+    ).toBeVisible();
     // A scope-note absence assertion used to sit here. Its string came from a
     // `scopeNote` key whose renderer was already deleted earlier in this delta;
     // this sweep removed the orphaned key, leaving an assertion no component
