@@ -231,6 +231,14 @@ async function main(): Promise<void> {
     loadScriptTarget();
 
     const brandSlug = parseBrandOption(argv) ?? undefined;
+    // `--ids=<id>,<id>` rewrites only the named rows, e.g. the ones a banned
+    // term was found in, instead of every generated row of a brand.
+    const ids =
+      argv
+        .find((arg) => arg.startsWith("--ids="))
+        ?.slice("--ids=".length)
+        .split(",")
+        .filter(Boolean) ?? null;
 
     const materializeMod = await import(
       "@/lib/services/curated-products/materialize"
@@ -269,6 +277,9 @@ async function main(): Promise<void> {
             .range(from, to);
           if (slug) {
             query = query.eq("brands.slug", slug);
+          }
+          if (ids) {
+            query = query.in("id", ids);
           }
           return query;
         }).then((rows) =>
