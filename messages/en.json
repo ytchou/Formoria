@@ -272,8 +272,7 @@
     },
     "card": {
       "foundingYear": "Est. {year}",
-      "productCount": "{count, plural, one {# product} other {# products}}",
-      "viewBrand": "View brand"
+      "productCount": "{count, plural, one {# product} other {# products}}"
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found",
@@ -551,8 +550,8 @@
     },
     "relatedBrands": {
       "heading": "More in {category}",
-      "subtext": "{count} other brands in this category",
-      "viewAll": "View all"
+      "subtext": "{count, plural, one {# other brand is} other {# other brands are}} listed in {category}",
+      "viewAll": "See all {count, plural, one {# {category} brand} other {# {category} brands}}"
     },
     "brandFaq": {
       "listSeparator": ", ",
@@ -2758,6 +2757,8 @@
     "unsave": "Unsave",
     "saveAriaLabel": "Save this brand",
     "unsaveAriaLabel": "Unsave this brand",
+    "saveNamedAriaLabel": "Save {name}",
+    "unsaveNamedAriaLabel": "Unsave {name}",
     "emptyTitle": "No saved brands yet",
     "emptyDescription": "Start exploring the brand directory!",
     "exploreBrands": "Browse Brands",

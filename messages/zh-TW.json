@@ -272,8 +272,7 @@
     },
     "card": {
       "foundingYear": "創立於 {year}",
-      "productCount": "{count} 件商品",
-      "viewBrand": "查看品牌"
+      "productCount": "{count} 件商品"
     },
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果",
@@ -551,8 +550,8 @@
     },
     "relatedBrands": {
       "heading": "更多{category}",
-      "subtext": "此分類還有 {count} 個品牌",
-      "viewAll": "查看全部"
+      "subtext": "{category}還收錄了 {count} 個品牌",
+      "viewAll": "看全部 {count} 個{category}品牌"
     },
     "brandFaq": {
       "listSeparator": "、",
@@ -1959,6 +1958,8 @@
     "unsave": "取消收藏",
     "saveAriaLabel": "收藏這個品牌",
     "unsaveAriaLabel": "取消收藏這個品牌",
+    "saveNamedAriaLabel": "收藏 {name}",
+    "unsaveNamedAriaLabel": "取消收藏 {name}",
     "emptyTitle": "尚無收藏品牌",
     "emptyDescription": "去探索品牌目錄吧！",
     "exploreBrands": "探索品牌目錄",
