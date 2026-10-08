@@ -1647,33 +1647,37 @@
       "emailInvalid": "請輸入有效的電子郵件地址",
       "passwordRequired": "請輸入密碼",
       "passwordMinLength": "密碼至少需要 8 個字元",
-      "passwordMismatch": "密碼不一致"
+      "passwordMismatch": "兩次輸入的密碼不一致"
     },
     "signIn": {
       "heading": "登入 Formoria",
       "metaTitle": "登入",
-      "subheading": "請輸入電子郵件與密碼以繼續",
+      "subheading": "用電子郵件或 Google 帳號登入",
+      "context": {
+        "favorites": "登入後即可查看你的收藏",
+        "settings": "登入後即可管理帳號設定"
+      },
       "emailLabel": "電子郵件",
       "passwordLabel": "密碼",
       "forgotPassword": "忘記密碼？",
       "submit": "登入",
-      "submitting": "登入中...",
-      "noAccount": "尚未註冊？",
+      "submitting": "登入中…",
+      "noAccount": "還沒有帳號？",
       "signUpLink": "註冊",
       "errors": {
-        "missingCode": "登入連結不完整，請在下方輸入電子郵件以重新取得。",
-        "expiredCode": "此連結已過期或已被使用，請在下方輸入電子郵件以重新取得。",
+        "missingCode": "登入連結不完整，請在下方輸入電子郵件重新取得。",
+        "expiredCode": "這個連結已經過期或用過了，請在下方輸入電子郵件重新取得。",
         "oauthFailed": "Google 登入失敗，請再試一次或改用電子郵件登入。",
         "default": "登入時發生問題，請再試一次。"
       }
     },
     "forgotPassword": {
       "heading": "重設密碼",
-      "subheading": "輸入電子郵件，我們會寄送重設連結",
+      "subheading": "輸入電子郵件，我們會寄重設連結給你。",
       "emailLabel": "電子郵件",
       "submit": "傳送重設連結",
-      "submitting": "傳送中...",
-      "successMessage": "若此電子郵件已註冊帳號，我們已寄出密碼重設連結",
+      "submitting": "傳送中…",
+      "successMessage": "如果這個信箱有註冊帳號，重設連結已經寄出，請到收件匣查看。",
       "backToSignIn": "記得密碼了？",
       "signInLink": "登入"
     },
@@ -1681,28 +1685,30 @@
       "heading": "設定新密碼",
       "subheading": "請輸入新密碼",
       "passwordLabel": "新密碼",
-      "passwordPlaceholder": "至少 8 個字元",
+      "passwordHint": "至少 8 個字元",
       "confirmPasswordLabel": "確認新密碼",
       "submit": "更新密碼",
-      "submitting": "更新中...",
-      "sessionExpired": "重設連結已過期，請重新申請",
-      "success": "密碼已更新，請使用新密碼登入",
+      "submitting": "更新中…",
+      "sessionExpired": "重設連結已過期，請重新寄一次。",
+      "success": "密碼已更新，請用新密碼登入。",
       "backToSignIn": "記得密碼了？",
       "signInLink": "登入"
     },
     "signUp": {
       "heading": "建立帳號",
-      "subheading": "填寫基本資料以開始使用",
+      "subheading": "建立帳號後，可以收藏喜歡的商品和品牌。",
       "emailLabel": "電子郵件",
       "passwordLabel": "密碼",
-      "passwordPlaceholder": "至少 8 個字元",
+      "passwordHint": "至少 8 個字元",
       "confirmPasswordLabel": "確認密碼",
       "submit": "建立帳號",
-      "submitting": "建立中...",
+      "submitting": "建立中…",
+      "terms": "建立帳號即表示你同意<terms>服務條款</terms>與<privacy>隱私權政策</privacy>。",
       "hasAccount": "已有帳號？",
       "signInLink": "登入"
     },
-    "continueWithGoogle": "使用 Google 登入",
+    "continueWithGoogle": "使用 Google 繼續",
+    "signInWithGoogle": "使用 Google 登入",
     "orDivider": "或",
     "confirmEmail": "請到信箱點開確認連結，完成帳號驗證"
   },
@@ -1718,9 +1724,9 @@
     },
     "heading": "收藏品牌",
     "count": "{count} 個品牌",
-    "emptyTitle": "尚無收藏品牌",
-    "emptyDescription": "探索台灣品牌目錄，點擊愛心即可加入收藏。",
-    "exploreBrands": "探索品牌"
+    "emptyTitle": "還沒有收藏的品牌",
+    "emptyDescription": "在品牌頁按愛心，就會收進這裡。",
+    "exploreBrands": "看品牌目錄"
   },
   "settings": {
     "metadata": {
@@ -1755,8 +1761,8 @@
       "invalidType": "請上傳圖片檔案",
       "fileTooLarge": "檔案大小不得超過 5MB",
       "genericUploadFailed": "上傳失敗，請再試一次。",
-      "clickOrDrag": "點擊上傳或拖曳檔案",
-      "clickToReplace": "點擊或拖曳以更換圖片",
+      "clickOrDrag": "選擇檔案，或拖曳到這裡",
+      "clickToReplace": "選擇新圖片，或拖曳到這裡更換",
       "replace": "更換圖片",
       "imageAlt": "上傳 {n}",
       "ariaRemove": "移除圖片 {n}",
@@ -1828,18 +1834,18 @@
   },
   "errors": {
     "notFound": {
-      "title": "找不到此頁面",
+      "title": "找不到這個頁面",
       "description": "這個頁面不存在或已移至其他位置。",
       "cta": "返回首頁",
       "browseDirectory": "瀏覽品牌目錄",
-      "categoriesHeading": "從這裡開始探索："
+      "categoriesHeading": "從這些分類開始逛："
     },
     "boundary": {
       "title": "發生錯誤",
       "description": "發生了預期外的錯誤，請再試一次。",
-      "brandDescription": "無法載入此品牌，請再試一次。",
-      "storyDescription": "無法載入此專題，請再試一次。",
-      "retry": "重試",
+      "brandDescription": "這個品牌暫時無法載入，請再試一次。",
+      "storyDescription": "這篇專題暫時無法載入，請再試一次。",
+      "retry": "再試一次",
       "staleTitle": "這個頁面已經過期",
       "staleDescription": "這個分頁開啟期間網站已更新，請重新載入以取得最新版本後再試一次。",
       "staleRetry": "重新載入頁面"
@@ -2105,9 +2111,9 @@
     "unsave": "取消收藏",
     "saveAriaLabel": "收藏這個品牌",
     "unsaveAriaLabel": "取消收藏這個品牌",
-    "emptyTitle": "尚無收藏品牌",
-    "emptyDescription": "去探索品牌目錄吧！",
-    "exploreBrands": "探索品牌目錄",
+    "emptyTitle": "還沒有收藏的品牌",
+    "emptyDescription": "在品牌頁按愛心，就會收進這裡。",
+    "exploreBrands": "逛品牌目錄",
     "loginToSave": "登入後即可收藏品牌"
   },
   "search": {

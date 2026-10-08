@@ -28,6 +28,7 @@ export function SettingsForm({
   newsletterStatus,
 }: Props) {
   const t = useTranslations("settings");
+  const tNav = useTranslations("nav");
   const [state, action, pending] = useActionState<SettingsState, FormData>(
     updateSettings,
     {},
@@ -111,8 +112,8 @@ export function SettingsForm({
           name="localePreference"
           defaultValue={profile?.localePreference ?? currentLocale}
         >
-          <option value="zh-TW">中文（繁體）</option>
-          <option value="en">English</option>
+          <option value="zh-TW">{tNav("languageTraditionalChinese")}</option>
+          <option value="en">{tNav("languageEnglish")}</option>
         </NativeSelect>
       </FormField>
 

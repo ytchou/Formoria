@@ -191,7 +191,7 @@ test.describe("SEO deep", () => {
     expect(pageResponse?.status()).toBe(404);
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-TW");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      "找不到此頁面",
+      "找不到這個頁面",
     );
   });
 
@@ -203,10 +203,10 @@ test.describe("SEO deep", () => {
       {
         path: "/en/this-does-not-exist-e2e",
         lang: "en",
-        title: "Page Not Found",
+        title: "Page not found",
       },
       // Outside any app route: the proxy rewrites it to the zh-TW catch-all.
-      { path: "/foo/bar-e2e", lang: "zh-TW", title: "找不到此頁面" },
+      { path: "/foo/bar-e2e", lang: "zh-TW", title: "找不到這個頁面" },
     ]) {
       const response = await page.goto(path);
       expect(response?.status(), path).toBe(404);

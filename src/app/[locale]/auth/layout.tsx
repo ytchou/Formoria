@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { BrandMark } from '@/lib/brand/BrandMark'
+import { PageShell } from '@/components/ui/page-shell'
 import { localizePath } from '@/i18n/locale-preference'
 
 export const metadata: Metadata = {
@@ -18,14 +18,26 @@ export default async function AuthLayout({ children, params }: LayoutProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-ground">
-      <header className="flex h-14 items-center px-6">
-        <Link href={homePath} className="flex items-center gap-2">
-          <BrandMark size={28} />
-          <span className="type-card-title">Formoria</span>
+      {/* The site header's first row, wordmark only: same shell, same height
+          token and same wordmark as `main-nav.tsx`, so the wordmark sits on
+          the same left edge as on every other route. */}
+      <PageShell
+        as="header"
+        measure="page"
+        className="flex h-(--nav-row-primary) items-center"
+      >
+        <Link
+          href={homePath}
+          className="inline-flex min-h-11 shrink-0 items-center type-card-title"
+        >
+          Formoria
         </Link>
-      </header>
-      <main id="main-content" className="flex flex-1 items-center justify-center px-4">
-        <div className="w-full max-w-md">{children}</div>
+      </PageShell>
+      <main
+        id="main-content"
+        className="page-gutter flex flex-1 items-center justify-center"
+      >
+        <div className="content-column w-full">{children}</div>
       </main>
     </div>
   )
