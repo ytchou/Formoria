@@ -96,4 +96,28 @@ test.describe("Homepage bands on desktop", () => {
       page.locator('[data-landing-zone="trails"]').getByText(/^1 \/ \d+$/),
     ).toBeHidden();
   });
+
+  // Only the "all" group is server-rendered; a category chip fetches its
+  // tiles from /api/home-wall on first click (DEV-1972).
+  test("a category chip loads that category's tiles in place", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const band = page.locator('[data-landing-zone="selection"]');
+    await expect(selectionTiles(page).first()).toBeVisible({
+      timeout: BUDGET.SERVER_RENDER,
+    });
+    await expect(band.locator('[data-category="home"]')).toHaveCount(0);
+
+    const chip = band.getByRole("button", { name: "居家生活" });
+    await chip.click();
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      band.locator('[data-category="home"] > ul > li').first(),
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await expect(band.locator('[data-category="all"]')).toBeHidden();
+
+    await band.getByRole("button", { name: "全部" }).click();
+    await expect(selectionTiles(page).first()).toBeVisible();
+  });
 });
