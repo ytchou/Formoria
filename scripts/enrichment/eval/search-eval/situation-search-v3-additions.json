@@ -6848,5 +6848,411 @@
       "reviewedVia": "blind-llm-panel",
       "at": "2026-09-29"
     }
+  },
+  {
+    "id": "english-travel-essentials",
+    "query": "travel essentials",
+    "queryType": "english",
+    "split": "train",
+    "expected": [
+      {
+        "brandSlug": "yue-traveler",
+        "productKey": "yu-72-liang-yung-so-lu-hsing-hsiang",
+        "grade": 3
+      },
+      {
+        "brandSlug": "yue-traveler",
+        "productKey": "shuo-tsou-chiu-tsou-liang-yung-hou-pei-pao-40l",
+        "grade": 3
+      },
+      {
+        "brandSlug": "matchwood",
+        "productKey": "essential-fang-shui-hu-chao-pao",
+        "grade": 3
+      },
+      {
+        "brandSlug": "clm",
+        "productKey": "lu-hsing-hou-pei-pao",
+        "grade": 3
+      },
+      {
+        "brandSlug": "farfarawayvillage",
+        "productKey": "hsin-yi-hsiang-sui-li-ho",
+        "grade": 0
+      },
+      {
+        "brandSlug": "yue-traveler",
+        "productKey": "brompton-ni-lung-chien-chu-tai",
+        "grade": 1
+      },
+      {
+        "brandSlug": "yue-traveler",
+        "productKey": "lu-ying-to-yung-lu-hsing-hsiang-hpl2268",
+        "grade": 2
+      },
+      {
+        "brandSlug": "yue-traveler",
+        "productKey": "brompton-hsieh-chu-hsiang",
+        "grade": 2
+      },
+      {
+        "brandSlug": "enable",
+        "productKey": "enable-traveler-10000mah-20w-pd-qc-lu-chung-shih-kuai-chung-hsing-tung-tien-yuan-ec-778",
+        "grade": 3
+      },
+      {
+        "brandSlug": "farfarawayvillage",
+        "productKey": "fang-hsiang-wan-shou-chu-ching-yu",
+        "grade": 0
+      },
+      {
+        "brandSlug": "farfarawayvillage",
+        "productKey": "ju-yeh-fu-fang-ching-yu",
+        "grade": 0
+      },
+      {
+        "brandSlug": "dydash",
+        "productKey": "14-tsun-mi-ko-pao",
+        "grade": 1
+      },
+      {
+        "brandSlug": "dydash",
+        "productKey": "15-tsun-to-kung-neng-kung-shih-pao",
+        "grade": 1
+      },
+      {
+        "brandSlug": "tcf",
+        "productKey": "ta-san-mien-tzu-tung-kai-shou-san-3309-2",
+        "grade": 1
+      },
+      {
+        "brandSlug": "dydash",
+        "productKey": "16-tsun-mi-ko-pao",
+        "grade": 1
+      },
+      {
+        "brandSlug": "dydash",
+        "productKey": "pai-pien-yao-pao",
+        "grade": 2
+      },
+      {
+        "brandSlug": "entadar",
+        "productKey": "chao-ho-hsin-tien-nao-ta-pao",
+        "grade": 1
+      },
+      {
+        "brandSlug": "dydash",
+        "productKey": "shan-yu-sheng-huo-kung-chuang-pei-hsin",
+        "grade": 1
+      },
+      {
+        "brandSlug": "yamamoto-leather",
+        "productKey": "kou-chin-lu-hsing-hsiao-pao",
+        "grade": 2
+      },
+      {
+        "brandSlug": "dydash",
+        "productKey": "pai-pien-chuan-chuan-pao",
+        "grade": 2
+      },
+      {
+        "brandSlug": "ziliaoshi",
+        "productKey": "pien-chih-yen-ching-lien",
+        "grade": 0
+      },
+      {
+        "brandSlug": "viza-viz",
+        "productKey": "snatch-dino-kang-chun-shang-yi-2",
+        "grade": 1
+      },
+      {
+        "brandSlug": "funmay",
+        "productKey": "tai-wan-te-se-lan-pai-to-chen-chu-nai-cha-chieh-chih-tai-tsao-hsing-shou-na-ti-tai",
+        "grade": 1
+      },
+      {
+        "brandSlug": "viza-viz",
+        "productKey": "snatch-dino-kang-chun-shang-yi",
+        "grade": 1
+      },
+      {
+        "brandSlug": "purifycare",
+        "productKey": "yi-sheng-mei-chi-fang-shai-ju",
+        "grade": 1
+      }
+    ],
+    "humanApproval": {
+      "reviewedVia": "blind-llm-panel",
+      "at": "2026-10-08"
+    }
+  },
+  {
+    "id": "english-wedding-gifts",
+    "query": "wedding gifts",
+    "queryType": "english",
+    "split": "train",
+    "expected": [
+      {
+        "brandSlug": "no-30",
+        "productKey": "jih-ho-hsiang-fen-li-ho",
+        "grade": 2
+      },
+      {
+        "brandSlug": "wenwenworks",
+        "productKey": "ti-she-chin-erh-ho-yi-kang-pi-kang-chu-pi-li-ho",
+        "grade": 1
+      },
+      {
+        "brandSlug": "wenwenworks",
+        "productKey": "yuan-yu-chou-kung-yi-erh-ho-yi-kang-pi-kang-chu-pi-li-ho",
+        "grade": 1
+      },
+      {
+        "brandSlug": "petit-madam",
+        "productKey": "ku-tien-hua-chia-chuan-tsao-wen-chieh-chih",
+        "grade": 2
+      },
+      {
+        "brandSlug": "zenu",
+        "productKey": "a-li-shan-chai-shao-tao-tzu-hsiang-fen-chi-li-ho",
+        "grade": 2
+      },
+      {
+        "brandSlug": "petit-madam",
+        "productKey": "mei-kuei-chu-kung-tsai-se-lan-pao-shih-yung-heng-chieh",
+        "grade": 2
+      },
+      {
+        "brandSlug": "hero-herb",
+        "productKey": "ai-tsao-kung-chien-pen-wu-hht-gb-ms001x2",
+        "grade": 2
+      },
+      {
+        "brandSlug": "petit-madam",
+        "productKey": "shui-ti-tsuan-tuan-tai-y-tzu-hsiang-lien",
+        "grade": 1
+      },
+      {
+        "brandSlug": "take-a-snooze",
+        "productKey": "wu-chou-nien-tung-wu-kung-yi-lien-ming-kuo-hsiang-2-ju-li-ho-tsu-fbfuiqsv",
+        "grade": 2
+      },
+      {
+        "brandSlug": "hero-herb",
+        "productKey": "chen-mu-kung-chien-pen-wu-hht-gb-ms002x2",
+        "grade": 2
+      },
+      {
+        "brandSlug": "robber-925-silver",
+        "productKey": "sv925-aaa-hsi-chih-hung-pao-shih-pai-tsuan-chieh-chih-ko-hsueh-hung-ccsvygey",
+        "grade": 1
+      },
+      {
+        "brandSlug": "dazzle-jewelry",
+        "productKey": "chiao-tieh-shuang-huan-kai-fang-chieh-chih-chen-chu-14kgf",
+        "grade": 1
+      },
+      {
+        "brandSlug": "layana",
+        "productKey": "chu-ho-hsi-lieh-pao-kuai-liu-ju-li-ho-tsu-02-125b-06sk1-d01",
+        "grade": 3
+      },
+      {
+        "brandSlug": "petit-madam",
+        "productKey": "fen-hung-lan-pao-shih-kuang-huan-chieh",
+        "grade": 1
+      },
+      {
+        "brandSlug": "petit-madam",
+        "productKey": "lan-pao-shih-tsuan-shih-chui-chui-hsiao-hua-shou-lien",
+        "grade": 1
+      },
+      {
+        "brandSlug": "petit-madam",
+        "productKey": "indigo-lan-pi-hsi-tsuan-shih-kuang-huan-chieh",
+        "grade": 1
+      },
+      {
+        "brandSlug": "hero-herb",
+        "productKey": "ai-tsao-yu-chen-mu-kung-chien-pen-wu-li-ho-hht-gb-g001sb-ms001",
+        "grade": 2
+      },
+      {
+        "brandSlug": "take-a-snooze",
+        "productKey": "wen-tsai-chi-chao-tsai-li-ho-jr24ywvr",
+        "grade": 2
+      },
+      {
+        "brandSlug": "phoelia-jewelry",
+        "productKey": "shuang-hsing-tan-pai-shih-chieh-chih",
+        "grade": 1
+      },
+      {
+        "brandSlug": "petit-madam",
+        "productKey": "hu-tieh-erh-hsien",
+        "grade": 1
+      },
+      {
+        "brandSlug": "kuan-kuan",
+        "productKey": "lu-chih-hsi-lieh-tai-yang-chih-wu-fan-chuan-chieh",
+        "grade": 1
+      },
+      {
+        "brandSlug": "uniwoodesign",
+        "productKey": "hsing-kuang-lun-kuo-chuan-shih-erh-chia-80-a-e00029-b",
+        "grade": 1
+      },
+      {
+        "brandSlug": "wild-type",
+        "productKey": "hung-mo-yin-hsiang-lien",
+        "grade": 1
+      },
+      {
+        "brandSlug": "cian-jewelry",
+        "productKey": "yu-lu-chen-chu-erh-huan-l-shui-yin-hsiang-xemeq5wq",
+        "grade": 1
+      },
+      {
+        "brandSlug": "one-dimple",
+        "productKey": "chien-chu-hua-wen-tiao-chui-tung-yung-kuan-925-yin",
+        "grade": 1
+      }
+    ],
+    "humanApproval": {
+      "reviewedVia": "blind-llm-panel",
+      "at": "2026-10-08"
+    }
+  },
+  {
+    "id": "english-sunscreen",
+    "query": "sunscreen",
+    "queryType": "english",
+    "split": "train",
+    "expected": [
+      {
+        "brandSlug": "purifycare",
+        "productKey": "eco-in-sheng-tai-yu-shan-fang-shai-ju",
+        "grade": 3
+      },
+      {
+        "brandSlug": "jan-dan",
+        "productKey": "liang-yen-fang-shai-shuang",
+        "grade": 3
+      },
+      {
+        "brandSlug": "jan-dan",
+        "productKey": "shui-kan-fang-shai-ju",
+        "grade": 3
+      },
+      {
+        "brandSlug": "frusirnana",
+        "productKey": "yu-shan-hai-yang-fang-shai-shui-ning-ju-40g",
+        "grade": 3
+      },
+      {
+        "brandSlug": "purifycare",
+        "productKey": "yi-sheng-mei-chi-fang-shai-ju",
+        "grade": 3
+      },
+      {
+        "brandSlug": "z-z-research",
+        "productKey": "chih-hsiao-shuang-chung-ko-li-fang-shai-ju",
+        "grade": 3
+      },
+      {
+        "brandSlug": "purifycare",
+        "productKey": "lien-pu-chih-han-ning-chiao",
+        "grade": 0
+      },
+      {
+        "brandSlug": "purifycare",
+        "productKey": "chien-shuang-chih-han-hu-shou-shuang",
+        "grade": 0
+      },
+      {
+        "brandSlug": "zoodi",
+        "productKey": "pao-pao-chi-mien-mo-3040094558242",
+        "grade": 0
+      },
+      {
+        "brandSlug": "purifycare",
+        "productKey": "chih-pin-chu-chou-pen-wu",
+        "grade": 0
+      },
+      {
+        "brandSlug": "eeyans",
+        "productKey": "pao-shih-peng-peng-shui-tsao-mo",
+        "grade": 0
+      },
+      {
+        "brandSlug": "zoodi",
+        "productKey": "chuan-hsiao-pao-shih-kao-3040094558217",
+        "grade": 0
+      },
+      {
+        "brandSlug": "jan-dan",
+        "productKey": "tsao-chen-huan-fu-ching-hua",
+        "grade": 0
+      },
+      {
+        "brandSlug": "aireal-land",
+        "productKey": "shui-yang-huo-yen-chao-hsiu-hu-ching-hua",
+        "grade": 0
+      },
+      {
+        "brandSlug": "frusirnana",
+        "productKey": "pdrn-wai-mi-ti-shen-tseng-shou-lien-hsi-yen-mo-150ml",
+        "grade": 0
+      },
+      {
+        "brandSlug": "vichy-s-diary",
+        "productKey": "hahababy-pao-yang-hsing-hu-tien-17cm",
+        "grade": 0
+      },
+      {
+        "brandSlug": "vichy-s-diary",
+        "productKey": "mei-shao-nu-chan-shih-crystal-pao-yang-hsing-wei-sheng-mien-4-pao-tsu",
+        "grade": 0
+      },
+      {
+        "brandSlug": "yufutang",
+        "productKey": "liu-fang-chu-yen-sheng-hsien-mien-mo",
+        "grade": 0
+      },
+      {
+        "brandSlug": "vichy-s-diary",
+        "productKey": "mei-shao-nu-chan-shih-crystal-pao-yang-hsing-wei-sheng-mien-24-pao-tsu",
+        "grade": 0
+      },
+      {
+        "brandSlug": "vichy-s-diary",
+        "productKey": "mei-shao-nu-chan-shih-crystal-pao-yang-hsing-wei-sheng-mien-8-pao-tsu",
+        "grade": 0
+      },
+      {
+        "brandSlug": "kloser",
+        "productKey": "yu-chiao-su-ma-sai-tsao",
+        "grade": 0
+      },
+      {
+        "brandSlug": "kloser",
+        "productKey": "chi-hsueh-tsao-chun-lu",
+        "grade": 0
+      },
+      {
+        "brandSlug": "mooni",
+        "productKey": "kuei-tsao-tu-hsi-shui-tsao-pan-po-lang-wen",
+        "grade": 0
+      },
+      {
+        "brandSlug": "dr-hsieh",
+        "productKey": "egf-fu-ho-chin-chih-hsiu-hu-ju-trl1010ix00",
+        "grade": 0
+      }
+    ],
+    "humanApproval": {
+      "reviewedVia": "blind-llm-panel",
+      "at": "2026-10-08"
+    }
   }
 ]
