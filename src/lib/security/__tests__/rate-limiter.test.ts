@@ -218,7 +218,7 @@ describe('machine cron route availability', () => {
       },
     })
 
-    const cronRequest = new NextRequest('https://formoria.com/api/cron/link-health', {
+    const cronRequest = new NextRequest('https://formoria.com/api/cron/trail-supply', {
       headers: { 'x-forwarded-for': '198.51.100.83' },
     })
 

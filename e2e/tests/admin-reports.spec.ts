@@ -1,8 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, type SeededBrand } from '../helpers/seed';
 
 import { BUDGET } from '../budgets';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>;
+
 test.describe('Admin reports deep', () => {
   test.beforeEach(() => {
     const adminEmail = process.env.E2E_ADMIN_EMAIL;
@@ -11,7 +15,7 @@ test.describe('Admin reports deep', () => {
       'E2E_ADMIN_EMAIL not in ADMIN_EMAILS — admin tests require matching env');
   });
 
-  let supabase: ReturnType<typeof createClient> | null = null;
+  let supabase: AnySupabaseClient | null = null;
   let seededBrand: SeededBrand | null = null;
   let seededReportId: string | null = null;
   let seededReportNote: string | null = null;

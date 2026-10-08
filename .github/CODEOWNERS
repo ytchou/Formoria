@@ -1,7 +1,5 @@
 # Control-plane automation and its policy gate
 /.github/workflows/ @ytchou
-/.github/health-agent/ @ytchou
-/.github/selfheal/ @ytchou
 /.github/CODEOWNERS @ytchou
 /scripts/health-agent/ @ytchou
 

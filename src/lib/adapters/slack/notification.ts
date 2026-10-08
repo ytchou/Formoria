@@ -3,12 +3,11 @@
  *
  * Moved here from `scripts/health-agent/adapters.ts` so that `src/lib` code can
  * post to Slack without importing from `scripts/` (which would invert the
- * dependency direction). `scripts/health-agent/adapters.ts` re-exports these,
- * so the GitHub Actions path (`scripts/notifications/e2e-slack.ts`) is
- * unchanged.
+ * dependency direction). `scripts/health-agent/adapters.ts` re-exports the
+ * `AgentNotification` type for script importers.
  */
 
-export type AgentNotificationStatus = "failed" | "needs_attention" | "success";
+type AgentNotificationStatus = "failed" | "needs_attention" | "success";
 
 export interface AgentNotification {
   agent: string;

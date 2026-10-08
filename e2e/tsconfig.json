@@ -1,0 +1,18 @@
+{
+  // Type-checks the Playwright suite, which the root tsconfig excludes.
+  // CI runs this as `pnpm tsc -p e2e --noEmit` in the type-check job.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // The root's incremental build info would land in e2e/; nothing reuses it.
+    "incremental": false
+  },
+  "include": [
+    "../next-env.d.ts",
+    "../src/types/**/*.d.ts",
+    "./**/*.ts",
+    "../playwright.config.ts",
+    "../playwright.visual.config.ts"
+  ],
+  "exclude": ["../node_modules", "./reports"]
+}
