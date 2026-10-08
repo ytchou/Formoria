@@ -41,7 +41,10 @@ import { assertRevalidationConfigured, fetchAllRows, parseApplyOption } from "./
 
 export type TaxonomyRule = {
   brandSlug: string;
-  /** Exact `name_zh` values; each one that matches no row is reported. */
+  /**
+   * `name_zh` values, matched exactly or followed by a space and a model code
+   * (「60mm PU辦公椅腳輪 6004-23」); each one that matches no row is reported.
+   */
   exactNames: readonly string[];
   /** Case-insensitive name keywords; only rows whose current L2 is in `fromSubcategories`. */
   keywords: readonly string[];
@@ -136,9 +139,14 @@ export function foldFullWidthAlnum(text: string): string {
   );
 }
 
+function matchesName(stored: string, name: string): boolean {
+  const trimmed = stored.trim();
+  return trimmed === name || trimmed.startsWith(`${name} `);
+}
+
 function matchesRule(row: FixProductRow, rule: TaxonomyRule): boolean {
   const name = row.name_zh.trim();
-  if (rule.exactNames.includes(name)) return true;
+  if (rule.exactNames.some((exact) => matchesName(name, exact))) return true;
   if (!rule.fromSubcategories.includes(row.subcategory ?? "")) return false;
   const lower = name.toLowerCase();
   return rule.keywords.some((keyword) => lower.includes(keyword.toLowerCase()));
@@ -163,7 +171,7 @@ export function planTaxonomyFixes(
     const matched = brandRows.filter((row) => matchesRule(row, rule));
 
     for (const name of rule.exactNames) {
-      if (!brandRows.some((row) => row.name_zh.trim() === name)) {
+      if (!brandRows.some((row) => matchesName(row.name_zh, name))) {
         plan.notFound.push(`${rule.brandSlug}: ${name}`);
       }
     }

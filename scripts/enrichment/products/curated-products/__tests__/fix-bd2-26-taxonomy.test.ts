@@ -62,6 +62,26 @@ describe("planTaxonomyFixes", () => {
     expect(plan.productFixes.some((fix) => fix.id === "p-other")).toBe(false);
   });
 
+  it("matches a stored name that carries a trailing model code", () => {
+    const plan = planTaxonomyFixes(
+      [
+        row({
+          id: "p-caster",
+          slug: "enjoy-caster",
+          name_zh: "60mm PU辦公椅腳輪 6004-23",
+          category: "home",
+          subcategory: "hand-tools",
+        }),
+        row({ id: "p-near", slug: "enjoy-caster", name_zh: "60mm PU辦公椅腳輪組", category: "home", subcategory: "hand-tools" }),
+      ],
+      RMC_BRAND,
+    );
+
+    expect(plan.productFixes.map((fix) => fix.id)).toContain("p-caster");
+    expect(plan.productFixes.some((fix) => fix.id === "p-near")).toBe(false);
+    expect(plan.notFound).not.toContain("enjoy-caster: 60mm PU辦公椅腳輪");
+  });
+
   it("selects rmc patches by keyword only from the two wrong L2s, and the exact material names", () => {
     const plan = planTaxonomyFixes(
       [
