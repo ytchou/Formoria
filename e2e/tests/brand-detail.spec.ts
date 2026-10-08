@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test, expect } from "../fixtures/auth";
 import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
@@ -429,9 +431,12 @@ test.describe("Brand detail — hero gallery at desktop widths", () => {
   // vertical thumbnail rail. With `mx-auto` and no definite width it shrank to
   // its only content, an absolutely positioned image, and measured 0×0.
   // Two images are needed: the rail and the grid exist only for a gallery.
-  const ONE_PIXEL_WEBP = Buffer.from(
-    "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==",
-    "base64",
+  //
+  // A real photograph, not a one-pixel stub: Chrome renders the optimizer's
+  // 1×1 WebP output as a broken image (`complete` but `naturalWidth` 0), so
+  // the stub failed the naturalWidth assertion on a hero that rendered fine.
+  const HERO_WEBP = readFileSync(
+    join(process.cwd(), "public/images/home-hero.webp"),
   );
   let seeded: SeededBrand;
   let imageKeys: string[] = [];
@@ -450,7 +455,7 @@ test.describe("Brand detail — hero gallery at desktop widths", () => {
     for (const key of imageKeys) {
       const { error } = await supabase.storage
         .from("brand-images")
-        .upload(key, ONE_PIXEL_WEBP, {
+        .upload(key, HERO_WEBP, {
           contentType: "image/webp",
           upsert: true,
         });
