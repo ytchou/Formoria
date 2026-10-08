@@ -8,6 +8,9 @@ export type PublishedTrail = {
   title: string;
   locale: string;
   sections: Array<{ key: string; title: string }>;
+  /** Frontmatter `relatedTrails`, as authored — may name drafts or typos. */
+  relatedTrails: string[];
+  heroImage?: string;
 };
 
 const TRAILS_DIR = path.join(process.cwd(), "content", "trails");
@@ -54,12 +57,21 @@ export function publishedTrails(locale = "zh-TW"): PublishedTrail[] {
         })
       : [];
 
+    const relatedTrails = Array.isArray(data.relatedTrails)
+      ? data.relatedTrails.filter(
+          (related: unknown): related is string => typeof related === "string",
+        )
+      : [];
+
     return [
       {
         slug,
         title: data.title ?? "",
         locale: authoredLocale,
         sections,
+        relatedTrails,
+        heroImage:
+          typeof data.heroImage === "string" ? data.heroImage : undefined,
       },
     ];
   });
