@@ -1550,3 +1550,69 @@ describe("searchProductsBySituation — relevance floor", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. Hidden L1 categories (DEV-1977) — search never surfaces a category
+//    /discover hides, unless the caller chose that category
+// ---------------------------------------------------------------------------
+
+describe("searchProductsBySituation — hidden categories", () => {
+  const visible = product("visible", "Visible", { category: "home" });
+  const hidden = product("hidden", "Hidden", { category: "pets" });
+
+  function createCategoryDeps(overrides: Partial<SearchDeps> = {}): SearchDeps {
+    return createDeps({
+      rpc: vi.fn().mockResolvedValue({
+        data: [rpcRow("visible", 0.9), rpcRow("hidden", 0.8)],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([visible, hidden]),
+      ...overrides,
+    });
+  }
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    _resetLtrDegradationCooldown();
+  });
+
+  it("drops products in a hidden category when no category is chosen", async () => {
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      createCategoryDeps(),
+    );
+
+    expect(result.products.map((p) => p.id)).toEqual(["visible"]);
+    expect(result.totalCount).toBe(1);
+  });
+
+  it("keeps hidden-category products when that category is chosen", async () => {
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", category: "pets" },
+      createCategoryDeps(),
+    );
+
+    expect(result.products.map((p) => p.id)).toContain("hidden");
+  });
+
+  it("interleave mode drops the hidden product and keeps armBySlot aligned", async () => {
+    vi.stubEnv("SEARCH_LTR_MODE", "interleave");
+    const deps = createCategoryDeps({
+      ltrScore: vi.fn().mockResolvedValue([0.2, 0.9]),
+      ltrFeatures: vi.fn().mockResolvedValue(new Map()),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW" },
+      deps,
+    );
+
+    expect(result.ltrMode).toBe("interleave");
+    expect(result.degraded).toBe(false);
+    expect(result.products.map((p) => p.id)).toEqual(["visible"]);
+    expect(result.armBySlot).toBeDefined();
+    expect(result.armBySlot!.length).toBe(result.products.length);
+    // Shadow-logging contracts stay full-pool.
+    expect(result.ltrScores).toHaveLength(2);
+  });
+});
