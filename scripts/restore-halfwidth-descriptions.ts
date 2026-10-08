@@ -105,6 +105,34 @@ function touchesModelNumber(text: string, start: number, end: number): boolean {
   );
 }
 
+// A positional number written straight into a model token (十八K, 十四K). The
+// digit-wise pass alone would convert only the 八 and leave 「十8K」.
+const POSITIONAL_BEFORE_ASCII = /[〇一二三四五六七八九十百千]+(?=[A-Za-z0-9])/gu;
+const POSITIONAL_UNIT: Record<string, number> = { 十: 10, 百: 100, 千: 1000 };
+// The corrupted form of a decimal such as 0.98 (「零點九八」).
+const CHINESE_DECIMAL = /零點([〇一二三四五六七八九]+)/gu;
+
+function parsePositional(run: string): number {
+  let total = 0;
+  let digit = 0;
+  for (const char of run) {
+    const unit = POSITIONAL_UNIT[char];
+    if (unit === undefined) {
+      digit = Number(NUMERAL_DIGIT[char] ?? 0);
+      continue;
+    }
+    total += (digit === 0 ? 1 : digit) * unit;
+    digit = 0;
+  }
+  return total + digit;
+}
+
+function convertPositionalBeforeAscii(text: string): string {
+  return text.replace(POSITIONAL_BEFORE_ASCII, (run: string) =>
+    /[十百千]/u.test(run) ? String(parsePositional(run)) : run,
+  );
+}
+
 function convertNumeralRuns(text: string): string {
   return text.replace(
     DIGIT_WISE_NUMERAL_RUN,
@@ -125,7 +153,12 @@ function convertNumeralRuns(text: string): string {
  * 七百五十 are left untouched.
  */
 export function restoreHalfWidth(text: string): string {
-  let restored = foldFullWidthAlphanumerics(text);
+  let restored = convertPositionalBeforeAscii(foldFullWidthAlphanumerics(text));
+  restored = restored.replace(
+    CHINESE_DECIMAL,
+    (_match, digits: string) =>
+      `0.${Array.from(digits, (char) => NUMERAL_DIGIT[char] ?? char).join("")}`,
+  );
   // A converted run can make its neighbour adjacent to ASCII (八六〇-一), so
   // repeat until stable; real model numbers settle in one or two passes.
   for (let pass = 0; pass < 5; pass += 1) {

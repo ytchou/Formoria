@@ -15,6 +15,10 @@ describe("restoreHalfWidth", () => {
     ["a 3C token", "三Ｃ配件收納", "3C配件收納"],
     ["a four-digit year", "創立於二〇一二年", "創立於2012年"],
     ["full-width certification names", "ＯＥＫＯ－ＴＥＸ與ＢＳＣＩ認證", "OEKO-TEX與BSCI認證"],
+    ["a positional karat before a full-width K", "黃銅與十八Ｋ金", "黃銅與18K金"],
+    ["a positional karat before a half-width K", "十四K包金線材", "14K包金線材"],
+    ["a model number with a positional numeral", "ＣＮＳ一四七七四檢驗", "CNS14774檢驗"],
+    ["a Chinese decimal", "重零點九八公斤", "重0.98公斤"],
   ])("repairs %s", (_label, source, expected) => {
     expect(restoreHalfWidth(source)).toBe(expected);
   });
