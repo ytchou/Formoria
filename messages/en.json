@@ -304,7 +304,7 @@
     "headline": "Our brand is listed on Formoria"
   },
   "trustLabel": {
-    "selected": "Formoria Selected"
+    "selected": "Selected by Formoria"
   },
   "brandDetail": {
     "metadata": {
@@ -314,12 +314,13 @@
       "overview": "On this page"
     },
     "selectedProducts": {
-      "heading": "Our picks from this brand",
-      "note": "A few pieces we chose from this brand's range, not the full catalog. Check the brand's site for current details.",
-      "cta": "Go to the brand's official website",
-      "unavailable": "This product page is temporarily unreachable.",
-      "brandSiteCta": "Go to the brand's website",
+      "heading": "From this brand",
+      "note": "{count, plural, one {Just one piece shown here} other {# pieces shown here}}, not the brand's full range. Prices and details are on the brand's site.",
+      "cta": "(view on the brand's site)",
+      "unavailable": "The product page isn't loading right now.",
+      "brandSiteCta": "(visit the brand's site)",
       "madeInTaiwan": "Made in Taiwan",
+      "inGuide": "From the guide",
       "previous": "Previous products",
       "next": "Next products",
       "allCategories": "All"
@@ -345,7 +346,7 @@
       "dialogTitle": "Share",
       "urlLabel": "Brand page URL",
       "copy": "Copy",
-      "copied": "Copied!",
+      "copied": "Copied",
       "orShareTo": "Or share to",
       "line": "LINE",
       "threads": "Threads",
@@ -474,7 +475,7 @@
       "faq": "Frequently asked questions"
     },
     "channels": {
-      "subtitle": "Places where this brand may be available, with some information provided by the community",
+      "subtitle": "Places that may carry this brand, some suggested by the community. Check with the shop before you go.",
       "provideInfo": "Provide a stockist",
       "groups": {
         "all_taiwan": "Across Taiwan",
@@ -487,7 +488,17 @@
         "owner": "Brand confirmed",
         "formoria": "Confirmed by Formoria",
         "evidence": "From the official website",
-        "evidenceOther": "Source verified"
+        "evidenceOther": "Backed by a source"
+      },
+      "provenanceSummary": {
+        "owner": "All confirmed by the brand.",
+        "formoria": "All confirmed by Formoria.",
+        "evidence": "All listed on the brand's official website.",
+        "evidenceOther": "All backed by a source."
+      },
+      "status": {
+        "confirmed": "Confirmed",
+        "possible": "Unconfirmed"
       },
       "dialog": {
         "title": "Provide a stockist",
@@ -536,36 +547,25 @@
     },
     "relatedBrands": {
       "heading": "More in {category}",
-      "subtext": "{count, plural, one {# other brand is} other {# other brands are}} listed in {category}",
+      "subtext": "Other brands in {category}",
       "viewAll": "See all {count, plural, one {# {category} brand} other {# {category} brands}}"
     },
     "brandFaq": {
-      "listSeparator": ", ",
       "channels": {
-        "website": "their official website",
+        "website": "the brand's own site",
         "pinkoi": "Pinkoi",
         "shopee": "Shopee",
         "myship": "7-ELEVEN MyShip"
       },
-      "context": {
-        "city": "founded in {city}",
-        "founded": "established in {year}",
-        "suffix": " It was {details}."
-      },
       "mainProducts": {
         "question": "What does {brandName} make?",
-        "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}. Its products include {subcategories}.{context}",
-        "answerWithSubcategories": "{brandName}'s products include {subcategories}.{context}"
+        "answer": "{brandName} mainly offers {subcategories}."
       },
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",
-        "answer": "{brandName} products are available through {channels}.{stockistNote}{context}",
-        "stockistSuffix": " You can also find them at {count, plural, one {# shop} other {# shops}}.",
-        "noOnlineChannels": "physical retail locations"
-      },
-      "originStory": {
-        "question": "How did {brandName} get started?",
-        "answer": "{brandName} was founded in {year} in {city}.{context}"
+        "answer": "You can buy {brandName} products from {channels}.{stockistNote}",
+        "stockistSuffix": " They're also stocked at {count, plural, one {# shop} other {# shops}}. Check with the shop before you go.",
+        "answerStockistsOnly": "{brandName} products are stocked at {count, plural, one {# shop} other {# shops}}. Check with the shop before you go."
       }
     }
   },
@@ -1473,7 +1473,7 @@
       },
       "madeInTaiwanBadge": {
         "question": "What does \"Made in Taiwan\" on a product mean?",
-        "answer": "\"Made in Taiwan\" applies only to the product it appears on. We show it when the product matches a current record in the MIT Smile registry run by Taiwan's Ministry of Economic Affairs, or when checks confirm it is made in Taiwan and its main materials come from Taiwan. A brand's own account of where it makes things is shown as \"Brand declared\": that is the brand's claim, and Formoria has not checked it. Listing review only confirms that a brand exists and meets the listing rules; it does not judge where products are made."
+        "answer": "\"Made in Taiwan\" applies only to the product it appears on. We show it when the product matches a current record in the MIT Smile registry run by Taiwan's Ministry of Economic Affairs, or when checks confirm it is made in Taiwan and its main materials come from Taiwan. Listing review only confirms that a brand exists and meets the listing rules; it does not judge where products are made."
       },
       "howToSubmit": {
         "question": "How do I recommend a brand to Formoria?",

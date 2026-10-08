@@ -3,6 +3,7 @@ import type { AppLocale } from "@/i18n/locale-preference";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { groupProductsIntoRails } from "@/lib/curated-products/brand-rails";
+import { getBrandProductTrailLinks } from "@/lib/services/editorial-links";
 import type { SelectedProductTileLabels } from "./selected-product-tile";
 import { ProductShelf } from "./product-shelf";
 
@@ -24,15 +25,18 @@ export async function BrandSelectedProducts({
   brand,
   products,
 }: BrandSelectedProductsProps) {
-  const t = await getTranslations({
-    locale,
-    namespace: "brandDetail.selectedProducts",
-  });
+  const [t, guides] = await Promise.all([
+    getTranslations({ locale, namespace: "brandDetail.selectedProducts" }),
+    // The guide links are an enhancement: a failed read shows the tiles
+    // without them (and so without a 選物 label), never an error.
+    getBrandProductTrailLinks(brand.slug).catch(() => ({})),
+  ]);
   const labels: SelectedProductTileLabels = {
     cta: t("cta"),
     brandSiteCta: t("brandSiteCta"),
     unavailable: t("unavailable"),
     madeInTaiwan: t("madeInTaiwan"),
+    inGuide: t("inGuide"),
   };
   const groups = groupProductsIntoRails(products);
 
@@ -45,10 +49,11 @@ export async function BrandSelectedProducts({
         locale={locale}
         brand={brand}
         heading={t("heading")}
-        note={t("note")}
+        note={t("note", { count: products.length })}
         ariaLabel={t("heading")}
         previousLabel={t("previous")}
         nextLabel={t("next")}
+        guides={guides}
       />
     </section>
   );

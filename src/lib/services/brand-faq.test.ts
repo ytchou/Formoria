@@ -174,7 +174,10 @@ describe("getBrandFaq", () => {
     ]);
   });
 
-  it("computes origin-story from canonical facts instead of rendering stored model copy", async () => {
+  // DEV-1994: the origin-story floor only restated the founding year and city,
+  // which the metadata line already shows, so it renders no floor at all, and
+  // stored model copy for it stays skipped.
+  it("renders no origin-story without a human row", async () => {
     const { items } = await getFaq(
       makeBrand({ city: "taipei", foundingYear: 2019 }),
       [
@@ -186,10 +189,7 @@ describe("getBrandFaq", () => {
       ],
     );
 
-    const origin = items.find((item) => item.id === "origin-story");
-    expect(origin?.answer).toContain('"year":2019');
-    expect(origin?.answer).toContain('"city":"taipei"');
-    expect(origin?.answer).not.toContain("模型寫下的舊城市與年份");
+    expect(items.find((item) => item.id === "origin-story")).toBeUndefined();
   });
 
   it("keeps human-authored origin copy ahead of the computed answer", async () => {
@@ -280,15 +280,13 @@ describe("getBrandFaq", () => {
   describe("CJK/Latin spacing on the template floor", () => {
     const TEMPLATES: Record<string, string> = {
       "brandFaq.mainProducts.question": "{brandName}的主要產品有哪些？",
-      "brandFaq.mainProducts.answerWithSubcategories":
-        "{brandName}的商品類型包括{subcategories}。{context}",
-      "brandFaq.listSeparator": "、",
+      "brandFaq.mainProducts.answer":
+        "{brandName}的商品以{subcategories}為主。",
     };
     const EN_TEMPLATES: Record<string, string> = {
       "brandFaq.mainProducts.question": "What does {brandName} make?",
-      "brandFaq.mainProducts.answerWithSubcategories":
-        "{brandName}'s products include {subcategories}.{context}",
-      "brandFaq.listSeparator": ", ",
+      "brandFaq.mainProducts.answer":
+        "{brandName} mainly offers {subcategories}.",
     };
     const translator =
       (templates: Record<string, string>) =>
@@ -314,7 +312,7 @@ describe("getBrandFaq", () => {
         "Golday Jewelry 的主要產品有哪些？",
       );
       expect(mainProducts(items)?.answer).toBe(
-        "Golday Jewelry 的商品類型包括戒指。",
+        "Golday Jewelry 的商品以戒指為主。",
       );
     });
 
@@ -346,7 +344,7 @@ describe("getBrandFaq", () => {
         "What does Golday Jewelry make?",
       );
       expect(mainProducts(items)?.answer).toBe(
-        "Golday Jewelry's products include rings.",
+        "Golday Jewelry mainly offers rings.",
       );
     });
 

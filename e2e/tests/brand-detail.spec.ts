@@ -318,7 +318,7 @@ test.describe("Brand detail deep", () => {
     const firstItem = page.locator('[id^="faq-"]').first();
     // The first rendered item is the main-products floor.
     await expect(firstItem).toHaveAttribute("id", "faq-main-products");
-    await expect(firstItem.locator("dd")).toContainText("商品類型包括");
+    await expect(firstItem.locator("dd")).toContainText("為主");
     await expect(page.locator("#faq details")).toHaveCount(0);
 
     // The literal acceptance criterion — "verifiable by curl". Asserting on the
@@ -327,11 +327,11 @@ test.describe("Brand detail deep", () => {
     const response = await request.get(`/brands/${seeded.slug}`);
     expect(response.status()).toBe(200);
     const html = await response.text();
-    expect(html).toContain("商品類型包括");
+    expect(html).toContain("為主");
     const $ = load(html);
     const serverItem = $('[id^="faq-"]').first();
     expect(serverItem.attr("id")).toBe("faq-main-products");
-    expect(serverItem.find("dd").text()).toContain("商品類型包括");
+    expect(serverItem.find("dd").text()).toContain("為主");
     expect($("#faq details")).toHaveLength(0);
   });
 });
@@ -340,6 +340,9 @@ test.describe("Brand detail — product shelf focus", () => {
   let seeded: SeededBrand | undefined;
   const productKey = "perch-wireless-table-lamp";
   const productName = "Perch 棲木無線桌燈";
+  const productUrl =
+    "https://sammm-studio.com/products/perch-wireless-table-lamp";
+  let imageKey: string | undefined;
 
   test.beforeAll(async ({}, workerInfo) => {
     seeded = await seedBrand({
@@ -349,6 +352,19 @@ test.describe("Brand detail — product shelf focus", () => {
     });
 
     const supabase = getServiceClient();
+    // A shelf tile whose image fails to load is dropped (DEV-1994), so the
+    // seed needs a real photograph behind its key, not a dangling path.
+    imageKey = `curated-products/${seeded.brand.id}/${productKey}/e2e.webp`;
+    const { error: uploadError } = await supabase.storage
+      .from("brand-images")
+      .upload(
+        imageKey,
+        readFileSync(join(process.cwd(), "public/images/home-hero.webp")),
+        { contentType: "image/webp", upsert: true },
+      );
+    if (uploadError) {
+      throw new Error(`Failed to seed ${imageKey}: ${uploadError.message}`);
+    }
     const { data: product, error: productError } = await supabase
       .from("curated_products")
       .insert({
@@ -357,17 +373,13 @@ test.describe("Brand detail — product shelf focus", () => {
         name_zh: productName,
         category: "home",
         subcategory: "lighting",
-        official_url:
-          "https://sammm-studio.com/products/perch-wireless-table-lamp",
+        official_url: productUrl,
         source_checked_at: new Date().toISOString(),
         product_description_zh:
           "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
         // The shelf skips photo-less products (DEV-1950) and public reads drop
-        // a product with no renderable image (DEV-1962), so the seed needs a
-        // path `safeImageSrc` accepts. The image need not resolve for this spec.
-        image_url: e2eProxyImageUrl(
-          `curated-products/${seeded.brand.id}/${productKey}/e2e.webp`,
-        ),
+        // a product with no renderable image (DEV-1962).
+        image_url: e2eProxyImageUrl(imageKey),
         visible: true,
       })
       .select("id")
@@ -393,6 +405,12 @@ test.describe("Brand detail — product shelf focus", () => {
 
   test.afterAll(async () => {
     await seeded?.cleanup();
+    if (imageKey) {
+      const { error } = await getServiceClient()
+        .storage.from("brand-images")
+        .remove([imageKey]);
+      if (error) throw new Error(`Failed to clean images: ${error.message}`);
+    }
   });
 
   // DEV-1950 replaced the hover-only caption and its focus-only wrapper with a
@@ -412,22 +430,16 @@ test.describe("Brand detail — product shelf focus", () => {
       tile.getByRole("heading", { name: productName }),
     ).toBeVisible();
 
+    // DEV-1994: image and name are ONE outbound link to the product page —
+    // never a `#product-` anchor back to the same page, never a second pill.
     const productLink = tile.getByRole("link", {
-      name: new RegExp(`^${productName}`),
+      name: new RegExp(`${productName}.*在品牌官網查看`),
     });
-    await expect(productLink).toHaveAttribute(
-      "href",
-      new RegExp(`#product-${productKey}$`),
-    );
+    await expect(productLink).toHaveAttribute("href", productUrl);
+    await expect(productLink).toHaveAttribute("target", "_blank");
+    await expect(tile.getByRole("link")).toHaveCount(1);
     await expect(tile.locator('[tabindex="0"]:not(button)')).toHaveCount(0);
     await expect(productLink.locator("button")).toHaveCount(0);
-
-    await expect(
-      tile.getByRole("link", { name: /前往品牌官方網站/ }),
-    ).toHaveAttribute(
-      "href",
-      "https://sammm-studio.com/products/perch-wireless-table-lamp",
-    );
   });
 });
 

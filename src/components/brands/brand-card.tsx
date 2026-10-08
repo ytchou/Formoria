@@ -50,6 +50,11 @@ interface BrandCardProps {
   eyebrow?: string;
   /** Directory variant only: published-product count and up to 3 thumbnails. */
   preview?: BrandProductPreview;
+  /**
+   * Directory/recommendation layout: city only in the metadata line, for a
+   * list whose heading already names the category (related brands).
+   */
+  hideCategory?: boolean;
 }
 
 export function BrandCard({
@@ -63,6 +68,7 @@ export function BrandCard({
   note,
   eyebrow,
   preview,
+  hideCategory = false,
 }: BrandCardProps) {
   const t = useTranslations("brands");
   const tCities = useTranslations("cities");
@@ -127,7 +133,9 @@ export function BrandCard({
   if (variant === "directory" || variant === "recommendation") {
     const cityLabel =
       brand.city && tCities.has(brand.city) ? tCities(brand.city) : null;
-    const metadata = [categoryLabel, cityLabel].filter(Boolean).join(" · ");
+    const metadata = [hideCategory ? null : categoryLabel, cityLabel]
+      .filter(Boolean)
+      .join(" · ");
     const thumbnails = (preview?.thumbnails ?? [])
       .map((src) => safeImageSrc(src))
       .filter((src): src is string => src !== null)
