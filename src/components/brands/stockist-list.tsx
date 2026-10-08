@@ -1,8 +1,8 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Check, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { FOCUS_RING } from "@/components/ui/control-surface";
 import {
@@ -32,6 +32,18 @@ const GROUPED_LAYOUT_MIN_STOCKISTS = 4;
  */
 const DISTRICT_PATTERN =
   /^(?:[\u53F0\u81FA]?\S{1,3}?[\u5E02\u7E23])?(\S{1,3}?(?:[\u9109\u93AE\u5E02]\u5340|[\u5340\u9109\u93AE\u5E02]))/;
+
+/** Any Han character: the cue that a name or place is written in Chinese. */
+const HAN_PATTERN = /\p{Script=Han}/u;
+
+/**
+ * Language of parts (WCAG 3.1.2): on an English page a Han-script name or
+ * place is marked so a screen reader switches voice for it. Undefined leaves
+ * the page language in force.
+ */
+function partLang(text: string, isEnglishPage: boolean) {
+  return isEnglishPage && HAN_PATTERN.test(text) ? "zh-Hant-TW" : undefined;
+}
 
 type Translate = (
   key: string,
@@ -70,12 +82,43 @@ export type StockistListProps = {
   possible: Stockist[];
 };
 
+type ProvenanceKey = "owner" | "formoria" | "evidence" | "evidenceOther";
+
+/**
+ * No `?? "community"` fallback: `confirmedBy` is set by
+ * `groupStockistsForDisplay` for every confirmed row, and guessing a
+ * provenance for a row the server declined to vouch for is how a trust label
+ * gets printed without anything behind it.
+ */
+function provenanceKeyOf(stockist: Stockist): ProvenanceKey | null {
+  if (stockist.status !== "confirmed" || !stockist.confirmedBy) return null;
+  return stockist.confirmedBy === "evidence" &&
+    stockist.evidenceSource !== "official_website"
+    ? "evidenceOther"
+    : stockist.confirmedBy;
+}
+
+/**
+ * The one provenance every entry shares, when the list is wholly confirmed and
+ * agrees — then it prints once above the list instead of on every row.
+ */
+function sharedProvenanceKey(stockists: Stockist[]): ProvenanceKey | null {
+  const keys = new Set(stockists.map(provenanceKeyOf));
+  const [only] = keys;
+  return keys.size === 1 && only ? only : null;
+}
+
+/**
+ * Status is never carried by this marker alone: each entry also names it in
+ * text (see `StockistEntry`). Both markers are neutral — the palette has no
+ * status colour.
+ */
 function StatusMarker({ confirmed }: { confirmed: boolean }) {
   if (confirmed) {
     return (
       <span
         aria-hidden="true"
-        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-verified-green-bg text-verified-green"
+        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface text-ink"
       >
         <Check className="size-4" />
       </span>
@@ -106,9 +149,18 @@ type StockistEntryProps = {
   stockist: Stockist;
   t: Translate;
   hidden: boolean;
+  /** True when a summary above the list already states the provenance. */
+  provenanceSummarised: boolean;
+  isEnglishPage: boolean;
 };
 
-function StockistEntry({ stockist, t, hidden }: StockistEntryProps) {
+function StockistEntry({
+  stockist,
+  t,
+  hidden,
+  provenanceSummarised,
+  isEnglishPage,
+}: StockistEntryProps) {
   const mapsHref = stockist.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stockist.address)}`
     : null;
@@ -116,24 +168,23 @@ function StockistEntry({ stockist, t, hidden }: StockistEntryProps) {
   // address goes to Google Maps; without one, the stockist's own page is the
   // only way through.
   const href = mapsHref ?? stockist.url;
-  // No `?? "community"` fallback: `confirmedBy` is set by
-  // `groupStockistsForDisplay` for every confirmed row and read only here, and
-  // guessing a provenance for a row the server declined to vouch for is how a
-  // trust label gets printed without anything behind it.
-  const provenanceKey =
-    stockist.confirmedBy === "evidence" &&
-    stockist.evidenceSource !== "official_website"
-      ? "evidenceOther"
-      : stockist.confirmedBy;
+  const provenanceKey = provenanceKeyOf(stockist);
   const isConfirmed = stockist.status === "confirmed";
-  const metadata = [
-    stockistDistrict(stockist),
-    isConfirmed && provenanceKey
+  const district = stockistDistrict(stockist);
+  const districtLang = district ? partLang(district, isEnglishPage) : undefined;
+  // A possible entry says so in visible text; a confirmed one says so to
+  // screen readers (below), its provenance being the visible confirmation.
+  const metadata: ReactNode[] = [
+    district && districtLang ? (
+      <span lang={districtLang}>{district}</span>
+    ) : (
+      district
+    ),
+    provenanceKey && !provenanceSummarised
       ? t(`channels.provenance.${provenanceKey}`)
       : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+    isConfirmed ? null : t("channels.status.possible"),
+  ].filter(Boolean);
 
   const content: ReactNode = (
     <>
@@ -141,11 +192,24 @@ function StockistEntry({ stockist, t, hidden }: StockistEntryProps) {
       <span className="min-w-0 flex-1">
         {/* A retailer name is interface, not content: it labels a place you
             can go. The interface face at the label step. */}
-        <span className="block type-label group-hover:underline group-hover:underline-offset-4">
+        <span
+          lang={partLang(stockist.name, isEnglishPage)}
+          className="block type-label group-hover:underline group-hover:underline-offset-4"
+        >
           {stockist.name}
         </span>
-        {metadata ? (
-          <span className="block type-metadata">{metadata}</span>
+        {isConfirmed ? (
+          <span className="sr-only">{t("channels.status.confirmed")}</span>
+        ) : null}
+        {metadata.length > 0 ? (
+          <span className="block type-metadata">
+            {metadata.map((part, index) => (
+              <Fragment key={index}>
+                {index > 0 ? " · " : null}
+                {part}
+              </Fragment>
+            ))}
+          </span>
         ) : null}
       </span>
       {href !== null && mapsHref === null ? (
@@ -183,23 +247,27 @@ function StockistEntry({ stockist, t, hidden }: StockistEntryProps) {
 export function StockistList({ confirmed, possible }: StockistListProps) {
   const t = useTranslations("brandDetail");
   const tCities = useTranslations("cities");
+  const isEnglishPage = useLocale() === "en";
   const [expanded, setExpanded] = useState(false);
   const allStockists = [...confirmed, ...possible];
   const displayGroups = groupStockistsByRegion(allStockists);
   const total = allStockists.length;
+  const summaryKey = sharedProvenanceKey(allStockists);
 
   const isFolded = (position: number) =>
     !expanded && position >= MAX_VISIBLE_ENTRIES;
 
   function renderEntries(stockists: Stockist[], offset: number) {
     return (
-      <ul className="grid gap-x-gutter sm:grid-cols-2">
+      <ul className="grid gap-x-gutter sm:grid-cols-2 lg:grid-cols-3">
         {stockists.map((stockist, index) => (
           <StockistEntry
             key={stockist.id}
             stockist={stockist}
             t={t}
             hidden={isFolded(offset + index)}
+            provenanceSummarised={summaryKey !== null}
+            isEnglishPage={isEnglishPage}
           />
         ))}
       </ul>
@@ -250,6 +318,11 @@ export function StockistList({ confirmed, possible }: StockistListProps) {
 
   return (
     <div className="space-y-4" data-stockist-list>
+      {summaryKey ? (
+        <p className="type-metadata">
+          {t(`channels.provenanceSummary.${summaryKey}`)}
+        </p>
+      ) : null}
       {list}
       {total > MAX_VISIBLE_ENTRIES ? (
         <Button

@@ -34,8 +34,16 @@ vi.mock("@/i18n/navigation", () => ({
 // The header copy is under test here; the cards and the viewport tracker are
 // covered by their own tests.
 vi.mock("../brand-card", () => ({
-  BrandCard: ({ brand }: { brand: PublicBrandCard }) => (
-    <article>{brand.name}</article>
+  BrandCard: ({
+    brand,
+    hideCategory,
+  }: {
+    brand: PublicBrandCard;
+    hideCategory?: boolean;
+  }) => (
+    <article data-hide-category={hideCategory ? "true" : "false"}>
+      {brand.name}
+    </article>
   ),
 }));
 
@@ -49,22 +57,61 @@ const { RelatedBrands } = await import("../related-brands");
 
 const brand = { id: "brand-2", name: "木匠工坊" } as PublicBrandCard;
 
+async function renderSection() {
+  const section = await RelatedBrands({
+    locale: "zh-TW",
+    brands: [brand, { id: "brand-3", name: "山間器物" } as PublicBrandCard],
+    category: "home",
+    categoryName: "居家生活",
+    count: 63,
+    currentBrandSlug: "shanjian",
+  });
+  if (!section) throw new Error("RelatedBrands rendered nothing");
+  return render(section);
+}
+
 describe("RelatedBrands header", () => {
-  it("names the category total in the link and the others in the subtext", async () => {
-    const section = await RelatedBrands({
-      locale: "zh-TW",
-      brands: [brand],
-      category: "home",
-      categoryName: "居家生活",
-      count: 63,
-      currentBrandSlug: "shanjian",
-    });
-    if (!section) throw new Error("RelatedBrands rendered nothing");
-    render(section);
+  // One count only — the link's category total. A second "others" count in
+  // the subtext contradicted it.
+  it("names the category total in the link and no count in the subtext", async () => {
+    await renderSection();
 
     expect(
       screen.getByRole("link", { name: "看全部 63 個居家生活品牌" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("居家生活還收錄了 62 個品牌")).toBeInTheDocument();
+    const subtext = screen.getByText("同樣收錄在居家生活的品牌");
+    expect(subtext.textContent).not.toMatch(/\d/);
+  });
+});
+
+describe("RelatedBrands cards", () => {
+  // The heading already names the category, so each card shows city only.
+  it("hides the category on every card", async () => {
+    const { container } = await renderSection();
+
+    const cards = container.querySelectorAll("article");
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      expect(card).toHaveAttribute("data-hide-category", "true");
+    }
+  });
+
+  // Below `sm` the cards scroll sideways in one snap row instead of stacking
+  // ~1,100px tall; from `sm` the shared card grid columns take over.
+  it("lays the cards out as a snap row below sm, the card grid from sm", async () => {
+    const { container } = await renderSection();
+
+    const row = container.querySelector("article")?.parentElement;
+    expect(row).toHaveClass(
+      "max-sm:grid-flow-col",
+      "max-sm:auto-cols-[85%]",
+      "max-sm:overflow-x-auto",
+      "max-sm:snap-x",
+      "max-sm:snap-mandatory",
+      "*:snap-start",
+      "gap-gutter",
+      "sm:grid-cols-2",
+      "lg:grid-cols-4",
+    );
   });
 });

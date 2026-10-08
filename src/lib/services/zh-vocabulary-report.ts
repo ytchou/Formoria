@@ -25,9 +25,8 @@ import { createServiceClient } from "@/lib/supabase/service";
  *   - an alert needs a threshold, and one hit is neither a page nor nothing —
  *     the honest reading of a hit is "a human should look", which is a queue;
  *   - a health-agent detector is the right long-term home, but it is the
- *     heaviest: a cron endpoint, ~250 lines of collector wiring in
- *     `workflow-runtime.ts`, a merge into `directory-health.json` and a finding
- *     ceiling, for a signal with no established rate. The shape below is one
+ *     heaviest: a cron endpoint, a detector module in
+ *     `src/lib/services/health-agent/detectors/` and a finding ceiling, for a signal with no established rate. The shape below is one
  *     query, and `loadZhVocabularyReport` is exactly the summary such a
  *     detector would later fetch — so that upgrade adds a route and a collector
  *     and changes nothing here.

@@ -2,12 +2,32 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import zh from "../../../../messages/zh-TW.json";
+import en from "../../../../messages/en.json";
 import { CHAIN_REGION_LABEL } from "@/lib/brands/stockist-display";
 import type { Stockist } from "@/lib/types";
 
 import { StockistList, stockistDistrict } from "../stockist-list";
+
+// Real catalogue, real ICU formatting, for the server section's subtitle.
+vi.mock("next-intl/server", async () => {
+  const { createTranslator } = await import("next-intl");
+  const messages = (await import("../../../../messages/zh-TW.json")).default;
+  type TranslatorOptions = Parameters<typeof createTranslator>[0];
+
+  return {
+    getTranslations: async ({ namespace }: { namespace: string }) =>
+      createTranslator({
+        locale: "zh-TW",
+        messages,
+        namespace,
+      } as TranslatorOptions),
+  };
+});
+
+const { StockistsSection } = await import("../stockists-section");
+const channels = zh.brandDetail.channels;
 
 function makeStockist(
   index: number,
@@ -41,10 +61,15 @@ function renderList(
   options: {
     confirmed?: Stockist[];
     possible?: Stockist[];
+    locale?: "zh-TW" | "en";
   } = {},
 ) {
+  const locale = options.locale ?? "zh-TW";
   return render(
-    <NextIntlClientProvider locale="zh-TW" messages={zh}>
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "en" ? en : zh}
+    >
       <StockistList
         confirmed={options.confirmed ?? []}
         possible={options.possible ?? []}
@@ -308,8 +333,174 @@ describe("StockistList", () => {
       ],
     });
 
-    expect(screen.getByText("信義區")).toBeInTheDocument();
-    expect(screen.queryByText(/確認|來自官網|來源佐證/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(`信義區 · ${channels.status.possible}`),
+    ).toBeInTheDocument();
+    for (const label of Object.values(channels.provenance)) {
+      expect(screen.queryByText(new RegExp(label))).not.toBeInTheDocument();
+    }
+    for (const summary of Object.values(channels.provenanceSummary)) {
+      expect(screen.queryByText(summary)).not.toBeInTheDocument();
+    }
+  });
+
+  // One shared provenance across an all-confirmed list is printed ONCE, above
+  // the list, instead of repeated on every row.
+  it("prints one provenance summary when every entry is confirmed the same way", () => {
+    const { container } = renderList({
+      confirmed: makeStockists(3, {
+        address: "台北市信義區松高路11號",
+        source: "import",
+        status: "confirmed",
+        confirmedBy: "evidence",
+        evidenceSource: "official_website",
+      }),
+    });
+
+    expect(
+      screen.getByText(channels.provenanceSummary.evidence),
+    ).toBeInTheDocument();
+    for (const entry of entries(container)) {
+      expect(entry).not.toHaveTextContent(channels.provenance.evidence);
+    }
+    expect(screen.getAllByText("信義區")).toHaveLength(3);
+  });
+
+  it("keeps per-row provenance when any entry is unconfirmed", () => {
+    renderList({
+      confirmed: [
+        makeStockist(1, {
+          address: "台北市信義區松高路11號",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "official_website",
+        }),
+      ],
+      possible: [makeStockist(2)],
+    });
+
+    expect(
+      screen.queryByText(channels.provenanceSummary.evidence),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("信義區 · 來自官網")).toBeInTheDocument();
+  });
+
+  // Status is never carried by the marker's colour or shape alone.
+  it("names the status in text: visible for possible, sr-only for confirmed", () => {
+    const { container } = renderList({
+      confirmed: [
+        makeStockist(1, {
+          status: "confirmed",
+          confirmedBy: "owner",
+          ownerStatus: "confirmed",
+        }),
+      ],
+      possible: [makeStockist(2)],
+    });
+
+    const [confirmedRow, possibleRow] = entries(container);
+    const confirmedStatus = within(confirmedRow as HTMLElement).getByText(
+      channels.status.confirmed,
+    );
+    expect(confirmedStatus).toHaveClass("sr-only");
+    expect(
+      within(possibleRow as HTMLElement).getByText(
+        `臺北市 · ${channels.status.possible}`,
+      ),
+    ).not.toHaveClass("sr-only");
+    expect(
+      within(possibleRow as HTMLElement).queryByText(channels.status.confirmed),
+    ).toBeNull();
+    // The confirmed marker is neutral: no status colour outside the palette.
+    expect(container.innerHTML).not.toContain("verified-green");
+    expect(
+      (confirmedRow as HTMLElement).querySelector('[aria-hidden="true"]'),
+    ).toHaveClass("bg-surface", "text-ink");
+  });
+
+  it("lays entries out up to three columns", () => {
+    const { container } = renderList({ possible: makeStockists(2) });
+
+    expect(container.querySelector("ul")).toHaveClass(
+      "sm:grid-cols-2",
+      "lg:grid-cols-3",
+    );
+  });
+
+  // Language of parts: a Han-script name or district on an English page is
+  // marked so a screen reader switches voice for it.
+  it("marks Han-script names and districts zh-Hant-TW on English pages", () => {
+    const { container } = renderList({
+      locale: "en",
+      possible: [
+        makeStockist(1, { name: "茶籽堂", address: "台北市信義區松高路11號" }),
+        makeStockist(2, { name: "Latin Store", regionLabel: "Tokyo" }),
+      ],
+    });
+
+    // Rows render grouped by region, not in fixture order, so find them by text.
+    const rows = entries(container);
+    const hanRow = rows.find((row) => row.textContent?.includes("茶籽堂"));
+    const latinRow = rows.find((row) => row.textContent?.includes("Latin Store"));
+    expect(within(hanRow as HTMLElement).getByText("茶籽堂")).toHaveAttribute(
+      "lang",
+      "zh-Hant-TW",
+    );
+    expect(within(hanRow as HTMLElement).getByText("信義區")).toHaveAttribute(
+      "lang",
+      "zh-Hant-TW",
+    );
+    expect(
+      (latinRow as HTMLElement).querySelector("[lang]"),
+    ).toBeNull();
+  });
+
+  it("adds no lang attributes on zh pages", () => {
+    const { container } = renderList({
+      possible: [
+        makeStockist(1, { name: "茶籽堂", address: "台北市信義區松高路11號" }),
+      ],
+    });
+
+    expect(container.querySelector("[lang]")).toBeNull();
+  });
+});
+
+describe("StockistsSection", () => {
+  async function renderSection(confirmed: Stockist[], possible: Stockist[]) {
+    const section = await StockistsSection({
+      locale: "zh-TW",
+      confirmed,
+      possible,
+      brandId: "brand-1",
+      brandSlug: "brand-1",
+    });
+    return render(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        {section}
+      </NextIntlClientProvider>,
+    );
+  }
+
+  // The subtitle says the places MAY carry the brand and are partly
+  // community-supplied — false for an all-confirmed list.
+  it("shows the subtitle only when there are possible entries", async () => {
+    await renderSection([], [makeStockist(1)]);
+    expect(screen.getByText(channels.subtitle)).toBeInTheDocument();
+  });
+
+  it("omits the subtitle when every entry is confirmed", async () => {
+    await renderSection(
+      [
+        makeStockist(1, {
+          status: "confirmed",
+          confirmedBy: "owner",
+          ownerStatus: "confirmed",
+        }),
+      ],
+      [],
+    );
+    expect(screen.queryByText(channels.subtitle)).not.toBeInTheDocument();
   });
 });
 

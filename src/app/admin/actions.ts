@@ -8,7 +8,6 @@ import {
   approveSubmission,
   applyBrandRefresh,
   rejectSubmission,
-  reopenSubmission,
   requestBrandRefresh,
   isGeneratedGuestSubmissionEmail,
   type SubmissionProductReview,
@@ -26,8 +25,6 @@ import {
   type CuratedProductBackfillResult,
 } from '@/lib/services/curated-products/backfill'
 import {
-  scanContent,
-  saveModerationFlags,
   markFlagsReviewed,
   updateModerationFlagStatus,
 } from '@/lib/services/moderation'
@@ -54,7 +51,6 @@ import {
   DENIAL_REASONS,
   type BrandSubmission,
   type DenialReason,
-  type OtherUrl,
 } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
 import { getPostHogClient } from '@/lib/posthog-server'
@@ -790,109 +786,6 @@ export async function rejectSubmissionsAction(
       }
     } catch (err) {
       console.error('[admin:rejectSubmissions]', err)
-      return {
-        error: err instanceof Error ? err.message : 'An unexpected error occurred',
-      }
-    }
-  });
-}
-
-export async function reopenSubmissionAction(
-  submissionId: string
-): Promise<{ error: string } | undefined> {
-  return runWithAuditContext({}, async () => {
-    try {
-      const auth = await requireAdminAction()
-      if ('error' in auth) return auth
-
-      await reopenSubmission(submissionId)
-
-      revalidatePath(routes.admin.submissions())
-      revalidatePath(routes.admin.index())
-      return undefined
-    } catch (err) {
-      console.error('[admin:reopenSubmission]', err)
-      return {
-        error: err instanceof Error ? err.message : 'An unexpected error occurred',
-      }
-    }
-  });
-}
-
-export async function updateBrandAction(
-  brandId: string,
-  data: {
-    name?: string
-    description?: string
-    category?: string
-    status?: string
-    website?: string
-    purchaseUrl?: string
-    categorySlug?: string
-    socialInstagram?: string | null
-    socialThreads?: string | null
-    socialFacebook?: string | null
-    purchaseWebsite?: string | null
-    purchasePinkoi?: string | null
-    purchaseShopee?: string | null
-    purchaseMyship?: string | null
-    otherUrls?: OtherUrl[]
-  }
-): Promise<{ error: string } | undefined> {
-  return runWithAuditContext({}, async () => {
-    try {
-      const auth = await requireAdminAction()
-      if ('error' in auth) return auth
-
-      const {
-        name,
-        description,
-        website,
-        purchaseUrl,
-        socialInstagram,
-        socialThreads,
-        socialFacebook,
-        purchaseWebsite,
-        purchasePinkoi,
-        purchaseShopee,
-        purchaseMyship,
-      } = data
-      const moderationFields = {
-        name,
-        description,
-        website,
-        purchaseUrl,
-        socialInstagram: socialInstagram ?? undefined,
-        socialThreads: socialThreads ?? undefined,
-        socialFacebook: socialFacebook ?? undefined,
-        purchaseWebsite: purchaseWebsite ?? undefined,
-        purchasePinkoi: purchasePinkoi ?? undefined,
-        purchaseShopee: purchaseShopee ?? undefined,
-        purchaseMyship: purchaseMyship ?? undefined,
-      }
-      const { violations } = scanContent(name ?? '', moderationFields)
-      if (violations.length > 0) {
-        try {
-          await saveModerationFlags(brandId, auth.user.id, violations, 'pending')
-        } catch (err) {
-          console.error('[admin] moderation audit failed:', err)
-        }
-
-        return { error: violations.map((violation) => violation.userMessage).join('. ') }
-      }
-
-      const previousBrand = await getBrandById(brandId)
-      const updatedBrand = await updateBrand(
-        brandId,
-        data as Parameters<typeof updateBrand>[1],
-      )
-
-      revalidatePath(routes.admin.brands())
-      revalidatePath(routes.admin.index())
-      revalidatePublicBrands([updatedBrand.slug, previousBrand.slug])
-      return undefined
-    } catch (err) {
-      console.error('[admin:updateBrand]', err)
       return {
         error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }

@@ -11,6 +11,17 @@ import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const WRAPPER = resolve(__dirname, "run-worker.sh");
+const DOCKERFILE = resolve(__dirname, "..", "Dockerfile.curation-worker");
+
+// The shell pnpm wraps every package script in (`<shell> -c "<script>"`)
+// inside the worker image. Unset, pnpm uses /bin/sh, which is dash in
+// node:22-slim.
+function imageScriptShell(): string {
+  const match = readFileSync(DOCKERFILE, "utf8").match(
+    /^ENV npm_config_script_shell=(\S+)/m,
+  );
+  return match?.[1] ?? "/bin/sh";
+}
 
 // A worker stand-in: announces readiness, then exits 0 on SIGTERM the way
 // src/editorial-producer/server.ts does after worker.stop().
@@ -32,9 +43,11 @@ function sandbox(pkg: Record<string, unknown>): string {
 
 function runUntilTerm(
   cwd: string,
+  command = "bash",
+  args = ["run-worker.sh", "node", "child.cjs"],
 ): Promise<{ code: number | null; out: string }> {
   return new Promise((done) => {
-    const proc = spawn("bash", ["run-worker.sh", "node", "child.cjs"], { cwd });
+    const proc = spawn(command, args, { cwd });
     let out = "";
     const kill = setTimeout(() => proc.kill("SIGKILL"), 4000);
     proc.stdout.on("data", (chunk: Buffer) => {
@@ -61,6 +74,20 @@ describe("run-worker.sh", () => {
   it("delivers SIGTERM to the worker in the container (type: module) path", async () => {
     const cwd = sandbox({ name: "x", type: "module" });
     const { code, out } = await runUntilTerm(cwd);
+    expect(out).toContain("got-term");
+    expect(code).toBe(0);
+  });
+
+  // Mirrors `pnpm editorial:producer` in the image: pnpm signals the script
+  // shell, not the wrapper. A shell that does not exec its final command
+  // (dash) dies on SIGTERM and the worker never sees it. Only meaningful on
+  // Linux: macOS /bin/sh is bash, which execs, so this passes there either way.
+  it("delivers SIGTERM through the image's pnpm script shell", async () => {
+    const cwd = sandbox({ name: "x", type: "module" });
+    const { code, out } = await runUntilTerm(cwd, imageScriptShell(), [
+      "-c",
+      "bash run-worker.sh node child.cjs",
+    ]);
     expect(out).toContain("got-term");
     expect(code).toBe(0);
   });

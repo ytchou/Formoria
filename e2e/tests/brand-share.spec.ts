@@ -15,7 +15,7 @@ import { waitForViewerReady } from "../helpers/viewer-ready";
  *   3. Click the "分享" button — the share dialog opens
  *   4. Verify the dialog shows the readable URL field, the preview card, and the
  *      four channel discs (LINE / Threads / Facebook / Instagram)
- *   5. Click "複製" — the button swaps to "已複製！" and reverts after ~2s
+ *   5. Click "複製" — the button swaps to "已複製" and reverts after ~2s
  *   6. Instagram (no web share intent) copies first and opens nothing if the
  *      clipboard write is refused
  *   7. Close the dialog via the "關閉" button
@@ -101,7 +101,7 @@ test.describe("Brand share dialog", () => {
     await expect(dialog.getByRole("button", { name: /^X$/ })).toHaveCount(0);
   });
 
-  test("copy shows 已複製！ feedback then reverts", async ({ page }) => {
+  test("copy shows 已複製 feedback then reverts", async ({ page }) => {
     const resp = await page.goto(brandHref);
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping.");
@@ -121,8 +121,8 @@ test.describe("Brand share dialog", () => {
 
     await dialog.getByRole("button", { name: "複製" }).click();
 
-    // Label swaps to "已複製！" (transient React state — wait for it)
-    await expect(dialog.getByRole("button", { name: "已複製！" })).toBeVisible({
+    // Label swaps to "已複製" (transient React state — wait for it)
+    await expect(dialog.getByRole("button", { name: "已複製" })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
 

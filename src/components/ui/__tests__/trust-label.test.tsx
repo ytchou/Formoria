@@ -29,7 +29,7 @@ describe("TrustLabel", () => {
     // The label is the vocabulary D11 commits to publicly, so pin the string
     // itself — not just "whatever the catalogue happens to hold".
     expect(zhMessages.trustLabel.selected).toContain("選物");
-    expect(enMessages.trustLabel.selected).toBe("Formoria Selected");
+    expect(enMessages.trustLabel.selected).toBe("Selected by Formoria");
 
     // It is a static label, not a control: no link, no button, no focus stop.
     expect(screen.queryByRole("link")).toBeNull();

@@ -118,7 +118,6 @@ const nextConfig: NextConfig = {
       }
     : {}),
   serverExternalPackages: ["adm-zip", "@playwright/test", "onnxruntime-node"],
-  transpilePackages: ["react-simple-maps"],
   experimental: {
     turbopackFileSystemCacheForDev: false,
     serverActions: {

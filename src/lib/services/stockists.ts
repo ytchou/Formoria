@@ -107,56 +107,8 @@ type EnrichedStockistRow = {
   provider_metadata?: Record<string, unknown> | null
 }
 
-type StockistDistrictBackfillRow = {
-  id: string
-  address: string
-  regionLabel: string | null
-  district: string | null
-}
-
 export const STOCKIST_DETAIL_READ_SELECT =
   'id, name, region_label, address, url, source_url, fetched_at, location_type, country, owner_status, owner_status_by, source, removed_at'
-
-export async function listStockistDistrictBackfillRows(): Promise<
-  StockistDistrictBackfillRow[]
-> {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brand_channels')
-    .select('id, address, region_label, district')
-    .eq('country', 'TW')
-    .is('removed_at', null)
-    .not('address', 'is', null)
-
-  if (error) throw error
-  return (
-    (data ?? []) as Array<{
-      id: string
-      address: string
-      region_label: string | null
-      district: string | null
-    }>
-  ).map((row) => ({
-    id: row.id,
-    address: row.address,
-    regionLabel: row.region_label,
-    district: row.district,
-  }))
-}
-
-export async function updateStockistDistricts(
-  rows: Array<{ id: string; district: string | null }>,
-): Promise<void> {
-  if (rows.length === 0) return
-  const supabase = createServiceClient()
-  const { data, error } = await supabase.rpc('update_brand_channel_districts', {
-    p_updates: rows,
-  })
-  if (error) throw error
-  if (data !== rows.length) {
-    throw new Error(`Updated ${data} of ${rows.length} stockist districts`)
-  }
-}
 
 function isMissingDistrictColumnError(error: unknown): boolean {
   if (!isRecord(error)) return false

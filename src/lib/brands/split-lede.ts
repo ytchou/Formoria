@@ -22,7 +22,7 @@ const ABBREVIATION_BEFORE_DOT = /(?:^|[\s(（])(?:Mr|Mrs|Ms|Dr|St|Co|Inc|Ltd|No|
  * (DEV-1993, BD2-15).
  */
 const MAX_LEDE_WIDTH = { en: 220, zh: 160 } as const;
-const WIDE_CHAR = /[　-〿㐀-鿿豈-﫿＀-￯]/;
+const WIDE_CHAR = /[\u3000-\u303f\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/;
 
 function displayWidth(text: string): number {
   let width = 0;

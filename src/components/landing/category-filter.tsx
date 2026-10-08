@@ -62,7 +62,7 @@ type CategoryOption = {
   label: string;
 };
 
-export type CategoryFilterLabels = {
+type CategoryFilterLabels = {
   tile: SelectedProductTileLabels;
   loading: string;
   loadFailed: string;

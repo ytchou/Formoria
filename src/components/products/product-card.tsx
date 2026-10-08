@@ -77,7 +77,7 @@ export function ProductCard({
         </div>
 
         <div className="mt-3 flex flex-col gap-1">
-          <p className="type-metadata text-accent truncate">
+          <p className="type-body-sm text-ink-muted truncate">
             {product.brandName}
           </p>
           <h3

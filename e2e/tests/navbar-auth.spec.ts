@@ -1,8 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { applyOriginGuard, test, expect } from "../fixtures/auth";
 import { addDeepStagingSessionCookie } from "../helpers/staging-session";
 
 import { BUDGET, POLL } from "../budgets";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 async function createDisposableSignOutUser() {
   const supabase = createClient(
@@ -26,7 +29,7 @@ async function createDisposableSignOutUser() {
 }
 
 async function deleteDisposableSignOutUser(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   userId: string,
 ) {
   const { error } = await supabase.auth.admin.deleteUser(userId);

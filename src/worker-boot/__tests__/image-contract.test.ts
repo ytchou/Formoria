@@ -60,4 +60,16 @@ describe("worker image contract", () => {
 
     expect(dockerfile).toMatch(/apt-get install[^\n]*postgresql-client/);
   });
+
+  // Without it pnpm wraps scripts in dash, which swallows SIGTERM on container
+  // stop (DEV-1995). A text pin, so it fails on macOS too, where /bin/sh is
+  // bash and the behavioral test in scripts/run-worker.test.ts cannot.
+  it("runs pnpm scripts under bash", () => {
+    const dockerfile = readFileSync(
+      resolve(ROOT, "Dockerfile.curation-worker"),
+      "utf8",
+    );
+
+    expect(dockerfile).toMatch(/^ENV npm_config_script_shell=\/bin\/bash$/m);
+  });
 });

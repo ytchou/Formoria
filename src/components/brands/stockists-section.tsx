@@ -32,6 +32,11 @@ export async function StockistsSection({
       <Typography as="h3" variant="cardTitle">
         {t("sections.retailLocations")}
       </Typography>
+      {/* "May be available, partly community-supplied" is only true while
+          some entry is still unconfirmed. */}
+      {possible.length > 0 ? (
+        <p className="type-body-sm">{t("channels.subtitle")}</p>
+      ) : null}
 
       <StockistList confirmed={confirmed} possible={possible} />
     </section>

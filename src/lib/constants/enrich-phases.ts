@@ -73,6 +73,7 @@ export const SUB_PHASES = [
   "rerank",
   "search_relevance_judge",
   "sentry-classify",
+  "image_text",
 ] as const;
 
 type SubPhaseName = (typeof SUB_PHASES)[number];

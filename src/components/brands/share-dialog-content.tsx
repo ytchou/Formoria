@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode, SVGProps } from "react";
+import type { ReactNode, SVGProps } from "react";
 import { useTranslations } from "next-intl";
 import { AtSign, Check, Link as LinkIcon, MessageCircle } from "lucide-react";
 import { SurfaceImage } from "@/components/ui/image";
@@ -30,15 +30,9 @@ interface ShareDialogContentProps {
   flashCopied: (kind: "link" | "instagram", ms: number) => void;
 }
 
-// Brand marks only — these hex values exist so each channel disc reads as the
-// platform's own logo. Never reuse them for Formoria chrome; all Formoria
-// interactive emphasis comes from the single accent (`bg-accent`).
-const LINE_DISC = "bg-[#06C755]";
-const FACEBOOK_DISC = "bg-[#1877F2]";
-const INSTAGRAM_DISC_STYLE: CSSProperties = {
-  backgroundImage:
-    "radial-gradient(circle at 30% 107%, #FDF497 0%, #FD5949 45%, #D6249F 60%, #285AEB 90%)",
-};
+// One neutral disc for every channel: the palette has no exceptions, so no
+// platform colours. The glyph and label identify the channel.
+const CHANNEL_DISC = "bg-surface text-ink";
 
 const COPIED_RESET_MS = 2000;
 const INSTAGRAM_STATUS_MS = 4000;
@@ -62,8 +56,6 @@ type ChannelKey = Extract<
 type Channel = {
   key: ChannelKey;
   label: string;
-  discClass: string;
-  discStyle?: CSSProperties;
   icon: ReactNode;
 };
 
@@ -165,29 +157,21 @@ export function ShareDialogContent({
     {
       key: "line",
       label: t("line"),
-      // Fixed brand backgrounds need the canonical white glyph; `text-background`
-      // would flip to near-black in the dark theme. Only Threads (bg-foreground)
-      // is genuinely theme-paired.
-      discClass: `${LINE_DISC} text-white`,
       icon: <MessageCircle className="size-5" aria-hidden="true" />,
     },
     {
       key: "threads",
       label: t("threads"),
-      discClass: "bg-ink text-ground",
       icon: <AtSign className="size-5" aria-hidden="true" />,
     },
     {
       key: "facebook",
       label: t("facebook"),
-      discClass: `${FACEBOOK_DISC} text-white`,
       icon: <FacebookIcon className="size-5" />,
     },
     {
       key: "instagram",
       label: t("instagram"),
-      discClass: "text-white",
-      discStyle: INSTAGRAM_DISC_STYLE,
       icon: <InstagramIcon className="size-5" />,
     },
   ];
@@ -257,25 +241,23 @@ export function ShareDialogContent({
         </div>
 
         {/* URL field — the exact link is visible before anything is pressed. */}
-        <div className="relative">
+        {/* Field and button side by side: each keeps its own 44px height
+            from its primitive, and the label never sits over the URL. */}
+        <div className="flex items-center gap-2">
           <Input
             readOnly
             value={displayUrl}
             aria-label={t("urlLabel")}
             onFocus={(event) => event.currentTarget.select()}
-            // text-base on mobile keeps the 16px floor that stops iOS Safari
-            // auto-zooming on focus (this field calls select() on focus);
-            // text-foreground/70 clears 4.5:1 on the muted surface in dark mode.
-            className="h-10 rounded-control border-rule bg-surface pr-28 text-base text-ink/70 md:text-[13px]"
+            // Height and the 16px font floor below `md` (which stops iOS
+            // Safari auto-zooming on focus; this field calls select()) both
+            // come from `Input`.
+            className="min-w-0 flex-1 bg-surface text-ink/70"
             data-ph-no-autocapture
           />
           <Button
-            size="chip"
-            className={cn(
-              "absolute top-1 right-1",
-              copied &&
-                "bg-verified-green-bg text-verified-green hover:bg-verified-green-bg",
-            )}
+            size="compact"
+            className="shrink-0"
             onClick={handleCopyLink}
             data-ph-no-autocapture
           >
@@ -304,8 +286,7 @@ export function ShareDialogContent({
               key={channel.key}
               icon={channel.icon}
               label={channel.label}
-              discClass={channel.discClass}
-              discStyle={channel.discStyle}
+              discClass={CHANNEL_DISC}
               onClick={() => handleChannelClick(channel.key)}
             />
           ))}
@@ -316,7 +297,7 @@ export function ShareDialogContent({
         <p
           role="status"
           className={cn(
-            "rounded-surface bg-verified-green-bg px-3 py-2 type-micro text-verified-green transition-opacity duration-150",
+            "rounded-surface bg-surface px-3 py-2 type-micro text-ink transition-opacity duration-150",
             instagramCopied ? "opacity-100" : "sr-only opacity-0",
           )}
         >

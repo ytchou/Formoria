@@ -12,16 +12,11 @@ const originStory: FaqPreset = {
   eligible: (ctx) =>
     ctx.brand.foundingYear != null && (ctx.brand.city?.trim().length ?? 0) > 0,
   requiredEvidence: ["foundingYear", "city"],
-  render: {
-    questionKey: "brandFaq.originStory.question",
-    templateFloor: (ctx, t) =>
-      t("brandFaq.originStory.answer", {
-        brandName: ctx.brand.name,
-        year: ctx.brand.foundingYear,
-        city: ctx.cityLabel ?? ctx.brand.city ?? "",
-        context: "",
-      }),
-  },
+  // DEV-1994: no template floor. The only one it had restated the founding
+  // year and city, which the brand page's metadata line already shows. The
+  // preset stays registered so stored human-authored rows still render through
+  // `getBrandFaq` (model rows for it are skipped there and never persisted).
+  render: null,
   promptFragment: null,
   // `groundedIn(requiredEvidence)` is derived in the registry (index.ts).
   validators: [

@@ -65,8 +65,7 @@ async function postRevalidation(
   // machine POSTs with a bot challenge (HTTP 403 "Just a moment...") before the
   // request ever reaches the app, so a call to NEXT_PUBLIC_SITE_URL can never
   // succeed in production. NEXT_PUBLIC_SITE_URL stays the local-dev fallback,
-  // where there is no Cloudflare in front. Same pairing the health agent uses
-  // (scripts/health-agent/orchestrator.ts).
+  // where there is no Cloudflare in front.
   // Railway shows the origin without a scheme in its dashboard, so the env var
   // routinely lands here as a bare host. fetch() rejects that as a relative URL,
   // which surfaces as "Failed to parse URL" long after the write already landed.

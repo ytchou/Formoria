@@ -1,11 +1,10 @@
-import { L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { getBrandSubcategoryLabels } from "@/lib/brands/category-label";
 import {
-  buildBrandContextSuffix,
+  formatFaqList,
   hasValue,
+  lowercaseLabelForSentence,
   type FaqBrandContext,
   type FaqPreset,
-  type FaqTFn,
 } from "./types";
 import {
   noKeywordStuffing,
@@ -38,12 +37,13 @@ function localeTags(ctx: FaqBrandContext, locale: string): string[] {
     .slice(0, 3);
 }
 
-function subcategories(
-  ctx: FaqBrandContext,
-  t: FaqTFn,
-  locale: string,
-): string {
-  return localeTags(ctx, locale).join(t("brandFaq.listSeparator"));
+/** zh labels as stored; en labels lowered to sentence case for mid-sentence use. */
+function subcategories(ctx: FaqBrandContext, locale: string): string {
+  const tags = localeTags(ctx, locale);
+  return formatFaqList(
+    locale.startsWith("en") ? tags.map(lowercaseLabelForSentence) : tags,
+    locale,
+  );
 }
 
 const mainProducts: FaqPreset = {
@@ -58,30 +58,13 @@ const mainProducts: FaqPreset = {
   requiredEvidence: ["subcategories"],
   render: {
     questionKey: "brandFaq.mainProducts.question",
-    templateFloor: (ctx, t, locale) => {
-      const isEnglish = locale.startsWith("en");
-      const category = isEnglish
-        ? L1_CATEGORIES.find((item) => item.slug === ctx.brand.categorySlug)
-            ?.name
-        : ctx.brand.categoryLabel;
-      const tags = subcategories(ctx, t, locale);
-      const context = buildBrandContextSuffix(ctx, t);
-
-      if (category && tags) {
-        return t("brandFaq.mainProducts.answerWithCategoryAndSubcategories", {
-          brandName: ctx.brand.name,
-          category,
-          subcategories: tags,
-          context,
-        });
-      }
-
-      return t("brandFaq.mainProducts.answerWithSubcategories", {
+    // DEV-1994: subcategories only. The category, city and founding year are
+    // on the page's metadata line already; restating them read as a template.
+    templateFloor: (ctx, t, locale) =>
+      t("brandFaq.mainProducts.answer", {
         brandName: ctx.brand.name,
-        subcategories: tags,
-        context,
-      });
-    },
+        subcategories: subcategories(ctx, locale),
+      }),
   },
   promptFragment: {
     prompt: "faq-main-products",

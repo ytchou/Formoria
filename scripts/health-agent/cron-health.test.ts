@@ -6,7 +6,6 @@ import {
   evaluateCronHealth,
   type CronHttpLogRow,
 } from "./cron-health";
-import { collectCronHealthArtifact } from "./workflow-runtime";
 
 const runAt = "2026-08-07T04:00:00.000Z";
 const now = new Date(runAt);
@@ -54,27 +53,6 @@ function healthyRows(): CronHttpLogRow[] {
 
 function fingerprints(findings: readonly { fingerprint: string }[]): string[] {
   return findings.map((finding) => finding.fingerprint).sort();
-}
-
-function dependencyWithRows(rows: unknown[]) {
-  const contents = new Map<string, string>();
-  return {
-    env: {
-      HEALTH_AGENT_READER_TOKEN: "reader-token",
-      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
-    },
-    fetchImplementation: async () =>
-      new Response(JSON.stringify(rows), {
-        headers: { "content-type": "application/json" },
-        status: 200,
-      }),
-    files: {
-      read: async (path: string) => contents.get(path) ?? "",
-      write: async (path: string, value: string) => {
-        contents.set(path, value);
-      },
-    },
-  };
 }
 
 describe("evaluateCronHealth", () => {
@@ -218,94 +196,5 @@ describe("evaluateCronHealth", () => {
         ...EXPECTED_CRON_JOBS.map((job) => `cron:stale:${job.jobName}`),
       ].sort(),
     );
-  });
-});
-
-describe("cron health collector", () => {
-  it("returns success with no findings when every expected job is healthy", async () => {
-    const result = await collectCronHealthArtifact(
-      { outputPath: "cron-health.json", runAt },
-      dependencyWithRows(healthyRows()),
-    );
-
-    expect(result).toMatchObject({
-      evidence: {
-        lookbackHours: CRON_HEALTH_LOOKBACK_HOURS,
-        rowCount: EXPECTED_CRON_JOBS.length,
-      },
-      failures: [],
-      findings: [],
-      snapshot: {
-        lookbackHours: CRON_HEALTH_LOOKBACK_HOURS,
-        rowCount: EXPECTED_CRON_JOBS.length,
-      },
-      status: "success",
-    });
-  });
-
-  it("treats an empty log as every job stale, not as a read failure", async () => {
-    const result = await collectCronHealthArtifact(
-      { outputPath: "cron-health.json", runAt },
-      dependencyWithRows([]),
-    );
-
-    expect(result.status).toBe("success");
-    expect(result.failures).toEqual([]);
-    expect(fingerprints(result.findings)).toEqual(
-      EXPECTED_CRON_JOBS.map((job) => `cron:stale:${job.jobName}`).sort(),
-    );
-  });
-
-  it("surfaces a transport failure through the collector", async () => {
-    const result = await collectCronHealthArtifact(
-      { outputPath: "cron-health.json", runAt },
-      dependencyWithRows([
-        ...healthyRows(),
-        row({
-          job_name: DAILY,
-          request_id: 9,
-          status_code: null,
-          timed_out: false,
-          error_msg: "Could not resolve host: formoria.com",
-        }),
-      ]),
-    );
-
-    expect(result.status).toBe("success");
-    expect(fingerprints(result.findings)).toEqual([`cron:failed:${DAILY}`]);
-  });
-
-  it("fails loudly when PostgREST cannot be read", async () => {
-    const result = await collectCronHealthArtifact(
-      { outputPath: "cron-health.json", runAt },
-      {
-        ...dependencyWithRows([]),
-        fetchImplementation: async () =>
-          new Response(JSON.stringify({ message: "permission denied" }), {
-            headers: { "content-type": "application/json" },
-            status: 403,
-          }),
-      },
-    );
-
-    expect(result.status).toBe("failed");
-    expect(result.failures).toEqual(
-      expect.arrayContaining([expect.any(String)]),
-    );
-    expect(result.failure).toContain("cron_http_log_read_failed");
-    expect(result.findings).toEqual([]);
-  });
-
-  it("fails loudly when a row violates the expected shape", async () => {
-    const result = await collectCronHealthArtifact(
-      { outputPath: "cron-health.json", runAt },
-      dependencyWithRows([
-        { ...row({ job_name: DAILY }), request_id: "not-a-number" },
-      ]),
-    );
-
-    expect(result.status).toBe("failed");
-    expect(result.failure).toContain("cron_http_log_row_invalid");
-    expect(result.findings).toEqual([]);
   });
 });

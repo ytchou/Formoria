@@ -37,6 +37,7 @@ export type StoryLink = {
 
 type ProductPlacement = {
   brandSlug: string;
+  productKey: string;
   trailSlug: string;
   trailTitle: string;
   trailLocale: string;
@@ -161,6 +162,27 @@ export function deriveStoryRelatedTrails(
   return links;
 }
 
+/**
+ * The first published trail each of a brand's products appears in, keyed by
+ * product key. "First" is placement order, so a product placed in two trails
+ * links to one guide, deterministically.
+ */
+export function deriveProductTrailLinks(
+  brandSlug: string,
+  placements: ProductPlacement[],
+): Record<string, TrailLink> {
+  const links: Record<string, TrailLink> = {};
+  for (const p of placements) {
+    if (p.brandSlug !== brandSlug || p.productKey in links) continue;
+    links[p.productKey] = {
+      slug: p.trailSlug,
+      title: p.trailTitle,
+      locale: p.trailLocale,
+    };
+  }
+  return links;
+}
+
 // ---------------------------------------------------------------------------
 // Async service functions (call DB + filesystem, compose pure helpers)
 // ---------------------------------------------------------------------------
@@ -189,6 +211,7 @@ const collectAllPlacements = cache(
           return products.map(
             (product): ProductPlacement => ({
               brandSlug: product.brandSlug,
+              productKey: product.key,
               trailSlug: trail.slug,
               trailTitle: trail.frontmatter.title,
               trailLocale: trail.frontmatter.locale,
@@ -237,6 +260,13 @@ export async function getBrandEditorialAppearances(
     trails: deriveBrandTrailLinks(brandSlug, placements),
     stories: deriveBrandStoryLinks(brandSlug, storyBrands),
   };
+}
+
+/** Product key → the first published trail (主題選物 guide) placing it. */
+export async function getBrandProductTrailLinks(
+  brandSlug: string,
+): Promise<Record<string, TrailLink>> {
+  return deriveProductTrailLinks(brandSlug, await collectAllPlacements());
 }
 
 export async function getCategoryEditorialLinks(

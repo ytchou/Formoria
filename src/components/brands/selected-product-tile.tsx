@@ -3,6 +3,8 @@ import type { CSSProperties } from "react";
 import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { surfaceCardStyles } from "@/components/ui/card";
+import { textStyles } from "@/components/ui/text-styles";
+import { TrustLabel } from "@/components/ui/trust-label";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
 import {
@@ -25,14 +27,25 @@ import { SelectedProductExternalLink } from "./selected-product-external-link";
 import { SaveButton } from "@/components/ui/save-button";
 import { routes } from "@/lib/routes";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck } from "lucide-react";
+import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import { subcategoryDisplayLabel } from "@/lib/taxonomy/ontology";
+import { contentLangFor } from "@/lib/trails/content-lang";
 
 export type SelectedProductTileLabels = {
   cta: string;
   brandSiteCta: string;
   unavailable: string;
   madeInTaiwan?: string;
+  /** Screen-reader lead-in for the shelf's guide link (guide). */
+  inGuide?: string;
+};
+
+/** The published trail (guide guide) that placed a shelf product. */
+export type SelectedProductTileGuide = {
+  slug: string;
+  title: string;
+  /** The trail's frontmatter locale, for the title's `lang`. */
+  locale: string;
 };
 
 /**
@@ -94,16 +107,26 @@ export type SelectedProductTileProps = {
     referrerPage?: string;
     brandId?: string;
   };
+  /**
+   * Shelf-only: the guide that placed this product. Its presence is the
+   * reason a Formoria-selection label may render (CP2-15); without it the tile shows none.
+   */
+  guide?: SelectedProductTileGuide;
+  /**
+   * Shelf-only: called when the photo fails to load, so the client shelf can
+   * drop the tile. The tile itself stays hook-free (it is isomorphic).
+   */
+  onImageError?: () => void;
 };
 
 const BROKEN_LINK_STATE = "broken";
 
 /**
  * The selected-product tile stays server-rendered. Trail cards keep their
- * outbound product chip. Brand-page shelf cards are a route onward (DEV-1950):
- * image and name link to the product's anchor, and a route row carries the
- * outbound chip. The wall turns the whole tile into one accessible link to
- * that brand's page. The optional client link child adds click tracking
+ * outbound product chip. A brand-page shelf card is one honest link
+ * (DEV-1994): image and name together go out to the product's own page — the
+ * brand site when the product link is broken. The wall turns the whole tile
+ * into one accessible link to that brand's page. The optional client link child adds click tracking
  * without moving the tile into the client graph.
  *
  * Keep it isomorphic: the homepage's category groups (DEV-1972) render it on
@@ -123,6 +146,8 @@ export function SelectedProductTile({
   brandName,
   tracking,
   note,
+  guide,
+  onImageError,
 }: SelectedProductTileProps) {
   const isEnglish = locale === "en";
   const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
@@ -145,7 +170,7 @@ export function SelectedProductTile({
       ? "zh-Hant-TW"
       : undefined;
   const imageSrc = safeImageSrc(product.imageUrl);
-  // Render-side guard: a 選物 shelf tile never draws a letter placeholder. The
+  // Render-side guard: a Formoria-selection shelf tile never draws a letter placeholder. The
   // data-side publish precondition (no photo, no publish) is a separate ticket.
   if (mode === "shelf" && !imageSrc) return null;
   const subcategoryName = product.subcategory
@@ -166,7 +191,7 @@ export function SelectedProductTile({
     size: "compact",
     className: cn("mt-auto max-w-full justify-center"),
   });
-  // The untracked outbound chip, shared by the trail and the shelf route row.
+  // The trail's untracked outbound chip.
   const plainChip = chipHref ? (
     <a
       href={chipHref}
@@ -178,19 +203,18 @@ export function SelectedProductTile({
       data-link-surface="selected_product"
     >
       <span className="min-w-0 truncate">{chipLabel}</span>
-      {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
+      {isBroken ? null : <span className="sr-only">{` ${name}`}</span>}
     </a>
   ) : null;
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
   /*
-   * The WALL lands on the top of the brand page; every other mode keeps the
-   * `#product-` anchor.
+   * The WALL lands on the top of the brand page; the trail keeps the
+   * `#product-` anchor. The shelf links out, never internally (DEV-1994).
    *
    * A homepage tile is the reader's FIRST contact with that brand, so dropping
    * them mid-page at one product skips the name, the trust labels and the rest
-   * of the selection. From a trail or from another product on the same brand
-   * page the anchor is still right — there the reader already has the context
-   * and is asking for one specific item.
+   * of the selection. From a trail the anchor is still right — there the
+   * reader already has the context and is asking for one specific item.
    *
    * The `id="product-<key>"` on the tile below stays either way: it is what the
    * brand page's own anchors point AT, and removing it would break those.
@@ -231,6 +255,7 @@ export function SelectedProductTile({
    * left desktop readers a sheet of unlabelled photographs at rest and hid
    * them from anyone who never hovers.
    */
+  const brandLineClassName = "type-body-sm text-ink-muted";
   const wallCaptionClass = cn(
     "flex flex-col gap-1 pt-3",
     // Ancestor variant (`:where(.bg-ground) &`): on the homepage band's ground
@@ -290,20 +315,21 @@ export function SelectedProductTile({
       </div>
 
       <div className={wallCaptionClass}>
+        {/* Phones step down to the next Ming size (there is no smaller
+            card-title token) and clamp to two lines (DS2-20); `sm` and up
+            keep the card title. */}
         <Typography
           as="h3"
           variant="cardTitle"
-          className="group-hover:text-accent"
+          className="max-sm:type-body max-sm:text-ink max-sm:line-clamp-2 group-hover:text-accent"
           lang={nameLang}
         >
           {name}
         </Typography>
         {brandName ? (
-          // 13px muted is the floor for AA on the ground. Never smaller, never
-          // lighter.
-          <Typography as="p" variant="metadata">
-            {brandName}
-          </Typography>
+          // A brand name is content: Ming, muted, never accent (DS2-19). 15px —
+          // Ming strokes break below ~14px, so never a smaller step.
+          <p className={brandLineClassName}>{brandName}</p>
         ) : null}
         {subcategoryName ? (
           <Badge variant="declared" className="self-start">
@@ -314,35 +340,65 @@ export function SelectedProductTile({
     </div>
   );
 
-  const shelfContent = (
-    <div className="relative flex h-full flex-col">
-      <Link
-        href={internalHref}
-        prefetch={false}
-        className="group flex flex-col rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
-        data-ph-no-autocapture
-      >
-        <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
-          {imageSrc ? (
-            <SurfaceImage
-              src={imageSrc}
-              alt={name}
-              fill
-              className="object-cover transition-transform duration-300 ease-(--ease-settle) group-hover:scale-[1.03]"
-              sizes="(max-width: 640px) 80vw, (max-width: 1024px) 45vw, (max-width: 1600px) 23vw, 368px"
-            />
-          ) : null}
-          {originBadge}
-        </div>
+  // DESIGN.md §7: a 44px-tall centered `::after` overlay (`min-h-11`) grows
+  // the trail name's hit area without resizing its text (DS-39).
+  const trailNameLinkClassName =
+    "relative rounded-control after:absolute after:inset-x-0 after:top-1/2 after:h-full after:min-h-11 after:-translate-y-1/2 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
+  const shelfMedia = (
+    <>
+      <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
+        {imageSrc ? (
+          <SurfaceImage
+            src={imageSrc}
+            alt={name}
+            fill
+            className="object-cover transition-transform duration-300 ease-(--ease-settle) group-hover:scale-[1.03]"
+            sizes="(max-width: 640px) 80vw, (max-width: 1024px) 45vw, (max-width: 1600px) 23vw, 368px"
+            onError={onImageError}
+          />
+        ) : null}
+        {originBadge}
+      </div>
+      <div className="mt-3 flex items-start gap-1">
+        {/* Two lines, always: a one-line name still reserves the second line
+            so the descriptions in a row start on one baseline. */}
         <Typography
           as="h3"
           variant="cardTitle"
-          className="mt-3 group-hover:text-accent"
+          className="line-clamp-2 min-h-[2lh] min-w-0 flex-1 group-hover:text-accent"
           lang={nameLang}
         >
           {name}
         </Typography>
-      </Link>
+        {chipHref ? (
+          <ArrowUpRight
+            aria-hidden
+            className="mt-1 size-4 shrink-0 text-ink-muted group-hover:text-accent"
+          />
+        ) : null}
+      </div>
+      {chipHref ? <span className="sr-only">{chipLabel}</span> : null}
+    </>
+  );
+
+  const shelfContent = (
+    <div className="relative flex h-full flex-col">
+      {chipHref ? (
+        <a
+          href={chipHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex flex-col rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
+          data-brand-slug={brand?.slug}
+          data-link-type={chipLinkType}
+          data-link-surface="selected_product"
+        >
+          {shelfMedia}
+        </a>
+      ) : (
+        <div className="flex flex-col">{shelfMedia}</div>
+      )}
       {/* A sibling of the link, never inside it: a button inside an `<a>` is
           invalid. The overlay variant pins it to this box's top-right corner,
           which is the image's corner because the link starts at the top. */}
@@ -360,24 +416,33 @@ export function SelectedProductTile({
           {productDescription}
         </p>
       ) : null}
-      {subcategoryName ? (
-        <Badge variant="declared" className="mt-2 self-start">
-          {subcategoryName}
-        </Badge>
+      {/* Formoria-selection only with its reason (CP2-15): the guide that placed it. */}
+      {guide ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <TrustLabel />
+          <Link
+            href={routes.trail(guide.slug)}
+            className={cn(
+              trailNameLinkClassName,
+              textStyles({ variant: "link" }),
+            )}
+          >
+            {labels.inGuide ? (
+              <span className="sr-only">{`${labels.inGuide} `}</span>
+            ) : null}
+            <span lang={contentLangFor(guide.locale, locale)}>
+              {guide.title}
+            </span>
+          </Link>
+        </div>
       ) : null}
       {isBroken ? (
         <Typography as="p" variant="metadata" className="mt-2">
           {labels.unavailable}
         </Typography>
       ) : null}
-      {plainChip ? <div className="mt-auto pt-3">{plainChip}</div> : null}
     </div>
   );
-
-  // DESIGN.md §7: a 44px-tall centered `::after` overlay (`min-h-11`) grows
-  // the trail name's hit area without resizing its text (DS-39).
-  const trailNameLinkClassName =
-    "relative rounded-control after:absolute after:inset-x-0 after:top-1/2 after:h-full after:min-h-11 after:-translate-y-1/2 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
   const content = (
     <>
@@ -468,16 +533,14 @@ export function SelectedProductTile({
           </Typography>
         )}
 
-        {/* The note is content, so 明體 at body size; the brand line below
-            stays 黑體 metadata in ink-muted (D14). */}
+        {/* The note is content, so Ming at body size; the brand line below
+            is Ming too, muted (DS2-19). */}
         {mode === "trail" && note ? (
           <p className="type-body line-clamp-2">{note}</p>
         ) : null}
 
         {mode === "trail" && brandName ? (
-          <Typography as="p" variant="metadata">
-            {brandName}
-          </Typography>
+          <p className={brandLineClassName}>{brandName}</p>
         ) : null}
 
         {productDescription ? (
@@ -521,7 +584,7 @@ export function SelectedProductTile({
               className={chipClassName}
             >
               <span className="min-w-0 truncate">{chipLabel}</span>
-              {isBroken ? null : <span className="sr-only">{`: ${name}`}</span>}
+              {isBroken ? null : <span className="sr-only">{` ${name}`}</span>}
             </SelectedProductExternalLink>
           ) : (
             plainChip
@@ -581,7 +644,12 @@ export function SelectedProductTile({
     return (
       <li
         id={`product-${product.key}`}
-        className={cn("relative list-none", className)}
+        // Trail deep links land here; clear the sticky header and, below
+        // `md`, the section strip — the brand page's section offsets.
+        className={cn(
+          "relative list-none scroll-mt-40 md:scroll-mt-28",
+          className,
+        )}
       >
         {shelfContent}
       </li>

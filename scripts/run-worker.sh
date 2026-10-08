@@ -18,6 +18,11 @@
 # its trap until the foreground child exits, the worker never sees the signal,
 # and every container stop ends in a forced kill that Railway reports as a crash.
 #
+# exec here is necessary but not sufficient: pnpm starts this script through
+# its script shell, and the default /bin/sh (dash in node:22-slim) does not
+# exec, so it would swallow the signal one layer up. Dockerfile.curation-worker
+# sets npm_config_script_shell=/bin/bash to remove that layer.
+#
 # Usage: scripts/run-worker.sh tsx src/health-agent/server.ts [-- --dry-run]
 
 set -euo pipefail

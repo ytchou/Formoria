@@ -7,7 +7,7 @@ import {
 import { routeOf, stableFingerprint } from '../../contracts'
 
 // ---------------------------------------------------------------------------
-// Helpers — mirrors scripts/health-agent/quality.ts test fixtures
+// Helpers
 // ---------------------------------------------------------------------------
 
 function makeInput(overrides: Partial<QualityReportsInput> = {}): QualityReportsInput {
@@ -35,7 +35,7 @@ function makeInput(overrides: Partial<QualityReportsInput> = {}): QualityReports
 
 describe('quality detector', () => {
   it('vitest and knip findings keep the quality:* fingerprints of the scripts implementation', () => {
-    // Vitest failure → fingerprint matches scripts/health-agent/quality.ts format
+    // Vitest failure → fingerprint keeps the established quality:* format
     const vitestResult = evaluateQualityReports(
       makeInput({
         vitestExitCode: 1,
