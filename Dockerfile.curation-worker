@@ -20,6 +20,15 @@ RUN npm install -g @openai/codex@0.155.1
 # config, library production paths) behaves as deployed rather than as dev.
 ENV NODE_ENV=production
 ENV PATH="/app/node_modules/.bin:$PATH"
+# pnpm runs scripts as `sh -c "<script>"`, and /bin/sh here is dash, which does
+# not exec its final command. On container stop dash takes the SIGTERM and dies,
+# pnpm exits 1 (ELIFECYCLE), and the worker's shutdown handler never runs, so
+# Railway reports a crash. bash execs a single command, so the signal reaches
+# the worker. Scoped to this image: pnpm-workspace.yaml would also change the
+# web service and CI. Pinned by src/worker-boot/__tests__/image-contract.test.ts
+# and scripts/run-worker.test.ts. Assumes pnpm reads npm_config_* env vars
+# (true for pnpm 10); re-check on a pnpm major upgrade.
+ENV npm_config_script_shell=/bin/bash
 # Identifies the build in the worker's startup log. Railway injects
 # RAILWAY_GIT_COMMIT_SHA only for repo-connected services, so a manual
 # `railway up` would otherwise log an unidentifiable build.
@@ -35,8 +44,9 @@ ENV PATH="/app/node_modules/.bin:$PATH"
 # execution, not once per deploy.)
 ARG GIT_COMMIT_SHA=unknown
 ENV WORKER_BUILD_SHA=$GIT_COMMIT_SHA
-# Four services build from this image. curation-worker (this CMD) and
-# health-agent (its own start command) are cron one-shots that listen on no
-# port; repo-worker and editorial-producer serve HTTP, so EXPOSE stays.
+# Several services build from this image. curation-worker (this CMD),
+# health-agent and e2e-nightly-agent (their own start commands) are cron
+# one-shots that listen on no port; repo-worker and editorial-producer serve
+# HTTP, so EXPOSE stays.
 EXPOSE 8080
 CMD ["pnpm", "curation:worker"]
