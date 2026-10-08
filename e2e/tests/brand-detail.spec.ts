@@ -245,13 +245,13 @@ test.describe("Brand detail deep", () => {
       });
     }).toPass(POLL.DB);
 
-    // At least one FAQ question row is present and visible. The rows are native
-    // <details>/<summary> — there is no accordion-trigger slot to select on.
-    const questions = page.locator('details[id^="faq-"] > summary');
+    // At least one FAQ question is present and visible. The FAQ is an open
+    // definition list: each pair is a wrapper carrying the anchor id.
+    const questions = page.locator('[id^="faq-"] dt');
     await expect(questions.first()).toBeVisible();
 
     // The seeded evidence field must pull its preset onto the page.
-    await expect(page.locator("details#faq-main-products")).toHaveCount(1);
+    await expect(page.locator("#faq-main-products")).toHaveCount(1);
 
     const jsonLdNodes = await page
       .locator('script[type="application/ld+json"]')
@@ -265,14 +265,14 @@ test.describe("Brand detail deep", () => {
     expect(faqJsonLd).toBeUndefined();
   });
 
-  test("FAQ answer text is in the DOM while collapsed", async ({
+  test("FAQ renders as an open list with answers in the server HTML", async ({
     page,
     request,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
     // The whole point of DEV-1317: answers must be readable without opening
-    // anything. Nothing here clicks — a test that expands first would pass
-    // just as happily against JS-only, open-gated answer rendering.
+    // anything, and DESIGN.md §7 forbids a collapsed panel outright. Nothing
+    // here clicks.
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
@@ -284,13 +284,11 @@ test.describe("Brand detail deep", () => {
       });
     }).toPass(POLL.DB);
 
-    const firstItem = page.locator('details[id^="faq-"]').first();
+    const firstItem = page.locator('[id^="faq-"]').first();
     // The first rendered item is the main-products floor.
     await expect(firstItem).toHaveAttribute("id", "faq-main-products");
-    await expect(firstItem.locator("p")).toContainText("代表產品包含");
-    expect(
-      await firstItem.evaluate((el) => (el as HTMLDetailsElement).open),
-    ).toBe(false);
+    await expect(firstItem.locator("dd")).toContainText("代表產品包含");
+    await expect(page.locator("#faq details")).toHaveCount(0);
 
     // The literal acceptance criterion — "verifiable by curl". Asserting on the
     // rendered DOM alone would still pass if a client effect injected the text
@@ -300,10 +298,10 @@ test.describe("Brand detail deep", () => {
     const html = await response.text();
     expect(html).toContain("代表產品包含");
     const $ = load(html);
-    const serverItem = $('details[id^="faq-"]').first();
+    const serverItem = $('[id^="faq-"]').first();
     expect(serverItem.attr("id")).toBe("faq-main-products");
-    expect(serverItem.attr("open")).toBeUndefined();
-    expect(serverItem.find("p").text()).toContain("代表產品包含");
+    expect(serverItem.find("dd").text()).toContain("代表產品包含");
+    expect($("#faq details")).toHaveLength(0);
   });
 });
 
