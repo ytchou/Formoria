@@ -382,15 +382,18 @@
 
 /* ── 明體 (font-ming) — content ─────────────────────────────────────────── */
 
-/* zh headings break at phrase boundaries, not mid-word, at 390px. NOT
-   `word-break: keep-all`: a CJK run has no spaces, so keep-all turns a whole
-   unpunctuated heading into one unbreakable word that overflows. `auto-phrase`
-   is Chromium-only; other engines ignore it and break normally. */
+/* zh headings break at spaces and punctuation, not mid-word, at 390px.
+   `keep-all` alone would turn an unpunctuated CJK heading into one
+   unbreakable word that overflows; `overflow-wrap: anywhere` lets that one
+   case break mid-run, only when it must (not `break-word`, which leaves the
+   min-content width wide and stretches grid and flex columns past 390px). Not `auto-phrase`: Chromium segments
+   only Japanese with it, so zh headings got no phrase breaking at all. */
 
 @utility type-display {
   @apply font-ming text-[2.875rem] font-[560] tracking-[-0.02em] leading-[1.1] text-ink;
   &:lang(zh) {
-    word-break: auto-phrase;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
     line-break: strict;
     text-wrap: balance;
   }
@@ -399,7 +402,8 @@
 @utility type-page-title {
   @apply font-ming text-[2.5rem] font-[560] tracking-[-0.02em] leading-[1.15] text-ink;
   &:lang(zh) {
-    word-break: auto-phrase;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
     line-break: strict;
     text-wrap: balance;
   }
@@ -408,7 +412,8 @@
 @utility type-section {
   @apply font-ming text-[1.625rem] font-[560] tracking-[-0.015em] leading-[1.25] text-ink;
   &:lang(zh) {
-    word-break: auto-phrase;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
     line-break: strict;
     text-wrap: balance;
   }
@@ -417,7 +422,8 @@
 @utility type-card-title {
   @apply font-ming text-[1.3125rem] font-semibold leading-[1.35] text-ink;
   &:lang(zh) {
-    word-break: auto-phrase;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
     line-break: strict;
     text-wrap: balance;
   }
