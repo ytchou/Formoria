@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
+import { splitLede } from "@/lib/brands/split-lede";
 
 interface BrandAboutProps {
   brand: PublicBrandDetail;
@@ -17,7 +18,9 @@ export async function BrandAbout({ brand, locale }: BrandAboutProps) {
   if (!description) return null;
 
   const t = await getTranslations({ locale, namespace: "brandDetail" });
-  const paragraphs = description.split("\n\n");
+  // The first sentence is the hero lede (BrandHeader); the story starts after
+  // it, so the sentence is never printed twice.
+  const paragraphs = splitLede(description, locale).rest.split("\n\n");
 
   // A bare `prose-measure` on this section is an inner reading cap inside the
   // wider page shell (DESIGN.md §4 "Shell or cap"), left-aligned with the page.

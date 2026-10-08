@@ -8,6 +8,8 @@ interface BrandHeaderProps {
   brand: PublicBrandDetail;
   categoryLabel?: string | null;
   cityLabel?: string | null;
+  /** The brand's own first sentence (`splitLede`), set under the metadata line. */
+  lede?: string | null;
   actionsSlot?: ReactNode;
   adminSlot?: ReactNode;
 }
@@ -16,6 +18,7 @@ export function BrandHeader({
   brand,
   categoryLabel,
   cityLabel,
+  lede,
   actionsSlot,
   adminSlot,
 }: BrandHeaderProps) {
@@ -29,8 +32,8 @@ export function BrandHeader({
     formatFoundingYear: (year) => t("label.founded", { year }),
   });
 
-  // The page's one staged entrance (BD-32): name, metadata line, then actions,
-  // 100ms apart. Reduced motion is handled globally in globals.css.
+  // The page's one staged entrance (BD-32): name, metadata line, lede, then
+  // actions, 100ms apart. Reduced motion is handled globally in globals.css.
   return (
     <div className="flex flex-col gap-stack">
       <div className="space-y-3">
@@ -51,10 +54,18 @@ export function BrandHeader({
             {metaParts.join(" · ")}
           </p>
         ) : null}
+        {lede ? (
+          <p
+            className="type-lede animate-reveal-up"
+            style={{ animationDelay: "200ms" }}
+          >
+            {lede}
+          </p>
+        ) : null}
       </div>
 
       {actionsSlot ? (
-        <div className="animate-reveal-up" style={{ animationDelay: "200ms" }}>
+        <div className="animate-reveal-up" style={{ animationDelay: "300ms" }}>
           {actionsSlot}
         </div>
       ) : null}
