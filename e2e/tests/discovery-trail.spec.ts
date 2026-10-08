@@ -242,4 +242,37 @@ test.describe("Discovery trail deep", () => {
       expect(noteText, `tile "${nameText}" note`).not.toBe(nameText);
     }
   });
+
+  // DS-39: the trail tile's name link is grown to a 44px hit area by a
+  // `::after` overlay, so its own box stays the text's height. DEV-1950 kept
+  // the outbound chip as the route to the brand's site.
+  test("trail tile name has a 44px hit area and an outbound chip", async ({
+    anonPage,
+  }) => {
+    const response = await anonPage.goto(TRAIL_URL);
+    test.skip(response?.status() === 503, "PREVIEW_MODE active");
+
+    const tile = anonPage
+      .locator("li[id^='product-']")
+      .filter({ has: anonPage.locator("a h3") })
+      .first();
+    test.skip(
+      (await tile.count()) === 0,
+      `trail "${trail!.slug}" has no product supply on this target`,
+    );
+    await expect(tile).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+
+    const nameLink = tile.locator("a:has(h3)");
+    await expect(nameLink).toHaveAttribute("href", /\/brands\/[^/#]+#product-/);
+    const hitHeight = await nameLink.evaluate((el) =>
+      parseFloat(getComputedStyle(el, "::after").height),
+    );
+    expect(hitHeight).toBeGreaterThanOrEqual(44);
+
+    const chip = tile.locator('a[target="_blank"]');
+    await expect(chip).toHaveCount(1);
+    await expect(chip).toHaveAttribute("href", /^https?:\/\//);
+    await expect(chip).toHaveAttribute("rel", /noopener/);
+    await expect(chip).toHaveText(/在品牌官網查看|前往品牌官方網站/);
+  });
 });
