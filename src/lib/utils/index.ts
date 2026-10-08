@@ -56,6 +56,7 @@ const twMerge = extendTailwindMerge<"type">({
         "type-page-title",
         "type-section",
         "type-card-title",
+        "type-lede",
         "type-body",
         "type-body-sm",
         "type-tool-heading",

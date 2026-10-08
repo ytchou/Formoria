@@ -30,8 +30,8 @@
  *  2. `--apply` is required. The safe mode is the default because rejection
  *     deletes the submission's staged images from storage.
  *
- * Rejection is reversible via reopenSubmission (the admin UI's Reopen button);
- * the staged images are not, which is why this refuses to guess at scope.
+ * Rejection has no undo path, and the staged images are deleted with it,
+ * which is why this refuses to guess at scope.
  *
  * Usage:
  *   pnpm reject-skipped                            # dry run, whole bucket

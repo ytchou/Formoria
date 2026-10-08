@@ -22,7 +22,6 @@ const APP_ACTION_DIR = "src/app/actions";
 const API_ROOT = "src/app/api";
 
 const CATCH_RE = /\bcatch\s*(?:\([^)]*\))?\s*\{/g;
-const REPORT_AND_RETURN_RE = /\breportAndReturn\b/;
 const CAPTURE_EXCEPTION_RE = /\bcaptureException\b/;
 
 function walk(directory, filter) {
@@ -80,7 +79,7 @@ const violations = [];
 for (const file of findActionFiles()) {
   const source = readFileSync(file, "utf8");
   for (const block of findCatchBlocks(source)) {
-    if (!REPORT_AND_RETURN_RE.test(block.body) && !CAPTURE_EXCEPTION_RE.test(block.body)) {
+    if (!CAPTURE_EXCEPTION_RE.test(block.body)) {
       violations.push(`${relative(".", file)}:${block.line}`);
     }
   }
@@ -101,7 +100,7 @@ if (violations.length > 0) {
   );
   for (const v of violations) console.log(`  ${v}`);
   console.log(
-    "\nAction files need reportAndReturn or captureException; API routes need captureException.",
+    "\nAction files and API routes need captureException.",
   );
 }
 

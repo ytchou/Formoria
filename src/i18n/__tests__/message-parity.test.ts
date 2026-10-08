@@ -226,7 +226,6 @@ describe("message catalogue parity", () => {
     expect(zhTW.categories.index).toMatchObject({
       heading: expect.any(String),
       intro: expect.any(String),
-      childNavigation: expect.any(String),
       metadata: {
         title: expect.any(String),
         description: expect.any(String),
@@ -235,7 +234,6 @@ describe("message catalogue parity", () => {
     expect(en.categories.index).toMatchObject({
       heading: expect.any(String),
       intro: expect.any(String),
-      childNavigation: expect.any(String),
       metadata: {
         title: expect.any(String),
         description: expect.any(String),

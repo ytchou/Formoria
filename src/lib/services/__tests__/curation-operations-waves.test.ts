@@ -29,7 +29,6 @@ const mocks = vi.hoisted(() => ({
   runStockistsPhase: vi.fn(),
   runFaqPhase: vi.fn(),
   runDiscoverPhase: vi.fn(),
-  runImageSearchPhase: vi.fn(),
   runNamesPhase: vi.fn(),
   runProductsPhase: vi.fn(),
   mapWithConcurrency: vi.fn(),

@@ -401,25 +401,3 @@ export function BrandChannelCorrections({
     </>
   );
 }
-
-export function BrandLinks({
-  brand,
-  sectionIds,
-  sectionClassName,
-}: BrandLinksProps) {
-  return (
-    <>
-      <BrandSocialLinks
-        brand={brand}
-        sectionIds={sectionIds}
-        sectionClassName={sectionClassName}
-      />
-      <BrandPurchaseLinks
-        brand={brand}
-        sectionIds={sectionIds}
-        sectionClassName={sectionClassName}
-      />
-      <BrandOtherLinks brand={brand} sectionClassName={sectionClassName} />
-    </>
-  );
-}

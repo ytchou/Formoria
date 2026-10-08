@@ -1846,41 +1846,6 @@ export async function dropNeedsDataSubmissions(
   );
 }
 
-/**
- * Rolls a rejected submission back to `pending` so curation can run against it
- * again. Approved submissions are deliberately excluded: they carry a live
- * `brand_id` and their status transition drives provenance/location triggers,
- * so unwinding one is not a status flip.
- */
-export async function reopenSubmission(id: string): Promise<BrandSubmission> {
-  return auditedCall(
-    { provider: "submissions", operation: "reopenSubmission", kind: "service" },
-    async () => {
-      const supabase = createServiceClient();
-      const { data, error } = await supabase
-        .from("brand_submissions")
-        .update({
-          status: "pending",
-          reviewed_at: null,
-          reviewed_by: null,
-          denial_reason: null,
-          reviewer_notes: null,
-        })
-        .eq("id", id)
-        .eq("status", "rejected")
-        .select("*")
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) {
-        throw new Error("Only rejected submissions can be reopened");
-      }
-
-      return submissionToDomain(data);
-    },
-  );
-}
-
 export async function requestBrandRefresh(
   brandId: string,
   requester: { id: string; email: string },
