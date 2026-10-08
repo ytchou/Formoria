@@ -49,6 +49,8 @@ const TRUST_LABEL_KEYS = [
   "trustLabelDirectory",
   "trustLabelSelection",
   "trustLabelProvided",
+  "trustLabelSponsored",
+  "trustLabelSiteConfirmed",
 ] as const;
 
 const STEP_KEYS = [
@@ -64,19 +66,20 @@ export default async function BrandsJoinPage({ params }: PageProps) {
 
   return (
     <PageShell as="main" measure="page">
-      {/* Hero */}
-      <section className="py-section text-center">
+      {/* Hero. Bottom padding is a stack gap, not a section gap: the value
+          props below explain the hero, and a doubled section gap left a void. */}
+      <section className="pt-section pb-stack">
         <p className="type-metadata text-ink-muted">{t("heroSubtitle")}</p>
         <h1 className="mt-3 type-page-title text-balance">
           {t("heading")}
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl type-body text-ink-muted">
+        <p className="prose-measure mt-6 type-body text-ink-muted">
           {t("heroDescription")}
         </p>
       </section>
 
       {/* Value propositions */}
-      <section className="py-section">
+      <section className="pb-section">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-12">
           {VALUE_PROP_KEYS.map((n) => (
             <div key={n}>
@@ -131,10 +134,11 @@ export default async function BrandsJoinPage({ params }: PageProps) {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="border-t border-rule py-section text-center">
+      {/* CTA. Points straight at the recommend form: the owner flow has not
+          shipped, and /submit only offered a coming-soon card for it. */}
+      <section className="border-t border-rule py-section">
         <Link
-          href={routes.submit.index()}
+          href={routes.submit.recommend()}
           className={buttonVariants({
             variant: "primary",
             size: "large",

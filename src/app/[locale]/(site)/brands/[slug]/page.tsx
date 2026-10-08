@@ -30,6 +30,7 @@ import { AdminBrandMenu } from "@/components/brands/admin-brand-menu";
 import { BrandAbout } from "@/components/brands/brand-about";
 import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
 import {
+  BrandChannelCorrections,
   BrandOtherLinks,
   BrandPurchaseLinks,
   BrandSocialLinks,
@@ -268,8 +269,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
           },
         ]
       : []),
-    // Where-to-buy and social render unconditionally — a destination with no
-    // known URL shows as a dimmed chip rather than disappearing.
+    // Where-to-buy and social render unconditionally — an empty channel set
+    // shows a muted 「還沒有…」 line rather than disappearing.
     { id: "where-to-buy", label: tBrandDetail("sections.whereToBuy") },
     ...(hasEditorialAppearances
       ? [
@@ -420,18 +421,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
               )}
 
               {/* Online and physical channels as one section, official site
-                  first (BrandPurchaseLinks' first slot is the website).
-                  `[&_section_h2]:type-card-title` demotes the two inner
-                  headings visually below this section's own h2, which is a
-                  direct child and so never matches; remove once DEV-1952
-                  renders them as h3 sub-headings. */}
+                  first (BrandPurchaseLinks' first slot is the website). */}
               <section
                 id="where-to-buy"
                 aria-labelledby="where-to-buy-heading"
-                className={cn(
-                  contentSectionClassName,
-                  "[&_section_h2]:type-card-title",
-                )}
+                className={contentSectionClassName}
               >
                 <Typography
                   as="h2"
@@ -451,6 +445,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                       brandSlug={displayBrand.slug}
                     />
                   )}
+                  <BrandChannelCorrections brand={displayBrand} />
                 </div>
               </section>
 

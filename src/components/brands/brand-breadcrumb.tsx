@@ -36,7 +36,7 @@ export function Breadcrumb({
               <Link
                 href={item.href}
                 prefetch={false}
-                className="shrink-0 whitespace-nowrap transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
+                className="-my-3 py-3 shrink-0 whitespace-nowrap transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
               >
                 {item.label}
               </Link>

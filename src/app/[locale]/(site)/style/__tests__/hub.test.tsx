@@ -45,6 +45,10 @@ vi.mock("@/lib/analytics", () => ({
   trackTrailCardClicked: vi.fn(),
 }));
 
+// TrailTile reads the page locale to mark zh content on /en; these renders
+// have no NextIntlClientProvider.
+vi.mock("next-intl", () => ({ useLocale: () => "zh-TW" }));
+
 const trail = (slug: string, tags: string[]): TrailEntry => ({
   slug,
   frontmatter: {

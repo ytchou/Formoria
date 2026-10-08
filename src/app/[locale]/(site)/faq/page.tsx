@@ -8,6 +8,7 @@ import { Accordion, AccordionItem } from '@/components/ui/accordion'
 import { OpenTargetDetails } from '@/components/shared/open-target-details'
 import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
+import { visibleCategoryList } from '@/lib/taxonomy/category-list'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -45,22 +46,39 @@ export default async function FaqPage({ params }: PageProps) {
   setRequestLocale(locale)
   const t = await getTranslations('faq')
 
-  const generalItemKeys = [
-    'whatIsFormoria',
-    'listingVsSelection',
-    'purchaseThroughFormoria',
-    'taiwaneseBrandCriteria',
-    'notListedBrands',
-    'whoCanSubmit',
-    'madeInTaiwanBadge',
-    'howToSubmit',
-    'reviewTime',
-    'dataAccuracy',
-    'isBrandFree',
-    'whatCategories',
-    'languageSupport',
-    'howVerified',
+  const { count, categories } = visibleCategoryList(locale)
+
+  // Three topical groups instead of one: a single "general" bucket made the
+  // nav a one-item list. Every key under `faq.items` renders exactly once
+  // across these groups; the e2e count is derived from the catalogue.
+  const sections = [
+    {
+      key: 'listing',
+      itemKeys: [
+        'whatIsFormoria',
+        'listingVsSelection',
+        'taiwaneseBrandCriteria',
+        'notListedBrands',
+        'whatCategories',
+        'madeInTaiwanBadge',
+      ],
+    },
+    {
+      key: 'review',
+      itemKeys: [
+        'whoCanSubmit',
+        'howToSubmit',
+        'reviewTime',
+        'isBrandFree',
+        'dataAccuracy',
+      ],
+    },
+    {
+      key: 'more',
+      itemKeys: ['purchaseThroughFormoria', 'languageSupport'],
+    },
   ] as const
+  const itemClassName = 'scroll-mt-24 rounded-none! border-x-0 border-t-0'
 
   return (
     <PageShell as="main" measure="page" className="py-10">
@@ -74,12 +92,15 @@ export default async function FaqPage({ params }: PageProps) {
             aria-label={t('sections.navigation')}
             className="space-y-1 border-l border-rule pl-3"
           >
-            <a
-              href="#general"
-              className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {t('sections.general')}
-            </a>
+            {sections.map(({ key }) => (
+              <a
+                key={key}
+                href={`#${key}`}
+                className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {t(`sections.${key}`)}
+              </a>
+            ))}
           </nav>
           <p className="type-body-sm">
             {t.rich('intro', {
@@ -96,33 +117,51 @@ export default async function FaqPage({ params }: PageProps) {
           aria-labelledby="faq-heading"
           className="space-y-10"
         >
-          <section id="general" className="scroll-mt-24">
-            <div className="mb-4 border-b border-rule pb-3">
-              <h2 className="type-card-title">{t('sections.general')}</h2>
-            </div>
-            <Accordion>
-              {generalItemKeys.map((key) => (
-                <AccordionItem
-                  key={key}
-                  className="scroll-mt-24"
-                  title={t(`items.${key}.question`)}
-                >
-                  <p>{t(`items.${key}.answer`)}</p>
-                </AccordionItem>
-              ))}
-              <AccordionItem title={t('items.contact.question')}>
-                <p>
-                  {t.rich('items.contact.answer', {
-                    link: (chunks) => (
-                      <Link href={routes.contact()} className="underline underline-offset-4">
-                        {chunks}
-                      </Link>
-                    ),
-                  })}
-                </p>
-              </AccordionItem>
-            </Accordion>
-          </section>
+          {sections.map(({ key, itemKeys }) => (
+            <section key={key} id={key} className="scroll-mt-24">
+              <h2 className="mb-3 type-card-title">{t(`sections.${key}`)}</h2>
+              {/* A hairline-divided list, not a stack of boxed cards. Each
+                  item keeps only its bottom rule and the list adds the top
+                  one. Not `divide-y` on the list: Tailwind emits it under
+                  `:where()`, so the item's own border classes override it.
+                  `rounded-none!` needs the important flag because
+                  `rounded-surface` is a custom radius tailwind-merge does not
+                  know, so a plain `rounded-none` loses on emission order. */}
+              <Accordion variant="flush" className="border-t border-rule">
+                {itemKeys.map((itemKey) => (
+                  <AccordionItem
+                    key={itemKey}
+                    className={itemClassName}
+                    panelClassName="border-t-0"
+                    title={t(`items.${itemKey}.question`)}
+                  >
+                    <p>
+                      {itemKey === 'whatCategories'
+                        ? t('items.whatCategories.answer', { count, categories })
+                        : t(`items.${itemKey}.answer`)}
+                    </p>
+                  </AccordionItem>
+                ))}
+                {key === 'more' && (
+                  <AccordionItem
+                    className={itemClassName}
+                    panelClassName="border-t-0"
+                    title={t('items.contact.question')}
+                  >
+                    <p>
+                      {t.rich('items.contact.answer', {
+                        link: (chunks) => (
+                          <Link href={routes.contact()} className="underline underline-offset-4">
+                            {chunks}
+                          </Link>
+                        ),
+                      })}
+                    </p>
+                  </AccordionItem>
+                )}
+              </Accordion>
+            </section>
+          ))}
         </div>
       </div>
     </PageShell>

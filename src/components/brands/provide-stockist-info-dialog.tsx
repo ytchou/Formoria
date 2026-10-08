@@ -58,11 +58,19 @@ const REGION_KEYS = [
 export type ProvideStockistInfoDialogProps = {
   brandId: string;
   brandSlug: string;
+  /**
+   * Controlled mode: pass `open` and the dialog renders no trigger of its own.
+   * The caller (the where-to-buy correction menu) owns opening it.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function ProvideStockistInfoDialog({
   brandId,
   brandSlug,
+  open,
+  onOpenChange,
 }: ProvideStockistInfoDialogProps) {
   const locale = useLocale();
   const pathname = usePathname();
@@ -86,20 +94,22 @@ export function ProvideStockistInfoDialog({
   const regionErrorId = `${fieldId}-region-error`;
 
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="compact"
-            className="relative gap-1.5 px-1 text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
-          />
-        }
-      >
-        <Pencil aria-hidden="true" />
-        {t("channels.provideInfo")}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open === undefined && (
+        <DialogTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              className="relative gap-1.5 px-1 text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+            />
+          }
+        >
+          <Pencil aria-hidden="true" />
+          {t("channels.provideInfo")}
+        </DialogTrigger>
+      )}
       {/* The header used to scroll away with the rest of the popup: this was the
           one dialog whose Content was itself the scroll container. The size axis
           is a prop now, and the scrolling belongs to `DialogBody`. */}

@@ -5,6 +5,7 @@ import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { TrailLink, StoryLink } from "@/lib/services/editorial-links";
 import { routes } from "@/lib/routes";
+import { contentLangFor } from "@/lib/trails/content-lang";
 import {
   RelatedStoryLink,
   RelatedTrailLink,
@@ -26,11 +27,13 @@ export async function EditorialAppearances({
   if (trails.length === 0 && stories.length === 0) return null;
 
   const t = await getTranslations({ locale, namespace: "brandDetail" });
-  // Trail and story titles exist only in zh (content frontmatter has no EN
-  // title), so on EN pages each title is marked as zh (WCAG 3.1.2) and the
-  // section says so once under the heading.
-  const isZhOnlyForLocale = locale === "en";
-  const titleLang = isZhOnlyForLocale ? "zh-Hant-TW" : undefined;
+  // Trail and story titles exist only in zh, so on EN pages each title is
+  // marked as zh (WCAG 3.1.2) and the section says so once under the heading.
+  // Shortcut: the content locale is fixed because TrailLink/StoryLink carry no
+  // frontmatter locale; thread `frontmatter.locale` through editorial-links
+  // once any trail or story is written in another language.
+  const titleLang = contentLangFor("zh-TW", locale);
+  const isZhOnlyForLocale = titleLang !== undefined;
 
   return (
     <section className={sectionClassName}>

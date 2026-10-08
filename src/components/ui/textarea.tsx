@@ -7,6 +7,7 @@ function Textarea({
   className,
   'aria-invalid': ariaInvalidProp,
   'aria-describedby': ariaDescribedByProp,
+  'aria-required': ariaRequiredProp,
   ...props
 }: React.ComponentProps<"textarea">) {
   const formField = useFormFieldContext()
@@ -20,6 +21,7 @@ function Textarea({
       )}
       aria-invalid={ariaInvalidProp ?? (formField.error || undefined)}
       aria-describedby={ariaDescribedByProp ?? formField.errorId}
+      aria-required={ariaRequiredProp ?? (formField.required || undefined)}
       {...props}
     />
   )

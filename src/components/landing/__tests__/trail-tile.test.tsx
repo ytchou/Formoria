@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { trackTrailCardClicked } from "@/lib/analytics";
 import type { CuratedProduct } from "@/lib/services/curated-products";
@@ -37,6 +37,9 @@ vi.mock("@/i18n/navigation", () => ({
 vi.mock("@/lib/analytics", () => ({
   trackTrailCardClicked: vi.fn(),
 }));
+
+const intl = vi.hoisted(() => ({ locale: "en" }));
+vi.mock("next-intl", () => ({ useLocale: () => intl.locale }));
 
 const labels = { eyebrow: "Style", cta: "Explore this style" };
 
@@ -110,9 +113,7 @@ function renderTile(
 }
 
 function peekList(container: HTMLElement): HTMLUListElement | null {
-  return container.querySelector<HTMLUListElement>(
-    'ul[aria-hidden="true"]',
-  );
+  return container.querySelector<HTMLUListElement>('ul[aria-hidden="true"]');
 }
 
 describe("TrailTile", () => {
@@ -259,5 +260,54 @@ describe("TrailTile", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+  });
+
+  it("puts the scrim behind the copy, not over the whole photograph", () => {
+    const { container } = renderTile();
+
+    // No tile-wide overlay: the photograph above the copy stays uncovered.
+    expect(container.querySelector('a > span[aria-hidden="true"]')).toBeNull();
+
+    const copy = container.querySelector("a > span.relative");
+    expect(copy).not.toBeNull();
+    expect(copy!.className).toContain("from-ink/90");
+    expect(copy!.className).toContain("to-ink/80");
+
+    const fade = copy!.querySelector(':scope > span[aria-hidden="true"]');
+    expect(fade).not.toBeNull();
+    expect(fade!.className).toContain("bottom-full");
+    expect(fade!.className).toContain("to-transparent");
+  });
+
+  describe("content language", () => {
+    afterEach(() => {
+      intl.locale = "en";
+    });
+
+    it("marks a zh-TW trail's copy zh-Hant-TW on an English page", () => {
+      const trail = buildTrail();
+      trail.frontmatter.locale = "zh-TW";
+      intl.locale = "en";
+
+      renderTile(trail);
+
+      const heading = screen.getByRole("heading", { level: 3 });
+      expect(heading.closest('[lang="zh-Hant-TW"]')).not.toBeNull();
+      expect(
+        screen
+          .getByText("Three objects that make a corner feel finished.")
+          .closest('[lang="zh-Hant-TW"]'),
+      ).not.toBeNull();
+    });
+
+    it("sets no lang when the trail is in the page's language", () => {
+      const trail = buildTrail();
+      trail.frontmatter.locale = "zh-TW";
+      intl.locale = "zh-TW";
+
+      const { container } = renderTile(trail);
+
+      expect(container.querySelector("[lang]")).toBeNull();
+    });
   });
 });
