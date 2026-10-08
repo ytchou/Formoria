@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Compass } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
+import { ChipSwapFade } from "@/components/motion/chip-swap-fade";
 import {
   HubTagChipRow,
   type HubTagChip,
@@ -174,14 +175,18 @@ export default async function StyleHubPage({ params, searchParams }: PageProps) 
         ) : view.kind === "comingSoon" ? (
           <EmptyState icon={<Compass />} title={t("comingSoon")} />
         ) : (
-          <HubTrailGrid
-            trails={view.trails.map(toTrailCard)}
-            peeks={toTrailPeeks(peeks)}
-            labels={{
-              eyebrow: tLanding("trails.eyebrow"),
-              cta: tLanding("trails.cta"),
-            }}
-          />
+          // A tag chip is a client navigation within this page, so the
+          // wrapper keeps its state and fades the swapped-in tiles (§7b).
+          <ChipSwapFade swapKey={activeTag ?? "all"}>
+            <HubTrailGrid
+              trails={view.trails.map(toTrailCard)}
+              peeks={toTrailPeeks(peeks)}
+              labels={{
+                eyebrow: tLanding("trails.eyebrow"),
+                cta: tLanding("trails.cta"),
+              }}
+            />
+          </ChipSwapFade>
         )}
       </div>
     </PageShell>

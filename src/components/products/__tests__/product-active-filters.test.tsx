@@ -53,6 +53,7 @@ vi.mock("next/link", () => ({
       {children}
     </a>
   ),
+  useLinkStatus: () => ({ pending: false }),
 }));
 
 const { ProductActiveFilters } = await import("../product-active-filters");

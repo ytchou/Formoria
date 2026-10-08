@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { taxonomyLinkClasses } from '@/components/ui/toggle-chip'
 import { cn } from '@/lib/utils'
+import { ResultsLinkPendingReporter } from './results-transition'
 
 // Placeholders the `filters.token` message is formatted with, so the
 // locale's separator and ordering come from messages while label and value
@@ -84,6 +85,7 @@ export function FilterToken({
         </Badge>
       )}
       <X className="size-4" aria-hidden="true" />
+      {variant === 'chip' && <ResultsLinkPendingReporter />}
     </Link>
   )
 }
