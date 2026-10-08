@@ -20,10 +20,22 @@ const ReportDialogContent = dynamic(
 interface ReportDialogProps {
   brandId: string
   brandSlug: string
+  /**
+   * Controlled mode: pass `open` and the dialog renders no trigger of its own.
+   * The caller (an overflow menu item) owns opening it.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
+export function ReportDialog({
+  brandId,
+  brandSlug,
+  open,
+  onOpenChange,
+}: ReportDialogProps) {
   const t = useTranslations('brandDetail.report')
+  const isControlled = open !== undefined
   // Once primed the content stays mounted, so its state survives close/reopen
   // exactly as it did when the body was statically imported.
   const [primed, setPrimed] = useState(false)
@@ -31,24 +43,36 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   // without the body chunk being involved.
   const [reportedField, setReportedField] = useState('')
   const prime = () => setPrimed(true)
+  // Controlled mode has no trigger to prime on hover/focus, so the body mounts
+  // the moment it opens; closing then pins it mounted like the trigger path.
+  const showBody = primed || open === true
 
-  function handleOpenChange(open: boolean) {
-    if (!open) setReportedField('')
+  function handleOpenChange(next: boolean) {
+    if (!next) setReportedField('')
+    if (isControlled) {
+      if (!next) prime()
+      onOpenChange?.(next)
+    }
   }
 
   return (
-    <Dialog onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        className={buttonVariants({ variant: 'secondary', className: 'shrink-0' })}
-        onPointerEnter={prime}
-        onPointerDown={prime}
-        onFocus={prime}
-        onClick={prime}
-      >
-        <Flag className="size-4" />
-        {t('trigger')}
-      </DialogTrigger>
-      {primed && (
+    <Dialog
+      {...(isControlled ? { open } : {})}
+      onOpenChange={handleOpenChange}
+    >
+      {!isControlled && (
+        <DialogTrigger
+          className={buttonVariants({ variant: 'secondary', className: 'shrink-0' })}
+          onPointerEnter={prime}
+          onPointerDown={prime}
+          onFocus={prime}
+          onClick={prime}
+        >
+          <Flag className="size-4" />
+          {t('trigger')}
+        </DialogTrigger>
+      )}
+      {showBody && (
         <ReportDialogContent
           brandId={brandId}
           brandSlug={brandSlug}

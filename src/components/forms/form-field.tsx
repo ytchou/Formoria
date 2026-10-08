@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { fieldTextStyles } from '@/components/ui/text-styles'
 import { cn } from '@/lib/utils'
 
-type FormFieldContextValue = { error: boolean; errorId?: string }
+type FormFieldContextValue = { error: boolean; errorId?: string; required?: boolean }
 const FormFieldContext = createContext<FormFieldContextValue>({ error: false })
 export function useFormFieldContext() {
   return useContext(FormFieldContext)
@@ -58,7 +58,7 @@ export function FormField({
       {description ? (
         <p className={fieldTextStyles.hint}>{description}</p>
       ) : null}
-      <FormFieldContext value={{ error: Boolean(error), errorId: computedErrorId }}>
+      <FormFieldContext value={{ error: Boolean(error), errorId: computedErrorId, required }}>
         {children ? children : null}
       </FormFieldContext>
       {error ? (

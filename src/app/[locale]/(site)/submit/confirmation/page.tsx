@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Check, Home, Plus } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { PageShell } from '@/components/ui/page-shell'
@@ -26,18 +26,17 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
   return {
     title,
     description,
-    alternates: buildAlternates(routes.submit.confirmation(), safeLocale),
-    openGraph: {
+    // A post-submit receipt: nothing to rank, but its links are real.
+    robots: { index: false, follow: true },
+    // Empty, not omitted: an absent key inherits the (site) layout's home
+    // canonical and hreflang set, which would point this page at `/`.
+    alternates: {},
+    ...buildOpenGraph({
       title,
       description,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
+    }),
   }
 }
 
@@ -48,6 +47,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
 
   return (
     <PageShell
+      as="main"
       measure="form"
       className="flex min-h-screen items-center justify-center py-12"
     >
@@ -55,20 +55,20 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         className={surfaceCardStyles({
           className: 'w-full prose-measure rounded-surface p-10',
           padding: 'none',
-          tone: 'white',
+          tone: 'background',
         })}
       >
-        {/* Success badge */}
+        {/* Success mark: ink outline on surface — accent stays for interaction. */}
         <div className="flex justify-center">
-          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-accent">
-            <Check className="h-8 w-8 text-white" strokeWidth={3} />
+          <div className="flex size-16 items-center justify-center rounded-full border border-ink bg-surface">
+            <Check className="size-8 text-ink" strokeWidth={1.75} aria-hidden />
           </div>
         </div>
 
         <h1 className="mt-6 text-center type-section">{t('subheading')}</h1>
 
         {/* Timeline */}
-        <div className="mt-8 rounded-surface bg-ground p-6">
+        <div className="mt-8 rounded-surface bg-surface p-6">
           <div className="space-y-4">
               {([
               {

@@ -173,11 +173,26 @@ describe("BrandCard directory variant", () => {
     expect(screen.queryByText(/件商品/u)).toBeNull();
   });
 
-  it("stacks the save control above the whole-card link", () => {
+  it("overlays a named save control on the mark, above the whole-card link", () => {
+    const { container } = renderCard(<BrandCard brand={buildBrand()} />);
+
+    const save = screen.getByRole("button", { name: "收藏 山間器物" });
+    expect(save).toHaveClass("absolute", "z-20");
+    const mark = container.querySelector(".h-20.w-20");
+    if (!mark?.parentElement) throw new Error("mark has no wrapper");
+    expect(mark.parentElement).toContainElement(save);
+    expect(
+      container.querySelector("[data-auth-required-indicator]"),
+    ).toBeNull();
+  });
+
+  it("makes the name link cover the whole card", () => {
     renderCard(<BrandCard brand={buildBrand()} />);
 
-    const save = screen.getByRole("button", { name: "收藏這個品牌" });
-    expect(save).toHaveClass("relative", "z-20");
+    expect(screen.getByRole("link", { name: "山間器物" })).toHaveClass(
+      "after:absolute",
+      "after:inset-0",
+    );
   });
 
   it("fills its grid cell and pins the strip to the bottom", () => {
@@ -201,8 +216,23 @@ describe("BrandCard directory variant", () => {
   });
 });
 
-describe("BrandCard other variants", () => {
-  it("recommendation and editorial variants unchanged", () => {
+describe("BrandCard recommendation variant", () => {
+  it("uses the directory layout with the whole card as the only link", () => {
+    renderCard(<BrandCard brand={buildBrand()} variant="recommendation" />);
+
+    expect(screen.getByText("手工陶器，日常好用。")).toBeInTheDocument();
+    expect(screen.getByText("居家生活 · 台北市")).toBeInTheDocument();
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAccessibleName("山間器物");
+    expect(links[0]).toHaveClass("after:absolute", "after:inset-0");
+    expect(screen.queryByRole("link", { name: "查看品牌" })).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+});
+
+describe("BrandCard editorial variant", () => {
+  it("keeps its category badge", () => {
     const editorial = renderCard(
       <BrandCard brand={buildBrand()} variant="editorial" />,
     );
@@ -210,9 +240,5 @@ describe("BrandCard other variants", () => {
     expect(
       editorial.container.querySelector('[data-slot="badge"]'),
     ).not.toBeNull();
-    editorial.unmount();
-
-    renderCard(<BrandCard brand={buildBrand()} variant="recommendation" />);
-    expect(screen.getByRole("link", { name: "查看品牌" })).toBeInTheDocument();
   });
 });

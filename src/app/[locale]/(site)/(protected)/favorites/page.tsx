@@ -63,7 +63,7 @@ function SavedBrandCard({ brand }: { brand: SavedBrand }) {
         className: 'group block overflow-hidden',
         interactive: true,
         padding: 'none',
-        tone: 'white',
+        tone: 'background',
       })}
       href={routes.brand(brand.brandSlug)}
     >

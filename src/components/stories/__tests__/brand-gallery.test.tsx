@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import enMessages from "../../../../messages/en.json";
 import type { Brand } from "@/lib/types";
@@ -91,6 +91,10 @@ function renderWithIntl(ui: ReactNode) {
 describe("BrandGallery", () => {
   beforeEach(() => {
     loadBrands.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("renders only the first four gallery images", async () => {
@@ -213,8 +217,46 @@ describe("BrandGallery", () => {
       }),
     );
 
-    const notice = screen.getByText("Brand unavailable: ghost-brand");
+    const notice = screen.getByText("This brand has no public page right now: ghost-brand");
     expect(notice.className).toContain("border-dashed");
+  });
+
+  // DEV-1963: the notice is an authoring aid. A production build that is not
+  // staging drops the gallery; staging keeps the notice so editors see it.
+  it("renders nothing for an unresolvable slug in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("FORMORIA_DEPLOYMENT_ENV", "");
+    vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "");
+    vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT_ENV", "");
+    loadBrands.mockResolvedValue(new Map());
+
+    const { container } = renderWithIntl(
+      await BrandGallery({
+        slug: "ghost-brand",
+        loadBrands,
+        loadImages: makeImageFields(),
+      }),
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders the missing-brand notice on staging", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "staging");
+    loadBrands.mockResolvedValue(new Map());
+
+    renderWithIntl(
+      await BrandGallery({
+        slug: "ghost-brand",
+        loadBrands,
+        loadImages: makeImageFields(),
+      }),
+    );
+
+    expect(
+      screen.getByText("This brand has no public page right now: ghost-brand"),
+    ).toBeInTheDocument();
   });
 
   it("uses a generic alt when imageAlts is shorter than the image list", async () => {

@@ -38,6 +38,10 @@ vi.mock('react', async (importOriginal) => {
 import { ReportDialog } from '../report-dialog'
 import { useUser } from '@/lib/auth/use-user'
 
+// The real locale file is the fixture, so a copy change never strands a
+// hard-coded trigger name here.
+const TRIGGER_NAME = zh.brandDetail.report.trigger
+
 function renderWithIntl(ui: React.ReactElement) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
@@ -81,17 +85,17 @@ describe('ReportDialog', () => {
     })
   })
 
-  it('renders trigger button with aria-label 檢舉', () => {
+  it('renders the trigger button with its visible label', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
-    expect(screen.getByRole('button', { name: /檢舉/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: TRIGGER_NAME })).toBeInTheDocument()
   })
 
   it('shows general reports and both brand representative request options', async () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
-    expect(screen.getByRole('group', { name: '選擇檢舉原因' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: zh.brandDetail.report.reasonHeading })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /資訊有誤/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /連結失效/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /不當內容/i })).toBeInTheDocument()
@@ -106,7 +110,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
 
     expect(screen.queryByRole('radio', { name: /非台灣製造/ })).not.toBeInTheDocument()
@@ -128,7 +132,7 @@ describe('ReportDialog', () => {
       </>
     )
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
 
     expect(screen.getByText(/產地資訊/)).toBeInTheDocument()
@@ -141,7 +145,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
 
     expect(screen.getByRole('combobox')).toHaveAttribute('name', 'reportedField')
@@ -151,11 +155,11 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
     await user.selectOptions(screen.getByRole('combobox'), 'website')
-    await user.click(screen.getByRole('button', { name: /送出檢舉/i }))
+    await user.click(screen.getByRole('button', { name: /送出回報/i }))
 
     await waitFor(() => expect(dispatchReportAction).toHaveBeenCalledOnce())
     const submittedFormData = dispatchReportAction.mock.calls[0]?.[0]
@@ -166,7 +170,7 @@ describe('ReportDialog', () => {
   it('uses the wider dialog shell and counts supplemental notes', async () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
 
 
@@ -182,7 +186,7 @@ describe('ReportDialog', () => {
   it('allows exactly one report reason at a time', async () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
 
     const brokenLink = screen.getByRole('button', { name: /連結失效/i })
@@ -204,12 +208,12 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /所有權爭議/i }))
 
     expect(screen.getByRole('link', { name: '登入' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /送出檢舉/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /送出回報/i })).not.toBeInTheDocument()
   })
 
   it('keeps the normal notes + submit flow for signed-in dispute reports', async () => {
@@ -220,12 +224,12 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /所有權爭議/i }))
 
     expect(screen.getByRole('textbox', { name: /補充說明/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /送出檢舉/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /送出回報/i })).toBeInTheDocument()
   })
 
   it('requires sign-in for removal requests', async () => {
@@ -236,13 +240,13 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
 
     expect(screen.getByText('請登入以提出品牌頁移除要求')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '登入' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /送出檢舉/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /送出回報/i })).not.toBeInTheDocument()
   })
 
   it('keeps other reasons anonymous — no sign-in prompt when signed out', async () => {
@@ -253,12 +257,12 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
 
     expect(screen.queryByText('請登入以提出所有權爭議')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /送出檢舉/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /送出回報/i })).toBeInTheDocument()
   })
 
   it('tracks prior reports per reason instead of blocking every report for a brand', async () => {
@@ -266,7 +270,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
     expect(screen.queryByText('這個品牌已經回報過了')).not.toBeInTheDocument()
@@ -282,7 +286,7 @@ describe('ReportDialog', () => {
     )
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     // Open dialog
-    await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     expect(screen.getByText(/感謝你的回報/i)).toBeInTheDocument()
   })
@@ -293,7 +297,7 @@ describe('ReportDialog', () => {
       [{ error: '發生錯誤' }, vi.fn(), false] as ReturnType<typeof useActionState>
     )
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
-    await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     expect(screen.getByText('發生錯誤')).toBeInTheDocument()
   })
@@ -308,7 +312,7 @@ describe('ReportDialog', () => {
       [{ success: true }, vi.fn(), false] as ReturnType<typeof useActionState>
     )
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
-    await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
+    await userEvent.setup().click(screen.getByRole('button', { name: TRIGGER_NAME }))
     const dialog = await findLoadedDialog()
 
     const status = dialog.querySelector('[data-slot="dialog-status"]')

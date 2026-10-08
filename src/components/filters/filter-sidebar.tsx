@@ -46,6 +46,11 @@ export type FilterSidebarProps = {
   materialOptions?: MaterialOption[];
   activeMaterials?: string[];
   totalCount: number;
+  /**
+   * Render no counts on any row (全部, categories, subcategories, materials).
+   * The counts are catalog-wide, so they would contradict an active search.
+   */
+  hideCounts?: boolean;
   /** Builds the href for a category link (null = "All"). */
   categoryHref: (categorySlug: string | null) => string;
   /** i18n labels for section headings and ARIA. */
@@ -108,6 +113,7 @@ export function FilterSidebar({
   activeSubSlugs = [],
   materialOptions = [],
   activeMaterials = [],
+  hideCounts = false,
   categoryHref,
   labels,
   onCategorySelect,
@@ -134,12 +140,13 @@ export function FilterSidebar({
   const hasSubcategories = subcategoryOptions.length > 0;
   const hasMaterials = materialOptions.length > 0;
   // 全部 is the sum of the rows listed below it, so hidden L1s never count.
-  const allCount = categoryCounts
-    ? VISIBLE_L1_CATEGORIES.reduce(
-        (sum, category) => sum + (categoryCounts[category.slug] ?? 0),
-        0,
-      )
-    : undefined;
+  const allCount =
+    categoryCounts && !hideCounts
+      ? VISIBLE_L1_CATEGORIES.reduce(
+          (sum, category) => sum + (categoryCounts[category.slug] ?? 0),
+          0,
+        )
+      : undefined;
 
   const subCheckboxOptions = useMemo(
     () =>
@@ -217,7 +224,7 @@ export function FilterSidebar({
                   href={categoryHref(category.slug)}
                   label={categoryLabel(category, locale)}
                   count={
-                    categoryCounts
+                    categoryCounts && !hideCounts
                       ? (categoryCounts[category.slug] ?? 0)
                       : undefined
                   }
@@ -240,6 +247,7 @@ export function FilterSidebar({
             onToggle={toggleSubcategory}
             showMoreLabel={labels.showMore}
             showLessLabel={labels.showLess}
+            hideCounts={hideCounts}
           />
         </FilterSection>
       )}
@@ -252,6 +260,7 @@ export function FilterSidebar({
             onToggle={toggleMaterial}
             showMoreLabel={labels.showMore}
             showLessLabel={labels.showLess}
+            hideCounts={hideCounts}
           />
         </FilterSection>
       )}

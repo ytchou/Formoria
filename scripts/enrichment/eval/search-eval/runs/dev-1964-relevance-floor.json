@@ -1,0 +1,119 @@
+{
+  "ticket": "DEV-1964",
+  "date": "2026-10-08",
+  "target": "staging (ttkkyvgvcamfoezsetvf)",
+  "dataset": "situation-search-v3 (206 queries)",
+  "mode": "hybrid, intent parse off, LTR off",
+  "catalogTotal": 1390,
+  "rule": "keep a candidate when the lexical arm matched it (lexical_rank not null) or cosine_sim >= floor; additionally, a query with no CJK characters returns nothing when the lexical arm matched no row",
+  "chosenCosineFloor": 0.33,
+  "nonsenseQueries": {
+    "asdfqwer": 0.1903,
+    "qzxv": 0.2746,
+    "zzzz": 0.2951,
+    "qwerty": 0.2147,
+    "lorem ipsum": 0.2672,
+    "xkcd": 0.2357,
+    "hjkl": 0.2339,
+    "asdf": 0.2416,
+    "blorft": 0.2446,
+    "wxyz123": 0.2399,
+    "aaaa": 0.2296,
+    "ooo": 0.2877
+  },
+  "nonsenseMaxCosine": 0.2951,
+  "nonsenseLexicalRows": 0,
+  "latinGoldenQueriesWithNoLexicalRow": [],
+  "vectorOnlyRelevantCosine": {
+    "grade2PlusMin": 0.3148
+  },
+  "sweep": [
+    {
+      "cosineFloor": 0.28,
+      "retainedGrade1Plus": 1.0,
+      "retainedGrade2Plus": 1.0,
+      "goldenQueriesEmptied": 0,
+      "medianPostFloorCount": 100,
+      "p10PostFloorCount": 100,
+      "nonsenseQueriesWithAnyRowPassingCosineOnly": 2
+    },
+    {
+      "cosineFloor": 0.3,
+      "retainedGrade1Plus": 0.9995,
+      "retainedGrade2Plus": 1.0,
+      "goldenQueriesEmptied": 0,
+      "medianPostFloorCount": 100,
+      "p10PostFloorCount": 59,
+      "nonsenseQueriesWithAnyRowPassingCosineOnly": 0
+    },
+    {
+      "cosineFloor": 0.31,
+      "retainedGrade1Plus": 0.9995,
+      "retainedGrade2Plus": 1.0,
+      "goldenQueriesEmptied": 0,
+      "medianPostFloorCount": 100,
+      "p10PostFloorCount": 36,
+      "nonsenseQueriesWithAnyRowPassingCosineOnly": 0
+    },
+    {
+      "cosineFloor": 0.32,
+      "retainedGrade1Plus": 0.9981,
+      "retainedGrade2Plus": 0.9992,
+      "goldenQueriesEmptied": 0,
+      "medianPostFloorCount": 100,
+      "p10PostFloorCount": 25,
+      "nonsenseQueriesWithAnyRowPassingCosineOnly": 0
+    },
+    {
+      "cosineFloor": 0.33,
+      "retainedGrade1Plus": 0.9948,
+      "retainedGrade2Plus": 0.9969,
+      "goldenQueriesEmptied": 0,
+      "medianPostFloorCount": 100,
+      "p10PostFloorCount": 22,
+      "nonsenseQueriesWithAnyRowPassingCosineOnly": 0
+    },
+    {
+      "cosineFloor": 0.35,
+      "retainedGrade1Plus": 0.9901,
+      "retainedGrade2Plus": 0.993,
+      "goldenQueriesEmptied": 0,
+      "medianPostFloorCount": 100,
+      "p10PostFloorCount": 17,
+      "nonsenseQueriesWithAnyRowPassingCosineOnly": 0
+    },
+    {
+      "cosineFloor": 0.38,
+      "retainedGrade1Plus": 0.9717,
+      "retainedGrade2Plus": 0.9758,
+      "goldenQueriesEmptied": 0,
+      "medianPostFloorCount": 100,
+      "p10PostFloorCount": 11,
+      "nonsenseQueriesWithAnyRowPassingCosineOnly": 0
+    },
+    {
+      "cosineFloor": 0.4,
+      "retainedGrade1Plus": 0.9505,
+      "retainedGrade2Plus": 0.961,
+      "goldenQueriesEmptied": 0,
+      "medianPostFloorCount": 94,
+      "p10PostFloorCount": 9,
+      "nonsenseQueriesWithAnyRowPassingCosineOnly": 0
+    }
+  ],
+  "reviewQueriesPostFloorCount": {
+    "送禮 媽媽": 62,
+    "春池": 0,
+    "送長輩的茶具": 100,
+    "不要皮革的包": 100,
+    "帆布包": 100,
+    "露營": 11,
+    "敏感肌 保養": 100,
+    "辦公桌": 100,
+    "小資 上班 包包": 100,
+    "gift for mom": 21,
+    "camping": 2,
+    "ceramic mug": 100,
+    "tote bag": 100
+  }
+}

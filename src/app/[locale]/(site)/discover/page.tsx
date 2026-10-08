@@ -1,6 +1,10 @@
 import { matchBrandsForQuery } from "@/lib/services/brands";
 import type { BrandNameMatch } from "@/lib/brands/brand-name-match";
 import { DiscoverBrandRow } from "@/components/products/discover-brand-row";
+import {
+  DiscoverEmptyRoutes,
+  type DiscoverEmptyRouteTrail,
+} from "@/components/products/discover-empty-routes";
 import { parseDiscoverSource } from "@/lib/products/discover-search-params";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -25,6 +29,7 @@ import {
 import { DiscoverUrlSync } from "@/components/products/discover-url-sync";
 import { Pagination } from "@/components/brands/pagination";
 import { buildAlternates } from "@/lib/seo/alternates";
+import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { parseCommaParam } from "@/lib/seo/directory-filters";
 import {
   getPublishedCuratedProducts,
@@ -37,6 +42,7 @@ import {
   type SearchResult,
 } from "@/lib/services/product-situation-search";
 import { shouldAttemptIntentParse } from "@/lib/services/query-intent-parse";
+import { getAllTrails } from "@/lib/services/trails";
 import { createClient } from "@/lib/supabase/server";
 import {
   VISIBLE_L1_CATEGORIES,
@@ -73,6 +79,28 @@ type PageProps = {
 export const revalidate = 3600;
 
 const PAGE_SIZE = 20;
+
+/** Trails offered as ways forward from a zero-result search. */
+const EMPTY_ROUTE_TRAIL_LIMIT = 3;
+
+/**
+ * The first few published trails, in the order the service returns them. A
+ * failed read offers no trails rather than failing the page. Trails are
+ * zh-only today, so on /en a zh title carries its own `lang`.
+ */
+async function readEmptyRouteTrails(
+  locale: string,
+): Promise<DiscoverEmptyRouteTrail[]> {
+  const result = await getAllTrails(locale === "en" ? "en" : "zh-TW");
+  if (!result.ok) return [];
+  return result.trails.slice(0, EMPTY_ROUTE_TRAIL_LIMIT).map((trail) => ({
+    slug: trail.slug,
+    title: trail.frontmatter.title,
+    ...(locale === "en" && trail.frontmatter.locale !== "en"
+      ? { lang: "zh-Hant-TW" }
+      : {}),
+  }));
+}
 
 function firstParam(value: string | string[] | undefined): string | null {
   const candidate = Array.isArray(value) ? value.at(0) : value;
@@ -131,11 +159,22 @@ export async function generateMetadata({
     canonicalPath,
     locale as "zh-TW" | "en",
   );
+  const title = t("metaTitle");
+  const description = t("metaDescription");
+  const ogLocale = locale === "en" ? "en_US" : "zh_TW";
+  const ogAlternateLocale = locale === "en" ? "zh_TW" : "en_US";
 
   return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
+    title,
+    description,
     alternates: { canonical, languages },
+    ...buildOpenGraph({
+      title,
+      description,
+      url: canonical,
+      locale: ogLocale,
+      alternateLocale: [ogAlternateLocale],
+    }),
     ...(robots ? { robots } : {}),
   };
 }
@@ -159,6 +198,14 @@ export default async function DiscoverPage({
   // Intent parse gate: once per search-form submit (`infer=1`), only for
   // CJK-rich queries from authenticated users. Later loads of the same search
   // read the inferred filters back from the URL instead of re-parsing.
+  //
+  // Anonymous parse stays off (DEV-1964 decision). /discover?q= has no hard
+  // per-visitor limit — only the soft `directory:search` traversal accounting
+  // in src/lib/security/route-family.ts — the `infer=1` trigger is
+  // client-settable, and each cache-miss parse is a paid Jev call with no
+  // budget cap. DEV-1721 fixed the login gate as the cost control. Upgrade
+  // path: a hard per-IP limiter on the parse trigger plus a daily call
+  // budget, then open the parse to anonymous users.
   const inferTrigger = firstValue(rawParams[INFER_PARAM]) === "1";
   let enableIntentParse = false;
   if (
@@ -174,6 +221,7 @@ export default async function DiscoverPage({
   // Parallel fetch: products + facet counts
   let products: CatalogProduct[] = [];
   let totalCount = 0;
+  let poolLimited = false;
   const searchSource = parseDiscoverSource(rawParams);
   let relatedBrands: BrandNameMatch[] = [];
   let degraded = false;
@@ -243,6 +291,7 @@ export default async function DiscoverPage({
       ]);
       products = searchResult.products;
       totalCount = searchResult.totalCount;
+      poolLimited = searchResult.poolLimited;
       relatedBrands = brandMatches;
       degraded = searchResult.degraded;
       searchId = searchResult.searchId;
@@ -274,6 +323,11 @@ export default async function DiscoverPage({
       const [productResult, facetResult] = await Promise.all([
         getPublishedCuratedProducts({
           category,
+          // The unfiltered listing counts only visible L1s, matching the
+          // sidebar's all-categories total.
+          ...(category
+            ? {}
+            : { categories: VISIBLE_L1_CATEGORIES.map((c) => c.slug) }),
           subcategories: subcategories.length > 0 ? subcategories : undefined,
           materials: materials.length > 0 ? materials : undefined,
           sort: catalogSort,
@@ -406,6 +460,27 @@ export default async function DiscoverPage({
   const pageArmBySlot = armBySlot?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const hasChips = activeFilters.length > 0 || isSearchMode;
 
+  // A zero-result search offers ways forward; the trail read runs only then.
+  const showSearchEmpty = isSearchMode && products.length === 0;
+  const emptyRouteTrails = showSearchEmpty
+    ? await readEmptyRouteTrails(locale)
+    : [];
+  const emptyRouteCategories = showSearchEmpty
+    ? VISIBLE_L1_CATEGORIES.map((node) => ({
+        slug: node.slug,
+        label: categoryLabel(node, locale),
+      }))
+    : [];
+
+  // Search-mode result line. A pool-limited count is the size of the ranked
+  // candidate pool, not a match count, so it is worded as a top-N.
+  const searchIntro =
+    totalCount === 0
+      ? undefined
+      : poolLimited
+        ? t("search.countTop", { count: totalCount })
+        : t("search.count", { count: totalCount });
+
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
       <div className="space-y-stack">
@@ -417,11 +492,7 @@ export default async function DiscoverPage({
               ? t("search.resultsHeading", { query: searchQuery })
               : t("heading")
           }
-          intro={
-            isSearchMode
-              ? t("search.count", { count: totalCount })
-              : t("subheading")
-          }
+          intro={isSearchMode ? searchIntro : t("subheading")}
           search={
             <ProductSituationSearchForm
               locale={locale}
@@ -484,8 +555,8 @@ export default async function DiscoverPage({
                   totalCount={totalCount}
                 />
               }
-              // Search mode states the count in the intro (「找到 N 件商品」);
-              // a second one here would repeat it.
+              // Search mode states the count in the intro (`search.count` or
+              // `search.countTop`); a second one here would repeat it.
               count={
                 isSearchMode ? undefined : (
                   <p>{t("resultCount", { count: totalCount })}</p>
@@ -541,11 +612,23 @@ export default async function DiscoverPage({
               <DiscoverBrandRow brands={relatedBrands} heading={t("brandRow.heading")} query={searchQuery} searchId={searchId} />
             )}
 
-            {products.length === 0 ? (
-              <EmptyState
-                icon={<PackageOpen />}
-                title={isSearchMode ? t("search.empty") : t("emptyState")}
-              />
+            {showSearchEmpty ? (
+              // EmptyState takes a single action by contract, so the forward
+              // routes render beside it, inside the same empty-state block.
+              <div data-empty className="space-y-8">
+                <EmptyState
+                  icon={<PackageOpen />}
+                  title={t("search.empty", { query: searchQuery })}
+                />
+                <DiscoverEmptyRoutes
+                  trails={emptyRouteTrails}
+                  categories={emptyRouteCategories}
+                  trailsHeading={t("search.emptyRoutes.trailsHeading")}
+                  categoriesHeading={t("search.emptyRoutes.categoriesHeading")}
+                />
+              </div>
+            ) : products.length === 0 ? (
+              <EmptyState icon={<PackageOpen />} title={t("emptyState")} />
             ) : (
               <>
                 {isSearchMode && searchId ? (

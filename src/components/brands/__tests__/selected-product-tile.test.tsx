@@ -358,17 +358,16 @@ describe("SelectedProductTile", () => {
     view.unmount();
   });
 
-  it("contains rather than crops the trail image", () => {
+  it("covers rather than contains the trail image", () => {
+    // DS-26: the trail is a three-up grid, so products sit side by side and a
+    // letterboxed edge breaks the row (DESIGN.md §6). A covered image only
+    // shows its box while loading, so the trail takes the same
+    // `bg-surface-deep` plate as every other mode.
     const { view, img, box } = renderImageBox("trail");
 
-    expect(img.className).toContain("object-contain");
-    expect(img.className).not.toContain("object-cover");
-    // A contained image letterboxes permanently, so the box must match the
-    // `surfaceCardStyles` surface it sits in — the image plate would show as a
-    // visible band. Covered modes take `bg-surface-deep` as a loading tint;
-    // this one must not, which is what the negative pins.
-    expect(box.className).toContain("bg-surface");
-    expect(box.className).not.toContain("bg-surface-deep");
+    expect(img.className).toContain("object-cover");
+    expect(img.className).not.toContain("object-contain");
+    expect(box.className).toContain("bg-surface-deep");
     view.unmount();
   });
 
@@ -418,6 +417,40 @@ describe("SelectedProductTile", () => {
     unmount();
   });
 
+  // DS-10: the caption sits in flow below the photograph at every viewport —
+  // never a hover-revealed scrim over it.
+  it("renders the wall caption in flow below the image", () => {
+    const { container } = renderWallTile();
+
+    const name = screen.getByRole("heading", { name: "Pour-over kettle" });
+    const caption = name.parentElement!;
+    expect(caption.textContent).toContain("Kettle Co");
+    expect(caption.className).not.toMatch(/sm:absolute/);
+    expect(caption.className).not.toMatch(/opacity-0/);
+    expect(caption.className).not.toContain("bg-ground/95");
+    expect(container.innerHTML).not.toContain("bg-gradient-to-t");
+    expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
+    // The image box precedes the caption; the caption is not inside it.
+    const box = container.querySelector("[data-wall-ratio]")!;
+    expect(box.contains(caption)).toBe(false);
+    expect(
+      box.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("insets the wall caption when the tile sits on a ground plate", () => {
+    // DS-12: the homepage band passes `bg-ground` on the tile; the ancestor
+    // variant keeps the caption text off the plate's edge at every width.
+    renderWallTile({ className: "bg-ground" });
+
+    const caption = screen.getByRole("heading", {
+      name: "Pour-over kettle",
+    }).parentElement!;
+    expect(caption.className).toContain("in-[.bg-ground]:px-3");
+    expect(caption.className).toContain("in-[.bg-ground]:pb-3");
+    expect(caption.className).not.toContain("max-sm:px-3");
+  });
+
   it("suppresses the brand-page furniture in wall mode", () => {
     renderWallTile({ product: buildProduct({ linkState: "broken" }) });
 
@@ -427,43 +460,63 @@ describe("SelectedProductTile", () => {
   });
 
   // --- shelf mode ---
+  // DEV-1950: every shelf tile is a route onward — an internal link wrapping
+  // image + name, and an outbound route row (DESIGN.md §8 ProductCard).
 
-  it("renders image-led tile with hover scrim in shelf mode", () => {
+  it("links the shelf image and name to the product anchor", () => {
     const { container } = renderWallTile({ mode: "shelf" });
 
-    const img = container.querySelector("img")!;
-    expect(img.className).toContain("object-cover");
-
-    // The scrim caption div carries sm:bg-ground/95 (responsive prefix)
-    const scrim = [...container.querySelectorAll("div")].find((el) =>
-      el.className.includes("bg-ground/95"),
-    );
-    expect(scrim).toBeDefined();
-
-    // Name and description present in the DOM
-    expect(container.textContent).toContain("Pour-over kettle");
-    expect(container.textContent).toContain(
-      "Steady in the hand, made for small kitchens",
-    );
+    // Anchored: the route-row chip's name ends with ": Pour-over kettle".
+    const link = screen.getByRole("link", { name: /^Pour-over kettle/ });
+    expect(link).toHaveAttribute("href", "/brands/kettle-co#product-kettle");
+    expect(link.querySelector("img")).not.toBeNull();
+    expect(link.querySelector("h3")?.textContent).toBe("Pour-over kettle");
+    const image = container.querySelector("img")!;
+    expect(image.className).toContain("object-cover");
+    expect(image.className).toContain("group-hover:scale-[1.03]");
   });
 
-  it("hides description on mobile in shelf mode", () => {
+  it("keeps the save button outside the shelf link", () => {
+    renderWallTile({ mode: "shelf" });
+
+    const save = screen.getByTestId("save-button");
+    expect(save.closest("a")).toBeNull();
+  });
+
+  it("renders the outbound product chip in the shelf route row", () => {
+    renderWallTile({ mode: "shelf" });
+
+    const chip = screen.getByRole("link", { name: /Visit product/ });
+    expect(chip).toHaveAttribute("href", "https://example.com/kettle");
+    expect(chip).toHaveAttribute("target", "_blank");
+    expect(chip).toHaveAttribute("data-link-surface", "selected_product");
+  });
+
+  it("falls back to the brand site chip when the shelf product link is broken", () => {
+    renderWallTile({
+      mode: "shelf",
+      product: buildProduct({ linkState: "broken" }),
+    });
+
+    expect(
+      screen.getByRole("link", { name: /Visit brand site/ }),
+    ).toHaveAttribute("href", "https://example.com");
+    expect(screen.queryByRole("link", { name: /Visit product/ })).toBeNull();
+    expect(screen.getByText("Link unavailable")).toBeInTheDocument();
+  });
+
+  it("drops the hover scrim and the focus-only wrapper in shelf mode", () => {
     const { container } = renderWallTile({ mode: "shelf" });
 
-    // The description lives inside the scrim overlay, which carries sm: prefix
-    // classes for visibility. The description itself is hidden on mobile via
-    // `hidden sm:block`.
+    expect(container.querySelector("[tabindex]")).toBeNull();
+    expect(container.innerHTML).not.toContain("bg-ground/95");
+
+    // The description shows at every viewport, clamped to two lines.
     const descEl = screen.getByText(
       "Steady in the hand, made for small kitchens",
     );
-    expect(descEl.className).toContain("hidden");
-    expect(descEl.className).toContain("sm:block");
-
-    // It must be inside the scrim div, not in a separate in-flow block
-    const scrim = [...container.querySelectorAll("div")].find((el) =>
-      el.className.includes("bg-ground/95"),
-    )!;
-    expect(scrim.contains(descEl)).toBe(true);
+    expect(descEl.className).toContain("line-clamp-2");
+    expect(descEl.className).not.toMatch(/\bhidden\b/);
   });
 
   it("keeps product anchor id in shelf mode", () => {
@@ -472,16 +525,42 @@ describe("SelectedProductTile", () => {
     expect(container.querySelector("#product-kettle")).not.toBeNull();
   });
 
-  it("renders no outbound chip in shelf mode", () => {
+  it("renders nothing for a photo-less product in shelf mode", () => {
+    const { container } = renderWallTile({
+      mode: "shelf",
+      product: buildProduct({ imageUrl: null }),
+    });
+
+    expect(container.querySelector("[data-testid=image-fallback]")).toBeNull();
+    expect(container.querySelector("li")).toBeNull();
+  });
+
+  // WCAG 3.1.2: an EN page falling back to zh text marks that part as zh.
+  it("marks the zh name fallback with lang on an EN shelf tile", () => {
+    renderWallTile({ mode: "shelf", product: buildProduct({ nameEn: null }) });
+
+    expect(screen.getByRole("heading", { name: "手沖壺" })).toHaveAttribute(
+      "lang",
+      "zh-Hant-TW",
+    );
+  });
+
+  it("marks the zh description fallback with lang on an EN shelf tile", () => {
+    renderWallTile({
+      mode: "shelf",
+      product: buildProduct({ productDescriptionEn: null }),
+    });
+
+    expect(screen.getByText("手感穩定，適合小空間")).toHaveAttribute(
+      "lang",
+      "zh-Hant-TW",
+    );
+  });
+
+  it("sets no lang attribute when both EN fields are present", () => {
     const { container } = renderWallTile({ mode: "shelf" });
 
-    // No link with CTA text — shelf tiles are not clickable
-    expect(screen.queryByRole("link", { name: /Visit product/ })).toBeNull();
-    expect(
-      screen.queryByRole("link", { name: /Visit brand site/ }),
-    ).toBeNull();
-    // No <a> elements at all
-    expect(container.querySelectorAll("a").length).toBe(0);
+    expect(container.querySelector("[lang]")).toBeNull();
   });
 });
 
@@ -524,13 +603,36 @@ describe("SelectedProductTile trail note", () => {
   });
 
   it("trail mode clamps description to 2 lines and hides it on mobile", () => {
+    // DS-25: `sm:block` overrode the `display: -webkit-box` that `line-clamp`
+    // needs, so the clamp never applied. `max-sm:hidden` hides on phones and
+    // sets no display above `sm`.
     const view = renderTrailTile();
 
     const descriptionElement = view.getByText(description);
-    expect(descriptionElement.className).toContain("line-clamp-2");
-    expect(descriptionElement.className).toContain("hidden");
-    expect(descriptionElement.className).toContain("sm:block");
+    const classes = descriptionElement.className.split(/\s+/);
+    expect(classes).toContain("line-clamp-2");
+    expect(classes).toContain("max-sm:hidden");
+    expect(classes).not.toContain("hidden");
+    expect(classes).not.toContain("sm:block");
     view.unmount();
+  });
+
+  it("trail name link has a 44px hit area without resizing the text", () => {
+    // DS-39 / DESIGN.md §7: the overlay grows the target, not the type.
+    for (const tracking of [
+      undefined,
+      { brandSlug: "kettle-co", position: 0, surface: "trail:t:s" },
+    ]) {
+      const view = renderTrailTile({ tracking });
+
+      const link = view.getByRole("link", { name: "Pour-over kettle" });
+      const classes = link.className.split(/\s+/);
+      expect(classes).toContain("relative");
+      expect(classes).toContain("after:absolute");
+      expect(classes).toContain("after:min-h-11");
+      expect(link.querySelector("h3")?.className).toContain("type-card-title");
+      view.unmount();
+    }
   });
 
   it("trail mode shows the description at every width when there is no note", () => {

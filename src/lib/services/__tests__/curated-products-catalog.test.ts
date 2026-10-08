@@ -342,6 +342,30 @@ describe("getPublishedCuratedProducts", () => {
     expect(overlaps).toContainEqual(["material", ["ceramic", "wood"]]);
   });
 
+  it("limits to the given categories only when no category is set", async () => {
+    const unscoped = createMockClient();
+    await getPublishedCuratedProducts(
+      { categories: ["home", "apparel"] },
+      unscoped.client,
+    );
+    expect(unscoped.ins).toContainEqual(["category", ["home", "apparel"]]);
+    expect(unscoped.equals.some(([column]) => column === "category")).toBe(
+      false,
+    );
+
+    const scoped = createMockClient();
+    await getPublishedCuratedProducts(
+      { category: "home", categories: ["home", "apparel"] },
+      scoped.client,
+    );
+    expect(scoped.ins.some(([column]) => column === "category")).toBe(false);
+    expect(scoped.equals).toContainEqual(["category", "home"]);
+
+    const absent = createMockClient();
+    await getPublishedCuratedProducts({ categories: [] }, absent.client);
+    expect(absent.ins.some(([column]) => column === "category")).toBe(false);
+  });
+
   it("sorts alphabetical by name_zh when sort is alphabetical", async () => {
     const { client, orders } = createMockClient();
 

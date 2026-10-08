@@ -25,6 +25,8 @@ type FilterCheckboxGroupProps = {
   limit?: number;
   showMoreLabel: (count: number) => string;
   showLessLabel: string;
+  /** Render no per-option counts (e.g. while they would contradict a search). */
+  hideCounts?: boolean;
 };
 
 export function FilterCheckboxGroup({
@@ -34,6 +36,7 @@ export function FilterCheckboxGroup({
   limit = 10,
   showMoreLabel,
   showLessLabel,
+  hideCounts = false,
 }: FilterCheckboxGroupProps) {
   const [expanded, setExpanded] = useState(false);
   const listId = useId();
@@ -69,7 +72,7 @@ export function FilterCheckboxGroup({
               <FilterOptionLabel selected={checked}>
                 {option.label}
               </FilterOptionLabel>
-              <FilterOptionCount count={option.count} />
+              {!hideCounts && <FilterOptionCount count={option.count} />}
             </Label>
           );
         })}

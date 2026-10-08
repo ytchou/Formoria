@@ -2,7 +2,7 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import enMessages from "../../../../messages/en.json";
 import type { Brand } from "@/lib/types";
@@ -116,6 +116,18 @@ function makeBrand(slug: string, name: string): Brand {
   } as unknown as Brand;
 }
 
+/**
+ * Production as the notice gate sees it: `NODE_ENV=production` and none of the
+ * staging markers `isStagingEnvironment` reads. Blanked explicitly so a value
+ * in the developer's shell cannot turn this into a staging run.
+ */
+function stubProduction() {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("FORMORIA_DEPLOYMENT_ENV", "");
+  vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "");
+  vi.stubEnv("NEXT_PUBLIC_DEPLOYMENT_ENV", "");
+}
+
 function renderWithIntl(ui: ReactNode) {
   return render(
     <NextIntlClientProvider locale="en" messages={enMessages}>
@@ -127,6 +139,10 @@ function renderWithIntl(ui: ReactNode) {
 describe("BrandCardMdx", () => {
   beforeEach(() => {
     loadBrands.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("renders a brand card when the slug resolves", async () => {
@@ -150,12 +166,38 @@ describe("BrandCardMdx", () => {
 
     renderWithIntl(await BrandCardMdx({ slug: "ghost-brand", loadBrands }));
 
-    const placeholder = screen.getByText("Brand unavailable: ghost-brand");
+    const placeholder = screen.getByText("This brand has no public page right now: ghost-brand");
     expect(placeholder).toBeInTheDocument();
     expect(placeholder.className).toContain("border-dashed");
     // Inert: nothing to navigate to, so it must not take a tab stop.
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  // DEV-1963: the notice names the raw slug — debugging text that shipped to
+  // readers on published stories. Production renders nothing in its place.
+  it("renders nothing for an unresolved slug in production", async () => {
+    stubProduction();
+    loadBrands.mockResolvedValue(new Map());
+
+    const { container } = renderWithIntl(
+      await BrandCardMdx({ slug: "ghost-brand", loadBrands }),
+    );
+
+    expect(screen.queryByText(/ghost-brand/)).toBeNull();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("still renders the notice on a staging production build", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "staging");
+    loadBrands.mockResolvedValue(new Map());
+
+    renderWithIntl(await BrandCardMdx({ slug: "ghost-brand", loadBrands }));
+
+    expect(
+      screen.getByText("This brand has no public page right now: ghost-brand"),
+    ).toBeInTheDocument();
   });
 
   it("renders the editorial note when provided", async () => {
@@ -199,6 +241,38 @@ describe("BrandGrid", () => {
   beforeEach(() => {
     loadBrands.mockReset();
     vi.mocked(trackBrandCardClicked).mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("skips an unresolved member in production instead of leaving a placeholder", async () => {
+    stubProduction();
+    loadBrands.mockResolvedValue(
+      new Map([["molasses", makeBrand("molasses", "Molasses")]]),
+    );
+
+    renderWithIntl(
+      await BrandGrid({ slugs: ["molasses", "ghost-brand"], loadBrands }),
+    );
+
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
+    expect(screen.queryByText(/ghost-brand/)).toBeNull();
+  });
+
+  it("shows the notice for an unresolved member outside production", async () => {
+    loadBrands.mockResolvedValue(
+      new Map([["molasses", makeBrand("molasses", "Molasses")]]),
+    );
+
+    renderWithIntl(
+      await BrandGrid({ slugs: ["molasses", "ghost-brand"], loadBrands }),
+    );
+
+    expect(
+      screen.getByText("This brand has no public page right now: ghost-brand"),
+    ).toBeInTheDocument();
   });
 
   it("issues one batched lookup for all slugs", async () => {

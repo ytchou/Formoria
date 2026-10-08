@@ -2,7 +2,14 @@
  * @vitest-environment jsdom
  */
 import type { ReactNode } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -99,17 +106,96 @@ describe("MainNav", () => {
     }
   });
 
-  it("keeps a search field in the header on the homepage", () => {
-    // The header search used to be hidden on `/` until an IntersectionObserver
-    // reported the hero photograph had scrolled away. The opener is editorial
-    // now and the observer is gone, so the field is simply always there — no
-    // observer, no hidden-but-mounted branch, no way to reach a state where the
-    // header offers no search at all.
+  it("keeps a search field in the header on the homepage when no hero search exists", async () => {
+    // The header search yields to the hero's search on `/` (see the next
+    // case), but only once the hero's form is found. Without one — jsdom has
+    // no IntersectionObserver and this render has no hero — it fails OPEN:
+    // there is no state in which the header offers no search at all.
     renderNav();
 
-    const search = screen.getAllByRole("search");
-    expect(search.length).toBeGreaterThan(0);
-    expect(search[0]!.className).not.toContain("hidden");
+    const search = screen.getByRole("search", { name: en.nav.searchAria });
+    expect(search.className).not.toContain("hidden");
+    await waitFor(() =>
+      expect(search.parentElement).not.toHaveClass("invisible"),
+    );
+  });
+
+  it("hides the header search on the homepage while the hero search is in view", () => {
+    let report: (isIntersecting: boolean) => void = () => {};
+    const original = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class {
+      constructor(callback: IntersectionObserverCallback) {
+        report = (isIntersecting) =>
+          act(() =>
+            callback(
+              [{ isIntersecting } as IntersectionObserverEntry],
+              this as unknown as IntersectionObserver,
+            ),
+          );
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      takeRecords() {
+        return [];
+      }
+    } as unknown as typeof IntersectionObserver;
+
+    // The hero's form, as `ProductSearchBoxCompact src="hero"` renders it.
+    const hero = document.createElement("form");
+    hero.innerHTML = '<input type="hidden" name="src" value="hero">';
+    document.body.append(hero);
+
+    try {
+      renderNav();
+      const wrapper = screen.getByRole("search", {
+        name: en.nav.searchAria,
+      }).parentElement;
+
+      report(true);
+      expect(wrapper).toHaveClass("invisible");
+
+      report(false);
+      expect(wrapper).not.toHaveClass("invisible");
+    } finally {
+      hero.remove();
+      globalThis.IntersectionObserver = original;
+    }
+  });
+
+  it("marks the current route's link as the current page", async () => {
+    pathname = "/brands/some-brand";
+    renderNav();
+
+    // The desktop row is the first `Main menu` landmark in the banner.
+    const desktop = screen.getAllByRole("navigation", {
+      name: en.nav.navigation,
+    })[0]!;
+    const current = within(desktop)
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveAttribute("href", "/brands");
+
+    fireEvent.click(screen.getByRole("button", { name: en.nav.openMenu }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("link", { name: en.nav.brands }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      within(dialog).getByRole("link", { name: en.nav.style }),
+    ).not.toHaveAttribute("aria-current");
+  });
+
+  it("opening the menu focuses the sheet, not its search field", async () => {
+    // Default Base UI focus lands on the first tabbable element — the search
+    // field — which on a phone raises the keyboard over the menu.
+    pathname = "/about";
+    renderNav();
+
+    fireEvent.click(screen.getByRole("button", { name: en.nav.openMenu }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(dialog).toHaveFocus());
   });
 
   it("nav sheet still exposes its search form", async () => {

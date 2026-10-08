@@ -15,22 +15,22 @@
  * count shows that a gap exists; it never sets the shape.
  */
 export const L1_CATEGORIES = [
-  { slug: 'fashion', name: 'Fashion & Apparel', nameZh: '服飾鞋履', tint: 'oklch(0.935 0.022 350)' },
-  { slug: 'bags-accessories', name: 'Bags & Accessories', nameZh: '包袋配件', tint: 'oklch(0.935 0.022 25)' },
-  { slug: 'jewelry', name: 'Jewelry', nameZh: '飾品珠寶', tint: 'oklch(0.935 0.022 55)' },
-  { slug: 'beauty', name: 'Beauty & Personal Care', nameZh: '美妝保養', tint: 'oklch(0.935 0.022 330)' },
-  { slug: 'home', name: 'Home & Living', nameZh: '居家生活', tint: 'oklch(0.935 0.022 80)' },
-  { slug: 'food-drink', name: 'Food & Beverage', nameZh: '食品飲料', tint: 'oklch(0.935 0.022 100)', deferred: true },
-  { slug: 'stationery', name: 'Stationery & Design', nameZh: '文具設計', tint: 'oklch(0.935 0.022 200)' },
-  { slug: 'tech', name: 'Tech & Electronics', nameZh: '3C科技', tint: 'oklch(0.935 0.022 240)', deferred: true },
-  { slug: 'outdoor', name: 'Outdoor & Camping', nameZh: '戶外露營', tint: 'oklch(0.935 0.022 160)', deferred: true },
-  { slug: 'fitness', name: 'Sports & Fitness', nameZh: '運動健身', tint: 'oklch(0.935 0.022 280)', deferred: true },
+  { slug: 'fashion', name: 'Fashion & Apparel', nameZh: '服飾鞋履' },
+  { slug: 'bags-accessories', name: 'Bags & Accessories', nameZh: '包袋配件' },
+  { slug: 'jewelry', name: 'Jewelry', nameZh: '飾品珠寶' },
+  { slug: 'beauty', name: 'Beauty & Personal Care', nameZh: '美妝保養' },
+  { slug: 'home', name: 'Home & Living', nameZh: '居家生活' },
+  { slug: 'food-drink', name: 'Food & Beverage', nameZh: '食品飲料', deferred: true },
+  { slug: 'stationery', name: 'Stationery & Design', nameZh: '文具設計' },
+  { slug: 'tech', name: 'Tech & Electronics', nameZh: '3C科技', deferred: true },
+  { slug: 'outdoor', name: 'Outdoor & Camping', nameZh: '戶外露營', deferred: true },
+  { slug: 'fitness', name: 'Sports & Fitness', nameZh: '運動健身', deferred: true },
   // Split from `kids-pets` by DEV-1510. All three reference trees keep pets out
   // of kids, and `keyword-map.yaml:414` recorded the sibling-dimension defect a
   // fortnight before this. `pets` ships `eligibility: defer-brands` — a correct
   // node held below the supply bar, not a node waiting on supply to be correct.
-  { slug: 'kids', name: 'Kids & Baby', nameZh: '母嬰童', tint: 'oklch(0.935 0.022 60)', deferred: true },
-  { slug: 'pets', name: 'Pets', nameZh: '寵物', tint: 'oklch(0.935 0.022 300)', deferred: true },
+  { slug: 'kids', name: 'Kids & Baby', nameZh: '母嬰童', deferred: true },
+  { slug: 'pets', name: 'Pets', nameZh: '寵物', deferred: true },
 ] as const
 
 export const VISIBLE_L1_CATEGORIES = L1_CATEGORIES.filter(c => !('deferred' in c))
@@ -71,14 +71,6 @@ export function deriveCategoryLabel(
     return categoryNote.trim()
   }
   return null
-}
-
-const WARM_SURFACE = 'oklch(0.963 0.004 80)'
-
-export function categoryTint(slug: string | null | undefined): string {
-  if (!slug) return WARM_SURFACE
-  const match = L1_CATEGORIES.find(c => c.slug === slug)
-  return match?.tint ?? WARM_SURFACE
 }
 
 // ---------------------------------------------------------------------------

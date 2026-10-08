@@ -8,8 +8,10 @@ test("a header brand query opens its related brand and removes submit attributio
   page,
 }) => {
   await page.goto("/stories?q=HOKII");
-  const form = page.getByRole("search", { name: "全站商品搜尋" });
-  const input = form.getByRole("searchbox", { name: "全站商品搜尋" });
+  const form = page
+    .getByRole("banner")
+    .getByRole("search", { name: "搜尋商品", exact: true });
+  const input = form.getByRole("searchbox", { name: "搜尋商品", exact: true });
   await expect(input).toHaveValue(BRAND);
   await form.getByRole("button", { name: "清除搜尋" }).click();
   await expect(input).toHaveValue("");
@@ -40,7 +42,10 @@ test("related brands remain available when the product filters return zero resul
     "/discover?q=HOKII&category=home&sub=lighting&material=leather",
   );
   await expect(
-    page.getByText("找不到符合的商品，試試其他關鍵字", { exact: true }),
+    page.getByText(
+      "找不到「HOKII」相關的商品，換個關鍵字，或清除篩選條件。",
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(
     page
@@ -74,9 +79,8 @@ test("directory and discovery own their search on desktop and in the mobile shee
   for (const route of ["/brands", "/discover"]) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(route);
-    await expect(
-      page.getByRole("search", { name: "全站商品搜尋" }),
-    ).toHaveCount(0);
+    // Scoped to the banner: /discover's own form is also named 搜尋商品.
+    await expect(page.getByRole("banner").getByRole("search")).toHaveCount(0);
     await expect(
       page.getByRole("main").getByRole("searchbox", {
         name: route === "/brands" ? "搜尋品牌" : "搜尋商品",

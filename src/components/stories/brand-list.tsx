@@ -5,7 +5,11 @@ import { getTranslations } from 'next-intl/server'
 import { getPublicBrandsBySlugs } from '@/lib/services/brands'
 import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 
-import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
+import {
+  MissingBrandNotice,
+  shouldShowMissingBrandNotice,
+  type BrandLoaderSeam,
+} from './brand-card-mdx'
 import { BrandLineLink } from './brand-line-link'
 
 type BrandListProps = {
@@ -43,9 +47,9 @@ type BrandListProps = {
  * horizontal only — column separators would turn an editorial list into a
  * spreadsheet.
  *
- * `<div>`s rather than `<ul>`/`<li>`: an unresolvable slug degrades to
- * `MissingBrandNotice`, which is a `<p>`, and a `<p>` is not a legal child of
- * `<ul>`. Deliberately no card chrome — the list is part of the article, not a
+ * `<div>`s rather than `<ul>`/`<li>`: in dev and on staging an unresolvable
+ * slug degrades to `MissingBrandNotice`, which is a `<p>`, and a `<p>` is not a
+ * legal child of `<ul>`. Deliberately no card chrome — the list is part of the article, not a
  * module dropped into it.
  */
 export function BrandList({ children }: BrandListProps) {
@@ -57,8 +61,18 @@ export function BrandList({ children }: BrandListProps) {
 }
 
 type BrandLineProps = {
-  /** Authored slug. May be a retired one — the lookup follows redirects. */
-  slug: string
+  /**
+   * Authored slug. May be a retired one — the lookup follows redirects.
+   * Optional: a row for a brand with no directory listing is authored with
+   * `name` alone and renders as plain text.
+   */
+  slug?: string
+  /**
+   * Display name used when there is nothing to link to — no `slug`, or a slug
+   * that does not resolve to a public brand. Never shown for a resolved brand,
+   * whose name comes from the directory.
+   */
+  name?: string
   /** Booth or stand number at the event, e.g. `A-12`. */
   booth?: string
   /** The author's one-line reason this brand is worth the walk. */
@@ -83,8 +97,13 @@ type BrandLineProps = {
  * is a shortcode that silently receives nothing.
  *
  * Resolves through `getBrandsBySlugs`, never the throwing single-brand lookup:
- * a slug renamed or hidden after publication must degrade to an inline
- * placeholder, not throw and take the whole story page down. That lookup also
+ * a slug renamed or hidden after publication must not throw and take the whole
+ * story page down. When it does not resolve, the row falls back in order: an
+ * authored `name` renders as plain text in production; otherwise dev and
+ * staging show `MissingBrandNotice` and production renders nothing. In dev and
+ * staging the notice wins over `name` for an unresolved slug, so the author
+ * still sees the broken reference. A row authored with `name` and no `slug` is
+ * intentional plain text everywhere and skips the lookup. The lookup also
  * follows `brand_slug_redirects`, which is why the rendered name and href come
  * from the RESOLVED brand rather than from `slug` — an authored slug can be the
  * old one, and linking to it would send readers through a redirect hop.
@@ -99,22 +118,26 @@ type BrandLineProps = {
  */
 export async function BrandLine({
   slug,
+  name,
   booth,
   note,
   position,
   loadBrands = getPublicBrandsBySlugs,
 }: BrandLineProps) {
-  const brands = await loadBrands([slug])
-  const resolvedBrand = brands.get(slug)
+  const resolvedBrand = slug ? (await loadBrands([slug])).get(slug) : undefined
   const brand = resolvedBrand ? normalizePublicBrandCard(resolvedBrand) : undefined
   const t = await getTranslations('stories')
 
   if (!brand) {
-    return (
-      <div className="col-span-full py-3">
-        <MissingBrandNotice label={t('brandMissing', { slug })} />
-      </div>
-    )
+    // An unresolved slug is a broken reference: surface it where authors look.
+    if (slug && shouldShowMissingBrandNotice()) {
+      return (
+        <div className="col-span-full py-3">
+          <MissingBrandNotice label={t('brandMissing', { slug })} />
+        </div>
+      )
+    }
+    if (!name) return null
   }
 
   return (
@@ -137,7 +160,13 @@ export async function BrandLine({
           </>
         ) : null}
       </span>
-      <BrandLineLink brand={brand} position={position} />
+      {brand ? (
+        <BrandLineLink brand={brand} position={position} />
+      ) : (
+        // Same type as `BrandLineLink` minus the link affordances: nothing to
+        // navigate to, so no tab stop, hover state or focus ring.
+        <span className="type-body-sm font-semibold text-ink">{name}</span>
+      )}
       {note ? (
         <span className="col-span-2 min-w-0 type-body-sm sm:col-span-1">{note}</span>
       ) : null}

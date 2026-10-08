@@ -2,10 +2,20 @@
 
 import { X } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { taxonomyLinkClasses } from '@/components/ui/toggle-chip'
 import { cn } from '@/lib/utils'
+
+// Placeholders the `filters.token` message is formatted with, so the
+// locale's separator and ordering come from messages while label and value
+// keep their own styling. `t.rich` only accepts string/number/Date arguments
+// and the message carries no tags, so the formatted string is split on these.
+// Private-use code points: never typed in a label or a search value.
+const LABEL_SLOT = '\uE000'
+const VALUE_SLOT = '\uE001'
+const SLOT_PATTERN = /(\uE000|\uE001)/
 
 type FilterTokenProps = {
   href: string
@@ -26,6 +36,11 @@ export function FilterToken({
   variant,
   badge,
 }: FilterTokenProps) {
+  const t = useTranslations('filters')
+  const parts = t('token', { label: LABEL_SLOT, value: VALUE_SLOT })
+    .split(SLOT_PATTERN)
+    .filter((part) => part !== '')
+
   return (
     <Link
       aria-label={removeLabel}
@@ -47,8 +62,21 @@ export function FilterToken({
       scroll={false}
     >
       <span className="min-w-0 truncate">
-        <span className="font-medium text-ink">{label}:</span>{' '}
-        <span className="text-ink-muted">{value}</span>
+        {parts.map((part, index) =>
+          part === LABEL_SLOT ? (
+            <span key={index} className="font-medium text-ink">
+              {label}
+            </span>
+          ) : part === VALUE_SLOT ? (
+            <span key={index} className="text-ink-muted">
+              {value}
+            </span>
+          ) : (
+            <span key={index} className="font-medium text-ink">
+              {part}
+            </span>
+          ),
+        )}
       </span>
       {badge && (
         <Badge variant="outline" aria-hidden="true">

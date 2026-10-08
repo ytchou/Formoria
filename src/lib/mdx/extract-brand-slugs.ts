@@ -22,13 +22,17 @@
  * the CI slug guard, and whose clicks fire `select_item` against a
  * `view_item_list` that never counted it.
  *
- * The prop prefix is `[\s\S]*?`, not `[^>]*?`: an earlier prop *value* may
- * legally contain a `>` (`note="a > b"`), and a `>`-excluding prefix makes the
- * whole shortcode fail to match — the referenced brand then goes invisible to
- * both the CI slug guard and the analytics count. The `\bslug=["']` anchor that
- * follows is what stops the non-greedy prefix from running past the shortcode.
+ * The prop prefix steps over whole quoted values and otherwise stops at `>`.
+ * A bare `[^>]*?` is wrong: an earlier prop *value* may legally contain a `>`
+ * (`note="a > b"`), and a `>`-excluding prefix makes the whole shortcode fail
+ * to match — the referenced brand then goes invisible to both the CI slug guard
+ * and the analytics count. A bare `[\s\S]*?` is wrong too: `<BrandLine name="…" />`
+ * legally has no slug, and an unbounded prefix runs past its `/>` to borrow the
+ * next shortcode's slug (a following `<BrandGallery>` would then be counted as
+ * a linked brand).
  */
-const SINGLE_SLUG_SHORTCODE = /<(?:BrandCard|BrandLine)\b[\s\S]*?\bslug=["']([^"']*)["']/g
+const SINGLE_SLUG_SHORTCODE =
+  /<(?:BrandCard|BrandLine)\b(?:"[^"]*"|'[^']*'|[^>"'])*?\bslug=["']([^"']*)["']/g
 /**
  * `<BrandGallery slug="…">` — slug-bearing like the two above, but deliberately
  * kept out of `SINGLE_SLUG_SHORTCODE` because it renders photographs, not links.
@@ -78,8 +82,11 @@ const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/
  * and a `~~~` block may legally contain ``` lines. A fence left unclosed at EOF
  * swallows the rest of the file, which is the safe direction — an unterminated
  * block is malformed content, and under-counting beats inventing references.
+ *
+ * Exported for the story content guard, which applies the same rule to link
+ * checks rather than keeping a second fence parser.
  */
-function stripFencedCodeBlocks(source: string): string {
+export function stripFencedCodeBlocks(source: string): string {
   const kept: string[] = []
   let openFence: string | null = null
 

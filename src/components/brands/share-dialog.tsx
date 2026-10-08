@@ -29,6 +29,8 @@ interface ShareDialogProps {
   brandImageUrl?: string
   brandId?: string
   categoryLabel?: string | null
+  /** Square 44px icon trigger; the label moves to `aria-label`. */
+  iconOnly?: boolean
 }
 
 export function ShareDialog({
@@ -37,6 +39,7 @@ export function ShareDialog({
   brandImageUrl,
   brandId,
   categoryLabel,
+  iconOnly = false,
 }: ShareDialogProps) {
   const t = useTranslations('brandDetail.share')
   const [open, setOpen] = useState(false)
@@ -126,6 +129,8 @@ export function ShareDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <Button
         variant="secondary"
+        size={iconOnly ? 'icon' : undefined}
+        aria-label={iconOnly ? t('trigger') : undefined}
         className="shrink-0"
         onClick={handleTriggerClick}
         onPointerEnter={primeOnDesktopPointer}
@@ -134,7 +139,7 @@ export function ShareDialog({
         data-ph-no-autocapture
       >
         <Share2 className="size-4" aria-hidden="true" />
-        {t('trigger')}
+        {!iconOnly && t('trigger')}
       </Button>
       {primed && (
         <ShareDialogContent

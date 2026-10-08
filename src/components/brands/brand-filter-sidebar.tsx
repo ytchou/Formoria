@@ -20,6 +20,8 @@ export type BrandFilterSidebarProps = {
   subcategoryOptions?: SubcategoryOption[];
   activeSubSlugs?: string[];
   totalCount: number;
+  /** Render no counts while a search is active (see `FilterSidebarProps`). */
+  hideCounts?: boolean;
 };
 
 /**

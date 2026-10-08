@@ -18,10 +18,10 @@ test.describe("Stories hub deep", () => {
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     if (stories.length === 0) {
-      // The empty-state copy is 首波專題正在整理中，敬請期待。 — a bare substring
-      // match on the tail also resolves to any other "敬請期待" the page grows,
-      // so it is scoped to main and taken as the first match explicitly.
-      await expect(anonPage.locator("main").getByText("敬請期待").first()).toBeVisible({
+      // The empty-state copy is 第一批專題還在寫。 — scoped to main and taken as
+      // the first match, so a second occurrence elsewhere on the page can't
+      // make the locator ambiguous.
+      await expect(anonPage.locator("main").getByText("第一批專題還在寫").first()).toBeVisible({
         timeout: BUDGET.INTERACTIVE,
       });
       await expect(anonPage.locator('main a[href*="/stories/"]')).toHaveCount(
@@ -81,5 +81,32 @@ test.describe("Stories hub deep", () => {
       .getByRole("link", { name: "專題", exact: true });
     await expect(storiesLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(storiesLink).toHaveAttribute("href", "/stories");
+  });
+
+  /*
+   * The global chrome on a route with a header link of its own (DEV-1968):
+   * the desktop row marks 專題 as the current page and nothing else, and the
+   * footer carries the non-seller disclosure. The unit test in
+   * `main-nav.test.tsx` owns the `aria-current` logic; this owns that the
+   * rendered page ships it, at a desktop width where the row is displayed.
+   */
+  test("header marks 專題 as the current page and the footer discloses non-selling", async ({
+    anonPage,
+  }) => {
+    await anonPage.setViewportSize({ width: 1280, height: 800 });
+    await anonPage.goto("/stories");
+    const banner = anonPage.getByRole("banner");
+    const current = banner.locator('a[aria-current="page"]');
+    await expect(current).toHaveCount(1, { timeout: BUDGET.INTERACTIVE });
+    await expect(current).toHaveAttribute("href", "/stories");
+    await expect(current).toHaveText("專題");
+
+    await expect(
+      anonPage
+        .getByRole("contentinfo")
+        .getByText("Formoria 不販售商品；所有購買都在品牌自己的通路完成。", {
+          exact: true,
+        }),
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 });

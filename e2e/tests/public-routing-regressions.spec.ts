@@ -8,7 +8,14 @@ test.describe("Public routing regressions deep", () => {
       const response = await page.goto(path);
       expect(response?.status()).toBe(200);
       await expect(page.locator("main h1")).toBeVisible();
-      await expect(page.locator('main a[href$="/submit"]')).toBeVisible();
+      // DEV-1956: the CTA goes straight to the recommend form; /submit only
+      // offered brand owners a coming-soon card.
+      await expect(
+        page.locator('main a[href$="/submit/recommend"]'),
+      ).toBeVisible();
+      // The layout template appends "| Formoria"; the page title must not
+      // carry the brand a second time.
+      expect((await page.title()).match(/Formoria/g)).toHaveLength(1);
     }
   });
 
