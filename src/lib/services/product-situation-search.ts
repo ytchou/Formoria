@@ -505,6 +505,19 @@ export async function searchProductsBySituation(
     degradedReason?: string;
   };
 
+  // DEV-1977: never surface a product whose L1 category /discover hides,
+  // unless the caller chose that category (the RPC already filtered to it).
+  // Mirrors getPublishedCuratedProducts' `categories` option.
+  // Shortcut: filtered post-RPC to avoid a migration, so a hidden-category
+  // candidate still occupies one of the CANDIDATE_POOL slots. Upgrade path:
+  // move the visibility filter inside search_products_semantic.
+  const byVisibleId = (products: CatalogProduct[]) =>
+    new Map(
+      products
+        .filter((p) => input.category || isVisibleCategory(p.category))
+        .map((p) => [p.id, p]),
+    );
+
   let ordered: CatalogProduct[] | undefined;
   let ltrFields: LtrFields | undefined;
 
@@ -547,7 +560,7 @@ export async function searchProductsBySituation(
       const ltrProductKeys = scored.map((s) => s.id);
       const ltrRanks = orderedIds.map((id) => ltrProductKeys.indexOf(id));
 
-      const byId = new Map(hydratedProducts.map((p) => [p.id, p]));
+      const byId = byVisibleId(hydratedProducts);
 
       let displayOrder: string[];
       let armBySlot: ("rrf" | "ltr")[] | undefined;
@@ -615,7 +628,7 @@ export async function searchProductsBySituation(
   // Fallback: hydrate normally when LTR is off or errored
   if (ordered === undefined) {
     const hydratedProducts = await deps.hydrate({ ids: orderedIds });
-    const byId = new Map(hydratedProducts.map((p) => [p.id, p]));
+    const byId = byVisibleId(hydratedProducts);
     ordered = orderedIds
       .map((id) => byId.get(id))
       .filter((p): p is CatalogProduct => p != null);
