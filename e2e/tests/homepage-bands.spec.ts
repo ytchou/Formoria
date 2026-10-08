@@ -17,6 +17,33 @@ function trailItems(page: Page) {
     .locator(":scope > li");
 }
 
+/**
+ * DS-10 / DS-12: a wall tile's name sits in flow beneath its photograph at
+ * rest (it used to be a hover-only scrim from `sm`), inset 12px from the
+ * band's ground plate. Measured without hovering.
+ */
+async function measureWallCaption(page: Page) {
+  const tile = selectionTiles(page).first();
+  await tile.waitFor({ timeout: BUDGET.SERVER_RENDER });
+  await tile.scrollIntoViewIfNeeded();
+
+  const name = tile.getByRole("heading", { level: 3 });
+  const [photoBox, nameBox] = await Promise.all([
+    tile.locator("[data-wall-ratio]").boundingBox(),
+    name.boundingBox(),
+  ]);
+  return {
+    name,
+    // In flow below the photo, not overlaid on it.
+    belowPhoto:
+      !!photoBox && !!nameBox && nameBox.y >= photoBox.y + photoBox.height - 1,
+    inset: await name.evaluate((el) => {
+      const style = getComputedStyle(el.parentElement!);
+      return { left: style.paddingLeft, bottom: style.paddingBottom };
+    }),
+  };
+}
+
 test.describe("Homepage bands on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -49,6 +76,17 @@ test.describe("Homepage bands on a phone", () => {
         .locator('[data-landing-zone="selection"]')
         .getByRole("link", { name: "看全部商品" }),
     ).toBeVisible();
+  });
+
+  test("a selection tile shows its name at rest, below the photo", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const caption = await measureWallCaption(page);
+    await expect(caption.name).toBeVisible();
+    await expect(caption.name).not.toBeEmpty();
+    expect(caption.belowPhoto).toBe(true);
+    expect(caption.inset).toEqual({ left: "12px", bottom: "12px" });
   });
 
   test("the trail row lets the next trail peek in and counts position", async ({
@@ -95,6 +133,17 @@ test.describe("Homepage bands on desktop", () => {
     await expect(
       page.locator('[data-landing-zone="trails"]').getByText(/^1 \/ \d+$/),
     ).toBeHidden();
+  });
+
+  test("a selection tile shows its name at rest, below the photo", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const caption = await measureWallCaption(page);
+    await expect(caption.name).toBeVisible();
+    await expect(caption.name).not.toBeEmpty();
+    expect(caption.belowPhoto).toBe(true);
+    expect(caption.inset).toEqual({ left: "12px", bottom: "12px" });
   });
 
   // Only the "all" group is server-rendered; a category chip fetches its
