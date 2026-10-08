@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { test, expect } from "../fixtures/auth";
 import { seedBrand, type SeededBrand } from "../helpers/seed";
 
 import { BUDGET } from "../budgets";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>;
+
 test.describe("Admin brand corrections", () => {
   test.describe.configure({ mode: "serial" });
 
-  let supabase: ReturnType<typeof createClient> | null = null;
+  let supabase: AnySupabaseClient | null = null;
   const seededBrands: SeededBrand[] = [];
   const correctionIds: string[] = [];
 
@@ -77,7 +81,8 @@ test.describe("Admin brand corrections", () => {
       !url || !key,
       "Supabase service-role credentials are required for correction seeding.",
     );
-    supabase = createClient(url!, key!);
+    const client: AnySupabaseClient = createClient(url!, key!);
+    supabase = client;
 
     try {
       for (const name of ["selected one", "selected two", "untouched"]) {
@@ -98,7 +103,7 @@ test.describe("Admin brand corrections", () => {
 
     const proposedValues = ["fashion", "jewelry", "fashion"];
     for (const [index, seeded] of seededBrands.entries()) {
-      const { data: correction, error } = await supabase
+      const { data: correction, error } = await client
         .from("brand_field_corrections")
         .insert({
           brand_id: seeded.brand.id,
@@ -161,7 +166,7 @@ test.describe("Admin brand corrections", () => {
 
     await expect
       .poll(async () => {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from("brand_field_corrections")
           .select("id, status")
           .in("id", correctionIds);
@@ -176,7 +181,7 @@ test.describe("Admin brand corrections", () => {
         ]),
       );
 
-    const { data: brands, error: brandsError } = await supabase
+    const { data: brands, error: brandsError } = await client
       .from("brands")
       .select("id, category")
       .in(

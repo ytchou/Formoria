@@ -1,7 +1,10 @@
 import { test, expect } from "../fixtures/auth";
 import type { Page } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { BUDGET, POLL } from "../budgets";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 /**
  * Turnstile is normally solved by the addInitScript mock. Post the synthetic
@@ -145,15 +148,18 @@ test.describe("Submit funnel", () => {
     await expect(anonPage.locator('a[href="/submit"]').first()).toBeVisible();
 
     // Verify brand_submissions row was created in DB
-    const supabase = createClient(
+    const supabase: AnySupabaseClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
-    let savedSubmission: {
+    type SavedSubmission = {
       intent: string;
       source_attribution: string | null;
       submitter_email: string | null;
-    } | null = null;
+    };
+    // The cast stops TS narrowing the `let` to `null`: it is assigned inside
+    // the poll callback, which control-flow analysis does not follow.
+    let savedSubmission = null as SavedSubmission | null;
     await expect
       .poll(
         async () => {

@@ -75,6 +75,7 @@ jobs:
               ;;
             type-check)
               pnpm tsc --noEmit
+              pnpm tsc -p e2e --noEmit
               ;;
             unit-changed)
               pnpm vitest run --changed HEAD~1

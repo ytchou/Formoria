@@ -54,6 +54,7 @@ function unwrapExpression(node) {
   let expression = node
   while (
     ts.isAsExpression(expression) ||
+    ts.isSatisfiesExpression(expression) ||
     ts.isTypeAssertionExpression(expression) ||
     ts.isParenthesizedExpression(expression)
   ) {

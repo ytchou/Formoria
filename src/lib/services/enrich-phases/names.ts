@@ -49,9 +49,8 @@ export type NamesPhaseOutput = {
   /**
    * Keyed by TARGET ID, never by display name and never by slug.
    *
-   * The same rule `runImageSearchPhase` follows, for the same reason: this phase
-   * runs after `clean`/`detect`, either of which can rewrite a brand's name, and
-   * a mismatched key in a Map is a silent empty result rather than an error.
+   * This phase runs after `clean`/`detect`, either of which can rewrite a brand's
+   * name, and a mismatched key in a Map is a silent empty result rather than an error.
    */
   verdicts: Map<string, NameVerdict>;
   providerFailure: boolean;

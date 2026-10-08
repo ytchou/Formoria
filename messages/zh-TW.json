@@ -1,14 +1,11 @@
 {
   "common": {
-    "brandName": "Formoria",
     "exploreBrands": "逛逛品牌",
     "submitBrand": "推薦品牌",
     "all": "全部",
-    "allBrands": "全部品牌",
     "skipToContent": "跳至主要內容",
     "close": "關閉",
     "closeDialog": "關閉對話框",
-    "foundingYear": "創立於 {year}",
     "loading": "載入中…"
   },
   "nav": {
@@ -64,7 +61,6 @@
     "productCta": "在品牌官網查看",
     "brandSiteCta": "前往品牌官方網站",
     "madeInTaiwan": "台灣製造",
-    "brandProvidedBadge": "品牌提供",
     "unavailable": "品牌的商品頁暫時打不開",
     "relatedStories": "繼續閱讀",
     "relatedTrails": "其他主題選物",
@@ -79,7 +75,6 @@
     "subheading": "依分類、材質找台灣商品，在品牌官網或實體通路購買",
     "emptyState": "沒有符合這些條件的商品。拿掉一個篩選條件再試試。",
     "resultCount": "共 {count} 件商品",
-    "moreComingSoon": "還會陸續加入更多商品",
     "filters": {
       "subcategory": "子分類",
       "material": "材質",
@@ -236,16 +231,9 @@
       "trigger": "篩選",
       "all": "全部",
       "category": "分類",
-      "brandStatus": "品牌狀態",
-      "appliedHint": "按標籤上的 × 就能移除",
-      "currentConditions": "目前的篩選條件",
-      "brandSearch": "搜尋品牌或產品",
-      "brandSearchHelp": "搜尋結果也會套用目前的篩選條件",
-      "brandSearchLandmark": "依品牌或產品關鍵字篩選",
       "activeSearch": "搜尋",
       "activeCategory": "分類",
       "activeSubcategory": "子分類",
-      "activeStatus": "品牌狀態",
       "removeFilter": "移除{label}：{value}",
       "clearAll": "清除全部",
       "showResults": "顯示 {count} 個結果",
@@ -274,10 +262,8 @@
       "nextAria": "下一頁"
     },
     "card": {
-      "foundingYear": "創立於 {year}",
       "productCount": "{count} 件商品"
     },
-    "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果",
     "editorialLinksAria": "相關專題與主題選物",
     "editorialStories": "相關專題",
@@ -339,8 +325,6 @@
       "next": "下一組商品",
       "allCategories": "全部"
     },
-    "verified": "品牌經營",
-    "foundingYear": "創立於 {year}",
     "label": {
       "category": "品牌類別",
       "subcategories": "商品子類別",
@@ -355,7 +339,6 @@
       "visitInstagram": "前往 Instagram",
       "visitThreads": "前往 Threads",
       "visitFacebook": "前往 Facebook",
-      "share": "分享",
       "copied": "已複製"
     },
     "share": {
@@ -488,8 +471,6 @@
       "about": "品牌故事",
       "whereToBuy": "哪裡買得到",
       "tags": "標籤",
-      "photos": "照片",
-      "locations": "地點",
       "retailLocations": "實體通路",
       "faq": "常見問題"
     },
@@ -549,7 +530,6 @@
       }
     },
     "gallery": {
-      "viewer": "照片檢視",
       "close": "關閉",
       "previous": "上一張",
       "next": "下一張",
@@ -593,15 +573,13 @@
     "index": {
       "heading": "商品分類",
       "intro": "依商品類型找台灣品牌：服飾鞋履、包袋配件、飾品珠寶、美妝保養、居家生活、文具設計。",
-      "childNavigation": "{category}的子分類",
       "metadata": {
         "title": "商品分類｜Formoria",
         "description": "Formoria 收錄的台灣品牌，依目前開放的分類與子分類瀏覽。"
       }
     },
     "landing": {
-      "updated": "更新於 {date}",
-      "categoryLinksAria": "這個分類的子分類"
+      "updated": "更新於 {date}"
     },
     "metadata": {
       "title": "{displayName} 台灣品牌",
@@ -1779,67 +1757,7 @@
     }
   },
   "brandFields": {
-    "metaTitle": "編輯品牌",
-    "pageHeading": "編輯 {name}",
-    "sectionMedia": "產品圖片",
-    "sectionLinks": "社群與購買連結",
-    "fieldBrandName": "品牌名稱",
-    "fieldCategory": "品牌類別",
-    "fieldCategoryHint": "用於導航、搜尋和篩選",
-    "fieldDescription": "品牌介紹",
-    "fieldSubcategories": "產品子類別",
-    "subcategoriesMax": "請描述產品類別，而非宣傳用語。仍有公開商品使用的類別，必須先隱藏商品或重新分類後才能移除。",
-    "fieldFoundingYear": "創立年份",
-    "fieldHeroImage": "主視覺圖片",
-    "heroImageEditHint": "僅限 1 張。這是品牌頁面最先顯示的圖片，也會作為瀑布流品牌卡片封面。建議使用清晰的 16:9 橫式圖片。",
-    "fieldProductPhotos": "產品照片",
-    "productPhotosEditHint": "最多可上傳 9 張產品單品、細節或使用情境照片，這些圖片會顯示於品牌頁面的產品圖庫。",
-    "city": "品牌創立縣市",
-    "cityPlaceholder": "請選擇品牌創立縣市",
-    "fieldOfficialWebsite": "官方網站",
-    "fieldInstagram": "Instagram",
-    "fieldThreads": "Threads",
-    "fieldFacebook": "Facebook",
-    "fieldPinkoi": "Pinkoi",
-    "fieldShopee": "蝦皮購物",
-    "fieldMyship": "7-ELEVEN 賣貨便",
-    "fieldPurchaseLinks": "購買連結",
-    "fieldUrlPlaceholder": "網址",
-    "fieldLabelPlaceholder": "標籤",
-    "socialLinksLabel": "社群連結",
-    "fieldOtherLinks": "其他連結",
-    "addLink": "新增連結",
-    "removeItem": "移除",
-    "saving": "儲存中…",
-    "saveDraft": "儲存草稿",
-    "save": "儲存變更",
-    "cancel": "取消",
-    "wizardProgress": "第 {current} 步，共 {total} 步",
-    "wizardCompletedProgress": "已完成 {completed}／{total} 步",
-    "wizardSidebarTitle": "編輯品牌資料",
-    "wizardSaveAndContinue": "儲存並繼續",
-    "wizardBack": "上一步",
-    "wizardPublish": "發布",
-    "wizardStepBasicInfo": "基本資料",
-    "wizardStepBasicInfoSub": "品牌基本資料",
-    "wizardStepMedia": "品牌圖片",
-    "wizardStepMediaSub": "品牌圖片",
-    "wizardStepLinks": "社群與購買連結",
-    "wizardStepLinksSub": "社群與購買連結",
-    "wizardStepReputation": "品牌口碑",
-    "wizardStepReputationSub": "品牌口碑",
-    "requiredHint": "為必填欄位",
-    "requiredFieldError": "發布前請完成此必填欄位。",
-    "fieldDescriptionHint": "顯示在品牌頁面上的公開介紹",
-    "fieldFoundingYearHint": "品牌最初創立的年份",
-    "cityHint": "請填品牌創立縣市，而非總部或目前所在地",
-    "unsavedChanges": "有未儲存的變更",
-    "slugChangeBlocked": "品牌網址基於此名稱。如需更改，請聯繫我們。",
-    "subcategoriesSearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",
-    "subcategoriesSelectedHeading": "已選子類別（按一下移除）",
-    "subcategoriesOptionsHeading": "可加入的子類別",
-    "subcategoriesRejected": "這個詞不在子類別清單中。請改用下方清單裡最接近的子類別。",
-    "subcategoriesEmpty": "沒有符合的子類別，請換個關鍵字。"
+    "cancel": "取消"
   },
   "errors": {
     "notFound": {
@@ -1978,7 +1896,6 @@
   },
   "search": {
     "emptyState": {
-      "currentConditions": "目前的篩選條件",
       "title": "沒有符合這些條件的品牌",
       "description": "拿掉一個條件再找，或直接看全部品牌。",
       "actions": {
@@ -2027,14 +1944,6 @@
     "seriesCountFiltered": "共 {total} 篇中的 {shown} 篇",
     "brandMissing": "這個品牌目前沒有公開頁面：{slug}",
     "galleryImageAlt": "{brand} 品牌作品",
-    "eventDates": "日期",
-    "eventHours": "時間",
-    "eventVenue": "地點",
-    "eventAdmission": "入場",
-    "eventOfficialSite": "官方網站",
-    "eventBookOnline": "線上預約",
-    "eventPage": "活動頁",
-    "eventFinePrint": "詳細安排請以官方網站公告為準",
     "boothLabel": "攤位",
     "relatedTrails": "相關主題選物",
     "relatedTrailsAria": "與這篇專題相關的主題選物"

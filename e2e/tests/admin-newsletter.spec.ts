@@ -1,7 +1,10 @@
 import { BUDGET } from '../budgets';
 import { randomUUID } from 'node:crypto';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe('Admin newsletter operations deep', () => {
   test.beforeEach(() => {
@@ -12,7 +15,7 @@ test.describe('Admin newsletter operations deep', () => {
 
   const subscriberId = randomUUID();
   const subscriberEmail = `e2e-newsletter-${subscriberId}@example.com`;
-  let supabase: ReturnType<typeof createClient>;
+  let supabase: AnySupabaseClient;
 
   test.beforeAll(async () => {
     supabase = createClient(

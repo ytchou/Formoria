@@ -138,7 +138,7 @@ export type StoredCuratedProductImage = {
 };
 
 /** Reads the visible text off a processed image; production is `readImageText`. */
-export type CuratedProductImageTextReader = (
+type CuratedProductImageTextReader = (
   processed: ProcessedImage,
 ) => Promise<string>;
 

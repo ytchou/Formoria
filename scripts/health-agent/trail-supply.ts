@@ -8,17 +8,16 @@ import type {
 import { compareText } from "./brand-review";
 import {
   stableFingerprint,
+  type HealthCollectorArtifact,
   type HealthFinding,
   type JsonValue,
 } from "./contracts";
-import type { HealthCollectorArtifact } from "./orchestrator";
 
 /**
  * The agent-side half of the nightly trail supply-decay observation (DEV-1520).
  *
- * REPORT ONLY. Every finding here is `disposition: "report_only"`, so the
- * repair orchestrator skips it (`orchestrator.ts` eligibility filter) and only
- * Linear ever sees it. Nothing on a public surface changes because of a
+ * REPORT ONLY. Every finding here is `disposition: "report_only"`, so no
+ * repair path ever acts on it and only Linear ever sees it. Nothing on a public surface changes because of a
  * finding: a decayed trail stays published, indexed, in the sitemap, on the hub
  * and on the homepage. DEV-1518 removed the render-time supply predicates on
  * purpose and this tree must never grow them back.
@@ -27,8 +26,8 @@ import type { HealthCollectorArtifact } from "./orchestrator";
  * The agent gains NO database reach for this. It reads one HTTP endpoint
  * (`/api/cron/trail-supply`) whose summary the app owns, exactly the division
  * of labour the `link` detector already uses. The evaluator below is pure —
- * summary in, findings out — so the only I/O in the whole path is the fetch in
- * `workflow-runtime.ts`.
+ * summary in, findings out — so the only I/O in the whole path is the caller's
+ * fetch.
  */
 
 /**
@@ -40,9 +39,9 @@ import type { HealthCollectorArtifact } from "./orchestrator";
 const TRAIL_SUPPLY_HUMAN_REASON = "Trail supply is editorial and human-owned";
 
 /**
- * The routine name on the artifact. Deliberately NOT a `HealthRoutine`: this
- * collector never loads through `loadCollectorArtifact`, and widening
- * `HEALTH_ROUTINES` would add a sixth key to every exhaustive routine record.
+ * The routine name on the artifact. Deliberately NOT a `HealthRoutine`
+ * (`contracts.ts`): widening that union would add a sixth key to every
+ * exhaustive routine record.
  * Its findings ride the merged `directory-health` artifact instead, which is
  * why every one of them carries `source: "directory"`.
  */
@@ -93,7 +92,7 @@ export type TrailSupplyArtifact = Omit<
  *
  * Ceiling: 500 findings, roughly 200KB of merged JSON against a 512KB limit and
  * an order of magnitude above any plausible real trail count. Raise it only
- * together with the two byte limits in `orchestrator.ts`.
+ * together with the merged-artifact byte limits.
  */
 const MAX_TRAIL_SUPPLY_FINDINGS = 500;
 

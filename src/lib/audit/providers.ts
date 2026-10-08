@@ -202,7 +202,6 @@ const PROVIDERS = {
     "executeCommunitySubmissions",
     "markFlagsReviewed",
     "rejectSubmission",
-    "reopenSubmission",
     "requestBrandRefresh",
     "requestBrandRefreshesBySlugs",
     "saveModerationFlags",

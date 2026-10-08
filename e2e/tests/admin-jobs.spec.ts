@@ -22,8 +22,9 @@ function extractJobId(pathname: string, excludeId?: string): string {
  * Assert a Supabase query succeeded, throwing on error. Lives outside the
  * test body so `playwright/no-conditional-in-test` does not flag the guard.
  */
-function assertQueryOk<T>(result: { data: T; error: { message: string } | null }, label: string): T {
+function assertQueryOk<T>(result: { data: T; error: { message: string } | null }, label: string): NonNullable<T> {
   if (result.error) throw new Error(`${label} failed: ${result.error.message}`);
+  if (result.data == null) throw new Error(`${label} returned no data`);
   return result.data;
 }
 

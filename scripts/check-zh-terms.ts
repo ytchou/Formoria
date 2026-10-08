@@ -206,7 +206,6 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "lib/services/enrich-phases/products/evidence-lexicon.ts",
     "product-page fact/chrome label regexes, never rendered",
   ],
-  ["lib/services/enrich-phases/image-search.ts", "search-query keywords"],
   ["lib/services/enrich-phases/detect.ts", "SEO keyword constants"],
   ["lib/services/curation-operations.ts", "SERP query string"],
   ["lib/services/brand-cleanup.ts", "cleanup keyword arrays and regexes"],

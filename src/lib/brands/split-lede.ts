@@ -20,7 +20,7 @@ const ABBREVIATION_BEFORE_DOT = /(?:^|[\s(（])(?:Mr|Mrs|Ms|Dr|St|Co|Inc|Ltd|No|
  * about 80 CJK or 160 Latin characters (DEV-1982).
  */
 const MAX_LEDE_WIDTH = 160;
-const WIDE_CHAR = /[　-〿㐀-鿿豈-﫿＀-￯]/;
+const WIDE_CHAR = /[\u3000-\u303f\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/;
 
 function displayWidth(text: string): number {
   let width = 0;

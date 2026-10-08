@@ -51,7 +51,6 @@ const isLocalTarget = ["localhost", "127.0.0.1", "::1"].includes(
   new URL(baseURL).hostname,
 );
 const isCanonicalStaging = isCanonicalStagingTarget(baseURL);
-const isTargetedSelfheal = process.env.SELFHEAL_TARGETED === "true";
 const remoteHeaders = Object.fromEntries(
   [
     ["CF-Access-Client-Id", process.env.CF_ACCESS_CLIENT_ID],
@@ -88,14 +87,14 @@ export default defineConfig({
   // (ECONNRESET server-side) reaches the client as a truncated flight payload.
   // Keep local and canonical-staging runs deterministic; other CI targets
   // retain their parallel worker count.
-  workers: process.env.CI && !isTargetedSelfheal && !isCanonicalStaging ? 4 : 1,
+  workers: process.env.CI && !isCanonicalStaging ? 4 : 1,
   reporter: "html",
   // CI serves a production build via `pnpm start`, so every route is already
   // compiled and 30s is a real budget. Locally `webServer` runs `pnpm dev`,
   // which compiles each route on demand while parallel workers race the same
   // cold compile — that alone can push a first `page.goto` past 30s. Keep CI
   // strict so a genuine regression still fails there.
-  timeout: process.env.CI && !isTargetedSelfheal ? 30_000 : 60_000,
+  timeout: process.env.CI ? 30_000 : 60_000,
   expect: {
     // Playwright's own default, restated so it is greppable and so any change
     // to it shows up in a diff. Around 540 assertions in e2e/ carry no explicit
@@ -224,14 +223,14 @@ export default defineConfig({
         // dev-widget suppression). It no longer decides either gate.
         command: localApp
           ? `PLAYWRIGHT_TEST=true ${securityGateEnv} pnpm start --hostname localhost --port ${new URL(baseURL).port || "3000"}`
-          : process.env.CI && !isTargetedSelfheal
+          : process.env.CI
             ? `PLAYWRIGHT_TEST=true ${securityGateEnv} pnpm start`
             : process.env.BASE_URL
               ? `PLAYWRIGHT_TEST=true ${securityGateEnv} PORT=${new URL(baseURL).port || "3000"} pnpm dev`
               : `PLAYWRIGHT_TEST=true ${securityGateEnv} pnpm dev`,
         url: baseURL,
         reuseExistingServer: !process.env.CI && !localApp,
-        timeout: process.env.CI && !isTargetedSelfheal ? 60_000 : 120_000,
+        timeout: process.env.CI ? 60_000 : 120_000,
       }
     : undefined,
 });

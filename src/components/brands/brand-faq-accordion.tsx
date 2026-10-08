@@ -53,7 +53,7 @@ export function BrandFaqAccordion({ items }: BrandFaqAccordionProps) {
       <dl className="space-y-stack">
         {items.map((item) => (
           <div key={item.id} id={`faq-${item.id}`} className="scroll-mt-24">
-            {/* Questions step below the 常見問題 heading (DESIGN.md §8). */}
+            {/* Questions step below the brandDetail.sections.faq heading (DESIGN.md §8). */}
             <dt className="type-body font-semibold text-ink">
               {item.question}
             </dt>
