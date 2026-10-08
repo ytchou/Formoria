@@ -65,6 +65,7 @@ import {
   ResultsTransitionProvider,
 } from "@/components/filters";
 import { DirectoryHeader } from "@/components/directory/directory-header";
+import { DiscoverCategoryChips } from "@/components/products/discover-category-chips";
 import { DirectoryToolbar } from "@/components/directory/directory-toolbar";
 import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
 import {
@@ -397,9 +398,7 @@ export async function DirectoryView({
   }
 
   const sidebarProps = {
-    locale: safeLocale,
     activeCategory: singleValidCategory,
-    allLabel: commonT("all"),
     subcategoryOptions,
     activeSubSlugs,
     totalCount,
@@ -465,6 +464,26 @@ export async function DirectoryView({
         />
 
         <ResultsTransitionProvider>
+        {/* The L1 picker /discover uses (R2-10): chips above the results, not
+            a radio group in the filter panel. A search keeps its query. */}
+        <DiscoverCategoryChips
+          label={t("filters.category")}
+          chips={[
+            { slug: null, label: commonT("all") },
+            ...VISIBLE_L1_CATEGORIES.map((node) => ({
+              slug: node.slug,
+              label: categoryLabel(node, safeLocale),
+            })),
+          ].map((chip) => ({
+            ...chip,
+            href: routes.brands({
+              category: chip.slug ?? undefined,
+              search: search || undefined,
+            }),
+          }))}
+          activeCategory={singleValidCategory}
+        />
+
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Desktop sidebar */}
           <FilterAside aria-label={t("filters.title")}>

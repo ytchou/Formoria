@@ -11,7 +11,12 @@ import {
 import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
 import * as Sentry from "@sentry/nextjs";
 import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
-import { isMaterialApplicable, isVisibleCategory } from "@/lib/taxonomy/ontology";
+import {
+  MATERIALS,
+  isMaterialApplicable,
+  isVisibleCategory,
+  subcategoryDisplayLabel,
+} from "@/lib/taxonomy/ontology";
 import type { RpcRow as LtrRpcRow } from "./ltr-features";
 import { diversifyRankedProducts } from "./search-diversify";
 
@@ -142,7 +147,8 @@ export function normalizeSituationQuery(raw: string): string {
   if (normalized.length === 0 || WILDCARD_ONLY.test(normalized)) {
     throw new SituationQueryError("empty", "Query is empty");
   }
-  if (normalized.length < 2) {
+  // One Han character is a real query (tea, cup, bag); one Latin letter is not.
+  if (normalized.length < 2 && !HAN.test(normalized)) {
     throw new SituationQueryError(
       "too_short",
       `Query must be at least 2 characters, got ${normalized.length}`,
@@ -173,10 +179,17 @@ type RpcFn = (
 
 type HydrateFn = (opts: { ids: string[] }) => Promise<CatalogProduct[]>;
 
+type ListCatalogFn = () => Promise<CatalogProduct[]>;
+
 export type SearchDeps = {
   embed: EmbedFn;
   rpc: RpcFn;
   hydrate: HydrateFn;
+  /**
+   * The full published catalog, in browse order. Answers 1-character Han
+   * queries (searchSingleCharacter). Without it those queries return nothing.
+   */
+  listCatalog?: ListCatalogFn;
   cache: Pick<QueryEmbeddingCache, "get" | "set">;
   report: (error: unknown) => void;
   now: () => number;
@@ -256,6 +269,14 @@ export function createDefaultSearchDeps(): SearchDeps {
       const result = await getPublishedCuratedProducts({ ids });
       return result.products;
     },
+    // The memoized unfiltered catalog (the same entry hydration peeks).
+    listCatalog: async () =>
+      (
+        await getPublishedCuratedProducts({
+          sort: "newest",
+          pageSize: Number.MAX_SAFE_INTEGER,
+        })
+      ).products,
     cache: getDefaultQueryEmbeddingCache(),
     report: (error) => {
       Sentry.captureException(error);
@@ -333,12 +354,104 @@ export function applyRelevanceFloor(
   );
 }
 
+/**
+ * Substring tier of a product for a 1-character Han query: 0 = product name,
+ * 1 = zh subcategory label, 2 = zh material label, null = no match.
+ */
+function singleCharacterTier(
+  product: CatalogProduct,
+  char: string,
+): 0 | 1 | 2 | null {
+  if (product.nameZh.includes(char) || product.nameEn?.includes(char)) return 0;
+  if (subcategoryDisplayLabel(product.subcategory, "zh-TW").includes(char)) {
+    return 1;
+  }
+  const hasMaterial = product.material.some((slug) =>
+    MATERIALS.find((m) => m.slug === slug)?.nameZh.includes(char),
+  );
+  return hasMaterial ? 2 : null;
+}
+
+/**
+ * One Han character (tea, cup) has no bigram for the lexical arm and too little
+ * meaning for an embedding, so the RPC answered nothing (R2-02). Match it as a
+ * substring over the in-memory catalog instead (name, then subcategory label,
+ * then material label), the same pattern as the brand search ILIKE arm.
+ *
+ * Shortcut: a linear scan of the memoized catalog (~1.4k products). Upgrade
+ * path: a unigram lexical arm inside search_products_semantic once the catalog
+ * outgrows an in-memory pass.
+ */
+async function searchSingleCharacter(
+  input: SearchInput,
+  char: string,
+  deps: SearchDeps,
+  searchId: string,
+): Promise<SearchResult> {
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 20;
+  const sort = input.sort ?? "relevance";
+  const catalog = deps.listCatalog ? await deps.listCatalog() : [];
+
+  const subcategories = new Set(input.subcategories ?? []);
+  const materials = input.materials ?? [];
+  const tiers: CatalogProduct[][] = [[], [], []];
+  for (const product of catalog) {
+    if (input.category) {
+      if (product.category !== input.category) continue;
+    } else if (!isVisibleCategory(product.category)) continue;
+    if (subcategories.size > 0 && !subcategories.has(product.subcategory)) continue;
+    if (materials.length > 0 && !materials.some((m) => product.material.includes(m))) {
+      continue;
+    }
+    const tier = singleCharacterTier(product, char);
+    if (tier !== null) tiers[tier]!.push(product);
+  }
+
+  let ordered = tiers.flat();
+  if (sort === "newest") {
+    ordered.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  } else if (sort === "alphabetical") {
+    ordered.sort((a, b) => a.nameZh.localeCompare(b.nameZh));
+  } else {
+    const permutation = diversifyRankedProducts(ordered, { query: char });
+    const source = ordered;
+    ordered = permutation.map((i) => source[i]!);
+  }
+
+  const start = (page - 1) * pageSize;
+  return {
+    products: ordered.slice(start, start + pageSize),
+    totalCount: ordered.length,
+    poolLimited: false,
+    searchSource: "lexical",
+    degraded: false,
+    query: char,
+    intentParsed: "skipped",
+    intentCategory: null,
+    intentSubcategory: null,
+    intentMaterials: [],
+    intentCacheHit: false,
+    intentLatencyMs: 0,
+    appliedInference: { category: null, subcategory: null, materials: [] },
+    rpcLatencyMs: 0,
+    embedLatencyMs: 0,
+    searchId,
+  };
+}
+
 export async function searchProductsBySituation(
   input: SearchInput,
   deps: SearchDeps = createDefaultSearchDeps(),
 ): Promise<SearchResult> {
   const searchId = crypto.randomUUID();
   const normalized = normalizeSituationQuery(input.query);
+  // normalizeSituationQuery admits a single character only when it is Han.
+  if (normalized.length === 1) {
+    return searchSingleCharacter(input, normalized, deps, searchId);
+  }
   const mode = input.mode ?? "hybrid";
   const page = input.page ?? 1;
   const pageSize = input.pageSize ?? 20;

@@ -17,6 +17,21 @@ const reverse = readFileSync(
   "utf8",
 );
 
+const noDescription = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20261009130000_brand_search_short_cjk_no_description.sql",
+  ),
+  "utf8",
+);
+const noDescriptionReverse = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/reverse/20261009130000_revert_brand_search_short_cjk_no_description.sql",
+  ),
+  "utf8",
+);
+
 const CJK_CLASS = "[㐀-䶿一-鿿豈-﫿]";
 
 describe("brand search short-CJK ILIKE arm migration (DEV-1991)", () => {
@@ -84,5 +99,32 @@ describe("brand search short-CJK ILIKE arm migration (DEV-1991)", () => {
     expect(reverse).toContain(
       "drop function pg_temp.patch_once(text, text, text, text);",
     );
+  });
+
+  it("answers a 1-character CJK query from name, romanized name and blurb only (R2-13)", () => {
+    // The fts arm's prefix tsquery ('包':*) reaches description lexemes.
+    expect(noDescription).toContain(
+      "AND NOT (has_cjk AND char_length(sanitized_query) = 1)",
+    );
+    expect(noDescription).toContain(
+      "AND NOT (has_cjk AND char_length(search_query) = 1)",
+    );
+    // The description branch stays for 2-character queries.
+    expect(noDescription).toContain(
+      "WHEN char_length(sanitized_query) = 2\n              AND b.description ILIKE",
+    );
+    expect(noDescription).toContain(
+      "OR (char_length(search_query) = 2\n          AND b.description ILIKE",
+    );
+    expect(noDescription).toContain("pg_temp.dev1991_contract(");
+    expect(noDescription).not.toMatch(/drop function (if exists )?public\.search_/i);
+    for (const label of [
+      "search_brand_page description branch",
+      "search_brand_page fts arm single-character skip",
+      "search_brands description disjunct",
+      "search_brands fts single-character skip",
+    ]) {
+      expect(noDescriptionReverse).toContain(`'${label}'`);
+    }
   });
 });

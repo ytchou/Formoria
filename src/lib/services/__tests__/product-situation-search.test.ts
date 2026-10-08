@@ -122,8 +122,9 @@ describe("normalizeSituationQuery", () => {
     expect(normalizeSituationQuery("　hello　world　")).toBe("hello world");
   });
 
-  it("rejects too_short (< 2 chars after normalize)", () => {
-    expect(() => normalizeSituationQuery("　茶　")).toThrow(SituationQueryError);
+  it("rejects too_short (< 2 chars after normalize) unless the character is Han", () => {
+    expect(normalizeSituationQuery("　茶　")).toBe("茶");
+    expect(() => normalizeSituationQuery("a")).toThrow(SituationQueryError);
     try {
       normalizeSituationQuery("a");
     } catch (e) {
@@ -1700,5 +1701,48 @@ describe("searchProductsBySituation — diversification", () => {
     served.products.forEach((p, i) => {
       expect(served.armBySlot![i]).toBe(armOf.get(p.id));
     });
+  });
+});
+
+describe("searchProductsBySituation — single Han character (R2-02)", () => {
+  const bags = { category: "bags-accessories" };
+  const catalog = [
+    product("tote", "帆布托特", { ...bags, subcategory: "tote-bags" }),
+    product("pouch", "零錢包", { ...bags, subcategory: "handbags" }),
+    product("leather", "名片夾", { ...bags, subcategory: "card-holders", material: ["leather"] }),
+    product("hidden", "隱藏包", { category: "not-a-visible-category" }),
+    product("none", "水壺", bags),
+  ];
+
+  it("matches name, then subcategory label, without embedding or the RPC", async () => {
+    const deps = createDeps({ listCatalog: vi.fn().mockResolvedValue(catalog) });
+    const result = await searchProductsBySituation({ query: "包", locale: "zh-TW" }, deps);
+
+    // 零錢包 by name; 帆布托特 by its subcategory label 托特包.
+    expect(result.products.map((p) => p.id)).toEqual(["pouch", "tote"]);
+    expect(result.totalCount).toBe(2);
+    expect(result.searchSource).toBe("lexical");
+    expect(deps.embed).not.toHaveBeenCalled();
+    expect(deps.rpc).not.toHaveBeenCalled();
+  });
+
+  it("matches the zh material label and honours manual filters", async () => {
+    const deps = createDeps({ listCatalog: vi.fn().mockResolvedValue(catalog) });
+    const result = await searchProductsBySituation(
+      { query: "皮", locale: "zh-TW", materials: ["leather"] },
+      deps,
+    );
+    expect(result.products.map((p) => p.id)).toEqual(["leather"]);
+
+    const filtered = await searchProductsBySituation(
+      { query: "包", locale: "zh-TW", subcategories: ["tote-bags"] },
+      deps,
+    );
+    expect(filtered.products.map((p) => p.id)).toEqual(["tote"]);
+  });
+
+  it("returns an empty result without a catalog source", async () => {
+    const result = await searchProductsBySituation({ query: "包", locale: "zh-TW" }, createDeps());
+    expect(result.totalCount).toBe(0);
   });
 });

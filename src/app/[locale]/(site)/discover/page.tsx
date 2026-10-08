@@ -1,4 +1,4 @@
-import { matchBrandsForQuery } from "@/lib/services/brands";
+import { getBrands, matchBrandsForQuery } from "@/lib/services/brands";
 import type { BrandNameMatch } from "@/lib/brands/brand-name-match";
 import { DiscoverBrandRow } from "@/components/products/discover-brand-row";
 import {
@@ -461,6 +461,9 @@ export default async function DiscoverPage({
   // A zero-result search offers ways forward; the unfiltered first page opens
   // on an editorial trail rail. The trail read runs only for those two.
   const showSearchEmpty = isSearchMode && products.length === 0;
+  // Narrowing cannot rescue a zero-result search with no filter applied, so
+  // the empty state takes the full width instead of sitting beside facets.
+  const showFilters = !(showSearchEmpty && activeFilters.length === 0);
   const showTrailRail =
     !isSearchMode &&
     category === null &&
@@ -470,6 +473,27 @@ export default async function DiscoverPage({
     products.length > 0;
   const firstTrails =
     showSearchEmpty || showTrailRail ? await readFirstTrails(locale) : [];
+  // A zero-result product search still points at the brands that match the
+  // same query (R2-02): /brands searches names and intros, not products.
+  const brandMatchCount =
+    showSearchEmpty && searchQuery
+      ? await getBrands({ search: searchQuery })
+          .then((result) => result.totalCount)
+          .catch((error) => {
+            captureReadFailure("discover.brandMatches")(error);
+            return 0;
+          })
+      : 0;
+  const brandMatch =
+    brandMatchCount > 0 && searchQuery
+      ? {
+          href: routes.brands({ search: searchQuery }),
+          label: t("search.emptyRoutes.brandMatches", {
+            count: brandMatchCount,
+            query: searchQuery,
+          }),
+        }
+      : null;
   const emptyRouteTrails = showSearchEmpty
     ? firstTrails.map((trail) => toEmptyRouteTrail(trail, locale))
     : [];
@@ -581,36 +605,34 @@ export default async function DiscoverPage({
 
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Desktop sidebar */}
-          <FilterAside>
-            <ProductFilterSidebar
-              locale={locale}
-              activeCategory={effectiveCategory}
-              allLabel={commonT("all")}
-              showCategories={false}
-              hideCounts={isSearchMode}
-              subcategoryOptions={subcategoryOptions}
-              activeSubSlugs={effectiveSubs}
-              materialOptions={materialOptions}
-              activeMaterials={effectiveMaterials}
-              totalCount={totalCount}
-            />
-          </FilterAside>
+          {showFilters ? (
+            <FilterAside>
+              <ProductFilterSidebar
+                activeCategory={effectiveCategory}
+                hideCounts={isSearchMode}
+                subcategoryOptions={subcategoryOptions}
+                activeSubSlugs={effectiveSubs}
+                materialOptions={materialOptions}
+                activeMaterials={effectiveMaterials}
+                totalCount={totalCount}
+              />
+            </FilterAside>
+          ) : null}
 
           <div className="min-w-0 flex-1">
             <DirectoryToolbar
               filterTrigger={
-                <ProductFilterDrawer
-                  locale={locale}
-                  activeCategory={effectiveCategory}
-                  allLabel={commonT("all")}
-                  showCategories={false}
-                  hideCounts={isSearchMode}
-                  subcategoryOptions={subcategoryOptions}
-                  activeSubSlugs={effectiveSubs}
-                  materialOptions={materialOptions}
-                  activeMaterials={effectiveMaterials}
-                  totalCount={totalCount}
-                />
+                showFilters ? (
+                  <ProductFilterDrawer
+                    activeCategory={effectiveCategory}
+                    hideCounts={isSearchMode}
+                    subcategoryOptions={subcategoryOptions}
+                    activeSubSlugs={effectiveSubs}
+                    materialOptions={materialOptions}
+                    activeMaterials={effectiveMaterials}
+                    totalCount={totalCount}
+                  />
+                ) : undefined
               }
               chips={
                 hasChips ? (
@@ -676,6 +698,7 @@ export default async function DiscoverPage({
                   categories={emptyRouteCategories}
                   trailsHeading={t("search.emptyRoutes.trailsHeading")}
                   categoriesHeading={t("search.emptyRoutes.categoriesHeading")}
+                  brandMatch={brandMatch}
                 />
               </div>
             ) : products.length === 0 ? (

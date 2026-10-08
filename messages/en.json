@@ -106,7 +106,8 @@
       "empty": "No products match \"{query}\". Try a different keyword or clear the filters.",
       "emptyRoutes": {
         "trailsHeading": "Start from one of these guides",
-        "categoriesHeading": "Browse all products by category"
+        "categoriesHeading": "Browse all products by category",
+        "brandMatches": "{count, plural, one {# brand has} other {# brands have}} “{query}” in the name or intro"
       }
     },
     "trailRail": {

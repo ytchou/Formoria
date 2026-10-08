@@ -64,27 +64,3 @@ export function FilterOptionCount({
     </span>
   );
 }
-
-/**
- * Decorative radio circle for the single-select category links. Same 16px box
- * as the Checkbox; the link itself carries the state via `aria-current`.
- *
- * Painted to match the native checkbox beside it: a white fill and an
- * `ink-muted` border when unchecked (the closest token to the UA's mid-grey
- * checkbox border), a solid accent fill with a white mark when checked. A
- * transparent circle on a `rule` hairline read as a different control next to
- * the checkbox groups.
- */
-export function FilterRadioIndicator({ selected }: { selected: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "grid size-4 place-items-center rounded-full border",
-        selected ? "border-accent bg-accent" : "border-ink-muted bg-white",
-      )}
-    >
-      {selected && <span className="size-1.5 rounded-full bg-white" />}
-    </span>
-  );
-}

@@ -106,7 +106,8 @@
       "empty": "找不到「{query}」相關的商品，換個關鍵字，或清除篩選條件。",
       "emptyRoutes": {
         "trailsHeading": "從這幾組主題選物逛起",
-        "categoriesHeading": "依分類看全部商品"
+        "categoriesHeading": "依分類看全部商品",
+        "brandMatches": "{count} 個品牌名稱或介紹含「{query}」"
       }
     },
     "trailRail": {

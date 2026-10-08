@@ -2,23 +2,11 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import { VISIBLE_L1_CATEGORIES, categoryLabel } from "@/lib/taxonomy/ontology";
-import { FOCUS_RING } from "@/components/ui/control-surface";
-import { cn } from "@/lib/utils";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { FilterSection } from "./filter-section";
 import { FilterCheckboxGroup } from "./filter-checkbox-group";
-import {
-  FilterOptionCount,
-  FilterRadioIndicator,
-  filterOptionRowClassName,
-  FilterOptionLabel,
-} from "./filter-option-row";
 import { FilterDrawerShell } from "./filter-drawer-shell";
-import {
-  ResultsLinkPendingReporter,
-  useResultsTransition,
-} from "./results-transition";
+import { useResultsTransition } from "./results-transition";
 import {
   updateDirectoryUrl,
   type DirectoryClearKey,
@@ -40,94 +28,43 @@ type MaterialOption = {
 };
 
 export type FilterSidebarProps = {
-  locale: string;
   activeCategory: string | null;
-  allLabel: string;
-  /** Per-L1 counts, never narrowed to the active category. Omit for no counts. */
-  categoryCounts?: Record<string, number>;
   subcategoryOptions?: SubcategoryOption[];
   activeSubSlugs?: string[];
   materialOptions?: MaterialOption[];
   activeMaterials?: string[];
   totalCount: number;
   /**
-   * Render no counts on any row (全部, categories, subcategories, materials).
+   * Render no counts on any row (subcategories, materials).
    * The counts are catalog-wide, so they would contradict an active search.
    */
   hideCounts?: boolean;
-  /**
-   * Render the 分類 group. Off where the page shows the categories elsewhere
-   * (/discover's category chip row), so the panel holds only 子分類 and 材質.
-   */
-  showCategories?: boolean;
-  /** Builds the href for a category link (null = "All"). */
-  categoryHref: (categorySlug: string | null) => string;
   /** i18n labels for section headings and ARIA. */
   labels: {
     title: string;
-    category: string;
     subcategory: string;
     material: string;
     showMore: (count: number) => string;
     showLess: string;
   };
   /** Optional analytics callbacks. */
-  onCategorySelect?: (slug: string) => void;
   onSubcategoryToggle?: (slug: string, category: string, count: number) => void;
   onMaterialToggle?: (slug: string, count: number) => void;
 };
 
 /**
- * A category row is a text link, not a button: single-select, so each option
- * is a real URL. It wears the checkbox rows' geometry with a decorative radio
- * in the checkbox's place (see `filter-option-row.tsx`). The count is
- * aria-hidden so the link's accessible name stays the category label.
+ * The 子分類 and 材質 panel shared by /discover and /brands. Both pages pick
+ * the L1 category from a chip row above the results (R2-10), so the panel has
+ * no category group.
  */
-function CategoryRow({
-  href,
-  label,
-  count,
-  isActive,
-  onClick,
-}: {
-  href: string;
-  label: string;
-  count: number | undefined;
-  isActive: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={isActive ? "page" : undefined}
-      className={cn(
-        filterOptionRowClassName,
-        FOCUS_RING,
-      )}
-      onClick={onClick}
-    >
-      <FilterRadioIndicator selected={isActive} />
-      <FilterOptionLabel selected={isActive}>{label}</FilterOptionLabel>
-      {count !== undefined && <FilterOptionCount count={count} aria-hidden />}
-      <ResultsLinkPendingReporter />
-    </Link>
-  );
-}
-
 export function FilterSidebar({
-  locale,
   activeCategory,
-  allLabel,
-  categoryCounts,
   subcategoryOptions = [],
   activeSubSlugs = [],
   materialOptions = [],
   activeMaterials = [],
   hideCounts = false,
-  showCategories = true,
-  categoryHref,
   labels,
-  onCategorySelect,
   onSubcategoryToggle,
   onMaterialToggle,
 }: FilterSidebarProps) {
@@ -150,14 +87,6 @@ export function FilterSidebar({
   // alone decides.
   const hasSubcategories = subcategoryOptions.length > 0;
   const hasMaterials = materialOptions.length > 0;
-  // 全部 is the sum of the rows listed below it, so hidden L1s never count.
-  const allCount =
-    categoryCounts && !hideCounts
-      ? VISIBLE_L1_CATEGORIES.reduce(
-          (sum, category) => sum + (categoryCounts[category.slug] ?? 0),
-          0,
-        )
-      : undefined;
 
   const subCheckboxOptions = useMemo(
     () =>
@@ -217,41 +146,6 @@ export function FilterSidebar({
 
   return (
     <nav aria-label={labels.title} className="space-y-6">
-      {showCategories && (
-        <FilterSection title={labels.category}>
-          <ul>
-            <li>
-              <CategoryRow
-                href={categoryHref(null)}
-                label={allLabel}
-                count={allCount}
-                isActive={activeCategory === null}
-              />
-            </li>
-            {VISIBLE_L1_CATEGORIES.map((category) => {
-              const isActive = activeCategory === category.slug;
-              return (
-                <li key={category.slug}>
-                  <CategoryRow
-                    href={categoryHref(category.slug)}
-                    label={categoryLabel(category, locale)}
-                    count={
-                      categoryCounts && !hideCounts
-                        ? (categoryCounts[category.slug] ?? 0)
-                        : undefined
-                    }
-                    isActive={isActive}
-                    onClick={() => {
-                      if (!isActive) onCategorySelect?.(category.slug);
-                    }}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        </FilterSection>
-      )}
-
       {hasSubcategories && (
         <FilterSection title={labels.subcategory}>
           <FilterCheckboxGroup

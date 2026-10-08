@@ -57,9 +57,7 @@ function renderSidebar(
   return render(
     <NextIntlClientProvider locale="en" messages={enMessages}>
       <ProductFilterSidebar
-        locale="en"
         activeCategory={null}
-        allLabel="All"
         totalCount={10}
         {...props}
       />
@@ -74,24 +72,6 @@ function filterGroup(name: string) {
 describe("ProductFilterSidebar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("renders L1 category links with aria-current on active", () => {
-    renderSidebar({ activeCategory: "home" });
-
-    // "All" link is not active
-    const allLink = screen.getByRole("link", { name: "All" });
-    expect(allLink).not.toHaveAttribute("aria-current");
-
-    // There should be multiple category links
-    const links = screen.getAllByRole("link");
-    expect(links.length).toBeGreaterThan(1);
-
-    // The active category link has aria-current="page"
-    const homeLink = links.find(
-      (link) => link.getAttribute("aria-current") === "page",
-    );
-    expect(homeLink).toBeDefined();
   });
 
   it("renders subcategory checkboxes when category is active", () => {
@@ -176,41 +156,8 @@ describe("ProductFilterSidebar", () => {
     expect(trackSubcategory).toHaveBeenCalledWith("candles", "home", 5);
   });
 
-  it("category rows show counts, with All as the total, outside the link name", () => {
+  it("has no category group, only subcategory and material (R2-10)", () => {
     renderSidebar({
-      activeCategory: "home",
-      // `tech` is a deferred (hidden) L1: it has no row, so All excludes it.
-      categoryCounts: { home: 7, fashion: 3, tech: 5 },
-    });
-
-    const all = screen.getByRole("link", { name: "All" });
-    expect(all).toHaveTextContent("10");
-    expect(all).not.toHaveTextContent("15");
-    expect(all).not.toHaveAttribute("aria-current");
-
-    const active = screen
-      .getAllByRole("link")
-      .find((link) => link.getAttribute("aria-current") === "page")!;
-    expect(active).toHaveAttribute("href", "/discover?category=home");
-    expect(active).toHaveTextContent("7");
-    // The count is aria-hidden, so the name stays the label alone (the exact
-    // "All" match above depends on it).
-    expect(
-      within(active).getByText("7"),
-    ).toHaveAttribute("aria-hidden", "true");
-  });
-
-  it("category rows render no counts when categoryCounts is absent", () => {
-    renderSidebar({ activeCategory: null });
-
-    const all = screen.getByRole("link", { name: "All" });
-    expect(all).toHaveAttribute("aria-current", "page");
-    expect(all).toHaveTextContent(/^All$/);
-  });
-
-  it("omits the category group when showCategories is off, keeping subcategory and material", () => {
-    renderSidebar({
-      showCategories: false,
       subcategoryOptions: [
         { slug: "candles", label: "Candles", count: 5, category: "home" },
       ],
@@ -297,31 +244,6 @@ describe("ProductFilterSidebar", () => {
     );
   });
 
-  it("category links keep q in search mode", () => {
-    renderSidebar({ activeCategory: "home" }, "q=%E6%90%AC%E5%AE%B6&category=home");
-
-    const hrefs = screen
-      .getAllByRole("link")
-      .map((link) => link.getAttribute("href")!);
-    expect(hrefs).toContain(`/discover?q=${encodeURIComponent("搬家")}`);
-    const categoryHrefs = hrefs.filter((href) => href.includes("category="));
-    expect(categoryHrefs.length).toBeGreaterThan(0);
-    for (const href of categoryHrefs) {
-      expect(new URLSearchParams(href.split("?")[1]).get("q")).toBe("搬家");
-    }
-  });
-
-  it("category links are unchanged in browse mode", () => {
-    renderSidebar({ activeCategory: "home" }, "category=home&material=wood");
-
-    const hrefs = screen
-      .getAllByRole("link")
-      .map((link) => link.getAttribute("href")!);
-    expect(hrefs).toContain("/discover");
-    expect(hrefs).toContain("/discover?category=home");
-    expect(hrefs.every((href) => !href.includes("q="))).toBe(true);
-  });
-
   it("drawer clear-all in search mode drops q, category and inferred", () => {
     searchParams.current = new URLSearchParams(
       "q=x&category=home&sub=candles&material=metal&inferred=category,material&sort=newest",
@@ -329,9 +251,7 @@ describe("ProductFilterSidebar", () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <ProductFilterDrawer
-          locale="en"
           activeCategory="home"
-          allLabel="All"
           totalCount={10}
         />
       </NextIntlClientProvider>,
@@ -351,9 +271,7 @@ describe("ProductFilterSidebar", () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <ProductFilterDrawer
-          locale="en"
           activeCategory="home"
-          allLabel="All"
           totalCount={10}
         />
       </NextIntlClientProvider>,
@@ -373,9 +291,7 @@ describe("ProductFilterSidebar", () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <ProductFilterDrawer
-          locale="en"
           activeCategory="home"
-          allLabel="All"
           totalCount={10}
         />
       </NextIntlClientProvider>,
@@ -394,9 +310,7 @@ describe("ProductFilterSidebar", () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <ProductFilterDrawer
-          locale="en"
           activeCategory={null}
-          allLabel="All"
           totalCount={10}
         />
       </NextIntlClientProvider>,
