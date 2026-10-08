@@ -184,10 +184,11 @@ export function CategoryFilter({
   return (
     <>
       {/* Below `sm` the chips form one left-aligned scroll row instead of
-          wrapping 3/3/1. The row's overflow would clip the focus rings, so it
-          carries 6px of padding inside a matching negative margin and 6px
-          less top margin, which keeps the visual gap. */}
-      <ChipRow className="mt-6 justify-center max-sm:-mx-1.5 max-sm:mt-4.5 max-sm:snap-x max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:p-1.5">
+          wrapping 3/3/1. The row bleeds through the 24px gutter to the screen
+          edge (same as the hero chips) so a cropped chip signals more. Its
+          6px vertical padding keeps focus rings unclipped; 6px less top
+          margin keeps the visual gap. */}
+      <ChipRow className="mt-6 justify-center max-sm:-mx-6 max-sm:mt-4.5 max-sm:scroll-px-6 max-sm:snap-x max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:px-6 max-sm:py-1.5">
         {categories.map((cat) => (
           <ToggleChip
             key={cat.slug}
