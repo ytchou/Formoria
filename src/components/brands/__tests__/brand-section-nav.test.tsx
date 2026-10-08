@@ -115,4 +115,64 @@ describe("BrandSectionNav", () => {
 
     for (const { id } of sections) document.getElementById(id)?.remove();
   });
+
+  it("resets after an instant jump to the top with no intersection change (N-03)", () => {
+    let callback: IntersectionObserverCallback = () => {};
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(cb: IntersectionObserverCallback) {
+          callback = cb;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 1;
+    });
+    for (const { id } of sections) {
+      const el = document.createElement("section");
+      el.id = id;
+      document.body.appendChild(el);
+    }
+    const fire = (id: string, isIntersecting: boolean) =>
+      act(() =>
+        callback(
+          [
+            {
+              target: document.getElementById(id),
+              isIntersecting,
+            } as unknown as IntersectionObserverEntry,
+          ],
+          {} as IntersectionObserver,
+        ),
+      );
+    const rect = vi
+      .spyOn(
+        document.getElementById("story") as HTMLElement,
+        "getBoundingClientRect",
+      )
+      .mockReturnValue({ top: -3000 } as DOMRect);
+
+    render(<BrandSectionNav sections={sections} />);
+    fire("faq", true);
+    // Page bottom: 問答 has left the band, no section is in it.
+    fire("faq", false);
+    expect(
+      screen.getByRole("link", { name: "問答" }).getAttribute("aria-current"),
+    ).toBe("location");
+
+    // Jump to the top: the observer stays silent, only `scroll` fires.
+    rect.mockReturnValue({ top: 900 } as DOMRect);
+    act(() => {
+      window.dispatchEvent(new Event("scroll"));
+    });
+    expect(
+      screen.getByRole("link", { name: "故事" }).getAttribute("aria-current"),
+    ).toBe("location");
+
+    for (const { id } of sections) document.getElementById(id)?.remove();
+  });
 });

@@ -51,6 +51,15 @@ export function BrandSectionNav({
       .filter((element): element is HTMLElement => element !== null)
 
     const activeMap = new Map<string, boolean>()
+    const firstEl = sectionEls.at(0)
+
+    // Above the first section (back in the hero) the first section is the
+    // active one, or a stale `aria-current` survives the trip back up (R2-11).
+    function resetIfAboveFirst() {
+      if (firstEl && firstEl.getBoundingClientRect().top > ACTIVE_BAND_TOP) {
+        setActiveId(firstEl.id)
+      }
+    }
 
     observerRef.current = new IntersectionObserver(
       (entries) => {
@@ -62,20 +71,33 @@ export function BrandSectionNav({
           setActiveId(firstActive.id)
           return
         }
-        // Nothing in the band: between two sections keep the last one, but
-        // above the first section (scrolled back into the hero) reset to it,
-        // or a stale `aria-current` survives the trip back up (R2-11).
-        const firstEl = sectionEls.at(0)
-        if (firstEl && firstEl.getBoundingClientRect().top > ACTIVE_BAND_TOP) {
-          setActiveId(firstEl.id)
-        }
+        // Nothing in the band: between two sections keep the last one.
+        resetIfAboveFirst()
       },
       { rootMargin: `-${ACTIVE_BAND_TOP}px 0px -60% 0px`, threshold: 0 },
     )
 
     sectionEls.forEach((element) => observerRef.current?.observe(element))
 
-    return () => observerRef.current?.disconnect()
+    // An instant jump to the top (Home key, iOS status-bar tap) from below the
+    // last section changes no intersection, so the observer never fires (N-03).
+    let frame = 0
+    function onScroll() {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        if (!sections.some(({ id }) => activeMap.get(id))) resetIfAboveFirst()
+      })
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('scrollend', onScroll, { passive: true })
+
+    return () => {
+      observerRef.current?.disconnect()
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('scrollend', onScroll)
+      cancelAnimationFrame(frame)
+    }
   }, [sections])
 
   // Right-edge fade while links remain off-screen: the cue that the strip
