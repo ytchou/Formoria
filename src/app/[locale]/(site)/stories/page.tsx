@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { StoryRow } from "@/components/stories/story-row";
+import { StoryCard } from "@/components/landing/story-card";
+import { gridStyles } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import {
   getAllStories,
@@ -12,6 +13,8 @@ import { isStoryTag } from "@/lib/taxonomy/story-tags";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { routes } from "@/lib/routes";
+import { toStoryCard } from "@/lib/stories/story-card";
+import { cn } from "@/lib/utils";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -19,6 +22,32 @@ type PageProps = {
 };
 
 export const revalidate = 3600;
+
+/**
+ * The number in a series card's 第 N 篇 label: the authored `seriesOrder`, else
+ * the card's position in its band. Same key `groupStoriesBySeries` sorts by, so
+ * the label and the order cannot disagree when every member declares one.
+ */
+export function seriesPartOrder(story: StoryEntry, index: number): number {
+  return story.frontmatter.seriesOrder ?? index + 1;
+}
+
+/**
+ * Ungrouped stories newest first: the head becomes the hub's full-width feature.
+ * Re-sorted here because single-member series are folded in ahead of the
+ * standalone set. ISO dates compare lexically; a copy, never in place.
+ */
+export function orderUngrouped(stories: StoryEntry[]): StoryEntry[] {
+  return [...stories].sort((a, b) =>
+    b.frontmatter.publishedAt.localeCompare(a.frontmatter.publishedAt),
+  );
+}
+
+/** The label line above a hub card: series part, and "In Chinese" off-locale. */
+function CardLabel({ parts }: { parts: string[] }) {
+  if (parts.length === 0) return null;
+  return <p className="mb-2 type-metadata">{parts.join(" · ")}</p>;
+}
 
 export async function generateMetadata({
   params,
@@ -64,12 +93,22 @@ export default async function StoriesHubPage({
   // `SeriesNav`, which renders nothing below two members. Its story still shows
   // — it just joins the ungrouped grid instead of sitting alone under a heading.
   const seriesSections = series.filter((group) => group.stories.length >= 2);
-  const ungrouped: StoryEntry[] = [
+  const ungrouped = orderUngrouped([
     ...series
       .filter((group) => group.stories.length < 2)
       .flatMap((group) => group.stories),
     ...standalone,
-  ];
+  ]);
+  // `StoryCard` carries no language marking of its own, so a zh-TW story on /en
+  // says so in the label line above it, as `StoryRow`'s badge did.
+  const languageLabel = (story: StoryEntry) =>
+    story.frontmatter.locale !== locale ? [t("languageBadge")] : [];
+  // One rank across the whole hub, in render order, for `story_card_clicked`.
+  const cardPosition = new Map(
+    [...seriesSections.flatMap((group) => group.stories), ...ungrouped].map(
+      (story, index) => [story.slug, index],
+    ),
+  );
 
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
@@ -99,9 +138,9 @@ export default async function StoriesHubPage({
               // page, which always reports the full series. Say "N of M" instead.
               const isPartial = group.stories.length !== group.totalCount;
               // The series title is authored copy in the stories' language.
-              // On /en that is zh-TW (no English editions yet), so mark it the
-              // way `StoryRow` marks each title. The span keeps `lang` off the
-              // count beside it, which is page-locale text.
+              // On /en that is zh-TW (no English editions yet), so mark it as
+              // such. The span keeps `lang` off the count beside it, which is
+              // page-locale text.
               const groupLocale = group.stories[0]?.frontmatter.locale;
               const titleLang =
                 groupLocale && groupLocale !== locale ? groupLocale : undefined;
@@ -125,29 +164,50 @@ export default async function StoriesHubPage({
                         : t("seriesCount", { count: group.stories.length })}
                     </p>
                   </div>
-                  <div className="divide-y divide-rule border-y border-rule">
-                    {group.stories.map((story) => (
-                      <StoryRow
-                        key={story.slug}
-                        story={story}
-                        locale={locale}
-                        headingLevel={3}
-                      />
+                  <div className={gridStyles({ cols: "pair" })}>
+                    {group.stories.map((story, storyIndex) => (
+                      <div key={story.slug}>
+                        <CardLabel
+                          parts={[
+                            t("seriesPart", {
+                              order: seriesPartOrder(story, storyIndex),
+                            }),
+                            ...languageLabel(story),
+                          ]}
+                        />
+                        <StoryCard
+                          story={toStoryCard(story)}
+                          locale={locale}
+                          position={cardPosition.get(story.slug) ?? 0}
+                          trackingSurface="stories_hub"
+                        />
+                      </div>
                     ))}
                   </div>
                 </section>
               );
             })}
 
+            {/*
+              No section heading: the `stories` namespace has no key for it, and
+              each card already carries its own h3.
+            */}
             {ungrouped.length > 0 && (
-              <section className="divide-y divide-rule border-y border-rule">
-                {ungrouped.map((story) => (
-                  <StoryRow
+              <section className={gridStyles({ cols: "pair" })}>
+                {ungrouped.map((story, storyIndex) => (
+                  // The newest ungrouped story leads as a full-width feature.
+                  <div
                     key={story.slug}
-                    story={story}
-                    locale={locale}
-                    headingLevel={2}
-                  />
+                    className={cn(storyIndex === 0 && "md:col-span-2")}
+                  >
+                    <CardLabel parts={languageLabel(story)} />
+                    <StoryCard
+                      story={toStoryCard(story)}
+                      locale={locale}
+                      position={cardPosition.get(story.slug) ?? 0}
+                      trackingSurface="stories_hub"
+                    />
+                  </div>
                 ))}
               </section>
             )}

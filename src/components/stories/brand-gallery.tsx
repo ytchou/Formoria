@@ -16,6 +16,23 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { brandImageFill } from '@/lib/images/fill'
 import { cn } from '@/lib/utils'
 
+/**
+ * Columns for `count` gallery images: always a divisor of the count, so the
+ * grid never leaves an empty cell (DS2-38). Three images go three-up rather than
+ * 2x2 with a hole; one image takes the full measure. Covers 1-4, the gallery cap.
+ */
+export function galleryColumns(count: number): 1 | 2 | 3 {
+  if (count === 3) return 3
+  if (count === 1) return 1
+  return 2
+}
+
+const GALLERY_COLUMN_CLASS = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+} as const
+
 type BrandGalleryProps = {
   slug: string
   caption?: string
@@ -45,7 +62,7 @@ export async function BrandGallery({
   if (!brand) {
     // Dev and staging only; production drops the gallery (DEV-1963).
     if (!shouldShowMissingBrandNotice()) return null
-    return <MissingBrandNotice label={t('brandMissing', { slug })} />
+    return <MissingBrandNotice label={t('brandMissing')} />
   }
 
   // `loadBrands` uses the narrow directory projection, so `brand.productPhotos`
@@ -86,7 +103,7 @@ export async function BrandGallery({
 
   return (
     <figure className="prose-measure mx-auto mt-7 mb-6 w-full">
-      <div className="grid grid-cols-2 gap-2">
+      <div className={cn('grid gap-2', GALLERY_COLUMN_CLASS[galleryColumns(images.length)])}>
         {images.map(({ src, alt, meta }, index) => {
           // `cn()` like every other surface — this was the one site building its
           // class list with a template literal.

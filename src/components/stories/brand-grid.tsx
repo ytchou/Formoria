@@ -59,7 +59,7 @@ export async function BrandGrid({
         if (!brand) {
           // Production skips the member rather than leaving a hole (DEV-1963).
           if (!showNotice) return null
-          return <MissingBrandNotice key={key} label={t('brandMissing', { slug })} />
+          return <MissingBrandNotice key={key} label={t('brandMissing')} />
         }
 
         return (

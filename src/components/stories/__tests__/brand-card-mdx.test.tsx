@@ -161,14 +161,16 @@ describe("BrandCardMdx", () => {
     );
   });
 
-  it("renders a dashed placeholder containing the slug when it does not resolve", async () => {
+  it("renders a dashed placeholder, without the raw slug, when it does not resolve", async () => {
     loadBrands.mockResolvedValue(new Map());
 
     renderWithIntl(await BrandCardMdx({ slug: "ghost-brand", loadBrands }));
 
-    const placeholder = screen.getByText("This brand has no public page right now: ghost-brand");
+    const placeholder = screen.getByText("This brand doesn't have a public page right now");
     expect(placeholder).toBeInTheDocument();
     expect(placeholder.className).toContain("border-dashed");
+    // CP2-24: the notice never prints the raw slug.
+    expect(screen.queryByText(/ghost-brand/)).toBeNull();
     // Inert: nothing to navigate to, so it must not take a tab stop.
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
@@ -196,7 +198,7 @@ describe("BrandCardMdx", () => {
     renderWithIntl(await BrandCardMdx({ slug: "ghost-brand", loadBrands }));
 
     expect(
-      screen.getByText("This brand has no public page right now: ghost-brand"),
+      screen.getByText("This brand doesn't have a public page right now"),
     ).toBeInTheDocument();
   });
 
@@ -271,7 +273,7 @@ describe("BrandGrid", () => {
     );
 
     expect(
-      screen.getByText("This brand has no public page right now: ghost-brand"),
+      screen.getByText("This brand doesn't have a public page right now"),
     ).toBeInTheDocument();
   });
 
