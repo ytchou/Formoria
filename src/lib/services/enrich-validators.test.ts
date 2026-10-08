@@ -66,6 +66,32 @@ describe('validateLocalizedText', () => {
     expect(r.reasons).toContain('length_band')
   })
 
+  it('rejects a full-width model number with fullwidth_alphanumeric (DEV-1954)', () => {
+    const text = `這款吸塵器ＭＤ－８６０Ｓ機身輕巧，適合小坪數居家使用。${'吸頭可拆洗，集塵盒容量足夠一般家庭使用。'.repeat(7)}`
+    const r = validateLocalizedText(text, 'zh', [150, 400])
+    expect(r.ok).toBe(false)
+    expect(r.reasons).toContain('fullwidth_alphanumeric')
+  })
+
+  it('accepts the same model number written half-width', () => {
+    const text = `這款吸塵器 MD-860S 機身輕巧，適合小坪數居家使用。${'吸頭可拆洗，集塵盒容量足夠一般家庭使用。'.repeat(7)}`
+    const r = validateLocalizedText(text, 'zh', [150, 400])
+    expect(r.reasons).not.toContain('fullwidth_alphanumeric')
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects full-width letters in English text too', () => {
+    const r = validateLocalizedText('The ＭＤ－８６０Ｓ is a light handheld vacuum.', 'en', [10, 200])
+    expect(r.reasons).toContain('fullwidth_alphanumeric')
+  })
+
+  it('exempts a brand name written in full-width from the full-width check', () => {
+    const text = `ＡＢＣ工作室在台北製作手工皮件，主打長夾與零錢包。${'皮料選用植鞣牛皮，經手工上色後縫製完成。'.repeat(7)}`
+    expect(validateLocalizedText(text, 'zh', [150, 400], 'ＡＢＣ工作室').reasons).not.toContain(
+      'fullwidth_alphanumeric',
+    )
+  })
+
   it('warns but accepts en text outside length band', () => {
     const r = validateLocalizedText('short', 'en', [300, 600])
     expect(r.ok).toBe(true)

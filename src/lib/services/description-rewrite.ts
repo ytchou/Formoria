@@ -458,8 +458,12 @@ const RETRY_FIELD_UNITS: Record<keyof typeof RETRY_FIELD_BANDS, string> = {
 
 /** Non-length rejection reasons, mapped to the edit that actually clears them. */
 const RETRY_REASON_GUIDANCE: Record<string, string> = {
+  // DEV-1954: the old wording told the model to rewrite foreign proper nouns into
+  // Chinese, and it obeyed by full-widthing model numbers (ＭＤ－八六〇Ｓ).
   language_purity:
-    "語言不純：請全文改為該欄位指定語言，且連續拉丁字母單詞不可超過 2 個（外文專有名詞請改寫為中文或用《》括住）",
+    "語言不純：請全文改為該欄位指定語言，連續拉丁字母單詞不可超過 2 個；外文專有名詞、型號與標準名稱保留半形原文，可用「」括住",
+  fullwidth_alphanumeric:
+    "含全形英數字：型號、規格與標準名稱（例如 MD-860S、OEKO-TEX、3D）一律照來源保留半形英文字母與阿拉伯數字，不可改成全形字母或國字數字",
   pricing_information:
     "含價格資訊：請移除所有售價、金額、價位級距、折扣與促銷描述",
   missing: "欄位缺漏：必須輸出此欄位",
@@ -523,7 +527,7 @@ export function buildDescriptionRetryInstruction(
   return [
     "\n\n前一次輸出未通過品質檢查，請只修正以下欄位，其餘欄位維持原樣：",
     ...lines,
-    "注意：description_zh 必須全文繁體中文，description_en 必須全文英文（品牌中文名可保留）。兩者獨立撰寫，不可只產出其中一種語言。",
+    "注意：description_zh 必須全文繁體中文，description_en 必須全文英文（品牌中文名可保留）。兩者獨立撰寫，不可只產出其中一種語言。型號、規格與標準名稱在兩種語言中都保留半形原文。",
   ].join("\n");
 }
 
