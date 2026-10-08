@@ -451,7 +451,7 @@ export default async function DiscoverPage({
   // a 200 that states a count above an empty grid. A zero-result first page
   // stays a 200 empty state, and so does a failed read (totalCount 0).
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-  if (totalPages >= 1 && page > totalPages) {
+  if (page > 1 && page > totalPages) {
     notFound();
   }
 

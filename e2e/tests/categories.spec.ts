@@ -86,7 +86,7 @@ test.describe("Product catalog (formerly category landings) deep", () => {
       await expect(
         page.getByRole("navigation", { name: "麵包屑導覽" }),
       ).toHaveCount(0);
-      await expect(page.getByText(/更新於 \d{4}年/)).toHaveCount(0);
+      await expect(page.getByText(/\d{4}年\d{1,2}月\d{1,2}日 更新/)).toHaveCount(0);
     }
   });
 

@@ -208,9 +208,10 @@ export async function DirectoryView({
 
   // Out-of-range pages 404, as an unknown category does (DS-34), instead of
   // a 200 that reads 0 brands under an empty state blaming the filters. A
-  // zero-result first page stays a 200 empty state.
+  // zero-result first page stays a 200 empty state. The browse read reports 0
+  // for a page past the end, so any later page with no results is out of range.
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE);
-  if (totalPages >= 1 && page > totalPages) {
+  if (page > 1 && page > totalPages) {
     notFound();
   }
   // One read for the whole page, keyed by the brands shown. A failure

@@ -36,8 +36,13 @@ export function DiscoverTrailRail({
 }: DiscoverTrailRailProps) {
   if (trails.length === 0) return null;
 
+  // From md only: on a phone the rail would push the first product below
+  // two screens of trail cards (DS2-36 keeps results near the top).
   return (
-    <section aria-labelledby="discover-trail-rail" className="space-y-4">
+    <section
+      aria-labelledby="discover-trail-rail"
+      className="hidden space-y-4 md:block"
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <h2 id="discover-trail-rail" className="type-card-title">
           {heading}
