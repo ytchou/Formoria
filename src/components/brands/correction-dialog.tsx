@@ -68,6 +68,12 @@ export type CorrectionDialogProps = {
   socialInstagram?: string | null;
   socialThreads?: string | null;
   socialFacebook?: string | null;
+  /**
+   * Controlled mode: pass `open` and the dialog renders no trigger of its own.
+   * The caller (an overflow menu item) owns opening it.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function CorrectionDialog({
@@ -80,46 +86,60 @@ export function CorrectionDialog({
   socialInstagram = null,
   socialThreads = null,
   socialFacebook = null,
+  open: controlledOpen,
+  onOpenChange,
 }: CorrectionDialogProps) {
   const tCorrection = useTranslations("brandDetail.correction");
   const copy = COPY_KEYS[mode];
   // Once primed the content stays mounted, so its selection state survives
   // close/reopen exactly as it did when the body was statically imported.
   const [primed, setPrimed] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
   // Lives here rather than in the body so the close handler can reset the
   // picker without the body chunk being involved. Starts empty so the dialog
   // opens on the picker alone — no value control is shown until the
   // contributor says what they are correcting.
   const [field, setField] = useState<CorrectionField | "">("");
   const prime = () => setPrimed(true);
+  // Controlled mode has no trigger to prime on hover/focus, so the body mounts
+  // the moment it opens; closing then pins it mounted like the trigger path.
+  const showBody = primed || (isControlled && open);
 
   function handleOpenChange(next: boolean) {
-    setOpen(next);
+    if (isControlled) {
+      if (!next) prime();
+      onOpenChange?.(next);
+    } else {
+      setUncontrolledOpen(next);
+    }
     // Every open starts at the picker, not at whatever was picked last time.
     if (!next) setField("");
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        onPointerEnter={prime}
-        onPointerDown={prime}
-        onFocus={prime}
-        onClick={prime}
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="compact"
-            className="relative gap-1.5 px-1 text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
-          />
-        }
-      >
-        <Pencil aria-hidden="true" />
-        {tCorrection(copy.trigger)}
-      </DialogTrigger>
-      {primed && (
+      {!isControlled && (
+        <DialogTrigger
+          onPointerEnter={prime}
+          onPointerDown={prime}
+          onFocus={prime}
+          onClick={prime}
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="compact"
+              className="relative gap-1.5 px-1 text-accent underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-accent/80 hover:underline focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+            />
+          }
+        >
+          <Pencil aria-hidden="true" />
+          {tCorrection(copy.trigger)}
+        </DialogTrigger>
+      )}
+      {showBody && (
         <CorrectionDialogContent
           brandId={brandId}
           brandSlug={brandSlug}

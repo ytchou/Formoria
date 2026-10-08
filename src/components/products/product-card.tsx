@@ -16,18 +16,31 @@ type ProductCardProps = {
   locale: string;
   /** `sizes` for the photo; a caller on a different grid states its own. */
   imageSizes?: string;
+  /**
+   * Above-the-fold loading. "high" = eager + fetchPriority high (the LCP
+   * candidate); "eager" = eager only; omitted = next/image's lazy default.
+   * The caller owns the grid geometry, so it decides which cards qualify.
+   */
+  imagePriority?: "high" | "eager";
 };
+
+/** Marks zh text shown on an EN page through the locale fallback. */
+const ZH_FALLBACK_LANG = "zh-Hant-TW";
 
 export function ProductCard({
   product,
   locale,
   imageSizes = CATALOG_IMAGE_SIZES,
+  imagePriority,
 }: ProductCardProps) {
   const isEnglish = locale === "en";
-  const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
-  const description = isEnglish
-    ? (product.productDescriptionEn ?? product.productDescriptionZh)
-    : product.productDescriptionZh;
+  const nameFallsBack = isEnglish && !product.nameEn;
+  const name = isEnglish && product.nameEn ? product.nameEn : product.nameZh;
+  const descriptionFallsBack = isEnglish && !product.productDescriptionEn;
+  const description =
+    isEnglish && product.productDescriptionEn
+      ? product.productDescriptionEn
+      : product.productDescriptionZh;
   const imageSrc = safeImageSrc(product.imageUrl);
 
   return (
@@ -45,6 +58,8 @@ export function ProductCard({
               className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
               surface="card"
               sizes={imageSizes}
+              loading={imagePriority ? "eager" : undefined}
+              fetchPriority={imagePriority === "high" ? "high" : undefined}
             />
           ) : (
             <BrandImageFallback
@@ -65,12 +80,18 @@ export function ProductCard({
           <p className="type-metadata text-accent truncate">
             {product.brandName}
           </p>
-          <h3 className="type-body font-semibold text-ink line-clamp-1 group-hover:underline">
+          <h3
+            lang={nameFallsBack ? ZH_FALLBACK_LANG : undefined}
+            className="type-body font-semibold text-ink line-clamp-2 group-hover:underline"
+          >
             {name}
           </h3>
           <p
             {...NO_SNIPPET}
-            className="type-body-sm text-ink-muted line-clamp-1"
+            lang={descriptionFallsBack ? ZH_FALLBACK_LANG : undefined}
+            // max-sm:hidden, not `hidden sm:block`: sm:block would replace
+            // line-clamp's -webkit-box display and drop the 1-line clamp.
+            className="type-body-sm text-ink-muted line-clamp-1 max-sm:hidden"
           >
             {description}
           </p>

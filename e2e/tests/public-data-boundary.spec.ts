@@ -169,7 +169,7 @@ test.describe.serial("Public brand data boundary", () => {
       ).toBeVisible();
     }
     await auditCurrentDocument(page, canaries, "story surface");
-    const productSearch = page.getByRole("search", { name: "全站商品搜尋" }).getByRole("searchbox", { name: "全站商品搜尋" });
+    const productSearch = page.getByRole("banner").getByRole("search", { name: "搜尋商品", exact: true }).getByRole("searchbox", { name: "搜尋商品", exact: true });
     await productSearch.fill(searchToken);
     await productSearch.press("Enter");
     await expect(page).toHaveURL(url => url.pathname === "/discover" && url.searchParams.get("q") === searchToken);

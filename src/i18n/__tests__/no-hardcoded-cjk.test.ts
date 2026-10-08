@@ -95,12 +95,17 @@ const ALLOWLIST = [
   // here is test-only. TODO remove the static fallback and drop this entry.
   "lib/validations/submission.ts",
   // MIT verification normalizes Taiwanese legal-entity suffixes (not UI copy).
-  // Share card is a satori-rendered PNG image (same as OG images) — zh-TW headline by design.
+  // Share card is a satori-rendered PNG image (same as OG images). The headline
+  // comes from the catalog; the literal formoria.com URL footer is what the
+  // rendered-English scan below still flags.
   "lib/growth/share-card.tsx",
   // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
   "lib/growth/share-assets.ts",
   // Stockist name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
   "lib/brands/stockist-display.ts",
+  // Commerce-truth markers are Chinese regex patterns matched against image text
+  // (data constants, not UI copy).
+  "lib/curated-products/commerce-text.ts",
   // Product description rewrite prompt uses Chinese field labels (LLM prompt, not UI copy).
   "lib/services/curated-products/materialize.ts",
   // FAQ phase prompt fragments and repair instructions are Chinese model

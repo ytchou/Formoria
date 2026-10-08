@@ -4,7 +4,11 @@ import { BrandCard } from '@/components/brands/brand-card'
 import { Grid } from '@/components/ui/grid'
 import { getPublicBrandsBySlugs } from '@/lib/services/brands'
 import { normalizePublicBrandCard } from '@/lib/brands/contracts'
-import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
+import {
+  MissingBrandNotice,
+  shouldShowMissingBrandNotice,
+  type BrandLoaderSeam,
+} from './brand-card-mdx'
 
 type BrandGridProps = {
   slugs: string[]
@@ -43,6 +47,7 @@ export async function BrandGrid({
 
   const brands = await loadBrands(slugs)
   const t = await getTranslations('stories')
+  const showNotice = shouldShowMissingBrandNotice()
 
   return (
     <Grid cols="pair">
@@ -52,6 +57,8 @@ export async function BrandGrid({
         const key = `${slug}-${index}`
 
         if (!brand) {
+          // Production skips the member rather than leaving a hole (DEV-1963).
+          if (!showNotice) return null
           return <MissingBrandNotice key={key} label={t('brandMissing', { slug })} />
         }
 

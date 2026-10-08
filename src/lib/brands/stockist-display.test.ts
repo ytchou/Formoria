@@ -419,6 +419,27 @@ describe("groupStockistsByRegion", () => {
     ]);
   });
 
+  it("groups stored 臺北市 and catalog 台北市 into the same taipei group", () => {
+    const groups = groupStockistsByRegion([
+      stockist({
+        id: "stored-spelling",
+        name: "舊寫法店",
+        regionLabel: "臺北市",
+        country: "TW",
+      }),
+      stockist({
+        id: "catalog-spelling",
+        name: "新寫法店",
+        regionLabel: "台北市",
+        country: "TW",
+      }),
+    ]);
+
+    expect(groups.map((group) => [group.key, group.stockists.length])).toEqual([
+      ["taipei", 2],
+    ]);
+  });
+
   it("collapses non-Taiwan rows into one overseas group", () => {
     const groups = groupStockistsByRegion([
       stockist({

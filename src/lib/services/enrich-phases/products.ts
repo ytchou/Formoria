@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
 import { PRODUCTS_LABELS } from "@/lib/prompts";
+import { normalizeCuratedProductName } from "@/lib/curated-products/product-name";
 import {
   CATEGORY_LIST,
   SUBCATEGORY_VOCAB_BLOCK,
@@ -348,6 +349,16 @@ function trimmedString(value: unknown): string | null {
 }
 
 /**
+ * A product name as the shop wrote it, minus a trailing SKU token and a
+ * doubled name (DEV-1962). Normalised here, before the key is derived, so the
+ * token never reaches `curated_products.key` either.
+ */
+function productName(value: unknown): string | null {
+  const name = trimmedString(value);
+  return name ? trimmedString(normalizeCuratedProductName(name)) : null;
+}
+
+/**
  * http(s) only. `new URL` parses `javascript:alert(1)` happily and these values
  * are rendered as hrefs on a public brand page, so the protocol bar is the whole
  * point of the check — the same reason `httpUrlSchema` exists on the write path.
@@ -601,7 +612,7 @@ export function validateProductProposals(
       continue;
     }
 
-    const nameZh = trimmedString(raw.name_zh);
+    const nameZh = productName(raw.name_zh);
     if (!nameZh) {
       drop("no_name");
       continue;
@@ -654,7 +665,7 @@ export function validateProductProposals(
       continue;
     }
 
-    const nameEn = trimmedString(raw.name_en);
+    const nameEn = productName(raw.name_en);
     // THE MODEL'S `image_source_url` IS NEVER USED (decision #35). The field
     // stays in the schema — removing it would make the model improvise a home
     // for the value — but the only image a proposal may carry is one this

@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import enMessages from "../../../../messages/en.json";
 
 import type { ProductRailGroup } from "@/lib/curated-products/brand-rails";
 import type { CuratedProduct } from "@/lib/services/curated-products";
@@ -64,10 +68,6 @@ vi.mock("@/components/ui/save-button", () => ({
   SaveButton: () => <button data-testid="save-button" />,
 }));
 
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
-}));
-
 vi.mock("@/lib/taxonomy/ontology", async (importOriginal) => {
   const mod =
     await importOriginal<typeof import("@/lib/taxonomy/ontology")>();
@@ -87,7 +87,9 @@ function makeProduct(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
     nameEn: "Product One",
     productDescriptionZh: "描述",
     productDescriptionEn: "Description",
-    imageUrl: "https://cdn.example.com/img.jpg",
+    // Same-origin proxy path: safeImageSrc accepts it, and the shelf renders
+    // nothing for a product without a usable photo.
+    imageUrl: "/i/curated-products/p/img.jpg",
     officialUrl: "https://example.com/product",
     category: "lifestyle",
     subcategory: "eyewear",
@@ -140,6 +142,16 @@ const defaultProps = {
   previousLabel: "Previous products",
   nextLabel: "Next products",
 };
+
+// TrustLabel reads the `trustLabel` namespace, so render through the real
+// catalogue rather than a key-echo mock.
+function render(ui: ReactNode) {
+  return rtlRender(
+    <NextIntlClientProvider locale="en" messages={enMessages}>
+      {ui}
+    </NextIntlClientProvider>,
+  );
+}
 
 // --- Tests ---
 
@@ -244,5 +256,22 @@ describe("ProductShelf", () => {
     expect(
       screen.getByRole("button", { name: "Next products" }),
     ).toBeInTheDocument();
+  });
+
+  it("renders the 選物 trust label beside the heading, outside the h2", () => {
+    canScrollPrevValue = false;
+    canScrollNextValue = false;
+
+    render(<ProductShelf {...defaultProps} groups={makeGroups()} />);
+
+    const heading = screen.getByRole("heading", {
+      level: 2,
+      name: "Formoria Selected",
+    });
+    const label = document.querySelector('[data-trust-label="selected"]');
+    expect(label).not.toBeNull();
+    expect(label?.textContent).toBe(enMessages.trustLabel.selected);
+    expect(heading.contains(label)).toBe(false);
+    expect(heading.parentElement?.contains(label)).toBe(true);
   });
 });

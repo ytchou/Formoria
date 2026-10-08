@@ -1,17 +1,46 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test, expect } from "../fixtures/auth";
 import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
 import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
+import { e2eBrandImageKey, e2eProxyImageUrl } from "../helpers/image-refs";
 import { BUDGET, POLL } from "../budgets";
+import { e2eProxyImageUrl } from "../helpers/image-refs";
 
-async function openStockistGroup(page: Page, key: string) {
-  const group = page.locator(`details[data-stockist-kind="${key}"]`);
-  await expect(group).toBeVisible();
-  if ((await group.getAttribute("open")) === null) {
-    await group.locator("summary").click();
-  }
-  await expect(group).toHaveAttribute("open", "");
+/**
+ * The three channel corrections (purchase link, stockist, social link) share
+ * one 「告訴我們」 menu at the end of the where-to-buy block. The trigger ships in
+ * the server-rendered HTML, so a missing one is a real regression rather than a
+ * timing problem: assert it before the retry loop so that case does not surface
+ * as an opaque "predicate timed out" on the dialog. The page is statically
+ * served and hydrates afterwards, so a click that lands too early is a silent
+ * no-op — retry the idempotent open instead of sleeping on a guessed hydration
+ * delay (same pattern as openCategoryDialog in brand-corrections.spec.ts).
+ */
+async function openChannelCorrection(
+  page: Page,
+  menuItemName: string,
+  dialogTitle: string,
+) {
+  const trigger = page.getByRole("button", { name: "告訴我們", exact: true });
+  await expect(trigger).toBeVisible();
+
+  const menuItem = page.getByRole("menuitem", {
+    name: menuItemName,
+    exact: true,
+  });
+  const dialog = page.getByRole("dialog", { name: dialogTitle });
+  await expect(async () => {
+    if (!(await dialog.isVisible())) {
+      // A second click on an open menu's trigger would close it again.
+      if (!(await menuItem.isVisible())) await trigger.click();
+      await menuItem.click();
+    }
+    await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+  }).toPass(POLL.UI);
+  return dialog;
 }
 
 test.describe("Brand detail deep", () => {
@@ -28,6 +57,17 @@ test.describe("Brand detail deep", () => {
       // survive the subcategory evidence gate.
       withFaqEvidence: true,
     });
+    // A story gives the page its 品牌故事 section, which with where-to-buy, FAQ
+    // and social reaches the four sections the mobile section nav needs.
+    const { error: descriptionError } = await getServiceClient()
+      .from("brands")
+      .update({ description: "E2E 測試品牌的故事。" })
+      .eq("id", seeded.brand.id);
+    if (descriptionError) {
+      throw new Error(
+        `Failed to seed brand description: ${descriptionError.message}`,
+      );
+    }
     brandHref = `/brands/${seeded.slug}`;
   });
 
@@ -35,29 +75,29 @@ test.describe("Brand detail deep", () => {
     await seeded.cleanup();
   });
 
-  test("@smoke brand information uses final category and subcategory copy in both locales", async ({
+  test("@smoke brand hero shows one metadata line under the name in both locales", async ({
     page,
   }) => {
     await page.goto(brandHref);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-    const zhBrandInfo = page.getByRole("region", { name: "品牌資訊" });
+    // The seeded brand has a category and a founding year but no city, so the
+    // city part is omitted rather than printed as a placeholder.
     await expect(
-      zhBrandInfo.getByText("品牌類別", { exact: true }),
+      page.getByText("居家生活 · 2020 年創立", { exact: true }),
     ).toBeVisible();
-    await expect(
-      zhBrandInfo.getByText("商品子類別", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText("尚無資料")).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "品牌資訊" })).toHaveCount(0);
 
     await page.goto(`/en/brands/${seeded.slug}`);
-    const enBrandInfo = page.getByRole("region", { name: "Brand information" });
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
+      timeout: BUDGET.INTERACTIVE,
+    });
     await expect(
-      enBrandInfo.getByText("Brand category", { exact: true }),
+      page.getByText("Home & Living · Founded 2020", { exact: true }),
     ).toBeVisible();
-    await expect(
-      enBrandInfo.getByText("Product subcategory", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText("Not available")).toHaveCount(0);
 
     await expect(
       page.getByText(/something went wrong|not found|error|發生錯誤/i),
@@ -77,9 +117,9 @@ test.describe("Brand detail deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
 
-    // Verify the purchase section heading is visible
+    // Verify the purchase sub-heading (under where-to-buy's h2) is visible
     await expect(
-      page.getByRole("heading", { name: "線上購買", level: 2 }),
+      page.getByRole("heading", { name: "線上購買", level: 3 }),
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
@@ -89,32 +129,36 @@ test.describe("Brand detail deep", () => {
   // merged case would hide the ordering result the moment a heading is missing
   // (see commit 4a4fc7a8). The extra `goto` is one cached load of an
   // already-seeded brand.
-  test("links sections are structurally separate (social before purchase)", async ({
+  test("links sections are structurally separate (where to buy before social)", async ({
     page,
   }) => {
     await page.goto(`/brands/${seeded.slug}`);
 
+    const whereToBuyHeading = page.getByRole("heading", {
+      name: "哪裡買得到",
+      level: 2,
+    });
     const socialHeading = page.getByRole("heading", {
       name: "社群平台",
       level: 2,
     });
-    const purchaseHeading = page.getByRole("heading", {
-      name: "線上購買",
-      level: 2,
+
+    await expect(whereToBuyHeading).toBeVisible({
+      timeout: BUDGET.INTERACTIVE,
     });
+    await expect(socialHeading).toBeVisible();
 
-    await expect(socialHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    await expect(purchaseHeading).toBeVisible();
-
-    // Social section must appear before purchase section in document order
+    // The route to buy comes before social in document order (BD-12).
+    const whereToBuyBox = await whereToBuyHeading.boundingBox();
     const socialBox = await socialHeading.boundingBox();
-    const purchaseBox = await purchaseHeading.boundingBox();
+    expect(whereToBuyBox).not.toBeNull();
     expect(socialBox).not.toBeNull();
-    expect(purchaseBox).not.toBeNull();
-    expect(socialBox!.y).toBeLessThan(purchaseBox!.y);
+    expect(whereToBuyBox!.y).toBeLessThan(socialBox!.y);
   });
 
   test("tab nav click scrolls to correct section", async ({ page }) => {
+    // The section nav is a mobile-only strip (BD-27).
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/brands/${seeded.slug}`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
@@ -138,7 +182,9 @@ test.describe("Brand detail deep", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/brands/${seeded.slug}`);
 
-    const websiteCta = page.getByRole("link", {
+    // Scoped to <main>: once the hero CTA scrolls away, the mobile route-out
+    // bar (portalled to <body>) renders a second 前往官網 link.
+    const websiteCta = page.getByRole("main").getByRole("link", {
       name: "前往官網",
       exact: true,
     });
@@ -167,11 +213,11 @@ test.describe("Brand detail deep", () => {
       window.scrollBy(0, section.getBoundingClientRect().top - 105);
     });
 
-    // This journey targets the purchase section; locations has its own seeded
-    // coverage below.
-    await nav.getByRole("link", { name: "購買資訊" }).click();
+    // This journey targets the where-to-buy section; stockists have their own
+    // seeded coverage below.
+    await nav.getByRole("link", { name: "哪裡買得到" }).click();
     await expect(
-      page.getByRole("heading", { name: "線上購買", level: 2 }),
+      page.getByRole("heading", { name: "哪裡買得到", level: 2 }),
     ).toBeInViewport({
       timeout: BUDGET.RENDERED,
     });
@@ -312,9 +358,16 @@ test.describe("Brand detail — product shelf focus", () => {
         subcategory: "lighting",
         official_url:
           "https://sammm-studio.com/products/perch-wireless-table-lamp",
+        // The shelf skips photo-less products (DEV-1950), so the seed needs a
+        // path `safeImageSrc` accepts. The image need not resolve for this spec.
+        image_url: e2eProxyImageUrl(`curated-products/e2e/${productKey}.webp`),
         source_checked_at: new Date().toISOString(),
         product_description_zh:
           "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
+        // Public reads drop a product with no renderable image (DEV-1962).
+        image_url: e2eProxyImageUrl(
+          `curated-products/${seeded.brand.id}/${productKey}/e2e.webp`,
+        ),
         visible: true,
       })
       .select("id")
@@ -342,7 +395,10 @@ test.describe("Brand detail — product shelf focus", () => {
     await seeded?.cleanup();
   });
 
-  test("a pointer click does not pin the product caption open", async ({
+  // DEV-1950 replaced the hover-only caption and its focus-only wrapper with a
+  // static name and a real link, so the old "caption does not pin open" check
+  // has nothing left to test. This asserts the new contract instead.
+  test("shelf tile shows its name at rest and links onward", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1920, height: 929 });
@@ -351,25 +407,118 @@ test.describe("Brand detail — product shelf focus", () => {
     const tile = page.locator(`#product-${productKey}`);
     await expect(tile).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await tile.scrollIntoViewIfNeeded();
-    const focusTarget = tile.locator('[tabindex="0"]').first();
-    const image = focusTarget.locator(":scope > div").first();
-    const caption = tile
-      .getByRole("heading", { name: productName })
-      .locator("..");
 
-    await page.keyboard.press("Tab");
-    await focusTarget.focus();
-    await expect
-      .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))
-      .toBe("1");
-    await focusTarget.evaluate((node) => (node as HTMLElement).blur());
+    await expect(
+      tile.getByRole("heading", { name: productName }),
+    ).toBeVisible();
 
-    await image.click({ force: true });
-    await page.mouse.move(0, 0);
-    await expect
-      .poll(() => caption.evaluate((node) => getComputedStyle(node).opacity))
-      .toBe("0");
+    const productLink = tile.getByRole("link", {
+      name: new RegExp(`^${productName}`),
+    });
+    await expect(productLink).toHaveAttribute(
+      "href",
+      new RegExp(`#product-${productKey}$`),
+    );
+    await expect(tile.locator('[tabindex="0"]:not(button)')).toHaveCount(0);
+    await expect(productLink.locator("button")).toHaveCount(0);
+
+    await expect(
+      tile.getByRole("link", { name: /前往品牌官方網站/ }),
+    ).toHaveAttribute(
+      "href",
+      "https://sammm-studio.com/products/perch-wireless-table-lamp",
+    );
   });
+});
+
+test.describe("Brand detail — hero gallery at desktop widths", () => {
+  // DEV-1948: from xl (1280px) up, the hero frame is a grid item beside the
+  // vertical thumbnail rail. With `mx-auto` and no definite width it shrank to
+  // its only content, an absolutely positioned image, and measured 0×0.
+  // Two images are needed: the rail and the grid exist only for a gallery.
+  //
+  // A real photograph, not a one-pixel stub: Chrome renders the optimizer's
+  // 1×1 WebP output as a broken image (`complete` but `naturalWidth` 0), so
+  // the stub failed the naturalWidth assertion on a hero that rendered fine.
+  const HERO_WEBP = readFileSync(
+    join(process.cwd(), "public/images/home-hero.webp"),
+  );
+  let seeded: SeededBrand;
+  let imageKeys: string[] = [];
+
+  test.beforeAll(async ({}, workerInfo) => {
+    seeded = await seedBrand({
+      name: "hero-gallery",
+      status: "approved",
+      workerIndex: workerInfo.workerIndex,
+    });
+    const supabase = getServiceClient();
+    imageKeys = [
+      e2eBrandImageKey(seeded.brand.id, "hero.webp"),
+      e2eBrandImageKey(seeded.brand.id, "detail.webp"),
+    ];
+    for (const key of imageKeys) {
+      const { error } = await supabase.storage
+        .from("brand-images")
+        .upload(key, HERO_WEBP, {
+          contentType: "image/webp",
+          upsert: true,
+        });
+      if (error) throw new Error(`Failed to seed ${key}: ${error.message}`);
+    }
+    const { error: imageError } = await supabase.from("brand_images").insert(
+      imageKeys.map((key, index) => ({
+        brand_id: seeded.brand.id,
+        storage_path: key,
+        source_url: key,
+        source: "legacy",
+        status: "active",
+        sort_order: index,
+      })),
+    );
+    if (imageError) throw imageError;
+    const { error: heroError } = await supabase
+      .from("brands")
+      .update({ hero_image_storage_path: imageKeys[0] })
+      .eq("id", seeded.brand.id);
+    if (heroError) throw heroError;
+  });
+
+  test.afterAll(async () => {
+    await seeded?.cleanup();
+    if (imageKeys.length > 0) {
+      const { error } = await getServiceClient()
+        .storage.from("brand-images")
+        .remove(imageKeys);
+      if (error) throw new Error(`Failed to clean images: ${error.message}`);
+    }
+  });
+
+  for (const width of [1280, 1440]) {
+    test(`the hero frame and its first image render at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/brands/${seeded.slug}`);
+
+      const hero = page.locator("[data-brand-hero]");
+      await expect(hero).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+      const box = await hero.boundingBox();
+      expect(box?.width ?? 0).toBeGreaterThan(0);
+      expect(box?.height ?? 0).toBeGreaterThan(0);
+
+      const firstImage = hero.locator("img").first();
+      await expect
+        .poll(
+          () =>
+            firstImage.evaluate((img: HTMLImageElement) =>
+              img.complete ? img.naturalWidth : 0,
+            ),
+          POLL.UI,
+        )
+        .toBeGreaterThan(0);
+    });
+  }
 });
 
 test.describe("Brand detail — brand without links", () => {
@@ -388,7 +537,7 @@ test.describe("Brand detail — brand without links", () => {
     await seeded.cleanup();
   });
 
-  test("social section is hidden and purchase section shows its empty prompt when brand has no links", async ({
+  test("both link sections stay and say no link is known when brand has no links", async ({
     page,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -405,26 +554,33 @@ test.describe("Brand detail — brand without links", () => {
       );
     }).toPass(POLL.DB);
 
-    // Both link sections stay rendered when the brand has no links: every
-    // destination shows as a dimmed, inert chip so the gap reads as "unknown"
-    // rather than "not on that channel".
+    // Both link sections stay rendered when the brand has no links, and each
+    // says so in one muted line instead of a dimmed chip per destination.
     await expect(
       page.getByRole("heading", { name: "社群平台", level: 2 }),
     ).toHaveCount(1);
     await expect(
-      page.getByRole("heading", { name: "線上購買", level: 2 }),
+      page.getByRole("heading", { name: "線上購買", level: 3 }),
     ).toHaveCount(1);
+    await expect(page.getByText("還沒有線上購買的連結。")).toBeVisible();
+    await expect(page.getByText("還沒有社群連結。")).toBeVisible();
 
+    // No inert chips: an unknown destination renders nothing at all.
+    for (const sectionId of ["#where-to-buy", "#social"]) {
+      await expect(
+        page.locator(sectionId).locator('[aria-disabled="true"]'),
+      ).toHaveCount(0);
+    }
     for (const label of ["Instagram", "Threads", "Facebook", "品牌官網"]) {
-      const chip = page.getByRole("button", {
-        name: new RegExp(`^${label} — 尚無已知連結$`),
-      });
-      await expect(chip).toBeVisible();
-      await expect(chip).toHaveAttribute("aria-disabled", "true");
+      await expect(
+        page.locator("#social, #where-to-buy").getByText(label, {
+          exact: true,
+        }),
+      ).toHaveCount(0);
     }
 
     await expect(
-      page.getByRole("button", { name: "提供購買連結" }),
+      page.getByRole("button", { name: "告訴我們", exact: true }),
     ).toBeVisible();
   });
 });
@@ -449,7 +605,7 @@ test.describe("Brand detail — myship-only purchase channel", () => {
     await seeded.cleanup();
   });
 
-  test("myship renders as a live link while the website chip stays inert", async ({
+  test("myship renders as a live link while the unknown website is absent", async ({
     page,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -469,11 +625,16 @@ test.describe("Brand detail — myship-only purchase channel", () => {
       page.getByRole("link", { name: "前往 7-ELEVEN 賣貨便" }),
     ).toBeVisible();
 
-    const websiteChip = page.getByRole("button", {
-      name: /^品牌官網 — 尚無已知連結$/,
-    });
-    await expect(websiteChip).toBeVisible();
-    await expect(websiteChip).toHaveAttribute("aria-disabled", "true");
+    // The website is absent, not inert: no chip, no link, and one muted line
+    // stands in for every store with no known link.
+    const whereToBuy = page.locator("#where-to-buy");
+    await expect(
+      whereToBuy.getByText("品牌官網", { exact: true }),
+    ).toHaveCount(0);
+    await expect(whereToBuy.locator('[aria-disabled="true"]')).toHaveCount(0);
+    await expect(
+      whereToBuy.getByText("還沒有其他通路的連結。"),
+    ).toBeVisible();
   });
 });
 
@@ -714,7 +875,7 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     await Promise.all([seeded.cleanup(), emptySeeded.cleanup()]);
   });
 
-  test("location regions start collapsed and can remain open together", async ({
+  test("stockists render as an open list grouped by region", async ({
     page,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -728,31 +889,37 @@ test.describe("Brand detail — public locations and retail stockists", () => {
           timeout: BUDGET.INTERACTIVE,
         },
       );
+      // Region subheads are named by the region alone; the count sits
+      // beside the heading, not inside it. Either spelling of 台 passes:
+      // the cities.* labels move from 臺 to 台 in DEV-1971.
       await expect(
-        page.getByRole("heading", { name: "臺北市 (1)", level: 3 }),
+        page.getByRole("heading", { name: /^[台臺]北市$/, level: 4 }),
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", {
-          name: "臺中市 (1)",
-          level: 3,
-        }),
+        page.getByRole("heading", { name: /^[台臺]中市$/, level: 4 }),
       ).toBeVisible();
       await expect(
-        page
-          .getByRole("navigation", { name: "本頁導覽" })
-          .getByRole("link", { name: "實體通路", exact: true }),
+        page.getByRole("heading", { name: "實體通路", level: 3 }),
       ).toBeVisible();
     }).toPass(POLL.DB);
 
-    const taipei = page.locator('details[data-stockist-kind="taipei"]');
-    const taichung = page.locator('details[data-stockist-kind="taichung"]');
-    await expect(taipei).not.toHaveAttribute("open");
-    await expect(taichung).not.toHaveAttribute("open");
-
-    await openStockistGroup(page, "taipei");
-    await openStockistGroup(page, "taichung");
-    await expect(taipei).toHaveAttribute("open", "");
-    await expect(taichung).toHaveAttribute("open", "");
+    await expect(
+      page
+        .locator('[data-stockist-kind="taipei"]')
+        .getByText("1 家", { exact: true }),
+    ).toBeVisible();
+    // Open by default: every store is on screen without a click.
+    for (const name of [
+      confirmedStoreName,
+      unlocatedStockistName,
+      approvedCommunityName,
+      ownerConfirmedCommunityName,
+    ]) {
+      await expect(
+        page.locator("[data-stockist-row]").filter({ hasText: name }),
+      ).toBeVisible();
+    }
+    await expect(page.locator("details[data-stockist-kind]")).toHaveCount(0);
   });
 
   test("an imported stockist renders its address and Maps link", async ({
@@ -761,11 +928,16 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     await page.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
-    await openStockistGroup(page, "taipei");
 
-    await expect(
-      page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
-    ).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\//);
+    // The whole entry is the Maps link, and it prints the district.
+    const stockistRow = page
+      .locator("[data-stockist-row]")
+      .filter({ hasText: confirmedStoreName });
+    await expect(stockistRow.getByRole("link")).toHaveAttribute(
+      "href",
+      /^https:\/\/www\.google\.com\/maps\/search\//,
+    );
+    await expect(stockistRow).toContainText("信義區");
     // An imported stockist must not publish when it was scraped. Anchored on
     // any rendered date rather than on one label ("讀取於", which no message
     // key emits any more), so a timestamp returning under new copy still
@@ -783,7 +955,6 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     await page.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
-    await openStockistGroup(page, "taipei");
 
     // The row carries `url: confirmedStoreUrl` AND an address, so this asserts
     // the outbound link is suppressed because the address already links
@@ -793,12 +964,10 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     const stockistRow = page
       .locator("[data-stockist-row]")
       .filter({ hasText: confirmedStoreName });
-    await expect(
-      stockistRow.getByRole("link", {
-        name: confirmedStoreAddress,
-        exact: true,
-      }),
-    ).toHaveAttribute("href", /google\.com\/maps/);
+    const rowLink = stockistRow.getByRole("link");
+    await expect(rowLink).toHaveCount(1);
+    await expect(rowLink).toHaveAttribute("href", /google\.com\/maps/);
+    await expect(rowLink).toContainText(confirmedStoreName);
     await expect(
       stockistRow.locator(`a[href="${confirmedStoreUrl}"]`),
     ).toHaveCount(0);
@@ -812,25 +981,11 @@ test.describe("Brand detail — public locations and retail stockists", () => {
       waitUntil: "domcontentloaded",
     });
 
-    // The trigger ships in the server-rendered HTML, so a missing one is a real
-    // regression rather than a timing problem. Assert it before the retry loop so
-    // that case does not surface as an opaque "predicate timed out" on the dialog.
-    const trigger = userPage.getByRole("button", {
-      name: "提供實體通路",
-      exact: true,
-    });
-    await expect(trigger).toBeVisible();
-
-    // The brand page is statically served and hydrates afterwards, so a click that
-    // lands too early is a silent no-op and every later step then times out waiting
-    // on a dialog that was never opened. Retry the idempotent open instead of
-    // sleeping on a guessed hydration delay — same pattern as openCategoryDialog in
-    // brand-corrections.spec.ts.
-    const dialog = userPage.getByRole("dialog", { name: "提供實體通路" });
-    await expect(async () => {
-      if (!(await dialog.isVisible())) await trigger.click();
-      await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    }).toPass(POLL.UI);
+    const dialog = await openChannelCorrection(
+      userPage,
+      "實體通路",
+      "提供實體通路",
+    );
     await dialog
       .getByRole("textbox", { name: "實體通路名稱" })
       .fill(submittedStockistName);
@@ -860,7 +1015,7 @@ test.describe("Brand detail — public locations and retail stockists", () => {
 
     // The row is written, but a community submission is a stranger's claim about
     // a shop until an admin approves it in /admin/stockists (DEV-1513). So the
-    // public list must NOT grow: the submission named 臺北市, so that is the
+    // public list must NOT grow: the submission named 台北市, so that is the
     // group whose count must not move, and the submitted name must appear
     // nowhere in the section.
     //
@@ -869,9 +1024,10 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     // write did. One reload, after the success toast, is the honest check.
     await userPage.reload({ waitUntil: "domcontentloaded" });
     await expect(
-      userPage.getByRole("heading", { name: "臺北市 (1)", level: 3 }),
+      userPage
+        .locator('[data-stockist-kind="taipei"]')
+        .getByText("1 家", { exact: true }),
     ).toBeVisible();
-    await openStockistGroup(userPage, "taipei");
     await expect(
       userPage
         .locator("[data-stockists-section]")
@@ -888,9 +1044,7 @@ test.describe("Brand detail — public locations and retail stockists", () => {
 
     await expect(page.locator("[data-stockists-section]")).toHaveCount(0);
     await expect(
-      page.getByRole("navigation", { name: "本頁導覽" }).getByRole("link", {
-        name: "實體通路",
-      }),
+      page.getByRole("heading", { name: "實體通路", level: 3 }),
     ).toHaveCount(0);
   });
 });

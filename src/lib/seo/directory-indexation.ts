@@ -10,6 +10,7 @@ import {
   buildDirectoryCanonicals,
   type DirectoryCanonicalFacets,
 } from "./directory-canonical";
+import { parseCommaParam } from "./directory-filters";
 import {
   DEFAULT_KEYWORD_MAP_PATH,
   loadKeywordMap,
@@ -163,7 +164,30 @@ function hasValue(value: unknown): boolean {
   return Boolean(value);
 }
 
-function hasFacet(facets: DirectoryFacets): boolean {
+/** The one slug a raw `category`/`sub` query value names, or null. */
+function singleQuerySlug(value: unknown): string | null {
+  const isStringList =
+    Array.isArray(value) && value.every((item) => typeof item === "string");
+  if (typeof value !== "string" && !isStringList) return null;
+  const slugs = parseCommaParam(value);
+  return slugs.length === 1 ? (slugs[0] ?? null) : null;
+}
+
+/**
+ * A raw taxonomy query value is a facet unless it is exactly the single slug
+ * the page already resolved into its taxonomy target: on `/brands` the
+ * `?category=` (and `&sub=`) query IS the category landing URL the sitemap
+ * submits (SP-03), not a refinement of it.
+ */
+function isTaxonomyFacet(value: unknown, resolvedSlug?: string): boolean {
+  if (!hasValue(value)) return false;
+  return !resolvedSlug || singleQuerySlug(value) !== resolvedSlug;
+}
+
+function hasFacet(
+  facets: DirectoryFacets,
+  resolved: { categorySlug: string; subcategorySlug?: string } | null,
+): boolean {
   // The refinement keys come from the ONE shared list so this predicate and
   // the route-shape one in `components/navigation/category-tab-target.ts`
   // cannot disagree about what counts as a facet again.
@@ -172,8 +196,8 @@ function hasFacet(facets: DirectoryFacets): boolean {
   );
   return (
     refined ||
-    hasValue(facets.category) ||
-    hasValue(facets.sub) ||
+    isTaxonomyFacet(facets.category, resolved?.categorySlug) ||
+    isTaxonomyFacet(facets.sub, resolved?.subcategorySlug) ||
     hasValue(facets.multiCategory) ||
     hasValue(facets.multiSub)
   );
@@ -266,7 +290,11 @@ export function resolveDirectorySeo(state: DirectoryState): DirectorySeo {
       subcategoryBySlug(state.subcategorySlug ?? "")?.category !==
         state.categorySlug);
   const facets = state.facets ?? {};
-  const facetState = hasFacet(facets) || invalidCategory || invalidSub;
+  // A category route owns its taxonomy in the path, so any taxonomy query
+  // there is still a refinement; only `/brands` resolves it from the query.
+  const queryTaxonomy = state.surface === "category" ? null : taxonomy;
+  const facetState =
+    hasFacet(facets, queryTaxonomy) || invalidCategory || invalidSub;
 
   if (facetState) {
     return {

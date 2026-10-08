@@ -6,6 +6,8 @@ import matter from 'gray-matter'
 
 import { NOTE_KEY } from '@/lib/trails/note-key'
 
+export { contentLangFor } from '@/lib/trails/content-lang'
+
 const TRAILS_DIR = path.join(process.cwd(), 'content', 'trails')
 
 type TrailSection = {
@@ -175,6 +177,24 @@ const parseTrailFile = cache((slug: string): TrailDetailResult | null => {
 
   return { entry, content }
 })
+
+/**
+ * Resolves frontmatter `related*` slugs against a published list: frontmatter
+ * order, each slug once, and a slug with no published entry (a draft, a typo, a
+ * deleted file) dropped rather than surfaced as a raw slug.
+ */
+export function resolveRelated<T extends { slug: string }>(
+  slugs: readonly string[],
+  entries: readonly T[],
+): T[] {
+  const bySlug = new Map(entries.map((entry) => [entry.slug, entry]))
+  const resolved: T[] = []
+  for (const slug of new Set(slugs)) {
+    const entry = bySlug.get(slug)
+    if (entry) resolved.push(entry)
+  }
+  return resolved
+}
 
 function trailListError(scope: string, error: unknown): TrailListResult {
   const normalizedError = error instanceof Error ? error : new Error(String(error))

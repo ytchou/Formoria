@@ -132,14 +132,107 @@ describe("ProductCard", () => {
     );
   });
 
-  it("clamps name and reason to one line without slicing", () => {
+  it("clamps name to two lines and reason to one without slicing", () => {
     render(<ProductCard product={baseProduct} locale="zh-TW" />);
     const name = screen.getByRole("heading", { level: 3 });
     const reason = screen.getByText("義大利植鞣牛皮手染鞋面與鞋墊");
-    expect(name).toHaveClass("line-clamp-1");
+    expect(name).toHaveClass("line-clamp-2");
     expect(name.textContent).toBe("手工皮革包");
     expect(reason).toHaveClass("line-clamp-1");
     expect(reason.textContent).toBe("義大利植鞣牛皮手染鞋面與鞋墊");
+  });
+
+  it("hides the reason below sm", () => {
+    render(<ProductCard product={baseProduct} locale="zh-TW" />);
+    const reason = screen.getByText("義大利植鞣牛皮手染鞋面與鞋墊");
+    expect(reason).toHaveClass("max-sm:hidden", "line-clamp-1");
+  });
+
+  describe("lang on locale fallback", () => {
+    it("marks the zh description as zh-Hant-TW when en falls back", () => {
+      const product = { ...baseProduct, productDescriptionEn: null };
+      render(<ProductCard product={product} locale="en" />);
+      expect(screen.getByText("義大利植鞣牛皮手染鞋面與鞋墊")).toHaveAttribute(
+        "lang",
+        "zh-Hant-TW",
+      );
+    });
+
+    it("treats an empty productDescriptionEn as missing", () => {
+      const product = { ...baseProduct, productDescriptionEn: "" };
+      render(<ProductCard product={product} locale="en" />);
+      expect(screen.getByText("義大利植鞣牛皮手染鞋面與鞋墊")).toHaveAttribute(
+        "lang",
+        "zh-Hant-TW",
+      );
+    });
+
+    it("sets no lang on the description when en text is present", () => {
+      render(<ProductCard product={baseProduct} locale="en" />);
+      expect(
+        screen.getByText("Italian vegetable-tanned leather"),
+      ).not.toHaveAttribute("lang");
+    });
+
+    it("sets no lang on the description on zh-TW", () => {
+      render(<ProductCard product={baseProduct} locale="zh-TW" />);
+      expect(
+        screen.getByText("義大利植鞣牛皮手染鞋面與鞋墊"),
+      ).not.toHaveAttribute("lang");
+    });
+
+    it("marks the zh name as zh-Hant-TW when en falls back", () => {
+      const product = { ...baseProduct, nameEn: null };
+      render(<ProductCard product={product} locale="en" />);
+      const name = screen.getByRole("heading", { level: 3 });
+      expect(name.textContent).toBe("手工皮革包");
+      expect(name).toHaveAttribute("lang", "zh-Hant-TW");
+    });
+
+    it("sets no lang on the name when en text is present", () => {
+      render(<ProductCard product={baseProduct} locale="en" />);
+      const name = screen.getByRole("heading", { level: 3 });
+      expect(name.textContent).toBe("Handmade Leather Bag");
+      expect(name).not.toHaveAttribute("lang");
+    });
+
+    it("sets no lang on the name on zh-TW", () => {
+      render(<ProductCard product={baseProduct} locale="zh-TW" />);
+      expect(screen.getByRole("heading", { level: 3 })).not.toHaveAttribute(
+        "lang",
+      );
+    });
+  });
+
+  describe("image priority", () => {
+    const withImage = { ...baseProduct, imageUrl: "/i/p.jpg" };
+
+    it('loads eagerly at high fetch priority for imagePriority="high"', () => {
+      render(
+        <ProductCard product={withImage} locale="zh-TW" imagePriority="high" />,
+      );
+      const img = screen.getByRole("img", { name: "手工皮革包" });
+      expect(img).toHaveAttribute("loading", "eager");
+      expect(img).toHaveAttribute("fetchpriority", "high");
+    });
+
+    it('loads eagerly at default fetch priority for imagePriority="eager"', () => {
+      render(
+        <ProductCard product={withImage} locale="zh-TW" imagePriority="eager" />,
+      );
+      const img = screen.getByRole("img", { name: "手工皮革包" });
+      expect(img).toHaveAttribute("loading", "eager");
+      expect(img).not.toHaveAttribute("fetchpriority");
+    });
+
+    it("keeps next/image's lazy default when imagePriority is omitted", () => {
+      render(<ProductCard product={withImage} locale="zh-TW" />);
+      const img = screen.getByRole("img", { name: "手工皮革包" });
+      // next/image is mocked here, so the lazy default itself is not rendered;
+      // the contract is that the card passes no eager override.
+      expect(img).not.toHaveAttribute("loading", "eager");
+      expect(img).not.toHaveAttribute("fetchpriority");
+    });
   });
 
   it("uses the caller's image sizes", () => {

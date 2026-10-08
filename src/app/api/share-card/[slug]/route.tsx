@@ -2,6 +2,8 @@ export const runtime = 'nodejs'
 
 import { ImageResponse } from 'next/og'
 import { NextResponse } from 'next/server'
+import { hasLocale } from 'next-intl'
+import { routing } from '@/i18n/routing'
 import { getApprovedBrandBySlug } from '@/lib/services/brands'
 import { resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
@@ -19,6 +21,12 @@ export async function GET(
   const { slug } = await params
   const { searchParams } = new URL(request.url)
   const download = searchParams.get('download') === '1'
+  // `?locale=en` picks the headline language; anything else falls back to the
+  // default locale rather than failing the image.
+  const localeParam = searchParams.get('locale')
+  const locale = hasLocale(routing.locales, localeParam)
+    ? localeParam
+    : routing.defaultLocale
 
   let brand
   try {
@@ -53,7 +61,7 @@ export async function GET(
         `attachment; filename="formoria-${slug}.png"`
     }
 
-    return new ImageResponse(renderShareCard(brand, markDataUri), {
+    return new ImageResponse(renderShareCard(brand, markDataUri, locale), {
       width: 1080,
       height: 1350,
       fonts,

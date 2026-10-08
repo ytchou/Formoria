@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
+import { TrustLabel } from "@/components/ui/trust-label";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
@@ -87,9 +88,14 @@ export function ProductShelf({
     >
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-4">
-          <Typography as="h2" variant="sectionTitleLarge">
-            {heading}
-          </Typography>
+          {/* The badge sits beside the title, never inside the h2: it is a
+              trust label (DESIGN.md §5), not part of the heading text. */}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <Typography as="h2" variant="sectionTitleLarge">
+              {heading}
+            </Typography>
+            <TrustLabel />
+          </div>
           {canScroll ? (
             <div className="flex shrink-0 gap-2">
               <Button

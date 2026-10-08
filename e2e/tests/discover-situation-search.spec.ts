@@ -27,7 +27,7 @@ test.describe("Discover situation search", () => {
 
     const mainContent = page.locator("main");
     const productGrid = mainContent.locator("ul.grid").filter({ has: page.getByRole("heading", { level: 3 }) });
-    const emptyState = mainContent.getByText("找不到符合的商品");
+    const emptyState = mainContent.getByText("找不到「茶壺」相關的商品");
 
     await expect(
       productGrid.or(emptyState),
@@ -85,7 +85,29 @@ test.describe("Discover situation search", () => {
         exact: true,
       }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    await expect(main.getByText(/找到 \d+ 件商品/)).toHaveCount(1);
+    // A full candidate pool reads 依相關度列出前 N 件; a floored one 找到 N 件相關商品.
+    await expect(
+      main.getByText(/找到 \d+ 件相關商品|依相關度列出前 \d+ 件/),
+    ).toHaveCount(1);
     await expect(main.getByText(/共 \d+ 件商品/)).toHaveCount(0);
+  });
+
+  test("a nonsense query reaches the empty state with forward routes", async ({
+    page,
+  }) => {
+    // DEV-1964: the relevance floor drops every candidate for a Latin string
+    // with no lexical hit, so the page must not claim a count.
+    await page.goto("/discover?q=asdfqwer", { timeout: BUDGET.NAVIGATION });
+    const main = page.locator("main");
+    await expect(
+      main.getByText(
+        "找不到「asdfqwer」相關的商品，換個關鍵字，或清除篩選條件。",
+        { exact: true },
+      ),
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(main.getByText(/找到 \d+ 件|依相關度列出前/)).toHaveCount(0);
+    await expect(
+      main.getByRole("heading", { name: "依分類看全部商品", exact: true }),
+    ).toBeVisible();
   });
 });

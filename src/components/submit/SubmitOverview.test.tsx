@@ -35,7 +35,7 @@ function renderWithZhTW(ui: React.ReactElement) {
   );
 }
 
-const ownerCtaLoggedIn = zhMessages.submit.overview.ownerCtaLoggedIn;
+const overview = zhMessages.submit.overview;
 
 describe('SubmitOverview', () => {
   beforeEach(() => {
@@ -47,18 +47,13 @@ describe('SubmitOverview', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
   });
 
-  it('explains the owner submission path with concise copy', () => {
+  it('describes the recommendation path in reader-facing terms', () => {
     renderWithZhTW(<SubmitOverview />);
 
-    expect(
-      screen.getByText('與社群分享你喜歡的台灣品牌，我們會審核後收錄進品牌目錄。'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        level: 2,
-        name: '開始創建完整品牌資訊',
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(overview.description)).toBeInTheDocument();
+    expect(screen.getByText('只要品牌名稱和網址就能送出')).toBeInTheDocument();
+    // Taiwan usage (建立, not 創建) and no internal funnel jargon (SP-22).
+    expect(document.body.textContent).not.toMatch(/創建|降低提交門檻/);
   });
 
   it('renders recommendation CTA without auth redirect', () => {
@@ -67,28 +62,32 @@ describe('SubmitOverview', () => {
     expect(cta).toHaveAttribute('href', '/submit/recommend');
   });
 
-  it('shows the owner fork as coming soon, with no way in', () => {
+  it('renders the selling points as a plain list, not boxed rows', () => {
     renderWithZhTW(<SubmitOverview />);
 
-    // The card keeps its slot so the page keeps its two-column layout, but the
-    // owner fork was removed (DEV-1570) and must offer no route into it.
-    expect(
-      screen.getByRole('heading', { level: 2, name: '開始創建完整品牌資訊' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('即將推出')).toBeInTheDocument();
+    const items = screen.getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+    for (const item of items) {
+      expect(item.className).not.toMatch(/\bborder\b/);
+    }
+  });
+
+  it('gives brand owners one plain line instead of a coming-soon card', () => {
+    renderWithZhTW(<SubmitOverview />);
+
+    // DEV-1956: the owner card said 即將推出 and had no way in, so a brand
+    // owner arriving from /brands/join dead-ended. One line now points them
+    // at the recommend form, and the owner fork (DEV-1570) stays unreachable.
+    expect(screen.getByText(overview.ownerNote)).toBeInTheDocument();
+    expect(screen.queryByText('即將推出')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(1);
     expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
-    expect(
-      screen.getByRole('link', { name: /推薦品牌/i }),
-    ).toHaveAttribute('href', '/submit/recommend');
   });
 
   it('offers a signed-in visitor no owner action', () => {
     renderWithZhTW(<SubmitOverview isLoggedIn />);
 
     expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: ownerCtaLoggedIn }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText('即將推出')).toBeInTheDocument();
+    expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 });

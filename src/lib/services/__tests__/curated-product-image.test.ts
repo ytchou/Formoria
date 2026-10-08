@@ -137,6 +137,105 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/**
+ * The text reader is injected on every path that gets past the download, so no
+ * test here ever calls OpenAI. A clean product photo reads as no text at all.
+ */
+const noText = async (): Promise<string> => "";
+
+function stubImageFetch(source: Buffer): void {
+  stubFetch(
+    new Response(new Uint8Array(source), {
+      status: 200,
+      headers: { "content-type": "image/png" },
+    }),
+  );
+}
+
+/**
+ * The commerce-truth gate (DEV-1962). Formoria never stores price, discount or
+ * promotion, and a promo banner in a product photo stores all three in pixels.
+ */
+describe("prepareCuratedProductImage commerce-truth gate", () => {
+  it("rejects an image whose text shows prices or promotions", async () => {
+    stubImageFetch(await sourceImage(800, 600));
+    // The LAB52 homepage wall image that motivated the gate.
+    const readText = vi.fn(
+      async () => "9月淨齒節 滿額最高再省$220\n贈\n$589\n原價$676",
+    );
+
+    await expect(
+      prepareCuratedProductImage("https://example.com/promo.png", PRODUCT_ID, {
+        readText,
+      }),
+    ).rejects.toThrow(
+      "The image shows prices or promotions ($, 省, 贈); choose a clean product photo",
+    );
+    expect(readText).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes an image whose text carries no commerce markers", async () => {
+    stubImageFetch(await sourceImage(800, 600));
+
+    const result = await prepareCuratedProductImage(
+      "https://example.com/clean.png",
+      PRODUCT_ID,
+      { readText: async () => "OR-21 鋼筆 710ml" },
+    );
+
+    expect(result.contentType).toBe("image/webp");
+  });
+
+  it("reads the PROCESSED bytes, not the source", async () => {
+    stubImageFetch(await sourceImage(2400, 1200));
+    const readText = vi.fn(async (processed: { width: number }) => {
+      expect(processed.width).toBe(1200);
+      return "";
+    });
+
+    await prepareCuratedProductImage(
+      "https://example.com/wide.png",
+      PRODUCT_ID,
+      {
+        readText,
+      },
+    );
+    expect(readText).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed when the text cannot be read", async () => {
+    stubImageFetch(await sourceImage(800, 600));
+
+    await expect(
+      prepareCuratedProductImage("https://example.com/any.png", PRODUCT_ID, {
+        readText: async () => {
+          throw new Error("image text request failed (HTTP 503)");
+        },
+      }),
+    ).rejects.toThrow(
+      "Could not check the image for prices or promotions; try again",
+    );
+  });
+
+  it("threads the reader through storeCuratedProductImage and uploads nothing on a rejection", async () => {
+    stubImageFetch(await sourceImage(800, 600));
+    const upload = vi.fn(async ({ path }: { path: string }) => ({ path }));
+
+    await expect(
+      storeCuratedProductImage(
+        {
+          brandId: BRAND_ID,
+          productId: PRODUCT_ID,
+          imageSourceUrl: "https://example.com/promo.png",
+          previousImageUrl: null,
+        },
+        { upload, readText: async () => "限時 8折" },
+      ),
+    ).rejects.toThrow(/prices or promotions/);
+    expect(upload).not.toHaveBeenCalled();
+  });
+});
+
 describe("prepareCuratedProductImage", () => {
   it("refuses a private URL BEFORE any request is made", async () => {
     // The URL is typed into an admin form and fetched by the server, so without
@@ -185,6 +284,7 @@ describe("prepareCuratedProductImage", () => {
     const result = await prepareCuratedProductImage(
       "https://example.com/large.png",
       PRODUCT_ID,
+      { readText: noText },
     );
 
     expect(result.contentType).toBe("image/webp");
@@ -266,7 +366,7 @@ describe("storeCuratedProductImage dimensions", () => {
         imageSourceUrl: "https://example.com/wide.png",
         previousImageUrl: null,
       },
-      { upload: async ({ path }) => ({ path }) },
+      { upload: async ({ path }) => ({ path }), readText: noText },
     );
 
     // The processor caps at 1200px on the long edge, so 2400x1200 in must come

@@ -6,8 +6,9 @@ test("@cross-browser header search reaches product results from stories", async 
 }) => {
   await page.goto("/stories");
   const search = page
-    .getByRole("search", { name: "全站商品搜尋" })
-    .getByRole("searchbox", { name: "全站商品搜尋" });
+    .getByRole("banner")
+    .getByRole("search", { name: "搜尋商品", exact: true })
+    .getByRole("searchbox", { name: "搜尋商品", exact: true });
   await expect(search).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   await search.fill("帆布包");
   await search.press("Enter");

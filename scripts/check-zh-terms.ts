@@ -199,6 +199,10 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "machine-readable origin evidence regexes, never rendered",
   ],
   [
+    "lib/curated-products/commerce-text.ts",
+    "commerce-truth regexes matched against image text, never rendered",
+  ],
+  [
     "lib/services/enrich-phases/products/evidence-lexicon.ts",
     "product-page fact/chrome label regexes, never rendered",
   ],

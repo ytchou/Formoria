@@ -8,6 +8,7 @@ import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { Link } from "@/i18n/navigation";
 import AboutHero from "@/components/about/about-hero";
 import { PullQuote } from "@/components/stories/pull-quote";
+import { actionLinkStyles } from "@/components/ui/action-link";
 import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
 import { PhotoBand } from "@/components/ui/photo-band";
@@ -97,7 +98,7 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="bg-surface py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance">
+              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
                 {t("scenes.heading")}
               </h2>
               <div className="space-y-6">
@@ -123,7 +124,7 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance">
+              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
                 {t("loop.heading")}
               </h2>
               <div>
@@ -141,7 +142,7 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="bg-surface py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance">
+              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
                 {t("taiwanStats.heading")}
               </h2>
               <div>
@@ -160,16 +161,18 @@ export default async function AboutPage({ params }: PageProps) {
                 </div>
                 <hr className="mt-8 border-rule" />
                 <p className="mt-4 type-metadata">
-                  {t("taiwanStats.sourceLabel")}
-                  {": "}
-                  <a
-                    href="https://www.sme.gov.tw/article-tw-2853-13097"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline"
-                  >
-                    {t("taiwanStats.sourceName")}
-                  </a>
+                  {t.rich("taiwanStats.source", {
+                    link: (chunks) => (
+                      <a
+                        href="https://www.sme.gov.tw/article-tw-2853-13097"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        {chunks}
+                      </a>
+                    ),
+                  })}
                 </p>
               </div>
             </div>
@@ -187,7 +190,7 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance">
+              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
                 {t("stance.heading")}
               </h2>
               <div className="space-y-8">
@@ -211,13 +214,13 @@ export default async function AboutPage({ params }: PageProps) {
           <PageShell measure="page">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="type-page-title text-balance">
+                <h2 className="type-page-title text-balance [word-break:auto-phrase]">
                   {t("guide.heading")}
                 </h2>
               </div>
-              <div>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                 <Link
-                  href={routes.brands()}
+                  href={routes.style()}
                   className={buttonVariants({
                     variant: "primary",
                     shape: "pill",
@@ -226,6 +229,14 @@ export default async function AboutPage({ params }: PageProps) {
                   {t("guide.cta")}
                   <ArrowRight aria-hidden="true" />
                 </Link>
+                <div className="flex items-center gap-3">
+                  <span className="type-metadata text-ink-soft">
+                    {t("guide.directoryPrefix")}
+                  </span>
+                  <Link href={routes.brands()} className={actionLinkStyles()}>
+                    {t("guide.directoryCta")}
+                  </Link>
+                </div>
               </div>
             </div>
           </PageShell>

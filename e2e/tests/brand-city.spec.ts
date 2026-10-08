@@ -47,7 +47,7 @@ test.describe('Brand city badge', () => {
     }
   });
 
-  test('brand with city=taipei shows 臺北市 badge on detail page', async ({ page }) => {
+  test('brand with city=taipei shows 台北市 badge on detail page', async ({ page }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
     // ISR pages may serve a stale cache — poll-reload until the seeded brand's city badge appears
     await expect(async () => {
@@ -57,7 +57,7 @@ test.describe('Brand city badge', () => {
       // translated city name. Scope to the badge — the FAQ copy on this page can
       // also mention the city name in prose (brandFaq.context.city).
       await expect(
-        page.locator('[data-slot="badge"]', { hasText: '臺北市' }),
+        page.locator('[data-slot="badge"]', { hasText: '台北市' }),
       ).toBeVisible({ timeout: BUDGET.RENDERED });
     }).toPass(POLL.DB);
   });

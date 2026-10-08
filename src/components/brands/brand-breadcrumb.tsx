@@ -31,7 +31,7 @@ export function Breadcrumb({
             {item.href ? (
               <Link
                 href={item.href}
-                className="transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
+                className="-my-3 py-3 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent"
               >
                 {item.label}
               </Link>

@@ -81,7 +81,7 @@ test.describe("i18n English browse", () => {
     const document = renderedDocument(await response.text());
     expect(document.lang).toBe("en");
 
-    for (const text of ["About Formoria", "Recommend a Brand"]) {
+    for (const text of ["About Formoria", "Recommend a brand"]) {
       expect(document.headerText).toContain(text);
     }
     // Only fixture-backed copy and ontology-stable strings belong here. The
@@ -89,10 +89,8 @@ test.describe("i18n English browse", () => {
     for (const text of [
       "Brands",
       "Visit Website",
-      "Brand information",
-      "Founded",
-      "Brand category",
-      "Product subcategory",
+      "Where to buy",
+      "Founded 2020",
       "Home & Living",
     ]) {
       expect(document.mainText).toContain(text);
@@ -100,10 +98,8 @@ test.describe("i18n English browse", () => {
     for (const text of [
       "品牌目錄",
       "前往官網",
-      "品牌資訊",
-      "創立年份",
-      "品牌類別",
-      "商品子類別",
+      "哪裡買得到",
+      "2020 年創立",
       "居家生活",
     ]) {
       expect(document.mainText).not.toContain(text);
@@ -126,21 +122,17 @@ test.describe("i18n English browse", () => {
     for (const text of [
       "品牌目錄",
       "前往官網",
-      "品牌資訊",
-      "創立年份",
-      "品牌類別",
-      "商品子類別",
+      "哪裡買得到",
+      "2020 年創立",
       "居家生活",
     ]) {
       expect(document.mainText).toContain(text);
     }
     for (const text of [
-      "Brand Directory",
+      "Brand directory",
       "Visit Website",
-      "Brand information",
+      "Where to buy",
       "Founded",
-      "Brand category",
-      "Product subcategory",
       "Home & Living",
     ]) {
       expect(document.mainText).not.toContain(text);
@@ -152,9 +144,9 @@ test.describe("i18n English browse", () => {
   test("/en returns 200 and shows English header chrome", async ({ page }) => {
     const response = await page.goto("/en");
     expect(response?.status()).toBe(200);
-    // Header renders "Recommend a Brand" in English; html[lang] is "en"
+    // Header renders "Recommend a brand" in English; html[lang] is "en"
     await expect(
-      page.locator("header").getByRole("link", { name: "Recommend a Brand" }),
+      page.locator("header").getByRole("link", { name: "Recommend a brand" }),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
@@ -311,7 +303,7 @@ test.describe("i18n English browse", () => {
     await expect(page).toHaveURL(/\/en/, { timeout: BUDGET.INTERACTIVE });
     // After switching: header submit link should be in English
     await expect(
-      page.locator("header").getByRole("link", { name: "Recommend a Brand" }),
+      page.locator("header").getByRole("link", { name: "Recommend a brand" }),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });

@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { normalizeCuratedProductName } from "@/lib/curated-products/product-name";
 import {
   fetchHtmlWithMetadata,
   type FetchMetadata,
@@ -142,8 +143,16 @@ function findProductNode(
   return null;
 }
 
-/** Route one name into the zh-TW or the Latin-script slot, first writer wins. */
-function assignName(prefill: CuratedProductPrefill, name: string | null): void {
+/**
+ * Route one name into the zh-TW or the Latin-script slot, first writer wins.
+ * Normalised first (DEV-1962): a shop's trailing SKU token or a doubled name is
+ * a defect of the page, not part of the name an editor should be offered.
+ */
+function assignName(
+  prefill: CuratedProductPrefill,
+  raw: string | null,
+): void {
+  const name = raw ? normalizeCuratedProductName(raw) : null;
   if (!name) return;
   if (HAN_REGEX.test(name)) {
     if (!prefill.nameZh) prefill.nameZh = name;

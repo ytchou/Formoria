@@ -17,7 +17,6 @@ const surfaceCardStyles = cva(
     variants: {
       tone: {
         card: "bg-surface",
-        white: "bg-white",
         background: "bg-ground",
         info: "border-info/30 bg-info-bg text-info",
         warning: "border-warning/30 bg-warning/10 text-warning",

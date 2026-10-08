@@ -35,7 +35,8 @@ function makeProductRow(
     category: "home",
     subcategory: "candles",
     created_at: "2026-08-29T12:00:00.000Z",
-    image_url: `https://example.com/${id}.jpg`,
+    // Same-origin mirrored path: renderable whatever the env (DEV-1962).
+    image_url: `/i/curated-products/${id}.jpg`,
     official_url: `https://example.com/${id}`,
     product_description_zh: `商品${id}描述`,
     product_description_en: null,
@@ -110,9 +111,32 @@ describe("getPublishedCuratedProducts with ids option", () => {
     const notCalls = calls.filter((c) => c.method === "not");
     expect(notCalls.some((c) => c.args[0] === "official_url")).toBe(true);
     expect(notCalls.some((c) => c.args[0] === "source_checked_at")).toBe(true);
+    expect(
+      notCalls.some(
+        (c) => c.args[0] === "image_url" && c.args[1] === "is" && c.args[2] === null,
+      ),
+    ).toBe(true);
 
     // excludeTestBrands was applied (not like on brands.name)
     expect(notCalls.some((c) => c.args[0] === "brands.name" && c.args[1] === "like")).toBe(true);
+  });
+
+  it("drops a photo-less product from search hydration (DEV-1962)", async () => {
+    const rows = [
+      makeProductRow("aaa"),
+      makeProductRow("bbb", { image_url: null }),
+      makeProductRow("ccc", { image_url: "//evil.example/ccc.jpg" }),
+    ];
+    const { client } = createFakeClient(rows);
+
+    const result = await getPublishedCuratedProducts(
+      { ids: ["aaa", "bbb", "ccc"] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock client
+      client as any,
+    );
+
+    expect(result.products.map((p) => p.id)).toEqual(["aaa"]);
+    expect(result.totalCount).toBe(1);
   });
 
   it("returns empty list and totalCount 0 when no ids match", async () => {

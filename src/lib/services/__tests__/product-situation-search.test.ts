@@ -9,6 +9,8 @@ import {
   _resetDegradationCooldown,
   _resetLtrDegradationCooldown,
   CANDIDATE_POOL,
+  RELEVANCE_COSINE_FLOOR,
+  applyRelevanceFloor,
   type SearchDeps,
 } from "../product-situation-search";
 
@@ -55,16 +57,45 @@ function product(id: string, name: string, overrides: Partial<CatalogProduct> = 
   };
 }
 
-function rpcRow(productId: string, score: number, source = "hybrid") {
+type TestRpcRow = {
+  product_id: string;
+  rank_score: number;
+  search_source: string;
+  vector_rank: number | null;
+  lexical_rank: number | null;
+  cosine_sim: number | null;
+  lexical_score: number | null;
+};
+
+// Defaults describe a genuine match so the relevance floor (DEV-1964) keeps
+// it: a non-"vector" row is a lexical hit, a non-"lexical" row clears the
+// cosine floor. Floor tests pass explicit overrides.
+function rpcRow(
+  productId: string,
+  score: number,
+  source = "hybrid",
+  overrides: Partial<TestRpcRow> = {},
+): TestRpcRow {
   return {
     product_id: productId,
     rank_score: score,
     search_source: source,
-    vector_rank: null as number | null,
-    lexical_rank: null as number | null,
-    cosine_sim: null as number | null,
-    lexical_score: null as number | null,
+    vector_rank: null,
+    lexical_rank: source === "vector" ? null : 1,
+    cosine_sim: source === "lexical" ? null : 0.5,
+    lexical_score: null,
+    ...overrides,
   };
+}
+
+/** A row only the vector arm returned, at the given cosine similarity. */
+function vectorRow(productId: string, cosine: number | null): TestRpcRow {
+  return rpcRow(productId, 0.5, "vector", { vector_rank: 1, cosine_sim: cosine });
+}
+
+/** A row the lexical arm matched, with the given (possibly weak) cosine. */
+function lexicalRow(productId: string, cosine: number | null): TestRpcRow {
+  return rpcRow(productId, 0.5, "both", { lexical_rank: 1, cosine_sim: cosine });
 }
 
 const EMBEDDING = [0.1, 0.2, 0.3];
@@ -1307,5 +1338,215 @@ describe("searchProductsBySituation — LTR scoring", () => {
     );
     expect(deps.ltrScore).not.toHaveBeenCalled();
     expect(result.ltrMode).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. Relevance floor (DEV-1964) — totalCount is the post-floor count
+// ---------------------------------------------------------------------------
+
+describe("applyRelevanceFloor", () => {
+  it("keeps lexical hits regardless of cosine and vector-only rows at or above the floor", () => {
+    const rows = [
+      vectorRow("v-high", 0.5),
+      vectorRow("v-low", 0.2),
+      lexicalRow("lex-null", null),
+      vectorRow("v-at", RELEVANCE_COSINE_FLOOR),
+      lexicalRow("lex-low", 0.1),
+      vectorRow("v-null", null),
+    ];
+    const kept = applyRelevanceFloor(rows, { query: "送長輩的茶具", mode: "hybrid" });
+    expect(kept.map((r) => r.product_id)).toEqual(["v-high", "lex-null", "v-at", "lex-low"]);
+  });
+
+  it("returns nothing for a Latin-only hybrid query with no lexical hit", () => {
+    const rows = [vectorRow("v1", 0.6), vectorRow("v2", 0.5)];
+    expect(applyRelevanceFloor(rows, { query: "asdfqwer", mode: "hybrid" })).toEqual([]);
+  });
+
+  it("applies the cosine rule to a Latin hybrid query that has a lexical hit", () => {
+    const rows = [vectorRow("v-high", 0.6), lexicalRow("lex", 0.1), vectorRow("v-low", 0.2)];
+    const kept = applyRelevanceFloor(rows, { query: "canvas bag", mode: "hybrid" });
+    expect(kept.map((r) => r.product_id)).toEqual(["v-high", "lex"]);
+  });
+
+  it("does not fire the Latin gate in vector mode", () => {
+    const rows = [vectorRow("v1", 0.6), vectorRow("v2", 0.2)];
+    const kept = applyRelevanceFloor(rows, { query: "canvas bag", mode: "vector" });
+    expect(kept.map((r) => r.product_id)).toEqual(["v1"]);
+  });
+
+  it("keeps every lexical-mode row (each is a lexical hit)", () => {
+    const rows = [rpcRow("l1", 0.9, "lexical"), rpcRow("l2", 0.8, "lexical")];
+    const kept = applyRelevanceFloor(rows, { query: "canvas", mode: "lexical" });
+    expect(kept.map((r) => r.product_id)).toEqual(["l1", "l2"]);
+  });
+
+  it("does not mutate its input", () => {
+    const rows = [vectorRow("v1", 0.6), vectorRow("v2", 0.1)];
+    applyRelevanceFloor(rows, { query: "茶具", mode: "hybrid" });
+    expect(rows.map((r) => r.product_id)).toEqual(["v1", "v2"]);
+  });
+});
+
+describe("searchProductsBySituation — relevance floor", () => {
+  function nonsensePool(): TestRpcRow[] {
+    // 100 vector-only rows, cosine spread across 0.19–0.29 (staging max for
+    // nonsense Latin queries was 0.2951).
+    return Array.from({ length: CANDIDATE_POOL }, (_, i) =>
+      vectorRow(`n${i}`, 0.19 + (i % 11) * 0.01),
+    );
+  }
+
+  it.each(["asdfqwer", "qzxv"])(
+    "nonsense query %s reports zero results instead of the candidate pool",
+    async (query) => {
+      const hydrate = vi.fn().mockResolvedValue([]);
+      const deps = createDeps({
+        rpc: vi.fn().mockResolvedValue({ data: nonsensePool(), error: null }),
+        hydrate,
+      });
+
+      const result = await searchProductsBySituation(
+        { query, locale: "zh-TW", mode: "hybrid" },
+        deps,
+      );
+
+      expect(result.totalCount).toBe(0);
+      expect(result.products).toEqual([]);
+      expect(result.poolLimited).toBe(false);
+      for (const call of hydrate.mock.calls) {
+        expect(call[0].ids).toEqual([]);
+      }
+    },
+  );
+
+  it("Latin hybrid query with only vector rows above the floor returns nothing", async () => {
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({
+        data: [vectorRow("v1", 0.5), vectorRow("v2", 0.45)],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([product("v1", "A"), product("v2", "B")]),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "asdfqwer", locale: "zh-TW", mode: "hybrid" },
+      deps,
+    );
+
+    expect(result.totalCount).toBe(0);
+    expect(result.products).toEqual([]);
+  });
+
+  it("Latin query in vector mode keeps rows above the floor", async () => {
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({
+        data: [vectorRow("v1", 0.5), vectorRow("v2", 0.45)],
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue([product("v1", "A"), product("v2", "B")]),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "canvas bag", locale: "zh-TW", mode: "vector" },
+      deps,
+    );
+
+    expect(result.products.map((p) => p.id)).toEqual(["v1", "v2"]);
+    expect(result.totalCount).toBe(2);
+  });
+
+  it("Han query drops weak vector-only rows, keeps strong and lexical rows in order", async () => {
+    const hydrate = vi.fn().mockResolvedValue([
+      product("strong", "A"),
+      product("lex-weak", "B"),
+      product("lex-null", "C"),
+      product("weak", "D"),
+    ]);
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          vectorRow("strong", 0.6),
+          vectorRow("weak", 0.2),
+          lexicalRow("lex-weak", 0.1),
+          vectorRow("null-cos", null),
+          lexicalRow("lex-null", null),
+        ],
+        error: null,
+      }),
+      hydrate,
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送長輩的茶具", locale: "zh-TW", mode: "hybrid" },
+      deps,
+    );
+
+    expect(hydrate).toHaveBeenCalledWith({ ids: ["strong", "lex-weak", "lex-null"] });
+    expect(result.products.map((p) => p.id)).toEqual(["strong", "lex-weak", "lex-null"]);
+    expect(result.totalCount).toBe(3);
+    expect(result.poolLimited).toBe(false);
+  });
+
+  it("relevanceFloor: false keeps the raw candidate pool", async () => {
+    const pool = nonsensePool();
+    const hydrate = vi.fn().mockResolvedValue(pool.map((r) => product(r.product_id, r.product_id)));
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({ data: pool, error: null }),
+      hydrate,
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "asdfqwer", locale: "zh-TW", mode: "hybrid", relevanceFloor: false },
+      deps,
+    );
+
+    expect(hydrate).toHaveBeenCalledWith({ ids: pool.map((r) => r.product_id) });
+    expect(result.totalCount).toBe(CANDIDATE_POOL);
+  });
+
+  it("poolLimited is true when the full candidate pool passes the floor", async () => {
+    const pool = Array.from({ length: CANDIDATE_POOL }, (_, i) => vectorRow(`s${i}`, 0.6));
+    const deps = createDeps({
+      rpc: vi.fn().mockResolvedValue({ data: pool, error: null }),
+      hydrate: vi.fn().mockResolvedValue(pool.map((r) => product(r.product_id, r.product_id))),
+    });
+
+    const result = await searchProductsBySituation(
+      { query: "送禮推薦", locale: "zh-TW", mode: "hybrid" },
+      deps,
+    );
+
+    expect(result.totalCount).toBe(CANDIDATE_POOL);
+    expect(result.poolLimited).toBe(true);
+  });
+
+  it("LTR scores one row per post-floor candidate", async () => {
+    vi.stubEnv("SEARCH_LTR_MODE", "shadow");
+    try {
+      const ltrScore = vi.fn().mockResolvedValue([0.2, 0.8]);
+      const deps = createDeps({
+        rpc: vi.fn().mockResolvedValue({
+          data: [vectorRow("keep-1", 0.6), vectorRow("drop", 0.1), lexicalRow("keep-2", null)],
+          error: null,
+        }),
+        hydrate: vi.fn().mockResolvedValue([product("keep-1", "A"), product("keep-2", "B")]),
+        ltrScore,
+        ltrFeatures: vi.fn().mockResolvedValue(new Map()),
+      });
+
+      const result = await searchProductsBySituation(
+        { query: "送禮推薦", locale: "zh-TW", mode: "hybrid" },
+        deps,
+      );
+
+      expect(ltrScore.mock.calls[0]![0]).toHaveLength(2);
+      expect(result.degraded).toBe(false);
+      expect(result.rrfProductKeys).toEqual(["keep-1", "keep-2"]);
+    } finally {
+      vi.unstubAllEnvs();
+      _resetLtrDegradationCooldown();
+    }
   });
 });

@@ -168,6 +168,33 @@ describe("prefillFromUrl", () => {
     expect(prefill.description).toBeUndefined();
   });
 
+  it("strips a shop SKU token and a doubled name from the suggested names", async () => {
+    // DEV-1962: shops append a random 8-character handle, or repeat the name,
+    // and a prefill that carried either would hand it to the editor as the
+    // product's name.
+    const jsonLd = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: "陶瓷手沖杯 7cFSL8yz",
+      alternateName: "Pour-Over Cup Pour-Over Cup",
+    });
+    const html = `<!doctype html><html><head>
+      <script type="application/ld+json">${jsonLd}</script>
+      </head><body></body></html>`;
+
+    const fetchPage: PrefillFetchPage = async () => ({
+      text: html,
+      status: 200,
+      latencyMs: 1,
+      error: null,
+    });
+
+    const prefill = await prefillFromUrl(PAGE_URL, { fetchPage });
+
+    expect(prefill.nameZh).toBe("陶瓷手沖杯");
+    expect(prefill.nameEn).toBe("Pour-Over Cup");
+  });
+
   it("never_writes_to_database", async () => {
     // Two proofs, because one alone is weak. First: the behavioural one — the
     // only injected seam is the fetch, so a run that completes without touching

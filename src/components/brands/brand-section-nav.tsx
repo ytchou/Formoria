@@ -14,14 +14,9 @@ type Section = {
 type BrandSectionNavProps = {
   sections: Section[]
   ariaLabel?: string
-  orientation?: 'horizontal' | 'vertical'
 }
 
-export function BrandSectionNav({
-  sections,
-  ariaLabel,
-  orientation = 'vertical',
-}: BrandSectionNavProps) {
+export function BrandSectionNav({ sections, ariaLabel }: BrandSectionNavProps) {
   const t = useTranslations('brandDetail')
   const [activeId, setActiveId] = useState(sections.at(0)?.id ?? '')
   const observerRef = useRef<IntersectionObserver | null>(null)
@@ -76,52 +71,37 @@ export function BrandSectionNav({
 
   if (!shouldShowBrandSectionNav(sections.length)) return null
 
-  // min-w-0: as a grid item the nav defaults to min-width:auto, which pins it to its
-  // min-content width and scrolls the whole page horizontally when labels are long
-  // (measured on the longest label this nav has carried, the pre-DEV-1513 en
-  // "Locations & Channels", at 177px vs zh 130px). Shrinking to the grid track lets
-  // the inner overflow-x-auto do the scrolling it was already there to do.
+  // Mobile only (BD-27): on md+ the content takes the full page measure, and
+  // the old left rail there added chrome without adding orientation.
   return (
-    // `border-b` only, never `border-y`: on mobile this strip is the first child
-    // of a wrapper that already draws its own `border-t` 32px above, and the two
-    // rules read as one doubled divider. The bottom rule stays — it is what
-    // separates the sticky strip from the content sliding under it.
+    // `border-b` only, never `border-y`: the strip sits directly under the hero,
+    // and the bottom rule is what separates the sticky strip from the content
+    // sliding under it.
     <nav
       aria-label={ariaLabel ?? t('tabNav.overview')}
-      className={cn(
-        'sticky top-(--nav-height) z-40 min-w-0 border-b border-rule bg-ground',
-        orientation === 'vertical' && 'md:self-start md:border-b-0 md:border-l md:pl-3',
-      )}
+      className="sticky top-(--nav-height) z-40 min-w-0 border-b border-rule bg-ground md:hidden"
     >
-      <div className={cn('flex items-stretch', orientation === 'vertical' && 'md:flex-col')}>
-        <div
-          className={cn(
-            'scrollbar-none flex min-w-0 flex-1 overflow-x-auto',
-            orientation === 'vertical' && 'md:flex-col md:overflow-visible',
-          )}
-        >
-          {sections.map(({ id, label }) => {
-            const isActive = activeId === id
+      <div className="scrollbar-none flex min-w-0 overflow-x-auto">
+        {sections.map(({ id, label }) => {
+          const isActive = activeId === id
 
-            return (
-              <a
-                key={id}
-                href={`#${id}`}
-                aria-current={isActive ? 'location' : undefined}
-                onClick={(event) => handleSectionClick(event, id)}
-                className={cn(
-                  'flex min-h-12 shrink-0 items-center border-b-2 border-transparent px-4',
-                  orientation === 'vertical' && 'md:border-b-0 md:border-l-2 md:px-3',
-                  isActive
-                    ? 'type-nav font-semibold text-ink border-accent'
-                    : 'type-nav hover:text-ink transition-colors',
-                )}
-              >
-                {label}
-              </a>
-            )
-          })}
-        </div>
+          return (
+            <a
+              key={id}
+              href={`#${id}`}
+              aria-current={isActive ? 'location' : undefined}
+              onClick={(event) => handleSectionClick(event, id)}
+              className={cn(
+                'flex min-h-12 shrink-0 items-center border-b-2 border-transparent px-4',
+                isActive
+                  ? 'type-nav font-semibold text-ink border-accent'
+                  : 'type-nav hover:text-ink transition-colors',
+              )}
+            >
+              {label}
+            </a>
+          )
+        })}
       </div>
     </nav>
   )

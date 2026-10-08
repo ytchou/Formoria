@@ -1,25 +1,24 @@
 import { cn } from '@/lib/utils'
-import { categoryTint } from '@/lib/taxonomy/ontology'
 
 interface BrandImageFallbackProps {
   name: string
-  category: string | null
+  // Accepted but unused since DEV-1950 removed the category tint; drop it with the callers in a follow-up.
+  category?: string | null
   size: 'card' | 'detail'
 }
 
-export function BrandImageFallback({ name, category, size }: BrandImageFallbackProps) {
+export function BrandImageFallback({ name, size }: BrandImageFallbackProps) {
   const initial = [...name][0]
 
   return (
     <div
       data-testid="image-fallback"
-      className="flex h-full items-center justify-center"
-      style={{ backgroundColor: categoryTint(category) }}
+      className="flex h-full items-center justify-center bg-surface-deep"
     >
       <span
         className={cn(
-          'font-bold text-ink',
-          size === 'detail' ? 'text-5xl' : 'text-3xl'
+          size === 'detail' ? 'type-page-title' : 'type-section',
+          'text-ink-muted'
         )}
       >
         {initial}

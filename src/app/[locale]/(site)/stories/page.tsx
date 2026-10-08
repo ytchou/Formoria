@@ -98,6 +98,13 @@ export default async function StoriesHubPage({
               // series, so a bare count contradicts `SeriesNav` on the detail
               // page, which always reports the full series. Say "N of M" instead.
               const isPartial = group.stories.length !== group.totalCount;
+              // The series title is authored copy in the stories' language.
+              // On /en that is zh-TW (no English editions yet), so mark it the
+              // way `StoryRow` marks each title. The span keeps `lang` off the
+              // count beside it, which is page-locale text.
+              const groupLocale = group.stories[0]?.frontmatter.locale;
+              const titleLang =
+                groupLocale && groupLocale !== locale ? groupLocale : undefined;
 
               return (
                 <section
@@ -107,7 +114,7 @@ export default async function StoriesHubPage({
                 >
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <h2 id={headingId} className="type-section">
-                      {group.title}
+                      <span lang={titleLang}>{group.title}</span>
                     </h2>
                     <p className="type-metadata">
                       {isPartial

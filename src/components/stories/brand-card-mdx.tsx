@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 
 import { BrandCard } from '@/components/brands/brand-card'
+import { isStagingEnvironment } from '@/lib/deployment-environment'
 import { getPublicBrandsBySlugs } from '@/lib/services/brands'
 import { normalizePublicBrandCard, type PublicBrandCard } from '@/lib/brands/contracts'
 import type { Brand } from '@/lib/types/brand'
@@ -40,8 +41,9 @@ export type BrandLoaderSeam = {
  * `<BrandCard slug="…" />` inside story MDX.
  *
  * Resolves through `getBrandsBySlugs`, never the throwing single-brand lookup:
- * a slug that was renamed or hidden after publication must degrade to an inline
- * placeholder, not throw and take the story page down.
+ * a slug that was renamed or hidden after publication must not throw and take
+ * the story page down. It renders `MissingBrandNotice` in dev and on staging,
+ * and nothing at all in production — see `shouldShowMissingBrandNotice`.
  */
 export async function BrandCardMdx({
   slug,
@@ -55,6 +57,7 @@ export async function BrandCardMdx({
   const brand = resolvedBrand ? normalizePublicBrandCard(resolvedBrand) : undefined
 
   if (!brand) {
+    if (!shouldShowMissingBrandNotice()) return null
     const t = await getTranslations('stories')
     return <MissingBrandNotice label={t('brandMissing', { slug })} />
   }
@@ -71,7 +74,21 @@ export async function BrandCardMdx({
 }
 
 /**
- * Inert placeholder for an unresolvable slug. Deliberately not focusable and
+ * Whether an unresolvable slug may render `MissingBrandNotice`: in local dev and
+ * on staging (the preview environment), never in production.
+ *
+ * The notice is an authoring aid — it names the raw slug so an editor can see a
+ * brand was renamed or hidden. Shipped to readers it is debugging text on a
+ * published page (DEV-1963), so production drops the brand silently instead.
+ * Read at call time, not module load, so tests can stub the environment.
+ */
+export function shouldShowMissingBrandNotice(): boolean {
+  return process.env.NODE_ENV !== 'production' || isStagingEnvironment()
+}
+
+/**
+ * Inert placeholder for an unresolvable slug, shown only where
+ * `shouldShowMissingBrandNotice` allows. Deliberately not focusable and
  * not a link — there is nothing to navigate to, and a tab stop that goes
  * nowhere is worse than plain text.
  *

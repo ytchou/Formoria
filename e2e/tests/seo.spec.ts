@@ -63,18 +63,18 @@ test.describe("SEO deep", () => {
     const aboutLocales = [
       {
         path: "/about",
-        title: "關於 Formoria | Formoria",
+        title: "關於我們 | Formoria",
         description:
-          "為什麼會有 Formoria：四條斷掉的路，和我們把它們接起來的方式。從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
-        heading: "搬新家、佈置店面、\n在市集停下來的那一刻",
+          "Formoria 是台灣品牌探索與選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。這裡說明我們怎麼收錄、怎麼挑選，以及不做哪些事。",
+        heading: /搬新家、佈置店面、\s*在市集\s*停下來的那一刻/,
       },
       {
         path: "/en/about",
-        title: "About Formoria | Formoria",
+        title: "About | Formoria",
         description:
-          "Why Formoria exists: four broken paths, and how we connect them. From one thing you love, to its brand, its story, and the place you can buy it.",
+          "Formoria is a Taiwanese brand discovery and curation platform: from one thing you love, to its brand, its story, and the place you can buy it. Here is how we list, how we select, and what we never do.",
         heading:
-          "Moving into a new home, setting up a shop, stopping at a market stall",
+          /Moving into a new home, styling a shop,\s*the moment you stop at a market stall/,
       },
     ] as const;
 
@@ -175,6 +175,7 @@ test.describe("SEO deep", () => {
   });
 
   test("an unknown eligible bare slug returns a direct 404", async ({
+    page,
     request,
   }) => {
     const unknownSlug = `e2e-unknown-brand-${Date.now()}`;
@@ -182,6 +183,53 @@ test.describe("SEO deep", () => {
 
     expect(response.status()).toBe(404);
     expect(response.headers().location).toBeUndefined();
+
+    // The proxy used to answer with an empty body. It now hands the 404 to the
+    // app, which renders the branded page. The server HTML is Next's error
+    // shell, so `lang` and the heading are asserted after hydration.
+    const pageResponse = await page.goto(`/${unknownSlug}`);
+    expect(pageResponse?.status()).toBe(404);
+    await expect(page.locator("html")).toHaveAttribute("lang", "zh-TW");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "找不到此頁面",
+    );
+  });
+
+  test("unknown URLs render the branded 404 in the right locale", async ({
+    page,
+  }) => {
+    for (const { path, lang, title } of [
+      // Localized catch-all: `[locale]/(site)/[...rest]`.
+      {
+        path: "/en/this-does-not-exist-e2e",
+        lang: "en",
+        title: "Page Not Found",
+      },
+      // Outside any app route: the proxy rewrites it to the zh-TW catch-all.
+      { path: "/foo/bar-e2e", lang: "zh-TW", title: "找不到此頁面" },
+    ]) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBe(404);
+      await expect(page.locator("html"), path).toHaveAttribute("lang", lang);
+      await expect(
+        page.getByRole("heading", { level: 1 }),
+        path,
+      ).toHaveText(title);
+    }
+  });
+
+  test("an unknown brand detail 404 is noindex with no canonical", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      `/brands/e2e-unknown-brand-${Date.now()}`,
+      { maxRedirects: 0 },
+    );
+
+    expect(response.status()).toBe(404);
+    const html = await response.text();
+    expect(html).not.toContain('rel="canonical"');
+    expect(extractMetaContent(html, "robots")).toMatch(/noindex/i);
   });
 
   // --- i18n: default-locale URL stability ---

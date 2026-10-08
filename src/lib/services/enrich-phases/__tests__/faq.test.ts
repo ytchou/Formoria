@@ -401,7 +401,7 @@ describe("localizedCityLabel", () => {
   it("resolves the slug to the label the brand page renders", () => {
     // The render path calls `tCities(brand.city)`; a prompt built on the raw
     // slug would describe the brand differently from its own page.
-    expect(localizedCityLabel("taipei")).toBe("臺北市");
+    expect(localizedCityLabel("taipei")).toBe("台北市");
     expect(localizedCityLabel(null)).toBeNull();
     // An unmapped value passes through rather than becoming null: losing the
     // city entirely is worse than an unlocalized one.
