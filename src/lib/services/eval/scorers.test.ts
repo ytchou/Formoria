@@ -44,6 +44,15 @@ it('languagePurity flags English runs inside a zh field and vice versa', () => {
   expect(languagePurity('這個品牌 offers great quality products 給大家', 'zh')).toBeLessThan(0.8)
   expect(languagePurity('A fully English description of the brand.', 'en')).toBe(1)
 })
+it('languagePurity counts full-width letters as Latin and full-width digits as neither (DEV-1954)', () => {
+  // Full-widthing a model number used to raise zh purity, which taught the model
+  // to write ＭＤ８６０Ｓ instead of MD860S.
+  expect(languagePurity('吸塵器ＭＤ８６０Ｓ', 'zh')).toBe(languagePurity('吸塵器MD860S', 'zh'))
+  expect(languagePurity('ＭＤＳ', 'zh')).toBe(0)
+  expect(languagePurity('８６０', 'zh')).toBe(1)
+  // Full-width punctuation still counts as CJK.
+  expect(languagePurity('，。：（）', 'zh')).toBe(1)
+})
 it('lengthBand checks inclusive char bands', () => {
   expect(lengthBand('a'.repeat(400), [300, 600])).toBe(true)
   expect(lengthBand('short', [300, 600])).toBe(false)

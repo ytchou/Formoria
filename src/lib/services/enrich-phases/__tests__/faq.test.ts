@@ -22,6 +22,7 @@ import { normalizeStockistName } from "@/lib/brands/stockist-display";
 import {
   contextFacts,
   countWhereToBuy,
+  faqBrandName,
   faqCoverageIsComplete,
   localizedCityLabel,
   resolveFaqAttempts,
@@ -136,6 +137,14 @@ const BRAND: Brand = {
 const PEER_STATS: NonNullable<FaqBrandContext["peerStats"]> = {
   peerCount: 2,
 };
+
+/**
+ * A purchase channel makes `where-to-buy` authorable — the fixtures' one
+ * non-custom preset since `category-position` stopped being authored
+ * (DEV-1954). Two notGeneric signals (city, website), so that check stays
+ * below its threshold and out of these tests.
+ */
+const WITH_CHANNEL = { purchaseWebsite: "https://island.example.com" };
 
 function context(
   overrides: Partial<Brand> & { stockistCount?: number } = {},
@@ -260,14 +269,14 @@ describe("validateFaqEntries", () => {
   });
 
   it("drops an answer containing an NT$ figure", () => {
-    // `category-position` is eligible here, so the drop can only come from the
+    // `where-to-buy` is eligible here, so the drop can only come from the
     // commerce check — not from eligibility.
-    const ctx = context({}, PEER_STATS);
+    const ctx = context(WITH_CHANNEL);
     const presets = authorable(ctx);
-    expect(presets.map((preset) => preset.id)).toContain("category-position");
+    expect(presets.map((preset) => preset.id)).toContain("where-to-buy");
 
     const clean = validateFaqEntries(
-      { entries: [modelEntry("category-position")] },
+      { entries: [modelEntry("where-to-buy")] },
       presets,
       ctx,
     );
@@ -276,7 +285,7 @@ describe("validateFaqEntries", () => {
     const outcome = validateFaqEntries(
       {
         entries: [
-          modelEntry("category-position", {
+          modelEntry("where-to-buy", {
             answerZh: zhAnswer(
               "這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。",
             ),
@@ -329,14 +338,14 @@ describe("validateFaqEntries", () => {
     // Two answers for the same preset would both take `position = 0`, and the
     // single upsert would then hit `brand_id,preset_id,position` twice —
     // Postgres 21000, which fails the whole phase.
-    const ctx = context({}, PEER_STATS);
+    const ctx = context(WITH_CHANNEL);
     const presets = authorable(ctx);
 
     const outcome = validateFaqEntries(
       {
         entries: [
-          modelEntry("category-position"),
-          modelEntry("category-position", {
+          modelEntry("where-to-buy"),
+          modelEntry("where-to-buy", {
             answerZh: zhAnswer(CUSTOM_SEEDS[1]),
             answerEn: enAnswer(
               "A second take on the same comparative question.",
@@ -348,11 +357,11 @@ describe("validateFaqEntries", () => {
       ctx,
     );
 
-    const categoryEntries = outcome.entries.filter(
-      (entry) => entry.presetId === "category-position",
+    const channelEntries = outcome.entries.filter(
+      (entry) => entry.presetId === "where-to-buy",
     );
-    expect(categoryEntries).toHaveLength(1);
-    expect(categoryEntries[0]?.position).toBe(0);
+    expect(channelEntries).toHaveLength(1);
+    expect(channelEntries[0]?.position).toBe(0);
     expect(outcome.dropped).toBe(1);
   });
 
@@ -427,9 +436,19 @@ describe("faqCoverageIsComplete", () => {
     };
   }
 
-  // Peer stats make the set wider than `custom` alone —
+  // A purchase channel makes the set wider than `custom` alone —
   // a single-preset set would not show the per-preset accounting at all.
-  const presets = authorable(context({}, PEER_STATS));
+  const presets = authorable(context(WITH_CHANNEL, PEER_STATS));
+
+  function completeRows(): BrandFaqEntryRow[] {
+    return presets.flatMap((preset) =>
+      preset.id === "custom"
+        ? Array.from({ length: CUSTOM_QUESTION_CEILING }, (_, index) =>
+            row("custom", index),
+          )
+        : [row(preset.id)],
+    );
+  }
 
   it("covers a set wider than custom alone", () => {
     expect(
@@ -438,12 +457,18 @@ describe("faqCoverageIsComplete", () => {
   });
 
   it("is complete when every authorable preset has a two-locale entry", () => {
-    const rows = presets.flatMap((preset) =>
-      preset.id === "custom"
-        ? Array.from({ length: CUSTOM_QUESTION_CEILING }, (_, index) =>
-            row("custom", index),
-          )
-        : [row(preset.id)],
+    expect(faqCoverageIsComplete(presets, completeRows())).toBe(true);
+  });
+
+  // DEV-1954: peer stats are present, yet `category-position` is no longer
+  // authored, so its absence must not trigger a re-authoring LLM call.
+  it("is complete when only a category-position row is missing", () => {
+    expect(presets.map((preset) => preset.id)).not.toContain(
+      "category-position",
+    );
+    const rows = completeRows();
+    expect(rows.some((entry) => entry.presetId === "category-position")).toBe(
+      false,
     );
 
     expect(faqCoverageIsComplete(presets, rows)).toBe(true);
@@ -470,7 +495,7 @@ describe("faqCoverageIsComplete", () => {
 
 describe("resolveFaqAttempts", () => {
   it("retries once with a repair instruction on a repairable failure", async () => {
-    const ctx = context({}, PEER_STATS);
+    const ctx = context(WITH_CHANNEL);
     const presets = authorable(ctx);
     const send = vi
       .fn<
@@ -479,13 +504,13 @@ describe("resolveFaqAttempts", () => {
           attempt: number,
         ) => Promise<{ ok: boolean; content: string | null }>
       >()
-      // Attempt 1 puts a currency figure in the factual category answer — a real
+      // Attempt 1 puts a currency figure in the factual channel answer — a real
       // repairable rejection, the kind the second call exists for.
       .mockResolvedValueOnce({
         ok: true,
         content: JSON.stringify({
           entries: [
-            modelEntry("category-position", {
+            modelEntry("where-to-buy", {
               answerZh: zhAnswer(
                 "這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。",
               ),
@@ -496,7 +521,7 @@ describe("resolveFaqAttempts", () => {
       // Attempt 2 returns the repaired entry and clears validation.
       .mockResolvedValueOnce({
         ok: true,
-        content: JSON.stringify({ entries: [modelEntry("category-position")] }),
+        content: JSON.stringify({ entries: [modelEntry("where-to-buy")] }),
       });
 
     const outcome = await resolveFaqAttempts(presets, ctx, send);
@@ -504,7 +529,7 @@ describe("resolveFaqAttempts", () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[0]?.[0]).toBe("");
     expect(send.mock.calls[1]?.[0]).toContain("修復上一版 FAQ");
-    expect(send.mock.calls[1]?.[0]).toContain("category-position");
+    expect(send.mock.calls[1]?.[0]).toContain("where-to-buy");
     expect(outcome.entries).toHaveLength(1);
     expect(outcome.calls.attempted).toBe(2);
   });
@@ -526,7 +551,7 @@ describe("resolveFaqAttempts", () => {
   });
 
   it("keeps attempt 1's accepted entries when attempt 2 returns only a repair", async () => {
-    const ctx = context({}, PEER_STATS);
+    const ctx = context(WITH_CHANNEL);
     const presets = authorable(ctx);
     const send = vi
       .fn<
@@ -540,7 +565,7 @@ describe("resolveFaqAttempts", () => {
         content: JSON.stringify({
           entries: [
             modelEntry("custom"),
-            modelEntry("category-position", {
+            modelEntry("where-to-buy", {
               answerZh: zhAnswer(
                 "這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。",
               ),
@@ -553,12 +578,12 @@ describe("resolveFaqAttempts", () => {
         ok: true,
         content: JSON.stringify({
           entries: [
-            modelEntry("category-position", {
+            modelEntry("where-to-buy", {
               answerZh: zhAnswer(
-                "這個類別共有兩個品牌，兩者都位於臺南，資料僅描述類別規模與地理分布。",
+                "這個品牌主要透過自有官方網站介紹作品，網站上整理了完整的品項說明與聯絡方式。",
               ),
               answerEn: enAnswer(
-                "This category contains two brands, both located in Tainan.",
+                "The brand presents its work through its own official website.",
               ),
             }),
           ],
@@ -569,7 +594,7 @@ describe("resolveFaqAttempts", () => {
 
     expect(send).toHaveBeenCalledTimes(2);
     const presetIds = outcome.entries.map((entry) => entry.presetId).sort();
-    expect(presetIds).toEqual(["category-position", "custom"]);
+    expect(presetIds).toEqual(["custom", "where-to-buy"]);
   });
 
   it("stops at one attempt when the first one validates", async () => {
@@ -592,6 +617,32 @@ describe("resolveFaqAttempts", () => {
 
     expect(send).toHaveBeenCalledTimes(1);
     expect(outcome.calls.providerFailed).toBe(1);
+  });
+});
+
+describe("faqBrandName", () => {
+  // DEV-1954: the system prompt pins this name verbatim, so it has to be the
+  // name the brand publishes under — not the pre-`names`-phase row value.
+  const submission: EnrichBrand = { id: "sub-1", slug: "s", name: "Golday Jewelry" };
+
+  it("uses this run's accepted name for a new submission", () => {
+    expect(
+      faqBrandName(submission, { name: "日常金工 golday.jewelry" }),
+    ).toBe("日常金工 golday.jewelry");
+  });
+
+  it("keeps the stored name for a refresh, whose rename is only a proposal", () => {
+    expect(
+      faqBrandName(
+        { ...submission, source_brand_id: BRAND.id },
+        { name: "日常金工 golday.jewelry" },
+      ),
+    ).toBe("Golday Jewelry");
+  });
+
+  it("falls back to the stored name when the run renamed nothing", () => {
+    expect(faqBrandName(submission, undefined)).toBe("Golday Jewelry");
+    expect(faqBrandName(submission, {})).toBe("Golday Jewelry");
   });
 });
 

@@ -1,14 +1,8 @@
-"use client";
-
-import { type ReactNode, type ToggleEvent } from "react";
+import { type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { trackFaqItemExpanded } from "@/lib/analytics";
 
-import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import { Typography } from "@/components/ui/typography";
-import { OpenTargetDetails } from "@/components/shared/open-target-details";
 import { sanitizeHref } from "@/lib/url";
-import { useBrandEngagement } from "./brand-engagement-tracker";
 
 const LINK_RE = /(\[[^\]]+\]\([^)]+\))/g;
 const LINK_PARTS_RE = /^\[([^\]]+)\]\(([^)]+)\)$/;
@@ -40,46 +34,32 @@ function renderLinkedText(text: string): ReactNode {
 
 interface BrandFaqAccordionProps {
   items: Array<{ id: string; question: string; answer: string }>;
-  brandSlug: string;
 }
 
-export function BrandFaqAccordion({
-  items,
-  brandSlug,
-}: BrandFaqAccordionProps) {
+export function BrandFaqAccordion({ items }: BrandFaqAccordionProps) {
   const t = useTranslations("brandDetail.sections");
-  const { reportEngagement } = useBrandEngagement();
 
   if (items.length === 0) return null;
-
-  function handleToggle(event: ToggleEvent<HTMLDetailsElement>, id: string) {
-    // Native <details> fires toggle on both open and close; only expansion counts.
-    if (!event.currentTarget.open) return;
-    trackFaqItemExpanded(brandSlug, id);
-    reportEngagement("faq");
-  }
 
   return (
     <>
       {/* The <section id="faq"> landmark and its scroll offset belong to the
           brand page, which already wraps this component in one. */}
-      <Typography as="h2" className="mb-4" variant="sectionTitleLarge">
+      <Typography as="h2" className="mb-4" variant="cardTitle" balance>
         {t("faq")}
       </Typography>
-      <OpenTargetDetails />
-      <Accordion>
+      {/* An open definition list, never a collapsed panel: an answer to a
+          question ships visible in the server HTML (DESIGN.md §7). */}
+      <dl className="space-y-stack">
         {items.map((item) => (
-          <AccordionItem
-            key={item.id}
-            id={`faq-${item.id}`}
-            className="scroll-mt-24"
-            onToggle={(event) => handleToggle(event, item.id)}
-            title={item.question}
-          >
-            <p>{renderLinkedText(item.answer)}</p>
-          </AccordionItem>
+          <div key={item.id} id={`faq-${item.id}`} className="scroll-mt-24">
+            <Typography as="dt" variant="cardTitle">
+              {item.question}
+            </Typography>
+            <dd className="mt-2 type-body">{renderLinkedText(item.answer)}</dd>
+          </div>
         ))}
-      </Accordion>
+      </dl>
     </>
   );
 }

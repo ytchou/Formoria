@@ -6,8 +6,13 @@ import { descriptionMentionsTaiwan } from '@/lib/services/curated-products/origi
 import { AcquisitionPlan, MAX_FETCH_TARGETS } from '@/lib/services/enrich-phases/acquisition/plan'
 import { jaccard, pairwiseConcordance, type ProductsReplayOutput, type ProductsExpected } from './products-calibration'
 
-const CJK_ALL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF60\uFE30-\uFE4F]/u
-const LATIN_REGEX = /[A-Za-z]/u
+// The full-width block FF01–FF60 counts as CJK except its letters and digits
+// (FF10–FF19, FF21–FF3A, FF41–FF5A). Counting ＭＤ as CJK let a model pass the
+// zh purity gate by full-widthing model numbers (DEV-1954); full-width letters
+// now count as Latin, full-width digits as neither, like ASCII digits.
+const CJK_ALL_REGEX =
+  /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF60\uFE30-\uFE4F]/u
+const LATIN_REGEX = /[A-Za-z\uFF21-\uFF3A\uFF41-\uFF5A]/u
 const JUNK_IMAGE_TAGS = new Set(['promo', 'text_banner', 'irrelevant'])
 
 export type LanguageLocale = 'zh' | 'en'

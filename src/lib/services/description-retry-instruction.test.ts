@@ -70,6 +70,28 @@ describe("buildDescriptionRetryInstruction", () => {
     expect(instruction).toContain("移除所有售價");
   });
 
+  it("tells the model to keep model numbers half-width (DEV-1954)", () => {
+    const instruction = buildDescriptionRetryInstruction(
+      zhRejection(["fullwidth_alphanumeric"]),
+      { description_zh: "吸塵器ＭＤ－８６０Ｓ" },
+    );
+    expect(instruction).toContain("含全形英數字");
+    expect(instruction).toContain("MD-860S");
+    expect(instruction).toContain("不可改成全形字母或國字數字");
+    expect(instruction).not.toContain("未通過檢查：fullwidth_alphanumeric");
+  });
+
+  it("no longer asks the model to rewrite foreign proper nouns into Chinese", () => {
+    // The old wording is what taught the model to full-width model numbers.
+    const instruction = buildDescriptionRetryInstruction(
+      zhRejection(["language_purity"]),
+      { description_zh: "內容".repeat(100) },
+    );
+    expect(instruction).not.toContain("改寫為中文");
+    expect(instruction).toContain("保留半形原文");
+    expect(instruction).toContain("型號、規格與標準名稱在兩種語言中都保留半形原文");
+  });
+
   it("returns no instruction when every rejection was a soft warning", () => {
     expect(
       buildDescriptionRetryInstruction(

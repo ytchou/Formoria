@@ -460,17 +460,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
               )}
 
               {faqItems.length > 0 && (
-                <section
-                  id="faq"
-                  className={cn(
-                    utilitySectionClassName,
-                    "[&_h2]:type-card-title",
-                  )}
-                >
-                  <BrandFaqAccordion
-                    items={faqItems}
-                    brandSlug={displayBrand.slug}
-                  />
+                <section id="faq" className={utilitySectionClassName}>
+                  <BrandFaqAccordion items={faqItems} />
                 </section>
               )}
 

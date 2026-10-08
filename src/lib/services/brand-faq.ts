@@ -10,6 +10,7 @@ import {
 import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall, type AuditCallContext } from "@/lib/audit";
 import { reportBannedTerms } from "@/lib/i18n/banned-terms";
+import { spaceNameBoundaries } from "@/lib/i18n/cjk-spacing";
 import { parseSubmissionFaqPatch } from "@/lib/types/enriched-data";
 
 export type TFn = (key: string, params?: Record<string, unknown>) => string;
@@ -78,10 +79,14 @@ export async function getBrandFaq(
     // model answer was written against evidence this path cannot re-check.
     const render = preset.render;
     if (render === null || !preset.eligible(ctx, locale)) continue;
+    const question = t(render.questionKey, { brandName: brand.name });
+    const answer = render.templateFloor(ctx, t, locale);
+    // zh templates butt the name against the next character; a Latin-edged
+    // name still needs a space beside Han text. Stored rows are left as written.
     items.push({
       id: preset.id,
-      question: t(render.questionKey, { brandName: brand.name }),
-      answer: render.templateFloor(ctx, t, locale),
+      question: isZh ? spaceNameBoundaries(question, brand.name) : question,
+      answer: isZh ? spaceNameBoundaries(answer, brand.name) : answer,
     });
   }
 

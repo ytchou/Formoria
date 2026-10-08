@@ -32,7 +32,6 @@ const EVENT_NAME_SNAPSHOT = [
   'brand_page_shared',
   'gallery_photo_viewed',
   'gallery_completed',
-  'faq_item_expanded',
   'recommendation_brand_clicked',
   'recommendation_section_viewed',
   'brand_search_executed',

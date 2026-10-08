@@ -6,11 +6,6 @@ const mockPostHogCapture = vi.fn()
 vi.mock('./analytics/posthog-provider', () => ({
   capturePostHogEvent: (...args: unknown[]) => mockPostHogCapture(...args),
 }))
-// Only the FAQ component below reads translations; analytics itself does not.
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}))
-import { createElement } from 'react'
 import {
   getContentGroup,
   isPublicAnalyticsPath,
@@ -30,7 +25,6 @@ import {
   trackGalleryPhotoView,
   trackBrandPageShared,
   trackSubcategoryFilterApplied,
-  trackFaqItemExpanded,
   trackBrandDetailEngaged,
   trackSavedBrandRevisited,
   trackNotFoundCategoryClicked,
@@ -660,53 +654,5 @@ describe('filter result counts', () => {
       { result_count: number },
     ]
     expect(Number.isInteger(properties.result_count)).toBe(true)
-  })
-})
-
-describe('brand faq tracking', () => {
-  it('tracks faq item expanded with preset id', () => {
-    trackFaqItemExpanded('my-brand', 'main-products')
-
-    expect(mockPostHogCapture).toHaveBeenCalledWith('faq_item_expanded', {
-      brand_slug: 'my-brand',
-      preset_id: 'main-products',
-    })
-  })
-
-  it('does not emit on collapse', async () => {
-    const { BrandFaqAccordion } = await import(
-      '@/components/brands/brand-faq-accordion'
-    )
-    const { render, act } = await import('@testing-library/react')
-
-    render(
-      createElement(BrandFaqAccordion, {
-        brandSlug: 'my-brand',
-        items: [
-          { id: 'main-products', question: 'What does it make?', answer: 'Bags.' },
-        ],
-      })
-    )
-
-    const details = document.getElementById(
-      'faq-main-products'
-    ) as HTMLDetailsElement
-
-    // The answer is in the DOM even while collapsed — the whole point of
-    // rendering native <details> instead of a JS accordion.
-    expect(details.open).toBe(false)
-    expect(details.textContent).toContain('Bags.')
-
-    act(() => {
-      details.open = true
-      details.dispatchEvent(new Event('toggle'))
-    })
-    expect(mockPostHogCapture).toHaveBeenCalledTimes(1)
-
-    act(() => {
-      details.open = false
-      details.dispatchEvent(new Event('toggle'))
-    })
-    expect(mockPostHogCapture).toHaveBeenCalledTimes(1)
   })
 })
