@@ -409,7 +409,10 @@ export default function SubmitForm({
   ].filter((message): message is string => message !== null);
 
   return (
-    <PageShell as="main" measure="form" className="py-section">
+    // A `page` shell, with the form capped by a bare `form-measure` below:
+    // a `form` shell centres the column (x≈248 at 1440) while /brands/join
+    // and /contact start at the 64px gutter (SP2-22).
+    <PageShell as="main" measure="page" className="py-section">
       {/* Left-aligned to the form edge, like every sibling page (SP2-22). The
           points and the owner line came from the removed /submit hub; they
           answer "do I need an account" and "is this for owners" (SP2-05). */}
@@ -439,7 +442,7 @@ export default function SubmitForm({
       <StandardForm
         onSubmit={onSubmit}
         noValidate
-        className="max-sm:border-0 max-sm:bg-transparent max-sm:p-0"
+        className="form-measure max-sm:border-0 max-sm:bg-transparent max-sm:p-0"
       >
         <div className="flex flex-col gap-5">
           <p className="type-metadata">

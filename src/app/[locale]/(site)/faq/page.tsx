@@ -84,7 +84,7 @@ export default async function FaqPage({ params }: PageProps) {
     <PageShell as="main" measure="page" className="py-10">
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
-          <h1 id="faq-heading" className="type-section">
+          <h1 id="faq-heading" className="type-page-title">
             {t('title')}
           </h1>
           <nav
