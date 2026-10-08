@@ -11,8 +11,8 @@ const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
  * Journey: Anonymous visitor lands on /faq (zh-TW, the default locale path),
  * sees the three section headings (收錄與選物 / 推薦與審核 / 購買與其他) and
  * every translated expandable item; the #review hash link scrolls its section
- * into view. The 台灣製造 answer names the MIT 微笑標章 and 品牌聲明 without
- * calling either 認證, and the categories answer lists the six visible
+ * into view. The 台灣製造 answer names the MIT 微笑標章, says listing review
+ * does not judge origin, and never says 認證; the categories answer lists the six visible
  * categories, derived from the taxonomy rather than hard-coded (DEV-1957).
  *
  * DEV-1570 removed the 品牌主專區 section and the id="claim" answer with the
@@ -162,10 +162,11 @@ test.describe("FAQ page", () => {
   });
 
   // The badge used to be named two ways (標章 / MIT 認證) across two answers.
-  // One answer now names the registry and the brand's own declaration, and
-  // calls neither 認證 — scoped to this <details>, because the
+  // One answer names the registry and says listing review does not judge
+  // product origin (the 品牌聲明 sentence was cut in DEV-1994), and never says
+  // 認證 — scoped to this <details>, because the
   // listing-versus-selection answer legitimately says 不代表…認證.
-  test("台灣製造 answer names the MIT registry and the brand declaration, not 認證", async ({
+  test("台灣製造 answer names the MIT registry and the listing-review limit, not 認證", async ({
     anonPage,
   }) => {
     await anonPage.goto("/faq", { timeout: BUDGET.GATED_UI });
@@ -178,7 +179,7 @@ test.describe("FAQ page", () => {
     });
     await badgeDetails.locator("summary").click();
     await expect(badgeDetails).toContainText("「MIT 微笑標章」");
-    await expect(badgeDetails).toContainText("「品牌聲明」");
+    await expect(badgeDetails).toContainText("不判斷商品產地");
     await expect(badgeDetails).not.toContainText("認證");
   });
 
