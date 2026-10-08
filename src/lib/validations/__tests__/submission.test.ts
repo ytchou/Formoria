@@ -4,6 +4,7 @@ import {
   createRecommendationSubmissionSchema,
   fullSubmissionSchema,
   getLinksSchema,
+  normalizeWebsiteUrl,
 } from '../submission'
 
 /** The schemas take next-intl's `t`; the key itself is enough for assertions. */
@@ -202,6 +203,114 @@ describe('simplified submission schema', () => {
     })
 
     expect(result.success).toBe(true)
+  })
+})
+
+describe('normalizeWebsiteUrl', () => {
+  it.each([
+    ['brand.com', 'https://brand.com'],
+    ['www.brand.com', 'https://www.brand.com'],
+    ['  brand.com/shop  ', 'https://brand.com/shop'],
+    ['http://x.com', 'http://x.com'],
+    ['https://x.com/?q=1', 'https://x.com/?q=1'],
+    ['HTTPS://x.com', 'HTTPS://x.com'],
+    ['', ''],
+    ['   ', ''],
+  ])('normalizes %j to %j', (input, expected) => {
+    expect(normalizeWebsiteUrl(input)).toBe(expected)
+  })
+})
+
+describe('recommendation website normalization', () => {
+  const base = {
+    name: 'Test Brand',
+    sourceAttribution,
+    pdpaConsent: true,
+    turnstileToken: 'test-token',
+    honeypot: '',
+  }
+
+  it('accepts a bare domain and outputs it with an https scheme', () => {
+    const result = createRecommendationSubmissionSchema().parse({
+      ...base,
+      website: 'brand.com',
+    })
+
+    expect(result.website).toBe('https://brand.com')
+  })
+
+  it('still rejects a bare private host once the scheme is added', () => {
+    const result = createRecommendationSubmissionSchema().safeParse({
+      ...base,
+      website: 'localhost:3000',
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it.each(['not a url', 'https://not a url', 'brand'])(
+    'rejects %j, which is not a dotted host once the scheme is added',
+    (website) => {
+      const result = createRecommendationSubmissionSchema().safeParse({
+        ...base,
+        website,
+      })
+
+      expect(result.success).toBe(false)
+    },
+  )
+
+  it('accepts an internationalised domain', () => {
+    const result = createRecommendationSubmissionSchema().safeParse({
+      ...base,
+      website: '品牌.台灣',
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('still rejects an empty website', () => {
+    const result = createRecommendationSubmissionSchema(t).safeParse({
+      ...base,
+      website: '',
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.website).toContain(
+        'validation.urlInvalid',
+      )
+    }
+  })
+
+  it('reports a missing source with its translated message', () => {
+    const result = createRecommendationSubmissionSchema(t).safeParse({
+      ...base,
+      website: 'https://brand.com',
+      sourceAttribution: undefined,
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.sourceAttribution).toContain(
+        'validation.sourceRequired',
+      )
+    }
+  })
+
+  it('reports a missing Turnstile token with its translated message', () => {
+    const result = createRecommendationSubmissionSchema(t).safeParse({
+      ...base,
+      website: 'https://brand.com',
+      turnstileToken: '',
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.turnstileToken).toContain(
+        'validation.turnstileRequired',
+      )
+    }
   })
 })
 

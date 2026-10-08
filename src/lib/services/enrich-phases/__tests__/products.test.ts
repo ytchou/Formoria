@@ -1074,6 +1074,32 @@ describe("validateProductProposals", () => {
     expect(proposals[1]?.imageSourceUrl).toBe(candidate.imageUrl);
   });
 
+  it("strips a shop SKU token and a doubled name before deriving the key", () => {
+    const clean = validateProductProposals(
+      { products: [rawProposal()] },
+      { siteUrl: SITE },
+    ).proposals[0]!;
+    const { proposals, dropped } = validateProductProposals(
+      {
+        products: [
+          rawProposal({
+            name_zh: "陶土餐盤 7cFSL8yz",
+            name_en: "Clay Plate Clay Plate",
+          }),
+        ],
+      },
+      { siteUrl: SITE },
+    );
+
+    expect(dropped).toBe(0);
+    expect(proposals[0]!.nameZh).toBe("陶土餐盤");
+    expect(proposals[0]!.nameEn).toBe("Clay Plate");
+    // The key is built from the clean name, so the token never reaches the
+    // stored `curated_products.key` (DEV-1962).
+    expect(proposals[0]!.key).toBe(clean.key);
+    expect(proposals[0]!.key).not.toMatch(/7cfsl8yz/iu);
+  });
+
   it("drops a material outside the closed vocabulary", () => {
     const { proposals, dropped } = validateProductProposals(
       { products: [rawProposal({ material: ["ceramic", "plastic", "陶瓷"] })] },
@@ -1181,7 +1207,9 @@ describe("validateProductProposals", () => {
       {
         products: [
           rawProposal({ name_zh: "陶".repeat(201) }),
-          rawProposal({ name_en: "Clay Plate ".repeat(30) }),
+          // Over the 200-char name bound, and NOT a repeated name: a repeated
+          // one would be collapsed to a single copy by the name normaliser.
+          rawProposal({ name_en: "Clay Plate ".repeat(29) + "Bowl" }),
           rawProposal({
             official_url: `${SITE}/products/${"a".repeat(2100)}`,
           }),

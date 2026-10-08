@@ -1,10 +1,33 @@
+import { createTranslator, hasLocale } from 'next-intl'
+import type { ReactElement } from 'react'
 import { brand as brandColors } from '@/lib/brand/colors'
 import { scaleCardNameFontSize } from '@/lib/growth/share-assets'
-import type { ReactElement } from 'react'
+import { routing } from '@/i18n/routing'
+import en from '../../../messages/en.json'
+import zhTW from '../../../messages/zh-TW.json'
+
+const MESSAGES = { en, 'zh-TW': zhTW } as const
 
 interface ShareCardBrand {
   name: string
   slug: string
+}
+
+/**
+ * The card headline in `locale`, read synchronously from the static catalogs —
+ * the route renders outside any next-intl request scope. An unsupported locale
+ * falls back to the default (zh-TW).
+ */
+export function shareCardHeadline(locale: string): string {
+  const resolved = hasLocale(routing.locales, locale)
+    ? locale
+    : routing.defaultLocale
+  const t = createTranslator({
+    locale: resolved,
+    messages: { shareCard: MESSAGES[resolved].shareCard },
+    namespace: 'shareCard',
+  })
+  return t('headline')
 }
 
 /**
@@ -19,6 +42,7 @@ interface ShareCardBrand {
 export function renderShareCard(
   brandData: ShareCardBrand,
   markDataUri: string,
+  locale: string,
 ): ReactElement {
   const nameFontSize = scaleCardNameFontSize(brandData.name)
 
@@ -83,7 +107,7 @@ export function renderShareCard(
           marginBottom: '32px',
         }}
       >
-        我們上架了 Formoria
+        {shareCardHeadline(locale)}
       </div>
 
       {/* Brand name — flex-grow fills remaining vertical space */}

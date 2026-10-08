@@ -171,6 +171,18 @@ export const LLM_PROFILES = {
     model: "vision",
     temperature: 0.1,
   },
+  /**
+   * Verbatim transcription of one curated-product image's visible text, for
+   * the commerce-truth gate (DEV-1962, `services/image-text.ts`). 1500 tokens
+   * covers a crowded packaging shot; a truncated answer fails closed.
+   */
+  imageText: {
+    model: "vision",
+    maxTokens: 1500,
+    temperature: 0,
+    reasoningEffort: "none",
+    timeoutMs: 60_000,
+  },
   /** Stockist extraction from scraped website text. */
   stockists: {
     model: "text",

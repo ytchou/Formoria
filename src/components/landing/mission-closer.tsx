@@ -4,13 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { PhotoBand } from "@/components/ui/photo-band";
 import { buttonVariants } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
-type MissionCloserProps = {
-  brandCount: number;
-};
 
-export default async function MissionCloser({
-  brandCount,
-}: MissionCloserProps) {
+export default async function MissionCloser() {
   const t = await getTranslations("landing");
 
   return (
@@ -24,7 +19,7 @@ export default async function MissionCloser({
         {t("missionCloser.headline")}
       </h2>
       <p className="type-body text-ink-soft mt-3 mx-auto prose-measure">
-        {t("missionCloser.subtitle", { count: brandCount })}
+        {t("missionCloser.subtitle")}
       </p>
       <Link
         href={routes.brands()}

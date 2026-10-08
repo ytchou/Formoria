@@ -13,6 +13,8 @@ import {
   uploadPublicImage,
 } from "@/lib/services/image-upload";
 import { imagePathToUrl } from "@/lib/images/image-url";
+import { findCommerceTruthText } from "@/lib/curated-products/commerce-text";
+import { readImageText } from "@/lib/services/image-text";
 
 /**
  * Curated-product image storage (DEV-1465).
@@ -135,13 +137,20 @@ export type StoredCuratedProductImage = {
   height: number;
 };
 
+/** Reads the visible text off a processed image; production is `readImageText`. */
+export type CuratedProductImageTextReader = (
+  processed: ProcessedImage,
+) => Promise<string>;
+
 /**
- * Injectable storage seam. Tests drive the upload without a bucket, and
+ * Injectable storage and text-reader seams. Tests drive the upload without a
+ * bucket and the commerce-truth gate without OpenAI, and
  * `scripts/check-test-boundaries.mjs` forbids mocking the module instead.
  */
 export type CuratedProductImageDeps = {
   upload?: typeof uploadPublicImage;
   deletePaths?: typeof deleteStoredImagePaths;
+  readText?: CuratedProductImageTextReader;
 };
 
 /** Module-private: the key shape is derived here and nowhere else. */
@@ -179,10 +188,20 @@ function curatedProductImageKey(input: {
  * SPLIT FROM THE UPLOAD ON PURPOSE: every fallible external step lives here and
  * needs no product id, so a create path can run it BEFORE inserting a row and
  * leave nothing behind when the image is rejected.
+ *
+ * COMMERCE-TRUTH GATE (DEV-1962): Formoria never stores price, discount or
+ * promotion, so an image whose visible text carries a commerce marker
+ * (`findCommerceTruthText`) is rejected like any other unusable image. It
+ * FAILS CLOSED: when the text cannot be read the image is rejected too. In the
+ * editor that is a retry; in a refresh mirror it leaves the row imageless —
+ * and so hidden — until the next refresh retries it, which is self-healing.
+ * Letting an unread image through would make every OpenAI outage a window
+ * for promo banners.
  */
 export async function prepareCuratedProductImage(
   imageSourceUrl: string,
   subjectId?: string,
+  deps: Pick<CuratedProductImageDeps, "readText"> = {},
 ): Promise<ProcessedImage> {
   // The fetch is audited on its own span (`http.fetch_curated_image`) so
   // the bytes stored against a product trace back to the exact request.
@@ -234,9 +253,31 @@ export async function prepareCuratedProductImage(
     { subjectId },
   );
 
-  return processImage(buffer, {
+  const processed = await processImage(buffer, {
     maxFileSizeBytes: MAX_CURATED_PRODUCT_SOURCE_BYTES,
   });
+
+  // The PROCESSED bytes are read because they are what gets stored and shown.
+  const readText =
+    deps.readText ??
+    ((image: ProcessedImage) => readImageText(image, { subjectId }));
+  let text: string;
+  try {
+    text = await readText(processed);
+  } catch (error) {
+    console.error("[curatedProducts] image text read failed", error);
+    throw new Error(
+      "Could not check the image for prices or promotions; try again",
+    );
+  }
+  const hits = findCommerceTruthText(text);
+  if (hits.length > 0) {
+    throw new Error(
+      `The image shows prices or promotions (${hits.join(", ")}); choose a clean product photo`,
+    );
+  }
+
+  return processed;
 }
 
 /**
@@ -317,6 +358,7 @@ export async function storeCuratedProductImage(
   const processed = await prepareCuratedProductImage(
     input.imageSourceUrl,
     input.productId,
+    { readText: deps.readText },
   );
   return uploadCuratedProductImage({ ...input, processed }, deps);
 }

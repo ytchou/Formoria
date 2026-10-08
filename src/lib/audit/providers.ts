@@ -180,6 +180,7 @@ const PROVIDERS = {
     "insertBrandImage",
     "loadVisionImage",
     "purgeExpiredClassifierJunk",
+    "readImageText",
     "rejectBrandImages",
     "releaseBrandImageUrls",
     "storeCuratedProductImage",

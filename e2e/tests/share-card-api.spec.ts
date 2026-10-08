@@ -57,7 +57,7 @@ test.describe('Share card API', () => {
     approvedBrandSlug = `e2e-share-card-approved-${ts}-${wi}`;
     hiddenBrandSlug = `e2e-share-card-hidden-${ts}-${wi}`;
 
-    // Seed approved brand with CJK name — exercises 我們上架了 headline + NotoSansTC subset
+    // Seed approved brand with CJK name — exercises the zh-TW shareCard.headline + NotoSansTC subset
     const { data: approvedData, error: approvedErr } = await supabase
       .from('brands')
       .insert({
@@ -126,6 +126,19 @@ test.describe('Share card API', () => {
       body[20] * 0x1000000 + body[21] * 0x10000 + body[22] * 0x100 + body[23];
     expect(width).toBe(1080);
     expect(height).toBe(1350);
+  });
+
+  test('GET /api/share-card/<approved-slug>?locale=en returns 200 PNG', async ({ request }) => {
+    // Same cold-render budget as the default-locale case: the English headline
+    // still goes through satori with the full font set.
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    test.skip(!supabase, 'PREVIEW_MODE active');
+
+    const resp = await request.get(`/api/share-card/${approvedBrandSlug}?locale=en`, { timeout: BUDGET.NAVIGATION });
+    expect(resp.status()).toBe(200);
+
+    const contentType = resp.headers()['content-type'] ?? '';
+    expect(contentType).toContain('image/png');
   });
 
   test('GET /api/share-card/<approved-slug>?download=1 returns content-disposition attachment with filename', async ({ request }) => {

@@ -16,9 +16,12 @@ vi.mock("@/components/ui/photo-band", () => ({
 }));
 
 vi.mock("@/components/ui/grid", () => ({
+  // `className` is passed through: the phone two-up and the lg five-up are
+  // both added at the call site, so they are what the grid tests below read.
   Grid: ({
     children,
     as: As = "div",
+    className,
   }: {
     children: ReactNode;
     as?: string;
@@ -26,13 +29,25 @@ vi.mock("@/components/ui/grid", () => ({
     className?: string;
   }) => {
     const El = As as keyof HTMLElementTagNameMap;
-    return <El data-testid="grid">{children}</El>;
+    return (
+      <El data-testid="grid" className={className}>
+        {children}
+      </El>
+    );
   },
 }));
 
 vi.mock("@/components/brands/selected-product-tile", () => ({
-  SelectedProductTile: ({ product }: { product: HomepageCuratedProduct }) => (
-    <div data-testid={`product-${product.id}`}>{product.nameZh}</div>
+  SelectedProductTile: ({
+    product,
+    className,
+  }: {
+    product: HomepageCuratedProduct;
+    className?: string;
+  }) => (
+    <div data-testid={`product-${product.id}`} className={className}>
+      {product.nameZh}
+    </div>
   ),
 }));
 
@@ -182,5 +197,47 @@ describe("CuratedProductGrid", () => {
     await renderGrid(makeGroups(productSlots(4)));
 
     expect(screen.getByTestId("category-filter")).toBeInTheDocument();
+  });
+
+  // Bug caught: a single phone column of ten tiles made the band ~4,300px tall
+  // and buried the trails and stories below it.
+  it("lays the band out two-up on phones and five-up from lg", async () => {
+    await renderGrid(makeGroups(productSlots(10)));
+
+    const grid = screen.getByTestId("grid");
+    expect(grid).toHaveClass("grid-cols-2");
+    expect(grid).toHaveClass("lg:grid-cols-5");
+    // The phone gap is the gutter token halved, never a numeric step.
+    expect(grid).toHaveClass("max-sm:gap-[calc(var(--space-gutter)/2)]");
+  });
+
+  it("hides every tile past the sixth on phones, by class rather than slice", async () => {
+    const slots = productSlots(10);
+    await renderGrid(makeGroups(slots));
+
+    for (const [index, slot] of slots.entries()) {
+      const tile = screen.getByTestId(`product-${slot.product.id}`);
+      // Every tile is still in the server HTML; only phones drop the tail.
+      expect(tile).toHaveClass("bg-ground");
+      if (index < 6) {
+        expect(tile).not.toHaveClass("max-sm:hidden");
+      } else {
+        expect(tile).toHaveClass("max-sm:hidden");
+      }
+    }
+  });
+
+  it("applies the phone cap inside each category group", async () => {
+    const slots = productSlots(8);
+    await renderGrid({ all: slots.slice(0, 2), home: slots });
+
+    const homeTiles = slots.map((slot) =>
+      screen
+        .getAllByTestId(`product-${slot.product.id}`)
+        .find((node) => node.closest('[data-category="home"]')),
+    );
+    expect(homeTiles[5]).not.toHaveClass("max-sm:hidden");
+    expect(homeTiles[6]).toHaveClass("max-sm:hidden");
+    expect(homeTiles[7]).toHaveClass("max-sm:hidden");
   });
 });

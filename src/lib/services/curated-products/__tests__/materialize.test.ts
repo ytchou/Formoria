@@ -17,6 +17,8 @@ import type { SubmissionProductReview } from "@/lib/services/submissions";
 import type { CuratedProductProposal } from "@/lib/types/enriched-data";
 
 const BRAND_ID = "22222222-2222-2222-2222-222222222222";
+/** The shop's own product photo, waiting to be mirrored by refresh.ts. */
+const IMAGE_SOURCE_URL = "https://taoqi.com.tw/images/wood-fired-mug.jpg";
 const SUBMISSION_ID = "33333333-3333-3333-3333-333333333333";
 
 type ExistingRow = {
@@ -76,11 +78,13 @@ function stubClient(options: {
   function chainFor(table: string) {
     let insertedRow: Record<string, unknown> | null = null;
     let pendingUpdate: Record<string, unknown> | null = null;
+    let readId: unknown = null;
     const chain = {
       select() {
         return chain;
       },
       eq(column: string, value: unknown) {
+        if (column === "id") readId = value;
         if (pendingUpdate && column === "id") {
           const created = createdById.get(String(value));
           if (created) Object.assign(created, pendingUpdate);
@@ -106,6 +110,14 @@ function stubClient(options: {
         calls.updates.push(row);
         pendingUpdate = row;
         return chain;
+      },
+      // The image read `updateCuratedProduct` makes before publishing
+      // (DEV-1962): it answers from the row this stub's insert stored.
+      maybeSingle() {
+        return Promise.resolve({
+          data: createdById.get(String(readId)) ?? null,
+          error: null,
+        });
       },
       upsert(row: Record<string, unknown>) {
         upsertCount += 1;
@@ -199,10 +211,11 @@ describe("materializeSubmissionCuratedProducts", () => {
   it("stamps_source_checked_at — a kept proposal is publishable, not invisible", async () => {
     const { client, calls } = stubClient({});
 
+    const kept = proposal({ imageSourceUrl: IMAGE_SOURCE_URL });
     const result = await materializeSubmissionCuratedProducts(
       SUBMISSION_ID,
       BRAND_ID,
-      { review: review([proposal()], [proposal().key]), client },
+      { review: review([kept], [kept.key]), client },
     );
 
     expect(result.created).toBe(1);
@@ -219,18 +232,21 @@ describe("materializeSubmissionCuratedProducts", () => {
     // what proves approval publishes something: a NULL `source_checked_at` used
     // to leave a brand page with no curated section and no error anywhere.
     const { client, calls } = stubClient({});
+    const kept = proposal({ imageSourceUrl: IMAGE_SOURCE_URL });
     await materializeSubmissionCuratedProducts(SUBMISSION_ID, BRAND_ID, {
-      review: review([proposal()], [proposal().key]),
+      review: review([kept], [kept.key]),
       client,
     });
     const written = calls.inserts.at(0) ?? {};
+    expect(written.visible).toBe(true);
 
     const published = await getPublishedCuratedProductsForHomepage(
       readRowClient({
         ...written,
         id: "product-key",
         key: written.key,
-        image_url: "https://cdn.formoria.com/products/mug.jpg",
+        // What the mirror writes later: a same-origin, renderable path.
+        image_url: "/i/curated-products/taoqi/mug.webp",
         image_width: 1200,
         image_height: 900,
         link_state: "ok",
@@ -284,12 +300,34 @@ describe("materializeSubmissionCuratedProducts", () => {
     expect(calls.updates).toEqual([]);
   });
 
+  it("keeps a selected proposal with no image at all hidden (DEV-1962)", async () => {
+    // A published 選物 without a photo renders a letter placeholder, and no
+    // mirror can ever fill it: there is no source image to mirror.
+    const noImage = proposal(); // the fixture carries no imageSourceUrl
+    const { client, calls } = stubClient({});
+
+    const result = await materializeSubmissionCuratedProducts(
+      SUBMISSION_ID,
+      BRAND_ID,
+      { review: review([noImage], [noImage.key]), client },
+    );
+
+    expect(result).toMatchObject({ created: 1, visible: 0, hidden: 1, failed: 0 });
+    expect(calls.inserts.at(0)?.visible).toBe(false);
+    // Stamped with the publish decision, as for a kept proposal without L2.
+    expect(calls.inserts.at(0)?.source_checked_at).toBeNull();
+    expect(calls.updates).toEqual([]);
+    // Evidence is still written, so the row is repairable once it has a photo.
+    expect(calls.upserts).not.toHaveLength(0);
+  });
+
   it("materializes twenty proposals with no more than four concurrent creates", async () => {
     // Catches restoring the five-product cap or launching one write chain per proposal.
     const proposals = Array.from({ length: 20 }, (_, index) =>
       proposal({
         key: `product-${index + 1}`,
         nameZh: `手作杯 ${index + 1}`,
+        imageSourceUrl: `https://taoqi.com.tw/images/cup-${index + 1}.jpg`,
         officialUrl: `https://taoqi.com.tw/products/cup-${index + 1}`,
         sources: [
           {

@@ -3,7 +3,6 @@ import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { Stockist } from "@/lib/types";
 import { StockistList } from "./stockist-list";
-import { ProvideStockistInfoDialog } from "./provide-stockist-info-dialog";
 
 export type StockistsSectionProps = {
   locale: AppLocale;
@@ -23,17 +22,16 @@ export async function StockistsSection({
   const t = await getTranslations({ locale, namespace: "brandDetail" });
   return (
     <section
-      className="space-y-6"
+      className="space-y-4"
       data-brand-id={brandId}
       data-brand-slug={brandSlug}
       data-stockists-section
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <Typography as="h2" variant="sectionTitleLarge">
-          {t("sections.retailLocations")}
-        </Typography>
-        <ProvideStockistInfoDialog brandId={brandId} brandSlug={brandSlug} />
-      </div>
+      {/* The 提供實體通路 flow lives in `BrandChannelCorrections`, the one
+          correction line at the end of the where-to-buy block. */}
+      <Typography as="h3" variant="cardTitle">
+        {t("sections.retailLocations")}
+      </Typography>
 
       <StockistList confirmed={confirmed} possible={possible} />
     </section>

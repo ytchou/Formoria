@@ -42,7 +42,14 @@ vi.mock("@/i18n/navigation", () => ({
 }));
 
 vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => key,
+  getTranslations: async () =>
+    (key: string, values?: { count: number; approximate: string }) =>
+      values ? `${key} ${values.count} ${values.approximate}` : key,
+}));
+
+// BrandMarquee is a client component and reads its button labels here.
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
 }));
 
 vi.mock("@/lib/analytics", () => ({
@@ -107,11 +114,19 @@ describe("BrandStrip", () => {
     vi.clearAllMocks();
   });
 
-  it("renders count headline", async () => {
+  it("rounds the count down below the total and marks it approximate", async () => {
     render(await BrandStrip({ brands: mockBrands, totalCount: 700 }));
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "count" }),
+      screen.getByRole("heading", { level: 2, name: "count 690 true" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an exact count at 10 brands and below", async () => {
+    render(await BrandStrip({ brands: mockBrands, totalCount: 7 }));
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "count 7 false" }),
     ).toBeInTheDocument();
   });
 

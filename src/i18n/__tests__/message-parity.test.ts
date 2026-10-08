@@ -155,7 +155,7 @@ describe("message catalogue parity", () => {
     for (const catalogue of [zhTW, en]) {
       const name = catalogue.nav.style;
 
-      expect(catalogue.footer.discover).toBe(name);
+      expect(catalogue.footer.style).toBe(name);
       expect(catalogue.style.heading).toBe(name);
       expect(catalogue.style.metaTitle).toBe(name);
       expect(catalogue.style.breadcrumb).toBe(name);

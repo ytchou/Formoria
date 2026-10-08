@@ -62,11 +62,11 @@ export function ForgotPasswordForm() {
         </form>
       )}
 
-      <p className="text-center type-body-sm">
-        {t("forgotPassword.backToSignIn")}{" "}
+      <p className="flex flex-wrap items-center justify-center gap-x-1 type-body-sm">
+        {t("forgotPassword.backToSignIn")}
         <Link
           href={routes.auth.signIn()}
-          className="font-medium text-accent underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center font-medium text-accent underline-offset-4 hover:underline"
         >
           {t("forgotPassword.signInLink")}
         </Link>

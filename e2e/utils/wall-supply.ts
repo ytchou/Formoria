@@ -89,6 +89,7 @@ function eligibleProductsQuery(
     .not("official_url", "is", null)
     .not("source_checked_at", "is", null)
     .not("subcategory", "is", null)
+    .not("image_url", "is", null)
     .eq("curated_product_sources.state", "active")
     .eq("brands.status", "approved")
     .not("brands.name", "like", TEST_BRAND_NAME_PATTERN)

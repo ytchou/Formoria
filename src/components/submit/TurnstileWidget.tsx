@@ -1,21 +1,22 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import Script from 'next/script'
+import { useLocale } from 'next-intl'
+
+type TurnstileRenderOptions = {
+  sitekey: string
+  callback: (token: string) => void
+  'error-callback'?: () => void
+  'expired-callback'?: () => void
+  theme?: 'light' | 'dark' | 'auto'
+  language?: string
+}
 
 declare global {
   interface Window {
     turnstile?: {
-      render: (
-        element: HTMLElement,
-        options: {
-          sitekey: string
-          callback: (token: string) => void
-          'error-callback'?: () => void
-          'expired-callback'?: () => void
-          theme?: 'light' | 'dark' | 'auto'
-        }
-      ) => string
+      render: (element: HTMLElement, options: TurnstileRenderOptions) => string
       remove: (widgetId: string) => void
     }
   }
@@ -27,10 +28,34 @@ type TurnstileWidgetProps = {
   onExpire?: () => void
 }
 
+type CallbackRefs = {
+  onSuccess: RefObject<(token: string) => void>
+  onError: RefObject<(() => void) | undefined>
+  onExpire: RefObject<(() => void) | undefined>
+}
+
+// One options literal for both render paths (the effect, and Script onLoad on first load).
+function buildRenderOptions(
+  siteKey: string,
+  language: string,
+  refs: CallbackRefs,
+): TurnstileRenderOptions {
+  return {
+    sitekey: siteKey,
+    callback: (token: string) => refs.onSuccess.current(token),
+    'error-callback': () => refs.onError.current?.(),
+    'expired-callback': () => refs.onExpire.current?.(),
+    theme: 'light',
+    language,
+  }
+}
+
 export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  // Turnstile takes its own language codes; any non-English locale is the zh-TW site.
+  const language = useLocale() === 'en' ? 'en' : 'zh-tw'
 
   const onSuccessRef = useRef(onSuccess)
   const onErrorRef = useRef(onError)
@@ -44,13 +69,14 @@ export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidge
   useEffect(() => {
     if (!siteKey || !containerRef.current || !window.turnstile || widgetIdRef.current) return
 
-    widgetIdRef.current = window.turnstile.render(containerRef.current, {
-      sitekey: siteKey,
-      callback: (token: string) => onSuccessRef.current(token),
-      'error-callback': () => onErrorRef.current?.(),
-      'expired-callback': () => onExpireRef.current?.(),
-      theme: 'light',
-    })
+    widgetIdRef.current = window.turnstile.render(
+      containerRef.current,
+      buildRenderOptions(siteKey, language, {
+        onSuccess: onSuccessRef,
+        onError: onErrorRef,
+        onExpire: onExpireRef,
+      }),
+    )
 
     return () => {
       if (widgetIdRef.current) {
@@ -58,7 +84,7 @@ export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidge
         widgetIdRef.current = null
       }
     }
-  }, [siteKey])
+  }, [siteKey, language])
 
   if (!siteKey) return null
 
@@ -70,13 +96,14 @@ export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidge
         onError={() => onErrorRef.current?.()}
         onLoad={() => {
           if (!containerRef.current || !window.turnstile || widgetIdRef.current) return
-          widgetIdRef.current = window.turnstile.render(containerRef.current, {
-            sitekey: siteKey,
-            callback: (token: string) => onSuccessRef.current(token),
-            'error-callback': () => onErrorRef.current?.(),
-            'expired-callback': () => onExpireRef.current?.(),
-            theme: 'light',
-          })
+          widgetIdRef.current = window.turnstile.render(
+            containerRef.current,
+            buildRenderOptions(siteKey, language, {
+              onSuccess: onSuccessRef,
+              onError: onErrorRef,
+              onExpire: onExpireRef,
+            }),
+          )
         }}
       />
       <div ref={containerRef} />

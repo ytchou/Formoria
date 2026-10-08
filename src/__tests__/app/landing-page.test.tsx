@@ -125,8 +125,8 @@ vi.mock("@/components/landing/brand-strip", () => ({
     brands: { id: string; name: string }[];
     totalCount: number;
   }) => (
-    <div data-testid="brand-strip">
-      <h2>{en.landing.brands.count.replace("{count}", String(totalCount))}</h2>
+    <div data-testid="brand-strip" data-total-count={totalCount}>
+      <h2>brands.count</h2>
       <span>{brands.length} brands</span>
       <a href="/brands">{en.landing.brands.browseAll}</a>
     </div>
@@ -134,15 +134,10 @@ vi.mock("@/components/landing/brand-strip", () => ({
 }));
 
 vi.mock("@/components/landing/mission-closer", () => ({
-  default: ({ brandCount }: { brandCount: number }) => (
+  default: () => (
     <div data-testid="mission-closer">
       <h2>{en.landing.missionCloser.headline}</h2>
-      <p>
-        {en.landing.missionCloser.subtitle.replace(
-          "{count}",
-          String(brandCount),
-        )}
-      </p>
+      <p>{en.landing.missionCloser.subtitle}</p>
       <a href="/brands">{en.landing.missionCloser.cta}</a>
     </div>
   ),
@@ -411,6 +406,75 @@ describe("landing page zones", () => {
     ).toBeNull();
   });
 
+  // Bug caught: with a bare 85% basis each card's min-content width won, so
+  // one card filled the 342px row and nothing peeked to say "scroll".
+  it("sizes each trail card to leave the next one peeking below md", async () => {
+    const slugs = ["a", "b", "c", "d", "e"];
+    const { container } = await renderZones({
+      trails: slugs.map((slug) => buildTrail(slug)),
+    });
+
+    const trails = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trails"]',
+    )!;
+    for (const card of within(trails).getAllByRole("listitem")) {
+      expect(card).toHaveClass("min-w-0");
+      expect(card).toHaveClass("basis-[82%]");
+      expect(card).toHaveClass("md:basis-auto");
+    }
+  });
+
+  it("counts the snap row position below md, decoratively", async () => {
+    const slugs = ["a", "b", "c", "d", "e"];
+    const { container } = await renderZones({
+      trails: slugs.map((slug) => buildTrail(slug)),
+    });
+
+    const trails = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trails"]',
+    )!;
+    const counter = trails.querySelector<HTMLElement>("[data-trail-counter]");
+    expect(counter).not.toBeNull();
+    expect(counter).toHaveTextContent(`1 / ${slugs.length}`);
+    expect(counter).toHaveAttribute("aria-hidden", "true");
+    expect(counter).toHaveClass("md:hidden");
+    // The counter sits under the list, not inside it as a sixth item.
+    expect(within(trails).getAllByRole("listitem")).toHaveLength(slugs.length);
+  });
+
+  it("renders no counter for a single trail", async () => {
+    const { container } = await renderZones({
+      trails: [buildTrail("small-kitchen")],
+    });
+
+    const trails = container.querySelector<HTMLElement>(
+      '[data-landing-zone="trails"]',
+    )!;
+    expect(trails.querySelector("[data-trail-counter]")).toBeNull();
+    expect(trails.textContent).not.toMatch(/\d+ \/ \d+/);
+  });
+
+  it("gives exactly two stories a two-up grid from md", async () => {
+    const two = await renderZones({
+      stories: [buildStory("one"), buildStory("two")],
+    });
+    const twoGrid = two.container.querySelector(
+      '[data-landing-zone="topics"] ul',
+    );
+    expect(twoGrid).toHaveClass("md:grid-cols-2");
+    expect(twoGrid).not.toHaveClass("md:grid-cols-3");
+    two.unmount();
+
+    const three = await renderZones({
+      stories: [buildStory("one"), buildStory("two"), buildStory("three")],
+    });
+    const threeGrid = three.container.querySelector(
+      '[data-landing-zone="topics"] ul',
+    );
+    expect(threeGrid).toHaveClass("md:grid-cols-3");
+    expect(threeGrid).not.toHaveClass("md:grid-cols-2");
+  });
+
   it("renders every published trail as a card in the zone", async () => {
     const first = buildTrail("small-kitchen");
     const second = buildTrail("first-apartment");
@@ -503,21 +567,21 @@ describe("landing page zones", () => {
     ).toHaveAttribute("href", "/brands");
   });
 
-  it.each([
-    [291, "Over 250 "],
-    [700, "Over 650 "],
-    [30, "Over 30 "],
-  ])(
-    "rounds brand count %i down to a 50 step that 'Over' keeps true",
-    async (totalBrandCount, expected) => {
+  // BrandStrip rounds the count itself (displayBrandCount), so the zones hand
+  // it the exact total; the mission closer carries no count at all.
+  it.each([291, 700, 7])(
+    "passes the exact brand total %i to BrandStrip only",
+    async (totalBrandCount) => {
       const { container } = await renderZones({ totalBrandCount });
 
-      for (const zone of ["directory", "manifesto"]) {
-        const el = container.querySelector<HTMLElement>(
-          `[data-landing-zone="${zone}"]`,
-        )!;
-        expect(el.textContent).toContain(expected);
-      }
+      expect(screen.getByTestId("brand-strip")).toHaveAttribute(
+        "data-total-count",
+        String(totalBrandCount),
+      );
+      const manifesto = container.querySelector<HTMLElement>(
+        '[data-landing-zone="manifesto"]',
+      )!;
+      expect(manifesto.textContent).not.toMatch(/\d/);
     },
   );
 

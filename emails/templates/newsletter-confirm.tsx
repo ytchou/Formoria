@@ -35,16 +35,16 @@ type NewsletterConfirmEmailProps = {
 
 const INTEREST_LABELS: Record<string, Record<string, string>> = {
   "zh-TW": {
-    "brand-stories": "品牌故事",
-    "new-brands": "新品牌",
-    "curated-picks": "選物推薦",
-    "mit-trends": "台灣製造趨勢",
+    "brand-stories": "專題",
+    "new-brands": "新收錄的品牌",
+    "curated-picks": "Formoria 選物",
+    "mit-trends": "台灣品牌趨勢",
   },
   en: {
-    "brand-stories": "Brand Stories",
-    "new-brands": "New Brands",
-    "curated-picks": "Curated Picks",
-    "mit-trends": "MIT Trends",
+    "brand-stories": "Stories",
+    "new-brands": "Newly listed brands",
+    "curated-picks": "Formoria Selection",
+    "mit-trends": "Taiwanese brand trends",
   },
 };
 
@@ -52,7 +52,7 @@ const COPY = {
   "zh-TW": {
     preview: "確認 Formoria 訂閱",
     heading: "確認訂閱",
-    body: "感謝訂閱 Formoria 電子報。完成確認後，就會收到台灣品牌故事、新品牌與精選趨勢。",
+    body: "感謝訂閱 Formoria 電子報。完成確認後，就會收到新的專題、新收錄的品牌和 Formoria 選物。",
     interestsLabel: "已選擇的主題",
     button: "確認訂閱",
     fallbackLink: "若按鈕無法使用，請開啟此連結：",
@@ -62,9 +62,9 @@ const COPY = {
   en: {
     preview: "Confirm your Formoria subscription",
     heading: "Confirm your subscription",
-    body: "Thank you for subscribing to Formoria. Confirm your subscription to receive Taiwanese brand stories, new discoveries, and curated trends.",
+    body: "Thanks for subscribing to the Formoria newsletter. Confirm your subscription to receive new stories, newly listed brands, and Formoria Selections.",
     interestsLabel: "Selected interests",
-    button: "Confirm Subscription",
+    button: "Confirm subscription",
     fallbackLink: "If the button does not work, open this link:",
     disclaimer:
       "If you did not request this subscription, you can unsubscribe from the footer link.",

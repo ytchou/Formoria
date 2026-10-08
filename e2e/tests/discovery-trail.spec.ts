@@ -98,10 +98,75 @@ test.describe("Discovery trail deep", () => {
 
     expect(response.status()).toBe(200);
     const $ = load(await response.text());
-    const exploreSection = $('section[aria-label="探索更多"]');
+    const exploreSection = $('section[aria-label="再逛逛類似的商品"]');
     expect(exploreSection).toHaveLength(1);
-    expect(exploreSection.find("h2").text()).toBe("探索更多");
+    expect(exploreSection.find("h2").text()).toBe("再逛逛類似的商品");
     expect(exploreSection.find("li").length).toBeGreaterThanOrEqual(3);
+  });
+
+  // DEV-1967: related trails used to print their raw slugs. They now resolve
+  // to published trails and render as tiles named by title; a draft or missing
+  // slug is dropped rather than shown.
+  test("related trails render by title, never by raw slug", async ({
+    request,
+  }) => {
+    const publishedBySlug = new Map(trails.map((entry) => [entry.slug, entry]));
+    const withRelated = trails.find((candidate) =>
+      candidate.relatedTrails.some((related) => publishedBySlug.has(related)),
+    );
+    test.skip(!withRelated, "no published trail links a published trail");
+
+    const response = await request.get(`/style/${withRelated!.slug}`);
+    test.skip(response.status() === 503, "PREVIEW_MODE active");
+
+    expect(response.status()).toBe(200);
+    const $ = load(await response.text());
+    const section = $('section[aria-labelledby="trails-related"]');
+    expect(section).toHaveLength(1);
+
+    const publishedRelated = trails.filter((entry) =>
+      withRelated!.relatedTrails.includes(entry.slug),
+    );
+    for (const related of publishedRelated) {
+      const link = section.find(`a[href="/style/${related.slug}"]`);
+      expect(link, `related trail ${related.slug}`).toHaveLength(1);
+      expect(link.text()).toContain(related.title);
+    }
+    section.find("a").each((_, element) => {
+      const text = $(element).text().trim();
+      expect(withRelated!.relatedTrails).not.toContain(text);
+    });
+  });
+
+  // DEV-1967: trails are authored in zh-TW only. /en keeps the links, marks
+  // the content's language, and says so in one line.
+  test("English trail page marks the Chinese content and says so", async ({
+    request,
+  }) => {
+    const response = await request.get(`/en${TRAIL_URL}`);
+    test.skip(response.status() === 503, "PREVIEW_MODE active");
+
+    expect(response.status()).toBe(200);
+    const $ = load(await response.text());
+
+    expect(
+      $('[lang="zh-Hant-TW"] h1, h1[lang="zh-Hant-TW"]').length,
+    ).toBeGreaterThanOrEqual(1);
+    expect($("main").text()).toContain("This guide is in Traditional Chinese.");
+  });
+
+  test("trail page shares its hero as og:image", async ({ request }) => {
+    test.skip(!trail!.heroImage, `trail "${trail!.slug}" has no hero image`);
+
+    const response = await request.get(TRAIL_URL);
+    test.skip(response.status() === 503, "PREVIEW_MODE active");
+
+    expect(response.status()).toBe(200);
+    const $ = load(await response.text());
+    const ogImage = $('meta[property="og:image"]').attr("content") ?? "";
+
+    // Absolutised by Next against `metadataBase`, so compare the path suffix.
+    expect(ogImage.endsWith(trail!.heroImage!)).toBe(true);
   });
 
   test("hub lists the published trail", async ({ anonPage }) => {

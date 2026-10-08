@@ -11,7 +11,7 @@ import {
 } from '@/i18n/locale-preference'
 
 import { setLocalePreference } from '@/app/actions/locale-preference'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { UnstyledButton } from '@/components/ui/unstyled-button'
 import { useUser } from '@/lib/auth/use-user'
 import { trackSignOut } from '@/lib/analytics'
@@ -61,14 +61,14 @@ export function AccountMenu() {
   const pathname = usePathname()
 
   if (loading) {
-    return <div data-account-menu-placeholder className="h-9 w-12" aria-hidden />
+    return <div data-account-menu-placeholder className="h-11 w-12" aria-hidden />
   }
 
   if (!user) {
     return (
       <NextLink
         href={signInHref(pathname, locale)}
-        className="inline-flex h-9 items-center justify-center rounded-control px-2.5 type-metadata transition-colors hover:text-ink focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
+        className={buttonVariants({ variant: 'ghost', size: 'compact' })}
       >
         {t('nav.signIn')}
       </NextLink>

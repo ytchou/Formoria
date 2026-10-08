@@ -91,6 +91,52 @@ describe("style trail metadata", () => {
     expect(zh.alternates?.canonical).toBe(en.alternates?.canonical);
   });
 
+  it("publishes the hero as og:image and a twitter card", () => {
+    const withHero: TrailEntry = {
+      ...trail,
+      frontmatter: {
+        ...trail.frontmatter,
+        heroImage: "/images/trails/x.webp",
+        heroImageAlt: "A lamp beside a low chair",
+      },
+    };
+
+    const metadata = buildTrailMetadata({ locale: "zh-TW", trail: withHero });
+
+    expect(metadata.openGraph).toMatchObject({
+      siteName: "Formoria",
+      images: [
+        { url: "/images/trails/x.webp", alt: "A lamp beside a low chair" },
+      ],
+    });
+    expect(metadata.twitter).toEqual({
+      title: trail.frontmatter.title,
+      description: trail.frontmatter.description,
+      images: "/images/trails/x.webp",
+    });
+  });
+
+  it("falls back to the title as og:image alt", () => {
+    const withHero: TrailEntry = {
+      ...trail,
+      frontmatter: { ...trail.frontmatter, heroImage: "/images/trails/x.webp" },
+    };
+
+    const metadata = buildTrailMetadata({ locale: "en", trail: withHero });
+
+    expect(metadata.openGraph).toMatchObject({
+      images: [{ url: "/images/trails/x.webp", alt: trail.frontmatter.title }],
+    });
+  });
+
+  it("emits no images and no twitter card without a hero", () => {
+    const metadata = buildTrailMetadata({ locale: "zh-TW", trail });
+
+    expect(metadata.openGraph).toMatchObject({ siteName: "Formoria" });
+    expect("images" in (metadata.openGraph ?? {})).toBe(false);
+    expect("twitter" in metadata).toBe(false);
+  });
+
   it("includes a published trail in the sitemap regardless of frontmatter completeness", () => {
     // Curated-product supply is not an input here any more — the trail section
     // performs no product read at all, so an under-stocked trail can no longer

@@ -1,3 +1,4 @@
+import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
 
 import en from "../../../messages/en.json";
@@ -105,6 +106,10 @@ const DEAD_KEYS = [
   "selectedProducts.note",
   "selectedProducts.showMore",
   "selectedProducts.showLess",
+  // DEV-1965: the hero's positioning subheadline and its unused all-brands
+  // link label went with the voice pass.
+  "hero.subheadline",
+  "hero.allBrands",
 ];
 
 describe("landing namespace", () => {
@@ -143,7 +148,11 @@ describe("landing namespace", () => {
   });
 
   it("the canonical promise ships", () => {
-    const hero = Object.values(zhLanding.hero as MessageNode).join(" ");
+    // The headline carries a `<wbr>` break hint for `t.rich`; strip tags so
+    // the promise is matched as plain text.
+    const hero = Object.values(zhLanding.hero as MessageNode)
+      .join(" ")
+      .replace(/<[^>]+>/g, "");
 
     expect(hero).toContain("生活可以更像自己一點");
   });
@@ -176,7 +185,6 @@ describe("landing namespace", () => {
   it("keeps the keys the remaining landing zones render", () => {
     const required = [
       "hero.headline",
-      "hero.subheadline",
       "hero.searchLabel",
       "hero.searchPlaceholder",
       "hero.browseCta",
@@ -186,6 +194,8 @@ describe("landing namespace", () => {
       "hero.eyebrow",
       "hero.lede",
       "hero.browsePrefix",
+      // The label over the hero's situation (trail) links.
+      "hero.situationsLabel",
       // CuratedProductGrid reads its product-tile labels from this namespace.
       "selectedProducts.productCta",
       "selectedProducts.brandSiteCta",
@@ -210,9 +220,12 @@ describe("landing namespace", () => {
       "missionCloser.headline",
       "missionCloser.subtitle",
       "missionCloser.cta",
-      // BrandStrip's copy — the count line and browse-all link.
+      // BrandStrip's copy — the count line, browse-all link, and the
+      // marquee's pause/play button names.
       "brands.count",
       "brands.browseAll",
+      "brands.pauseMarquee",
+      "brands.playMarquee",
     ];
 
     for (const key of required) {
@@ -220,6 +233,32 @@ describe("landing namespace", () => {
       expect(resolve(enLanding, key), `en landing.${key}`).toBeTruthy();
     }
   });
+
+  // BrandStrip passes `approximate` as "true" / "false" (ICU select keys); only an approximate count
+  // may carry 「多」 / "More than".
+  it.each([
+    ["zh-TW", zhTW, 290, "true", "已收錄 290 多個台灣品牌"],
+    ["zh-TW", zhTW, 7, "false", "已收錄 7 個台灣品牌"],
+    ["en", en, 290, "true", "More than 290 Taiwanese brands listed"],
+    ["en", en, 7, "false", "7 Taiwanese brands listed"],
+    ["en", en, 1, "false", "1 Taiwanese brand listed"],
+  ])(
+    "%s brands.count formats %i (approximate: %s)",
+    (locale, messages, count, approximate, expected) => {
+      const t = createTranslator({
+        locale,
+        messages,
+        namespace: "landing.brands",
+      } as unknown as Parameters<typeof createTranslator>[0]);
+
+      expect(
+        (t as unknown as (key: string, values: object) => string)("count", {
+          count,
+          approximate,
+        }),
+      ).toBe(expected);
+    },
+  );
 
   it("the browse CTA is an invitation, never a brand count", () => {
     expect(resolve(zhLanding, "hero.browseCta")).not.toMatch(/\d/);

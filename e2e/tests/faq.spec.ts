@@ -9,8 +9,11 @@ const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
  * FAQ page
  *
  * Journey: Anonymous visitor lands on /faq (zh-TW, the default locale path),
- * sees the section heading and every translated expandable item; the #general
- * hash link scrolls its section into view.
+ * sees the three section headings (收錄與選物 / 推薦與審核 / 購買與其他) and
+ * every translated expandable item; the #review hash link scrolls its section
+ * into view. The 台灣製造 answer names the MIT 微笑標章 and 品牌聲明 without
+ * calling either 認證, and the categories answer lists the six visible
+ * categories, derived from the taxonomy rather than hard-coded (DEV-1957).
  *
  * DEV-1570 removed the 品牌主專區 section and the id="claim" answer with the
  * claim flow. The legacy /faq#claim deep link is still asserted to land on the
@@ -30,14 +33,20 @@ test.describe("FAQ page", () => {
       return;
     }
 
-    // The one surviving section-level h2 heading must be present. 品牌主專區
-    // went with the claim flow (DEV-1570), so its absence is asserted too —
-    // an orphaned heading would mean the section came back without its answers.
+    // The three section-level h2 headings must be present. 一般問題 was the
+    // single bucket they replaced (DEV-1957), and 品牌主專區 went with the
+    // claim flow (DEV-1570), so both absences are asserted too — an orphaned
+    // heading would mean a section came back without its answers.
+    for (const name of ["收錄與選物", "推薦與審核", "購買與其他"]) {
+      await expect(
+        anonPage.getByRole("heading", { name, level: 2 }),
+      ).toBeVisible({
+        timeout: BUDGET.SERVER_RENDER,
+      });
+    }
     await expect(
       anonPage.getByRole("heading", { name: "一般問題", level: 2 }),
-    ).toBeVisible({
-      timeout: BUDGET.SERVER_RENDER,
-    });
+    ).toHaveCount(0);
     await expect(
       anonPage.getByRole("heading", { name: "品牌主專區", level: 2 }),
     ).toHaveCount(0);
@@ -60,7 +69,7 @@ test.describe("FAQ page", () => {
     await listingDetails.locator("summary").click();
     await expect(
       listingDetails.getByText(
-        "「收錄品牌」代表品牌符合目錄收錄規則，可以在搜尋資料中找到；這不等於 Formoria 背書、選物、認證或排名。「Formoria 選物」則是 Formoria 基於特定情境、用途、偏好或編輯觀點刻意挑選的產品或內容，會另外標示，並說明產品是什麼、可以在哪裡向品牌訂購。",
+        "「收錄品牌」是符合收錄規則、在品牌目錄裡找得到的品牌，不代表 Formoria 推薦、認證或排名。「Formoria 選物」是編輯為某個情境刻意挑選的商品，會另外標示，並寫明挑選的理由。",
         { exact: true },
       ),
     ).toBeVisible();
@@ -71,7 +80,7 @@ test.describe("FAQ page", () => {
     await purchaseDetails.locator("summary").click();
     await expect(
       purchaseDetails.getByText(
-        "不行。Formoria 負責靈感、選擇、脈絡與前往外部通路的路徑，不接受訂單或處理結帳。價格、規格選項、庫存、結帳、出貨與售後服務由品牌或零售通路負責。",
+        "不行。Formoria 不接單，也不處理結帳。價格、規格、庫存、出貨和售後都由品牌或販售的店家負責；我們負責幫你找到它，再把你交到品牌手上。",
         { exact: true },
       ),
     ).toBeVisible();
@@ -92,27 +101,27 @@ test.describe("FAQ page", () => {
     await listingDetails.locator("summary").click();
     await expect(
       listingDetails.getByText(
-        "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, labelled separately and described for what it is and where to order it from the brand.",
+        "A listed brand meets the listing rules and can be found in the directory. Listing does not mean Formoria recommends, certifies, or ranks it. A Formoria Selection is a product our editors chose on purpose for a particular situation. It is labeled separately, and the reason for choosing it is written out.",
         { exact: true },
       ),
     ).toBeVisible();
 
     const purchaseDetails = anonPage.locator("details").filter({
-      hasText: "Can I purchase through Formoria?",
+      hasText: "Can I buy through Formoria?",
     });
     await purchaseDetails.locator("summary").click();
     await expect(
       purchaseDetails.getByText(
-        "No. Formoria owns inspiration, selection, context, and the outbound route; it does not accept orders or process checkout. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service.",
+        "No. Formoria does not take orders or handle checkout. Price, variants, stock, shipping, and after-sales service are up to the brand or the store selling it. Our job is to help you find it, then hand you to the brand.",
         { exact: true },
       ),
     ).toBeVisible();
   });
 
-  test("#general anchor scrolls the section into viewport", async ({
+  test("#review anchor scrolls the section into viewport", async ({
     anonPage,
   }) => {
-    const resp = await anonPage.goto("/faq#general", {
+    const resp = await anonPage.goto("/faq#review", {
       timeout: BUDGET.GATED_UI,
     });
     if (resp?.status() === 503) {
@@ -120,8 +129,9 @@ test.describe("FAQ page", () => {
       return;
     }
 
-    // The <section id="general"> must be within the viewport after hash navigation
-    await expect(anonPage.locator("#general")).toBeInViewport({
+    // The <section id="review"> sits below the first section, so being in the
+    // viewport after hash navigation means the browser scrolled to it.
+    await expect(anonPage.locator("#review")).toBeInViewport({
       timeout: BUDGET.INTERACTIVE,
     });
   });
@@ -143,11 +153,54 @@ test.describe("FAQ page", () => {
     expect(resp?.status()).toBeLessThan(400);
 
     await expect(
-      anonPage.getByRole("heading", { name: "一般問題", level: 2 }),
+      anonPage.getByRole("heading", { name: "收錄與選物", level: 2 }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(anonPage.locator("#claim")).toHaveCount(0);
     await expect(anonPage.locator("details")).toHaveCount(EXPECTED_FAQ_ITEMS, {
       timeout: BUDGET.RENDERED,
     });
+  });
+
+  // The badge used to be named two ways (標章 / MIT 認證) across two answers.
+  // One answer now names the registry and the brand's own declaration, and
+  // calls neither 認證 — scoped to this <details>, because the
+  // listing-versus-selection answer legitimately says 不代表…認證.
+  test("台灣製造 answer names the MIT registry and the brand declaration, not 認證", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto("/faq", { timeout: BUDGET.GATED_UI });
+
+    const badgeDetails = anonPage.locator("details").filter({
+      hasText: "商品上的「台灣製造」代表什麼？",
+    });
+    await expect(badgeDetails.locator("summary")).toBeVisible({
+      timeout: BUDGET.SERVER_RENDER,
+    });
+    await badgeDetails.locator("summary").click();
+    await expect(badgeDetails).toContainText("「MIT 微笑標章」");
+    await expect(badgeDetails).toContainText("「品牌聲明」");
+    await expect(badgeDetails).not.toContainText("認證");
+  });
+
+  // The answer once claimed twelve categories while the site showed six. It is
+  // now built from the visible taxonomy, so it must list exactly those six and
+  // none of the deferred ones.
+  test("categories answer lists exactly the six visible categories", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto("/faq", { timeout: BUDGET.GATED_UI });
+
+    const categoriesDetails = anonPage.locator("details").filter({
+      hasText: "Formoria 收錄哪些分類？",
+    });
+    await expect(categoriesDetails.locator("summary")).toBeVisible({
+      timeout: BUDGET.SERVER_RENDER,
+    });
+    await categoriesDetails.locator("summary").click();
+    await expect(categoriesDetails).toContainText(
+      "服飾鞋履、包袋配件、飾品珠寶、美妝保養、居家生活、文具設計",
+    );
+    await expect(categoriesDetails).toContainText("6 個");
+    await expect(categoriesDetails).not.toContainText("食品飲料");
   });
 });

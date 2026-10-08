@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { BUDGET } from '../budgets';
 // zh-TW copy from messages/zh-TW.json (auth.forgotPassword.* / auth.resetPassword.*)
-const SESSION_EXPIRED = '重設連結已過期，請重新申請';
+const SESSION_EXPIRED = '重設連結已過期，請重新寄一次。';
 
 test.describe('Auth — forgot password request', () => {
   test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
@@ -114,7 +114,7 @@ test.describe('Auth — reset password page guard', () => {
       .click();
 
     await expect(
-      isolatedUserPage.getByText('密碼已更新，請使用新密碼登入', { exact: true })
+      isolatedUserPage.getByText('密碼已更新，請用新密碼登入。', { exact: true })
     ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const verifier = createClient(

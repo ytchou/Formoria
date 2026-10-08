@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { CuratedProductGrid } from "@/components/landing/curated-product-grid";
+import { TrailSnapRow } from "@/components/landing/trail-snap-row";
 import { TrailTile } from "@/components/landing/trail-tile";
 import { StoryCard } from "@/components/landing/story-card";
 import BrandStrip from "@/components/landing/brand-strip";
@@ -11,7 +12,6 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Grid, gridStyles } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import { displayBrandCount } from "@/lib/brands/display-brand-count";
 import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
 import type { StoryCardEntry } from "@/lib/stories/story-card";
@@ -19,7 +19,10 @@ import type { TrailCard, TrailPeekProduct } from "@/lib/trails/trail-card";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
-/** Trails the md-and-up grid shows; the snap row below md shows every trail. */
+/**
+ * Trails the md-and-up grid shows; the snap row below md shows every trail,
+ * with the next card peeking past the edge and a 「1 / 5」 counter under it.
+ */
 const DESKTOP_TRAIL_LIMIT = 3;
 
 export type LandingZonesProps = {
@@ -40,7 +43,7 @@ export type LandingZonesProps = {
   trailPeeks: Record<string, TrailPeekProduct[]>;
   stories: StoryCardEntry[];
   brands: PublicBrandCard[];
-  /** Directory-wide brand count, surfaced in BrandStrip and MissionCloser. */
+  /** Directory-wide brand count; BrandStrip rounds it for display. */
   totalBrandCount: number;
 };
 
@@ -80,7 +83,6 @@ export async function LandingZones({
   totalBrandCount,
 }: LandingZonesProps) {
   const t = await getTranslations({ locale, namespace: "landing" });
-  const shownBrandCount = displayBrandCount(totalBrandCount);
 
   return (
     <>
@@ -100,7 +102,7 @@ export async function LandingZones({
             <PageShell measure="page">
               <BrandStrip
                 brands={brands}
-                totalCount={shownBrandCount}
+                totalCount={totalBrandCount}
               />
             </PageShell>
           </div>
@@ -129,8 +131,19 @@ export async function LandingZones({
                   order) via `md:hidden`. The row's overflow would clip the
                   cards' 5px focus ring (2px ring + 3px offset), so below md
                   it carries 6px of padding inside a matching negative margin
-                  and 6px less top margin, which keeps the 32px stack. */}
-              <ul
+                  and 6px less top margin, which keeps the 32px stack.
+
+                  Each card is `min-w-0` with an 82% basis. The `min-w-0` is
+                  the load-bearing half: a flex item defaults to
+                  `min-width: auto`, so the card's min-content width beat its
+                  basis and one card filled the whole row with nothing peeking.
+                  With it, about 50px of the next card shows at 390px.
+
+                  TrailSnapRow is a client component that owns this `<ul>` and
+                  the below-md 「1 / 5」 counter under it; the cards stay
+                  server-rendered children. */}
+              <TrailSnapRow
+                count={trails.length}
                 className={cn(
                   gridStyles({ cols: "triptych" }),
                   "-mx-1.5 mt-6.5 flex snap-x snap-mandatory overflow-x-auto p-1.5 md:mx-0 md:mt-8 md:grid md:snap-none md:overflow-visible md:p-0",
@@ -149,12 +162,12 @@ export async function LandingZones({
                       cta: t("trails.cta"),
                     }}
                     className={cn(
-                      "shrink-0 basis-[85%] snap-start scroll-mx-1.5 md:basis-auto",
+                      "min-w-0 shrink-0 basis-[82%] snap-start scroll-mx-1.5 md:basis-auto",
                       index >= DESKTOP_TRAIL_LIMIT && "md:hidden",
                     )}
                   />
                 ))}
-              </ul>
+              </TrailSnapRow>
             </PageShell>
           </section>
         ) : null}
@@ -163,7 +176,7 @@ export async function LandingZones({
             keys internally. The trust statement (`trustSeam.line`) now ships
             only on /about, /faq, and the /og/trust card. */}
         <div data-landing-zone="manifesto">
-          <MissionCloser brandCount={shownBrandCount} />
+          <MissionCloser />
         </div>
 
         {stories.length > 0 && (
@@ -180,7 +193,13 @@ export async function LandingZones({
                 linkHref={routes.stories()}
                 linkLabel={t("latestStories.linkText")}
               />
-              <Grid as="ul" cols="triptych" className="mt-8">
+              {/* Two stories in a three-up grid leave a dead third column,
+                  so exactly two get a two-up grid from md. */}
+              <Grid
+                as="ul"
+                cols="triptych"
+                className={cn("mt-8", stories.length === 2 && "md:grid-cols-2")}
+              >
                 {stories.map((story, index) => (
                   <li key={story.slug}>
                     <StoryCard

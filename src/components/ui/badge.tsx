@@ -7,8 +7,10 @@ import { textStyles } from "./text-styles";
 
 const badgeVariants = cva(
   cn(
-    "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 whitespace-nowrap transition-[background-color,border-color,color,box-shadow] focus-visible:border-accent focus-visible:ring-[3px] focus-visible:ring-accent/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-danger aria-invalid:ring-danger/20 [&>svg]:pointer-events-none [&>svg]:size-3!",
-    textStyles({ variant: "micro" }),
+    "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 whitespace-nowrap transition-[background-color,border-color,color,box-shadow] focus-visible:border-accent has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-danger aria-invalid:ring-danger/20 [&:lang(en)]:tracking-wide [&>svg]:pointer-events-none [&>svg]:size-3!",
+    // 12px `metadata`, not 11px `micro`: CJK badge text was unreadable at 11px.
+    // Focus draws the base 2px accent outline (globals.css), not a ring here.
+    textStyles({ variant: "metadata" }),
   ),
   {
     variants: {
@@ -17,7 +19,7 @@ const badgeVariants = cva(
         secondary:
           "bg-surface text-ink-soft [a]:hover:bg-surface/80",
         destructive:
-          "bg-danger/10 text-danger focus-visible:ring-danger/20 [a]:hover:bg-danger/20",
+          "bg-danger/10 text-danger [a]:hover:bg-danger/20",
         outline:
           "border-rule text-ink [a]:hover:bg-surface [a]:hover:text-ink-muted",
         ghost:

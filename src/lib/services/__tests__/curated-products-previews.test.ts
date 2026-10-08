@@ -17,7 +17,8 @@ function product(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
     category: "home",
     subcategory: "tableware",
     officialUrl: "https://example.com/pick",
-    imageUrl: null,
+    // The common case: a published product carries a mirrored image.
+    imageUrl: "/i/curated-products/pick.webp",
     imageSourceUrl: null,
     visible: true,
     linkState: "ok",
@@ -49,7 +50,8 @@ describe("summarizeProductPreviews", () => {
 
   it("takes the first three images in brand-page order", () => {
     // Brand-page order: productPosition (unplaced last), then createdAt, then key.
-    // A row with no image still counts but contributes no thumbnail.
+    // A row with no image is dropped, exactly as the brand page drops it
+    // (DEV-1962), so it neither counts nor takes a thumbnail slot.
     const rows = [
       product({
         key: "unplaced",
@@ -84,7 +86,7 @@ describe("summarizeProductPreviews", () => {
     const previews = summarizeProductPreviews(rows);
 
     expect(previews.get(BRAND_A)).toEqual({
-      count: 5,
+      count: 4,
       thumbnails: [
         "/i/first.jpg",
         "/i/b-key.jpg",
@@ -95,7 +97,9 @@ describe("summarizeProductPreviews", () => {
 
   it("fills thumbnail slots only with URLs safeImageSrc accepts", () => {
     // `//host/…` is protocol-relative (offsite) and always rejected; `/i/…` is
-    // the same-origin image proxy and always accepted, whatever the env.
+    // the same-origin image proxy and always accepted, whatever the env. A row
+    // whose image the tile cannot render is not counted either: the brand page
+    // drops it (DEV-1962).
     const rows = [
       product({ key: "a", productPosition: 1, imageUrl: "//evil.example/a.jpg" }),
       product({ key: "b", productPosition: 2, imageUrl: "//evil.example/b.jpg" }),
@@ -107,7 +111,7 @@ describe("summarizeProductPreviews", () => {
     const previews = summarizeProductPreviews(rows);
 
     expect(previews.get(BRAND_A)).toEqual({
-      count: 5,
+      count: 3,
       thumbnails: ["/i/c.jpg", "/i/d.jpg", "/i/e.jpg"],
     });
   });
@@ -128,6 +132,16 @@ describe("summarizeProductPreviews", () => {
       count: 1,
       thumbnails: ["/i/kept.jpg"],
     });
+  });
+
+  it("returns no entry for a brand whose only rows have no photo", () => {
+    const previews = summarizeProductPreviews([
+      product({ brandId: BRAND_A }),
+      product({ brandId: BRAND_B, imageUrl: null }),
+    ]);
+
+    expect(previews.get(BRAND_A)?.count).toBe(1);
+    expect(previews.has(BRAND_B)).toBe(false);
   });
 
   it("returns no entry for a brand with zero rows", () => {
