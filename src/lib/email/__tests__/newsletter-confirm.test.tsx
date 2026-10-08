@@ -38,15 +38,17 @@ describe('NewsletterConfirmEmail', () => {
   it('renders locale-specific content for zh-TW', async () => {
     const html = await render(NewsletterConfirmEmail(defaultProps))
     expect(html).toContain('確認訂閱')
-    expect(html).toContain('品牌故事')
-    expect(html).toContain('新品牌')
+    // Badge text, matched with its tag boundaries: the body copy also names
+    // these topics, so a bare substring would pass without the badges.
+    expect(html).toContain('>專題<')
+    expect(html).toContain('>新收錄的品牌<')
   })
 
   it('renders locale-specific content for en', async () => {
     const html = await render(NewsletterConfirmEmail({ ...defaultProps, locale: 'en' }))
     expect(html).toContain('Confirm your subscription')
-    expect(html).toContain('Brand Stories')
-    expect(html).toContain('New Brands')
+    expect(html).toContain('>Stories<')
+    expect(html).toContain('>Newly listed brands<')
   })
 
   it('buildNewsletterConfirmEmail returns valid EmailMessage', async () => {

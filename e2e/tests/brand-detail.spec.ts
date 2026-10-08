@@ -1015,7 +1015,7 @@ test.describe("Brand detail — public locations and retail stockists", () => {
 
     // The row is written, but a community submission is a stranger's claim about
     // a shop until an admin approves it in /admin/stockists (DEV-1513). So the
-    // public list must NOT grow: the submission named 臺北市, so that is the
+    // public list must NOT grow: the submission named 台北市, so that is the
     // group whose count must not move, and the submitted name must appear
     // nowhere in the section.
     //

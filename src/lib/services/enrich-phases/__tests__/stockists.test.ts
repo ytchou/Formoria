@@ -57,7 +57,7 @@ describe("validateStockistCandidates", () => {
       { ...validEntry, regionSlug: "taipei" },
     ]);
     expect(result).toHaveLength(1);
-    expect(result[0].regionLabel).toBe("臺北市");
+    expect(result[0].regionLabel).toBe("台北市");
   });
 
   it("caps at MAX_ACTIVE_STOCKISTS_PER_BRAND", () => {

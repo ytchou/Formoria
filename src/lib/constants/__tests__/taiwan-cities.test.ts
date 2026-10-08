@@ -4,6 +4,7 @@ import {
   CITY_SLUGS,
   CITY_NAMES_ZH,
   CITY_REGION_LABELS_ZH,
+  citySlugFromName,
 } from '../taiwan-cities'
 import zhTW from '../../../../messages/zh-TW.json'
 
@@ -23,6 +24,15 @@ describe('CITY_NAMES_ZH', () => {
     for (const slug of CITY_SLUGS) {
       expect(CITY_NAMES_ZH[slug], `${slug} missing a zh name`).toBeTruthy()
     }
+  })
+})
+
+describe('citySlugFromName', () => {
+  // Stored labels (brand_channels.region_label) still use 臺; the catalog
+  // renders 台. The lookup must accept both spellings.
+  it('maps both 臺北市 and 台北市 to taipei', () => {
+    expect(citySlugFromName('臺北市')).toBe('taipei')
+    expect(citySlugFromName('台北市')).toBe('taipei')
   })
 })
 

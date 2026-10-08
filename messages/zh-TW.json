@@ -199,14 +199,14 @@
     }
   },
   "newsletter": {
-    "heading": "掌握最新動態",
-    "subtext": "台灣品牌的最新動態：品牌故事、新品上架與 Formoria 選物，直接寄到你的信箱。",
+    "heading": "收到新的專題和選物",
+    "subtext": "新的專題、新收錄的品牌和 Formoria 選物，寄到你的信箱。",
     "emailPlaceholder": "your@email.com",
     "subscribe": "訂閱",
     "interestsLabel": "選擇想收到的內容",
     "interests": {
-      "brand-stories": "品牌故事",
-      "new-brands": "新品牌",
+      "brand-stories": "專題",
+      "new-brands": "新收錄的品牌",
       "curated-picks": "Formoria 選物",
       "mit-trends": "台灣品牌趨勢"
     },
@@ -288,11 +288,11 @@
     "error": "驗證失敗，請再試一次。"
   },
   "cities": {
-    "taipei": "臺北市",
+    "taipei": "台北市",
     "new_taipei": "新北市",
     "taoyuan": "桃園市",
-    "taichung": "臺中市",
-    "tainan": "臺南市",
+    "taichung": "台中市",
+    "tainan": "台南市",
     "kaohsiung": "高雄市",
     "keelung": "基隆市",
     "hsinchu_city": "新竹市",
@@ -306,10 +306,13 @@
     "pingtung": "屏東縣",
     "yilan": "宜蘭縣",
     "hualien": "花蓮縣",
-    "taitung": "臺東縣",
+    "taitung": "台東縣",
     "penghu": "澎湖縣",
     "kinmen": "金門縣",
     "lienchiang": "連江縣"
+  },
+  "shareCard": {
+    "headline": "我們的品牌收錄在 Formoria"
   },
   "trustLabel": {
     "selected": "Formoria 選物"
@@ -1739,13 +1742,13 @@
     "displayNamePlaceholder": "輸入顯示名稱",
     "emailLabel": "電子郵件",
     "localePreferenceLabel": "語言偏好",
-    "marketingHeading": "行銷電子郵件",
-    "marketingDescription": "電子報為選擇性訂閱，預設為關閉，須由您開啟，也可以隨時關閉。帳號驗證、密碼重設及審核結果等必要信件不受影響。",
+    "marketingHeading": "電子報",
+    "marketingDescription": "電子報預設關閉，要你自己開啟，隨時都能關掉。帳號驗證、密碼重設和審核結果這類必要通知不受影響。",
     "newsletterMarketingLabel": "Formoria 電子報",
-    "newsletterMarketingDescription": "品牌故事、新品牌與精選趨勢。開啟後需完成信箱確認。",
+    "newsletterMarketingDescription": "新的專題、新收錄的品牌和 Formoria 選物。開啟後要先完成信箱確認。",
     "newsletterPending": "確認信已寄出；完成信箱確認後才會開始寄送電子報。",
-    "unsubscribeAllMarketing": "取消所有行銷電子郵件",
-    "marketingUnsubscribedAll": "已取消所有行銷電子郵件",
+    "unsubscribeAllMarketing": "取消訂閱所有電子報",
+    "marketingUnsubscribedAll": "已取消訂閱所有電子報",
     "marketingUpdateError": "部分電子郵件偏好無法更新，請再試一次",
     "submit": "儲存設定",
     "submitting": "儲存中…",
@@ -1802,7 +1805,7 @@
     "fieldOtherLinks": "其他連結",
     "addLink": "新增連結",
     "removeItem": "移除",
-    "saving": "儲存中...",
+    "saving": "儲存中…",
     "saveDraft": "儲存草稿",
     "save": "儲存變更",
     "cancel": "取消",
@@ -1828,7 +1831,7 @@
     "unsavedChanges": "有未儲存的變更",
     "slugChangeBlocked": "品牌網址基於此名稱。如需更改，請聯繫我們。",
     "subcategoriesSearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",
-    "subcategoriesSelectedHeading": "已選子類別（點擊移除）",
+    "subcategoriesSelectedHeading": "已選子類別（按一下移除）",
     "subcategoriesOptionsHeading": "可加入的子類別",
     "subcategoriesRejected": "這個詞不在子類別清單中。請改用下方清單裡最接近的子類別。",
     "subcategoriesEmpty": "沒有符合的子類別，請換個關鍵字。"

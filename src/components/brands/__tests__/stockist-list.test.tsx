@@ -113,7 +113,7 @@ describe("StockistList", () => {
 
     const taipeiHeading = screen.getByRole("heading", {
       level: 4,
-      name: "臺北市",
+      name: "台北市",
     });
     expect(
       screen.getByRole("heading", { level: 4, name: "海外" }),

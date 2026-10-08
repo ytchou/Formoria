@@ -133,7 +133,7 @@ describe("BrandCard directory variant", () => {
 
   it("shows category · city, omitting city when null", () => {
     const withCity = renderCard(<BrandCard brand={buildBrand()} />);
-    expect(screen.getByText("居家生活 · 臺北市")).toBeInTheDocument();
+    expect(screen.getByText("居家生活 · 台北市")).toBeInTheDocument();
     withCity.unmount();
 
     renderCard(<BrandCard brand={buildBrand({ city: null })} />);
@@ -221,7 +221,7 @@ describe("BrandCard recommendation variant", () => {
     renderCard(<BrandCard brand={buildBrand()} variant="recommendation" />);
 
     expect(screen.getByText("手工陶器，日常好用。")).toBeInTheDocument();
-    expect(screen.getByText("居家生活 · 臺北市")).toBeInTheDocument();
+    expect(screen.getByText("居家生活 · 台北市")).toBeInTheDocument();
     const links = screen.getAllByRole("link");
     expect(links).toHaveLength(1);
     expect(links[0]).toHaveAccessibleName("山間器物");
