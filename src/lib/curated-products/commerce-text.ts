@@ -97,8 +97,8 @@ export type ImageTextSignals = {
  *
  *   - `endorsement`: the vision read says a person is the SUBJECT, presenting
  *     the product. A hand holding it, or a product-only shot, is not. NOT
- *     sufficient on its own: on the 2026-10-09 staging run it fired on 224 of
- *     1,337 images, nearly all of them ordinary on-model photos (a swimsuit
+ *     sufficient on its own: on the 2026-10-09 staging run it fired on 233 of
+ *     1,337 images, 216 with no other signal, nearly all of them ordinary on-model photos (a swimsuit
  *     or a backpack worn by a model). It counts only when the same frame also
  *     carries campaign copy — another ad signal below or a commerce marker —
  *     which is what separates the spokesperson ad (「超導晶凍面膜 Plus」 +

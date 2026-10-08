@@ -101,8 +101,8 @@ describe("findAdCreativeSignals", () => {
     ]);
   });
 
-  // The 2026-10-09 staging run: a person alone fired on 224 of 1,337 images,
-  // nearly all ordinary on-model photos (swimsuits, a worn backpack).
+  // The 2026-10-09 staging run: a person fired on 233 of 1,337 images (216
+  // with no other signal), nearly all ordinary on-model photos (swimsuits, a worn backpack).
   it("passes an on-model photo with no campaign copy", () => {
     expect(
       findAdCreativeSignals({ text: "", textCoverage: 0, endorsementPerson: true }),
