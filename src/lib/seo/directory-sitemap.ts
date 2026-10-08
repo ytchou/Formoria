@@ -1,7 +1,11 @@
 import type { MetadataRoute } from 'next'
 import { localizedEntries, latestBrandDate } from '@/app/sitemap'
 import { subcategoryBySlug } from '@/lib/taxonomy/ontology'
-import { listIndexableTargets, type DirectoryTarget } from './directory-indexation'
+import {
+  listIndexableTargets,
+  resolveDirectorySeo,
+  type DirectoryTarget,
+} from './directory-indexation'
 import type { BrandSeoEntry } from '@/lib/services/brands'
 import { routes } from '@/lib/routes'
 
@@ -35,10 +39,34 @@ export function isDirectoryTargetMember(
   return brand.categorySlug === target.categorySlug
 }
 
+/**
+ * One verdict: the sitemap asks the `/brands` page's own robots gate, with the
+ * state the page builds for this URL, instead of trusting the keyword map
+ * alone. A target the page would mark `noindex` is never submitted (SP-03).
+ */
+function pageIndexesTarget(target: DirectoryTarget): boolean {
+  return DIRECTORY_LOCALES.every(
+    (locale) =>
+      resolveDirectorySeo({
+        locale,
+        surface: 'brands',
+        categorySlug: target.categorySlug,
+        subcategorySlug: target.subcategorySlug,
+        page: 1,
+        facets: {
+          category: target.categorySlug,
+          sub: target.subcategorySlug,
+          multiCategory: false,
+          multiSub: false,
+        },
+      }).robots?.index !== false,
+  )
+}
+
 export function buildDirectorySitemapEntries(
   brands: ReadonlyArray<BrandSeoEntry>,
 ): MetadataRoute.Sitemap {
-  return listIndexableTargets().flatMap((target) => {
+  return listIndexableTargets().filter(pageIndexesTarget).flatMap((target) => {
     const members = brands.filter((brand) => isDirectoryTargetMember(brand, target))
     const path = target.subcategorySlug
       ? routes.brands({ category: target.categorySlug, sub: target.subcategorySlug })

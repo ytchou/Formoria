@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils";
  * 子分類/材質 checkbox labels use this one class string so the groups cannot
  * drift apart.
  *
- * 32px rows. Below the 44px touch minimum, but stacked with no overlap they
- * pass the spacing exception: 24px targets centred on adjacent 32px rows never
- * intersect. Ceiling: rows must stay flush — adding gaps is fine, overlapping
- * or shrinking below 32px is not. Upgrade path if touch misses show up in the
- * drawer: `min-h-11` rows inside the drawer only.
+ * 44px rows: the DESIGN.md §7 touch minimum, with no exception (only chips
+ * get the 36px one). The row element itself is the hit area — the checkbox
+ * rows' `<Label>` and the category rows' `<a>` carry this class, so the
+ * indicator, label and count are all one full-width target. Never shrink below
+ * `min-h-11` and never move the class onto an inner element.
  *
  * `grid` (not flex) keeps the category links out of the button-geometry gate:
  * these are list rows, not buttons. Columns: indicator, label, count.
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
  * links (an `<a>`), so the selected state is styled in one place.
  */
 export const filterOptionRowClassName =
-  "group grid min-h-8 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-control px-2 hover:bg-surface";
+  "group grid min-h-11 cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-control px-2 hover:bg-surface";
 
 /**
  * The row's label. State goes on this span, beside `type-nav`: `type-nav`

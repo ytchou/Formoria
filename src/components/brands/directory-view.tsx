@@ -136,10 +136,11 @@ export async function DirectoryView({
     ? categoryLabel(categoryTag, safeLocale)
     : t("heading");
   const search = filters.search ?? "";
-  // The 子分類 list shows during a search too, in every scope, with
-  // catalog-wide counts (never narrowed by the search), so search and panel
-  // filters combine as on /discover. Under 全部 it spans every visible L1.
-  // A multi-category selection gets none.
+  // The 子分類 list shows during a search too, in every scope, so search and
+  // panel filters combine as on /discover. Under 全部 it spans every visible
+  // L1. A multi-category selection gets none. Its counts are catalog-wide
+  // (never narrowed by the search), so the sidebar hides them while a search
+  // is active (`hideCounts` below); they still order the list.
   const subcategoryScope = singleValidCategory
     ? [singleValidCategory]
     : validCategoryFilter.length === 0
@@ -401,6 +402,7 @@ export async function DirectoryView({
     subcategoryOptions,
     activeSubSlugs,
     totalCount,
+    hideCounts: search !== "",
   };
 
   return (

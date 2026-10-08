@@ -27,8 +27,17 @@ const routerReplace = vi.fn();
 let currentSearch = "";
 
 vi.mock("@/i18n/navigation", () => ({
-  Link: ({ href, children }: { href: string; children: ReactNode }) => (
-    <a href={href}>{children}</a>
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: ReactNode;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
   ),
   usePathname: () => "/discover",
   useRouter: () => ({ replace: routerReplace, push: vi.fn() }),
@@ -41,7 +50,15 @@ vi.mock("next/navigation", () => ({
 const { FilterSection } = await import("../filter-section");
 const { FilterCheckboxGroup } = await import("../filter-checkbox-group");
 const { FilterToken } = await import("../filter-token");
-const { FilterDrawer } = await import("../filter-sidebar");
+const { FilterDrawer, FilterSidebar } = await import("../filter-sidebar");
+
+function renderWithIntl(ui: ReactNode) {
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      {ui}
+    </NextIntlClientProvider>,
+  );
+}
 
 describe("FilterSection", () => {
   it("renders a group labelled by its heading, always open", () => {
@@ -162,6 +179,41 @@ describe("FilterCheckboxGroup", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides every count when hideCounts is set", () => {
+    render(
+      <FilterCheckboxGroup
+        options={options}
+        activeValues={new Set()}
+        onToggle={vi.fn()}
+        hideCounts
+        {...labels}
+      />,
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: "Ceramic" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("29")).not.toBeInTheDocument();
+    expect(screen.queryByText("12")).not.toBeInTheDocument();
+  });
+
+  it("makes the whole 44px row the checkbox's label", () => {
+    render(
+      <FilterCheckboxGroup
+        options={options}
+        activeValues={new Set()}
+        onToggle={vi.fn()}
+        {...labels}
+      />,
+    );
+
+    const row = screen.getByRole("checkbox", { name: /Ceramic/ }).closest("label");
+    expect(row).toHaveClass("min-h-11", "grid");
+    expect(row).not.toHaveClass("min-h-8");
+    expect(row).toHaveTextContent("Ceramic");
+    expect(row).toHaveTextContent("29");
+  });
+
   it("does not collapse a single overflowing option", () => {
     render(
       <FilterCheckboxGroup
@@ -179,27 +231,30 @@ describe("FilterCheckboxGroup", () => {
 
 describe("FilterToken", () => {
   it("test_filter_token_renders_dismiss_link", () => {
-    render(
+    renderWithIntl(
       <FilterToken
         href="/brands"
-        label="Category"
-        removeLabel="Remove Category: Home"
-        value="Home"
+        label="搜尋"
+        removeLabel="移除 搜尋：zzzz"
+        value="zzzz"
         variant="chip"
       />,
     );
 
-    const link = screen.getByRole("link", { name: "Remove Category: Home" });
+    const link = screen.getByRole("link", { name: "移除 搜尋：zzzz" });
     expect(link).toHaveAttribute("href", "/brands");
-    expect(link).toHaveTextContent("Category:");
-    expect(link).toHaveTextContent("Home");
+    // The separator comes from `filters.token`: a full-width colon in zh-TW.
+    expect(link).toHaveTextContent("搜尋：zzzz");
+    expect(link).not.toHaveTextContent("搜尋:");
+    expect(screen.getByText("搜尋")).toHaveClass("font-medium", "text-ink");
+    expect(screen.getByText("zzzz")).toHaveClass("text-ink-muted");
     // X icon is present (aria-hidden svg)
     const svg = link.querySelector("svg");
     expect(svg).not.toBeNull();
   });
 
   it("the badge renders visually hidden from AT while the caller's label names the chip", () => {
-    render(
+    renderWithIntl(
       <FilterToken
         href="/discover"
         label="材質"
@@ -219,7 +274,7 @@ describe("FilterToken", () => {
   });
 
   it("the accessible name is exactly the caller's label, with no appended badge text", () => {
-    render(
+    renderWithIntl(
       <FilterToken
         href="/discover"
         label="Material"
@@ -238,7 +293,7 @@ describe("FilterToken", () => {
   });
 
   it("test_filter_token_without_badge_renders_no_badge", () => {
-    render(
+    renderWithIntl(
       <FilterToken
         href="/brands"
         label="Category"
@@ -316,5 +371,52 @@ describe("FilterDrawer clearAll", () => {
     expect(params.get("category")).toBe("home");
     expect(params.has("sub")).toBe(false);
     expect(params.has("material")).toBe(false);
+  });
+});
+
+describe("FilterSidebar", () => {
+  const sidebarProps = {
+    locale: "zh-TW",
+    activeCategory: null,
+    allLabel: "全部",
+    totalCount: 10,
+    categoryCounts: { home: 41, kitchen: 17 },
+    subcategoryOptions: [
+      { slug: "cups", label: "杯子", count: 23, category: "kitchen" },
+    ],
+    categoryHref: (slug: string | null) => (slug ? `/brands/${slug}` : "/brands"),
+    labels: {
+      title: "篩選",
+      category: "分類",
+      subcategory: "子分類",
+      material: "材質",
+      showMore: (count: number) => `再顯示 ${count} 項`,
+      showLess: "顯示較少",
+    },
+  };
+
+  it("shows 全部, category and subcategory counts by default", () => {
+    currentSearch = "";
+    render(<FilterSidebar {...sidebarProps} />);
+
+    expect(screen.getByRole("link", { name: "全部" })).toHaveTextContent(/\d/);
+    expect(screen.getByText("23")).toBeInTheDocument();
+  });
+
+  it("hides every count when hideCounts is set", () => {
+    currentSearch = "search=zzzz";
+    render(<FilterSidebar {...sidebarProps} hideCounts />);
+
+    const nav = screen.getByRole("navigation", { name: "篩選" });
+    expect(screen.getByRole("link", { name: "全部" })).not.toHaveTextContent(/\d/);
+    expect(screen.getByRole("checkbox", { name: "杯子" })).toBeInTheDocument();
+    expect(nav).not.toHaveTextContent(/\d/);
+  });
+
+  it("makes each category link a 44px row", () => {
+    currentSearch = "";
+    render(<FilterSidebar {...sidebarProps} />);
+
+    expect(screen.getByRole("link", { name: "全部" })).toHaveClass("min-h-11");
   });
 });

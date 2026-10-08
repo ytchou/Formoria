@@ -343,12 +343,12 @@ test.describe.serial('Public brand search edge cases', () => {
     // A scope-note absence assertion used to sit here. Its string came from a
     // `scopeNote` key whose renderer was already deleted earlier in this delta;
     // this sweep removed the orphaned key, leaving an assertion no component
-    // could ever violate. The 找不到品牌 guard below is the one that matters —
-    // that copy is still live, and it must not appear alongside the real
-    // 找不到符合的品牌 empty-state heading.
+    // could ever violate. The 找不到品牌 guard below pins the retired duplicate
+    // (`brands.notFound`, deleted in DEV-1970): it must never reappear
+    // alongside the real 沒有符合這些條件的品牌 empty-state heading.
     await expect(page.getByText('找不到品牌', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('目前套用條件', { exact: true })).toHaveCount(0);
-    await expect(emptyState.getByRole('heading', { name: '找不到符合的品牌' })).toBeVisible();
+    await expect(page.getByText('目前的篩選條件', { exact: true })).toHaveCount(0);
+    await expect(emptyState.getByRole('heading', { name: '沒有符合這些條件的品牌' })).toBeVisible();
     // The empty state no longer echoes the query back — the notice banner that
     // did was removed. The search box is now the only place the raw string is
     // rendered, so that is where the escaping guard has to point.
