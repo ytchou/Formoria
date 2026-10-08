@@ -304,7 +304,7 @@ describe("link_check_results lookup batching", () => {
   // filter holding every approved brand id overflows the URL. Measured against
   // production 2026-08-07: 300 ids ok, 500 ids "TypeError: fetch failed", 718
   // ids "Bad Request". The health agent's nightly run had been failing on this
-  // for weeks, surfacing only as an opaque HTTP 500 from /api/cron/link-health.
+  // for weeks, surfacing only as an opaque HTTP 500 from the link-health cron route.
   // It is a scale bug — it began the moment the approved corpus grew past the
   // threshold, so a test that uses a handful of brands can never catch it.
   it("splits the brand-id filter into bounded chunks", async () => {

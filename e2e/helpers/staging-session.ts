@@ -1,4 +1,4 @@
-import type { BrowserContext, StorageState } from "@playwright/test";
+import type { BrowserContext } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -7,6 +7,9 @@ import {
   E2E_STAGING_SESSION_TTL_SECONDS,
   signStagingSession,
 } from "../../src/lib/security/staging-session";
+
+// @playwright/test does not export a StorageState type; derive it from the API.
+type StorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 
 export const DEEP_STAGING_SESSION_STATE = path.join(
   __dirname,

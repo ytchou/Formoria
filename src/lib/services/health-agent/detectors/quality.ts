@@ -2,10 +2,9 @@
  * Quality detector — evaluates vitest and knip reports to produce health
  * findings.
  *
- * Copied from `scripts/health-agent/quality.ts` and adapted for the
- * service-layer contracts. The evaluate logic is identical so that
- * vitest and knip findings keep the `quality:*` fingerprints of the
- * scripts implementation.
+ * Originally ported from the retired GitHub Actions health agent's quality
+ * collector. The evaluate logic was kept identical so that vitest and knip
+ * findings keep their established `quality:*` fingerprints.
  *
  * The knip-known-noise suppression list is imported from the scripts
  * directory to maintain a single source of truth.
@@ -69,7 +68,7 @@ export interface QualityHealthResult {
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers — ported from scripts/health-agent/quality.ts
+// Internal helpers
 // ---------------------------------------------------------------------------
 
 function isRecord(value: unknown): value is UnknownRecord {

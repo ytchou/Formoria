@@ -97,6 +97,27 @@ export interface HealthSummary {
   };
 }
 
+/** The routine keys a collector artifact may carry. */
+type HealthRoutine =
+  | "link-checker"
+  | "directory-health"
+  | "sentry-triage"
+  | "quality-health"
+  | "cron-health";
+
+export interface HealthCollectorArtifact {
+  collectedAt: string;
+  evidence: Record<string, JsonValue>;
+  failure?: string;
+  failures: string[];
+  findings: HealthFinding[];
+  routine: HealthRoutine;
+  skippedActions: string[];
+  snapshot?: Record<string, JsonValue>;
+  status: "failed" | "skipped" | "success";
+  version: 1;
+}
+
 export interface AuditRecord {
   adapter: string;
   operation: string;
