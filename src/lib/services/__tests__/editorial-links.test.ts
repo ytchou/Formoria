@@ -15,6 +15,7 @@ type ProductPlacement = {
   brandSlug: string;
   trailSlug: string;
   trailTitle: string;
+  trailLocale: string;
   category: string;
   subcategories: string[];
 };
@@ -23,6 +24,7 @@ type ProductPlacement = {
 type StoryBrandsRecord = {
   slug: string;
   title: string;
+  locale: string;
   brands: string[];
 };
 
@@ -37,6 +39,7 @@ describe("deriveBrandTrailLinks", () => {
         brandSlug: "yuyu",
         trailSlug: "small-space-reading-corner",
         trailTitle: "小坪數閱讀角落",
+        trailLocale: "zh-TW",
         category: "home",
         subcategories: [],
       },
@@ -44,6 +47,7 @@ describe("deriveBrandTrailLinks", () => {
         brandSlug: "yuyu",
         trailSlug: "small-space-reading-corner",
         trailTitle: "小坪數閱讀角落",
+        trailLocale: "zh-TW",
         category: "home",
         subcategories: [],
       },
@@ -51,6 +55,7 @@ describe("deriveBrandTrailLinks", () => {
         brandSlug: "other-brand",
         trailSlug: "another-trail",
         trailTitle: "Another Trail",
+        trailLocale: "zh-TW",
         category: "fashion",
         subcategories: [],
       },
@@ -61,6 +66,7 @@ describe("deriveBrandTrailLinks", () => {
     expect(result[0]).toEqual({
       slug: "small-space-reading-corner",
       title: "小坪數閱讀角落",
+      locale: "zh-TW",
     });
   });
 
@@ -70,6 +76,7 @@ describe("deriveBrandTrailLinks", () => {
         brandSlug: "other-brand",
         trailSlug: "some-trail",
         trailTitle: "Some Trail",
+        trailLocale: "zh-TW",
         category: "home",
         subcategories: [],
       },
@@ -90,11 +97,13 @@ describe("deriveBrandStoryLinks", () => {
       {
         slug: "2026-08-03-2026-taiwan-creative-expo-category-guide",
         title: "2026 文博會精選",
+        locale: "zh-TW",
         brands: ["yuyu", "ziliaoshi", "pang"],
       },
       {
         slug: "2026-08-06-craft-brands",
         title: "工藝品牌",
+        locale: "zh-TW",
         brands: ["huiaio-studio", "simply-made"],
       },
     ];
@@ -104,6 +113,7 @@ describe("deriveBrandStoryLinks", () => {
     expect(result[0]).toEqual({
       slug: "2026-08-03-2026-taiwan-creative-expo-category-guide",
       title: "2026 文博會精選",
+      locale: "zh-TW",
     });
   });
 
@@ -112,6 +122,7 @@ describe("deriveBrandStoryLinks", () => {
       {
         slug: "some-story",
         title: "Some Story",
+        locale: "zh-TW",
         brands: ["other-brand"],
       },
     ];
@@ -132,6 +143,7 @@ describe("deriveCategoryEditorialLinks", () => {
         brandSlug: "yuyu",
         trailSlug: "small-space-reading-corner",
         trailTitle: "小坪數閱讀角落",
+        trailLocale: "zh-TW",
         category: "home",
         subcategories: ["candles"],
       },
@@ -139,6 +151,7 @@ describe("deriveCategoryEditorialLinks", () => {
         brandSlug: "pang",
         trailSlug: "another-trail",
         trailTitle: "Another",
+        trailLocale: "zh-TW",
         category: "fashion",
         subcategories: [],
       },
@@ -148,6 +161,7 @@ describe("deriveCategoryEditorialLinks", () => {
       {
         slug: "expo-guide",
         title: "Expo Guide",
+        locale: "zh-TW",
         brands: ["yuyu", "pang"],
       },
     ];
@@ -197,6 +211,7 @@ describe("deriveStoryRelatedTrails", () => {
         brandSlug: "yuyu",
         trailSlug: "small-space-reading-corner",
         trailTitle: "小坪數閱讀角落",
+        trailLocale: "zh-TW",
         category: "home",
         subcategories: [],
       },
@@ -204,6 +219,7 @@ describe("deriveStoryRelatedTrails", () => {
         brandSlug: "other",
         trailSlug: "unrelated-trail",
         trailTitle: "Unrelated",
+        trailLocale: "zh-TW",
         category: "fashion",
         subcategories: [],
       },

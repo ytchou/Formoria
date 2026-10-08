@@ -572,15 +572,10 @@
         "founded": "established in {year}",
         "suffix": " It was {details}."
       },
-      "isMadeInTaiwan": {
-        "question": "Is {brandName} a Taiwanese brand?",
-        "answer": "Formoria matched a product from {brandName} to the MIT Smile registry. This verification applies only to products covered by the registry entry.",
-        "registrySource": "Source: MIT Smile registry."
-      },
       "mainProducts": {
         "question": "What does {brandName} make?",
-        "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}, with signature products including {subcategories}.{context}",
-        "answerWithSubcategories": "{brandName} makes {subcategories} as signature products.{context}"
+        "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}. Its products include {subcategories}.{context}",
+        "answerWithSubcategories": "{brandName}'s products include {subcategories}.{context}"
       },
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",

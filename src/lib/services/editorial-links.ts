@@ -17,14 +17,18 @@ import { createServiceClient } from "@/lib/supabase/service";
 // Link types
 // ---------------------------------------------------------------------------
 
+// `locale` is the content's frontmatter locale, so a page in another locale
+// can mark the title with the right `lang`.
 export type TrailLink = {
   slug: string;
   title: string;
+  locale: string;
 };
 
 export type StoryLink = {
   slug: string;
   title: string;
+  locale: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -35,6 +39,7 @@ type ProductPlacement = {
   brandSlug: string;
   trailSlug: string;
   trailTitle: string;
+  trailLocale: string;
   category: string;
   subcategories: string[];
 };
@@ -42,6 +47,7 @@ type ProductPlacement = {
 type StoryBrandsRecord = {
   slug: string;
   title: string;
+  locale: string;
   brands: string[];
 };
 
@@ -61,7 +67,11 @@ export function deriveBrandTrailLinks(
   for (const p of placements) {
     if (p.brandSlug === brandSlug && !seen.has(p.trailSlug)) {
       seen.add(p.trailSlug);
-      links.push({ slug: p.trailSlug, title: p.trailTitle });
+      links.push({
+        slug: p.trailSlug,
+        title: p.trailTitle,
+        locale: p.trailLocale,
+      });
     }
   }
   return links;
@@ -76,7 +86,7 @@ export function deriveBrandStoryLinks(
 ): StoryLink[] {
   return stories
     .filter((s) => s.brands.includes(brandSlug))
-    .map((s) => ({ slug: s.slug, title: s.title }));
+    .map((s) => ({ slug: s.slug, title: s.title, locale: s.locale }));
 }
 
 /**
@@ -113,13 +123,17 @@ export function deriveCategoryEditorialLinks(
   for (const p of placements) {
     if (brandsInCategory.has(p.brandSlug) && !trailSeen.has(p.trailSlug)) {
       trailSeen.add(p.trailSlug);
-      trails.push({ slug: p.trailSlug, title: p.trailTitle });
+      trails.push({
+        slug: p.trailSlug,
+        title: p.trailTitle,
+        locale: p.trailLocale,
+      });
     }
   }
 
   const storyLinks: StoryLink[] = stories
     .filter((s) => s.brands.some((b) => brandsInCategory.has(b)))
-    .map((s) => ({ slug: s.slug, title: s.title }));
+    .map((s) => ({ slug: s.slug, title: s.title, locale: s.locale }));
 
   return { trails, stories: storyLinks };
 }
@@ -137,7 +151,11 @@ export function deriveStoryRelatedTrails(
   for (const p of placements) {
     if (brandSet.has(p.brandSlug) && !seen.has(p.trailSlug)) {
       seen.add(p.trailSlug);
-      links.push({ slug: p.trailSlug, title: p.trailTitle });
+      links.push({
+        slug: p.trailSlug,
+        title: p.trailTitle,
+        locale: p.trailLocale,
+      });
     }
   }
   return links;
@@ -173,6 +191,7 @@ const collectAllPlacements = cache(
               brandSlug: product.brandSlug,
               trailSlug: trail.slug,
               trailTitle: trail.frontmatter.title,
+              trailLocale: trail.frontmatter.locale,
               category: product.category,
               subcategories: product.subcategory ? [product.subcategory] : [],
             }),
@@ -197,6 +216,7 @@ const collectStoryBrands = cache(
     return result.stories.map((story) => ({
       slug: story.slug,
       title: story.frontmatter.title,
+      locale: story.frontmatter.locale,
       brands: story.frontmatter.brands ?? [],
     }));
   },

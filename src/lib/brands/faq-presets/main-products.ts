@@ -50,7 +50,7 @@ const mainProducts: FaqPreset = {
   id: "main-products",
   // A brand with zh tags and an empty `subcategoriesEn` is eligible in zh and
   // not in en. Rendering it in en would interpolate an empty string into
-  // the page ("Acme makes  as signature products.").
+  // the page ("Acme's products include .").
   eligible: (ctx, locale = "zh-TW") => localeTags(ctx, locale).length > 0,
   // Authoring writes both locale sides from the zh evidence, so the zh tags
   // are what decide whether the model has anything to work from.

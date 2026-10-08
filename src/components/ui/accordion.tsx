@@ -4,8 +4,9 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * The shared disclosure accordion. Every FAQ and every collapsible group on the
- * site renders through this file.
+ * The shared disclosure accordion. Every collapsible FAQ and collapsible group
+ * on the site renders through this file. The brand-page FAQ is not one: it is
+ * an open `<dl>` (`brand-faq-accordion.tsx`, DESIGN.md §7).
  *
  * VISUAL ANATOMY IS ADAPTED FROM FLOWBITE'S DEFAULT ACCORDION
  * (https://flowbite.com/docs/components/accordion/): a boxed container, a
