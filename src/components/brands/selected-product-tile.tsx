@@ -432,12 +432,18 @@ export function SelectedProductTile({
    * Phones step the name down to body size, three lines (R2-03): the trail
    * grid is two-up there, and a 21px title in a ~100px column split Latin
    * words and ran five lines.
+   *
+   * `wrap-break-word` under `:lang(zh)` out-ranks the card title's zh
+   * `overflow-wrap: anywhere` (N-02), which let `text-wrap: balance` split
+   * "Orii×DO / T" at 320. `break-word` splits only a word wider than the
+   * whole line, so nothing overflows; the caption's narrower inline padding
+   * below 360px keeps an ~80px Latin word inside the line.
    */
   const trailHeading = (
     <Typography
       as="h3"
       variant="cardTitle"
-      className="min-w-0 flex-1 group-hover:text-accent max-sm:type-body max-sm:text-ink max-sm:line-clamp-3"
+      className="min-w-0 flex-1 group-hover:text-accent [&:lang(zh)]:wrap-break-word max-sm:type-body max-sm:text-ink max-sm:line-clamp-3"
       lang={nameLang}
     >
       {name}
@@ -580,7 +586,7 @@ export function SelectedProductTile({
       <div
         className={cn(
           "flex flex-1 flex-col gap-2 p-4",
-          mode === "trail" && "max-sm:p-3",
+          mode === "trail" && "max-sm:p-3 max-sm:max-[359px]:px-2",
         )}
       >
         {mode === "trail" ? (
