@@ -3,6 +3,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ChipRow } from "@/components/ui/toggle-chip";
 import { FilterToken } from "./filter-token";
+import { ResultsLinkPendingReporter } from "./results-transition";
 
 export type ActiveFilterChip = Omit<
   ComponentProps<typeof FilterToken>,
@@ -41,6 +42,7 @@ export function ActiveFilterChips({
         className={buttonVariants({ variant: "ghost", size: "compact" })}
       >
         {clearAllLabel}
+        <ResultsLinkPendingReporter />
       </Link>
     </ChipRow>
   );

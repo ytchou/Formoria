@@ -25,7 +25,7 @@
     "about": "About Formoria",
     "stories": "Stories",
     "products": "Products",
-    "style": "Styles",
+    "style": "Guides",
     "brands": "Listed brands"
   },
   "footer": {
@@ -42,19 +42,19 @@
     "companyHeading": "About",
     "faq": "FAQ",
     "connectHeading": "Contact",
-    "style": "Styles",
+    "style": "Guides",
     "products": "Products",
     "disclosure": "Formoria doesn't sell anything. Every purchase happens on the brand's own channel."
   },
   "style": {
-    "metaTitle": "Styles",
+    "metaTitle": "Guides",
     "metaDescription": "A desk, an everyday bag, year-end gifts: start from one concrete situation and see which Taiwanese products fit.",
-    "heading": "Styles",
+    "heading": "Guides",
     "subheading": "Start from one concrete situation and see which Taiwanese products belong in it.",
-    "comingSoon": "The first style is on its way.",
-    "loadError": "Styles are temporarily unavailable. Please try again later.",
+    "comingSoon": "The first guide is on its way.",
+    "loadError": "Guides are temporarily unavailable. Please try again later.",
     "retry": "Try again",
-    "breadcrumb": "Styles",
+    "breadcrumb": "Guides",
     "breadcrumbAria": "Breadcrumb",
     "editorLabel": "Editor",
     "updatedLabel": "Last updated",
@@ -67,7 +67,7 @@
     "brandProvidedBadge": "Brand-provided",
     "unavailable": "The brand's product page can't be reached right now",
     "relatedStories": "Continue reading",
-    "relatedTrails": "More styles",
+    "relatedTrails": "More guides",
     "exploreMore": "More products like these",
     "untranslatedNotice": "This guide is in Traditional Chinese."
   },
@@ -110,7 +110,7 @@
       "countTop": "Top {count} by relevance",
       "empty": "No products match \"{query}\". Try a different keyword or clear the filters.",
       "emptyRoutes": {
-        "trailsHeading": "Start from a style",
+        "trailsHeading": "Start from one of these guides",
         "categoriesHeading": "Browse all products by category"
       }
     }
@@ -149,7 +149,7 @@
       "headline": "Life can feel a little more like you",
       "searchLabel": "Search Taiwanese products",
       "searchPlaceholder": "Try: travel essentials, wedding gifts, sunscreen",
-      "browseCta": "Start from a style",
+      "browseCta": "Start from a guide",
       "eyebrow": "A curated platform for Taiwanese goods",
       "lede": "Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
       "browsePrefix": "or",
@@ -175,11 +175,11 @@
       "linkText": "See all stories"
     },
     "trails": {
-      "heading": "Styles",
+      "heading": "Guides",
       "note": "Products picked for one specific situation",
-      "linkText": "See all styles",
-      "eyebrow": "Style",
-      "cta": "See this style →"
+      "linkText": "See all guides",
+      "eyebrow": "Guide",
+      "cta": "See this guide →"
     },
     "selection": {
       "headline": "This season's selection",
@@ -279,9 +279,9 @@
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found",
-    "editorialLinksAria": "Related stories and styles",
+    "editorialLinksAria": "Related stories and guides",
     "editorialStories": "Related stories",
-    "editorialTrails": "Related styles",
+    "editorialTrails": "Related guides",
     "subheading": "Find listed Taiwanese brands by category or keyword"
   },
   "challenge": {
@@ -549,8 +549,8 @@
     "locations": {},
     "editorialAppearances": {
       "heading": "Featured in",
-      "ariaLabel": "Stories and styles that feature this brand",
-      "trailPrefix": "Styles",
+      "ariaLabel": "Stories and guides that feature this brand",
+      "trailPrefix": "Guides",
       "storyPrefix": "Stories",
       "zhOnlyNote": "In Chinese"
     },
@@ -572,15 +572,10 @@
         "founded": "established in {year}",
         "suffix": " It was {details}."
       },
-      "isMadeInTaiwan": {
-        "question": "Is {brandName} a Taiwanese brand?",
-        "answer": "Formoria matched a product from {brandName} to the MIT Smile registry. This verification applies only to products covered by the registry entry.",
-        "registrySource": "Source: MIT Smile registry."
-      },
       "mainProducts": {
         "question": "What does {brandName} make?",
-        "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}, with signature products including {subcategories}.{context}",
-        "answerWithSubcategories": "{brandName} makes {subcategories} as signature products.{context}"
+        "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}. Its products include {subcategories}.{context}",
+        "answerWithSubcategories": "{brandName}'s products include {subcategories}.{context}"
       },
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",
@@ -1650,7 +1645,7 @@
     },
     "guide": {
       "heading": "Start from a situation",
-      "cta": "Browse styles",
+      "cta": "Browse guides",
       "directoryPrefix": "or",
       "directoryCta": "see the brand directory"
     }
@@ -2840,8 +2835,8 @@
     "eventPage": "Event page",
     "eventFinePrint": "Check the official site for the latest details",
     "boothLabel": "Booth",
-    "relatedTrails": "Related styles",
-    "relatedTrailsAria": "Styles related to this story"
+    "relatedTrails": "Related guides",
+    "relatedTrailsAria": "Guides related to this story"
   },
   "districts": {
     "alian": "Alian District",

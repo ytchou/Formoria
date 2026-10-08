@@ -55,10 +55,10 @@ test.describe("Static & compliance pages", () => {
           "判斷是我們的，而且會說明理由。",
         ],
         // Product-led exits: the hero and the closing band lead to products
-        // and styles; the brand directory is the secondary link.
+        // and guides; the brand directory is the secondary link.
         exits: [
           { name: "逛商品", href: "/discover" },
-          { name: "看看風格選物", href: "/style" },
+          { name: "看看主題選物", href: "/style" },
         ],
       },
       {
@@ -75,7 +75,7 @@ test.describe("Static & compliance pages", () => {
         ],
         exits: [
           { name: "Browse products", href: "/en/discover" },
-          { name: "Browse styles", href: "/en/style" },
+          { name: "Browse guides", href: "/en/style" },
         ],
       },
     ] as const;

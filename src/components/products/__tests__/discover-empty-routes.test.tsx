@@ -40,13 +40,13 @@ describe("DiscoverEmptyRoutes", () => {
       <DiscoverEmptyRoutes
         trails={trails}
         categories={categories}
-        trailsHeading="Start from a style"
+        trailsHeading="Start from one of these guides"
         categoriesHeading="Browse all products by category"
       />,
     );
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "Start from a style" }),
+      screen.getByRole("heading", { level: 2, name: "Start from one of these guides" }),
     ).toBeTruthy();
     expect(
       screen.getByRole("heading", {
@@ -67,7 +67,7 @@ describe("DiscoverEmptyRoutes", () => {
       <DiscoverEmptyRoutes
         trails={trails}
         categories={categories}
-        trailsHeading="Start from a style"
+        trailsHeading="Start from one of these guides"
         categoriesHeading="Browse all products by category"
       />,
     );
@@ -88,13 +88,13 @@ describe("DiscoverEmptyRoutes", () => {
       <DiscoverEmptyRoutes
         trails={[]}
         categories={categories}
-        trailsHeading="Start from a style"
+        trailsHeading="Start from one of these guides"
         categoriesHeading="Browse all products by category"
       />,
     );
 
     expect(
-      screen.queryByRole("heading", { name: "Start from a style" }),
+      screen.queryByRole("heading", { name: "Start from one of these guides" }),
     ).toBeNull();
     expect(
       screen.getByRole("heading", { name: "Browse all products by category" }),
@@ -106,7 +106,7 @@ describe("DiscoverEmptyRoutes", () => {
       <DiscoverEmptyRoutes
         trails={trails}
         categories={categories}
-        trailsHeading="Start from a style"
+        trailsHeading="Start from one of these guides"
         categoriesHeading="Browse all products by category"
       />,
     );

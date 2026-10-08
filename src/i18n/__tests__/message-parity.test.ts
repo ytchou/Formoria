@@ -162,14 +162,14 @@ describe("message catalogue parity", () => {
     }
   });
 
-  it("retired the 主題選物 vocabulary from the style namespace", () => {
-    // The section had two names in one product. Every string the reader sees on
-    // `/style` and `/style/[slug]` now uses the 風格 vocabulary; a hit here
-    // means a page has drifted back to the old name.
+  it("retired the 風格 vocabulary from the style namespace", () => {
+    // Trails are situations, not aesthetics (DEV-1980). Every string the reader
+    // sees on `/style` and `/style/[slug]` now uses the 主題選物 vocabulary; a
+    // hit here means a page has drifted back to the old name.
     const stale: string[] = [];
     const walk = (node: unknown, path: string) => {
       if (typeof node === "string") {
-        if (node.includes("主題選物")) stale.push(path);
+        if (node.includes("風格")) stale.push(path);
         return;
       }
       if (typeof node !== "object" || node === null) return;

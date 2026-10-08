@@ -28,6 +28,7 @@ import { BrandHeader } from "@/components/brands/brand-header";
 import { BrandActions } from "@/components/brands/brand-actions";
 import { AdminBrandMenu } from "@/components/brands/admin-brand-menu";
 import { BrandAbout } from "@/components/brands/brand-about";
+import { splitLede } from "@/lib/brands/split-lede";
 import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
 import {
   BrandChannelCorrections,
@@ -374,6 +375,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 brand={displayBrand}
                 categoryLabel={categoryLabel || null}
                 cityLabel={cityLabel}
+                lede={description ? splitLede(description, safeLocale).lede : null}
                 adminSlot={
                   <AdminBrandMenu
                     brandId={displayBrand.id}

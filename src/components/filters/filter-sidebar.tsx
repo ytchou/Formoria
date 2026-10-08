@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { VISIBLE_L1_CATEGORIES, categoryLabel } from "@/lib/taxonomy/ontology";
@@ -15,6 +15,10 @@ import {
   FilterOptionLabel,
 } from "./filter-option-row";
 import { FilterDrawerShell } from "./filter-drawer-shell";
+import {
+  ResultsLinkPendingReporter,
+  useResultsTransition,
+} from "./results-transition";
 import {
   updateDirectoryUrl,
   type DirectoryClearKey,
@@ -100,6 +104,7 @@ function CategoryRow({
       <FilterRadioIndicator selected={isActive} />
       <FilterOptionLabel selected={isActive}>{label}</FilterOptionLabel>
       {count !== undefined && <FilterOptionCount count={count} aria-hidden />}
+      <ResultsLinkPendingReporter />
     </Link>
   );
 }
@@ -123,7 +128,7 @@ export function FilterSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [, startTransition] = useTransition();
+  const [, startTransition] = useResultsTransition();
 
   const activeSubSet = useMemo(
     () => new Set(activeSubSlugs),
@@ -286,7 +291,7 @@ export function FilterDrawer({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [, startTransition] = useTransition();
+  const [, startTransition] = useResultsTransition();
 
   function clearAll() {
     const updates: DirectoryFilterUpdates = { sub: null, material: null };

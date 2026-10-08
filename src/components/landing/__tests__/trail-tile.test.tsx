@@ -41,7 +41,7 @@ vi.mock("@/lib/analytics", () => ({
 const intl = vi.hoisted(() => ({ locale: "en" }));
 vi.mock("next-intl", () => ({ useLocale: () => intl.locale }));
 
-const labels = { eyebrow: "Style", cta: "Explore this style" };
+const labels = { eyebrow: "Guide", cta: "See this guide →" };
 
 function buildTrail(): TrailEntry {
   return {
