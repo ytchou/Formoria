@@ -85,7 +85,7 @@ export function buildTrailMetadata({
    * The localized `style.titleInChinese` formatter. Required, not optional: a
    * caller that forgot it would silently drop the language marker. Applied only
    * when the trail's language differs from the page's (a zh-TW trail on /en),
-   * so an English tab or result reads "書桌：… (in Chinese)" rather than a bare
+   * so an English tab or result reads "<zh-TW title> (in Chinese)" rather than a bare
    * Chinese title with no warning (DS2-08).
    */
   titleInChinese: (title: string) => string;
@@ -212,7 +212,7 @@ type MetaItem = {
 
 /**
  * The editorial frame — who chose this, when, how much of it there is — as ONE
- * interface-face line under the header (DS2-35): 撰文 … · 最後更新 … · 選物 … .
+ * interface-face line under the header (DS2-35): editorLabel · updatedLabel · selectionLabel + selectionSummary.
  * It replaced a three-row `<dl>` table that sat beside the title and stood as
  * tall as the hero. A `<p>` of label/value spans, because a `<dl>` cannot hold
  * the separators; the `·` between items is decoration and is hidden from

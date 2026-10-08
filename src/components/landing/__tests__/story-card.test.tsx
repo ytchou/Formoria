@@ -143,4 +143,38 @@ describe("StoryCard", () => {
     expect(eyebrow?.textContent).not.toContain(" · ");
     expect(eyebrow?.textContent).not.toBe("");
   });
+
+  // DEV-1992: on /en the hub shows zh-TW stories; their title and excerpt must
+  // be marked, while the eyebrow (page-locale tag + date) must not.
+  it("marks title and excerpt with contentLang, never the eyebrow", async () => {
+    const { StoryCard } = await import("../story-card");
+    const { container } = renderWithIntl(
+      <StoryCard
+        story={mockStory}
+        locale="en"
+        position={0}
+        contentLang="zh-Hant-TW"
+      />,
+    );
+
+    expect(screen.getByRole("heading", { level: 3 })).toHaveAttribute(
+      "lang",
+      "zh-Hant-TW",
+    );
+    expect(
+      screen.getByText("A short excerpt about Taiwanese craft."),
+    ).toHaveAttribute("lang", "zh-Hant-TW");
+    expect(container.querySelector(".type-eyebrow")).not.toHaveAttribute(
+      "lang",
+    );
+  });
+
+  it("sets no lang attribute without contentLang", async () => {
+    const { StoryCard } = await import("../story-card");
+    const { container } = renderWithIntl(
+      <StoryCard story={mockStory} locale="zh-TW" position={0} />,
+    );
+
+    expect(container.querySelector("[lang]")).toBeNull();
+  });
 });

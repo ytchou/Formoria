@@ -20,7 +20,7 @@ export function FaqBlock({ questions, lang }: FaqBlockProps) {
   if (items.length === 0) return null
 
   return (
-    <section lang={lang}>
+    <section lang={lang} data-testid="story-faq">
       <dl className="space-y-stack">
         {items.map((item) => (
           <div key={item.q}>

@@ -14,6 +14,7 @@ import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { routes } from "@/lib/routes";
 import { toStoryCard } from "@/lib/stories/story-card";
+import { contentLangFor } from "@/lib/trails/content-lang";
 import { cn } from "@/lib/utils";
 
 type PageProps = {
@@ -24,7 +25,7 @@ type PageProps = {
 export const revalidate = 3600;
 
 /**
- * The number in a series card's 第 N 篇 label: the authored `seriesOrder`, else
+ * The number in a series card's `seriesPart` label: the authored `seriesOrder`, else
  * the card's position in its band. Same key `groupStoriesBySeries` sorts by, so
  * the label and the order cannot disagree when every member declares one.
  */
@@ -99,8 +100,8 @@ export default async function StoriesHubPage({
       .flatMap((group) => group.stories),
     ...standalone,
   ]);
-  // `StoryCard` carries no language marking of its own, so a zh-TW story on /en
-  // says so in the label line above it, as `StoryRow`'s badge did.
+  // `StoryCard` marks the title and excerpt with `contentLang`; a zh-TW story on
+  // /en also says so in the label line above it, as `StoryRow`'s badge did.
   const languageLabel = (story: StoryEntry) =>
     story.frontmatter.locale !== locale ? [t("languageBadge")] : [];
   // One rank across the whole hub, in render order, for `story_card_clicked`.
@@ -180,6 +181,10 @@ export default async function StoriesHubPage({
                           locale={locale}
                           position={cardPosition.get(story.slug) ?? 0}
                           trackingSurface="stories_hub"
+                          contentLang={contentLangFor(
+                            story.frontmatter.locale,
+                            locale,
+                          )}
                         />
                       </div>
                     ))}
@@ -206,6 +211,10 @@ export default async function StoriesHubPage({
                       locale={locale}
                       position={cardPosition.get(story.slug) ?? 0}
                       trackingSurface="stories_hub"
+                      contentLang={contentLangFor(
+                        story.frontmatter.locale,
+                        locale,
+                      )}
                     />
                   </div>
                 ))}
