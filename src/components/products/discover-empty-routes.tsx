@@ -11,7 +11,7 @@ export type DiscoverEmptyRouteTrail = {
   lang?: string;
 };
 
-export type DiscoverEmptyRouteCategory = { slug: string; label: string };
+type DiscoverEmptyRouteCategory ={ slug: string; label: string };
 
 type DiscoverEmptyRoutesProps = {
   /** Already trimmed by the caller (the page passes at most three). */

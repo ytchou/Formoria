@@ -5,6 +5,8 @@
     "src/curation-worker/server.ts",
     "src/health-agent/server.ts",
     "src/repo-worker/server.ts",
+    "src/e2e-agent/server.ts",
+    "src/editorial-producer/server.ts",
     "scripts/**/*.{ts,mjs}",
     "emails/**/*.{ts,tsx}"
   ],
@@ -17,8 +19,7 @@
     "tw-animate-css",
     "tailwindcss",
     "shadcn",
-    "@react-email/ui",
-    "react-simple-maps"
+    "@react-email/ui"
   ],
   "ignoreBinaries": ["codex", "lsof", "psql", "python3", "scripts/run-worker.sh", "uv"],
   "ignoreIssues": {

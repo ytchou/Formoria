@@ -35,7 +35,7 @@ import { Typography } from "@/components/ui/typography";
  * (owner wizard, visitor correction dialog, admin review) each own their copy
  * in a different message namespace.
  */
-export type SubcategoryPickerLabels = {
+type SubcategoryPickerLabels = {
   /** Visible label on the filter field — never a placeholder. */
   search: string;
   /** Static hint under the field: what the field does. */

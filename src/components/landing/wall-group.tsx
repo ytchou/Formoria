@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * the rest. Every tile stays in the HTML — the cap is `max-sm:hidden`, which is
  * `display: none`, so hidden tiles also leave the phone tab order.
  */
-export const PHONE_TILE_LIMIT = 6;
+const PHONE_TILE_LIMIT = 6;
 
 /** The grid's tile count: two rows of the five-column desktop layout. */
 const PLACEHOLDER_TILE_COUNT = 10;
