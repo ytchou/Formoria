@@ -40,7 +40,10 @@ test("related brands remain available when the product filters return zero resul
     "/discover?q=HOKII&category=home&sub=lighting&material=leather",
   );
   await expect(
-    page.getByText("找不到符合的商品，試試其他關鍵字", { exact: true }),
+    page.getByText(
+      "找不到「HOKII」相關的商品，換個關鍵字，或清除篩選條件。",
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(
     page

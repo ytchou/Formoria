@@ -166,3 +166,25 @@ scores, and intervals. The evaluation command wrote its complete report
 with no failed items, then exited 134 during native shutdown with a
 `libc++abi` recursive-mutex error; this is a process-cleanup limitation,
 not a passing command exit.
+
+## DEV-1964 relevance floor
+
+`dev-1964-relevance-floor.json` calibrates the floor in
+`applyRelevanceFloor` (`src/lib/services/product-situation-search.ts`).
+Before it, every product search reported the full 100-row candidate pool,
+including nonsense such as `asdfqwer`.
+
+Run on staging (`ttkkyvgvcamfoezsetvf`) on 2026-10-08: hybrid mode, intent
+parse and LTR off, golden set v3 (206 queries), plus 12 nonsense Latin
+strings and the 13 queries from the 2026-10-08 site review.
+
+A candidate is kept when the lexical arm matched it or its cosine similarity
+is at least 0.33. At 0.33 the floor keeps 99.48% of grade ≥ 1 and 99.69% of
+grade ≥ 2 golden rows and empties no golden query. The nonsense strings peak
+at cosine 0.2951 and match no lexical row. A hybrid query with no Han
+characters also returns nothing when the lexical arm matched no row; no
+Latin golden query is in that state, so this gate costs no recall.
+
+Recalibrate whenever the embedding model or the embedding document changes.
+The labelling and LTR feature-export scripts pass `relevanceFloor: false` so
+their candidate pools stay unfiltered.

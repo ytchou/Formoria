@@ -91,6 +91,7 @@ export async function cmdRetrieveCandidates(
         pageSize,
         category: q.category ?? null,
         enableIntentParse: false,
+        relevanceFloor: false, // raw candidate pool for labels
       })
 
       for (let rank = 0; rank < result.products.length; rank++) {

@@ -70,13 +70,13 @@
   },
   "products": {
     "brandRow": { "heading": "相關品牌" },
-    "metaTitle": "商品目錄 — Formoria",
-    "metaDescription": "探索 Formoria 精選商品，從生活器物到風格選品，為你的日常找到更適合的選擇。",
-    "heading": "精選商品",
-    "subheading": "為日常找到更適合的選擇",
-    "emptyState": "目前還沒有符合條件的商品",
+    "metaTitle": "商品",
+    "metaDescription": "依分類、子分類與材質瀏覽台灣品牌的商品；購買時直接前往品牌官網或實體通路。",
+    "heading": "商品",
+    "subheading": "依分類、材質找台灣商品，在品牌官網或實體通路購買",
+    "emptyState": "沒有符合這些條件的商品。拿掉一個篩選條件再試試。",
     "resultCount": "共 {count} 件商品",
-    "moreComingSoon": "更多商品持續收錄中",
+    "moreComingSoon": "還會陸續加入更多商品",
     "filters": {
       "subcategory": "子分類",
       "material": "材質",
@@ -84,10 +84,10 @@
       "title": "篩選商品",
       "showResults": "顯示 {count} 件商品",
       "clearAll": "清除全部",
-      "removeFilter": "移除 {label}: {value}",
-      "removeFilterInferred": "移除 {label}: {value}（{badge}）",
+      "removeFilter": "移除{label}：{value}",
+      "removeFilterInferred": "移除{label}：{value}（{badge}）",
       "sortNewest": "最新",
-      "sortAlphabetical": "依名稱排序",
+      "sortAlphabetical": "名稱",
       "sortRelevance": "相關度",
       "resultCount": "{count} 件商品",
       "sortLabel": "排序方式",
@@ -103,8 +103,13 @@
       "submit": "搜尋",
       "clear": "清除搜尋",
       "resultsHeading": "符合「{query}」的商品",
-      "count": "找到 {count} 件商品",
-      "empty": "找不到符合的商品，試試其他關鍵字"
+      "count": "找到 {count} 件相關商品",
+      "countTop": "依相關度列出前 {count} 件",
+      "empty": "找不到「{query}」相關的商品，換個關鍵字，或清除篩選條件。",
+      "emptyRoutes": {
+        "trailsHeading": "從這幾個風格逛起",
+        "categoriesHeading": "依分類看全部商品"
+      }
     }
   },
   "brandsJoin": {
@@ -139,7 +144,7 @@
       "headline": "生活可以更像自己一點",
       "subheadline": "Formoria 是台灣品牌探索與選物平台，從生活出發認識產品與品牌",
       "searchLabel": "搜尋台灣商品",
-      "searchPlaceholder": "例：送長輩的茶具、帆布包、春池",
+      "searchPlaceholder": "例：旅行必備小物、結婚禮物推薦、夏天防曬好物",
       "browseCta": "從風格開始",
       "eyebrow": "台灣品牌探索與選物",
       "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方",

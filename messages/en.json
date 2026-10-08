@@ -69,25 +69,25 @@
     "exploreMore": "Explore More"
   },
   "products": {
-    "brandRow": { "heading": "Brands" },
-    "metaTitle": "Products — Formoria",
-    "metaDescription": "Explore Formoria's curated products — everyday objects and design selections for a life that feels more like yours.",
-    "heading": "Curated Products",
-    "subheading": "Selections for everyday life",
-    "emptyState": "No products match your criteria",
+    "brandRow": { "heading": "Related brands" },
+    "metaTitle": "Products",
+    "metaDescription": "Browse products from Taiwanese brands by category, subcategory and material. To buy, go straight to the brand's site or stockists.",
+    "heading": "Products",
+    "subheading": "Find Taiwanese products by category and material, then buy from the brand's site or stockists.",
+    "emptyState": "No products match these filters. Remove one and try again.",
     "resultCount": "{count} products",
     "moreComingSoon": "More products coming soon",
     "filters": {
       "subcategory": "Subcategory",
       "material": "Material",
       "trigger": "Filters",
-      "title": "Filter Products",
+      "title": "Filter products",
       "showResults": "Show {count, plural, one {# product} other {# products}}",
       "clearAll": "Clear all",
       "removeFilter": "Remove {label}: {value}",
       "removeFilterInferred": "Remove {label}: {value} ({badge})",
       "sortNewest": "Newest",
-      "sortAlphabetical": "Sort by name",
+      "sortAlphabetical": "Name",
       "sortRelevance": "Relevance",
       "resultCount": "{count, plural, one {# product} other {# products}}",
       "sortLabel": "Sort by",
@@ -103,8 +103,13 @@
       "submit": "Search",
       "clear": "Clear search",
       "resultsHeading": "Products matching \"{query}\"",
-      "count": "{count, plural, one {# product found} other {# products found}}",
-      "empty": "No products found — try different keywords"
+      "count": "{count, plural, one {# matching product} other {# matching products}}",
+      "countTop": "Top {count} by relevance",
+      "empty": "No products match \"{query}\". Try a different keyword or clear the filters.",
+      "emptyRoutes": {
+        "trailsHeading": "Start from a style",
+        "categoriesHeading": "Browse all products by category"
+      }
     }
   },
   "brandsJoin": {
@@ -139,7 +144,7 @@
       "headline": "Life can look a little more like you",
       "subheadline": "Formoria is a Taiwanese brand discovery and curation platform — start from life, meet the products and the brands",
       "searchLabel": "Search Taiwanese products",
-      "searchPlaceholder": "Try: tea sets for elders, canvas bags, Spring Pool",
+      "searchPlaceholder": "Try: travel essentials, wedding gifts, sunscreen",
       "browseCta": "Start from a style",
       "eyebrow": "Taiwanese brand discovery and curation",
       "lede": "Moving into a new home, setting up a shop, stopping at a market stall — what you like should not stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it",
