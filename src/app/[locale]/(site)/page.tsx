@@ -22,6 +22,8 @@ import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
+import { toStoryCard } from "@/lib/stories/story-card";
+import { toTrailCard, toTrailPeeks } from "@/lib/trails/trail-card";
 import { toPublicBrandCard } from "@/lib/brands/contracts";
 
 /** Stories shown in the topics zone before the reader is sent to `/stories`. */
@@ -147,11 +149,14 @@ export default async function LandingPage({ params }: PageProps) {
   const exploreBrands = (exploreResult?.brands ?? []).map(toPublicBrandCard);
   const totalBrandCount = exploreResult?.totalCount ?? 0;
   const latestStories = storyResult.ok
-    ? storyResult.stories.slice(0, LANDING_STORY_LIMIT)
+    ? storyResult.stories.slice(0, LANDING_STORY_LIMIT).map(toStoryCard)
     : [];
   const curatedProducts = curatedProductsResult ?? [];
-  // Straight off the MDX read already in flight.
-  const publishedTrails = trailResult?.ok ? trailResult.trails : [];
+  // Straight off the MDX read already in flight. Projected to card fields:
+  // client-component props ship in the inline RSC payload (DEV-1972).
+  const publishedTrails = trailResult?.ok
+    ? trailResult.trails.map(toTrailCard)
+    : [];
   const wallGroups = buildGroupedWallSlots({
     products: curatedProducts,
   });
@@ -179,7 +184,7 @@ export default async function LandingPage({ params }: PageProps) {
               : null
           }
           trails={publishedTrails}
-          trailPeeks={trailPeeksResult ?? {}}
+          trailPeeks={toTrailPeeks(trailPeeksResult ?? {})}
           stories={latestStories}
           brands={exploreBrands}
           totalBrandCount={totalBrandCount}

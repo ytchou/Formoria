@@ -5,9 +5,8 @@ import { SurfaceImage } from "@/components/ui/image";
 import { Link } from "@/i18n/navigation";
 import { trackTrailCardClicked } from "@/lib/analytics";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
-import type { CuratedProduct } from "@/lib/services/curated-products";
 import { TRAIL_PEEK_SIZE } from "@/lib/services/curated-products.constants";
-import type { TrailEntry } from "@/lib/services/trails";
+import type { TrailCard, TrailPeekProduct } from "@/lib/trails/trail-card";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 
@@ -35,12 +34,12 @@ export function TrailTile({
   singleColumn = false,
   className,
 }: {
-  trail: TrailEntry;
+  trail: TrailCard;
   labels: TrailTileLabels;
   position: number;
   /** Analytics surface reported with the click, e.g. `homepage_trails`. */
   trailSurface: string;
-  peek?: CuratedProduct[];
+  peek?: TrailPeekProduct[];
   headingLevel?: "h2" | "h3";
   singleColumn?: boolean;
   className?: string;

@@ -14,9 +14,8 @@ import type { PublicBrandCard } from "@/lib/brands/contracts";
 import { displayBrandCount } from "@/lib/brands/display-brand-count";
 import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
 import type { Locale } from "@/lib/seo/alternates";
-import type { CuratedProduct } from "@/lib/services/curated-products";
-import type { StoryEntry } from "@/lib/services/stories";
-import type { TrailEntry } from "@/lib/services/trails";
+import type { StoryCardEntry } from "@/lib/stories/story-card";
+import type { TrailCard, TrailPeekProduct } from "@/lib/trails/trail-card";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -36,10 +35,10 @@ export type LandingZonesProps = {
   /** `null` when the wall is below its publication floor and must not render. */
   wall: { groups: GroupedWallSlots } | null;
   /** Every indexable trail rendered in the dedicated editorial zone. */
-  trails: TrailEntry[];
+  trails: TrailCard[];
   /** Up to four placed products per trail slug, shown under each card. */
-  trailPeeks: Record<string, CuratedProduct[]>;
-  stories: StoryEntry[];
+  trailPeeks: Record<string, TrailPeekProduct[]>;
+  stories: StoryCardEntry[];
   brands: PublicBrandCard[];
   /** Directory-wide brand count, surfaced in BrandStrip and MissionCloser. */
   totalBrandCount: number;
