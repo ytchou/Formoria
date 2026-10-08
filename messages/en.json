@@ -142,15 +142,15 @@
   },
   "landing": {
     "metadata": {
-      "title": "Formoria — Taiwanese Brand Discovery & Curation",
-      "description": "Taiwanese brand discovery and curation: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path."
+      "title": "Formoria — A curated platform for Taiwanese goods",
+      "description": "A curated platform for Taiwanese goods: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path."
     },
     "hero": {
       "headline": "Life can feel a little more like you",
       "searchLabel": "Search Taiwanese products",
       "searchPlaceholder": "Try: travel essentials, wedding gifts, sunscreen",
       "browseCta": "Start from a guide",
-      "eyebrow": "Taiwanese brand discovery and curation",
+      "eyebrow": "A curated platform for Taiwanese goods",
       "lede": "Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
       "browsePrefix": "or",
       "situationsLabel": "Start from a situation"
@@ -1471,7 +1471,7 @@
     "items": {
       "whatIsFormoria": {
         "question": "What is Formoria?",
-        "answer": "Formoria is a Taiwanese brand discovery and curation platform. It starts from a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists. Anything Formoria selects is labeled separately."
+        "answer": "Formoria is a curated platform for Taiwanese goods. It starts from a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists. Anything Formoria selects is labeled separately."
       },
       "listingVsSelection": {
         "question": "What is the difference between a listed brand and a Formoria Selection?",
@@ -1560,7 +1560,7 @@
   "about": {
     "metadata": {
       "title": "About",
-      "description": "Formoria is a Taiwanese brand discovery and curation platform: from one thing you love, to its brand, its story, and the place you can buy it. Here is how we list, how we select, and what we never do."
+      "description": "Formoria is a curated platform for Taiwanese goods: from one thing you love, to its brand, its story, and the place you can buy it. Here is how we list, how we select, and what we never do."
     },
     "hero": {
       "title": "Moving into a new home, styling a shop,<br></br> the moment you stop at a market stall",
@@ -1597,7 +1597,7 @@
     },
     "loop": {
       "heading": "Connecting the path",
-      "body1": "Formoria is a Taiwanese brand discovery and curation platform. We don't sell anything, and we aren't a magazine: we gather and sort what is known about Taiwanese brands so you can look by what you need, and the few products we pick ourselves are marked Formoria Selection.",
+      "body1": "Formoria is a curated platform for Taiwanese goods. We don't sell anything, and we aren't a magazine: we gather and sort what is known about Taiwanese brands so you can look by what you need, and the few products we pick ourselves are marked Formoria Selection.",
       "body2": "From one thing you love, you can reach the brand that makes it, read how it came to be, and go to the place that sells it. That path used to break. We connect it.",
       "pullQuote": "Formoria never handles the sale. We connect what you love to the place you can buy it, then hand you over to the brand.",
       "brandHeading": "For brands",

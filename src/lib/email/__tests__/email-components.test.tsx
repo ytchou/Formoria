@@ -16,7 +16,7 @@ describe("Layout", () => {
       </Layout>,
     );
     expect(html).toContain("Formoria");
-    expect(html).toContain("台灣品牌探索與選物平台");
+    expect(html).toContain("台灣好物選物平台");
     expect(html).toContain("Hello world");
     expect(html).toContain("600");
     expect(html).toContain("#FAF7F2");
@@ -56,7 +56,7 @@ describe("Header", () => {
 describe("Footer", () => {
   it("renders social links and tagline", async () => {
     const html = await render(<Footer />);
-    expect(html).toContain("台灣品牌探索與選物平台");
+    expect(html).toContain("台灣好物選物平台");
     expect(html).toContain("ops@formoria.com");
   });
 

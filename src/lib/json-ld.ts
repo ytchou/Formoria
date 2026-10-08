@@ -234,8 +234,8 @@ export function buildWebSiteJsonLd(locale: Locale = "zh-TW"): JsonLdObject {
     name: "Formoria",
     alternateName:
       inLanguage === "zh-TW"
-        ? "Formoria 台灣品牌探索與選物平台"
-        : "Formoria Taiwanese Brand Discovery & Curation",
+        ? "Formoria 台灣好物選物平台"
+        : "Formoria — A curated platform for Taiwanese goods",
     url: siteUrl,
     publisher: { "@id": `${siteUrl}/#organization` },
     inLanguage,
@@ -264,8 +264,8 @@ export function buildOrganizationJsonLd(locale?: string): JsonLdObject {
     name: "Formoria",
     alternateName:
       inLanguage === "zh-TW"
-        ? "Formoria 台灣品牌探索與選物平台"
-        : "Formoria Taiwanese Brand Discovery & Curation",
+        ? "Formoria 台灣好物選物平台"
+        : "Formoria — A curated platform for Taiwanese goods",
     url: siteUrl,
     logo: `${siteUrl}/images/formoria-mark.png`,
     description:

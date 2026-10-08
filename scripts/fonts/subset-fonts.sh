@@ -12,7 +12,7 @@
 #
 # The OpenGraph image routes (next/og + satori) run on the Node.js runtime and
 # load fonts from disk via `fs`. To render Traditional-Chinese text
-# (台灣品牌探索與選物平台 and dynamic category names) without tofu while keeping the
+# (台灣好物選物平台 and dynamic category names) without tofu while keeping the
 # vendored TTFs small, we pre-subset two open-source (OFL) fonts and commit the
 # results into src/assets/fonts/.
 #
@@ -40,7 +40,7 @@ TMP="$(mktemp -d -t dev712-fonts.XXXXXX)"
 mkdir -p "$OUT_DIR"
 
 # Fixed brand strings that must ALWAYS be present, regardless of frequency list.
-BRAND_TEXT="Formoria台灣品牌探索與選物平台讓更容易被看見選擇成長我們上架了"
+BRAND_TEXT="Formoria台灣好物選物平台品牌探索與讓更容易被看見選擇成長我們上架了"
 
 echo "==> temp dir: $TMP"
 echo "==> output:   $OUT_DIR"

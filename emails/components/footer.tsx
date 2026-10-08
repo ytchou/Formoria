@@ -26,7 +26,7 @@ export function Footer({ unsubscribeUrl }: FooterProps) {
   return (
     <>
       <Hr style={rule} />
-      <Text style={tagline}>Formoria — 台灣品牌探索與選物平台</Text>
+      <Text style={tagline}>Formoria — 台灣好物選物平台</Text>
       <Text style={contact}>
         <EmailLink href="mailto:ops@formoria.com" tone="muted">
           ops@formoria.com
