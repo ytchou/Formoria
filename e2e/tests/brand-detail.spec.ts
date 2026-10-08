@@ -783,12 +783,13 @@ test.describe("Brand detail — public locations and retail stockists", () => {
         },
       );
       // Region subheads are named by the region alone; the count sits
-      // beside the heading, not inside it.
+      // beside the heading, not inside it. Either spelling of 台 passes:
+      // the cities.* labels move from 臺 to 台 in DEV-1971.
       await expect(
-        page.getByRole("heading", { name: "臺北市", exact: true, level: 4 }),
+        page.getByRole("heading", { name: /^[台臺]北市$/, level: 4 }),
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", { name: "臺中市", exact: true, level: 4 }),
+        page.getByRole("heading", { name: /^[台臺]中市$/, level: 4 }),
       ).toBeVisible();
       await expect(
         page.getByRole("heading", { name: "實體通路", level: 3 }),
