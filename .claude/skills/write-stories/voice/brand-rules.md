@@ -20,7 +20,7 @@ to paraphrase.
 
 **Mission（消費者承諾）** — 生活可以更像自己一點。搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。
 
-**Present positioning** — Formoria 是台灣品牌探索與選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。
+**Present positioning** — Formoria 是台灣好物選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色與官方購買通路；由 Formoria 挑選的內容會另外標示。
 
 Each carries a boundary that matters more than the wording:
 

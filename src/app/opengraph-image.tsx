@@ -72,7 +72,7 @@ export default async function OgImage() {
           fontWeight: 700,
         }}
       >
-        台灣品牌探索與選物平台
+        台灣好物選物平台
       </div>
     </OgLayout>,
     {

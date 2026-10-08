@@ -35,16 +35,16 @@ test.describe("SEO deep", () => {
     const homeLocales = [
       {
         path: "/",
-        title: "Formoria：台灣品牌探索與選物平台",
+        title: "Formoria：台灣好物選物平台",
         description:
-          "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣品牌探索與選物平台，從生活出發認識產品與品牌。",
+          "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣好物選物平台，從生活出發認識產品與品牌。",
         heading: "生活可以更像自己一點",
         lede: "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
         manifestoHeading: "喜歡的東西，不該只是偶然遇見",
       },
       {
         path: "/en",
-        title: "Formoria — Taiwanese Brand Discovery & Curation",
+        title: "Formoria — A curated platform for Taiwanese goods",
         // `landing.metadata.description` as DEV-1486 reconciled it. The literal
         // that stood here asserted no rendered value at all: it spliced
         // `about.hero.subtitle` onto a variant of the hero subheadline (since
@@ -53,7 +53,7 @@ test.describe("SEO deep", () => {
         // `landing.metadata.description` — always did. Nothing caught
         // it because the suite only runs against deployed staging (DEV-1489).
         description:
-          "Taiwanese brand discovery and curation: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path.",
+          "A curated platform for Taiwanese goods: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path.",
         heading: "Life can feel a little more like you",
         lede: "Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
         manifestoHeading:
@@ -65,14 +65,14 @@ test.describe("SEO deep", () => {
         path: "/about",
         title: "關於我們 | Formoria",
         description:
-          "Formoria 是台灣品牌探索與選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。這裡說明我們怎麼收錄、怎麼挑選，以及不做哪些事。",
+          "Formoria 是台灣好物選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。這裡說明我們怎麼收錄、怎麼挑選，以及不做哪些事。",
         heading: /搬新家、佈置店面、\s*在市集\s*停下來的那一刻/,
       },
       {
         path: "/en/about",
         title: "About | Formoria",
         description:
-          "Formoria is a Taiwanese brand discovery and curation platform: from one thing you love, to its brand, its story, and the place you can buy it. Here is how we list, how we select, and what we never do.",
+          "Formoria is a curated platform for Taiwanese goods: from one thing you love, to its brand, its story, and the place you can buy it. Here is how we list, how we select, and what we never do.",
         heading:
           /Moving into a new home, styling a shop,\s*the moment you stop at a market stall/,
       },

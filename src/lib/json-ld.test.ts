@@ -465,7 +465,7 @@ describe("buildWebSiteJsonLd", () => {
     expect(jsonLd["@context"]).toBe("https://schema.org");
     expect(jsonLd["@type"]).toBe("WebSite");
     expect(jsonLd.name).toBe("Formoria");
-    expect(jsonLd.alternateName).toBe("Formoria 台灣品牌探索與選物平台");
+    expect(jsonLd.alternateName).toBe("Formoria 台灣好物選物平台");
     expect(jsonLd.url).toBeDefined();
     expect(jsonLd.url).toContain("localhost:3000");
     expect(jsonLd.url).not.toContain("mitmap");

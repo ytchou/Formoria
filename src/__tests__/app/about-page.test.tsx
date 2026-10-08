@@ -83,7 +83,7 @@ describe("/about copy (DEV-1958)", () => {
     expect(all).not.toContain("這裡是選出來的");
     expect(all).not.toContain("最安靜");
     expect(at(CATALOGUES["zh-TW"], "loop.body1")).toContain(
-      "台灣品牌探索與選物平台",
+      "台灣好物選物平台",
     );
   });
 
