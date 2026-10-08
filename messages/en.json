@@ -324,8 +324,8 @@
       "faq": "FAQ"
     },
     "selectedProducts": {
-      "heading": "Formoria Selected",
-      "note": "These products are selected by Formoria. Refer to the brand's official page for current product information.",
+      "heading": "Selected by Formoria",
+      "note": "A few pieces we chose from this brand's range, not the full catalog. Check the brand's site for current details.",
       "cta": "Go to the brand's official website",
       "unavailable": "This product page is temporarily unreachable.",
       "brandSiteCta": "Go to the brand's website",

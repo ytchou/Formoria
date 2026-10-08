@@ -19,22 +19,18 @@ import {
   subcategoryBySlug,
   subcategoryLabel,
   deriveCategoryLabel,
-  categoryTint,
 } from '../ontology'
 import corpusLabels from './fixtures/corpus-labels.json'
 
 describe('L1_CATEGORIES', () => {
-  // The PRESENCE and type of slug/name/nameZh/tint is a tsc concern; their
+  // The PRESENCE and type of slug/name/nameZh is a tsc concern; their
   // EMPTINESS is not. `nameZh: ''` type-checks fine and renders a blank
-  // category label, so the labels are asserted non-empty here. Likewise the
-  // shape of tint: it is a bare string that ships straight into CSS, so a
-  // malformed value renders no colour and raises nowhere.
-  it('every category carries non-empty labels and a renderable oklch tint', () => {
+  // category label, so the labels are asserted non-empty here.
+  it('every category carries non-empty labels', () => {
     for (const cat of L1_CATEGORIES) {
       expect(cat.slug, `${cat.slug} slug`).toBeTruthy()
       expect(cat.name, `${cat.slug} name`).toBeTruthy()
       expect(cat.nameZh, `${cat.slug} nameZh`).toBeTruthy()
-      expect(cat.tint, `${cat.slug} tint`).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
     }
   })
 
@@ -81,23 +77,6 @@ describe('deriveCategoryLabel', () => {
 
   it('returns null when neither category nor note is available', () => {
     expect(deriveCategoryLabel('', '   ')).toBeNull()
-  })
-})
-
-describe('categoryTint', () => {
-  it('returns a valid oklch tint for known category', () => {
-    const result = categoryTint('fashion')
-    expect(result).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
-  })
-
-  it('returns a fallback tint for null/undefined', () => {
-    const fallback = categoryTint(null)
-    expect(fallback).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/)
-    expect(categoryTint(undefined)).toBe(fallback)
-  })
-
-  it('returns the same fallback for unknown slug', () => {
-    expect(categoryTint('nonexistent')).toBe(categoryTint(null))
   })
 })
 
