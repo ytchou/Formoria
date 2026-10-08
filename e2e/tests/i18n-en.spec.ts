@@ -81,7 +81,7 @@ test.describe("i18n English browse", () => {
     const document = renderedDocument(await response.text());
     expect(document.lang).toBe("en");
 
-    for (const text of ["About Formoria", "Recommend a Brand"]) {
+    for (const text of ["About Formoria", "Recommend a brand"]) {
       expect(document.headerText).toContain(text);
     }
     // Only fixture-backed copy and ontology-stable strings belong here. The
@@ -129,7 +129,7 @@ test.describe("i18n English browse", () => {
       expect(document.mainText).toContain(text);
     }
     for (const text of [
-      "Brand Directory",
+      "Brand directory",
       "Visit Website",
       "Where to buy",
       "Founded",
@@ -144,9 +144,9 @@ test.describe("i18n English browse", () => {
   test("/en returns 200 and shows English header chrome", async ({ page }) => {
     const response = await page.goto("/en");
     expect(response?.status()).toBe(200);
-    // Header renders "Recommend a Brand" in English; html[lang] is "en"
+    // Header renders "Recommend a brand" in English; html[lang] is "en"
     await expect(
-      page.locator("header").getByRole("link", { name: "Recommend a Brand" }),
+      page.locator("header").getByRole("link", { name: "Recommend a brand" }),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
@@ -303,7 +303,7 @@ test.describe("i18n English browse", () => {
     await expect(page).toHaveURL(/\/en/, { timeout: BUDGET.INTERACTIVE });
     // After switching: header submit link should be in English
     await expect(
-      page.locator("header").getByRole("link", { name: "Recommend a Brand" }),
+      page.locator("header").getByRole("link", { name: "Recommend a brand" }),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });

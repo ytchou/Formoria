@@ -312,20 +312,30 @@ async function defaultCountReader(categorySlug: string): Promise<number> {
 }
 
 // ---------------------------------------------------------------------------
-// L2 diversity filter — pure function
+// L2 diversity ranking — pure function
 // ---------------------------------------------------------------------------
 
+/** Max L2 subcategories a candidate may share with each already-accepted brand. */
+const MAX_SHARED_L2 = 1;
+
 /**
- * Filter RPC results to enforce at most one brand per L2 subcategory.
- * Brands with null/empty subcategories always pass. Preserves input order.
+ * Rank hydrated candidates for L2 diversity, then return up to `limit` slugs.
+ *
+ * Pass 1 takes "diverse" candidates in distance order: a candidate is diverse
+ * when it shares at most MAX_SHARED_L2 subcategories with EACH brand accepted
+ * so far. Brands with null/empty subcategories always pass. Pass 2 fills any
+ * remaining slots from the deferred (non-diverse) candidates, still in distance
+ * order. Diversity reorders; it never shrinks the result below what the
+ * hydrated candidates can supply. Candidates missing from `brandMap` are dropped.
  */
-function applyL2Diversity(
+function rankByL2Diversity(
   candidates: RpcResult[],
   brandMap: Map<string, Brand>,
   limit: number,
-): RpcResult[] {
-  const seenL2 = new Set<string>();
-  const accepted: RpcResult[] = [];
+): string[] {
+  const accepted: string[] = [];
+  const acceptedL2: Set<string>[] = [];
+  const deferred: string[] = [];
 
   for (const candidate of candidates) {
     if (accepted.length >= limit) break;
@@ -333,17 +343,26 @@ function applyL2Diversity(
     const brand = brandMap.get(candidate.slug);
     if (!brand) continue;
 
-    const subs = brand.subcategories;
-    if (!subs || subs.length === 0) {
-      accepted.push(candidate);
-      continue;
-    }
+    const subs = new Set(brand.subcategories ?? []);
+    const diverse =
+      subs.size === 0 ||
+      acceptedL2.every((seen) => {
+        let shared = 0;
+        for (const s of subs) if (seen.has(s)) shared++;
+        return shared <= MAX_SHARED_L2;
+      });
 
-    const overlaps = subs.some((s) => seenL2.has(s));
-    if (!overlaps) {
-      for (const s of subs) seenL2.add(s);
-      accepted.push(candidate);
+    if (diverse) {
+      accepted.push(candidate.slug);
+      acceptedL2.push(subs);
+    } else {
+      deferred.push(candidate.slug);
     }
+  }
+
+  for (const slug of deferred) {
+    if (accepted.length >= limit) break;
+    accepted.push(slug);
   }
 
   return accepted;
@@ -372,7 +391,7 @@ export async function getRelatedBrandsByCentroid(
     return getRelatedBrands(categorySlug, excludeSlug, limit);
   }
 
-  // 3. Call RPC with over-fetch for diversity filtering
+  // 3. Call RPC with over-fetch for diversity ranking
   const matchCount = limit * 3;
   const rpcResults = await callRpc({
     embedding,
@@ -388,16 +407,32 @@ export async function getRelatedBrandsByCentroid(
   const slugs = filtered.map((r) => r.slug);
   const brandMap = await getBrandsBySlugs(slugs);
 
-  // 5. L2 diversity filter
-  const diverse = applyL2Diversity(filtered, brandMap, limit);
-
-  // 6. Count
-  const totalCount = await readCount(categorySlug);
-
-  // 7. Re-order by original distance rank (already in order from filtered)
-  const brands = diverse
-    .map((r) => brandMap.get(r.slug))
+  // 5. L2 diversity ranking (distance order preserved within each pass)
+  const brands = rankByL2Diversity(filtered, brandMap, limit)
+    .map((slug) => brandMap.get(slug))
     .filter((b): b is Brand => b !== undefined);
+
+  // 6. Backfill when the RPC yielded too few hydrated brands (e.g. category
+  // brands without a centroid, or slugs that failed to hydrate). Over-fetch by
+  // brands.length so every already-picked slug can be skipped and `limit`
+  // fresh brands still remain. Backfill order is random, not by similarity.
+  if (brands.length < limit) {
+    const picked = new Set(brands.map((b) => b.slug));
+    const backfill = await getRelatedBrands(
+      categorySlug,
+      excludeSlug,
+      limit + brands.length,
+    );
+    for (const brand of backfill.brands) {
+      if (brands.length >= limit) break;
+      if (brand.slug === excludeSlug || picked.has(brand.slug)) continue;
+      picked.add(brand.slug);
+      brands.push(brand);
+    }
+  }
+
+  // 7. Count
+  const totalCount = await readCount(categorySlug);
 
   return { brands, totalCount };
 }

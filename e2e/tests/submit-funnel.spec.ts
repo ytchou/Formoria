@@ -1,21 +1,21 @@
 import { test, expect } from "../fixtures/auth";
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { BUDGET, POLL } from "../budgets";
 
 /**
- * Turnstile is normally solved by the addInitScript mock. When that has not
- * fired, post the synthetic Cloudflare success message as a last resort.
+ * Turnstile is normally solved by the addInitScript mock. Post the synthetic
+ * Cloudflare success message as well, as a last resort for when the mock has
+ * not fired.
  *
- * Lives outside the test body on purpose: branching on page state inside a test
- * means some assertions never run on some paths, so the caller asserts the
- * outcome unconditionally instead and this helper only nudges.
+ * Unconditional on purpose: the submit button is always enabled now (DEV-1955),
+ * so there is no page state to branch on, and branching inside a test means
+ * some assertions never run on some paths. The caller asserts the outcome
+ * instead and this helper only nudges.
  */
-async function ensureTurnstileSolved(page: Page, submitBtn: Locator) {
-  if (await submitBtn.isEnabled()) return;
-
-  // Harmless when the mock is merely slow: the suite runs against dummy
-  // Turnstile keys, so any token validates. The caller does the waiting.
+async function ensureTurnstileSolved(page: Page) {
+  // Harmless when the mock already fired: the suite runs against dummy
+  // Turnstile keys, so any token validates.
   await page.evaluate(() => {
     window.dispatchEvent(
       new MessageEvent("message", {
@@ -41,8 +41,7 @@ async function ensureTurnstileSolved(page: Page, submitBtn: Locator) {
  * Cleanup: afterAll deletes brand_submissions rows matching [E2E-TEST] Submit Funnel%
  *
  * Turnstile: In dev/test mode, window.turnstile is overridden via addInitScript
- * to immediately fire onSuccess before React mounts, so the submit button is
- * enabled as soon as all other fields are valid.
+ * to immediately fire onSuccess as soon as the widget mounts.
  */
 test.describe("Submit funnel", () => {
   test.describe.configure({ mode: "serial" });
@@ -102,9 +101,15 @@ test.describe("Submit funnel", () => {
       anonPage.getByRole("heading", { name: "推薦品牌", exact: true }),
     ).toBeVisible({ timeout: BUDGET.GATED_UI });
 
-    // Fill required fields
-    await anonPage.locator("#submit-website").fill(websiteUrl);
+    // Fill required fields. The website is typed without its scheme: the blur
+    // handler writing `https://` back proves the form is hydrated, which the
+    // always-enabled submit button no longer does.
+    const websiteInput = anonPage.locator("#submit-website");
+    await websiteInput.fill(websiteUrl.replace(/^https:\/\//, ""));
     await anonPage.locator("#submit-name").fill(brandName);
+    await expect(websiteInput).toHaveValue(websiteUrl, {
+      timeout: BUDGET.INTERACTIVE,
+    });
 
     // Source attribution is required on the recommendation form.
     await anonPage.locator("#submit-source").selectOption("found_online");
@@ -112,16 +117,20 @@ test.describe("Submit funnel", () => {
     // PDPA consent
     await anonPage.locator("#submit-pdpa").check();
 
-    const submitBtn = anonPage.getByRole("button", { name: "送出推薦" });
-    await ensureTurnstileSolved(anonPage, submitBtn);
-    // The single assertion that decides whether the widget was solved. It used
+    await ensureTurnstileSolved(anonPage);
+
+    await anonPage.getByRole("button", { name: "送出推薦" }).click();
+
+    // The single assertion that decides whether the widget was solved: an
+    // empty token is listed under the button once submit is clicked. It used
     // to sit inside the fallback's catch block, and the fallback ended in a
     // fixed 500ms sleep that passed whether or not the token was ever accepted —
     // so a dropped message surfaced 20 lines later as a confirmation-URL
-    // timeout, looking like a slow submit (DEV-1414).
-    await expect(submitBtn).toBeEnabled({ timeout: BUDGET.INTERACTIVE });
-
-    await submitBtn.click();
+    // timeout, looking like a slow submit (DEV-1414). Counted page-wide rather
+    // than inside #submit-blockers so it still holds once the page navigates.
+    await expect(anonPage.getByText("請完成真人驗證")).toHaveCount(0, {
+      timeout: BUDGET.INTERACTIVE,
+    });
 
     // Must land on the confirmation page
     await anonPage.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI });

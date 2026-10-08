@@ -12,12 +12,101 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import en from "../../../messages/en.json";
+import zhTW from "../../../messages/zh-TW.json";
 
 const PAGE_PATH = resolve(
   import.meta.dirname,
   "../../app/[locale]/(site)/about/page.tsx",
 );
 const source = readFileSync(PAGE_PATH, "utf8");
+const heroSource = readFileSync(
+  resolve(import.meta.dirname, "../../components/about/about-hero.tsx"),
+  "utf8",
+);
+
+type MessageNode = { [key: string]: string | MessageNode };
+const CATALOGUES = {
+  "zh-TW": (zhTW as unknown as MessageNode).about as MessageNode,
+  en: (en as unknown as MessageNode).about as MessageNode,
+};
+
+function strings(node: MessageNode): string[] {
+  return Object.values(node).flatMap((value) =>
+    typeof value === "string" ? [value] : strings(value),
+  );
+}
+
+function at(node: MessageNode, path: string): string {
+  const value = path
+    .split(".")
+    .reduce<string | MessageNode>((n, key) => (n as MessageNode)[key], node);
+  if (typeof value !== "string") throw new Error(`${path} is not a string`);
+  return value;
+}
+
+describe("/about copy (DEV-1958)", () => {
+  it.each(Object.entries(CATALOGUES))(
+    "%s: the title leaves the brand to the layout template",
+    (_, about) => {
+      // The layout template appends "| Formoria"; a title that names the brand
+      // renders it twice.
+      expect(at(about, "metadata.title")).not.toMatch(/Formoria/);
+    },
+  );
+
+  it.each(Object.entries(CATALOGUES))(
+    "%s: the stats line is whole sentences with distinct periods",
+    (_, about) => {
+      expect(at(about, "hero.recentWeek")).not.toBe(
+        at(about, "hero.recentMonth"),
+      );
+      for (const key of ["recentWeek", "recentMonth", "statsBrands"]) {
+        expect(at(about, `hero.${key}`)).toMatch(/\{count/);
+      }
+      expect(at(about, "hero.statsBoth")).toMatch(/\{brands.*\{categories/);
+    },
+  );
+
+  it.each(Object.entries(CATALOGUES))(
+    "%s: the hero title has no hard newline",
+    (_, about) => {
+      expect(at(about, "hero.title")).not.toContain("\n");
+    },
+  );
+
+  it("zh-TW: one self-description, and 收錄 never blurred with 選物", () => {
+    const all = strings(CATALOGUES["zh-TW"]).join("\n");
+    expect(all).not.toContain("不是平台");
+    expect(all).not.toContain("選品");
+    expect(all).not.toContain("上架");
+    expect(all).not.toContain("這裡是選出來的");
+    expect(all).not.toContain("最安靜");
+    expect(at(CATALOGUES["zh-TW"], "loop.body1")).toContain(
+      "台灣品牌探索與選物平台",
+    );
+  });
+
+  it("en: uses the canonical scene line and no platform denial", () => {
+    const all = strings(CATALOGUES.en).join("\n");
+    expect(all).not.toMatch(/not a platform/i);
+    expect(all).not.toMatch(/look a little more like you/i);
+    expect(at(CATALOGUES.en, "hero.title")).toContain("styling a shop");
+  });
+
+  it("exits product-led: hero to /discover, closing band to /style", () => {
+    const ctaStart = source.indexOf("{/* Closing CTA */}");
+    const closing = source.slice(ctaStart);
+    expect(closing.indexOf("routes.style()")).toBeGreaterThan(-1);
+    expect(closing.indexOf("routes.style()")).toBeLessThan(
+      closing.indexOf("routes.brands()"),
+    );
+    expect(heroSource.indexOf("routes.discover()")).toBeGreaterThan(-1);
+    expect(heroSource.indexOf("routes.discover()")).toBeLessThan(
+      heroSource.indexOf("routes.brands()"),
+    );
+  });
+});
 
 describe("/about page", () => {
   it("renders the four scenes as paragraphs, not headings", () => {

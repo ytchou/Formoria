@@ -3,7 +3,6 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { trackSubmissionPathSelected } from "@/lib/analytics";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
@@ -12,29 +11,18 @@ import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 
 /**
- * The three selling points under each path. `muted` drops the CTA accent so the
- * retired owner card reads as inactive without dimming the whole surface with
- * opacity, which would wash out its border too.
+ * The selling points under the path, as a plain list. No border or fill per
+ * row: boxed rows read as input fields and invited clicks that went nowhere.
  */
-function PathPoints({ points, muted }: { points: string[]; muted?: boolean }) {
+function PathPoints({ points }: { points: string[] }) {
   return (
     <ul className="mt-5 space-y-2.5">
       {points.map((point) => (
-        <li
-          key={point}
-          className="flex items-start gap-2 rounded-surface border border-rule/70 bg-ground/50 px-3 py-2.5"
-        >
-          <span
+        <li key={point} className="flex items-start gap-2">
+          <Check
             aria-hidden="true"
-            className={cn(
-              "mt-0.5 inline-flex size-5 items-center justify-center rounded-full border",
-              muted
-                ? "border-rule bg-surface text-ink-muted"
-                : "border-accent/25 bg-accent/10 text-accent",
-            )}
-          >
-            <Check className="size-3" />
-          </span>
+            className="mt-0.5 size-4 shrink-0 text-accent"
+          />
           <span className="type-body-sm">{point}</span>
         </li>
       ))}
@@ -60,9 +48,10 @@ export default function SubmitOverview({
         <p className="mt-4 type-body-sm">{t("description")}</p>
       </div>
 
-      {/* Two columns: the owner fork was removed (DEV-1570), and its card stays
-          in place as a coming-soon placeholder so the page keeps its layout. */}
-      <div className="mt-10 grid gap-6 md:grid-cols-2">
+      {/* One path. The owner fork was removed (DEV-1570); a coming-soon card
+          for it dead-ended brand owners, so they get one plain line instead,
+          pointing at the same form. */}
+      <div className="mt-10 prose-measure">
         <section className={surfaceCardStyles({ padding: "lg" })}>
           <p className="type-eyebrow">{t("recommendEyebrow")}</p>
           <h2 className="mt-2 type-section text-ink">{t("recommendTitle")}</h2>
@@ -83,26 +72,7 @@ export default function SubmitOverview({
             {t("recommendCta")}
           </Link>
         </section>
-
-        {/* No CTA at all rather than a disabled button: a control that can
-            never enable is noise for pointer and screen-reader users alike.
-            The badge states the same thing and stays out of the tab order. */}
-        <section
-          className={cn(surfaceCardStyles({ padding: "lg" }), "bg-surface/30")}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="type-eyebrow">{t("ownerEyebrow")}</p>
-            <Badge variant="declared">{t("ownerComingSoon")}</Badge>
-          </div>
-          <h2 className="mt-2 type-section text-ink-muted">
-            {t("ownerTitle")}
-          </h2>
-          <p className="mt-3 type-body-sm">{t("ownerDescription")}</p>
-          <PathPoints
-            points={[t("ownerPoint1"), t("ownerPoint2"), t("ownerPoint3")]}
-            muted
-          />
-        </section>
+        <p className="mt-6 type-body-sm text-ink-muted">{t("ownerNote")}</p>
       </div>
     </PageShell>
   );

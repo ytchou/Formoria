@@ -17,6 +17,7 @@ function Input({
   type,
   'aria-invalid': ariaInvalidProp,
   'aria-describedby': ariaDescribedByProp,
+  'aria-required': ariaRequiredProp,
   ...props
 }: React.ComponentProps<"input">) {
   const formField = useFormFieldContext()
@@ -37,6 +38,7 @@ function Input({
       )}
       aria-invalid={ariaInvalidProp ?? (formField.error || undefined)}
       aria-describedby={ariaDescribedByProp ?? formField.errorId}
+      aria-required={ariaRequiredProp ?? (formField.required || undefined)}
       {...props}
     />
   )

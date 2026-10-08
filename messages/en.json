@@ -1,10 +1,10 @@
 {
   "common": {
     "brandName": "Formoria",
-    "exploreBrands": "Explore Brands",
-    "submitBrand": "Recommend a Brand",
+    "exploreBrands": "Browse brands",
+    "submitBrand": "Recommend a brand",
     "all": "All",
-    "allBrands": "All Brands",
+    "allBrands": "All brands",
     "skipToContent": "Skip to content",
     "close": "Close",
     "closeDialog": "Close dialog",
@@ -12,12 +12,12 @@
     "loading": "Loading…"
   },
   "nav": {
-    "searchAria": "Site product search",
+    "searchAria": "Search products",
     "faq": "FAQ",
-    "submitBrand": "Recommend a Brand",
-    "searchPlaceholder": "Search products, brands or needs…",
+    "submitBrand": "Recommend a brand",
+    "searchPlaceholder": "Search products, brands, or a situation…",
     "openMenu": "Open menu",
-    "navigation": "Navigation",
+    "navigation": "Main menu",
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "languageTraditionalChinese": "Traditional Chinese",
@@ -29,44 +29,47 @@
     "brands": "Listed brands"
   },
   "footer": {
-    "about": "About",
+    "about": "About Formoria",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
     "contact": "Contact",
     "copyright": "© {year} Formoria",
-    "tagline": "Life can look a little more like you",
-    "discoverHeading": "Discover",
-    "directory": "Brand Directory",
+    "tagline": "Life can feel a little more like you",
+    "discoverHeading": "Browse",
+    "directory": "Brand directory",
     "stories": "Stories",
-    "submit": "Recommend a Brand",
-    "companyHeading": "Company",
+    "submit": "Recommend a brand",
+    "companyHeading": "About",
     "faq": "FAQ",
-    "connectHeading": "Connect",
-    "discover": "Styles"
+    "connectHeading": "Contact",
+    "style": "Styles",
+    "products": "Products",
+    "disclosure": "Formoria doesn't sell anything. Every purchase happens on the brand's own channel."
   },
   "style": {
     "metaTitle": "Styles",
-    "metaDescription": "Moving into a new home, setting up a shop, changing a lamp — follow a concrete situation to find Taiwanese brands and products that fit.",
+    "metaDescription": "A desk, an everyday bag, year-end gifts: start from one concrete situation and see which Taiwanese products fit.",
     "heading": "Styles",
     "subheading": "Start from one concrete situation and see which Taiwanese products belong in it.",
     "comingSoon": "The first style is on its way.",
     "loadError": "Styles are temporarily unavailable. Please try again later.",
     "retry": "Try again",
     "breadcrumb": "Styles",
-    "breadcrumbAria": "Styles breadcrumb",
+    "breadcrumbAria": "Breadcrumb",
     "editorLabel": "Editor",
-    "updatedLabel": "Updated",
+    "updatedLabel": "Last updated",
     "selectionLabel": "Selection",
-    "selectionSummary": "{count} items · {categories} categories",
+    "selectionSummary": "{count, plural, one {# item} other {# items}} · {categories, plural, one {# category} other {# categories}}",
     "languageBadge": "In Chinese",
-    "productCta": "Visit product official site",
-    "brandSiteCta": "Visit brand official site",
+    "productCta": "View on the brand's site",
+    "brandSiteCta": "Visit the brand's site",
     "madeInTaiwan": "Made in Taiwan",
-    "brandProvidedBadge": "Brand-provided information",
-    "unavailable": "The official link is currently unavailable",
+    "brandProvidedBadge": "Brand-provided",
+    "unavailable": "The brand's product page can't be reached right now",
     "relatedStories": "Continue reading",
     "relatedTrails": "More styles",
-    "exploreMore": "Explore More"
+    "exploreMore": "More products like these",
+    "untranslatedNotice": "This guide is in Traditional Chinese."
   },
   "products": {
     "brandRow": { "heading": "Related brands" },
@@ -113,27 +116,29 @@
     }
   },
   "brandsJoin": {
-    "metaTitle": "Join Formoria — Brand Recruitment",
-    "metaDescription": "Add your brand to Formoria and help more people discover your products.",
-    "heading": "Help great products get discovered",
-    "heroSubtitle": "Join the Formoria brand directory",
-    "heroDescription": "Formoria is an independent curation platform for Taiwanese brands. We believe great products deserve to be discovered, and we help people find what's right for them through editorial selections and category navigation.",
-    "valueProp1Title": "Exposure and discovery",
-    "valueProp1Description": "Your brand appears in the directory and product pages, helping people with a need find you naturally.",
-    "valueProp2Title": "Editorial coverage",
-    "valueProp2Description": "Qualifying brands may receive a Formoria Selection recommendation, with an editor-written reason.",
-    "valueProp3Title": "Distribution routing",
-    "valueProp3Description": "Every purchase link routes to your own channels. Formoria never handles transactions.",
-    "trustLabelsHeading": "How we work together",
-    "trustLabelDirectory": "Listed Brand — approved for the brand directory, with basic info publicly presented.",
-    "trustLabelSelection": "Formoria Selection — an independent editorial pick, with a stated reason. Brands cannot buy this label.",
-    "trustLabelProvided": "Brand-Provided — materials or info the brand supplied, with source attribution.",
-    "howItWorksHeading": "How to join",
-    "howItWorksStep1": "Fill out the brand form with your website or primary sales channel.",
-    "howItWorksStep2": "The Formoria team reviews your brand to confirm it meets our directory standards.",
-    "howItWorksStep3": "Once approved, your brand info appears in the directory and consumers can find you directly.",
-    "ctaLabel": "Submit your brand",
-    "ctaDescription": "Fill out a simple form to introduce your brand."
+    "metaTitle": "For brands",
+    "metaDescription": "How Taiwanese brands are listed in the Formoria directory, how selections are chosen, and where purchase links lead.",
+    "heading": "How your brand appears on Formoria",
+    "heroSubtitle": "For brands",
+    "heroDescription": "Formoria gathers and sorts what is known about Taiwanese brands so readers can look by what they need. The brand directory lists brands under published rules; Formoria Selection is chosen independently by editors; every purchase link goes back to the brand's own channel.",
+    "valueProp1Title": "Found by category",
+    "valueProp1Description": "Once approved, your brand is listed under its category, where visitors can find it by browsing or searching.",
+    "valueProp2Title": "Formoria Selection",
+    "valueProp2Description": "Editors decide selections on their own. Whether a brand has contacted us or supplied details never affects what gets picked.",
+    "valueProp3Title": "Purchases go to your channels",
+    "valueProp3Description": "Every purchase link goes to your own site or store. Formoria never handles a transaction.",
+    "trustLabelsHeading": "What our labels mean",
+    "trustLabelDirectory": "Listed brand — a brand that meets our listing rules and passed review. Not a recommendation, certification, or ranking.",
+    "trustLabelSelection": "Formoria Selection — a product editors chose for a specific situation, each with a written reason. Brands can't apply for it or pay for it.",
+    "trustLabelProvided": "Brand-provided — facts or images a brand supplied, with the source shown. Supplying them guarantees neither publication nor any say in what we write.",
+    "trustLabelSponsored": "Sponsored — paid or commercial content, clearly labeled and kept apart from everything else.",
+    "trustLabelSiteConfirmed": "Confirmed by Formoria — a fact Formoria checked itself, most often a stockist a community member suggested and an editor reviewed.",
+    "howItWorksHeading": "How listing works",
+    "howItWorksStep1": "Send the brand name through the recommendation form, with a link to your website or online store.",
+    "howItWorksStep2": "The Formoria team reviews the details to confirm the brand meets our listing rules.",
+    "howItWorksStep3": "Once approved, your brand is listed in the brand directory, where visitors can find it.",
+    "ctaLabel": "Submit brand details",
+    "ctaDescription": "Submit through the recommendation form for now. After approval, we'll be in touch about managing the listing."
   },
   "landing": {
     "metadata": {
@@ -152,9 +157,9 @@
       "allBrands": "All Brands"
     },
     "selectedProducts": {
-      "productCta": "Go to the brand's official website",
-      "brandSiteCta": "Go to the brand's website",
-      "unavailable": "This product page is temporarily unreachable.",
+      "productCta": "View on the brand's site",
+      "brandSiteCta": "Visit the brand's site",
+      "unavailable": "The brand's product page isn't loading right now.",
       "madeInTaiwan": "Made in Taiwan"
     },
     "trustSeam": {
@@ -168,19 +173,19 @@
     "latestStories": {
       "heading": "Stories",
       "note": "Start from one scene in daily life, then get to know the products, the brands, and the people who make them.",
-      "linkText": "View All Stories"
+      "linkText": "See all stories"
     },
     "trails": {
       "heading": "Styles",
-      "note": "A corner, a slice of everyday life",
-      "linkText": "See every style",
+      "note": "Products picked for one specific situation",
+      "linkText": "See all styles",
       "eyebrow": "Style",
-      "cta": "Explore this style →"
+      "cta": "See this style →"
     },
     "selection": {
-      "headline": "Every pick has a reason",
-      "subtitle": "Moving in, setting up a shop, switching a lamp — these are the products we chose for those moments",
-      "cta": "Explore all selections",
+      "headline": "This season's selection",
+      "subtitle": "Moving in, styling a shop, changing a lamp: a few things to start with",
+      "cta": "See all products",
       "allCategories": "All"
     },
     "missionCloser": {
@@ -215,14 +220,13 @@
   "brands": {
     "breadcrumbAria": "Brand directory breadcrumb",
     "metadata": {
-      "title": "Taiwanese Brand Directory | Explore Brands, Products & Where to Buy | Formoria",
-      "description": "Discover Taiwanese brands. Browse by category, search, and explore brands founded, designed, or made in Taiwan."
+      "title": "Taiwanese brand directory | Brands by category and where to buy | Formoria",
+      "description": "Find brands founded, designed, or made in Taiwan by category or keyword, then go from each brand page to its official site or stockists."
     },
-    "heading": "Taiwanese Brand Directory",
-    "count": "{count} brands",
-    "notFound": "No brands found",
-    "emptyTitle": "No brands found",
-    "emptyDescription": "Try adjusting or clearing your filters",
+    "heading": "Taiwanese brand directory",
+    "count": "{count, plural, one {# brand} other {# brands}}",
+    "emptyTitle": "No brands match these filters",
+    "emptyDescription": "Remove a filter, or clear them all",
     "sortLabel": "Sort by",
     "filters": {
       "title": "Filters",
@@ -231,9 +235,9 @@
       "category": "Category",
       "brandStatus": "Brand status",
       "appliedHint": "Select × on a tag to remove that filter.",
-      "currentConditions": "Active filters",
+      "currentConditions": "Current filters",
       "brandSearch": "Brand or product search",
-      "brandSearchHelp": "This search is applied with every active filter",
+      "brandSearchHelp": "Search results also apply your current filters",
       "brandSearchLandmark": "Filter by brand or product keyword",
       "activeSearch": "Search",
       "activeCategory": "Category",
@@ -241,7 +245,7 @@
       "activeStatus": "Brand status",
       "removeFilter": "Remove {label}: {value}",
       "clearAll": "Clear all",
-      "showResults": "Show {count} results",
+      "showResults": "Show {count, plural, one {# result} other {# results}}",
       "subcategory": "Subcategory",
       "showMore": "Show {count} more",
       "showLess": "Show less"
@@ -250,7 +254,7 @@
       "random": "Random",
       "name": "A-Z",
       "newest": "Newest",
-      "year": "Founding Year"
+      "year": "Founding year"
     },
     "search": {
       "aria": "Search brands",
@@ -268,15 +272,14 @@
     },
     "card": {
       "foundingYear": "Est. {year}",
-      "productCount": "{count, plural, one {# product} other {# products}}",
-      "viewBrand": "View brand"
+      "productCount": "{count, plural, one {# product} other {# products}}"
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found",
     "editorialLinksAria": "Related stories and styles",
     "editorialStories": "Related stories",
     "editorialTrails": "Related styles",
-    "subheading": "Explore Taiwanese brands in the directory"
+    "subheading": "Find listed Taiwanese brands by category or keyword"
   },
   "challenge": {
     "title": "Quick verification",
@@ -362,17 +365,24 @@
       "instagramCopied": "Link copied — paste it into your story or bio"
     },
     "links": {
-      "socialPlatforms": "Social Platforms",
-      "onlineStores": "Online Stores",
-      "otherLinks": "Other Links",
+      "socialPlatforms": "Social platforms",
+      "onlineStores": "Online stores",
+      "otherLinks": "Other links",
       "instagram": "Instagram",
       "threads": "Threads",
       "facebook": "Facebook",
-      "website": "Official Website",
+      "website": "Official website",
       "pinkoi": "Pinkoi",
       "shopee": "Shopee",
       "myship": "7-ELEVEN MyShip",
-      "unknown": "No link known yet"
+      "missingChannels": "No links for other stores yet.",
+      "noChannels": "No online store links yet.",
+      "noSocialLinks": "No social links yet.",
+      "correctionPrompt": "Know another place to buy?",
+      "correctionAction": "Tell us",
+      "correctionPurchase": "Online store link",
+      "correctionStockist": "Stockist",
+      "correctionSocial": "Social link"
     },
     "report": {
       "trigger": "Report a problem",
@@ -482,18 +492,10 @@
       "groups": {
         "all_taiwan": "Across Taiwan",
         "overseas": "Overseas",
-        "showAll": "Show all {count} regions",
-        "collapse": "Show fewer regions"
+        "count": "{count, plural, one {# stockist} other {# stockists}}"
       },
-      "confirmed": {
-        "officialPageLink": "Official page"
-      },
-      "chips": {
-        "showRest": "Show {count} more"
-      },
-      "rows": {
-        "collapse": "Show less"
-      },
+      "showAll": "{count, plural, one {See # stockist} other {See all # stockists}}",
+      "collapse": "Show less",
       "provenance": {
         "owner": "Brand confirmed",
         "formoria": "Confirmed by Formoria",
@@ -547,8 +549,8 @@
     },
     "relatedBrands": {
       "heading": "More in {category}",
-      "subtext": "{count} other brands in this category",
-      "viewAll": "View all"
+      "subtext": "{count, plural, one {# other brand is} other {# other brands are}} listed in {category}",
+      "viewAll": "See all {count, plural, one {# {category} brand} other {# {category} brands}}"
     },
     "brandFaq": {
       "listSeparator": ", ",
@@ -576,7 +578,7 @@
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",
         "answer": "{brandName} products are available through {channels}.{stockistNote}{context}",
-        "stockistSuffix": " There are also {count} physical retail locations.",
+        "stockistSuffix": " You can also find them at {count, plural, one {# shop} other {# shops}}.",
         "noOnlineChannels": "physical retail locations"
       },
       "originStory": {
@@ -588,8 +590,8 @@
   "categories": {
     "index": {
       "heading": "Product categories",
-      "intro": "Browse Taiwanese brands by product type, from clothing and accessories to home goods, beauty, and food.",
-      "childNavigation": "Explore {category} subcategories",
+      "intro": "Find Taiwanese brands by product type: fashion and footwear, bags and accessories, jewelry, beauty and personal care, home and living, and stationery.",
+      "childNavigation": "{category} subcategories",
       "metadata": {
         "title": "Product categories | Formoria",
         "description": "Browse Taiwanese brands by product type across Formoria's launch categories and subcategories."
@@ -597,15 +599,15 @@
     },
     "landing": {
       "updated": "Updated {date}",
-      "categoryLinksAria": "Explore subcategories in this category"
+      "categoryLinksAria": "Subcategories in this category"
     },
     "metadata": {
       "title": "{displayName} Brands from Taiwan",
-      "description": "Discover Taiwanese {name} brands."
+      "description": "Taiwanese {displayName} brands."
     },
     "subMetadata": {
-      "title": "Taiwanese {subName} Brands | {categoryName} | Formoria",
-      "description": "Discover Taiwanese {subName} brands in {categoryName}, featuring local design and products worth exploring."
+      "title": "Taiwanese {subName} brands | {categoryName} | Formoria",
+      "description": "{subName} brands founded, designed, or made in Taiwan, in the {categoryName} category."
     },
     "descriptions": {
       "fashion": "The wardrobe is missing one jacket you can wear to work and then straight out to dinner. Fashion and apparel covers everyday basics, commuting and outerwear, technical outdoor layers, footwear, and the accessories worn with them; materials, sizing, and place of manufacture follow each brand's own statements. Formoria lists apparel and footwear brands founded, designed, or made in Taiwan.",
@@ -623,11 +625,11 @@
     },
     "l1": {
       "home": {
-        "title": "Taiwan Home & Living Brands | Furniture, Tableware & Everyday Objects | Formoria",
-        "description": "Explore Taiwanese home and living brands, from furniture and storage to tableware and objects designed for daily life.",
-        "h1": "Taiwan Home & Living Brands",
+        "title": "Taiwanese home and living brands | Formoria",
+        "description": "In a small apartment, size and storage usually settle the choice before style does. Taiwanese brands for furniture, storage, lighting, and tableware.",
+        "h1": "Taiwanese home and living brands",
         "intro": "From furniture and storage to lighting, tableware, and small decor pieces; in a small apartment, dimensions and how something stores away usually settle the choice before style does.",
-        "definition": "This category focuses on objects that make a living space more useful, not only decorative pieces. Brands may work in ceramics, wood, bamboo, metal, or mixed materials; inclusion reflects a clear Taiwan connection through founding, design, or manufacturing and the categories recorded for the brand.",
+        "definition": "This category covers things that make a home easier to live in, not only decorative pieces. Brands are grouped by the product types recorded when they were approved.",
         "faq": [
           {
             "question": "What products appear in Home & Living?",
@@ -640,11 +642,11 @@
         ]
       },
       "fashion": {
-        "title": "Taiwan Fashion & Apparel Brands | Clothing, Shoes & Accessories | Formoria",
-        "description": "Explore Taiwanese fashion and apparel brands across tops, shoes, and everyday clothing, with design and material details.",
-        "h1": "Taiwan Fashion & Apparel Brands",
+        "title": "Taiwanese fashion and apparel brands | Formoria",
+        "description": "One jacket has to work at the office and then straight out to dinner. Clothing, footwear, and accessory brands founded, designed, or made in Taiwan.",
+        "h1": "Taiwanese fashion and apparel brands",
         "intro": "Clothing, footwear, and the accessories worn with them; one jacket has to work at the office and then straight out to dinner.",
-        "definition": "A fashion brand's point of view may come from cut, textile, last, or the setting in which a piece is worn. This category does not claim that every item is made in Taiwan; each listing records its Taiwan connection and available product evidence separately.",
+        "definition": "A fashion brand's point of view may come from cut, textile, last, or the setting in which a piece is worn. This category does not claim that every item is made in Taiwan; brand pages list where a brand was founded, designs, and manufactures separately.",
         "faq": [
           {
             "question": "What brands are included in Fashion & Apparel?",
@@ -657,9 +659,9 @@
         ]
       },
       "beauty": {
-        "title": "Taiwan Beauty & Personal Care Brands | Skincare, Haircare & Body Care | Formoria",
-        "description": "Explore Taiwanese beauty and personal care brands across skincare, haircare, body care, and daily cleansing routines.",
-        "h1": "Taiwan Beauty & Personal Care Brands",
+        "title": "Taiwanese beauty and personal care brands | Formoria",
+        "description": "Taiwan's humid heat means texture and feel get judged first. Taiwanese brands for skincare, makeup, haircare, and body cleansing.",
+        "h1": "Taiwanese beauty and personal care brands",
         "intro": "Skincare, makeup, haircare, and body cleansing; in Taiwan's humid heat, texture and how something feels on the skin get judged first.",
         "definition": "The category is organised by body area and function, not by a promise that a product is natural, additive-free, or suitable for every skin type. A brand may be founded, designed, or manufactured in Taiwan; confirm formula, claims, and manufacturing details on its own listing.",
         "faq": [
@@ -674,9 +676,9 @@
         ]
       },
       "food-drink": {
-        "title": "Taiwan Food & Beverage Brands | Tea, Coffee, Snacks & Pantry Goods | Formoria",
-        "description": "Explore Taiwanese food and beverage brands, from tea and coffee to snacks, sauces, desserts, and everyday ingredients.",
-        "h1": "Taiwan Food & Beverage Brands",
+        "title": "Taiwanese food and beverage brands | Formoria",
+        "description": "Some stay in your own kitchen, others travel home as a gift. Taiwanese brands for tea, coffee, snacks, sauces, and sweets.",
+        "h1": "Taiwanese food and beverage brands",
         "intro": "Ingredients, prepared foods, tea, coffee, snacks, and drinks; some stay in the kitchen, others travel home as a gift.",
         "definition": "A food brand may be defined by its ingredients, source, recipe, processing method, or family practice. This category does not imply that every ingredient or product is Taiwan-made; listings show the brand's Taiwan connection and point to public information about origin and production.",
         "faq": [
@@ -686,14 +688,14 @@
           },
           {
             "question": "Does a category label mean all ingredients are from Taiwan?",
-            "answer": "No. The label is a discovery path, not an origin claim. Check each brand page for ingredient, source, and manufacturing information."
+            "answer": "No. The category shows the range of brands and products; it is not an origin claim. Check each brand page for ingredient, source, and manufacturing information."
           }
         ]
       },
       "bags-accessories": {
-        "title": "Taiwan Bags & Accessories Brands | Bags, Leather Goods & Everyday Carry | Formoria",
-        "description": "Explore Taiwanese bags and accessories brands, from backpacks and wallets to eyewear, hats, and travel pieces.",
-        "h1": "Taiwan Bags & Accessories Brands",
+        "title": "Taiwanese bags and accessories brands | Formoria",
+        "description": "What fits inside and whether the strap digs in are usually the same question. Taiwanese brands for backpacks, wallets, eyewear, and hats.",
+        "h1": "Taiwanese bags and accessories brands",
         "intro": "Bags, leather goods, and everyday accessories; what fits inside and whether the strap digs in are usually the same question.",
         "definition": "A brand may make bags, wallets, and other accessories at the same time, so subcategories follow the brand's main subcategories. Inclusion does not mean every item shares one material or manufacturing location; check the listing for the brand's own material and origin details.",
         "faq": [
@@ -708,11 +710,11 @@
         ]
       },
       "jewelry": {
-        "title": "Taiwan Jewelry Brands | Earrings, Necklaces, Rings & Bracelets | Formoria",
-        "description": "Explore Taiwanese jewelry brands across earrings, necklaces, rings, bracelets, and other wearable design pieces.",
-        "h1": "Taiwan Jewelry Brands",
+        "title": "Taiwanese jewelry brands | Formoria",
+        "description": "Metal content and care decide whether a piece can be worn every day. Taiwanese brands for earrings, necklaces, rings, and bracelets.",
+        "h1": "Taiwanese jewelry brands",
         "intro": "Earrings, necklaces, rings, bracelets, and hair accessories; metal composition and care decide whether a piece can be worn every day.",
-        "definition": "This category includes everyday accessories and jewellery design without assuming that every piece uses precious metal, natural stones, or Taiwan-sourced material. Where available, brand pages separate material, making, and origin details so visitors can understand each label's work.",
+        "definition": "This category includes everyday accessories and jewelry design without assuming that every piece uses precious metal, natural stones, or Taiwan-sourced material. Brand pages separate material, making, and origin details where they can.",
         "faq": [
           {
             "question": "How are jewelry and accessories organised here?",
@@ -725,11 +727,11 @@
         ]
       },
       "kids": {
-        "title": "Taiwan Kids & Baby Brands | Clothing, Toys & Everyday Care | Formoria",
-        "description": "Explore Taiwanese kids and baby brands across clothing, bedding, toys, feeding goods, and everyday care.",
-        "h1": "Taiwan Kids & Baby Brands",
+        "title": "Taiwanese kids and baby brands | Formoria",
+        "description": "They end up in mouths and go through dozens of washes, so check material and washing first. Taiwanese brands for kids' clothing, bedding, toys, and tableware.",
+        "h1": "Taiwanese kids and baby brands",
         "intro": "Children's and baby clothing, bedding, toys, tableware, and parenting essentials; they end up in mouths and go through dozens of washes, so material and washing are looked at first.",
-        "definition": "Safety, sizing, and age guidance are important reading cues, but the directory does not replace regulations, testing, or medical advice. A brand may be founded, designed, or manufactured in Taiwan; check its listing, packaging, and product guidance for the details that matter.",
+        "definition": "When choosing these products, check safety labeling, sizing, and age guidance first; the directory does not replace regulations, testing, or medical advice. A brand may be founded, designed, or manufactured in Taiwan; check its listing and packaging for age, material, and certification details.",
         "faq": [
           {
             "question": "What products appear in Kids & Baby?",
@@ -742,9 +744,9 @@
         ]
       },
       "stationery": {
-        "title": "Taiwan Stationery & Design Brands | Pens, Paper Goods & Desk Tools | Formoria",
-        "description": "Explore Taiwanese stationery and design brands across writing tools, notebooks, paper goods, and desk accessories.",
-        "h1": "Taiwan Stationery & Design Brands",
+        "title": "Taiwanese stationery and design brands | Formoria",
+        "description": "Paper weight and binding decide whether a notebook lies flat once opened. Taiwanese brands for pens, paper goods, washi tape, and desk tools.",
+        "h1": "Taiwanese stationery and design brands",
         "intro": "Notebooks, paper goods, pens, and desk tools; paper weight and binding decide whether a page lies flat once it is opened.",
         "definition": "A stationery product can differ through paper, ink, print, mechanism, or illustration rather than appearance alone. The Taiwan connection, manufacturing partners, and materials vary by brand, so the brand page remains the place to learn the specific details.",
         "faq": [
@@ -759,9 +761,9 @@
         ]
       },
       "outdoor": {
-        "title": "Taiwan Outdoor & Camping Brands | Hiking, Camping & Adventure Gear | Formoria",
-        "description": "Explore Taiwanese outdoor and camping brands across hiking, camping, climbing, and equipment for time outside.",
-        "h1": "Taiwan Outdoor & Camping Brands",
+        "title": "Taiwanese outdoor and camping brands | Formoria",
+        "description": "Low weight against damp resistance is the usual trade-off between Taiwan's mountains and coast. Taiwanese brands for hiking, camping, climbing, and travel gear.",
+        "h1": "Taiwanese outdoor and camping brands",
         "intro": "Hiking, camping, climbing, and travel gear, plus the apparel, packs, and accessories that go with them; between Taiwan's mountains and its coast, low weight against damp resistance is the usual trade-off.",
         "definition": "Terrain, weather, and user experience affect whether a piece of gear is appropriate; this category does not make safety or performance guarantees. Founding, design, and manufacturing connections are recorded separately, while specifications and load limits belong to each brand's product page.",
         "faq": [
@@ -778,9 +780,9 @@
     },
     "l2": {
       "bath-and-shower": {
-        "title": "Taiwan Bath & Shower Brands | Cleansing for Daily Routines | Formoria",
-        "description": "Explore Taiwanese bath and shower brands across body wash, facial cleansing, and everyday personal care.",
-        "h1": "Taiwan Bath & Shower Brands",
+        "title": "Taiwanese bath and shower brands | Formoria",
+        "description": "You use these up every day, so size and refill options are worth checking first. Taiwanese brands for body wash, facial cleansers, and everyday cleansing.",
+        "h1": "Taiwanese bath and shower brands",
         "intro": "Bathing, facial cleansing, and body wash products; they run out constantly, so size and refill options are worth checking first.",
         "definition": "This subcategory is about cleansing use, not a promise that a formula suits every skin type or has a particular origin. Check ingredients, directions, and the brand's available Taiwan connection and manufacturing details.",
         "faq": [
@@ -796,9 +798,9 @@
         "guidance": "Check whether the formula is soap-based or amino-acid-based, and compare bottle sizes against refill options."
       },
       "necklaces": {
-        "title": "Taiwan Necklace Brands | Pendants, Chainwork & Wearable Design | Formoria",
-        "description": "Explore Taiwanese necklace brands, from daily pendants to metalwork and design-led pieces, organised by material and style.",
-        "h1": "Taiwan Necklace Brands",
+        "title": "Taiwanese necklace brands | Formoria",
+        "description": "Chain length decides whether a necklace sits at the collarbone or the chest. Necklace brands founded, designed, or made in Taiwan, by material and how they are worn.",
+        "h1": "Taiwanese necklace brands",
         "intro": "Chains, pendants, and necklace designs of every kind; the length decides whether it sits at the collarbone or lower.",
         "definition": "A necklace may use metal, stone, pearl, textile, or another material; this subcategory does not guarantee allergy, durability, or origin characteristics. Refer to the brand listing and product description for specifics.",
         "faq": [
@@ -814,9 +816,9 @@
         "guidance": "Chain length (choker, princess, opera) and clasp type affect everyday wearability."
       },
       "earrings": {
-        "title": "Taiwan Earring Brands | Studs, Clips & Everyday Jewelry | Formoria",
-        "description": "Explore Taiwanese earring brands, from studs and clip-ons to handmade designs, organised by wear and style.",
-        "h1": "Taiwan Earring Brands",
+        "title": "Taiwanese earring brands | Formoria",
+        "description": "Pierced ears or not, the choice works differently. Taiwanese brands for studs, clip-ons, and handmade earrings.",
+        "h1": "Taiwanese earring brands",
         "intro": "Studs, clip-ons, and other pieces worn on the ear; pierced and unpierced call for entirely different choices.",
         "definition": "Weight, fastening, material, and fit affect how earrings feel; this subcategory does not replace product specifications or allergy information. The brand page explains its available founding, design, and manufacturing connection to Taiwan.",
         "faq": [
@@ -832,9 +834,9 @@
         "guidance": "Distinguish studs from clip-ons, check whether the metal contains nickel, and consider single-earring weight for extended wear."
       },
       "storage": {
-        "title": "Taiwan Storage Brands | Organisers, Shelving & Small-Space Tools | Formoria",
-        "description": "Explore Taiwanese storage brands across organisers, containers, shelving, and tools for making everyday spaces work better.",
-        "h1": "Taiwan Storage Brands",
+        "title": "Taiwanese storage brands | Formoria",
+        "description": "Measure the shelf depth first, then pick a style. Taiwanese brands for storage boxes, shelving, and organizers.",
+        "h1": "Taiwanese storage brands",
         "intro": "Boxes, racks, bags, and other storage pieces; measure the shelf depth first, then pick the style.",
         "definition": "A storage product may also be furniture, travel gear, or a work accessory, so the subcategory follows the brand's main subcategories. Check dimensions, capacity, load, materials, and installation requirements before buying.",
         "faq": [
@@ -844,15 +846,15 @@
           },
           {
             "question": "How should I choose storage for a small room?",
-            "answer": "Measure the available space, then compare capacity, load, opening method, and installation conditions. The category page is only a discovery starting point."
+            "answer": "Measure the available space, then compare capacity, load, opening method, and installation conditions. The category page is only a starting point."
           }
         ],
         "guidance": "Measure available depth and height first, then compare load capacity, opening mechanism, and stackability."
       },
       "furniture": {
-        "title": "Taiwan Furniture Brands | Tables, Chairs, Cabinets & Living Spaces | Formoria",
-        "description": "Explore Taiwanese furniture brands across tables, chairs, cabinets, and objects designed for everyday living spaces.",
-        "h1": "Taiwan Furniture Brands",
+        "title": "Taiwanese furniture brands | Formoria",
+        "description": "Whether it fits through the elevator and the door frame is the first thing to check. Taiwanese brands for tables, chairs, cabinets, and bed frames.",
+        "h1": "Taiwanese furniture brands",
         "intro": "Tables, chairs, cabinets, bed frames, and other furniture; whether it fits through the lift and the door frame is the first line of the size chart.",
         "definition": "Furniture dimensions, structure, and materials need to suit the room and the way it is used; this subcategory does not imply that every piece is made by a Taiwan workshop. Check each brand's design, manufacturing, delivery, and installation information.",
         "faq": [
@@ -862,15 +864,15 @@
           },
           {
             "question": "Can I buy furniture directly from Formoria?",
-            "answer": "Formoria is a brand discovery directory. Visit each brand's own website or a stockist for pricing, dimensions, delivery, and purchase details."
+            "answer": "Formoria is a brand directory. Visit each brand's own website or a stockist for pricing, dimensions, delivery, and purchase details."
           }
         ],
         "guidance": "Confirm the assembled dimensions (including packaging) clear your doorframe and lift, and note assembly method and material care needs."
       },
       "skincare": {
-        "title": "Taiwan Skincare Brands | Cleansing, Hydration & Daily Care | Formoria",
-        "description": "Explore Taiwanese skincare brands across cleansing, hydration, repair, and everyday facial care routines.",
-        "h1": "Taiwan Skincare Brands",
+        "title": "Taiwanese skincare brands | Formoria",
+        "description": "Each brand states its own ingredients and order of use. Taiwanese brands for cleansers, toners, serums, creams, and masks.",
+        "h1": "Taiwanese skincare brands",
         "intro": "Cleansers, toners, serums, moisturisers, and masks; ingredients and the order of use are stated by each brand.",
         "definition": "Skin needs vary with the person, season, and formula; this subcategory does not offer diagnosis or efficacy guarantees. Use the full ingredient list, directions, and available manufacturing or verification information when choosing.",
         "faq": [
@@ -886,9 +888,9 @@
         "guidance": "Compare active-ingredient concentrations, texture (watery, lotion, cream), and the brand's recommended application order."
       },
       "tops-and-tshirts": {
-        "title": "Taiwan Tops & T-shirt Brands | Everyday Cuts & Technical Layers | Formoria",
-        "description": "Explore Taiwanese tops and T-shirt brands across basics, shirts, and technical layers for everyday wear.",
-        "h1": "Taiwan Tops & T-shirt Brands",
+        "title": "Taiwanese tops and T-shirt brands | Formoria",
+        "description": "The same size can mean a different shoulder line and length at every brand. Taiwanese brands for T-shirts, shirts, hoodies, and knitwear.",
+        "h1": "Taiwanese tops and T-shirt brands",
         "intro": "T-shirts, button-ups, hoodies, polos, and knitwear; the same size label means a different shoulder line and body length at every brand.",
         "definition": "This subcategory can include T-shirts, shirts, hoodies, polo shirts, and knitwear, without assuming a fabric, fit, or manufacturing location. Check the product page for size, care, and origin details.",
         "faq": [
@@ -904,9 +906,9 @@
         "guidance": "Shoulder width, chest, and body length vary across brands at the same size label; fabric weight affects drape and opacity."
       },
       "tableware": {
-        "title": "Taiwan Tableware Brands | Ceramics, Glassware & Everyday Dining | Formoria",
-        "description": "Explore Taiwanese tableware brands across plates, cups, bowls, and accessories for everyday dining.",
-        "h1": "Taiwan Tableware Brands",
+        "title": "Taiwanese tableware brands | Formoria",
+        "description": "Whether a piece is dishwasher- or microwave-safe is in each brand's care notes. Taiwanese brands for plates, cups, bowls, and cutlery.",
+        "h1": "Taiwanese tableware brands",
         "intro": "Plates, cups, bowls, cutlery, and table accessories; whether a piece is dishwasher or microwave safe is in the brand's own care instructions.",
         "definition": "Ceramic, glass, wood, and metal tableware have different care, heat, and use limits. This subcategory does not guarantee food-contact or safety certification; read each brand's specifications and care instructions.",
         "faq": [
@@ -922,9 +924,9 @@
         "guidance": "Check whether the material is microwave-safe, dishwasher-safe, and resistant to acidic foods, and note the glaze finish."
       },
       "casual-shoes": {
-        "title": "Taiwan Casual Shoe Brands | Everyday Footwear, Canvas & Easygoing Styles | Formoria",
-        "description": "Explore Taiwanese casual shoe brands, from canvas sneakers and simple trainers to everyday slip-ons.",
-        "h1": "Taiwan Casual Shoe Brands",
+        "title": "Taiwanese casual shoe brands | Formoria",
+        "description": "Toe-box width and insoles show their difference after a day of walking. Taiwanese brands for canvas sneakers, white sneakers, and slip-ons.",
+        "h1": "Taiwanese casual shoe brands",
         "intro": "Sneakers, canvas shoes, and other easy-wearing styles; toe box width and insole show the difference after a full day of walking.",
         "definition": "Casual does not mean suitable for every sport or terrain; sole, support, fit, and weather conditions differ between pairs. Read the brand's specifications, sizing guidance, and manufacturing details before choosing.",
         "faq": [
@@ -940,9 +942,9 @@
         "guidance": "Toe-box width, removable insoles, and sole material affect grip on different surfaces."
       },
       "desserts-and-pastries": {
-        "title": "Taiwan Dessert & Pastry Brands | Baked Goods, Treats & Local Flavours | Formoria",
-        "description": "Explore Taiwanese dessert and pastry brands across baking, confectionery, gifts, and regional treats.",
-        "h1": "Taiwan Dessert & Pastry Brands",
+        "title": "Taiwanese dessert and pastry brands | Formoria",
+        "description": "Room-temperature or chilled storage decides whether a box can be shipped. Taiwanese brands for baked goods, sweets, cookies, and regional pastries.",
+        "h1": "Taiwanese dessert and pastry brands",
         "intro": "Baked goods, confectionery, cookies, and regional pastries; whether it keeps at room temperature or needs refrigeration decides if it can be posted.",
         "definition": "Ingredients, shelf life, allergens, and delivery conditions vary by product. This subcategory does not replace food labelling or storage guidance; brand pages provide the available Taiwan connection and production details.",
         "faq": [
@@ -952,15 +954,15 @@
           },
           {
             "question": "Is this a food-safety recommendation?",
-            "answer": "No. The directory is a discovery entry point. Use packaging, storage, allergen, and official-website information when deciding what to buy."
+            "answer": "No. The directory only organizes brand information. Use packaging, storage, allergen, and official-website information when deciding what to buy."
           }
         ],
         "guidance": "Note storage requirements (ambient or refrigerated), shelf life, and whether allergen labelling is complete."
       },
       "home-decor": {
-        "title": "Taiwan Home Decor Brands | Space Styling, Ornaments & Display | Formoria",
-        "description": "Explore Taiwanese home decor brands across vases, ornaments, and decorative objects for everyday spaces.",
-        "h1": "Taiwan Home Decor Brands",
+        "title": "Taiwanese home decor brands | Formoria",
+        "description": "Decide which wall or corner it is for first, and the size becomes easier to judge. Taiwanese brands for vases, ornaments, and decorative objects.",
+        "h1": "Taiwanese home decor brands",
         "intro": "Vases, ornaments, diffuser stones, and decorative objects; decide which wall or corner the piece will live on before choosing a size.",
         "definition": "Home decor spans different materials and uses. This subcategory does not guarantee durability, safety, or origin. Check the brand page for material care and Taiwan connection details.",
         "faq": [
@@ -976,9 +978,9 @@
         "guidance": "Check actual dimensions and weight, and confirm the wall load capacity required for any hanging piece."
       },
       "rings": {
-        "title": "Taiwan Ring Brands | Everyday Bands, Metalwork & Custom Designs | Formoria",
-        "description": "Explore Taiwanese ring brands, from everyday bands to custom metalwork, organised by material and style.",
-        "h1": "Taiwan Ring Brands",
+        "title": "Taiwanese ring brands | Formoria",
+        "description": "Ring size, material, and setting decide whether a ring works every day. Taiwanese brands for everyday bands and custom metalwork.",
+        "h1": "Taiwanese ring brands",
         "intro": "Ring size, material, and setting determine how comfortably a ring wears every day; measuring methods vary between brands.",
         "definition": "A ring may use metal, wood, resin, or other materials. This subcategory does not replace allergy or wear-resistance information. Check the brand page for design, production location, and custom services.",
         "faq": [
@@ -994,9 +996,9 @@
         "guidance": "Sizing methods differ between brands; compare inner diameter against your knuckle width before ordering."
       },
       "tote-bags": {
-        "title": "Taiwan Tote Bag Brands | Canvas, Leather & Everyday Carry | Formoria",
-        "description": "Explore Taiwanese tote bag brands, from canvas totes to leather carry-alls, organised by material and capacity.",
-        "h1": "Taiwan Tote Bag Brands",
+        "title": "Taiwanese tote bag brands | Formoria",
+        "description": "Most totes have no zipper, so they hold a lot, but finding things inside is another matter. Taiwanese brands for canvas and leather totes.",
+        "h1": "Taiwanese tote bag brands",
         "intro": "An open top with no zip is what most tote bags share; plenty of room, though finding things inside is another matter.",
         "definition": "Material, stitching, and capacity vary by brand. This subcategory does not guarantee water resistance, load limits, or a specific use. Check the brand page for design origin, manufacturing, and care.",
         "faq": [
@@ -1012,9 +1014,9 @@
         "guidance": "Compare opening width, whether there are internal dividers, and whether the handle length allows shoulder carry."
       },
       "body-care": {
-        "title": "Taiwan Body Care Brands | Moisturisers, Oils & Daily Skin Routines | Formoria",
-        "description": "Explore Taiwanese body care brands across lotions, hand creams, and body oils for everyday skin routines.",
-        "h1": "Taiwan Body Care Brands",
+        "title": "Taiwanese body care brands | Formoria",
+        "description": "Body care comes after the shower; how much to use and how fast it absorbs depend on the formula. Taiwanese brands for lotion, hand cream, body oil, and scrubs.",
+        "h1": "Taiwanese body care brands",
         "intro": "Body lotions, hand creams, body oils, and scrubs; care follows cleansing, and absorption speed varies with the formula.",
         "definition": "Body care results depend on skin type and season. This subcategory does not endorse product efficacy or allergy safety. Check the brand page for ingredient lists, directions, and manufacturing details.",
         "faq": [
@@ -1030,9 +1032,9 @@
         "guidance": "Note the absorption-speed difference between lotions and oils, and check ingredient suitability for your skin type."
       },
       "pants": {
-        "title": "Taiwan Pants Brands | Denim, Casual & Technical Trousers | Formoria",
-        "description": "Explore Taiwanese pants brands, from jeans and casual trousers to technical bottoms, organised by fit and use.",
-        "h1": "Taiwan Pants Brands",
+        "title": "Taiwanese pants brands | Formoria",
+        "description": "Waist sizing differs by brand, so check the size chart first. Taiwanese brands for jeans, casual pants, trousers, and leggings.",
+        "h1": "Taiwanese pants brands",
         "intro": "Jeans, chinos, dress trousers, and leggings; waist measurement conventions differ between brands, so check the size chart before buying.",
         "definition": "This subcategory covers different fits, fabrics, and functional needs without assuming a manufacturing location or occasion. Check the product page for size, care, and fabric details.",
         "faq": [
@@ -1048,9 +1050,9 @@
         "guidance": "Waist labelling conventions (centimetres or inches) vary; rise length has a large effect on fit."
       },
       "backpacks": {
-        "title": "Taiwan Backpack Brands | Commuter, Hiking & Technical Packs | Formoria",
-        "description": "Explore Taiwanese backpack brands, from daily commuter bags to hiking packs, organised by capacity and function.",
-        "h1": "Taiwan Backpack Brands",
+        "title": "Taiwanese backpack brands | Formoria",
+        "description": "Strap width and a breathable back panel only show their worth after a full day. Taiwanese brands for commuter, laptop, and hiking backpacks.",
+        "h1": "Taiwanese backpack brands",
         "intro": "Backpacks, laptop bags, and hiking packs; strap width and back-panel ventilation show their value after a full day of carrying.",
         "definition": "Capacity, structure, and intended terrain vary widely. This subcategory does not guarantee load rating, water resistance, or mountaineering safety. Check the brand page for specifications and manufacturing details.",
         "faq": [
@@ -1066,9 +1068,9 @@
         "guidance": "Compare capacity in litres, strap width, back-panel ventilation, and whether there is a dedicated laptop compartment."
       },
       "crossbody-bags": {
-        "title": "Taiwan Crossbody Bag Brands | Sling Bags, Light Travel & Daily Wear | Formoria",
-        "description": "Explore Taiwanese crossbody bag brands, from sling bags to travel pouches, organised by size and strap style.",
-        "h1": "Taiwan Crossbody Bag Brands",
+        "title": "Taiwanese crossbody bag brands | Formoria",
+        "description": "An adjustable strap decides whether the bag sits at the waist or the hip. Taiwanese brands for crossbody bags, sling bags, and small pouches.",
+        "h1": "Taiwanese crossbody bag brands",
         "intro": "Crossbody bags, sling bags, and compact pouches; whether the strap adjusts decides if the bag sits at the waist or the hip.",
         "definition": "Material, dimensions, and strap design vary by brand. This subcategory does not guarantee anti-theft or waterproof features. Check the brand page for design and manufacturing details.",
         "faq": [
@@ -1084,9 +1086,9 @@
         "guidance": "Adjustable strap range determines where the bag sits on your body; internal divider count affects retrieval convenience."
       },
       "activewear": {
-        "title": "Taiwan Activewear Brands | Yoga, Gym & Performance Clothing | Formoria",
-        "description": "Explore Taiwanese activewear brands, from yoga wear and gym sets to performance layers, organised by fabric and design.",
-        "h1": "Taiwan Activewear Brands",
+        "title": "Taiwanese activewear brands | Formoria",
+        "description": "Stretch and breathability only show once you move. Taiwanese brands for yoga pants, sports bras, and moisture-wicking tops.",
+        "h1": "Taiwanese activewear brands",
         "intro": "Yoga leggings, sports bras, moisture-wicking tops, and compression tights; stretch and breathability only show under movement.",
         "definition": "Performance depends on fabric, construction, and activity intensity. This subcategory does not endorse moisture-wicking, support, or compression claims. Check the brand page for fabric specifications, origin, and care.",
         "faq": [
@@ -1102,10 +1104,10 @@
         "guidance": "Look at fabric stretch recovery, moisture-wicking treatment, and whether seams use flatlock construction."
       },
       "socks": {
-        "title": "Taiwan Sock Brands | Technical Socks, Odour Control & Everyday Wear | Formoria",
-        "description": "Explore Taiwanese sock brands, from odour-control and sport socks to everyday essentials, organised by function and material.",
-        "h1": "Taiwan Sock Brands",
-        "intro": "Odour-control socks, sport socks, no-show socks, and knee-highs; the Shetou area in central Taiwan has one of the densest clusters of sock mills in the world.",
+        "title": "Taiwanese sock brands | Formoria",
+        "description": "Shetou in Changhua is where Taiwan's sock mills cluster. Taiwanese brands for odor-control, sport, and everyday socks.",
+        "h1": "Taiwanese sock brands",
+        "intro": "Odor-control socks, sport socks, no-show socks, and knee-highs; the Shetou area in Changhua is where Taiwan's sock mills cluster.",
         "definition": "Functional claims such as odour control, antibacterial, or compression depend on material and process. This subcategory does not endorse those claims. Check the brand page for specifications, origin, and care.",
         "faq": [
           {
@@ -1114,15 +1116,15 @@
           },
           {
             "question": "Are Taiwanese sock brands all manufactured in Taiwan?",
-            "answer": "Most have manufacturing ties to Taiwan, but not all. Brand pages separate founding, design, and manufacturing information."
+            "answer": "Not necessarily. Brand pages separate founding, design, and manufacturing information."
           }
         ],
         "guidance": "Compare cuff tightness, arch-support design, and any wash-cycle limits on odour-control treatments."
       },
       "beverages": {
-        "title": "Taiwan Beverage Brands | Juices, Kombucha & Everyday Drinks | Formoria",
-        "description": "Explore Taiwanese beverage brands, from juices and kombucha to functional drinks, organised by flavour and format.",
-        "h1": "Taiwan Beverage Brands",
+        "title": "Taiwanese beverage brands | Formoria",
+        "description": "Chilled or shelf-stable storage affects buying and shipping. Taiwanese brands for juice, kombucha, sparkling, and functional drinks.",
+        "h1": "Taiwanese beverage brands",
         "intro": "Juices, kombucha, sparkling drinks, and functional beverages; whether a product needs refrigeration affects both buying and shipping.",
         "definition": "Ingredients, calories, and storage vary by product. This subcategory does not replace food labelling or nutritional advice. Check the brand page for manufacturing and ingredient details.",
         "faq": [
@@ -1132,15 +1134,15 @@
           },
           {
             "question": "Can I buy beverages from Formoria?",
-            "answer": "No. Formoria is a brand discovery directory; visit the brand's own website or stockists to purchase."
+            "answer": "No. Formoria is a brand directory; visit the brand's own website or stockists to purchase."
           }
         ],
         "guidance": "Confirm storage method (refrigerated or ambient) and volume format; some products are seasonal limited batches."
       },
       "handbags": {
-        "title": "Taiwan Handbag Brands | Everyday Carry, Leather Goods & Design Bags | Formoria",
-        "description": "Explore Taiwanese handbag brands, from everyday carry to leather and design bags, organised by material and use.",
-        "h1": "Taiwan Handbag Brands",
+        "title": "Taiwanese handbag brands | Formoria",
+        "description": "Handle height and opening width decide how easy things are to reach. Taiwanese brands for handbags, briefcases, and everyday carry.",
+        "h1": "Taiwanese handbag brands",
         "intro": "Handbags, briefcases, and structured carry bags; handle height and opening width determine how easy it is to reach inside.",
         "definition": "Material, structure, and dimensions vary by brand. This subcategory does not guarantee water resistance or a specific function. Check the brand page for design, manufacturing, and care details.",
         "faq": [
@@ -1156,9 +1158,9 @@
         "guidance": "Compare handle height, closure type (zip or magnetic snap), and internal compartment layout."
       },
       "outerwear": {
-        "title": "Taiwan Outerwear Brands | Jackets, Windbreakers & Technical Layers | Formoria",
-        "description": "Explore Taiwanese outerwear brands, from jackets and windbreakers to sun-protection layers, organised by function and use.",
-        "h1": "Taiwan Outerwear Brands",
+        "title": "Taiwanese outerwear brands | Formoria",
+        "description": "When a jacket goes on and off all day, weight and packed size matter too. Taiwanese brands for jackets, windbreakers, and sun-protection layers.",
+        "h1": "Taiwanese outerwear brands",
         "intro": "Jackets, windbreakers, sun-protection layers, and technical shells; when you take a jacket on and off frequently, weight and pack size matter too.",
         "definition": "Wind, water, and warmth performance depend on fabric and construction. This subcategory does not endorse specific technical claims. Check the brand page for fabric specifications, origin, and care.",
         "faq": [
@@ -1174,10 +1176,10 @@
         "guidance": "Note wind and water resistance ratings, packed volume, and zipper or fastener durability."
       },
       "handmade-soap": {
-        "title": "Taiwan Handmade Soap Brands | Cold-Process, Hot-Process & Natural Bars | Formoria",
-        "description": "Explore Taiwanese handmade soap brands, from cold-process and hot-process bars to liquid soaps, organised by method and ingredient.",
-        "h1": "Taiwan Handmade Soap Brands",
-        "intro": "Cold-process, hot-process, and liquid handmade soaps; curing time and oil formulation are the main reasons for the price spread.",
+        "title": "Taiwanese handmade soap brands | Formoria",
+        "description": "Curing time and oil blend are where soap makers differ most. Taiwanese brands for cold-process, hot-process, and liquid soap.",
+        "h1": "Taiwanese handmade soap brands",
+        "intro": "Cold-process, hot-process, and liquid handmade soaps; curing time and oil formulation are where makers differ most.",
         "definition": "Ingredients, pH, and skin suitability vary by formula. This subcategory does not endorse cleansing effectiveness or skin-sensitivity claims. Check the brand page for ingredient lists and usage guidance.",
         "faq": [
           {
@@ -1192,10 +1194,10 @@
         "guidance": "Cold-process and hot-process soaps differ in curing time; the oil formula affects lather and moisture retention."
       },
       "bedding": {
-        "title": "Taiwan Bedding Brands | Sheets, Duvet Covers & Sleep Essentials | Formoria",
-        "description": "Explore Taiwanese bedding brands across sheets, duvet covers, pillows, and sleep essentials, organised by material and use.",
-        "h1": "Taiwan Bedding Brands",
-        "intro": "Sheets, duvet covers, pillows, and mattress protectors; Taiwan-standard and Japan-standard bed sizes differ by a few centimetres, enough to make a whole set not fit.",
+        "title": "Taiwanese bedding brands | Formoria",
+        "description": "Taiwan and Japan bed sizes differ, and the wrong one means a set that does not fit. Taiwanese brands for sheets, duvet covers, and pillows.",
+        "h1": "Taiwanese bedding brands",
+        "intro": "Sheets, duvet covers, pillows, and mattress protectors; Taiwan-standard and Japan-standard bed sizes differ, so the wrong one means a whole set that does not fit.",
         "definition": "Fabric, weave, and sizing specifications vary by brand. This subcategory does not endorse sleep-quality or allergy-protection claims. Check the brand page for fabric composition, care, and manufacturing details.",
         "faq": [
           {
@@ -1207,12 +1209,12 @@
             "answer": "Compare the brand's size chart with your mattress dimensions; common Taiwan sizes differ slightly from Japan and European standards."
           }
         ],
-        "guidance": "Confirm sheet sizing standards (Taiwan and Japan sizes differ by three to five centimetres) and how the weave affects feel."
+        "guidance": "Confirm whether sheets follow Taiwan or Japan sizing (the two differ) and how the weave affects feel."
       },
       "leather-shoes": {
-        "title": "Taiwan Leather Shoe Brands | Handmade, Loafers & Dress Footwear | Formoria",
-        "description": "Explore Taiwanese leather shoe brands, from handmade pairs to loafers and dress shoes, organised by leather type and last shape.",
-        "h1": "Taiwan Leather Shoe Brands",
+        "title": "Taiwanese leather shoe brands | Formoria",
+        "description": "Leather stiffness and last width only show once you put them on. Taiwanese brands for handmade shoes, loafers, derbies, and oxfords.",
+        "h1": "Taiwanese leather shoe brands",
         "intro": "Handmade leather shoes, loafers, derbies, and oxfords; leather softness and last width only reveal themselves once you step in.",
         "definition": "Leather source, construction method, and last shape vary by brand. This subcategory does not endorse material grade or longevity. Check the brand page for production details and origin.",
         "faq": [
@@ -1228,9 +1230,9 @@
         "guidance": "Compare leather softness, last width, and construction method (cemented, Goodyear welt, hand-sewn)."
       },
       "fragrance": {
-        "title": "Taiwan Fragrance Brands | Eau de Toilette, Parfum & Personal Scent | Formoria",
-        "description": "Explore Taiwanese fragrance brands, from eau de toilette and parfum to solid balms, organised by concentration and scent profile.",
-        "h1": "Taiwan Fragrance Brands",
+        "title": "Taiwanese fragrance brands | Formoria",
+        "description": "Concentration sets how long a scent lasts, though body temperature and surroundings change it. Taiwanese brands for eau de toilette, eau de parfum, and solid balms.",
+        "h1": "Taiwanese fragrance brands",
         "intro": "Eau de toilette, eau de parfum, and solid balms; concentration determines longevity, but actual performance varies with body temperature and surroundings.",
         "definition": "Scent descriptions and lasting power depend on individual body chemistry and environment. This subcategory does not endorse longevity or allergy claims. Check the brand page for ingredients and usage guidance.",
         "faq": [
@@ -1243,12 +1245,12 @@
             "answer": "Formoria does not offer sampling; visit the brand's official website or stockists for trial options."
           }
         ],
-        "guidance": "Eau de toilette and eau de parfum differ in concentration and longevity; actual performance varies with body temperature and environment."
+        "guidance": "Tell eau de toilette and eau de parfum apart by concentration; when testing, wait a while before smelling again."
       },
       "dresses": {
-        "title": "Taiwan Dress Brands | Everyday Dresses, Occasion Wear & Design Cuts | Formoria",
-        "description": "Explore Taiwanese dress brands, from everyday dresses to occasion wear, organised by silhouette and style.",
-        "h1": "Taiwan Dress Brands",
+        "title": "Taiwanese dress brands | Formoria",
+        "description": "The same dress reads differently with different shoes. Taiwanese brands for everyday and occasion dresses.",
+        "h1": "Taiwanese dress brands",
         "intro": "Dresses, frocks, and cover-ups; the same dress paired with different shoes shifts its formality entirely.",
         "definition": "Silhouette, fabric, and occasion vary by brand. This subcategory does not assume a manufacturing location or a particular style. Check the brand page for sizing, fabric, and origin.",
         "faq": [
@@ -1264,9 +1266,9 @@
         "guidance": "Note bust, waistline placement, and hem length; fit at the same nominal size varies widely between brands."
       },
       "face-masks": {
-        "title": "Taiwan Face Mask Brands | Sheet Masks, Clay & Overnight Treatments | Formoria",
-        "description": "Explore Taiwanese face mask brands, from sheet masks and clay packs to overnight treatments, organised by type and use.",
-        "h1": "Taiwan Face Mask Brands",
+        "title": "Taiwanese face mask brands | Formoria",
+        "description": "How long to leave it on and whether it works overnight are in each brand's instructions. Taiwanese brands for sheet, gel, clay, and overnight masks.",
+        "h1": "Taiwanese face mask brands",
         "intro": "Sheet masks, gel masks, clay packs, and overnight treatments; how long to leave one on and whether it can stay overnight is stated in the brand's directions.",
         "definition": "Ingredients and skin suitability vary by product. This subcategory does not endorse hydration, brightening, or repair claims. Check the brand page for ingredient lists and usage directions.",
         "faq": [
@@ -1282,9 +1284,9 @@
         "guidance": "Compare format (sheet, gel, clay), recommended application time, and how irritating the active ingredients may be."
       },
       "wall-art": {
-        "title": "Taiwan Illustration & Wall Art Brands | Prints, Canvases & Original Work | Formoria",
-        "description": "Explore Taiwanese illustration and wall art brands, from prints and frameless canvases to original artwork, organised by style and format.",
-        "h1": "Taiwan Illustration & Wall Art Brands",
+        "title": "Taiwanese illustration and wall art brands | Formoria",
+        "description": "Before hanging, check the size of the piece and what the wall can hold. Taiwanese brands for prints, frameless canvases, posters, and original illustration.",
+        "h1": "Taiwanese illustration and wall art brands",
         "intro": "Prints, frameless canvases, posters, and original illustrations; check the piece's dimensions and your wall's load capacity before hanging.",
         "definition": "Material, framing, and edition limits vary by brand. This subcategory does not endorse authenticity or collectible value. Check the brand page for creation details, framing advice, and edition information.",
         "faq": [
@@ -1300,10 +1302,10 @@
         "guidance": "Confirm dimensions, framing style (framed or unframed), and whether the piece is a limited edition."
       },
       "cookies-and-rice-crackers": {
-        "title": "Taiwan Cookie & Rice Cracker Brands | Egg Rolls, Puffed Rice & Baked Snacks | Formoria",
-        "description": "Explore Taiwanese cookie and rice cracker brands, from egg rolls and puffed rice to artisan biscuits, organised by flavour and method.",
-        "h1": "Taiwan Cookie & Rice Cracker Brands",
-        "intro": "Egg rolls, rice crackers, puffed rice, and artisan biscuits; shelf life ranges from two weeks to six months, so check the date before buying.",
+        "title": "Taiwanese cookie and rice cracker brands | Formoria",
+        "description": "Shelf life varies a lot, so check the date before buying. Taiwanese brands for egg rolls, rice crackers, puffed rice, and artisan cookies.",
+        "h1": "Taiwanese cookie and rice cracker brands",
+        "intro": "Egg rolls, rice crackers, puffed rice, and artisan biscuits; shelf life varies a lot, so check the date before buying.",
         "definition": "Ingredients, allergens, and storage vary by product. This subcategory does not replace food labelling. Check the brand page for origin and ingredient details.",
         "faq": [
           {
@@ -1318,9 +1320,9 @@
         "guidance": "Note the wide range in shelf life, and check for allergen and manufacturing-origin labelling."
       },
       "sandals-and-slippers": {
-        "title": "Taiwan Sandal & Slipper Brands | Summer Footwear, Mules & Indoor Slides | Formoria",
-        "description": "Explore Taiwanese sandal and slipper brands, from summer sandals and mules to indoor slides, organised by wear and occasion.",
-        "h1": "Taiwan Sandal & Slipper Brands",
+        "title": "Taiwanese sandal and slipper brands | Formoria",
+        "description": "Indoor and outdoor pairs need very different soles. Taiwanese brands for sandals, slippers, mules, and flip-flops.",
+        "h1": "Taiwanese sandal and slipper brands",
         "intro": "Sandals, slippers, mules, and flip-flops; sole firmness differs drastically between indoor and outdoor wear.",
         "definition": "Structure, sole material, and intended setting vary by brand. This subcategory does not endorse slip resistance or durability. Check the brand page for materials, origin, and sizing guidance.",
         "faq": [
@@ -1336,9 +1338,9 @@
         "guidance": "Compare sole firmness (indoor and outdoor differ greatly), strap fastening method, and slip resistance."
       },
       "bracelets-and-bangles": {
-        "title": "Taiwan Bracelet & Bangle Brands | Woven, Metalwork & Daily Wristwear | Formoria",
-        "description": "Explore Taiwanese bracelet and bangle brands, from woven cords to metalwork cuffs, organised by material and design.",
-        "h1": "Taiwan Bracelet & Bangle Brands",
+        "title": "Taiwanese bracelet and bangle brands | Formoria",
+        "description": "Inner diameter and clasp type decide whether you can put one on single-handed. Taiwanese brands for bracelets, bangles, and cords.",
+        "h1": "Taiwanese bracelet and bangle brands",
         "intro": "Bracelets, bangles, and woven cords; inner diameter and clasp type determine whether you can put one on single-handedly.",
         "definition": "Material, clasp mechanism, and sizing vary by brand. This subcategory does not endorse allergy or water-resistance properties. Check the brand page for specifications and production details.",
         "faq": [
@@ -1354,9 +1356,9 @@
         "guidance": "Confirm inner diameter and clasp type, and check whether the material tolerates daily water contact."
       },
       "essential-oils-and-hydrosols": {
-        "title": "Taiwan Essential Oil & Hydrosol Brands | Plant Extracts, Aromatherapy & Natural Care | Formoria",
-        "description": "Explore Taiwanese essential oil and hydrosol brands, from single-origin oils to floral waters, organised by plant source and use.",
-        "h1": "Taiwan Essential Oil & Hydrosol Brands",
+        "title": "Taiwanese essential oil and hydrosol brands | Formoria",
+        "description": "Hydrosol is a by-product of distilling essential oil, so the two often come from the same brand. Taiwanese brands for single oils, blends, and floral waters.",
+        "h1": "Taiwanese essential oil and hydrosol brands",
         "intro": "Single oils, blends, and floral hydrosols; a hydrosol is the water-phase by-product of essential-oil distillation, and the two often come from the same brand.",
         "definition": "Quality, concentration, and suitability vary by product. This subcategory does not endorse therapeutic or safety claims. Check the brand page for extraction methods, origin, and usage guidance.",
         "faq": [
@@ -1374,6 +1376,7 @@
     }
   },
   "legal": {
+    "onThisPage": "On this page",
     "terms": {
       "metadata": {
         "title": "Terms of Service",
@@ -1383,20 +1386,20 @@
       "intro": "Thank you for using Formoria. By using this platform, you agree to the following terms. Please read carefully before providing brand information.",
       "lastUpdated": "Last updated: August 2026",
       "contentOwnership": {
-        "heading": "Content Ownership",
+        "heading": "Content ownership",
         "body": "Brand information you provide to Formoria (including name, description, images, links, etc.) must be content you legally own or have the right to use. By providing it, you grant Formoria a non-exclusive, royalty-free license to display and promote the content on this platform for the purpose of showcasing Taiwanese brands."
       },
       "dataUse": {
-        "heading": "Data Usage",
+        "heading": "Data use",
         "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
       },
       "automatedAccess": {
-        "heading": "Automated Access and Data Extraction",
+        "heading": "Automated access and data extraction",
         "body": "Ordinary browsing, approved search-engine indexing, and citation that attributes Formoria and links back to the source page all remain permitted. Beyond that, and without our prior written permission, you may not use automated means to extract the directory in bulk, replicate or redistribute all or a substantial part of our dataset, clone the directory into a competing or commercial service, republish our editorial brand descriptions at scale, use our content to train or fine-tune AI models, circumvent rate limits, access controls, or bot challenges, or use source images beyond the license their owners granted to Formoria.",
-        "bodyDetail": "Automated clients must respect the machine-readable signals we publish at /robots.txt, which permit search indexing and answer-time citation while declining AI training. For research collaborations, licensing, or bulk dataset access, contact hello@formoria.com — we review these requests case by case."
+        "bodyDetail": "Automated clients must respect the machine-readable signals we publish at /robots.txt, which permit search indexing and answer-time citation while declining AI training. For research collaborations, licensing, or bulk dataset access, email <hello>hello@formoria.com</hello>. We review these requests case by case."
       },
       "reviewProcess": {
-        "heading": "Brand Review Process",
+        "heading": "Brand review process",
         "body": "New brand recommendations are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the person who provided it. Approval does not constitute endorsement or certification of the brand by Formoria."
       },
       "disclaimer": {
@@ -1404,8 +1407,8 @@
         "body": "Formoria provides this service as-is and makes no warranties regarding the completeness, accuracy, or timeliness of content on the platform. Formoria is not liable for any direct or indirect losses arising from the use of this platform."
       },
       "changes": {
-        "heading": "Changes to Terms",
-        "body": "Formoria reserves the right to modify these terms at any time. Significant changes will be announced on the platform. Continued use of the service constitutes acceptance of the updated terms. If you have questions, please contact us via the contact page."
+        "heading": "Changes to these terms",
+        "body": "Formoria reserves the right to modify these terms at any time. Significant changes will be announced on the platform. Continued use of the service constitutes acceptance of the updated terms. If you have questions, email <hello>hello@formoria.com</hello>."
       }
     },
     "privacy": {
@@ -1414,190 +1417,193 @@
         "description": "Learn how Formoria collects, processes, and uses your personal data in compliance with Taiwan's Personal Data Protection Act."
       },
       "title": "Privacy Policy",
-      "intro": "Formoria values your privacy. This policy explains how we collect, process, and use your personal data in accordance with Taiwan's Personal Data Protection Act (個人資料保護法).",
+      "intro": "This policy explains how we collect, process, and use your personal data in accordance with Taiwan's Personal Data Protection Act.",
       "lastUpdated": "Last updated: July 2026",
       "dataCollection": {
-        "heading": "Data Collection",
-        "body": "When you use Formoria, we may collect your email address and optional name when you recommend a brand, provide brand details, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We collect browsing and product-usage events through PostHog and continue collecting Google Analytics data. Analytics events record the words you type into site search, so we can see what visitors are looking for and add the brands they cannot find; a search that looks like an email address or a phone number is not recorded at all. Analytics events exclude form values, names, email addresses, phone numbers, authentication codes, and tokens."
+        "heading": "Data collection",
+        "body": "When you use Formoria, we may collect your email address and optional name when you recommend a brand, provide brand details, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We record browsing and usage events with PostHog and Google Analytics 4. Analytics events record the words you type into site search, so we can see what visitors are looking for and add the brands they cannot find; a search that looks like an email address or a phone number is not recorded at all. Analytics events exclude form values, names, email addresses, phone numbers, authentication codes, and tokens."
       },
       "purpose": {
-        "heading": "Purpose of Use",
+        "heading": "Purpose of use",
         "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send recommendation, claim, verification, security, and account-related notices. We send the newsletter only after separate consent, and you can turn it off at any time. Declining marketing email does not affect brand recommendations, account creation, or core service access."
       },
       "thirdParty": {
-        "heading": "Third-Party Services",
+        "heading": "Third-party services",
         "body": "To provide our service, we use the following third-party providers: Supabase (database and authentication, servers in the US), Resend (email delivery, data may be processed in the US), PostHog and Google Analytics 4 (website analytics, data processed in the US), Sentry (error monitoring, data processed in the US), Cloudflare Turnstile (bot protection), and Railway (web hosting, servers in the US). We do not sell your personal data to third parties. Data is shared only to the extent necessary to provide our services."
       },
       "userRights": {
-        "heading": "Your Rights",
-        "body": "Under Article 3 of the Personal Data Protection Act, you have the right to: query or request access to your personal data, request a copy, request corrections or supplements, request cessation of collection, processing, or use, and request deletion. To exercise any of these rights, please contact privacy@formoria.com. We will respond to your request within 30 days."
+        "heading": "Your rights",
+        "body": "Under Article 3 of the Personal Data Protection Act, you have the right to: query or request access to your personal data, request a copy, request corrections or supplements, request cessation of collection, processing, or use, and request deletion. To exercise any of these rights, please contact <privacy>privacy@formoria.com</privacy>. We will respond to your request within 30 days."
       },
       "dataProtection": {
-        "heading": "Data Protection",
+        "heading": "Data protection",
         "body": "We protect personal data with HTTPS, access controls, and regular security reviews. Brand data is retained while the brand is listed, account data while the account remains active, and marketing-consent records until you withdraw consent or request deletion. After an unsubscribe request, we may retain a minimal suppression record so we do not send marketing email you have declined."
       },
       "cookies": {
-        "heading": "Cookies and Tracking",
+        "heading": "Cookies and tracking",
         "body": "This website uses PostHog and Google Analytics 4 to record page views and usage events. PostHog is delivered through our e.formoria.com analytics endpoint, does not retain IP addresses, and has session replay disabled. Cloudflare Turnstile uses session cookies for bot detection to protect forms from spam. We do not use advertising cookies."
       },
       "changes": {
-        "heading": "Policy Changes",
+        "heading": "Policy changes",
         "body": "We may update this privacy policy from time to time. Material changes will be posted on this page with an updated \"Last updated\" date. Your continued use of the service after changes are posted constitutes acceptance of the updated policy."
       },
       "contact": {
-        "heading": "Contact Us",
-        "body": "If you have any questions about this privacy policy or wish to exercise your personal data rights, please contact: privacy@formoria.com. We will respond to your request within 30 days as required by the Personal Data Protection Act."
+        "heading": "Contact us",
+        "body": "If you have any questions about this privacy policy or wish to exercise your personal data rights, please contact: <privacy>privacy@formoria.com</privacy>. We will respond to your request within 30 days as required by the Personal Data Protection Act."
       }
     }
   },
   "faq": {
     "metadata": {
       "title": "FAQ",
-      "description": "Frequently asked questions about Formoria's Taiwanese brand discovery and curation platform, including listings versus selections, online stores and stockists, trust tiers, recommendations, and the review process."
+      "description": "Answers about Formoria: listed brands versus Formoria Selections, where to buy, how to recommend a brand, and how long review takes."
     },
-    "title": "Frequently Asked Questions",
-    "intro": "Inclusion rules, curation labels, where to buy — the questions we are asked most, gathered here. If the answer is not here, please <contact>contact us</contact>.",
+    "title": "Frequently asked questions",
+    "intro": "Answers to the questions we hear most about listing rules, selection labels, and where to buy. Can't find yours? <contact>Contact us</contact>.",
     "sections": {
       "navigation": "FAQ sections",
-      "general": "General"
+      "listing": "Listing and selections",
+      "review": "Recommendations and review",
+      "more": "Buying and more"
     },
     "items": {
       "whatIsFormoria": {
         "question": "What is Formoria?",
-        "answer": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists; content selected by Formoria is labelled separately."
+        "answer": "Formoria is a Taiwanese brand discovery and curation platform. It starts from a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists. Anything Formoria selects is labeled separately."
       },
       "listingVsSelection": {
         "question": "What is the difference between a listed brand and a Formoria Selection?",
-        "answer": "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, labelled separately and described for what it is and where to order it from the brand."
+        "answer": "A listed brand meets the listing rules and can be found in the directory. Listing does not mean Formoria recommends, certifies, or ranks it. A Formoria Selection is a product our editors chose on purpose for a particular situation. It is labeled separately, and the reason for choosing it is written out."
       },
       "purchaseThroughFormoria": {
-        "question": "Can I purchase through Formoria?",
-        "answer": "No. Formoria owns inspiration, selection, context, and the outbound route; it does not accept orders or process checkout. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
+        "question": "Can I buy through Formoria?",
+        "answer": "No. Formoria does not take orders or handle checkout. Price, variants, stock, shipping, and after-sales service are up to the brand or the store selling it. Our job is to help you find it, then hand you to the brand."
       },
       "whoCanSubmit": {
         "question": "Who can recommend a brand?",
-        "answer": "Anyone can recommend a brand — you do not need to be the owner."
+        "answer": "Anyone can recommend a brand. You do not need to be the brand owner."
       },
       "taiwaneseBrandCriteria": {
-        "question": "What counts as a Taiwanese brand?",
-        "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company founded in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome recommendations from brand owners, fans, and community members alike."
+        "question": "Which brands qualify for listing?",
+        "answer": "A brand qualifies if it was founded, designed, or made in Taiwan. Any one of the three is enough. For example, a company founded in Taipei qualifies under \"founded\"; a studio that designs in Taiwan and manufactures overseas qualifies under \"designed\"; a workshop making goods in Yingge qualifies under \"made\". Brand owners and fans alike can recommend one."
       },
       "notListedBrands": {
         "question": "What kinds of brands are not listed?",
         "answer": "Formoria lists brands with their own products, so we do not list proxy buyers, curated or multi-brand shops without a product line of their own, platforms and retailers, media and review sites, importers of foreign brands, or personal accounts offering only services or digital goods. A curated shop that makes its own product line, or a creator with their own physical products, does qualify."
       },
       "madeInTaiwanBadge": {
-        "question": "What does the Made in Taiwan badge mean?",
-        "answer": "The badge applies only to the product where it appears. Formoria awards it when a fresh official registry record matches that product exactly, or when both automated checks confirm that the product is made in Taiwan and all primary materials come from Taiwan."
+        "question": "What does \"Made in Taiwan\" on a product mean?",
+        "answer": "\"Made in Taiwan\" applies only to the product it appears on. We show it when the product matches a current record in the MIT Smile registry run by Taiwan's Ministry of Economic Affairs, or when checks confirm it is made in Taiwan and its main materials come from Taiwan. A brand's own account of where it makes things is shown as \"Brand declared\": that is the brand's claim, and Formoria has not checked it. Listing review only confirms that a brand exists and meets the listing rules; it does not judge where products are made."
       },
       "howToSubmit": {
         "question": "How do I recommend a brand to Formoria?",
-        "answer": "Anyone can share a brand through our recommendation form. Go to Recommend a Brand, provide the brand name and an official link, and the Formoria team will review it. There is no fee; we check that the information is complete, the brand exists, and it has a genuine connection to Taiwan."
+        "answer": "Anyone can recommend a brand. Open the recommendation form, enter the brand name and an official link, and send it; Formoria will review it. Recommending is free. The review checks that the information is complete, the brand exists, and it has a real connection to Taiwan."
       },
       "reviewTime": {
-        "question": "How long does the brand review take?",
-        "answer": "Brand reviews generally take about 7 business days. We check that the brand exists, the information is complete, and it meets our inclusion criteria. Approved brands then appear in the directory; if information is missing, we may contact the person who recommended it by email."
+        "question": "How long does review take?",
+        "answer": "Review usually takes about 7 business days. We check that the brand exists, the information is complete, and it meets the listing rules. Once approved, the brand appears in the directory. If information is missing, we may email the person who recommended it."
       },
       "dataAccuracy": {
-        "question": "How is the accuracy of brand information ensured?",
-        "answer": "Formoria collects brand information through community contributions and public sources, and our admin team performs an initial review before a listing goes live. If any brand information is incorrect or outdated, tell us through the correction report on the brand page or the contact details in the footer, and we'll address it promptly."
+        "question": "What if brand information is wrong?",
+        "answer": "Brand information comes from recommendations and public sources, and we check it before it goes live. If something is wrong or out of date, use \"Report incorrect information\" on the brand page, or contact us from the footer."
       },
       "isBrandFree": {
-        "question": "Is it free to list a brand on Formoria?",
-        "answer": "Yes. Recommending a brand to Formoria is free, and brand owners, fans, and community members are all welcome to help build the Taiwanese brand directory."
+        "question": "Does it cost anything to be listed?",
+        "answer": "No. Recommending and listing are both free, and paying never changes listing or ranking."
       },
       "whatCategories": {
-        "question": "What product categories does Formoria cover?",
-        "answer": "Formoria covers twelve categories: Fashion & Apparel, Bags & Accessories, Jewelry, Beauty & Personal Care, Home & Living, Food & Beverage, Stationery & Design, Tech & Electronics, Outdoor & Camping, Sports & Fitness, Kids & Baby, and Pets."
+        "question": "Which categories does Formoria cover?",
+        "answer": "{count, plural, one {# category is} other {# categories are}} open for browsing: {categories}. More will open as their brands are reviewed."
       },
       "languageSupport": {
         "question": "Is Formoria available in English?",
-        "answer": "Yes. Formoria is available in Traditional Chinese (zh-TW) and English — switch languages from the navigation bar."
-      },
-      "howVerified": {
-        "question": "How does brand verification work?",
-        "answer": "Listing review checks that a brand exists and meets our inclusion criteria. Manufacturing signals are separate: MIT Verified is matched to the official MIT Smile registry, while MIT Declared records the scope stated by the brand owner."
+        "answer": "Yes. Formoria is available in Traditional Chinese and English. Switch languages from the navigation bar."
       },
       "contact": {
         "question": "How do I contact the Formoria team?",
-        "answer": "For any questions, suggestions, or partnership inquiries, visit our <link>contact page</link> to pick the right channel. Our team typically responds within 2–3 business days."
+        "answer": "For questions, suggestions, or partnerships, visit the <link>contact page</link> and pick a channel. We usually reply within 2–3 business days."
       }
     }
   },
   "contact": {
     "metadata": {
       "title": "Contact us",
-      "description": "Report a problem, request a feature, or fix brand data — find the right way to reach the Formoria team."
+      "description": "Report a site problem, fix brand information, or ask a general question: find the right way to reach the Formoria team."
     },
     "hero": {
       "eyebrow": "Contact Formoria",
-      "title": "Find the right way to reach us",
-      "intro": "Different questions have different fastest paths. Pick a channel below and we'll get back to you."
+      "title": "Pick the right channel to reach us",
+      "intro": "Pick the channel that fits your question. We usually reply within 2–3 business days."
     },
     "channels": {
       "problem": {
         "title": "Report a problem",
-        "body": "Something broken, a page that won't load, or an error message while using the site? Email us — a page URL and a screenshot help us fix it faster.",
-        "cta": "Email us"
+        "body": "Something broken, a page that won't load, or an error message? Email us. A page URL and a screenshot help us fix it faster.",
+        "cta": "Email us",
+        "copy": "Copy address",
+        "copied": "Copied"
       },
       "brand": {
-        "title": "Something wrong with a brand",
-        "body": "Every brand page has its own report and correction dialogs. Submitting there goes straight into our review queue, which is faster than email.",
-        "cta": "Browse brands"
+        "title": "Wrong brand information",
+        "body": "Use \"Report incorrect information\" on the brand page. It goes straight to review, which is faster than email.",
+        "cta": "Find the brand"
       },
       "question": {
         "title": "General questions",
-        "body": "Listing criteria, review times, and how to claim a brand page are already answered on our FAQ.",
+        "body": "Listing criteria, review times, and where to buy are mostly answered in the FAQ.",
         "cta": "Read the FAQ"
       }
     }
   },
   "about": {
     "metadata": {
-      "title": "About Formoria",
-      "description": "Why Formoria exists: four broken paths, and how we connect them. From one thing you love, to its brand, its story, and the place you can buy it."
+      "title": "About",
+      "description": "Formoria is a Taiwanese brand discovery and curation platform: from one thing you love, to its brand, its story, and the place you can buy it. Here is how we list, how we select, and what we never do."
     },
     "hero": {
-      "title": "Moving into a new home, setting up a shop,\nstopping at a market stall",
-      "subtitle": "Something you love shouldn't stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
-      "statsBrands": "brands",
-      "statsCategories": "categories",
-      "recentWeek": "new brands",
-      "recentMonth": "new brands",
-      "cta": "Explore brands"
+      "title": "Moving into a new home, styling a shop,<br></br> the moment you stop at a market stall",
+      "subtitle": "The things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+      "statsBoth": "Formoria lists {brands, plural, one {# brand} other {# brands}} across {categories, plural, one {# category} other {# categories}}.",
+      "statsBrands": "Formoria lists {count, plural, one {# brand} other {# brands}}.",
+      "statsCategories": "Brands are sorted into {count, plural, one {# category} other {# categories}}.",
+      "recentWeek": "{count, plural, one {# brand} other {# brands}} added in the last 7 days.",
+      "recentMonth": "{count, plural, one {# brand} other {# brands}} added in the last 30 days.",
+      "cta": "Browse products",
+      "directoryPrefix": "or",
+      "directoryCta": "see the brand directory"
     },
     "scenes": {
-      "heading": "Four paths that break",
+      "heading": "Four familiar moments",
       "items": {
         "intention": {
-          "scene": "Moving into a new home, wanting one corner of the living room to feel different — and ending up in IKEA again.",
-          "detail": "There is no place to browse Taiwanese things by taste, occasion, or budget, so the convenient default wins."
+          "scene": "Moving into a new home, wanting one corner of the living room to feel different, and ending up in IKEA again.",
+          "detail": "A search turns up mostly marketplaces and price-comparison pages. Few places lay out Taiwanese things by room, occasion, or budget."
         },
         "encounter": {
-          "scene": "Meeting a brand you love at a design fair, then losing the thread on the way home.",
-          "detail": "The moment leaves nothing behind. Later, all that is left is a vague impression."
+          "scene": "Stopping at a stall at a design fair and holding a desk lamp for a long time.",
+          "detail": "Back home, the phone holds one blurry photo of the stall, and the brand's name is unreadable."
         },
         "alternatives": {
-          "scene": "Finding a cup you like, without knowing what else is out there.",
-          "detail": "Similar Taiwanese products live on scattered sites, with no way to see them side by side."
+          "scene": "Picking out a cup you like, to give as a gift.",
+          "detail": "Before ordering, a dozen tabs open on similar cups. Each brand's site describes only itself, so nothing sits side by side."
         },
         "adjacent": {
-          "scene": "Liking how one brand works, and wanting to know others that work the same way.",
-          "detail": "Loving one brand leads nowhere; brands with the same spirit are invisible to each other."
+          "scene": "Carrying the same brand's canvas bag for years, and starting to notice how it chooses materials and makes things.",
+          "detail": "Plenty of Taiwanese brands work with the same care, but each runs on its own, and they rarely appear in one place."
         }
       }
     },
     "loop": {
       "heading": "Connecting the path",
-      "body1": "Formoria is a directory of Taiwanese brands — not a shop, not a platform, not a magazine. We gather what is known about each brand, sort it, and put it in one place, so you can look by what you actually need.",
+      "body1": "Formoria is a Taiwanese brand discovery and curation platform. We don't sell anything, and we aren't a magazine: we gather and sort what is known about Taiwanese brands so you can look by what you need, and the few products we pick ourselves are marked Formoria Selection.",
       "body2": "From one thing you love, you can reach the brand that makes it, read how it came to be, and go to the place that sells it. That path used to break. We connect it.",
-      "pullQuote": "Formoria never owns the transaction. We connect liking something to the place that sells it, and hand you over to the brand.",
+      "pullQuote": "Formoria never handles the sale. We connect what you love to the place you can buy it, then hand you over to the brand.",
       "brandHeading": "For brands",
-      "brandBody": "Taiwan makes a great deal of good work, scattered across separate worlds and hard to find. Formoria gathers these brands so the right people can find them, get to know them, and go to the brand's own website or a stockist. We take no commission and sell nothing ourselves — we get good things seen, and sold."
+      "brandBody": "Taiwan's good work is scattered across brands' own sites, markets, and social accounts. Formoria gathers these brands into one directory, so people looking can find them by category and go on to the brand's own site or a stockist. We take no commission and sell nothing ourselves."
     },
     "taiwanStats": {
       "heading": "The scale of Taiwan's small businesses",
-      "intro": "The people we work for are the largest and quietest part of Taiwan's economy.",
+      "intro": "Most Taiwanese brands are small and medium-sized businesses.",
       "items": {
         "count": {
           "value": "1.674M+",
@@ -1605,15 +1611,14 @@
         },
         "share": {
           "value": "98%",
-          "label": "of all businesses"
+          "label": "of all businesses are SMEs"
         },
         "employment": {
           "value": "Nearly 80%",
-          "label": "of national employment, at SMEs"
+          "label": "of workers are employed by SMEs"
         }
       },
-      "sourceLabel": "Source",
-      "sourceName": "SME White Paper 2024, SME & Startup Administration, MOEA (2023 data)"
+      "source": "Source: <link>SME White Paper 2024, SME & Startup Administration, MOEA (2023 data)</link>"
     },
     "stance": {
       "heading": "How we work",
@@ -1623,22 +1628,24 @@
           "body": "Price, options, stock, checkout, shipping, and after-sales all belong to the brand. Formoria takes no orders and holds no inventory."
         },
         "noPayToWin": {
-          "lead": "Paying changes no order.",
-          "body": "Payment does not affect whether a brand is listed, what gets selected, or the order things appear in. Paid or commercial content is always labelled and kept separate."
+          "lead": "Payment buys no placement.",
+          "body": "Payment does not affect whether a brand is listed, what gets selected, or the order things appear in. Paid or commercial content is always labeled and kept separate."
         },
         "incomplete": {
-          "lead": "What is here is selected, not everything.",
-          "body": "The directory lists every brand that meets the published rules. A selection is a separate thing — the few we deliberately chose and gave a reason for. Not finding something here does not mean it does not exist."
+          "lead": "Not finding it here doesn't mean it doesn't exist.",
+          "body": "The directory lists brands that meet the published rules, and it is still growing. A selection is something else: the few products we chose on purpose and wrote a reason for."
         },
         "judgment": {
-          "lead": "The judgement is ours, and we show it.",
-          "body": "Formoria has a point of view and writes down the reasoning behind a choice, rather than posing as a neutral database."
+          "lead": "The judgment is ours, and we show it.",
+          "body": "Formoria has a point of view and writes down the reasoning behind each choice. We don't pose as a neutral database."
         }
       }
     },
     "guide": {
-      "heading": "Ready to explore Taiwanese brands?",
-      "cta": "Browse brands"
+      "heading": "Start from a situation",
+      "cta": "Browse styles",
+      "directoryPrefix": "or",
+      "directoryCta": "see the brand directory"
     }
   },
   "auth": {
@@ -1853,254 +1860,103 @@
   },
   "submit": {
     "metadata": {
-      "title": "Recommend a Brand",
-      "description": "Recommend a Taiwanese brand worth discovering; approved brands join the Formoria directory"
+      "title": "Recommend a brand",
+      "description": "Recommend a Taiwanese brand to Formoria. Once approved, it's added to the brand directory."
     },
     "overview": {
-      "heading": "Recommend a Taiwanese Brand",
-      "description": "Share a Taiwanese brand with the community — recommend one you love and we will review it for the directory.",
+      "heading": "Recommend a Taiwanese brand",
+      "description": "Recommend a Taiwanese brand you like, and we’ll review it for the brand directory.",
       "recommendEyebrow": "Community recommendation",
       "recommendTitle": "Recommend a brand worth discovering",
-      "recommendDescription": "Best for shoppers, fans, and friends. Just share the brand name and a URL so we can start reviewing it.",
-      "recommendPoint1": "Open to guests with no sign-in gate",
-      "recommendPoint2": "Only asks for the basics",
-      "recommendPoint3": "Approved brands are added to Formoria",
+      "recommendDescription": "Regular customers, friends, and brand owners can all use this form.",
+      "recommendPoint1": "No account needed",
+      "recommendPoint2": "Just the brand name and a link",
+      "recommendPoint3": "Approved brands join the brand directory",
       "recommendCta": "Recommend a brand",
-      "ownerEyebrow": "Brand owner",
-      "ownerComingSoon": "Coming soon",
-      "ownerTitle": "Start your brand management flow",
-      "ownerDescription": "Best for founders, operators, and brand teams. After approval, we’ll be in touch about managing the listing.",
-      "ownerPoint1": "Provide core brand details and representative links",
-      "ownerPoint2": "Submit your brand for review, and we’ll be in touch once it’s approved",
-      "ownerPoint3": "Once the page is listed on Formoria, you keep the brand’s details up to date",
-      "ownerCtaLoggedIn": "Build my brand page"
-    },
-    "wizard": {
-      "heading": "Recommend a Brand",
-      "subheading": "Share a Taiwanese brand with the community",
-      "next": "Next",
-      "submitting": "Sending...",
-      "submitBrand": "Send Recommendation",
-      "steps": {
-        "brandInfo": "Brand Info",
-        "tags": "Categories & Values",
-        "products": "Products",
-        "links": "Links",
-        "review": "Review"
-      }
-    },
-    "url": {
-      "heading": "Recommend a brand you love",
-      "subheading": "Share a Taiwanese brand with the community",
-      "label": "Brand Website URL",
-      "socialLinksLabel": "Social Links",
-      "addLink": "Add link",
-      "purchaseWebsite": "Official Website",
-      "purchaseShopee": "Shopee",
-      "urlInvalid": "Please enter a valid URL.",
-      "loading": "Fetching brand information...",
-      "cancel": "Cancel",
-      "retry": "Try again",
-      "skip": "Skip, fill in manually"
+      "ownerNote": "Own the brand? Use this form for now. After approval, we’ll be in touch about managing the listing."
     },
     "attribution": {
       "bought_product": "Bought their products",
       "saw_at_market": "Saw at a market or a stockist",
       "found_online": "Found online",
       "friend_recommended": "Friend recommended",
-      "work_there": "Work there"
+      "work_there": "I work for this brand"
     },
-    "city": "Brand founding city",
-    "cityPlaceholder": "Select the founding county/city (optional)",
     "fields": {
-      "brandName": "Brand Name",
-      "brandNamePlaceholder": "e.g. Rain Boot Studio",
-      "heroImage": "Brand Hero Image",
-      "heroImageHelper": "Optional — an image you provide is used directly; if there is none, we'll search automatically (quality not guaranteed).",
-      "heroImageDescription": "Recommended: upload your brand logo or a representative product photo",
-      "productPhotos": "Product Photos",
-      "productPhotosHelper": "Optional — up to 5 product photos to help us understand this brand better.",
-      "suggestedName": "Suggested name:",
-      "applySuggestion": "Apply",
-      "brandDescription": "Brand Description",
-      "brandDescriptionPlaceholder": "Tell us what this brand makes…",
-      "brandDescriptionHint": "Write a specific, verifiable description (at least 40 characters) — what the brand makes, which materials it uses, and how it is founded, designed, or made in Taiwan.",
-      "mitSmileMarkNumber": "MIT Smile mark number",
-      "mitSmileMarkNumberPlaceholder": "e.g. 01200024-02134",
-      "mitSmileMarkNumberHint": "After verification, the brand page will show a MIT Smile certification tag.",
-      "charCount": "{count} / {max} max characters",
-      "photos": "Brand Photos",
-      "photosDragHint": "Drag to reorder. The first photo becomes the hero image.",
-      "noPhotos": "No photos found from the website",
-      "addPhotos": "Add photos",
-      "addMorePhotos": "Add more photos",
-      "fromWebsite": "from website",
-      "uploaded": "uploaded",
-      "category": "Brand category",
-      "categoryPlaceholder": "Select a category",
-      "tags": "Tags",
-      "tagsHint": "Add up to 5 tags to help people find this brand",
-      "tagsInputPlaceholder": "Type and press Enter to add a tag",
-      "removeTag": "Remove tag {tag}",
-      "logoRequired": "Logo *",
-      "logoOptional": "Logo (optional)",
-      "logoHint": "Upload the brand logo (max 5MB, will be resized to max 1200px)",
-      "productPhotosHint": "Upload up to 9 photos to showcase the products",
-      "brandHighlights": "Brand Highlights",
-      "brandHighlightsHint": "What sets this brand apart from others?",
-      "brandHighlightsPlaceholder": "e.g. Handcrafted with local Taiwanese cedar...",
-      "purchaseLinksRequired": "Purchase Links *",
-      "purchaseLinksOptional": "Purchase Links (optional)",
-      "purchaseLinksHint": "Add links where the products can be bought",
-      "purchaseLinkError": "Please add at least one purchase link",
-      "addAnotherLink": "Add another link",
-      "platform": "Platform",
-      "socialLinks": "Social Links",
-      "storeName": "Store name",
-      "address": "Address",
-      "addLocation": "Add location",
-      "region": "Founding city or county",
-      "regionPlaceholder": "Select the founding city or county",
-      "regionHint": "The county or city where the brand was founded",
-      "regionOptionalHint": "optional",
-      "categoryMultiSelect": "",
-      "categoryHint": "Select the brand category that fits best",
-      "categoryFreeTextToggle": "None of the above?",
-      "categoryFreeTextToggleHint": "— Enter a brand category manually",
-      "categoryNoteLabel": "Describe the brand category",
-      "categoryNoteHint": "We'll review this suggestion",
-      "categoryNotePlaceholder": "e.g. leather goods",
-      "ubn": "Unified Business Number (optional)",
-      "ubnHint": "8-digit number issued by the Ministry of Economic Affairs",
-      "ubnDuplicateTitle": "A brand with this UBN already exists in the directory",
-      "ubnDuplicateSeeExisting": "See existing brand:",
       "nameDuplicateTitle": "Similar brand names found",
-      "websiteDuplicateTitle": "This website is already listed for a brand",
+      "websiteDuplicateTitle": "Another brand in the directory already uses this URL",
       "nameDuplicateConfirmLabel": "I confirm this is not a duplicate brand",
+      "duplicateConfirmRequired": "Confirm this isn't a duplicate brand first",
       "duplicateReasonCjk": "similar Chinese name",
-      "duplicateReasonLatin": "similar English name",
-      "checking": "Checking",
-      "next": "Next",
-      "dedup_check_failed": "Unable to check for duplicates. Please try again."
+      "duplicateReasonLatin": "similar English name"
     },
     "review": {
-      "brandInfo": "Brand Info",
-      "productPhotos": "Product Photos",
-      "edit": "Edit",
-      "brandName": "Brand Name",
-      "description": "Description",
-      "category": "Category",
-      "tags": "Tags",
-      "logo": "Logo",
-      "pdpaConsent": "I agree to the collection and use of my personal data in accordance with the <privacyPolicy>Privacy Policy</privacyPolicy>, and understand my rights under the Personal Data Protection Act.",
-      "socialLinks": "Social links",
-      "purchaseLinks": "Purchase links",
-      "purchaseWebsite": "Official Website",
-      "purchaseShopee": "Shopee"
+      "pdpaConsent": "I agree that Formoria may collect and use my personal data under the <privacyPolicy>Privacy Policy</privacyPolicy>, and I understand my rights under Taiwan's Personal Data Protection Act."
     },
     "confirmation": {
       "metadata": {
-        "title": "Brand Details Received",
-        "description": "We have received the brand details and they are under review."
+        "title": "Recommendation received",
+        "description": "We've received the brand details and are reviewing them."
       },
-      "heading": "Thanks for the recommendation!",
       "subheading": "We’ve received your brand recommendation",
       "timeline": {
         "review": {
-          "label": "Under Review",
-          "description": "Our team typically completes the review within 2 business days"
+          "label": "In review",
+          "description": "Reviews usually take about 7 business days."
         },
         "result": {
-          "label": "Brand Listing",
-          "description": "Once reviewed, approved brands appear in the Formoria directory. If an email address was provided, we’ll send the review result."
+          "label": "Added to the directory",
+          "description": "Approved brands are added to the brand directory. If you left an email address, we'll send you the result."
         }
       },
       "cta": {
-        "explore": "Explore the Formoria Directory",
-        "submitAnother": "Recommend Another Brand"
+        "explore": "Back to home",
+        "submitAnother": "Recommend another brand"
       },
       "whatNext": {
-        "heading": "What Happens Next",
-        "reviewTime": {
-          "question": "How long does review take?",
-          "answer": "Our team typically completes reviews within 2 business days."
-        },
-        "contact": {
-          "question": "How will I be contacted?",
-          "answer": "We'll reach out via the email address provided."
-        },
-        "afterApproval": {
-          "question": "What happens after approval?",
-          "answer": "Approved brands appear in the Formoria directory for visitors to discover."
-        },
         "learnMore": {
-          "question": "Want to learn more?",
-          "answer": "For details about reviews, brand claims, and updating information, read our <link>FAQ</link>."
+          "answer": "Want to know how reviews, brand claims, and updates work? See the <link>FAQ</link>."
         }
       }
     },
     "validation": {
-      "nameMinLength": "Brand name must be at least 2 characters",
-      "descriptionRequired": "Please add a brand description",
+      "nameMinLength": "Brand name needs at least 2 characters",
+      "descriptionRequired": "Add a brand description",
       "heroImageRequired": "Please upload a brand hero image",
       "emailInvalid": "Please enter a valid email address",
       "emailRequiredForNewsletter": "Enter an email address to subscribe to the newsletter",
       "platformRequired": "Please select a platform",
-      "urlInvalid": "Please enter a valid URL",
-      "pdpaRequired": "Please agree to the privacy policy",
-      "turnstileRequired": "Please complete verification"
+      "urlInvalid": "Enter the full URL, for example https://brand.com",
+      "pdpaRequired": "Check the box to agree to the Privacy Policy",
+      "turnstileRequired": "Complete the verification check",
+      "sourceRequired": "Choose how you know this brand"
     },
     "errors": {
-      "notAuthenticated": "Please sign in before building your brand page",
-      "rateLimit": "Too many requests, please try again later.",
-      "validation": "Validation failed, please try again.",
-      "unexpected": "An unexpected error occurred, please try again.",
-      "turnstileError": "Verification failed. Please refresh and try again."
+      "rateLimit": "Too many attempts. Try again in a few minutes.",
+      "validation": "Verification didn't go through. Refresh the page and try again.",
+      "unexpected": "Your recommendation didn't go through. Try again.",
+      "turnstileError": "Verification didn't load. Refresh the page and try again."
     },
     "recommendForm": {
-      "heading": "Recommend a Brand",
-      "subheading": "Share the brand name and URL so we can review this Taiwanese brand.",
-      "websiteLabel": "Official Brand URL",
-      "websiteHint": "Give the brand's official website — a social profile is fine if it doesn't have one.",
+      "heading": "Recommend a brand",
+      "subheading": "Tell us the brand name and website, and we'll review it for the directory.",
+      "websiteLabel": "Brand website",
+      "websiteHint": "The brand's own website. If it doesn't have one, an Instagram or Facebook page works too.",
       "websitePlaceholder": "https://brand.example",
-      "brandNameLabel": "Brand Name",
+      "brandNameLabel": "Brand name",
       "brandNamePlaceholder": "e.g. Warmwood Living",
-      "brandNameHint": "Use the official brand name so we can check and review it.",
+      "brandNameHint": "The name the brand uses publicly, so we can look it up.",
       "guestEmailLabel": "Email",
-      "guestEmailHint": "Leave an email address to be notified of the review result.",
+      "guestEmailHint": "Leave your email if you'd like to hear the result.",
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "Extra context (optional)",
-      "descriptionHint": "If you know the brand story, products, or background, add it here to help us review.",
+      "descriptionHint": "If you know the brand's story, products, or background, add it here to help our review.",
       "descriptionPlaceholder": "For example: The brand designs in Tainan and works with local workshops in Taiwan.",
       "sourceLabel": "How do you know this brand?",
-      "sourcePlaceholder": "Select how you know this brand",
+      "sourcePlaceholder": "Choose one",
       "requiredHint": "indicates a required field",
-      "submitButton": "Send Recommendation",
+      "submitButton": "Send recommendation",
       "submittingButton": "Sending…",
-      "suggestedName": "Suggested name:",
-      "suggestedUrl": "Suggested URL:",
-      "applySuggestion": "Apply"
-    },
-    "submissionWizard": {
-      "heading": "Fill in Brand Details",
-      "subheading": "Complete each step so the brand is accurately represented.",
-      "backButton": "Back",
-      "submitButton": "Send Brand Details",
-      "submittingButton": "Sending…"
-    },
-    "form": {
-      "heading": "Recommend a Brand",
-      "subheading": "Share a Taiwanese brand with the community",
-      "websiteLabel": "Official Brand Website",
-      "websitePlaceholder": "https://yourbrand.com",
-      "brandNameLabel": "Brand Name",
-      "brandNamePlaceholder": "e.g. Rain Boot Studio",
-      "brandNameHint": "This will be used as the brand name. We also use it to search for brand information online, so accuracy is important.",
-      "sourceLabel": "How do you know this brand?",
-      "sourcePlaceholder": "Select how you know this brand",
-      "requiredHint": "indicates a required field",
-      "submitButton": "Send Recommendation",
-      "submittingButton": "Sending...",
       "suggestedName": "Suggested name:",
       "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"
@@ -2910,6 +2766,8 @@
     "unsave": "Remove from saved",
     "saveAriaLabel": "Save this brand",
     "unsaveAriaLabel": "Remove this brand from saved",
+    "saveNamedAriaLabel": "Save {name}",
+    "unsaveNamedAriaLabel": "Remove {name} from saved",
     "emptyTitle": "No saved brands yet",
     "emptyDescription": "Select the heart on a brand page to save it here.",
     "exploreBrands": "Browse brands",
@@ -2917,9 +2775,9 @@
   },
   "search": {
     "emptyState": {
-      "currentConditions": "Current conditions",
-      "title": "No matching brands found",
-      "description": "Adjust a condition or explore more brands for inspiration.",
+      "currentConditions": "Current filters",
+      "title": "No brands match these filters",
+      "description": "Remove a filter and search again, or browse every brand.",
       "actions": {
         "removeSearch": {
           "title": "Remove brand keyword",
@@ -2931,7 +2789,7 @@
         },
         "browseAll": {
           "title": "Browse all brands",
-          "description": "Explore every brand on Formoria"
+          "description": "See every brand, with no filters"
         }
       },
       "recommendations": "Similar options",
@@ -3354,5 +3212,8 @@
     "saveAriaLabel": "Save this product",
     "unsaveAriaLabel": "Remove this product from saved",
     "loginToSave": "Sign in to save products"
+  },
+  "filters": {
+    "token": "{label}: {value}"
   }
 }

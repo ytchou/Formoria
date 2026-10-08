@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  contentLangFor,
   getAllTrails,
   getPublishedTrailBySlug,
   getTrailBySlug,
+  resolveRelated,
 } from "../trails";
 
 const trailsDir = join(process.cwd(), "content", "trails");
@@ -321,5 +323,49 @@ describe("trail frontmatter checker", () => {
     writeTrail(stem, validFrontmatter(stem).replace("  - home", "  - outdoor"));
 
     expect(() => runChecker()).not.toThrow();
+  });
+});
+
+describe("resolveRelated", () => {
+  const entries = [{ slug: "a" }, { slug: "b" }, { slug: "c" }];
+
+  it("returns entries in the order the slugs list them", () => {
+    expect(resolveRelated(["c", "a"], entries)).toEqual([
+      { slug: "c" },
+      { slug: "a" },
+    ]);
+  });
+
+  it("drops slugs that resolve to nothing, never a raw slug", () => {
+    expect(resolveRelated(["draft-only", "b", "missing"], entries)).toEqual([
+      { slug: "b" },
+    ]);
+  });
+
+  it("lists a slug named twice once", () => {
+    expect(resolveRelated(["a", "b", "a"], entries)).toEqual([
+      { slug: "a" },
+      { slug: "b" },
+    ]);
+  });
+
+  it("returns nothing for no slugs or no entries", () => {
+    expect(resolveRelated([], entries)).toEqual([]);
+    expect(resolveRelated(["a"], [])).toEqual([]);
+  });
+});
+
+describe("contentLangFor", () => {
+  it("marks zh-TW content on a non-zh page as zh-Hant-TW", () => {
+    expect(contentLangFor("zh-TW", "en")).toBe("zh-Hant-TW");
+  });
+
+  it("marks nothing when the content is in the page's language", () => {
+    expect(contentLangFor("zh-TW", "zh-TW")).toBeUndefined();
+    expect(contentLangFor("en", "en")).toBeUndefined();
+  });
+
+  it("passes any other mismatched content locale through", () => {
+    expect(contentLangFor("en", "zh-TW")).toBe("en");
   });
 });

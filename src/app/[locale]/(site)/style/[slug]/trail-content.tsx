@@ -16,6 +16,7 @@ export function TrailContent({
   products,
   labels,
   sections,
+  lang,
 }: {
   source: string;
   trailSlug: string;
@@ -29,6 +30,11 @@ export function TrailContent({
    * the body is not.
    */
   sections: readonly TrailSectionRef[];
+  /**
+   * The content's `lang` when it differs from the page locale (a zh-TW trail
+   * on /en), from `contentLangFor`. Absent when they match.
+   */
+  lang?: string;
 }) {
   const notes = Object.fromEntries(
     sections.map((section) => [section.key, section.notes ?? {}]),
@@ -44,11 +50,13 @@ export function TrailContent({
         ever fire. The selectors are scoped to this wrapper so nothing else on
         the page inherits them.
 
-        Trail prose uses the full page measure. These route-local selectors
-        override the shared story reading cap without widening prose on story
-        pages, while product grids continue to span the same container.
+        Trail prose keeps the shared reading cap: the component map puts
+        `prose-measure` (48rem, about 42 zh characters a line) on `p`, `ul`,
+        `ol`, and `blockquote`, exactly as on a story page. The product grids
+        are separate elements that carry no measure, so they still span the
+        full page container.
       */}
-      <div className="[&_blockquote]:max-w-none [&_ol]:max-w-none [&_p]:max-w-none [&_ul]:max-w-none [&>section]:scroll-mt-24">
+      <div lang={lang} className="[&>section]:scroll-mt-24">
         <MDXRemote
           source={source}
           options={{ blockJS: false, blockDangerousJS: true }}

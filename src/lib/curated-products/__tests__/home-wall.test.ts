@@ -83,6 +83,19 @@ describe("buildWallSlots", () => {
     expect(productSlots(slots)).toHaveLength(MAX_HOME_WALL_PRODUCTS);
   });
 
+  // Moved from the deleted ProductWall suite: below the cap, nothing is
+  // dropped — every product gets exactly one slot.
+  it("keeps every product at partial supply", () => {
+    const slots = buildWallSlots({
+      products: Array.from({ length: MAX_HOME_WALL_PRODUCTS - 3 }, (_, index) =>
+        product(`p-${index}`),
+      ),
+      seed: OTHER_SEED,
+    });
+
+    expect(productSlots(slots)).toHaveLength(MAX_HOME_WALL_PRODUCTS - 3);
+  });
+
   it("snaps each product to the nearest of four ratio buckets", () => {
     const slots = buildWallSlots({
       products: [

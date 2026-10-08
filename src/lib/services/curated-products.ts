@@ -18,7 +18,11 @@ import {
 } from "@/lib/taxonomy/ontology";
 import { getPublishedTrailBySlug, getTrailBySlug } from "@/lib/services/trails";
 import { isRegistryRecordActive } from "@/lib/services/curated-products/origin-qualification";
-import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
+import {
+  canPublishCuratedProduct,
+  hasRenderableCuratedImage,
+} from "@/lib/curated-products/image-eligibility";
+import { normalizeCuratedProductName } from "@/lib/curated-products/product-name";
 import {
   PREVIEW_THUMBNAIL_LIMIT,
   TRAIL_PEEK_SIZE,
@@ -413,6 +417,9 @@ export class CuratedProductSchemaLagError extends Error {
  * (`source_checked_at`), and at least one ACTIVE `curated_product_sources` row
  * exists. A product that cannot prove itself never reaches TypeScript.
  *
+ * A photo gate rides on top (DEV-1962): `image_url` is required in the query,
+ * and `toBrandPageOrder` drops a URL the tile would not render.
+ *
  * Returns `[]` for a brand with nothing curated, and `[]` when the tables are
  * absent from the PostgREST schema cache: deploys ship on push while migrations
  * are applied by hand, so a brand page must degrade to "no curated section"
@@ -433,14 +440,19 @@ export async function getPublishedCuratedProductsForBrand(
 
 /**
  * What the brand page renders, in the order it renders it: null-subcategory
- * rows dropped, then brand-page order. Shared by the brand page and the
- * directory preview count so the two cannot diverge.
+ * and photo-less rows dropped (a curated-selection tile without a photo falls back to a
+ * letter placeholder, DEV-1962), then brand-page order. Shared by the brand
+ * page and the directory preview count so the two cannot diverge.
  */
 function toBrandPageOrder(
   products: readonly CuratedProduct[],
 ): CuratedProduct[] {
   return products
-    .filter((product) => product.subcategory !== null)
+    .filter(
+      (product) =>
+        product.subcategory !== null &&
+        hasRenderableCuratedImage(product.imageUrl),
+    )
     .sort(compareBrandPageOrder);
 }
 
@@ -475,6 +487,7 @@ async function readPublishedCuratedProducts(
       .eq("visible", true)
       .not("official_url", "is", null)
       .not("source_checked_at", "is", null)
+      .not("image_url", "is", null)
       .eq("curated_product_sources.state", "active")
       .eq("curated_product_selections.state", "active");
   };
@@ -504,16 +517,16 @@ async function readPublishedCuratedProducts(
 export type BrandProductPreview = {
   count: number;
   /**
-   * Raw stored URLs, at most `PREVIEW_THUMBNAIL_LIMIT`. Only URLs that
-   * `safeImageSrc` accepts are kept, so an unsafe URL never consumes a slot;
-   * the render site still applies `safeImageSrc` itself.
+   * Raw stored URLs, at most `PREVIEW_THUMBNAIL_LIMIT`. Every counted row has
+   * an image `safeImageSrc` accepts (see `toBrandPageOrder`), so an unsafe URL
+   * never consumes a slot; the render site still applies `safeImageSrc` itself.
    */
   thumbnails: string[];
 };
 
 /**
- * Per-brand count and first three renderable images, in brand-page order.
- * Drops the same null-subcategory rows the brand page drops, so the count
+ * Per-brand count and first three images, in brand-page order. Drops the same
+ * null-subcategory and photo-less rows the brand page drops, so the count
  * matches what the brand page renders. A brand with no surviving rows gets no
  * entry.
  */
@@ -529,7 +542,6 @@ export function summarizeProductPreviews(
     preview.count += 1;
     if (
       product.imageUrl &&
-      safeImageSrc(product.imageUrl) !== null &&
       preview.thumbnails.length < PREVIEW_THUMBNAIL_LIMIT
     ) {
       preview.thumbnails.push(product.imageUrl);
@@ -600,6 +612,7 @@ export async function getPublishedCuratedProductsForHomepage(
         .eq("visible", true)
         .not("official_url", "is", null)
         .not("source_checked_at", "is", null)
+        .not("image_url", "is", null)
         .eq("curated_product_sources.state", "active")
         .eq("curated_product_selections.state", "active")
         .eq("brands.status", "approved")
@@ -633,7 +646,7 @@ export async function getPublishedCuratedProductsForHomepage(
         row.brands.name.startsWith(TEST_BRAND_NAME_PREFIX) ||
         !row.visible ||
         !row.official_url ||
-        !row.image_url ||
+        !hasRenderableCuratedImage(row.image_url) ||
         !row.source_checked_at ||
         (row.curated_product_sources !== undefined &&
           !(row.curated_product_sources ?? []).some(
@@ -716,8 +729,9 @@ const LEGACY_CURATED_PRODUCT_TRAIL_READ_SELECT =
 /**
  * The defensive public-eligibility gate every trail read re-applies on top of
  * the PostgREST filters: an approved brand with a slug and name, a visible
- * product with an official URL and a checked source, at least one active
- * provenance row, and a subcategory the taxonomy still knows.
+ * product with an official URL, a checked source and a renderable photo
+ * (DEV-1962), at least one active provenance row, and a subcategory the
+ * taxonomy still knows.
  */
 function isPublicTrailRow(row: TrailCuratedProductRow): boolean {
   if (
@@ -726,7 +740,8 @@ function isPublicTrailRow(row: TrailCuratedProductRow): boolean {
     (row.brands.status !== undefined && row.brands.status !== "approved") ||
     !row.visible ||
     !row.official_url ||
-    !row.source_checked_at
+    !row.source_checked_at ||
+    !hasRenderableCuratedImage(row.image_url)
   ) {
     return false;
   }
@@ -770,6 +785,7 @@ async function readPublicTrailRows(
       .eq("visible", true)
       .not("official_url", "is", null)
       .not("source_checked_at", "is", null)
+      .not("image_url", "is", null)
       .eq("curated_product_sources.state", "active")
       .eq("curated_product_selections.state", "active");
     const scoped =
@@ -977,6 +993,13 @@ const MAX_KEY_ATTEMPTS = 25;
 
 /** Used when a name transliterates to nothing at all (punctuation, emoji). */
 const FALLBACK_KEY = "product";
+
+/**
+ * Thrown when a write would publish a product with no image at all (DEV-1962).
+ * Same style as the subcategory throw; the admin actions surface it as a form
+ * error.
+ */
+const VISIBLE_REQUIRES_IMAGE = "Visible products require an image";
 
 export type CuratedProductWriteInput = {
   brandId: string;
@@ -1222,6 +1245,11 @@ function reportZhVocabulary(
  * two products from one brand sharing a name is ordinary, and the insert is
  * retried rather than pre-checked so two concurrent creates cannot both read a
  * free key and race.
+ *
+ * Names pass through `normalizeCuratedProductName` (DEV-1962), so a trailing
+ * shop SKU or a doubled name is stripped on every write path — and the
+ * name-derived key is built from the clean name. A visible create must also
+ * carry an image (`canPublishCuratedProduct`).
  */
 export async function createCuratedProduct(
   input: CuratedProductWriteInput,
@@ -1242,10 +1270,24 @@ export async function createCuratedProduct(
       if (input.visible === true && !subcategory) {
         throw new Error("Visible products require a known subcategory");
       }
+      if (
+        input.visible === true &&
+        !canPublishCuratedProduct({
+          imageUrl: input.imageUrl,
+          imageSourceUrl: input.imageSourceUrl,
+        })
+      ) {
+        throw new Error(VISIBLE_REQUIRES_IMAGE);
+      }
+      const nameZh = normalizeCuratedProductName(input.nameZh);
+      const nameEn =
+        typeof input.nameEn === "string"
+          ? normalizeCuratedProductName(input.nameEn)
+          : null;
       const row = {
         brand_id: input.brandId,
-        name_zh: input.nameZh,
-        name_en: input.nameEn ?? null,
+        name_zh: nameZh,
+        name_en: nameEn,
         category: input.category,
         subcategory,
         material: normalizeCuratedMaterials(input.material ?? []),
@@ -1273,7 +1315,7 @@ export async function createCuratedProduct(
       // Rejection memory (DEV-1469): a caller-supplied `key` wins inside
       // `curatedProductKey`, and the approval materializer always supplies the
       // PROPOSAL's key, so a create can never lose its match.
-      const baseKey = curatedProductKey(input);
+      const baseKey = curatedProductKey({ ...input, nameZh, nameEn });
 
       for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt += 1) {
         const key =
@@ -1306,6 +1348,10 @@ export async function createCuratedProduct(
  * the caller supplied, so an untouched column is never rewritten with a stale
  * value — and `link_state` / `link_checked_at` are unreachable by construction
  * (see `CuratedProductUpdateInput`).
+ *
+ * A patch that publishes must leave the row with an image (DEV-1962). The
+ * patch's own image fields are judged first; the stored row is read once only
+ * when they do not settle it, so a patch that does not publish costs no read.
  */
 export async function updateCuratedProduct(
   id: string,
@@ -1320,8 +1366,15 @@ export async function updateCuratedProduct(
     },
     async (ctx) => {
       const payload: Record<string, unknown> = {};
-      if (input.nameZh !== undefined) payload.name_zh = input.nameZh;
-      if (input.nameEn !== undefined) payload.name_en = input.nameEn ?? null;
+      if (input.nameZh !== undefined) {
+        payload.name_zh = normalizeCuratedProductName(input.nameZh);
+      }
+      if (input.nameEn !== undefined) {
+        payload.name_en =
+          typeof input.nameEn === "string"
+            ? normalizeCuratedProductName(input.nameEn)
+            : null;
+      }
       if (input.category !== undefined && input.subcategory === undefined) {
         throw new Error(
           "Changing category requires subcategory in the same patch",
@@ -1380,6 +1433,10 @@ export async function updateCuratedProduct(
       }
       if (Object.keys(payload).length === 0) return;
 
+      if (payload.visible === true) {
+        await assertPublishableImage(id, input, client);
+      }
+
       reportZhVocabulary(payload, ctx);
 
       const { error } = await curatedProductClient(client)
@@ -1390,6 +1447,49 @@ export async function updateCuratedProduct(
     },
     { subjectId: id },
   );
+}
+
+/**
+ * The publish precondition for a sparse patch. A supplied image field wins
+ * over the stored one (an explicit `null` clears it); anything absent is read
+ * from the row, once, and only when the supplied fields alone do not already
+ * prove an image.
+ */
+async function assertPublishableImage(
+  id: string,
+  input: CuratedProductUpdateInput,
+  client?: CuratedProductSupabase,
+): Promise<void> {
+  const supplied = {
+    imageUrl: input.imageUrl,
+    imageSourceUrl: input.imageSourceUrl,
+  };
+  if (canPublishCuratedProduct(supplied)) return;
+
+  type StoredImage = {
+    image_url: string | null;
+    image_source_url: string | null;
+  };
+  let stored: StoredImage | null = null;
+  if (supplied.imageUrl === undefined || supplied.imageSourceUrl === undefined) {
+    const { data, error } = await curatedProductClient(client)
+      .from("curated_products")
+      .select("image_url, image_source_url")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    stored = data as StoredImage | null;
+  }
+
+  const publishable = canPublishCuratedProduct({
+    imageUrl:
+      supplied.imageUrl !== undefined ? supplied.imageUrl : stored?.image_url,
+    imageSourceUrl:
+      supplied.imageSourceUrl !== undefined
+        ? supplied.imageSourceUrl
+        : stored?.image_source_url,
+  });
+  if (!publishable) throw new Error(VISIBLE_REQUIRES_IMAGE);
 }
 
 /**

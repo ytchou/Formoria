@@ -6,7 +6,7 @@ import {
   normalizeThreadsHref,
   sanitizeHref,
 } from "@/lib/url";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   AtSign,
   Globe,
@@ -16,14 +16,14 @@ import {
   Store,
 } from "lucide-react";
 import { InstagramIcon } from "@/components/icons/instagram-icon";
-import { buttonVariants } from "@/components/ui/button";
-import { Typography } from "@/components/ui/typography";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Typography } from "@/components/ui/typography";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import {
   onlineStoreMessageKey,
@@ -31,9 +31,9 @@ import {
   type OnlineStoreColumn,
   type OnlineStoreKey,
 } from "@/lib/brands/online-stores";
-import { cn } from "@/lib/utils";
 import { trackExternalLinkClicked } from "@/lib/analytics";
 import { CorrectionDialog } from "./correction-dialog";
+import { ProvideStockistInfoDialog } from "./provide-stockist-info-dialog";
 
 interface BrandLinksProps {
   brand: PublicBrandDetail;
@@ -67,19 +67,25 @@ type LinkDestination =
 
 type LinkSlot = {
   label: string;
-  url: string | null;
+  url: string;
   linkType: LinkDestination | "other";
   icon: ReactNode;
-  accentClassName?: string;
 };
+
+/** A destination before we know whether we hold a URL for it. */
+type LinkCandidate = Omit<LinkSlot, "url"> & { url: string | null };
 
 type LinkSectionProps = {
   id?: string;
   label: string;
+  /** h2 for a standalone section; h3 when it sits under where-to-buy's h2. */
+  headingLevel?: "h2" | "h3";
+  /** Only known destinations: a slot without a URL never reaches here. */
   slots: LinkSlot[];
   brand: PublicBrandDetail;
   className?: string;
-  headerAction?: ReactNode;
+  /** One muted line below the links; a section with a note always renders. */
+  note?: string | null;
 };
 
 const destinationLinkClassName = buttonVariants({
@@ -89,27 +95,14 @@ const destinationLinkClassName = buttonVariants({
   className: "min-w-32 max-w-full justify-center gap-2",
 });
 
+// Icons are ink (`text-current`): DESIGN.md §2 allows no palette exceptions,
+// platform brand colours included.
 const PURCHASE_PRESENTATION = {
-  website: {
-    icon: <Globe className="size-4 text-current" />,
-    accentClassName: "text-accent",
-  },
-  pinkoi: {
-    icon: <Store className="size-4 text-current" />,
-    accentClassName: "text-[#E05B6F]",
-  },
-  shopee: {
-    icon: <ShoppingCart className="size-4 text-current" />,
-    accentClassName: "text-[#EE4D2D]",
-  },
-  myship: {
-    icon: <Package className="size-4 text-current" />,
-    accentClassName: "text-[#FF6600]",
-  },
-} satisfies Record<
-  OnlineStoreKey,
-  { icon: ReactNode; accentClassName: string }
->;
+  website: { icon: <Globe className="size-4 text-current" /> },
+  pinkoi: { icon: <Store className="size-4 text-current" /> },
+  shopee: { icon: <ShoppingCart className="size-4 text-current" /> },
+  myship: { icon: <Package className="size-4 text-current" /> },
+} satisfies Record<OnlineStoreKey, { icon: ReactNode }>;
 
 function DestinationLinkButton({
   slot,
@@ -122,10 +115,7 @@ function DestinationLinkButton({
     <>
       <span
         aria-hidden="true"
-        className={cn(
-          "flex size-4 shrink-0 items-center justify-center",
-          slot.accentClassName,
-        )}
+        className="flex size-4 shrink-0 items-center justify-center"
       >
         {slot.icon}
       </span>
@@ -134,9 +124,18 @@ function DestinationLinkButton({
   );
 }
 
-function SectionLabel({ children }: { children: ReactNode }) {
+function SectionLabel({
+  as,
+  children,
+}: {
+  as: "h2" | "h3";
+  children: ReactNode;
+}) {
   return (
-    <Typography as="h2" variant="sectionTitleLarge">
+    <Typography
+      as={as}
+      variant={as === "h2" ? "sectionTitleLarge" : "cardTitle"}
+    >
       {children}
     </Typography>
   );
@@ -145,51 +144,23 @@ function SectionLabel({ children }: { children: ReactNode }) {
 function LinkSection({
   id,
   label,
+  headingLevel = "h2",
   slots,
   brand,
   className,
-  headerAction,
+  note,
 }: LinkSectionProps) {
-  const t = useTranslations("brandDetail");
-  if (slots.length === 0 && !headerAction) return null;
+  if (slots.length === 0 && !note) return null;
 
   return (
     <section id={id} className={className}>
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <SectionLabel>{label}</SectionLabel>
-        {headerAction}
+      <div className="mb-4">
+        <SectionLabel as={headingLevel}>{label}</SectionLabel>
       </div>
-      <TooltipProvider>
+      {slots.length > 0 ? (
         <div className="flex flex-wrap gap-3">
           {slots.map((slot, index) => {
             const slotKey = `${slot.linkType}:${slot.label}:${index}`;
-
-            // A destination we hold no URL for stays on screen as an inert,
-            // dimmed chip: the set of stores a brand could be on is itself
-            // useful, and hiding the gap reads as "not on Instagram" rather
-            // than "we do not know".
-            if (!slot.url) {
-              return (
-                <Tooltip key={slotKey}>
-                  <TooltipTrigger
-                    type="button"
-                    aria-disabled="true"
-                    aria-label={`${slot.label} — ${t("links.unknown")}`}
-                    onClick={(event) => event.preventDefault()}
-                    className={cn(
-                      destinationLinkClassName,
-                      "cursor-not-allowed opacity-50",
-                    )}
-                    data-ph-no-autocapture
-                  >
-                    <DestinationLinkButton slot={slot}>
-                      {slot.label}
-                    </DestinationLinkButton>
-                  </TooltipTrigger>
-                  <TooltipContent>{t("links.unknown")}</TooltipContent>
-                </Tooltip>
-              );
-            }
 
             return (
               <a
@@ -218,9 +189,19 @@ function LinkSection({
             );
           })}
         </div>
-      </TooltipProvider>
+      ) : null}
+      {note ? (
+        <p className={slots.length > 0 ? "mt-3 type-metadata" : "type-metadata"}>
+          {note}
+        </p>
+      ) : null}
     </section>
   );
+}
+
+/** Drops the destinations we hold no URL for — only known routes render. */
+function liveSlots(candidates: LinkCandidate[]): LinkSlot[] {
+  return candidates.filter((slot): slot is LinkSlot => slot.url !== null);
 }
 
 export function BrandSocialLinks({
@@ -230,13 +211,12 @@ export function BrandSocialLinks({
 }: BrandLinksProps) {
   const t = useTranslations("brandDetail");
 
-  const socialSlots: LinkSlot[] = [
+  const socialSlots = liveSlots([
     {
       label: t("links.instagram"),
       url: normalizeInstagramHref(brand.socialInstagram),
       linkType: "instagram",
       icon: <InstagramIcon className="size-4 text-current" />,
-      accentClassName: "text-[#E1306C]",
     },
     {
       label: t("links.threads"),
@@ -249,10 +229,10 @@ export function BrandSocialLinks({
       url: normalizeDirectUrl(brand.socialFacebook),
       linkType: "facebook",
       icon: <FacebookIcon className="size-4 text-current" />,
-      accentClassName: "text-[#1877F2]",
     },
-  ];
+  ]);
 
+  // The section nav always lists #social, so the section renders even empty.
   return (
     <LinkSection
       id={sectionIds?.social}
@@ -260,16 +240,7 @@ export function BrandSocialLinks({
       slots={socialSlots}
       brand={brand}
       className={sectionClassName}
-      headerAction={
-        <CorrectionDialog
-          mode="socialLinks"
-          brandId={brand.id}
-          brandSlug={brand.slug}
-          socialInstagram={brand.socialInstagram}
-          socialThreads={brand.socialThreads}
-          socialFacebook={brand.socialFacebook}
-        />
-      }
+      note={socialSlots.length === 0 ? t("links.noSocialLinks") : null}
     />
   );
 }
@@ -281,33 +252,38 @@ export function BrandPurchaseLinks({
 }: BrandLinksProps) {
   const t = useTranslations("brandDetail");
 
-  const purchaseSlots: LinkSlot[] = ONLINE_STORES.map((channel) => ({
-    label: t(
-      onlineStoreMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
-    ),
-    url: normalizeDirectUrl(brand[channel.camel]),
-    linkType: channel.key,
-    ...PURCHASE_PRESENTATION[channel.key],
-  }));
-  const purchaseLinks = Object.fromEntries(
-    ONLINE_STORES.map((channel) => [channel.column, brand[channel.camel]]),
-  ) as Record<OnlineStoreColumn, string | null>;
+  const purchaseSlots = liveSlots(
+    ONLINE_STORES.map((channel) => ({
+      label: t(
+        onlineStoreMessageKey(
+          channel.messageKeys.brandDetailLink,
+          "brandDetail",
+        ),
+      ),
+      url: normalizeDirectUrl(brand[channel.camel]),
+      linkType: channel.key,
+      ...PURCHASE_PRESENTATION[channel.key],
+    })),
+  );
+  // One muted line stands in for every store we hold no link for, instead of a
+  // dimmed chip per store.
+  const hasMissingChannel = purchaseSlots.length < ONLINE_STORES.length;
+  const note =
+    purchaseSlots.length === 0
+      ? t("links.noChannels")
+      : hasMissingChannel
+        ? t("links.missingChannels")
+        : null;
 
   return (
     <LinkSection
       id={sectionIds?.purchase}
       label={t("links.onlineStores")}
+      headingLevel="h3"
       slots={purchaseSlots}
       brand={brand}
       className={sectionClassName}
-      headerAction={
-        <CorrectionDialog
-          mode="purchaseLinks"
-          brandId={brand.id}
-          brandSlug={brand.slug}
-          purchaseLinks={purchaseLinks}
-        />
-      }
+      note={note}
     />
   );
 }
@@ -337,6 +313,92 @@ export function BrandOtherLinks({ brand, sectionClassName }: BrandLinksProps) {
       brand={brand}
       className={sectionClassName}
     />
+  );
+}
+
+type ChannelCorrectionDialog = "purchase" | "stockist" | "social";
+
+/**
+ * The where-to-buy block's one correction line. It replaces three accent
+ * provide-info triggers that competed with the route out; all three submission
+ * flows stay reachable from one menu. Same shape as the hero overflow menu in
+ * `brand-actions.tsx`: the dialogs live outside the menu so they survive it
+ * closing, and a menu item only flips which dialog is open.
+ */
+export function BrandChannelCorrections({
+  brand,
+}: {
+  brand: PublicBrandDetail;
+}) {
+  const t = useTranslations("brandDetail");
+  const [openDialog, setOpenDialog] = useState<ChannelCorrectionDialog | null>(
+    null,
+  );
+  const purchaseLinks = Object.fromEntries(
+    ONLINE_STORES.map((channel) => [channel.column, brand[channel.camel]]),
+  ) as Record<OnlineStoreColumn, string | null>;
+
+  function dialogProps(dialog: ChannelCorrectionDialog) {
+    return {
+      open: openDialog === dialog,
+      onOpenChange: (open: boolean) => setOpenDialog(open ? dialog : null),
+    };
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-x-1 type-metadata">
+        <span>{t("links.correctionPrompt")}</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="ghost" size="compact" className="px-1" />}
+          >
+            {t("links.correctionAction")}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-auto">
+            <DropdownMenuItem
+              size="touch"
+              onClick={() => setOpenDialog("purchase")}
+            >
+              {t("links.correctionPurchase")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              size="touch"
+              onClick={() => setOpenDialog("stockist")}
+            >
+              {t("links.correctionStockist")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              size="touch"
+              onClick={() => setOpenDialog("social")}
+            >
+              {t("links.correctionSocial")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <CorrectionDialog
+        mode="purchaseLinks"
+        brandId={brand.id}
+        brandSlug={brand.slug}
+        purchaseLinks={purchaseLinks}
+        {...dialogProps("purchase")}
+      />
+      <ProvideStockistInfoDialog
+        brandId={brand.id}
+        brandSlug={brand.slug}
+        {...dialogProps("stockist")}
+      />
+      <CorrectionDialog
+        mode="socialLinks"
+        brandId={brand.id}
+        brandSlug={brand.slug}
+        socialInstagram={brand.socialInstagram}
+        socialThreads={brand.socialThreads}
+        socialFacebook={brand.socialFacebook}
+        {...dialogProps("social")}
+      />
+    </>
   );
 }
 

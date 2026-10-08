@@ -101,6 +101,34 @@ describe('ProvideStockistInfoDialog', () => {
     expect(dialog.querySelector('[data-slot="dialog-form"]')).toBeNull()
   })
 
+  // Controlled mode: the where-to-buy correction menu owns opening the dialog,
+  // so the dialog must not render a second trigger of its own.
+  it('controlled mode shows the dialog without a trigger', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <ProvideStockistInfoDialog
+          brandId="b1"
+          brandSlug="test-brand"
+          open
+          onOpenChange={onOpenChange}
+        />
+      </NextIntlClientProvider>
+    )
+
+    const dialog = screen.getByRole('dialog')
+    expect(
+      within(dialog).getByRole('heading', { name: zh.brandDetail.channels.dialog.title })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: zh.brandDetail.channels.provideInfo })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: zh.brandDetail.report.cancel }))
+    expect(onOpenChange).toHaveBeenCalled()
+    expect(onOpenChange.mock.calls[0]?.[0]).toBe(false)
+  })
+
   it('region select errors are announced', async () => {
     const dialog = await openDialog()
 
