@@ -46,7 +46,12 @@ describe("buildApprovalEmail", () => {
     });
     expect(email.subject).toBe('"Test Brand" is now listed on Formoria');
     expect(email.html).not.toMatch(/your brand/i);
-    expect(email.html).not.toContain("!");
+    // Visible text only: markup legitimately carries "<!DOCTYPE" and "<!--".
+    const visibleText = email.html
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<![^>]*>/g, "")
+      .replace(/<[^>]+>/g, " ");
+    expect(visibleText).not.toMatch(/[!！]/);
   });
 });
 

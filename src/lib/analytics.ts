@@ -862,20 +862,6 @@ export function trackGalleryCompleted(
   });
 }
 
-export function trackSubmissionPathSelected(
-  path: string,
-  isAuthenticated: boolean,
-) {
-  const utmParams =
-    typeof window !== "undefined" ? getUtmParams(window.location.search) : {};
-
-  capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_PATH_SELECTED, {
-    path,
-    is_authenticated: isAuthenticated,
-    ...utmParams,
-  });
-}
-
 export function trackNewsletterSubscribed(
   interests: string[],
   hasEmail: boolean,
