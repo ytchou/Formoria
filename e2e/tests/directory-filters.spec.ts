@@ -12,6 +12,8 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
  */
 
 const DISCOVER_FILTERS = "篩選商品";
+/** /discover picks its category from a chip row, not from the filter panel. */
+const DISCOVER_CATEGORIES = "分類";
 const BRANDS_FILTERS = "篩選";
 
 function filterNav(page: Page, name: string): Locator {
@@ -150,8 +152,10 @@ test.describe("Directory filters — 子分類 under 全部", () => {
     expect(params.get("sub")).toBeTruthy();
     expect(params.has("material"), "material must be dropped").toBe(false);
 
-    // The parent is now the active category in the 分類 group.
-    const active = filterGroup(nav, "分類").locator('[aria-current="page"]');
+    // The parent is now the active category chip.
+    const active = filterNav(page, DISCOVER_CATEGORIES).locator(
+      '[aria-current="page"]',
+    );
     await expect(active).toHaveCount(1, { timeout: BUDGET.RENDERED });
     await expect(active).toHaveAttribute(
       "href",
@@ -206,7 +210,7 @@ test.describe("Directory filters — search combined with 子分類", () => {
     await page.goto(`/discover?q=${encodeURIComponent(term)}`);
     const heading = page.getByRole("heading", {
       level: 1,
-      name: `符合「${term}」的商品`,
+      name: "搜尋結果",
       exact: true,
     });
     await expect(heading).toBeVisible({ timeout: BUDGET.SERVER_RENDER });

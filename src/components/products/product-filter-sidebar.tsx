@@ -33,6 +33,10 @@ export type ProductFilterSidebarProps = {
   materialOptions?: MaterialOption[];
   activeMaterials?: string[];
   totalCount: number;
+  /** Render no counts: in search mode they are catalog-wide, not the query's. */
+  hideCounts?: boolean;
+  /** Off on /discover, where the category chip row carries the categories. */
+  showCategories?: boolean;
 };
 
 /**

@@ -208,6 +208,40 @@ describe("ProductFilterSidebar", () => {
     expect(all).toHaveTextContent(/^All$/);
   });
 
+  it("omits the category group when showCategories is off, keeping subcategory and material", () => {
+    renderSidebar({
+      showCategories: false,
+      subcategoryOptions: [
+        { slug: "candles", label: "Candles", count: 5, category: "home" },
+      ],
+      materialOptions: [{ value: "wood", label: "Wood", count: 8 }],
+    });
+
+    expect(
+      screen.queryByRole("group", { name: "Category" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(filterGroup("Subcategory")).toBeInTheDocument();
+    expect(filterGroup("Material")).toBeInTheDocument();
+  });
+
+  it("hideCounts keeps the subcategory and material labels but drops their catalog-wide counts", () => {
+    renderSidebar({
+      hideCounts: true,
+      subcategoryOptions: [
+        { slug: "candles", label: "Candles", count: 5, category: "home" },
+      ],
+      materialOptions: [{ value: "wood", label: "Wood", count: 8 }],
+    });
+
+    const subs = filterGroup("Subcategory");
+    expect(within(subs).getByRole("checkbox", { name: /Candles/ })).toBeInTheDocument();
+    expect(within(subs).queryByText("5")).not.toBeInTheDocument();
+    const materials = filterGroup("Material");
+    expect(within(materials).getByRole("checkbox", { name: /Wood/ })).toBeInTheDocument();
+    expect(within(materials).queryByText("8")).not.toBeInTheDocument();
+  });
+
   it("renders material checkboxes", () => {
     renderSidebar({
       materialOptions: [

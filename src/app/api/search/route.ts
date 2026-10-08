@@ -1,20 +1,20 @@
 import { withAuditScope } from '@/lib/audit/scope'
 import { NextResponse } from 'next/server'
+import { normalizePublicSearchQuery } from '@/lib/brands/normalize-public-search-query'
 import { searchBrandsAutocomplete } from '@/lib/services/brands'
 
 const CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=300'
 
 export const GET = withAuditScope(async (request: Request) => {
   const { searchParams } = new URL(request.url)
-  const query = searchParams.get('q')?.trim() ?? ''
+  const query = normalizePublicSearchQuery(searchParams.get('q') ?? '')
 
-  if (
-    query.length < 2 ||
-    query.length > 100 ||
-    /^[\s%_*?]+$/.test(query)
-  ) {
+  if (!query) {
     return NextResponse.json(
-      { error: "Query parameter 'q' is required and must be 2-100 characters" },
+      {
+        error:
+          "Query parameter 'q' is required and must be 2-100 characters (1 for a CJK character)",
+      },
       { status: 400 },
     )
   }

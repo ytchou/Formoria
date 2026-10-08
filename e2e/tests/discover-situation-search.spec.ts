@@ -18,12 +18,16 @@ test.describe("Discover situation search", () => {
       page.getByLabel("搜尋商品"),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
 
-    // Search mode titles the page by the query (the page is noindex).
+    // Search mode titles the page 搜尋結果; the query moves to the intro line.
     const resultsHeading = page.getByRole("heading", {
       level: 1,
-      name: /符合「茶壺」的商品/,
+      name: "搜尋結果",
+      exact: true,
     });
     await expect(resultsHeading).toBeVisible({ timeout: BUDGET.RENDERED });
+    await expect(
+      page.locator("main").getByText("「茶壺」", { exact: true }),
+    ).toHaveAttribute("title", "茶壺");
 
     const mainContent = page.locator("main");
     const productGrid = mainContent.locator("ul.grid").filter({ has: page.getByRole("heading", { level: 3 }) });
@@ -46,8 +50,11 @@ test.describe("Discover situation search", () => {
     await page.waitForURL(/[?&]q=/, { timeout: BUDGET.INTERACTIVE });
 
     await expect(
-      page.getByRole("heading", { name: /符合「送禮」的商品/ }),
+      page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true }),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
+    await expect(
+      page.locator("main").getByText("「送禮」", { exact: true }),
+    ).toBeVisible();
   });
 
   test("search mode states the result count once; browse mode keeps its total", async ({
@@ -79,16 +86,11 @@ test.describe("Discover situation search", () => {
       timeout: BUDGET.NAVIGATION,
     });
     await expect(
-      page.getByRole("heading", {
-        level: 1,
-        name: `符合「${term}」的商品`,
-        exact: true,
-      }),
+      page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    // A full candidate pool reads 依相關度列出前 N 件; a floored one 找到 N 件相關商品.
-    await expect(
-      main.getByText(/找到 \d+ 件相關商品|依相關度列出前 \d+ 件/),
-    ).toHaveCount(1);
+    await expect(main.getByText(`「${term}」`, { exact: true })).toBeVisible();
+    // One count sentence whether or not the candidate pool was capped.
+    await expect(main.getByText(/依相關度排列 · \d+ 件/)).toHaveCount(1);
     await expect(main.getByText(/共 \d+ 件商品/)).toHaveCount(0);
   });
 
@@ -105,7 +107,7 @@ test.describe("Discover situation search", () => {
         { exact: true },
       ),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    await expect(main.getByText(/找到 \d+ 件|依相關度列出前/)).toHaveCount(0);
+    await expect(main.getByText(/依相關度排列/)).toHaveCount(0);
     await expect(
       main.getByRole("heading", { name: "依分類看全部商品", exact: true }),
     ).toBeVisible();

@@ -18,8 +18,11 @@ test("a header brand query opens its related brand and removes submit attributio
   await input.fill(BRAND);
   await input.press("Enter");
   await expect(
-    page.getByRole("heading", { name: `符合「${BRAND}」的商品` }),
+    page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true }),
   ).toBeVisible({ timeout: BUDGET.NAVIGATION });
+  await expect(
+    page.locator("main").getByText(`「${BRAND}」`, { exact: true }),
+  ).toBeVisible();
   await expect(page).toHaveURL(
     (url) =>
       url.pathname === "/discover" &&
@@ -52,10 +55,9 @@ test("related brands remain available when the product filters return zero resul
       .getByRole("region", { name: "相關品牌" })
       .getByRole("link", { name: BRAND, exact: true }),
   ).toBeVisible();
+  // Page 2 is either a later results page or, past the last page, not found
+  // (DS2-24). Neither shows the related-brand row.
   await page.goto("/discover?q=HOKII&page=2");
-  await expect(
-    page.getByRole("heading", { name: `符合「${BRAND}」的商品` }),
-  ).toBeVisible();
   await expect(page.getByRole("region", { name: "相關品牌" })).toHaveCount(0);
 });
 
@@ -64,7 +66,7 @@ test("deferred categories do not enter the related-brand row", async ({
 }) => {
   await page.goto("/discover?q=柚一村");
   await expect(
-    page.getByRole("heading", { name: "符合「柚一村」的商品" }),
+    page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true }),
   ).toBeVisible();
   await expect(
     page

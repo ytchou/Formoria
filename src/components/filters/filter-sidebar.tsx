@@ -55,6 +55,11 @@ export type FilterSidebarProps = {
    * The counts are catalog-wide, so they would contradict an active search.
    */
   hideCounts?: boolean;
+  /**
+   * Render the 分類 group. Off where the page shows the categories elsewhere
+   * (/discover's category chip row), so the panel holds only 子分類 and 材質.
+   */
+  showCategories?: boolean;
   /** Builds the href for a category link (null = "All"). */
   categoryHref: (categorySlug: string | null) => string;
   /** i18n labels for section headings and ARIA. */
@@ -119,6 +124,7 @@ export function FilterSidebar({
   materialOptions = [],
   activeMaterials = [],
   hideCounts = false,
+  showCategories = true,
   categoryHref,
   labels,
   onCategorySelect,
@@ -211,38 +217,40 @@ export function FilterSidebar({
 
   return (
     <nav aria-label={labels.title} className="space-y-6">
-      <FilterSection title={labels.category}>
-        <ul>
-          <li>
-            <CategoryRow
-              href={categoryHref(null)}
-              label={allLabel}
-              count={allCount}
-              isActive={activeCategory === null}
-            />
-          </li>
-          {VISIBLE_L1_CATEGORIES.map((category) => {
-            const isActive = activeCategory === category.slug;
-            return (
-              <li key={category.slug}>
-                <CategoryRow
-                  href={categoryHref(category.slug)}
-                  label={categoryLabel(category, locale)}
-                  count={
-                    categoryCounts && !hideCounts
-                      ? (categoryCounts[category.slug] ?? 0)
-                      : undefined
-                  }
-                  isActive={isActive}
-                  onClick={() => {
-                    if (!isActive) onCategorySelect?.(category.slug);
-                  }}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      </FilterSection>
+      {showCategories && (
+        <FilterSection title={labels.category}>
+          <ul>
+            <li>
+              <CategoryRow
+                href={categoryHref(null)}
+                label={allLabel}
+                count={allCount}
+                isActive={activeCategory === null}
+              />
+            </li>
+            {VISIBLE_L1_CATEGORIES.map((category) => {
+              const isActive = activeCategory === category.slug;
+              return (
+                <li key={category.slug}>
+                  <CategoryRow
+                    href={categoryHref(category.slug)}
+                    label={categoryLabel(category, locale)}
+                    count={
+                      categoryCounts && !hideCounts
+                        ? (categoryCounts[category.slug] ?? 0)
+                        : undefined
+                    }
+                    isActive={isActive}
+                    onClick={() => {
+                      if (!isActive) onCategorySelect?.(category.slug);
+                    }}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </FilterSection>
+      )}
 
       {hasSubcategories && (
         <FilterSection title={labels.subcategory}>

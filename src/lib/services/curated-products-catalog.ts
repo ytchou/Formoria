@@ -240,6 +240,38 @@ export async function getPublishedCuratedProducts(
   }
 
   // ---- standard catalog mode ----
+  const filters: CatalogFilters = {
+    category,
+    categories,
+    subcategories,
+    materials,
+    sort,
+  };
+  // An injected client (tests, one-off scripts) always reads fresh.
+  const ordered = client
+    ? await readOrderedCatalog(supabase, filters)
+    : await memoizedOrderedCatalog(filters);
+  const offset = (page - 1) * pageSize;
+  return {
+    products: ordered.slice(offset, offset + pageSize),
+    totalCount: ordered.length,
+  };
+}
+
+type CatalogFilters = Required<
+  Pick<CatalogQueryOptions, "sort">
+> &
+  Pick<
+    CatalogQueryOptions,
+    "category" | "categories" | "subcategories" | "materials"
+  >;
+
+/** Every product matching `filters`, in display order (before pagination). */
+async function readOrderedCatalog(
+  supabase: Pick<SupabaseClient, "from">,
+  filters: CatalogFilters,
+): Promise<CatalogProduct[]> {
+  const { category, categories, subcategories, materials, sort } = filters;
   const readAll = async (legacy: boolean): Promise<CatalogProductRow[]> => {
     const rows: CatalogProductRow[] = [];
     for (let range = 0; range < CATALOG_MAX_RANGES; range += 1) {
@@ -304,15 +336,120 @@ export async function getPublishedCuratedProducts(
   const allProducts = rawRows
     .filter(isCatalogEligible)
     .map(transformCatalogRow);
-  const ordered =
-    sort === "alphabetical"
-      ? allProducts
-      : interleaveCatalogProducts(allProducts);
-  const offset = (page - 1) * pageSize;
-  return {
-    products: ordered.slice(offset, offset + pageSize),
-    totalCount: ordered.length,
+  return sort === "alphabetical"
+    ? allProducts
+    : interleaveCatalogProducts(allProducts);
+}
+
+// ---------------------------------------------------------------------------
+// In-process memo of full catalog reads (DEV-1991)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every /discover page view re-read the whole catalog (3 ranges of 500 rows,
+ * ~0.8–1 s on staging) to paginate 20 products. The memo keeps each filter
+ * combination's ordered list for CATALOG_MEMO_TTL_MS and shares one in-flight
+ * read between concurrent requests. The same memo backs situation-search
+ * hydration (`peekCatalogSnapshot`).
+ *
+ * Shortcut: per-process memory with a fixed TTL, not `unstable_cache` — the
+ * full list carries descriptions and exceeds the Next data cache's 2 MB entry
+ * limit, which would fail silently. Ceiling: a product hidden or published in
+ * admin shows up to CATALOG_MEMO_TTL_MS late on each replica (facet counts
+ * already lag up to 1 h). Upgrade path: tag-based invalidation from the
+ * admin curated-product actions, or a slim cached id index plus a per-page
+ * ids read.
+ */
+const CATALOG_MEMO_TTL_MS = 5 * 60 * 1000;
+/** Bounds memory: unfiltered + each L1 + a few common filter combinations. */
+const CATALOG_MEMO_MAX_KEYS = 32;
+
+type CatalogMemoEntry = {
+  at: number;
+  promise: Promise<CatalogProduct[]>;
+  settled: CatalogProduct[] | null;
+  byId: Map<string, CatalogProduct> | null;
+};
+
+const catalogMemo = new Map<string, CatalogMemoEntry>();
+
+/** @internal Test-only — clear the catalog memo. */
+export function _resetCatalogMemo(): void {
+  catalogMemo.clear();
+}
+
+function memoKey(filters: CatalogFilters): string {
+  const sorted = (values: readonly string[] | undefined) =>
+    values && values.length > 0 ? [...values].sort() : null;
+  return JSON.stringify([
+    filters.category ?? null,
+    filters.category ? null : sorted(filters.categories),
+    sorted(filters.subcategories),
+    sorted(filters.materials),
+    filters.sort,
+  ]);
+}
+
+function loadMemoEntry(filters: CatalogFilters): CatalogMemoEntry {
+  const key = memoKey(filters);
+  const now = Date.now();
+  const existing = catalogMemo.get(key);
+  if (existing && now - existing.at < CATALOG_MEMO_TTL_MS) return existing;
+
+  const entry: CatalogMemoEntry = {
+    at: now,
+    promise: readOrderedCatalog(
+      createServiceClient() as unknown as Pick<SupabaseClient, "from">,
+      filters,
+    ),
+    settled: null,
+    byId: null,
   };
+  entry.promise.then(
+    (products) => {
+      entry.settled = products;
+    },
+    () => {
+      // A failed read is never served from the memo; the caller still sees
+      // the rejection through `entry.promise`.
+      if (catalogMemo.get(key) === entry) catalogMemo.delete(key);
+    },
+  );
+  catalogMemo.delete(key);
+  catalogMemo.set(key, entry);
+  while (catalogMemo.size > CATALOG_MEMO_MAX_KEYS) {
+    const oldest = catalogMemo.keys().next().value;
+    if (oldest === undefined) break;
+    catalogMemo.delete(oldest);
+  }
+  return entry;
+}
+
+async function memoizedOrderedCatalog(
+  filters: CatalogFilters,
+): Promise<CatalogProduct[]> {
+  return loadMemoEntry(filters).promise;
+}
+
+/** The unfiltered catalog: the same publication gates as ids mode. */
+const SNAPSHOT_FILTERS: CatalogFilters = { sort: "newest" };
+
+/**
+ * Hydration lookup for situation search. Returns the memoized unfiltered
+ * catalog by id when a fresh copy is already loaded, otherwise null — and
+ * starts loading it so a later call can use it. A null tells the caller to do
+ * its own ids read, so a cold memo never adds latency.
+ *
+ * Equivalent to ids mode for any id set: both apply the same publication
+ * gates (visible, official_url, source_checked_at, image_url, active source,
+ * approved brand, test brands excluded) and `isCatalogEligible`, with no
+ * category restriction.
+ */
+export function peekCatalogSnapshot(): Map<string, CatalogProduct> | null {
+  const entry = loadMemoEntry(SNAPSHOT_FILTERS);
+  if (!entry.settled) return null;
+  entry.byId ??= new Map(entry.settled.map((p) => [p.id, p]));
+  return entry.byId;
 }
 
 /** Brand round-robin with an independent L2 rotation inside each brand. */

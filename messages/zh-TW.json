@@ -97,17 +97,21 @@
     },
     "search": {
       "label": "搜尋商品",
-      "placeholder": "搜尋商品、品牌或需求…",
+      "placeholder": "搜尋商品、品牌，或一個情境…",
       "submit": "搜尋",
       "clear": "清除搜尋",
-      "resultsHeading": "符合「{query}」的商品",
-      "count": "找到 {count} 件相關商品",
-      "countTop": "依相關度列出前 {count} 件",
+      "heading": "搜尋結果",
+      "queryEcho": "「{query}」",
+      "count": "依相關度排列 · {count} 件",
       "empty": "找不到「{query}」相關的商品，換個關鍵字，或清除篩選條件。",
       "emptyRoutes": {
         "trailsHeading": "從這幾組主題選物逛起",
         "categoriesHeading": "依分類看全部商品"
       }
+    },
+    "trailRail": {
+      "heading": "從一個情境開始逛",
+      "linkText": "看全部主題選物"
     }
   },
   "brandsJoin": {
@@ -216,7 +220,7 @@
     "newsletterOnlyDescription": "電子報需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
-    "breadcrumbAria": "品牌目錄麵包屑導覽",
+    "breadcrumbAria": "目前位置",
     "metadata": {
       "title": "台灣品牌目錄｜依分類找品牌、線上購買與實體通路｜Formoria",
       "description": "依分類或關鍵字，找在台灣創立、設計或製造的品牌，再從品牌頁前往官網或實體通路。"
@@ -249,7 +253,7 @@
     },
     "search": {
       "aria": "搜尋品牌",
-      "placeholder": "搜尋品牌...",
+      "placeholder": "搜尋品牌…",
       "submit": "搜尋",
       "clear": "清除搜尋",
       "loading": "正在搜尋品牌…"
@@ -259,12 +263,13 @@
       "previous": "‹ 上一頁",
       "previousAria": "上一頁",
       "next": "下一頁 ›",
-      "nextAria": "下一頁"
+      "nextAria": "下一頁",
+      "status": "第 {page} / {total} 頁"
     },
     "card": {
       "productCount": "{count} 件商品"
     },
-    "noResultsInSuggestions": "找不到結果",
+    "noResultsInSuggestions": "沒有符合的品牌",
     "editorialLinksAria": "相關專題與主題選物",
     "editorialStories": "相關專題",
     "editorialTrails": "相關主題選物",
@@ -1901,14 +1906,14 @@
       "actions": {
         "removeSearch": {
           "title": "移除品牌關鍵字",
-          "description": "保留其他條件並查看更多品牌"
+          "description": "留下其他條件，看更多品牌"
         },
         "clearFilters": {
           "title": "清除篩選條件",
-          "description": "保留品牌關鍵字並移除其他條件"
+          "description": "留下關鍵字，清掉其他條件"
         },
         "browseAll": {
-          "title": "瀏覽所有品牌",
+          "title": "看全部品牌",
           "description": "不加任何條件，看全部品牌"
         }
       },

@@ -74,7 +74,7 @@
     "heading": "Products",
     "subheading": "Find Taiwanese products by category and material, then buy from the brand's site or stockists.",
     "emptyState": "No products match these filters. Remove one and try again.",
-    "resultCount": "{count} products",
+    "resultCount": "{count, plural, one {# product} other {# products}}",
     "filters": {
       "subcategory": "Subcategory",
       "material": "Material",
@@ -97,17 +97,21 @@
     },
     "search": {
       "label": "Search products",
-      "placeholder": "Search products, brands or needs…",
+      "placeholder": "Search products, brands, or a situation…",
       "submit": "Search",
       "clear": "Clear search",
-      "resultsHeading": "Products matching \"{query}\"",
-      "count": "{count, plural, one {# matching product} other {# matching products}}",
-      "countTop": "Top {count} by relevance",
+      "heading": "Search results",
+      "queryEcho": "\"{query}\"",
+      "count": "Sorted by relevance · {count, plural, one {# product} other {# products}}",
       "empty": "No products match \"{query}\". Try a different keyword or clear the filters.",
       "emptyRoutes": {
         "trailsHeading": "Start from one of these guides",
         "categoriesHeading": "Browse all products by category"
       }
+    },
+    "trailRail": {
+      "heading": "Start from a situation",
+      "linkText": "See all guides"
     }
   },
   "brandsJoin": {
@@ -216,7 +220,7 @@
     "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details."
   },
   "brands": {
-    "breadcrumbAria": "Brand directory breadcrumb",
+    "breadcrumbAria": "Breadcrumb",
     "metadata": {
       "title": "Taiwanese brand directory | Brands by category and where to buy | Formoria",
       "description": "Find brands founded, designed, or made in Taiwan by category or keyword, then go from each brand page to its official site or stockists."
@@ -249,22 +253,23 @@
     },
     "search": {
       "aria": "Search brands",
-      "placeholder": "Search brands...",
+      "placeholder": "Search brands…",
       "submit": "Search",
       "clear": "Clear search",
-      "loading": "Searching brands..."
+      "loading": "Searching brands…"
     },
     "pagination": {
       "label": "Pagination",
       "previous": "‹ Previous",
       "previousAria": "Previous page",
       "next": "Next ›",
-      "nextAria": "Next page"
+      "nextAria": "Next page",
+      "status": "Page {page} of {total}"
     },
     "card": {
       "productCount": "{count, plural, one {# product} other {# products}}"
     },
-    "noResultsInSuggestions": "No results found",
+    "noResultsInSuggestions": "No matching brands",
     "editorialLinksAria": "Related stories and guides",
     "editorialStories": "Related stories",
     "editorialTrails": "Related guides",
@@ -2700,14 +2705,14 @@
       "actions": {
         "removeSearch": {
           "title": "Remove brand keyword",
-          "description": "Keep the other conditions and see more brands"
+          "description": "Keep your other filters and see more brands"
         },
         "clearFilters": {
           "title": "Clear filters",
-          "description": "Keep the brand keyword and remove other filters"
+          "description": "Keep the keyword and clear the other filters"
         },
         "browseAll": {
-          "title": "Browse all brands",
+          "title": "See all brands",
           "description": "See every brand, with no filters"
         }
       },

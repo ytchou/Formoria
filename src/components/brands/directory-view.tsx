@@ -1,4 +1,5 @@
 import { SearchInput } from "@/components/brands/search-input";
+import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import {
@@ -205,24 +206,18 @@ export async function DirectoryView({
     category: subcategory.category,
   }));
 
+  // Out-of-range pages 404, as an unknown category does (DS-34), instead of
+  // a 200 that reads 0 brands under an empty state blaming the filters. A
+  // zero-result first page stays a 200 empty state.
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE);
-  const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page;
-  let displayBrands = brands;
-  if (clampedPage !== page && totalCount > 0 && !isCategoryRoute) {
-    const refetched = await getPublicBrandCards({
-      search: search || undefined,
-      category: brandCategoryFilter,
-      subcategoryTags: activeSubSlugs,
-      sort,
-      page: clampedPage,
-    });
-    displayBrands = refetched.brands;
+  if (totalPages >= 1 && page > totalPages) {
+    notFound();
   }
-  // One read for the whole page, keyed by the brands actually shown (after the
-  // clamped re-read). A failure degrades to cards without a product strip.
+  // One read for the whole page, keyed by the brands shown. A failure
+  // degrades to cards without a product strip.
   const productPreviews =
     (await getPublishedProductPreviewsForBrands(
-      displayBrands.map((brand) => brand.id),
+      brands.map((brand) => brand.id),
     ).catch(captureReadFailure("directory.productPreviews"))) ??
     new Map<string, BrandProductPreview>();
 
@@ -349,7 +344,7 @@ export async function DirectoryView({
       page,
     })
   ) {
-    brandsItemListJsonLd = buildBrandsItemListJsonLd(displayBrands, safeLocale);
+    brandsItemListJsonLd = buildBrandsItemListJsonLd(brands, safeLocale);
   }
   if (categoryTag) {
     const catT = await getTranslations({
@@ -363,7 +358,7 @@ export async function DirectoryView({
     categoryItemListJsonLd = buildCategoryItemListJsonLd(
       categoryName,
       canonical,
-      displayBrands,
+      brands,
       safeLocale,
       editorialDescription,
       activeSubcategory ? categoryName : undefined,
@@ -444,14 +439,22 @@ export async function DirectoryView({
       ) : null}
       <ViewItemListTracker
         listName="directory"
-        itemCount={displayBrands.length}
+        itemCount={brands.length}
       />
       <SearchResultsTracker query={search} resultCount={totalCount} />
 
       <div className="space-y-stack">
         <DirectoryHeader
           title={pageHeading}
-          intro={t("subheading")}
+          lede={t("subheading")}
+          meta={
+            <DirectoryResultStatus
+              locale={safeLocale}
+              totalCount={totalCount}
+              latestUpdatedAt={latestUpdatedAt}
+              announceLiveRegion={isCategoryRoute}
+            />
+          }
           search={
             <SearchInput
               label={t("search.aria")}
@@ -470,14 +473,6 @@ export async function DirectoryView({
           <div className="min-w-0 flex-1">
             <DirectoryToolbar
               filterTrigger={<BrandFilterDrawer {...sidebarProps} />}
-              count={
-                <DirectoryResultStatus
-                  locale={safeLocale}
-                  totalCount={totalCount}
-                  latestUpdatedAt={latestUpdatedAt}
-                  announceLiveRegion={isCategoryRoute}
-                />
-              }
               chips={
                 activeFilters.length > 0 ? (
                   <ActiveFilterChips
@@ -520,7 +515,7 @@ export async function DirectoryView({
               }
             >
               <SavedBrandsProvider>
-                {displayBrands.length === 0 ? (
+                {brands.length === 0 ? (
                   <SearchEmptyState
                     activeFilters={activeFilters}
                     recommendedBrands={recommendedBrands}
@@ -528,7 +523,7 @@ export async function DirectoryView({
                   />
                 ) : (
                   <MasonryGrid>
-                    {displayBrands.map((brand, index) => (
+                    {brands.map((brand, index) => (
                       <BrandCard
                         key={brand.id}
                         brand={brand}
@@ -543,7 +538,7 @@ export async function DirectoryView({
 
             <Pagination
               totalCount={totalCount}
-              currentPage={clampedPage}
+              currentPage={page}
               pageSize={DEFAULT_PAGE_SIZE}
             />
             </PendingResults>

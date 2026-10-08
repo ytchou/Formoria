@@ -5,6 +5,8 @@ import {
   DiscoverEmptyRoutes,
   type DiscoverEmptyRouteTrail,
 } from "@/components/products/discover-empty-routes";
+import { DiscoverCategoryChips } from "@/components/products/discover-category-chips";
+import { DiscoverTrailRail } from "@/components/products/discover-trail-rail";
 import { parseDiscoverSource } from "@/lib/products/discover-search-params";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -47,7 +49,9 @@ import {
   type SearchResult,
 } from "@/lib/services/product-situation-search";
 import { shouldAttemptIntentParse } from "@/lib/services/query-intent-parse";
-import { getAllTrails } from "@/lib/services/trails";
+import { getAllTrails, type TrailEntry } from "@/lib/services/trails";
+import { toTrailCard } from "@/lib/trails/trail-card";
+import { routes } from "@/lib/routes";
 import { createClient } from "@/lib/supabase/server";
 import {
   VISIBLE_L1_CATEGORIES,
@@ -85,26 +89,33 @@ export const revalidate = 3600;
 
 const PAGE_SIZE = 20;
 
-/** Trails offered as ways forward from a zero-result search. */
-const EMPTY_ROUTE_TRAIL_LIMIT = 3;
+/**
+ * Trails offered as ways forward from a zero-result search, and in the
+ * editorial rail above the unfiltered first page.
+ */
+const TRAIL_LIMIT = 3;
 
 /**
  * The first few published trails, in the order the service returns them. A
- * failed read offers no trails rather than failing the page. Trails are
- * zh-only today, so on /en a zh title carries its own `lang`.
+ * failed read offers no trails rather than failing the page.
  */
-async function readEmptyRouteTrails(
-  locale: string,
-): Promise<DiscoverEmptyRouteTrail[]> {
+async function readFirstTrails(locale: string): Promise<TrailEntry[]> {
   const result = await getAllTrails(locale === "en" ? "en" : "zh-TW");
-  if (!result.ok) return [];
-  return result.trails.slice(0, EMPTY_ROUTE_TRAIL_LIMIT).map((trail) => ({
+  return result.ok ? result.trails.slice(0, TRAIL_LIMIT) : [];
+}
+
+/** Trails are zh-only today, so on /en a zh title carries its own `lang`. */
+function toEmptyRouteTrail(
+  trail: TrailEntry,
+  locale: string,
+): DiscoverEmptyRouteTrail {
+  return {
     slug: trail.slug,
     title: trail.frontmatter.title,
     ...(locale === "en" && trail.frontmatter.locale !== "en"
       ? { lang: "zh-Hant-TW" }
       : {}),
-  }));
+  };
 }
 
 function firstParam(value: string | string[] | undefined): string | null {
@@ -195,6 +206,7 @@ export default async function DiscoverPage({
     resolveDiscoverTaxonomy(rawParams);
   const t = await getTranslations({ locale, namespace: "products" });
   const commonT = await getTranslations({ locale, namespace: "common" });
+  const landingT = await getTranslations({ locale, namespace: "landing" });
   const pageParam = firstParam(rawParams.page);
   const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
 
@@ -226,7 +238,6 @@ export default async function DiscoverPage({
   // Parallel fetch: products + facet counts
   let products: CatalogProduct[] = [];
   let totalCount = 0;
-  let poolLimited = false;
   const searchSource = parseDiscoverSource(rawParams);
   let relatedBrands: BrandNameMatch[] = [];
   let degraded = false;
@@ -257,23 +268,6 @@ export default async function DiscoverPage({
     subcategoryCounts: [],
     materialCounts: [],
   };
-  // Category counts never narrow to the active category, so they come from
-  // the unfiltered facets. Shortcut: a second facet read (all categories)
-  // whenever a category is active. Ceiling: fine while the unfiltered read is
-  // an `unstable_cache` hit (1h revalidate) over a corpus of a few thousand
-  // rows, aggregated in memory. Upgrade path, once cold-cache facet latency
-  // shows up on /discover: one read that returns both scopes.
-  // Failure omits the counts (null) rather than failing the page.
-  const readUnfilteredFacets = () =>
-    getProductFacetCounts(null).catch((err) => {
-      captureReadFailure("discover.facets")(err);
-      return null;
-    });
-  // A URL category is known now, so its unfiltered read runs beside the main
-  // reads. Only a category inferred by the search has to wait for it.
-  const urlCategoryUnfilteredFacets = category
-    ? readUnfilteredFacets()
-    : undefined;
   try {
     if (isSearchMode) {
       const [searchResult, facetResult, brandMatches] = await Promise.all([
@@ -296,7 +290,6 @@ export default async function DiscoverPage({
       ]);
       products = searchResult.products;
       totalCount = searchResult.totalCount;
-      poolLimited = searchResult.poolLimited;
       relatedBrands = brandMatches;
       degraded = searchResult.degraded;
       searchId = searchResult.searchId;
@@ -393,18 +386,6 @@ export default async function DiscoverPage({
     ];
   });
 
-  const unfilteredFacets = effectiveCategory
-    ? await (urlCategoryUnfilteredFacets ?? readUnfilteredFacets())
-    : facets;
-  // Null or empty means a read failed: omit counts rather than show a column
-  // of 0s.
-  const categoryCounts =
-    unfilteredFacets && unfilteredFacets.categoryCounts.length > 0
-      ? Object.fromEntries(
-          unfilteredFacets.categoryCounts.map((fc) => [fc.slug, fc.count]),
-        )
-      : undefined;
-
   // Build material options (filter count > 0, only for applicable L1s)
   const materialOptions = isMaterialApplicable(effectiveCategory)
     ? facets.materialCounts
@@ -466,14 +447,33 @@ export default async function DiscoverPage({
     }),
   ];
 
+  // Out-of-range pages 404, as an invalid category does (DS-34), rather than
+  // a 200 that states a count above an empty grid. A zero-result first page
+  // stays a 200 empty state, and so does a failed read (totalCount 0).
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  if (totalPages >= 1 && page > totalPages) {
+    notFound();
+  }
+
   const pageArmBySlot = armBySlot?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const hasChips = activeFilters.length > 0 || isSearchMode;
 
-  // A zero-result search offers ways forward; the trail read runs only then.
+  // A zero-result search offers ways forward; the unfiltered first page opens
+  // on an editorial trail rail. The trail read runs only for those two.
   const showSearchEmpty = isSearchMode && products.length === 0;
+  const showTrailRail =
+    !isSearchMode &&
+    category === null &&
+    subcategories.length === 0 &&
+    materials.length === 0 &&
+    page === 1 &&
+    products.length > 0;
+  const firstTrails =
+    showSearchEmpty || showTrailRail ? await readFirstTrails(locale) : [];
   const emptyRouteTrails = showSearchEmpty
-    ? await readEmptyRouteTrails(locale)
+    ? firstTrails.map((trail) => toEmptyRouteTrail(trail, locale))
     : [];
+  const railTrails = showTrailRail ? firstTrails.map(toTrailCard) : [];
   const emptyRouteCategories = showSearchEmpty
     ? VISIBLE_L1_CATEGORIES.map((node) => ({
         slug: node.slug,
@@ -481,27 +481,54 @@ export default async function DiscoverPage({
       }))
     : [];
 
-  // Search-mode result line. A pool-limited count is the size of the ranked
-  // candidate pool, not a match count, so it is worded as a top-N.
-  const searchIntro =
-    totalCount === 0
-      ? undefined
-      : poolLimited
-        ? t("search.countTop", { count: totalCount })
-        : t("search.count", { count: totalCount });
+  // The header's intro line. Search mode echoes the query (clamped to one
+  // line, the full text in `title`) before one count sentence: a pool-limited
+  // count and a full one read the same, since both are relevance-ordered
+  // results, never a claim that every item matches.
+  const headerMeta = searchQuery !== null ? (
+    <p className="flex min-w-0 items-baseline gap-x-2">
+      <span className="min-w-0 truncate" title={searchQuery}>
+        {t("search.queryEcho", { query: searchQuery })}
+      </span>
+      {totalCount > 0 ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <span className="shrink-0">
+            {t("search.count", { count: totalCount })}
+          </span>
+        </>
+      ) : null}
+    </p>
+  ) : (
+    <p>{t("resultCount", { count: totalCount })}</p>
+  );
+
+  // The category chips: 全部 plus every visible L1. During a search each keeps
+  // `q`, so changing the category refines the search instead of ending it.
+  const categoryChips = [
+    { slug: null, label: commonT("all") },
+    ...VISIBLE_L1_CATEGORIES.map((node) => ({
+      slug: node.slug,
+      label: categoryLabel(node, locale),
+    })),
+  ].map((chip) => ({
+    ...chip,
+    href: routes.discover({
+      category: chip.slug ?? undefined,
+      q: searchQuery ?? undefined,
+    }),
+  }));
 
   return (
     <PageShell as="main" measure="page" className="pt-12 pb-section">
       <div className="space-y-stack">
-        {/* Search mode titles the page by the query. Safe as the h1 because
-            every `?q` page is noindex (`discoverMetadataFor`). */}
+        {/* Search mode titles the page 搜尋結果 (`products.search.heading`)
+            and moves the query to the intro line: a long query at display
+            size pushed the results below the fold. */}
         <DirectoryHeader
-          title={
-            isSearchMode
-              ? t("search.resultsHeading", { query: searchQuery })
-              : t("heading")
-          }
-          intro={isSearchMode ? searchIntro : t("subheading")}
+          title={isSearchMode ? t("search.heading") : t("heading")}
+          lede={isSearchMode ? undefined : t("subheading")}
+          meta={headerMeta}
           search={
             <ProductSituationSearchForm
               locale={locale}
@@ -534,6 +561,24 @@ export default async function DiscoverPage({
 
         <SavedProductsProvider>
         <ResultsTransitionProvider>
+        <DiscoverCategoryChips
+          label={t("filters.category")}
+          chips={categoryChips}
+          activeCategory={effectiveCategory}
+        />
+
+        {showTrailRail ? (
+          <DiscoverTrailRail
+            trails={railTrails}
+            heading={t("trailRail.heading")}
+            linkLabel={t("trailRail.linkText")}
+            tileLabels={{
+              eyebrow: landingT("trails.eyebrow"),
+              cta: landingT("trails.cta"),
+            }}
+          />
+        ) : null}
+
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Desktop sidebar */}
           <FilterAside>
@@ -541,7 +586,8 @@ export default async function DiscoverPage({
               locale={locale}
               activeCategory={effectiveCategory}
               allLabel={commonT("all")}
-              categoryCounts={categoryCounts}
+              showCategories={false}
+              hideCounts={isSearchMode}
               subcategoryOptions={subcategoryOptions}
               activeSubSlugs={effectiveSubs}
               materialOptions={materialOptions}
@@ -557,20 +603,14 @@ export default async function DiscoverPage({
                   locale={locale}
                   activeCategory={effectiveCategory}
                   allLabel={commonT("all")}
-                  categoryCounts={categoryCounts}
+                  showCategories={false}
+                  hideCounts={isSearchMode}
                   subcategoryOptions={subcategoryOptions}
                   activeSubSlugs={effectiveSubs}
                   materialOptions={materialOptions}
                   activeMaterials={effectiveMaterials}
                   totalCount={totalCount}
                 />
-              }
-              // Search mode states the count in the intro (`search.count` or
-              // `search.countTop`); a second one here would repeat it.
-              count={
-                isSearchMode ? undefined : (
-                  <p>{t("resultCount", { count: totalCount })}</p>
-                )
               }
               chips={
                 hasChips ? (

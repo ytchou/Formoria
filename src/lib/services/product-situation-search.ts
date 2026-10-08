@@ -1,6 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { createAuditedEmbeddingsClient } from "@/lib/services/embeddings-audit";
-import { getPublishedCuratedProducts } from "@/lib/services/curated-products-catalog";
+import {
+  getPublishedCuratedProducts,
+  peekCatalogSnapshot,
+} from "@/lib/services/curated-products-catalog";
 import {
   getDefaultQueryEmbeddingCache,
   type QueryEmbeddingCache,
@@ -10,6 +13,7 @@ import * as Sentry from "@sentry/nextjs";
 import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
 import { isMaterialApplicable, isVisibleCategory } from "@/lib/taxonomy/ontology";
 import type { RpcRow as LtrRpcRow } from "./ltr-features";
+import { diversifyRankedProducts } from "./search-diversify";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -240,6 +244,15 @@ export function createDefaultSearchDeps(): SearchDeps {
       return { data: data as RpcRow[] | null, error };
     },
     hydrate: async ({ ids }) => {
+      // DEV-1991: a warm in-process catalog snapshot skips the ids read
+      // (~200 ms). Cold, it falls through to the ids read unchanged.
+      const snapshot = peekCatalogSnapshot();
+      if (snapshot) {
+        return ids.flatMap((id) => {
+          const product = snapshot.get(id);
+          return product ? [product] : [];
+        });
+      }
       const result = await getPublishedCuratedProducts({ ids });
       return result.products;
     },
@@ -644,6 +657,19 @@ export async function searchProductsBySituation(
     ordered = [...ordered].sort((a, b) => a.nameZh.localeCompare(b.nameZh));
   }
   // "relevance" keeps current order (RRF, LTR, or interleaved)
+
+  // DEV-1991: diversify the served relevance ranking (brand cap and SKU-family
+  // dedupe in the first slots). Pool generators (relevanceFloor=false) keep
+  // the raw order.
+  if (sort === "relevance" && input.relevanceFloor !== false) {
+    const permutation = diversifyRankedProducts(ordered, { query: normalized });
+    const source = ordered;
+    ordered = permutation.map((i) => source[i]!);
+    const arms = ltrFields?.armBySlot;
+    if (arms && arms.length === source.length) {
+      ltrFields!.armBySlot = permutation.map((i) => arms[i]!);
+    }
+  }
 
   // --- Paginate ---
   const totalCount = ordered.length;
