@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import {
   config,
   decideBareBrandSlug,
+  isOutsideAppRoutes,
   PUBLIC_INTL_SEGMENTS,
   RESERVED_ROUTES,
   SLUG_PATTERN,
@@ -71,6 +72,24 @@ function isRoutable(dir: string): boolean {
   return false
 }
 
+/**
+ * The URLs Next.js serves for the files directly in `src/app`. An image
+ * generator (`opengraph-image.tsx`) is served at its bare stem. Every other
+ * root file is served under a name with an extension (`icon.png`, `sitemap.ts`
+ * as `/sitemap.xml`), and other source files serve nothing.
+ */
+const IMAGE_GENERATOR_STEM = /^(icon|apple-icon|opengraph-image|twitter-image)\d*$/
+
+function rootFileRoutes(): string[] {
+  return readdirSync(APP_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .flatMap(({ name }) => {
+      const source = /^(.+)\.[jt]sx?$/.exec(name)
+      if (!source) return [`/${name}`]
+      return IMAGE_GENERATOR_STEM.test(source[1]) ? [`/${source[1]}`] : []
+    })
+}
+
 describe('route registration', () => {
   const appSegments = [
     ...topLevelSegments(APP_DIR).filter((s) => s.name !== '[locale]'),
@@ -120,6 +139,25 @@ describe('route registration', () => {
     '/$name is reserved against the brand-slug redirect',
     ({ name }) => {
       expect(RESERVED_ROUTES.has(name)).toBe(true)
+    },
+  )
+
+  it.each(appSegments.filter((s) => isRoutable(s.path)))(
+    '/$name/... is not rewritten to the not-found page by the proxy',
+    ({ name }) => {
+      expect(isOutsideAppRoutes(`/${name}/x`)).toBe(false)
+    },
+  )
+
+  it.each(rootFileRoutes())('%s is not rewritten to the not-found page by the proxy', (route) => {
+    expect(isOutsideAppRoutes(route)).toBe(false)
+  })
+
+  it.each(readdirSync('public', { withFileTypes: true }))(
+    'public/$name is not rewritten to the not-found page by the proxy',
+    (entry) => {
+      const route = entry.isDirectory() ? `/${entry.name}/x` : `/${entry.name}`
+      expect(isOutsideAppRoutes(route)).toBe(false)
     },
   )
 
