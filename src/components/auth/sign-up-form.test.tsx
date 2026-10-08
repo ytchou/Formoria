@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { ReactNode } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
@@ -115,11 +115,16 @@ describe("SignUpForm", () => {
   it("links the terms line to the terms and privacy pages", () => {
     renderForm();
 
-    expect(screen.getByRole("link", { name: "服務條款" })).toHaveAttribute(
+    // Scoped to the terms line: the marketing opt-in field renders its own
+    // /privacy link elsewhere in the form.
+    const termsLine = within(
+      screen.getByText(/建立帳號即表示你同意/).closest("p")!,
+    );
+    expect(termsLine.getByRole("link", { name: "服務條款" })).toHaveAttribute(
       "href",
       "/terms",
     );
-    expect(screen.getByRole("link", { name: "隱私權政策" })).toHaveAttribute(
+    expect(termsLine.getByRole("link", { name: "隱私權政策" })).toHaveAttribute(
       "href",
       "/privacy",
     );
