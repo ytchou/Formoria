@@ -13,11 +13,20 @@
 # (Dockerfile.curation-worker:8). This script does the same for local runs,
 # restoring the original on exit (including signals).
 #
+# When package.json already has "type": "module" (always, in the image), the
+# worker is exec'd so it receives SIGTERM directly. Without exec, bash defers
+# its trap until the foreground child exits, the worker never sees the signal,
+# and every container stop ends in a forced kill that Railway reports as a crash.
+#
 # Usage: scripts/run-worker.sh tsx src/health-agent/server.ts [-- --dry-run]
 
 set -euo pipefail
 
 PKG="package.json"
+
+if node -e "process.exit(require('./$PKG').type === 'module' ? 0 : 1)"; then
+  exec "$@"
+fi
 BACKUP=""
 
 inject_type_module() {
