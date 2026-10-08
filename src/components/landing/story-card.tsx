@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { SurfaceImage } from "@/components/ui/image";
 import { Link } from "@/i18n/navigation";
 import { trackStoryCardClicked } from "@/lib/analytics";
@@ -21,8 +23,13 @@ export function StoryCard({
   position,
   trackingSurface,
 }: StoryCardProps) {
+  const t = useTranslations("stories");
   const imageSrc = safeImageSrc(story.frontmatter.heroImage);
   const publishedLabel = formatStoryDate(story.frontmatter.publishedAt, locale);
+  // Tags are vocabulary keys (`event`), not display text. Show one only when it
+  // has a label; an untranslated key on the card is worse than no tag.
+  const tag = story.frontmatter.tags?.[0];
+  const tagLabel = tag && t.has(`tags.${tag}`) ? t(`tags.${tag}`) : null;
 
   return (
     <Link
@@ -57,7 +64,7 @@ export function StoryCard({
 
       <div className="flex flex-col pt-3">
         <span className="type-eyebrow text-ink-muted">
-          {[story.frontmatter.tags?.[0], publishedLabel]
+          {[tagLabel, publishedLabel]
             .filter(Boolean)
             .join(" · ")}
         </span>

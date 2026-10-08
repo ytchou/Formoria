@@ -109,9 +109,15 @@ export function createStoryComponentMap({
     // them. Children for the same DEV-1302 reason as `BrandRow`.
     BrandList: (props: { children?: ReactNode }) =>
       createElement(BrandList, null, props.children),
-    // One row of a `BrandList`. All-string props, all optional except `slug` —
-    // anything authored as `prop={…}` would be dropped before it got here.
-    BrandLine: (props: { slug: string; booth?: string; note?: string }) =>
+    // One row of a `BrandList`. All-string props, all optional — `name` alone
+    // renders an unlinked row. Anything authored as `prop={…}` would be dropped
+    // before it got here.
+    BrandLine: (props: {
+      slug?: string;
+      name?: string;
+      booth?: string;
+      note?: string;
+    }) =>
       createElement(BrandLine, props),
     // A large statement line that breaks up body copy. Distinct on purpose from
     // the markdown `>` blockquote styled further down this map: that one quotes

@@ -2942,9 +2942,9 @@
   },
   "stories": {
     "metaTitle": "Stories",
-    "metaDescription": "Long-form reporting on Taiwanese brands — the makers, the places, and the work behind what they sell.",
+    "metaDescription": "Long-form stories on Taiwanese brands: the people who make things, where they work, and guides to expos and markets.",
     "heading": "Stories",
-    "subheading": "Long-form reporting on Taiwanese brands, one brand at a time, told from where the work actually happens and followed through from beginning to end.",
+    "subheading": "Long-form stories that start from brands, places, and the people who make things, plus guides to expos and markets.",
     "comingSoon": "The first stories are on their way.",
     "languageBadge": "In Chinese",
     "loadError": "Stories are temporarily unavailable. Please try again later.",
@@ -2957,7 +2957,7 @@
     "tagsAria": "Story tags",
     "tagsLabel": "Tags",
     "tags": {
-      "event": "Events",
+      "event": "Event",
       "creative-expo": "Taiwan Creative Expo"
     },
     "seriesLabel": "Series",
@@ -2965,7 +2965,7 @@
     "seriesNavAria": "Stories in this series",
     "seriesCount": "{count, plural, one {# part} other {# parts}}",
     "seriesCountFiltered": "{shown} of {total, plural, one {# part} other {# parts}}",
-    "brandMissing": "Brand unavailable: {slug}",
+    "brandMissing": "This brand has no public page right now: {slug}",
     "galleryImageAlt": "{brand} product photo",
     "eventDates": "Dates",
     "eventHours": "Hours",
