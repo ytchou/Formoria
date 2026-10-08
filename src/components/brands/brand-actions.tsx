@@ -52,10 +52,10 @@ const VISIT_LABEL_KEYS = {
   facebook: 'actions.visitFacebook',
 } satisfies Record<BrandVisitLinkKind, string>
 
-// Layout only (flex sizing and a width floor), shared by the live CTA and its
+// Layout only (flex sizing and a width cap), shared by the live CTA and its
 // disabled twin so both wrap the same way.
 const VISIT_CTA_LAYOUT =
-  'min-w-0 flex-1 basis-full min-[360px]:basis-auto md:flex-none md:min-w-60'
+  'min-w-0 flex-1 basis-full md:basis-0 md:max-w-80'
 
 interface BrandActionsProps {
   adminSlot?: ReactNode
@@ -103,12 +103,16 @@ export function BrandActions({
   return (
     <>
       {/*
-        The secondary actions are 44px icon buttons. Below 360px the visit CTA
-        takes its own line and the icons wrap under it (BD2-01); up to md it
-        takes the remaining space; from md it sizes to its label, at least
-        240px, so the row reads as a button group (BD2-32). Height and padding
+        The secondary actions are 44px icon buttons. Below md the visit CTA
+        takes its own line and the icons sit under it: a shared row overflowed
+        at 320px (BD2-01) and, with labels such as "Visit the brand's site",
+        pushed the last icon onto a line of its own at 390px. From md the CTA
+        shares one row with the icons and fills the space left, capped at
+        320px, so the row reads as a button group rather than a bar (BD2-32);
+        a fixed floor instead would wrap the icons in the ~390px lg column at
+        1024px. Height and padding
         come only from the Button `size` axis (DESIGN.md §7/§8) — the classes
-        below are flex layout and a width floor, never a height or padding.
+        below are flex layout and a width cap, never a height or padding.
       */}
       <div className="flex flex-wrap items-center gap-2">
         {websiteUrl ? (
