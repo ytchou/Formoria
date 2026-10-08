@@ -10,12 +10,17 @@ import catalog from "./fixtures/catalog-names-2026-10-08.json";
 import stagingCatalog from "./fixtures/staging-catalog-names-2026-10-08.json";
 
 describe("isShopSkuToken", () => {
-  it.each(["7cFSL8yz", "zJJGtwgx", "QJVtWFVy", "q2wz7ii6", "AuCXmkNG", "998twnrh", "mvgmaaE5"])(
-    "flags the random token %s",
-    (token) => {
-      expect(isShopSkuToken(token)).toBe(true);
-    },
-  );
+  it.each([
+    "7cFSL8yz",
+    "zJJGtwgx",
+    "QJVtWFVy",
+    "q2wz7ii6",
+    "AuCXmkNG",
+    "998twnrh",
+    "mvgmaaE5",
+  ])("flags the random token %s", (token) => {
+    expect(isShopSkuToken(token)).toBe(true);
+  });
 
   it.each([
     "CHECK350",
@@ -43,34 +48,46 @@ describe("isShopSkuToken", () => {
 
 describe("normalizeCuratedProductName", () => {
   it("strips a trailing shop SKU token", () => {
-    expect(normalizeCuratedProductName("Your Monkey 眼鏡架兼存錢筒 7cFSL8yz")).toBe(
-      "Your Monkey 眼鏡架兼存錢筒",
+    expect(
+      normalizeCuratedProductName("Your Monkey 眼鏡架兼存錢筒 7cFSL8yz"),
+    ).toBe("Your Monkey 眼鏡架兼存錢筒");
+    expect(
+      normalizeCuratedProductName("Handscript 手稿藝術家系列鋼珠筆 zJJGtwgx"),
+    ).toBe("Handscript 手稿藝術家系列鋼珠筆");
+    expect(normalizeCuratedProductName("小直角書籤-鯨落 q2wz7ii6")).toBe(
+      "小直角書籤-鯨落",
     );
-    expect(normalizeCuratedProductName("Handscript 手稿藝術家系列鋼珠筆 zJJGtwgx")).toBe(
-      "Handscript 手稿藝術家系列鋼珠筆",
-    );
-    expect(normalizeCuratedProductName("小直角書籤-鯨落 q2wz7ii6")).toBe("小直角書籤-鯨落");
   });
 
   it("collapses a name written twice", () => {
-    expect(normalizeCuratedProductName("啵啵杯710ml 啵啵杯710ml")).toBe("啵啵杯710ml");
+    expect(normalizeCuratedProductName("啵啵杯710ml 啵啵杯710ml")).toBe(
+      "啵啵杯710ml",
+    );
     expect(normalizeCuratedProductName("T Torch T Torch")).toBe("T Torch");
   });
 
   it("collapses a name written more than twice to one copy", () => {
-    expect(normalizeCuratedProductName("T Torch T Torch T Torch")).toBe("T Torch");
+    expect(normalizeCuratedProductName("T Torch T Torch T Torch")).toBe(
+      "T Torch",
+    );
     expect(
-      normalizeCuratedProductName("啵啵杯710ml 啵啵杯710ml 啵啵杯710ml 啵啵杯710ml"),
+      normalizeCuratedProductName(
+        "啵啵杯710ml 啵啵杯710ml 啵啵杯710ml 啵啵杯710ml",
+      ),
     ).toBe("啵啵杯710ml");
   });
 
   it("keeps a single Latin word said twice, which is the name itself", () => {
     expect(normalizeCuratedProductName("Bloom Bloom")).toBe("Bloom Bloom");
-    expect(normalizeCuratedProductName("Bloom Bloom 造型貼紙卷")).toBe("Bloom Bloom 造型貼紙卷");
+    expect(normalizeCuratedProductName("Bloom Bloom 造型貼紙卷")).toBe(
+      "Bloom Bloom 造型貼紙卷",
+    );
   });
 
   it("handles both defects on one name", () => {
-    expect(normalizeCuratedProductName("啵啵杯710ml 啵啵杯710ml 7cFSL8yz")).toBe("啵啵杯710ml");
+    expect(
+      normalizeCuratedProductName("啵啵杯710ml 啵啵杯710ml 7cFSL8yz"),
+    ).toBe("啵啵杯710ml");
   });
 
   it("keeps real model names and units", () => {
@@ -79,69 +96,119 @@ describe("normalizeCuratedProductName", () => {
     expect(normalizeCuratedProductName("經典條紋美麗諾羊毛毯 CHECK350")).toBe(
       "經典條紋美麗諾羊毛毯 CHECK350",
     );
-    expect(normalizeCuratedProductName("夏慕尼沙發 Chamonix")).toBe("夏慕尼沙發 Chamonix");
+    expect(normalizeCuratedProductName("夏慕尼沙發 Chamonix")).toBe(
+      "夏慕尼沙發 Chamonix",
+    );
   });
 
   it("strips an 8-digit shop SKU directly after CJK text (DEV-1989)", () => {
     expect(normalizeCuratedProductName("綁帶甜椒日・白菊姊姊 32141747")).toBe(
       "綁帶甜椒日・白菊姊姊",
     );
-    expect(normalizeCuratedProductName("小花梅醬的花園・ピクニック 32150811")).toBe(
-      "小花梅醬的花園・ピクニック",
+    expect(
+      normalizeCuratedProductName("小花梅醬的花園・ピクニック 32150811"),
+    ).toBe("小花梅醬的花園・ピクニック");
+    expect(normalizeCuratedProductName("城市迷宮〈淺黃〉 32980605")).toBe(
+      "城市迷宮〈淺黃〉",
     );
-    expect(normalizeCuratedProductName("城市迷宮〈淺黃〉 32980605")).toBe("城市迷宮〈淺黃〉");
-    expect(normalizeCuratedProductName("復刻章「數字」 41020001")).toBe("復刻章「數字」");
+    expect(normalizeCuratedProductName("復刻章「數字」 41020001")).toBe(
+      "復刻章「數字」",
+    );
   });
 
   it("keeps 8 digits after Latin text, where they read as a model number", () => {
-    expect(normalizeCuratedProductName("辦公椅 DKGP 10131234")).toBe("辦公椅 DKGP 10131234");
-    expect(normalizeCuratedProductName("Model 32141747")).toBe("Model 32141747");
-    expect(normalizeCuratedProductName("鋼筆 2024 32141747")).toBe("鋼筆 2024 32141747");
+    expect(normalizeCuratedProductName("辦公椅 DKGP 10131234")).toBe(
+      "辦公椅 DKGP 10131234",
+    );
+    expect(normalizeCuratedProductName("Model 32141747")).toBe(
+      "Model 32141747",
+    );
+    expect(normalizeCuratedProductName("鋼筆 2024 32141747")).toBe(
+      "鋼筆 2024 32141747",
+    );
   });
 
   it("keeps digit tails that are not exactly 8 digits, or not space-separated", () => {
-    expect(normalizeCuratedProductName("三重紗漂亮裙 003")).toBe("三重紗漂亮裙 003");
-    expect(normalizeCuratedProductName("白菊姊姊 321417470")).toBe("白菊姊姊 321417470");
-    expect(normalizeCuratedProductName("白菊姊姊32141747")).toBe("白菊姊姊32141747");
+    expect(normalizeCuratedProductName("三重紗漂亮裙 003")).toBe(
+      "三重紗漂亮裙 003",
+    );
+    expect(normalizeCuratedProductName("白菊姊姊 321417470")).toBe(
+      "白菊姊姊 321417470",
+    );
+    expect(normalizeCuratedProductName("白菊姊姊32141747")).toBe(
+      "白菊姊姊32141747",
+    );
   });
 
   it("strips a shop token glued to a fullwidth closing bracket", () => {
-    expect(normalizeCuratedProductName("石虎機能設計襪（女款）fv6wjmPG")).toBe("石虎機能設計襪（女款）");
-    expect(normalizeCuratedProductName("書籤「鯨落」q2wz7ii6")).toBe("書籤「鯨落」");
-    expect(normalizeCuratedProductName("書籤『鯨落』q2wz7ii6")).toBe("書籤『鯨落』");
-    expect(normalizeCuratedProductName("書籤【鯨落】q2wz7ii6")).toBe("書籤【鯨落】");
-    expect(normalizeCuratedProductName("書籤〔鯨落〕q2wz7ii6")).toBe("書籤〔鯨落〕");
+    expect(normalizeCuratedProductName("石虎機能設計襪（女款）fv6wjmPG")).toBe(
+      "石虎機能設計襪（女款）",
+    );
+    expect(normalizeCuratedProductName("書籤「鯨落」q2wz7ii6")).toBe(
+      "書籤「鯨落」",
+    );
+    expect(normalizeCuratedProductName("書籤『鯨落』q2wz7ii6")).toBe(
+      "書籤『鯨落』",
+    );
+    expect(normalizeCuratedProductName("書籤【鯨落】q2wz7ii6")).toBe(
+      "書籤【鯨落】",
+    );
+    expect(normalizeCuratedProductName("書籤〔鯨落〕q2wz7ii6")).toBe(
+      "書籤〔鯨落〕",
+    );
   });
 
   it("keeps a glued token after any other character, or a name-shaped one", () => {
-    expect(normalizeCuratedProductName("書籤〉q2wz7ii6")).toBe("書籤〉q2wz7ii6");
+    expect(normalizeCuratedProductName("書籤〉q2wz7ii6")).toBe(
+      "書籤〉q2wz7ii6",
+    );
     expect(normalizeCuratedProductName("書籤)q2wz7ii6")).toBe("書籤)q2wz7ii6");
     expect(normalizeCuratedProductName("鯨落q2wz7ii6")).toBe("鯨落q2wz7ii6");
-    expect(normalizeCuratedProductName("沙發（款）Chamonix")).toBe("沙發（款）Chamonix");
-    expect(normalizeCuratedProductName("鋼筆（黑）DKGP1013")).toBe("鋼筆（黑）DKGP1013");
+    expect(normalizeCuratedProductName("沙發（款）Chamonix")).toBe(
+      "沙發（款）Chamonix",
+    );
+    expect(normalizeCuratedProductName("鋼筆（黑）DKGP1013")).toBe(
+      "鋼筆（黑）DKGP1013",
+    );
   });
 
   it("trims a separator left dangling by a stripped token", () => {
-    expect(normalizeCuratedProductName("金屬雙用靜音桌鐘 Mesa - 1y9JSeGG")).toBe("金屬雙用靜音桌鐘 Mesa");
-    expect(normalizeCuratedProductName("桌鐘 Mesa – 1y9JSeGG")).toBe("桌鐘 Mesa");
-    expect(normalizeCuratedProductName("桌鐘 Mesa — 1y9JSeGG")).toBe("桌鐘 Mesa");
-    expect(normalizeCuratedProductName("桌鐘 Mesa | 1y9JSeGG")).toBe("桌鐘 Mesa");
-    expect(normalizeCuratedProductName("桌鐘 Mesa / 1y9JSeGG")).toBe("桌鐘 Mesa");
-    expect(normalizeCuratedProductName("春聯｜馬上有錢｜ wzSu3eaa")).toBe("春聯｜馬上有錢");
+    expect(
+      normalizeCuratedProductName("金屬雙用靜音桌鐘 Mesa - 1y9JSeGG"),
+    ).toBe("金屬雙用靜音桌鐘 Mesa");
+    expect(normalizeCuratedProductName("桌鐘 Mesa – 1y9JSeGG")).toBe(
+      "桌鐘 Mesa",
+    );
+    expect(normalizeCuratedProductName("桌鐘 Mesa — 1y9JSeGG")).toBe(
+      "桌鐘 Mesa",
+    );
+    expect(normalizeCuratedProductName("桌鐘 Mesa | 1y9JSeGG")).toBe(
+      "桌鐘 Mesa",
+    );
+    expect(normalizeCuratedProductName("桌鐘 Mesa / 1y9JSeGG")).toBe(
+      "桌鐘 Mesa",
+    );
+    expect(normalizeCuratedProductName("春聯｜馬上有錢｜ wzSu3eaa")).toBe(
+      "春聯｜馬上有錢",
+    );
     expect(normalizeCuratedProductName("春聯・ wzSu3eaa")).toBe("春聯");
     expect(normalizeCuratedProductName("春聯／ 32141747")).toBe("春聯");
   });
 
   it("trims no separator when no token was stripped", () => {
     expect(normalizeCuratedProductName("桌鐘 Mesa -")).toBe("桌鐘 Mesa -");
-    expect(normalizeCuratedProductName("ocean /// 925純銀")).toBe("ocean /// 925純銀");
+    expect(normalizeCuratedProductName("ocean /// 925純銀")).toBe(
+      "ocean /// 925純銀",
+    );
     expect(normalizeCuratedProductName("春聯｜")).toBe("春聯｜");
   });
 
   it("keeps a Latin letter l, which is not a separator", () => {
-    expect(normalizeCuratedProductName("Celebrate慶祝花圈戒指 l 世界的微光 ndRssjP6")).toBe(
-      "Celebrate慶祝花圈戒指 l 世界的微光",
-    );
+    expect(
+      normalizeCuratedProductName(
+        "Celebrate慶祝花圈戒指 l 世界的微光 ndRssjP6",
+      ),
+    ).toBe("Celebrate慶祝花圈戒指 l 世界的微光");
   });
 
   it("never empties a name that is only a token", () => {
@@ -149,7 +216,9 @@ describe("normalizeCuratedProductName", () => {
   });
 
   it("is idempotent", () => {
-    const once = normalizeCuratedProductName("Your Monkey 眼鏡架兼存錢筒 7cFSL8yz");
+    const once = normalizeCuratedProductName(
+      "Your Monkey 眼鏡架兼存錢筒 7cFSL8yz",
+    );
     expect(normalizeCuratedProductName(once)).toBe(once);
     const digits = normalizeCuratedProductName("綁帶甜椒日・白菊姊姊 32141747");
     expect(normalizeCuratedProductName(digits)).toBe(digits);
@@ -158,7 +227,9 @@ describe("normalizeCuratedProductName", () => {
 
 describe("publicCuratedProductName", () => {
   it("returns the normalised name", () => {
-    expect(publicCuratedProductName("米拉諾蕾絲緞帶德訓鞋 khNTqkeV")).toBe("米拉諾蕾絲緞帶德訓鞋");
+    expect(publicCuratedProductName("米拉諾蕾絲緞帶德訓鞋 khNTqkeV")).toBe(
+      "米拉諾蕾絲緞帶德訓鞋",
+    );
   });
 
   it("falls back to the stored value when normalising would empty it", () => {
@@ -175,13 +246,15 @@ describe("publicCuratedProductName", () => {
   });
 
   it("hides a model code left once a shop token is stripped", () => {
-    expect(publicCuratedProductName("日檜布墊餐椅 MO-JC20-1 aBcDeF12")).toBe("日檜布墊餐椅");
+    expect(publicCuratedProductName("日檜布墊餐椅 MO-JC20-1 aBcDeF12")).toBe(
+      "日檜布墊餐椅",
+    );
   });
 
   it("never changes the stored name the backfill writes", () => {
-    expect(normalizeCuratedProductName("6cm超穩跟繫帶高跟鞋 LA034-000-OBK")).toBe(
-      "6cm超穩跟繫帶高跟鞋 LA034-000-OBK",
-    );
+    expect(
+      normalizeCuratedProductName("6cm超穩跟繫帶高跟鞋 LA034-000-OBK"),
+    ).toBe("6cm超穩跟繫帶高跟鞋 LA034-000-OBK");
   });
 });
 
@@ -260,13 +333,20 @@ describe("catalog guard (2026-10-08 scan)", () => {
  * model codes, units, short numbers — that must render unchanged.
  */
 describe("staging catalog fixture (2026-10-08 review)", () => {
-  it.each(stagingCatalog.cases)("renders $name as $expected", ({ name, expected }) => {
-    expect(publicCuratedProductName(name)).toBe(expected);
-  });
+  it.each(stagingCatalog.cases)(
+    "renders $name as $expected",
+    ({ name, expected }) => {
+      expect(publicCuratedProductName(name)).toBe(expected);
+    },
+  );
 
   it("covers both token names and clean names", () => {
-    const changed = stagingCatalog.cases.filter(({ name, expected }) => name !== expected);
-    const clean = stagingCatalog.cases.filter(({ name, expected }) => name === expected);
+    const changed = stagingCatalog.cases.filter(
+      ({ name, expected }) => name !== expected,
+    );
+    const clean = stagingCatalog.cases.filter(
+      ({ name, expected }) => name === expected,
+    );
     expect(changed.length).toBeGreaterThanOrEqual(15);
     expect(clean.length).toBeGreaterThanOrEqual(10);
   });

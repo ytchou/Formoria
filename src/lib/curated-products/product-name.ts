@@ -154,7 +154,8 @@ const TRAILING_MODEL_CODE =
   /\s+((?=[A-Z0-9_-]*[A-Z])(?=(?:[^0-9]*[0-9]){2})[A-Z0-9]+(?:[-_][A-Z0-9]+)+)$/u;
 
 /** A Han, kana, or CJK/fullwidth punctuation character. */
-const CJK_CHAR = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303f\uff00-\uffef]/u;
+const CJK_CHAR =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303f\uff00-\uffef]/u;
 
 /**
  * Display only (DEV-1989 round 2): drops a trailing model code from a name
