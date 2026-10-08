@@ -40,7 +40,9 @@ describe("BrandHeader", () => {
   it("puts city and founding year in the metadata line by default", () => {
     renderZh(<BrandHeader brand={buildBrand()} cityLabel="台北" />);
 
-    expect(screen.getByText("生活用品 · 台北 · 2015 年創立")).toBeInTheDocument();
+    expect(
+      screen.getByText("生活用品 · 台北 · 2015 年創立"),
+    ).toBeInTheDocument();
   });
 
   it("leaves city and year out of the metadata line when the colophon carries them", () => {
@@ -99,7 +101,7 @@ describe("BrandHeroFacts", () => {
     const nav = screen.getByRole("navigation", { name: T.tabNav.overview });
     expect(nav).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Formoria 選物 · 3 件" }),
+      screen.getByRole("link", { name: "這個品牌的商品 · 3 件" }),
     ).toHaveAttribute("href", "#selected-products");
     expect(screen.queryByRole("link", { name: /實體通路/ })).toBeNull();
   });
@@ -117,7 +119,7 @@ describe("BrandHeroFacts", () => {
     );
 
     expect(
-      screen.getByRole("link", { name: "1 product selected by Formoria" }),
+      screen.getByRole("link", { name: "1 product from this brand" }),
     ).toHaveAttribute("href", "#selected-products");
     expect(screen.getByRole("link", { name: "4 stockists" })).toHaveAttribute(
       "href",

@@ -314,7 +314,7 @@
       "overview": "On this page",
       "short": {
         "about": "Story",
-        "selectedProducts": "Picks",
+        "selectedProducts": "Products",
         "whereToBuy": "Where to buy",
         "featuredIn": "Featured",
         "faq": "FAQ",
@@ -326,7 +326,7 @@
       "founded": "Founded"
     },
     "heroJump": {
-      "selected": "{count, plural, one {# product} other {# products}} selected by Formoria",
+      "selected": "{count, plural, one {# product} other {# products}} from this brand",
       "stockists": "{count, plural, one {# stockist} other {# stockists}}"
     },
     "selectedProducts": {
@@ -551,7 +551,8 @@
       "next": "Next photo",
       "photoAltWithBrand": "{brand} photo {n}",
       "viewPhoto": "View photo {n}",
-      "brandSupplied": "Image supplied by the brand"
+      "brandSupplied": "Image supplied by the brand",
+      "viewer": "Choose a photo"
     },
     "locations": {},
     "editorialAppearances": {

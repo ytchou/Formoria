@@ -23,7 +23,11 @@ export const textStyles = cva('', {
       display: 'type-section',
       // Long Latin brand names (WENWENWORKS) overflowed 320px at 46px: break
       // anywhere, and step down to the page-title role below 400px (BD2-02).
-      hero: 'type-display [overflow-wrap:anywhere] max-[400px]:type-page-title',
+      // Below 400px the size also tracks the viewport (10vw, never above the
+      // page-title 2.5rem), so an 11-letter name still fits the 272px column
+      // at 320 instead of splitting mid-word. Shortcut: a fluid step DESIGN.md
+      // has not named yet; promote it to a `type-*` role if a second h1 needs it.
+      hero: 'type-display [overflow-wrap:anywhere] max-[400px]:type-page-title max-[400px]:text-[length:min(2.5rem,10vw)]',
       pageTitle: 'type-section',
       pageTitleLarge: 'type-page-title',
       pageSubtitle: 'type-body',

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BrandSectionNav } from "../brand-section-nav";
@@ -61,5 +61,58 @@ describe("BrandSectionNav", () => {
     render(<BrandSectionNav sections={sections} />);
     const scroller = screen.getByRole("link", { name: "故事" }).parentElement;
     expect(scroller?.className).not.toContain(FADE);
+  });
+
+  it("resets to the first section after scrolling back above it (R2-11)", () => {
+    let callback: IntersectionObserverCallback = () => {};
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(cb: IntersectionObserverCallback) {
+          callback = cb;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    for (const { id } of sections) {
+      const el = document.createElement("section");
+      el.id = id;
+      document.body.appendChild(el);
+    }
+    const fire = (id: string, isIntersecting: boolean) =>
+      act(() =>
+        callback(
+          [
+            {
+              target: document.getElementById(id),
+              isIntersecting,
+            } as unknown as IntersectionObserverEntry,
+          ],
+          {} as IntersectionObserver,
+        ),
+      );
+
+    render(<BrandSectionNav sections={sections} />);
+    fire("faq", true);
+    expect(
+      screen.getByRole("link", { name: "問答" }).getAttribute("aria-current"),
+    ).toBe("location");
+
+    // Back at the top: nothing intersects and the first section sits below
+    // the band, so the strip must not keep marking 問答.
+    vi.spyOn(
+      document.getElementById("story") as HTMLElement,
+      "getBoundingClientRect",
+    ).mockReturnValue({ top: 900 } as DOMRect);
+    fire("faq", false);
+    expect(
+      screen.getByRole("link", { name: "故事" }).getAttribute("aria-current"),
+    ).toBe("location");
+    expect(
+      screen.getByRole("link", { name: "問答" }).getAttribute("aria-current"),
+    ).toBeNull();
+
+    for (const { id } of sections) document.getElementById(id)?.remove();
   });
 });

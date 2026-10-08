@@ -22,6 +22,9 @@ type BrandSectionNavProps = {
   sticky?: boolean
 }
 
+/** Top inset of the observer's active band (clears the sticky site nav). */
+const ACTIVE_BAND_TOP = 80
+
 function prefersReducedMotion() {
   return (
     typeof window.matchMedia === 'function' &&
@@ -57,9 +60,17 @@ export function BrandSectionNav({
         const firstActive = sections.find(({ id }) => activeMap.get(id))
         if (firstActive) {
           setActiveId(firstActive.id)
+          return
+        }
+        // Nothing in the band: between two sections keep the last one, but
+        // above the first section (scrolled back into the hero) reset to it,
+        // or a stale `aria-current` survives the trip back up (R2-11).
+        const firstEl = sectionEls.at(0)
+        if (firstEl && firstEl.getBoundingClientRect().top > ACTIVE_BAND_TOP) {
+          setActiveId(firstEl.id)
         }
       },
-      { rootMargin: '-80px 0px -60% 0px', threshold: 0 },
+      { rootMargin: `-${ACTIVE_BAND_TOP}px 0px -60% 0px`, threshold: 0 },
     )
 
     sectionEls.forEach((element) => observerRef.current?.observe(element))

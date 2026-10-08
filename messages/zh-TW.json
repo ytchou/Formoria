@@ -314,7 +314,7 @@
       "overview": "本頁導覽",
       "short": {
         "about": "故事",
-        "selectedProducts": "選物",
+        "selectedProducts": "商品",
         "whereToBuy": "哪裡買",
         "featuredIn": "出現在",
         "faq": "問答",
@@ -326,7 +326,7 @@
       "founded": "創立"
     },
     "heroJump": {
-      "selected": "Formoria 選物 · {count} 件",
+      "selected": "這個品牌的商品 · {count} 件",
       "stockists": "實體通路 · {count} 家"
     },
     "selectedProducts": {
@@ -551,7 +551,8 @@
       "next": "下一張",
       "photoAltWithBrand": "{brand} 的照片 {n}",
       "viewPhoto": "檢視第 {n} 張照片",
-      "brandSupplied": "圖片由品牌提供"
+      "brandSupplied": "圖片由品牌提供",
+      "viewer": "選擇照片"
     },
     "locations": {},
     "editorialAppearances": {
