@@ -16,10 +16,12 @@ const CLOSERS = new Set(["」", "』", "）", ")", '"', "'", "”", "’"]);
 const ABBREVIATION_BEFORE_DOT = /(?:^|[\s(（])(?:Mr|Mrs|Ms|Dr|St|Co|Inc|Ltd|No|vs|etc|e\.g|i\.e|[A-Z])$/;
 
 /**
- * Budget in Latin-width units: a CJK character counts as two, so the cap is
- * about 80 CJK or 160 Latin characters (DEV-1982).
+ * Budget in Latin-width units: a CJK character counts as two. zh caps at about
+ * 80 CJK characters (DEV-1982); EN at about 220 Latin characters, roughly three
+ * lines in the 5/12 hero column — at 160, 27% of EN pages lost their lede
+ * (DEV-1993, BD2-15).
  */
-const MAX_LEDE_WIDTH = 160;
+const MAX_LEDE_WIDTH = { en: 220, zh: 160 } as const;
 const WIDE_CHAR = /[　-〿㐀-鿿豈-﫿＀-￯]/;
 
 function displayWidth(text: string): number {
@@ -54,21 +56,35 @@ function firstSentenceEnd(text: string, locale: AppLocale): number {
   return -1;
 }
 
+export type SplitLedeOptions = {
+  /**
+   * Used as the lede when the description yields none. The story then keeps
+   * the full description, so nothing is dropped.
+   */
+  fallbackLede?: string | null;
+};
+
 /**
  * Splits a brand description into its first sentence (the hero lede) and the
  * rest (the story). Renders no lede — the full text stays in the story — when
  * there is no clean boundary, when the description is a single sentence, or
- * when the first sentence is too long to read as a lede.
+ * when the first sentence is too long to read as a lede. In those cases a
+ * non-empty `fallbackLede` becomes the lede instead.
  */
-export function splitLede(description: string, locale: AppLocale): LedeSplit {
+export function splitLede(
+  description: string,
+  locale: AppLocale,
+  options?: SplitLedeOptions,
+): LedeSplit {
   const text = description.trim();
+  const fallback = options?.fallbackLede?.trim() || null;
+  const noLede: LedeSplit = { lede: fallback, rest: text };
   const end = firstSentenceEnd(text, locale);
-  if (end === -1) return { lede: null, rest: text };
+  if (end === -1) return noLede;
 
   const lede = text.slice(0, end).trim();
   const rest = text.slice(end).trim();
-  if (!rest || displayWidth(lede) > MAX_LEDE_WIDTH) {
-    return { lede: null, rest: text };
-  }
+  const maxWidth = locale === "en" ? MAX_LEDE_WIDTH.en : MAX_LEDE_WIDTH.zh;
+  if (!rest || displayWidth(lede) > maxWidth) return noLede;
   return { lede, rest };
 }

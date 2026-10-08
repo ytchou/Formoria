@@ -88,8 +88,8 @@ test.describe("i18n English browse", () => {
     // Only fixture-backed copy and ontology-stable strings belong here. The
     // controlled brand cannot drift during a normal curation run.
     for (const text of [
-      "Brands",
-      "Visit Website",
+      "Brand directory",
+      "Visit the brand's site",
       "Where to buy",
       "Founded 2020",
       "Home & Living",
@@ -98,7 +98,7 @@ test.describe("i18n English browse", () => {
     }
     for (const text of [
       "品牌目錄",
-      "前往官網",
+      "前往品牌官方網站",
       "哪裡買得到",
       "2020 年創立",
       "居家生活",
@@ -122,7 +122,7 @@ test.describe("i18n English browse", () => {
     // Ontology-stable strings only — see the note on the EN case above.
     for (const text of [
       "品牌目錄",
-      "前往官網",
+      "前往品牌官方網站",
       "哪裡買得到",
       "2020 年創立",
       "居家生活",
@@ -131,7 +131,7 @@ test.describe("i18n English browse", () => {
     }
     for (const text of [
       "Brand directory",
-      "Visit Website",
+      "Visit the brand's site",
       "Where to buy",
       "Founded",
       "Home & Living",

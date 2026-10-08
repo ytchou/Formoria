@@ -21,7 +21,9 @@ export const textStyles = cva('', {
   variants: {
     variant: {
       display: 'type-section',
-      hero: 'type-display',
+      // Long Latin brand names (WENWENWORKS) overflowed 320px at 46px: break
+      // anywhere, and step down to the page-title role below 400px (BD2-02).
+      hero: 'type-display [overflow-wrap:anywhere] max-[400px]:type-page-title',
       pageTitle: 'type-section',
       pageTitleLarge: 'type-page-title',
       pageSubtitle: 'type-body',

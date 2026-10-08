@@ -24,7 +24,11 @@ import { BrandViewTracker } from "@/components/brands/brand-view-tracker";
 import { BrandEngagementTracker } from "@/components/brands/brand-engagement-tracker";
 import { BrandBreadcrumb } from "@/components/brands/brand-breadcrumb";
 import { ImageCarousel } from "@/components/brands/image-carousel";
-import { BrandHeader } from "@/components/brands/brand-header";
+import {
+  BrandHeader,
+  BrandHeroFacts,
+  hasBrandHeroFacts,
+} from "@/components/brands/brand-header";
 import { BrandActions } from "@/components/brands/brand-actions";
 import { AdminBrandMenu } from "@/components/brands/admin-brand-menu";
 import { BrandAbout } from "@/components/brands/brand-about";
@@ -256,37 +260,48 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const hasEditorialAppearances =
     editorialAppearances.trails.length > 0 ||
     editorialAppearances.stories.length > 0;
-  // One label key per section, the same key its heading renders, in page order.
-  // An entry exists only when its section renders.
+  // One short label per section (`tabNav.short.*`), in page order, so the
+  // strip fits a phone without scrolling (BD2-10); the headings keep their
+  // full wording. An entry exists only when its section renders.
   const sections = [
     ...(description
-      ? [{ id: "about", label: tBrandDetail("sections.about") }]
+      ? [{ id: "about", label: tBrandDetail("tabNav.short.about") }]
       : []),
     ...(curatedProducts.length > 0
       ? [
           {
             id: "selected-products",
-            label: tBrandDetail("selectedProducts.heading"),
+            label: tBrandDetail("tabNav.short.selectedProducts"),
           },
         ]
       : []),
     // Where-to-buy and social render unconditionally — an empty channel set
     // shows a muted 「還沒有…」 line rather than disappearing.
-    { id: "where-to-buy", label: tBrandDetail("sections.whereToBuy") },
+    { id: "where-to-buy", label: tBrandDetail("tabNav.short.whereToBuy") },
     ...(hasEditorialAppearances
       ? [
           {
             id: "featured-in",
-            label: tBrandDetail("editorialAppearances.heading"),
+            label: tBrandDetail("tabNav.short.featuredIn"),
           },
         ]
       : []),
     ...(faqItems.length > 0
-      ? [{ id: "faq", label: tBrandDetail("sections.faq") }]
+      ? [{ id: "faq", label: tBrandDetail("tabNav.short.faq") }]
       : []),
-    { id: "social", label: tBrandDetail("links.socialPlatforms") },
+    { id: "social", label: tBrandDetail("tabNav.short.social") },
   ];
   const hasSectionNav = shouldShowBrandSectionNav(sections.length);
+  const heroFacts = {
+    cityLabel,
+    foundingYear: displayBrand.foundingYear,
+    selectedCount: curatedProducts.length,
+    stockistCount,
+  };
+  const hasHeroFacts = hasBrandHeroFacts(heroFacts);
+  // The colophon carries city and founding year, so the metadata line drops them.
+  const hasHeroColophon =
+    Boolean(cityLabel) || displayBrand.foundingYear != null;
 
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail("breadcrumb.directory");
@@ -354,28 +369,28 @@ export default async function BrandDetailPage({ params }: PageProps) {
             brandName={displayBrand.name}
           />
 
-          {/* Hero: gallery 7 / info 5 at lg, the info column sticky beside
-              the gallery. Below lg the info column is ordered first, so the
-              name, metadata line and route to the brand lead the screen (BD-04)
-              while the DOM keeps gallery, then info. */}
-          <div className="grid gap-stack lg:grid-cols-12 lg:gap-x-gutter">
-            <div className="min-w-0 lg:col-span-7">
-              <ImageCarousel
-                images={galleryImages}
-                alt={displayBrand.name}
-                brandId={displayBrand.id}
-                brandSlug={displayBrand.slug}
-                category={categorySlugSlug}
-                imageAlts={displayBrand.imageAlts}
-              />
-            </div>
-
-            <div className="min-w-0 max-lg:order-first lg:sticky lg:top-(--nav-height) lg:col-span-5 lg:self-start">
+          {/* Hero. DOM order is info, gallery, facts, so focus order matches
+              what is seen at every width (BD2-08): below lg the name,
+              metadata line, lede and route to the brand lead the screen,
+              then the gallery, then the facts. At lg the gallery spans both
+              rows of the left 7 columns, and the right 5 carry the info on
+              top and the facts beneath, so the column no longer ends half
+              way down the gallery (BD2-04). */}
+          <div className="grid gap-stack lg:grid-cols-12 lg:grid-rows-[auto_1fr] lg:gap-x-gutter">
+            <div className="min-w-0 lg:col-span-5 lg:col-start-8 lg:row-start-1">
               <BrandHeader
                 brand={displayBrand}
                 categoryLabel={categoryLabel || null}
                 cityLabel={cityLabel}
-                lede={description ? splitLede(description, safeLocale).lede : null}
+                omitProvenance={hasHeroColophon}
+                lede={
+                  description
+                    ? splitLede(description, safeLocale, {
+                        fallbackLede:
+                          safeLocale === "en" ? displayBrand.blurbEn : null,
+                      }).lede
+                    : null
+                }
                 adminSlot={
                   <AdminBrandMenu
                     brandId={displayBrand.id}
@@ -397,12 +412,38 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 }
               />
             </div>
+
+            <div className="min-w-0 lg:col-span-7 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+              <ImageCarousel
+                images={galleryImages}
+                alt={displayBrand.name}
+                brandId={displayBrand.id}
+                brandSlug={displayBrand.slug}
+                category={categorySlugSlug}
+                imageAlts={displayBrand.imageAlts}
+              />
+            </div>
+
+            {hasHeroFacts && (
+              <div
+                className={cn(
+                  "min-w-0 lg:col-span-5 lg:col-start-8 lg:row-start-2 lg:self-start",
+                  // Without a colophon only the md+ jump rows remain; an empty
+                  // cell would still add a grid gap.
+                  !hasHeroColophon && "max-md:hidden",
+                )}
+              >
+                <BrandHeroFacts {...heroFacts} />
+              </div>
+            )}
           </div>
 
           {/* The section nav is a sibling of the sections it indexes so its
-              sticky strip stays pinned across all of them. Mobile only. */}
-          <div className="mt-section">
-            <BrandSectionNav sections={sections} />
+              sticky strip stays pinned across all of them. Mobile only. When
+              the brand has a route-out link, the mobile route-out bar is the
+              page's one sticky bar, so the strip does not stick. */}
+          <div className="mt-stack md:mt-section">
+            <BrandSectionNav sections={sections} sticky={!visitLink} />
 
             {/* Below md the first heading would otherwise sit flush against
                 the strip's bottom rule; from md up there is no strip. */}

@@ -107,6 +107,24 @@ test.describe("Brand detail deep", () => {
     ).not.toBeVisible();
   });
 
+  // BD2-01: nothing on the page may force horizontal scrolling at the WCAG
+  // 1.4.10 reflow width.
+  test("brand page reflows at 320px without horizontal scrolling", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto(`/brands/${seeded.slug}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
+      timeout: BUDGET.INTERACTIVE,
+    });
+
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
   test("brand detail shows social and purchase links in two separate sections", async ({
     page,
   }) => {
@@ -167,9 +185,10 @@ test.describe("Brand detail deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
 
-    // The seeded brand has social links — the tab nav must include a "社群平台" link
+    // The seeded brand has social links — the strip carries the short 「社群」
+    // label; the section heading keeps its full name.
     const nav = page.getByRole("navigation", { name: "本頁導覽" });
-    await nav.getByRole("link", { name: "社群平台" }).click();
+    await nav.getByRole("link", { name: "社群", exact: true }).click();
 
     // After the smooth-scroll the social section heading must be visible in the viewport
     await expect(
@@ -186,9 +205,9 @@ test.describe("Brand detail deep", () => {
     await page.goto(`/brands/${seeded.slug}`);
 
     // Scoped to <main>: once the hero CTA scrolls away, the mobile route-out
-    // bar (portalled to <body>) renders a second 前往官網 link.
+    // bar (portalled to <body>) renders a second 前往品牌官方網站 link.
     const websiteCta = page.getByRole("main").getByRole("link", {
-      name: "前往官網",
+      name: "前往品牌官方網站",
       exact: true,
     });
     await expect(websiteCta).toHaveCount(1);
@@ -205,20 +224,36 @@ test.describe("Brand detail deep", () => {
     await expect(websiteCta).not.toBeInViewport();
   });
 
-  test("mobile section navigation stays operable above scrolling content", async ({
+  // BD2-10: the seeded brand has an official site, so the mobile route-out bar
+  // is the one pinned bar and the section strip stays in the document flow
+  // instead of stacking a second sticky band under the site nav.
+  test("mobile section strip scrolls away while the route-out bar stays pinned", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/brands/${seeded.slug}`);
 
     const nav = page.getByRole("navigation", { name: "本頁導覽" });
-    await page.locator("#social").evaluate((section) => {
+    await expect(nav).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    // #faq, not #social: the last section can bring the footer on screen, and
+    // the bar steps aside while the footer is visible.
+    await page.locator("#faq").evaluate((section) => {
       window.scrollBy(0, section.getBoundingClientRect().top - 105);
     });
 
+    await expect(nav).not.toBeInViewport();
+    // The bar is portalled to the end of <body>, so it is the last link with
+    // the visit label; the hero CTA inside <main> has scrolled away above.
+    await expect(
+      page
+        .getByRole("link", { name: "前往品牌官方網站", exact: true })
+        .last(),
+    ).toBeInViewport({ timeout: BUDGET.RENDERED });
+
+    // The strip's links still reach their sections from wherever it sits.
     // This journey targets the where-to-buy section; stockists have their own
     // seeded coverage below.
-    await nav.getByRole("link", { name: "哪裡買得到" }).click();
+    await nav.getByRole("link", { name: "哪裡買", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "哪裡買得到", level: 2 }),
     ).toBeInViewport({
