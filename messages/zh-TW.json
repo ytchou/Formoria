@@ -156,9 +156,9 @@
       "allBrands": "全部品牌"
     },
     "selectedProducts": {
-      "productCta": "前往品牌官方網站",
-      "brandSiteCta": "前往品牌官網",
-      "unavailable": "這個產品頁面暫時無法連線。",
+      "productCta": "在品牌官網查看",
+      "brandSiteCta": "前往品牌官方網站",
+      "unavailable": "品牌的商品頁暫時打不開。",
       "madeInTaiwan": "台灣製造"
     },
     "trustSeam": {
@@ -170,21 +170,21 @@
       "cta": "推薦品牌"
     },
     "latestStories": {
-      "heading": "主題",
+      "heading": "專題",
       "note": "從一個生活場景出發，慢慢認識產品、品牌，以及做這些東西的人。",
-      "linkText": "瀏覽所有專題"
+      "linkText": "看全部專題"
     },
     "trails": {
       "heading": "風格",
-      "note": "一個角落，一段日常",
+      "note": "從一個具體情境挑出的商品",
       "linkText": "看全部風格",
       "eyebrow": "風格",
-      "cta": "探索這個風格 →"
+      "cta": "看這個風格 →"
     },
     "selection": {
-      "headline": "每一件，都說得出選它的理由",
-      "subtitle": "搬新家、佈置店面、想換一盞燈 — 這裡是為了這些時刻刻意挑出的產品",
-      "cta": "探索所有選物",
+      "headline": "這一季的選物",
+      "subtitle": "搬新家、佈置店面、想換一盞燈的時候，可以從這幾件開始看",
+      "cta": "看全部商品",
       "allCategories": "全部"
     },
     "missionCloser": {

@@ -14,7 +14,17 @@ import { Link } from "@/i18n/navigation";
 import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
 import { routes } from "@/lib/routes";
 import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { cn } from "@/lib/utils";
 import { CategoryFilter } from "./category-filter";
+
+/**
+ * Tiles a phone shows per category group. A single phone column of all ten
+ * tiles ran to ~4,300px and buried the trails and stories below the band, so
+ * phones get two-up and the first six; the see-all CTA under the grid carries
+ * the rest. Every tile stays in the server HTML — the cap is `max-sm:hidden`,
+ * which is `display: none`, so hidden tiles also leave the phone tab order.
+ */
+const PHONE_TILE_LIMIT = 6;
 
 export async function CuratedProductGrid({
   groups,
@@ -61,10 +71,14 @@ export async function CuratedProductGrid({
       <CategoryFilter categories={categories}>
         {Object.entries(groups).map(([slug, slots]) => (
           <div key={slug} data-category={slug} hidden={slug !== "all"}>
+            {/* `cols="cards"` is one column below `sm`; `grid-cols-2` wins
+                that through tailwind-merge, so phones are two-up while `sm`
+                and `md` keep two and `lg` five. The phone gap is the `tight`
+                Grid gap (the gutter token halved), not a numeric step. */}
             <Grid
               as="ul"
               cols="cards"
-              className="mt-8 list-none p-0 lg:grid-cols-5"
+              className="mt-8 list-none p-0 grid-cols-2 max-sm:gap-[calc(var(--space-gutter)/2)] lg:grid-cols-5"
             >
               {slots.map((slot, index) => (
                 <SelectedProductTile
@@ -74,9 +88,12 @@ export async function CuratedProductGrid({
                   labels={productLabels}
                   mode="wall"
                   ratio="1:1"
-                  imageSizes="(max-width: 640px) calc(100vw - 3rem), (max-width: 1024px) 50vw, (max-width: 1600px) 20vw, 282px"
+                  imageSizes="(max-width: 640px) calc(50vw - 1.875rem), (max-width: 1024px) 50vw, (max-width: 1600px) 20vw, 282px"
                   imageQuality={60}
-                  className="bg-ground"
+                  className={cn(
+                    "bg-ground",
+                    index >= PHONE_TILE_LIMIT && "max-sm:hidden",
+                  )}
                   brand={slot.product.brand}
                   brandSlug={slot.product.brandSlug}
                   brandName={slot.product.brandName}
