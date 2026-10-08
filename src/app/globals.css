@@ -401,6 +401,13 @@
   @apply font-ming text-[1.3125rem] font-semibold leading-[1.35] text-ink;
 }
 
+/* The one lede step (DESIGN.md §1): at most one per page, directly under a
+   `type-display` or `type-page-title` h1. `ink`, not `ink-soft` — it is read
+   before the body. */
+@utility type-lede {
+  @apply font-ming text-[1.1875rem] font-normal leading-[1.65] text-ink prose-measure;
+}
+
 @utility type-body {
   @apply font-ming text-[1.03125rem] leading-[1.75] text-ink-soft;
 }
