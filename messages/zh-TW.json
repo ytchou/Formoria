@@ -1897,7 +1897,11 @@
     "emptyTitle": "還沒有收藏的品牌",
     "emptyDescription": "在品牌頁按愛心，就會收進這裡。",
     "exploreBrands": "逛品牌目錄",
-    "loginToSave": "登入後即可收藏品牌"
+    "loginToSave": "登入後即可收藏品牌",
+    "signInPrompt": "登入後就能收藏，之後在「收藏品牌」找得到。",
+    "signInPromptConfirm": "登入",
+    "signInPromptDismiss": "先不用",
+    "savedToast": "已收藏"
   },
   "search": {
     "emptyState": {
@@ -2328,7 +2332,11 @@
     "unsave": "取消收藏",
     "saveAriaLabel": "收藏這個商品",
     "unsaveAriaLabel": "取消收藏這個商品",
-    "loginToSave": "登入後即可收藏商品"
+    "loginToSave": "登入後即可收藏商品",
+    "signInPrompt": "登入後就能收藏這件商品。",
+    "signInPromptConfirm": "登入",
+    "signInPromptDismiss": "先不用",
+    "savedToast": "已收藏"
   },
   "filters": {
     "token": "{label}：{value}"

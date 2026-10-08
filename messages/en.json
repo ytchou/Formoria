@@ -2696,7 +2696,11 @@
     "emptyTitle": "No saved brands yet",
     "emptyDescription": "Select the heart on a brand page to save it here.",
     "exploreBrands": "Browse brands",
-    "loginToSave": "Sign in to save brands"
+    "loginToSave": "Sign in to save brands",
+    "signInPrompt": "Sign in to save this, and find it later in Saved brands.",
+    "signInPromptConfirm": "Sign in",
+    "signInPromptDismiss": "Not now",
+    "savedToast": "Saved"
   },
   "search": {
     "emptyState": {
@@ -3127,7 +3131,11 @@
     "unsave": "Remove from saved",
     "saveAriaLabel": "Save this product",
     "unsaveAriaLabel": "Remove this product from saved",
-    "loginToSave": "Sign in to save products"
+    "loginToSave": "Sign in to save products",
+    "signInPrompt": "Sign in to save this product.",
+    "signInPromptConfirm": "Sign in",
+    "signInPromptDismiss": "Not now",
+    "savedToast": "Saved"
   },
   "filters": {
     "token": "{label}: {value}"
