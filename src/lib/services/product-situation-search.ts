@@ -42,11 +42,24 @@ export type SearchInput = {
   audit?: { jobId?: string; phase?: string };
   enableIntentParse?: boolean;
   lexicalParams?: LexicalParams;
+  /**
+   * Drop weak RPC candidates before counting and ranking (DEV-1964). Defaults
+   * ON — leaving it out keeps the guard on. Pass `false` only from labelling /
+   * LTR-training pool generators that need the raw candidate pool; the served
+   * path leaves it on.
+   */
+  relevanceFloor?: boolean;
 };
 
 export type SearchResult = {
   products: CatalogProduct[];
+  /** Number of candidates left after the relevance floor (and hydration). */
   totalCount: number;
+  /**
+   * True when the post-floor count reached CANDIDATE_POOL. `totalCount` is
+   * then the pool size, not a full match count.
+   */
+  poolLimited: boolean;
   searchSource: SearchMode;
   degraded: boolean;
   query: string;
@@ -83,7 +96,7 @@ export type SimilarResult = {
   products: CatalogProduct[];
 };
 
-type RpcRow = {
+export type RpcRow = {
   product_id: string;
   rank_score: number;
   search_source: string;
@@ -272,6 +285,41 @@ export function createDefaultSearchDeps(): SearchDeps {
  */
 export const CANDIDATE_POOL = 100;
 
+/**
+ * Minimum cosine similarity for a candidate the lexical arm did not match.
+ * Calibrated on staging against golden set situation-search v3 (hybrid):
+ * scripts/enrichment/eval/search-eval/runs/dev-1964-relevance-floor.json.
+ *
+ * Shortcut: a static floor calibrated once. Recalibrate whenever
+ * EMBEDDING_MODEL or the embedding document changes. Upgrade path: a
+ * per-query adaptive or learned threshold.
+ */
+export const RELEVANCE_COSINE_FLOOR = 0.33;
+
+const HAN = /\p{Script=Han}/u;
+
+/**
+ * Drop weak RPC candidates. Keeps a row when the lexical arm matched it or its
+ * cosine similarity clears RELEVANCE_COSINE_FLOOR. A hybrid query with no Han
+ * characters returns nothing when the lexical arm matched no row (nonsense
+ * Latin input). Only removes rows — never reorders.
+ */
+export function applyRelevanceFloor(
+  rows: RpcRow[],
+  opts: { query: string; mode: SearchMode },
+): RpcRow[] {
+  const hasLexicalHit = rows.some((r) => r.lexical_rank !== null);
+  // Vector mode never runs the lexical arm, so the gate applies to hybrid only.
+  if (opts.mode === "hybrid" && !HAN.test(opts.query) && !hasLexicalHit) {
+    return [];
+  }
+  return rows.filter(
+    (r) =>
+      r.lexical_rank !== null ||
+      (r.cosine_sim !== null && r.cosine_sim >= RELEVANCE_COSINE_FLOOR),
+  );
+}
+
 export async function searchProductsBySituation(
   input: SearchInput,
   deps: SearchDeps = createDefaultSearchDeps(),
@@ -419,13 +467,17 @@ export async function searchProductsBySituation(
     throw rpcError;
   }
 
-  const rows = rpcRows ?? [];
+  const rows =
+    input.relevanceFloor === false
+      ? (rpcRows ?? [])
+      : applyRelevanceFloor(rpcRows ?? [], { query: normalized, mode: effectiveMode });
   const orderedIds = rows.map((r) => r.product_id);
 
   if (orderedIds.length === 0) {
     return {
       products: [],
       totalCount: 0,
+      poolLimited: false,
       searchSource: effectiveMode,
       degraded,
       query: normalized,
@@ -588,6 +640,7 @@ export async function searchProductsBySituation(
   return {
     products: paged,
     totalCount,
+    poolLimited: rows.length >= CANDIDATE_POOL,
     searchSource: effectiveMode,
     degraded,
     query: normalized,

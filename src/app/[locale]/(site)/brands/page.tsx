@@ -10,6 +10,7 @@ import {
 } from "@/lib/taxonomy/ontology";
 import {
   hasDeferredCategoryFilter,
+  hasInvalidCategoryFilter,
   parseDirectoryViewFilters,
   type DirectorySearchParams,
 } from "@/lib/seo/directory-filters";
@@ -40,6 +41,9 @@ export async function generateMetadata({
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const sp = await searchParams;
   if (hasDeferredCategoryFilter(sp.category)) notFound();
+  // An unknown category 404s like `/discover?category=` does (DS-34) rather
+  // than serving every brand under a URL that names a category.
+  if (hasInvalidCategoryFilter(sp.category, VALID_CATEGORY_SLUGS)) notFound();
   const { filters, page } = parseDirectoryViewFilters(sp, VALID_CATEGORY_SLUGS);
   const categorySlug =
     filters.categorySlugs.length === 1
@@ -161,6 +165,9 @@ export default async function BrandsPage({
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const sp = await searchParams;
   if (hasDeferredCategoryFilter(sp.category)) notFound();
+  // An unknown category 404s like `/discover?category=` does (DS-34) rather
+  // than serving every brand under a URL that names a category.
+  if (hasInvalidCategoryFilter(sp.category, VALID_CATEGORY_SLUGS)) notFound();
   const { filters, page, sort } = parseDirectoryViewFilters(
     sp,
     VALID_CATEGORY_SLUGS,

@@ -7,6 +7,7 @@ import {
   extractBrandSlugs,
   extractLinkedBrandSlugs,
   extractProseBrandSlugs,
+  stripFencedCodeBlocks,
 } from '@/lib/mdx/extract-brand-slugs'
 import { isValidSlug } from '../brands'
 
@@ -60,6 +61,97 @@ function readStorySlugReferences(): SlugReference[] {
   })
 }
 
+/**
+ * Brands a published story may reference: every slug was `status = approved` in
+ * a read-only production query on 2026-10-08.
+ *
+ * A fixture, not a lookup, because tests cannot reach a database in this repo:
+ * the DB-backed suites were removed on 2026-08-21, and mocking Supabase is
+ * forbidden by `scripts/check-test-boundaries.mjs`. A story that adds a brand
+ * must add its slug here after confirming the brand is `approved` — a hidden
+ * brand drops out of `getPublicBrandsBySlugs`, and its card vanishes from the
+ * published page (DEV-1963: huiaio-studio, essence-design-craft, yuwu-design
+ * and mountopia are hidden and deliberately absent).
+ *
+ * Ceiling: this catches a story written against a brand that is not approved,
+ * not a brand hidden after the story shipped. That case is caught only by the
+ * dev/staging `MissingBrandNotice`. Upgrade path: a DB-backed check against the
+ * brand table once a test database exists (see CLAUDE.md, "no DB-backed tests").
+ */
+const APPROVED_STORY_BRAND_SLUGS: ReadonlySet<string> = new Set([
+  'ziliaoshi',
+  'b-610-asteroid-b-610',
+  'tings-aroma',
+  'tan-nichi',
+  'laoshan-collector',
+  'yarn-ball',
+  'yuyu',
+  'mr-eggplants',
+  'take-a-snooze',
+  'pang',
+  'taluma',
+  'zenu',
+  'simply-made',
+  'shiye',
+  'goodglas',
+  'taiwan-dye',
+])
+
+/**
+ * Route prefixes that are parked: they redirect to `/` (DEV-1605 redirects in
+ * `next.config.ts`), so a story link into one sends the reader to the homepage
+ * instead of the page the sentence promises.
+ */
+const PARKED_ROUTE_PREFIXES = ['/events'] as const
+
+/**
+ * A storage key under `brand-images/submissions/`, as a full URL or a bare key.
+ * Approved brands' images were promoted to `brands/<id>/`; the `submissions/`
+ * objects are private or removed and return 400, so a story embedding one
+ * ships a broken image.
+ */
+const SUBMISSION_IMAGE_KEY = /brand-images\/submissions\/|src=["']submissions\//
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * A markdown link target or `href` into a parked prefix, with or without a
+ * locale segment. The trailing lookahead keeps `/events` from matching a
+ * sibling route that merely starts with the same letters.
+ */
+const PARKED_ROUTE_LINK = new RegExp(
+  `(?:\\]\\(|href=["'])(?:/(?:en|zh-TW))?(?:${PARKED_ROUTE_PREFIXES.map(escapeRegExp).join('|')})(?=[/?#)"'\\s]|$)`,
+  'g',
+)
+
+function findUnapprovedSlugs(raw: string): string[] {
+  return [...extractBrandSlugs(raw), ...extractProseBrandSlugs(raw)].filter(
+    slug => !APPROVED_STORY_BRAND_SLUGS.has(slug),
+  )
+}
+
+function hasSubmissionImageKey(raw: string): boolean {
+  return SUBMISSION_IMAGE_KEY.test(raw)
+}
+
+/** Fenced blocks are stripped like the slug extractors do: examples are not links. */
+function findParkedRouteLinks(raw: string): string[] {
+  return [...stripFencedCodeBlocks(raw).matchAll(PARKED_ROUTE_LINK)].map(match => match[0])
+}
+
+function readStorySources(): Array<{ file: string; raw: string }> {
+  let files: string[]
+  try {
+    files = fs.readdirSync(STORIES_DIR).filter(file => file.endsWith('.mdx'))
+  } catch {
+    return []
+  }
+
+  return files.map(file => ({ file, raw: fs.readFileSync(path.join(STORIES_DIR, file), 'utf8') }))
+}
+
 describe('story content brand slugs', () => {
   // Unconditional: a CJK or otherwise malformed slug must fail CI even with no
   // database credentials present. No round trip is needed to spot one.
@@ -69,6 +161,33 @@ describe('story content brand slugs', () => {
         isValidSlug(slug),
         `${file}: "${slug}" is not a valid brand slug — expected ASCII kebab-case, per isValidSlug in @/lib/services/brands`,
       ).toBe(true)
+    }
+  })
+
+  it('every content slug is an approved brand', () => {
+    for (const { file, raw } of readStorySources()) {
+      expect(
+        findUnapprovedSlugs(raw),
+        `${file}: references brands not in APPROVED_STORY_BRAND_SLUGS — confirm each is approved, then add it`,
+      ).toEqual([])
+    }
+  })
+
+  it('no story embeds an image from the private submissions/ prefix', () => {
+    for (const { file, raw } of readStorySources()) {
+      expect(
+        hasSubmissionImageKey(raw),
+        `${file}: uses a brand-images/submissions/ key — use the promoted brands/<id>/ URL`,
+      ).toBe(false)
+    }
+  })
+
+  it('no story links into a parked route', () => {
+    for (const { file, raw } of readStorySources()) {
+      expect(
+        findParkedRouteLinks(raw),
+        `${file}: links into a parked route (${PARKED_ROUTE_PREFIXES.join(', ')}) that redirects to /`,
+      ).toEqual([])
     }
   })
 })
@@ -197,5 +316,71 @@ describe('story content brand slugs (fixture coverage)', () => {
     // fail the pattern guard on prose and inflate the story's `view_item_list`.
     expect(extractBrandSlugs(source)).toEqual(['molasses'])
   })
-})
 
+  it('reports a slug missing from the approved list', () => {
+    const source = [
+      '<BrandCard slug="ziliaoshi" />',
+      '',
+      '<BrandList>',
+      '<BrandLine slug="huiaio-studio" booth="A-1" />',
+      '<BrandLine name="無官網的小店" booth="A-2" />',
+      '</BrandList>',
+      '',
+      '[山之境](/brands/mountopia)',
+    ].join('\n')
+
+    // The name-only line contributes no slug; both hidden brands are reported.
+    expect(findUnapprovedSlugs(source)).toEqual(['huiaio-studio', 'mountopia'])
+    expect(findUnapprovedSlugs('<BrandCard slug="ziliaoshi" />')).toEqual([])
+  })
+
+  it('a name-only BrandLine yields no slug and does not borrow the next one', () => {
+    const source = [
+      '<BrandLine name="無官網的小店" booth="A-2" />',
+      '<BrandGallery slug="taluma" />',
+    ].join('\n')
+
+    expect(extractBrandSlugs(source)).toEqual(['taluma'])
+    // The gallery stays out of the linked count — an unbounded prop prefix
+    // would have read it as the BrandLine's slug.
+    expect(extractLinkedBrandSlugs(source)).toEqual([])
+  })
+
+  it('flags an image under brand-images/submissions/', () => {
+    const bad = [
+      '![攤位](https://example.supabase.co/storage/v1/object/public/brand-images/submissions/abc/1.jpg)',
+      '<Figure src="submissions/abc/2.jpg" alt="攤位" />',
+    ]
+    for (const source of bad) expect(hasSubmissionImageKey(source)).toBe(true)
+
+    expect(
+      hasSubmissionImageKey(
+        '<Figure src="https://example.supabase.co/storage/v1/object/public/brand-images/brands/id-1/1.jpg" alt="攤位" />',
+      ),
+    ).toBe(false)
+  })
+
+  it('flags links into a parked route, with or without a locale', () => {
+    const source = [
+      '[展會資訊](/events/2026-creative-expo)',
+      '[活動](/en/events)',
+      '[活動](/zh-TW/events?tab=map)',
+      '<a href="/events/expo">展會</a>',
+    ].join('\n')
+
+    expect(findParkedRouteLinks(source)).toHaveLength(4)
+  })
+
+  it('passes ordinary links, look-alike routes, and fenced examples', () => {
+    const source = [
+      '[品牌](/brands/ziliaoshi)',
+      '[專題](/stories/expo-guide)',
+      '[不是停用的路徑](/events-archive)',
+      '```md',
+      '[範例](/events/expo)',
+      '```',
+    ].join('\n')
+
+    expect(findParkedRouteLinks(source)).toEqual([])
+  })
+})

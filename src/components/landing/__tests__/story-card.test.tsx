@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { NextIntlClientProvider } from "next-intl";
+import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import zhMessages from "../../../../messages/zh-TW.json";
 import type { StoryEntry } from "@/lib/services/stories";
 
 vi.mock("@/components/ui/image", () => ({
@@ -62,10 +65,27 @@ const mockStoryNoImage = {
   },
 } as unknown as StoryEntry;
 
+// The card reads `stories.tags.*` through `useTranslations`, so it needs the
+// real message catalogue in context.
+function renderWithIntl(ui: ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+      {ui}
+    </NextIntlClientProvider>,
+  );
+}
+
+function withTags(tags: string[]): StoryEntry {
+  return {
+    ...mockStory,
+    frontmatter: { ...mockStory.frontmatter, tags },
+  } as unknown as StoryEntry;
+}
+
 describe("StoryCard", () => {
   it("renders image from frontmatter", async () => {
     const { StoryCard } = await import("../story-card");
-    render(
+    renderWithIntl(
       <StoryCard story={mockStory} locale="zh-TW" position={0} />,
     );
 
@@ -75,7 +95,7 @@ describe("StoryCard", () => {
 
   it("renders title and excerpt", async () => {
     const { StoryCard } = await import("../story-card");
-    render(
+    renderWithIntl(
       <StoryCard story={mockStory} locale="zh-TW" position={0} />,
     );
 
@@ -87,7 +107,7 @@ describe("StoryCard", () => {
 
   it("shows fallback when no image", async () => {
     const { StoryCard } = await import("../story-card");
-    const { container } = render(
+    const { container } = renderWithIntl(
       <StoryCard story={mockStoryNoImage} locale="zh-TW" position={0} />,
     );
 
@@ -95,5 +115,32 @@ describe("StoryCard", () => {
     // A fallback bg element should exist
     const fallback = container.querySelector("[data-fallback]");
     expect(fallback).toBeInTheDocument();
+  });
+
+  // DEV-1963: the homepage printed the raw key ("EVENT" after CSS uppercase).
+  it("renders the translated label for a known tag", async () => {
+    const { StoryCard } = await import("../story-card");
+    renderWithIntl(
+      <StoryCard story={withTags(["event"])} locale="zh-TW" position={0} />,
+    );
+
+    expect(screen.getByText(/^展會 · /)).toBeInTheDocument();
+    expect(screen.queryByText(/event/)).toBeNull();
+  });
+
+  it("omits a tag with no label and keeps the date", async () => {
+    const { StoryCard } = await import("../story-card");
+    const { container } = renderWithIntl(
+      <StoryCard
+        story={withTags(["not-a-known-tag"])}
+        locale="zh-TW"
+        position={0}
+      />,
+    );
+
+    const eyebrow = container.querySelector(".type-eyebrow");
+    expect(eyebrow?.textContent).not.toContain("not-a-known-tag");
+    expect(eyebrow?.textContent).not.toContain(" · ");
+    expect(eyebrow?.textContent).not.toBe("");
   });
 });

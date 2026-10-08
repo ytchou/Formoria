@@ -32,6 +32,9 @@ vi.mock("next/navigation", () => ({
 vi.mock("next-intl", () => ({
   useLocale: () => "zh-TW",
   useTranslations: () => (key: string, params?: Record<string, string>) => {
+    // FilterToken formats `filters.token` and splits on its slots, so it needs
+    // the real interpolation shape (en: "{label}: {value}"), not the echo below.
+    if (key === "token" && params) return `${params.label}: ${params.value}`;
     if (params) return `${key}(${JSON.stringify(params)})`;
     return key;
   },

@@ -193,6 +193,7 @@ export async function cmdExportFeatures(
           pageSize: 100,
           enableIntentParse: false,
           category: item.category ?? null,
+          relevanceFloor: false, // raw candidate pool for LTR features
         },
         deps,
       );

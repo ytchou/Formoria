@@ -25,6 +25,8 @@ type SaveButtonProps = {
   /** Brand slug (for brand save analytics) or product key (for product save analytics). */
   slug: string
   variant?: 'overlay' | 'inline'
+  /** `inline` only: a square 44px icon button; the label stays in `aria-label`. */
+  iconOnly?: boolean
   className?: string
 }
 
@@ -33,6 +35,7 @@ export function SaveButton({
   id,
   slug,
   variant = 'overlay',
+  iconOnly = false,
   className,
 }: SaveButtonProps) {
   const t = useTranslations(kind === 'brand' ? 'saveBrand' : 'saveProduct')
@@ -91,7 +94,7 @@ export function SaveButton({
     <Button
       type="button"
       variant="secondary"
-      size={variant === 'overlay' ? 'icon' : undefined}
+      size={variant === 'overlay' || iconOnly ? 'icon' : undefined}
       shape={variant === 'overlay' ? 'pill' : undefined}
       aria-label={isSaved ? t('unsaveAriaLabel') : t('saveAriaLabel')}
       title={!user ? t('loginToSave') : label}
@@ -124,7 +127,7 @@ export function SaveButton({
           aria-hidden
         />
       )}
-      {variant === 'inline' && (
+      {variant === 'inline' && !iconOnly && (
         <>
           <span>{label}</span>
           {!userLoading && !user && (

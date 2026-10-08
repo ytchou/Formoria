@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { BrandSeoEntry } from '@/lib/services/brands'
-import { DEFERRED_CATEGORY_SLUGS } from '@/lib/taxonomy/ontology'
+import {
+  DEFERRED_CATEGORY_SLUGS,
+  VISIBLE_L1_CATEGORIES,
+  resolveDirectorySubcategorySlugs,
+} from '@/lib/taxonomy/ontology'
+import type { Locale } from './alternates'
+import {
+  hasDeferredCategoryFilter,
+  hasInvalidCategoryFilter,
+  parseDirectoryViewFilters,
+  type DirectorySearchParams,
+} from './directory-filters'
+import { listIndexableTargets, resolveDirectorySeo } from './directory-indexation'
 import { getSiteUrl } from './site-url'
 import {
   buildDirectorySitemapEntries,
@@ -85,6 +97,56 @@ describe('buildDirectorySitemapEntries', () => {
     expect(
       entries.find((entry) => entry.url.endsWith('/brands?category=home'))?.lastModified,
     ).toEqual(new Date('2026-01-01T00:00:00.000Z'))
+  })
+
+  // One verdict: every submitted URL must be indexable and self-canonical when
+  // `resolveDirectorySeo` sees it with the exact state `brands/page.tsx` builds
+  // from that URL. This is the test that would have caught SP-03.
+  it('submits only URLs the /brands page itself indexes, each self-canonical', () => {
+    const entries = buildDirectorySitemapEntries([brand()])
+    const base = getSiteUrl()
+    const validCategorySlugs = new Set(VISIBLE_L1_CATEGORIES.map((category) => category.slug))
+
+    expect(entries.length).toBeGreaterThan(0)
+    // The page gate agrees with every launch target, so none is dropped: a
+    // shortfall here means the keyword map and the page disagree.
+    expect(entries).toHaveLength(listIndexableTargets().length * 2)
+    for (const entry of entries) {
+      const url = new URL(entry.url)
+      expect(`${url.origin}`).toBe(new URL(base).origin)
+      const locale: Locale = url.pathname.startsWith('/en/') ? 'en' : 'zh-TW'
+      const sp: DirectorySearchParams = {
+        category: url.searchParams.get('category') ?? undefined,
+        sub: url.searchParams.get('sub') ?? undefined,
+      }
+
+      // Mirrors `generateMetadata` in src/app/[locale]/(site)/brands/page.tsx.
+      expect(hasDeferredCategoryFilter(sp.category), entry.url).toBe(false)
+      expect(hasInvalidCategoryFilter(sp.category, validCategorySlugs), entry.url).toBe(false)
+      const { filters, page } = parseDirectoryViewFilters(sp, validCategorySlugs)
+      const categorySlug =
+        filters.categorySlugs.length === 1 ? (filters.categorySlugs[0] ?? null) : null
+      const subcategories = resolveDirectorySubcategorySlugs(filters.subcategorySlugs)
+      const activeSubcategory = subcategories.length === 1 ? subcategories[0] : undefined
+      const seo = resolveDirectorySeo({
+        locale,
+        surface: 'brands',
+        categorySlug,
+        subcategorySlug: activeSubcategory?.slug,
+        page,
+        facets: {
+          search: sp.search,
+          sort: typeof sp.sort === 'string' ? sp.sort : undefined,
+          category: sp.category,
+          sub: sp.sub,
+          multiCategory: filters.categorySlugs.length > 1,
+          multiSub: filters.subcategorySlugs.length > 1,
+        },
+      })
+
+      expect(seo.robots?.index, entry.url).not.toBe(false)
+      expect(seo.canonical, entry.url).toBe(entry.url)
+    }
   })
 
   it('keeps the directory failure isolated from brand and story sections', async () => {
