@@ -57,8 +57,9 @@ const RETIRED_IDENTITY_PATTERNS = [
  * hid two of those six copies: `README.md` said "Formoria **reconnects** the
  * broken path" and `configs/discovery-trail.md` said "**repairs** the broken
  * path". The broad fragments /斷掉的路/ and /broken path/ were removed in
- * DEV-1591: /about now deliberately uses "四條斷掉的路" / "four broken paths"
- * as scene headings. The full retired tagline is still banned.
+ * DEV-1591, when /about used "四條斷掉的路" / "four broken paths" as scene
+ * headings (retitled in DEV-1958; its loop copy still says the path "used to
+ * break"). The full retired tagline is still banned.
  *
  * The sanctioned replacement is 「把相遇之後的路接起來」 / "reconnects the path after
  * that moment" — so the bare word "reconnects" is deliberately NOT banned here.
