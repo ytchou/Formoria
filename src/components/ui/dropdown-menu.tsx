@@ -103,6 +103,37 @@ function DropdownMenuLinkItem({
   )
 }
 
+function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
+  return (
+    <MenuPrimitive.RadioGroup data-slot="dropdown-menu-radio-group" {...props} />
+  )
+}
+
+function DropdownMenuRadioItem({
+  className,
+  size = "default",
+  render,
+  nativeButton,
+  ...props
+}: MenuPrimitive.RadioItem.Props & {
+  size?: "default" | "touch"
+}) {
+  return (
+    <MenuPrimitive.RadioItem
+      data-slot="dropdown-menu-radio-item"
+      data-size={size}
+      className={cn(dropdownMenuItemClassName, className)}
+      {...props}
+      render={render}
+      nativeButton={
+        nativeButton ??
+        (React.isValidElement(render) &&
+          (render.type === "button" || render.type === UnstyledButton))
+      }
+    />
+  )
+}
+
 function DropdownMenuSeparator({
   className,
   ...props
@@ -122,5 +153,7 @@ export {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLinkItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
 }

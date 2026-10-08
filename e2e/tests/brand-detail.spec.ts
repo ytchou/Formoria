@@ -103,7 +103,7 @@ test.describe("Brand detail deep", () => {
     await expect(page.getByText("Not available")).toHaveCount(0);
 
     await expect(
-      page.getByText(/something went wrong|not found|error|發生錯誤/i),
+      page.getByText(/something went wrong|this page didn't load|not found|error|發生錯誤|頁面沒有正常載入/i),
     ).not.toBeVisible();
   });
 

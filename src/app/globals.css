@@ -382,20 +382,45 @@
 
 /* ── 明體 (font-ming) — content ─────────────────────────────────────────── */
 
+/* zh headings break at phrase boundaries, not mid-word, at 390px. NOT
+   `word-break: keep-all`: a CJK run has no spaces, so keep-all turns a whole
+   unpunctuated heading into one unbreakable word that overflows. `auto-phrase`
+   is Chromium-only; other engines ignore it and break normally. */
+
 @utility type-display {
   @apply font-ming text-[2.875rem] font-[560] tracking-[-0.02em] leading-[1.1] text-ink;
+  &:lang(zh) {
+    word-break: auto-phrase;
+    line-break: strict;
+    text-wrap: balance;
+  }
 }
 
 @utility type-page-title {
   @apply font-ming text-[2.5rem] font-[560] tracking-[-0.02em] leading-[1.15] text-ink;
+  &:lang(zh) {
+    word-break: auto-phrase;
+    line-break: strict;
+    text-wrap: balance;
+  }
 }
 
 @utility type-section {
   @apply font-ming text-[1.625rem] font-[560] tracking-[-0.015em] leading-[1.25] text-ink;
+  &:lang(zh) {
+    word-break: auto-phrase;
+    line-break: strict;
+    text-wrap: balance;
+  }
 }
 
 @utility type-card-title {
   @apply font-ming text-[1.3125rem] font-semibold leading-[1.35] text-ink;
+  &:lang(zh) {
+    word-break: auto-phrase;
+    line-break: strict;
+    text-wrap: balance;
+  }
 }
 
 /* The one lede step (DESIGN.md §1): at most one per page, directly under a
@@ -407,10 +432,12 @@
 
 @utility type-body {
   @apply font-ming text-[1.03125rem] leading-[1.75] text-ink-soft;
+  text-wrap: pretty;
 }
 
 @utility type-body-sm {
   @apply font-ming text-[0.9375rem] leading-[1.7] text-ink-soft;
+  text-wrap: pretty;
 }
 
 /* ── 黑體 (font-hei) — interface ────────────────────────────────────────── */
@@ -444,13 +471,14 @@
 
 /* 12px, not 11px: at 11px the CJK strokes of a 黑體 eyebrow fill in on
    ordinary screens. Letter-spacing is a Latin small-caps device — tracked CJK
-   reads as gapped characters, not as an eyebrow — so it applies only under an
+   reads as gapped characters, not as an eyebrow — so it, and `uppercase`
+   (which would turn 「聯絡 Formoria」 into FORMORIA), apply only under an
    English `lang`. The ink stays in the first `@apply`: the photo-band contrast
    check reads each role's ink from the utility body up to its first `}`. */
 @utility type-eyebrow {
-  @apply font-hei text-[0.75rem] font-semibold uppercase text-ink-muted;
+  @apply font-hei text-[0.75rem] font-semibold text-ink-muted;
   &:lang(en) {
-    @apply tracking-widest;
+    @apply uppercase tracking-widest;
   }
 }
 

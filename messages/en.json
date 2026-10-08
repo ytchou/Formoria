@@ -1,12 +1,14 @@
 {
   "common": {
-    "exploreBrands": "Browse brands",
+    "exploreBrands": "Browse listed brands",
     "submitBrand": "Recommend a brand",
     "all": "All",
     "skipToContent": "Skip to content",
     "close": "Close",
     "closeDialog": "Close dialog",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "notifications": "Notifications",
+    "metadataDescription": "Life can feel a little more like you. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it."
   },
   "nav": {
     "searchAria": "Search products",
@@ -33,12 +35,11 @@
     "copyright": "© {year} Formoria",
     "tagline": "Life can feel a little more like you",
     "discoverHeading": "Browse",
-    "directory": "Brand directory",
+    "directory": "Listed brands",
     "stories": "Stories",
     "submit": "Recommend a brand",
     "companyHeading": "About",
     "faq": "FAQ",
-    "connectHeading": "Contact",
     "style": "Guides",
     "products": "Products",
     "disclosure": "Formoria doesn't sell anything. Every purchase happens on the brand's own channel."
@@ -272,9 +273,9 @@
   },
   "challenge": {
     "title": "Quick verification",
-    "description": "Please complete the check to continue browsing.",
+    "description": "Complete the check to keep browsing.",
     "verifying": "Verifying…",
-    "error": "Verification failed. Please try again."
+    "error": "The check didn't go through. Try again."
   },
   "cities": {
     "taipei": "Taipei City",
@@ -1745,13 +1746,13 @@
   "forms": {
     "uploader": {
       "uploading": "Uploading…",
-      "invalidType": "Please upload an image file",
-      "fileTooLarge": "File size must be under 5MB",
+      "invalidType": "Choose an image file",
+      "fileTooLarge": "Choose a file under 5 MB",
       "genericUploadFailed": "Upload failed. Please try again.",
       "clickOrDrag": "Choose a file or drag it here",
       "clickToReplace": "Choose a new image or drag it here",
       "replace": "Replace image",
-      "imageAlt": "Upload {n}",
+      "imageAlt": "Uploaded image {n}",
       "ariaRemove": "Remove image {n}",
       "uploadFailed": "The following files could not be uploaded: {files}"
     }
@@ -1762,19 +1763,20 @@
   "errors": {
     "notFound": {
       "title": "Page not found",
-      "description": "This page doesn't exist or may have moved.",
+      "description": "There's no page at this address. It may have moved.",
       "cta": "Back to home",
-      "browseDirectory": "Browse the directory",
+      "browseProducts": "Browse products",
+      "browseDirectory": "Browse listed brands",
       "categoriesHeading": "Start browsing:"
     },
     "boundary": {
-      "title": "Something went wrong",
-      "description": "An unexpected error occurred. Please try again.",
+      "title": "This page didn't load",
+      "description": "It may be a temporary problem. Try again.",
       "brandDescription": "We couldn't load this brand. Please try again.",
       "storyDescription": "We couldn't load this story. Please try again.",
       "retry": "Try again",
-      "staleTitle": "This page is out of date",
-      "staleDescription": "The site was updated while this tab was open. Reload to get the latest version and try again.",
+      "staleTitle": "The site was just updated",
+      "staleDescription": "The site was updated while this tab was open. Reload the page to continue.",
       "staleRetry": "Reload the page"
     }
   },

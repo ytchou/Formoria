@@ -5,7 +5,10 @@ import * as Sentry from '@sentry/nextjs'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { PageShell } from '@/components/ui/page-shell'
-import { isDeploymentSkewError } from '@/lib/observability/deployment-skew'
+import {
+  isDeploymentSkewError,
+  serverActionResponseStatus,
+} from '@/lib/observability/deployment-skew'
 
 type RouteErrorProps = {
   error: Error & { digest?: string }
@@ -23,7 +26,9 @@ export function RouteError({
   titleClassName = 'type-section',
 }: RouteErrorProps) {
   const t = useTranslations('errors')
-  const isStale = isDeploymentSkewError(error)
+  // The router's "unexpected response" carries no status; it is skew only
+  // when the action POST it came from answered 404/400.
+  const isStale = isDeploymentSkewError(error, serverActionResponseStatus())
 
   useEffect(() => {
     // Still reported, but tagged and downgraded: deploy skew is expected and

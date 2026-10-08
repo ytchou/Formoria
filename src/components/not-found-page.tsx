@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
+import { actionLinkStyles } from '@/components/ui/action-link'
 import { buttonVariants } from '@/components/ui/button'
 import { PageShell } from '@/components/ui/page-shell'
 import { Grid } from '@/components/ui/grid'
@@ -26,20 +27,28 @@ export function NotFoundPage() {
       <div className="text-center">
         <h1 className="type-page-title">{t('notFound.title')}</h1>
         <p className="mt-3 type-body-sm">{t('notFound.description')}</p>
+        {/* Product-led first (SP2-18): every path starts from a product, so
+            the fill goes to /discover and the directory is a text link. */}
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
-            href="/"
+            href={routes.discover()}
             className={buttonVariants({ variant: 'primary' })}
+          >
+            {t('notFound.browseProducts')}
+          </Link>
+          <Link
+            href={routes.home()}
+            className={buttonVariants({ variant: 'secondary' })}
           >
             {t('notFound.cta')}
           </Link>
-          <Link
-            href={routes.brands()}
-            className={buttonVariants({ variant: 'secondary' })}
-          >
-            {t('notFound.browseDirectory')}
-          </Link>
         </div>
+        <Link
+          href={routes.brands()}
+          className={actionLinkStyles({ className: 'mt-3' })}
+        >
+          {t('notFound.browseDirectory')}
+        </Link>
       </div>
 
       <p className="mt-section type-body-sm text-ink-muted">
@@ -49,7 +58,7 @@ export function NotFoundPage() {
         {VISIBLE_L1_CATEGORIES.map((cat, index) => (
           <Link
             key={cat.slug}
-            href={routes.brands({ category: cat.slug })}
+            href={routes.discover({ category: cat.slug })}
             onClick={() => trackNotFoundCategoryClicked(cat.slug, index)}
             className="group"
           >

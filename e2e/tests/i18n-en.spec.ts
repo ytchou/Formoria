@@ -19,9 +19,9 @@ test("Opening the language menu does not report mismatched native buttons", asyn
     .getByRole("banner")
     .getByRole("button", { name: "切換語言" })
     .click();
-  await expect(page.getByRole("menuitem", { name: "English" })).toBeVisible();
+  await expect(page.getByRole("menuitemradio", { name: "English" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("menuitem", { name: "English" })).toBeHidden();
+  await expect(page.getByRole("menuitemradio", { name: "English" })).toBeHidden();
   expect(buttonErrors).toEqual([]);
 });
 
@@ -178,7 +178,7 @@ test.describe("i18n English browse", () => {
     await expect(switcherBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await switcherBtn.click();
 
-    const zhItem = page.getByRole("menuitem", { name: "Traditional Chinese" });
+    const zhItem = page.getByRole("menuitemradio", { name: "Traditional Chinese" });
     await expect(zhItem).toBeVisible({ timeout: BUDGET.RENDERED });
     await zhItem.click();
 
@@ -201,7 +201,7 @@ test.describe("i18n English browse", () => {
       .toBe("zh-TW");
   });
 
-  test('LocaleSwitcher "English" menuitem on /brands navigates to /en/brands', async ({
+  test('LocaleSwitcher "English" menuitemradio on /brands navigates to /en/brands', async ({
     page,
   }) => {
     await page.goto("/brands");
@@ -212,7 +212,7 @@ test.describe("i18n English browse", () => {
     await expect(switcherBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await switcherBtn.click();
 
-    const enItem = page.getByRole("menuitem", { name: "English" });
+    const enItem = page.getByRole("menuitemradio", { name: "English" });
     await expect(enItem).toBeVisible({ timeout: BUDGET.RENDERED });
     await enItem.click();
 
@@ -232,7 +232,7 @@ test.describe("i18n English browse", () => {
       .getByRole("button", { name: "切換語言" });
     await expect(switcherBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await switcherBtn.click();
-    await page.getByRole("menuitem", { name: "English" }).click();
+    await page.getByRole("menuitemradio", { name: "English" }).click();
 
     await expect(page).toHaveURL(
       (url) =>
@@ -304,7 +304,7 @@ test.describe("i18n English browse", () => {
       .getByRole("button", { name: "切換語言" });
     await expect(switcherBtn).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await switcherBtn.click();
-    const enItem = page.getByRole("menuitem", { name: "English" });
+    const enItem = page.getByRole("menuitemradio", { name: "English" });
     await expect(enItem).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await enItem.click();
     await expect(page).toHaveURL(/\/en/, { timeout: BUDGET.INTERACTIVE });
