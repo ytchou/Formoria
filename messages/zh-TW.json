@@ -539,10 +539,11 @@
     },
     "locations": {},
     "editorialAppearances": {
-      "heading": "Formoria 專題與選物",
-      "ariaLabel": "Formoria 專題與選物",
+      "heading": "這個品牌出現在",
+      "ariaLabel": "出現這個品牌的專題與風格",
       "trailPrefix": "風格",
-      "storyPrefix": "專題"
+      "storyPrefix": "專題",
+      "zhOnlyNote": "中文內容"
     },
     "relatedBrands": {
       "heading": "更多{category}",
@@ -560,7 +561,7 @@
       "context": {
         "city": "在{city}創立",
         "founded": "於 {year} 年成立",
-        "suffix": " 其創立背景為{details}。"
+        "suffix": "{details}。"
       },
       "isMadeInTaiwan": {
         "question": "{brandName} 是台灣品牌嗎？",
@@ -568,19 +569,19 @@
         "registrySource": "資料來源：MIT Smile 台灣製產品名錄。"
       },
       "mainProducts": {
-        "question": "{brandName} 的主要產品有哪些？",
-        "answerWithCategoryAndSubcategories": "{brandName} 以{category}為主要領域，代表產品包含{subcategories}。{context}",
-        "answerWithSubcategories": "{brandName} 的代表產品包含{subcategories}。{context}"
+        "question": "{brandName}的主要產品有哪些？",
+        "answerWithCategoryAndSubcategories": "{brandName}以{category}為主要領域，代表產品包含{subcategories}。{context}",
+        "answerWithSubcategories": "{brandName}的代表產品包含{subcategories}。{context}"
       },
       "whereToBuy": {
-        "question": "{brandName} 在哪裡可以買到？",
-        "answer": "{brandName} 的產品可以透過{channels}購買。{stockistNote}{context}",
+        "question": "{brandName}在哪裡可以買到？",
+        "answer": "{brandName}的產品可以透過{channels}購買。{stockistNote}{context}",
         "stockistSuffix": "另有 {count} 個線下合作店家。",
         "noOnlineChannels": "實體通路"
       },
       "originStory": {
-        "question": "{brandName} 是怎麼開始的？",
-        "answer": "{brandName} 於 {year} 年在{city}創立。{context}"
+        "question": "{brandName}是怎麼開始的？",
+        "answer": "{brandName}於 {year} 年在{city}創立。{context}"
       }
     }
   },

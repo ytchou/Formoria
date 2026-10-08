@@ -539,10 +539,11 @@
     },
     "locations": {},
     "editorialAppearances": {
-      "heading": "Formoria Features & Selections",
-      "ariaLabel": "Formoria features and selections",
-      "trailPrefix": "Style",
-      "storyPrefix": "Story"
+      "heading": "Featured in",
+      "ariaLabel": "Stories and styles that feature this brand",
+      "trailPrefix": "Styles",
+      "storyPrefix": "Stories",
+      "zhOnlyNote": "In Chinese"
     },
     "relatedBrands": {
       "heading": "More in {category}",
@@ -560,7 +561,7 @@
       "context": {
         "city": "founded in {city}",
         "founded": "established in {year}",
-        "suffix": " Its founding origin is {details}."
+        "suffix": " It was {details}."
       },
       "isMadeInTaiwan": {
         "question": "Is {brandName} a Taiwanese brand?",
@@ -568,7 +569,7 @@
         "registrySource": "Source: MIT Smile registry."
       },
       "mainProducts": {
-        "question": "What are {brandName}'s main products?",
+        "question": "What does {brandName} make?",
         "answerWithCategoryAndSubcategories": "{brandName} focuses on {category}, with signature products including {subcategories}.{context}",
         "answerWithSubcategories": "{brandName} makes {subcategories} as signature products.{context}"
       },
