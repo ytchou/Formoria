@@ -101,7 +101,7 @@ export default async function StoriesHubPage({
     ...standalone,
   ]);
   // `StoryCard` marks the title and excerpt with `contentLang`; a zh-TW story on
-  // /en also says so in the label line above it, as `StoryRow`'s badge did.
+  // /en also says so in the label line above it.
   const languageLabel = (story: StoryEntry) =>
     story.frontmatter.locale !== locale ? [t("languageBadge")] : [];
   // One rank across the whole hub, in render order, for `story_card_clicked`.
