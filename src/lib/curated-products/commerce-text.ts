@@ -93,10 +93,16 @@ export type ImageTextSignals = {
  * staging review found ad creatives that carry none of it: a spokesperson ad
  * for a face mask, a mug photo overlaid with 「客製圖案 一件可印」, and a tile
  * whose banner reads 「可收納吸管的雙層吸管杯」. A Formoria photo shows the
- * product; an ad shows a campaign. Three signals, each sufficient:
+ * product; an ad shows a campaign. Three signals:
  *
  *   - `endorsement`: the vision read says a person is the SUBJECT, presenting
- *     the product. A hand holding it, or a product-only shot, is not.
+ *     the product. A hand holding it, or a product-only shot, is not. NOT
+ *     sufficient on its own: on the 2026-10-09 staging run it fired on 224 of
+ *     1,337 images, nearly all of them ordinary on-model photos (a swimsuit
+ *     or a backpack worn by a model). It counts only when the same frame also
+ *     carries campaign copy — another ad signal below or a commerce marker —
+ *     which is what separates the spokesperson ad (「超導晶凍面膜 Plus」 +
+ *     代言) from a lookbook photo.
  *   - `text-coverage`: overlaid or graphic text covers more than 15% of the
  *     image. Packaging text is excluded by the vision instructions, so a
  *     label-heavy box is not penalised. Ceiling: the coverage is a model
@@ -152,15 +158,17 @@ export function findAdCreativeSignals({
   textCoverage,
   endorsementPerson,
 }: ImageTextSignals): string[] {
-  const reasons: string[] = [];
-  if (endorsementPerson) reasons.push("endorsement");
-  if (textCoverage > TEXT_COVERAGE_THRESHOLD) reasons.push("text-coverage");
+  const copy: string[] = [];
+  if (textCoverage > TEXT_COVERAGE_THRESHOLD) copy.push("text-coverage");
   if (text) {
     for (const { marker, pattern } of AD_COPY_MARKERS) {
-      if (pattern.test(text)) reasons.push(marker);
+      if (pattern.test(text)) copy.push(marker);
     }
   }
-  return reasons;
+  // A person alone is a model wearing the product; with campaign copy it is
+  // an endorsement ad.
+  const campaign = copy.length > 0 || findCommerceTruthText(text).length > 0;
+  return endorsementPerson && campaign ? ["endorsement", ...copy] : copy;
 }
 
 /**

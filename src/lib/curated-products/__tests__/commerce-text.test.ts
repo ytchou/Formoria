@@ -101,6 +101,31 @@ describe("findAdCreativeSignals", () => {
     ]);
   });
 
+  // The 2026-10-09 staging run: a person alone fired on 224 of 1,337 images,
+  // nearly all ordinary on-model photos (swimsuits, a worn backpack).
+  it("passes an on-model photo with no campaign copy", () => {
+    expect(
+      findAdCreativeSignals({ text: "", textCoverage: 0, endorsementPerson: true }),
+    ).toEqual([]);
+    expect(
+      findAdCreativeSignals({
+        text: "SNOWFLAKE DENIM",
+        textCoverage: 0.04,
+        endorsementPerson: true,
+      }),
+    ).toEqual([]);
+  });
+
+  it("counts the person when the frame also carries commerce copy", () => {
+    expect(
+      findAdCreativeSignals({
+        text: "限時優惠 再省$220",
+        textCoverage: 0.08,
+        endorsementPerson: true,
+      }),
+    ).toEqual(["endorsement"]);
+  });
+
   it("flags the 一件可印 custom-print overlay", () => {
     expect(findAdCreativeSignals(CUSTOM_PRINT_OVERLAY)).toEqual([
       "一件可印",
