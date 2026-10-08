@@ -80,6 +80,7 @@ describe("toTrailCard", () => {
       slug: "small-kitchen",
       frontmatter: {
         title: "小廚房的好幫手",
+        locale: "zh-TW",
         description: "在小空間裡也能好好做飯。",
         promise: "給只有一口爐的廚房。",
         heroImage: "https://images.example.com/small-kitchen.webp",
@@ -115,7 +116,7 @@ describe("toTrailCard", () => {
     );
     expect(card).toStrictEqual({
       slug: "small-kitchen",
-      frontmatter: { title: "小廚房的好幫手" },
+      frontmatter: { title: "小廚房的好幫手", locale: "zh-TW" },
     });
     expect("description" in card.frontmatter).toBe(false);
     expect("promise" in card.frontmatter).toBe(false);
@@ -158,8 +159,14 @@ describe("toTrailPeeks", () => {
     ]);
     expect(peeks).toStrictEqual({
       "small-kitchen": [
-        { id: "product-board", imageUrl: "https://images.example.com/board.webp" },
-        { id: "product-knife", imageUrl: "https://images.example.com/knife.webp" },
+        {
+          id: "product-board",
+          imageUrl: "https://images.example.com/board.webp",
+        },
+        {
+          id: "product-knife",
+          imageUrl: "https://images.example.com/knife.webp",
+        },
       ],
       "empty-trail": [],
       "rainy-day": [

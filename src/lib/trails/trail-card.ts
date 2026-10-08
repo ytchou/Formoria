@@ -14,7 +14,12 @@ export type TrailCard = {
   slug: string;
   frontmatter: Pick<
     TrailEntry["frontmatter"],
-    "title" | "description" | "promise" | "heroImage" | "heroImageAlt"
+    | "title"
+    | "locale"
+    | "description"
+    | "promise"
+    | "heroImage"
+    | "heroImageAlt"
   >;
 };
 
@@ -22,12 +27,13 @@ export type TrailPeekProduct = Pick<CuratedProduct, "id" | "imageUrl">;
 
 /** Optional keys are omitted, not set to `undefined`, so the payload carries no `$undefined`. */
 export function toTrailCard(trail: TrailEntry): TrailCard {
-  const { title, description, promise, heroImage, heroImageAlt } =
+  const { title, locale, description, promise, heroImage, heroImageAlt } =
     trail.frontmatter;
   return {
     slug: trail.slug,
     frontmatter: {
       title,
+      locale,
       ...(description === undefined ? {} : { description }),
       ...(promise === undefined ? {} : { promise }),
       ...(heroImage === undefined ? {} : { heroImage }),

@@ -152,11 +152,11 @@ export default async function LandingPage({ params }: PageProps) {
     ? storyResult.stories.slice(0, LANDING_STORY_LIMIT).map(toStoryCard)
     : [];
   const curatedProducts = curatedProductsResult ?? [];
-  // Straight off the MDX read already in flight. Projected to card fields:
+  // Straight off the MDX read already in flight. The server-only hero takes
+  // whole entries; the client trail tiles get card fields only, because
   // client-component props ship in the inline RSC payload (DEV-1972).
-  const publishedTrails = trailResult?.ok
-    ? trailResult.trails.map(toTrailCard)
-    : [];
+  const publishedTrails = trailResult?.ok ? trailResult.trails : [];
+  const trailCards = publishedTrails.map(toTrailCard);
   const wallGroups = buildGroupedWallSlots({
     products: curatedProducts,
   });
@@ -183,7 +183,7 @@ export default async function LandingPage({ params }: PageProps) {
               ? { groups: wallGroups }
               : null
           }
-          trails={publishedTrails}
+          trails={trailCards}
           trailPeeks={toTrailPeeks(trailPeeksResult ?? {})}
           stories={latestStories}
           brands={exploreBrands}
