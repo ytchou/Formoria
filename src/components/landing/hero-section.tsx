@@ -110,16 +110,19 @@ export default async function HeroSection({
 
         {/* Situation chips: start from a need, not a brand name. Below `sm`
             they form one horizontal scroll row instead of wrapping into an
-            orphaned last chip. The row's overflow would clip the chips' focus
-            rings, so it carries 6px of padding inside a matching negative
-            margin (as the trail snap row in landing-zones.tsx does) and 6px
-            less top margin, which keeps the visual gap. */}
+            orphaned last chip. The row bleeds to the viewport edge through
+            the 24px page gutter and pads it back, with matching scroll
+            padding, so a chip runs off the screen instead of being cut at the
+            gutter (R2-08, as the trail snap row in landing-zones.tsx does).
+            The overflow would clip the chips' focus rings top and bottom, so
+            it carries 6px of block padding and 6px less top margin, which
+            keeps the visual gap. */}
         {situations.length > 0 && (
           <ChipRow
             as="ul"
             aria-label={t("situationsLabel")}
             className={cn(
-              "max-sm:-mx-1.5 max-sm:snap-x max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:p-1.5",
+              "max-sm:-mx-6 max-sm:scroll-px-6 max-sm:snap-x max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:px-6 max-sm:py-1.5",
               showLanguageNote ? "mt-2" : "mt-6 max-sm:mt-4.5",
             )}
           >

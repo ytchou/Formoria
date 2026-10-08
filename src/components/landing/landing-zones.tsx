@@ -110,10 +110,7 @@ export async function LandingZones({
             className={cn("pt-section", trails.length === 0 && "pb-section")}
           >
             <PageShell measure="page">
-              <BrandStrip
-                brands={brands}
-                totalCount={totalBrandCount}
-              />
+              <BrandStrip brands={brands} totalCount={totalBrandCount} />
             </PageShell>
           </div>
         )}
@@ -140,10 +137,16 @@ export async function LandingZones({
                   and cards past the third leave the layout (and the tab
                   order) via `lg:hidden`. The grid waits for lg because a
                   three-up card at 768px is ~230px wide: its copy stack
-                  covered the whole photograph (DS2-06). The row's overflow
-                  would clip the cards' 5px focus ring (2px ring + 3px
-                  offset), so below lg it carries 6px of padding inside a matching negative margin
-                  and 6px less top margin, which keeps the 32px stack.
+                  covered the whole photograph (DS2-06). Below lg the row
+                  bleeds to the viewport edge through the page gutter
+                  (24px, 40px from md) and pads the same amount back, with
+                  matching scroll padding so each card still snaps to the
+                  gutter line: the next card runs off the screen instead of
+                  stopping at an invisible crop (R2-08, the product shelf's
+                  BD2-13 pattern). The overflow would clip the cards' 5px
+                  focus ring (2px ring + 3px offset) top and bottom, so the
+                  row carries 6px of block padding and 6px less top margin,
+                  which keeps the 32px stack.
 
                   Each card is `min-w-0` with an 82% basis. The `min-w-0` is
                   the load-bearing half: a flex item defaults to
@@ -158,7 +161,7 @@ export async function LandingZones({
                 count={trails.length}
                 className={cn(
                   gridStyles({ cols: "triptych" }),
-                  "-mx-1.5 mt-6.5 flex snap-x snap-mandatory overflow-x-auto p-1.5 lg:mx-0 lg:mt-8 lg:grid lg:snap-none lg:overflow-visible lg:p-0",
+                  "-mx-6 mt-6.5 flex scroll-px-6 snap-x snap-mandatory overflow-x-auto px-6 py-1.5 md:-mx-10 md:scroll-px-10 md:px-10 lg:mx-0 lg:mt-8 lg:grid lg:snap-none lg:overflow-visible lg:p-0",
                 )}
               >
                 {trails.map((trail, index) => (
@@ -169,12 +172,10 @@ export async function LandingZones({
                     trailSurface="homepage_trails"
                     headingLevel="h3"
                     peek={trailPeeks[trail.slug]}
-                    labels={{
-                      eyebrow: t("trails.eyebrow"),
-                      cta: t("trails.cta"),
-                    }}
+                    // No eyebrow: the section heading is already 主題選物.
+                    labels={{ cta: t("trails.cta") }}
                     className={cn(
-                      "min-w-0 shrink-0 basis-[82%] snap-start scroll-mx-1.5 lg:basis-auto",
+                      "min-w-0 shrink-0 basis-[82%] snap-start lg:basis-auto",
                       index >= DESKTOP_TRAIL_LIMIT && "lg:hidden",
                     )}
                   />

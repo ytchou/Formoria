@@ -115,10 +115,13 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
   return (
     <div className="mt-8">
       {/* The edge fade signals the rail continues and keeps the first avatar
-          from reading as hard-clipped. */}
+          from reading as hard-clipped. The rail bleeds through the page
+          gutter (`page-gutter-wide`'s three steps), so the fade runs out at
+          the screen edge, not 64px inside it where an avatar read as cut off
+          against blank paper (DS2-39). */}
       <div
         ref={emblaRef}
-        className="overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_48px,black_calc(100%-48px),transparent)]"
+        className="-mx-6 overflow-hidden md:-mx-10 xl:-mx-16 [mask-image:linear-gradient(90deg,transparent,black_48px,black_calc(100%-48px),transparent)]"
       >
         {/* Slide padding, not `gap`: Embla's loop does not measure a flex gap,
             so the seam between the last and first slide lost 24px and the

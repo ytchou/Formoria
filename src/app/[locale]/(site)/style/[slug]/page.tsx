@@ -306,9 +306,9 @@ export default async function StyleTrailPage({ params }: PageProps) {
   const safeProducts = products ?? [];
   const similarProducts =
     safeProducts.length > 0
-      ? await findSimilarProductsForTrail(
-          safeProducts.map((p) => p.id),
-        ).catch(() => [])
+      ? await findSimilarProductsForTrail(safeProducts.map((p) => p.id)).catch(
+          () => [],
+        )
       : [];
 
   const entry = trail.entry;
@@ -450,10 +450,7 @@ export default async function StyleTrailPage({ params }: PageProps) {
           </div>
           {similarProducts.length >= 3 && (
             <SavedProductsProvider>
-              <section
-                aria-label={t("exploreMore")}
-                className="mt-section"
-              >
+              <section aria-label={t("exploreMore")} className="mt-section">
                 <h2 className="type-card-title">{t("exploreMore")}</h2>
                 <Grid cols="thirds" as="ul" className="mt-6">
                   {similarProducts.map((product) => (
@@ -476,7 +473,6 @@ export default async function StyleTrailPage({ params }: PageProps) {
                 safeLocale,
               )}
               {relatedTrailTiles(t("relatedTrails"), relatedTrails, {
-                eyebrow: tLanding("trails.eyebrow"),
                 cta: tLanding("trails.cta"),
               })}
             </div>
