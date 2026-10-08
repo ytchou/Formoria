@@ -171,7 +171,7 @@ export default async function LandingPage({ params }: PageProps) {
       <main>
         <LandingZones
           locale={safeLocale}
-          hero={<HeroSection />}
+          hero={<HeroSection trails={publishedTrails} />}
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS

@@ -36,7 +36,9 @@ export default async function SectionBand() {
             393px viewport). Putting `min-w-0` on the chip row does NOT fix it —
             measured, it stays 422; the automatic minimum lives on the grid item.
             Both columns carry it so the next block dropped into either one
-            cannot reintroduce the same overflow. */}
+            cannot reintroduce the same overflow. Since DEV-1965 the chip row
+            wraps below `sm` and only scrolls from `sm` up, so the 393px case
+            no longer scrolls at all; `min-w-0` still guards the sm+ scroller. */}
         <div className="grid gap-stack md:grid-cols-2 md:gap-16 items-start">
           <div className="min-w-0">
             <h2 className="type-section">{tRecommend('headline')}</h2>

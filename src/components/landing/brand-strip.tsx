@@ -5,9 +5,11 @@ import { SectionBandCtaLink } from "@/components/landing/section-band-cta-link";
 import { actionLinkStyles } from "@/components/ui/action-link";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
+import { displayBrandCount } from "@/lib/brands/display-brand-count";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 type BrandStripProps = {
   brands: PublicBrandCard[];
+  /** Exact directory-wide brand count; rounded here for display. */
   totalCount: number;
 };
 
@@ -16,11 +18,16 @@ export default async function BrandStrip({
   totalCount,
 }: BrandStripProps) {
   const t = await getTranslations("landing.brands");
+  const shown = displayBrandCount(totalCount);
 
   return (
     <div className="text-center">
       <h2 className="type-section">
-        {t("count", { count: totalCount })}
+        {/* ICU `select` keys are strings; next-intl's typed values reject a boolean. */}
+        {t("count", {
+          count: shown,
+          approximate: shown < totalCount ? "true" : "false",
+        })}
       </h2>
 
       <BrandMarquee

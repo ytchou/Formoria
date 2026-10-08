@@ -70,6 +70,13 @@ export type PhotoBandProps = {
   preload?: boolean;
   /** Optional Next image quality for a specific photograph. */
   imageQuality?: number;
+  /**
+   * Below `sm`, show the photograph as a full-bleed 4:3 block ABOVE the copy,
+   * with no scrim; from `sm` up the band is unchanged. For a band whose
+   * full-width phone scrim would wash the picture out (the homepage opener).
+   * Off by default, so every other band keeps the overlay at every width.
+   */
+  stackBelowSm?: boolean;
   /** Classes for the `<section>` — spacing, mostly. */
   className?: string;
   /** Classes for the inner `PageShell` — alignment of the copy. */
@@ -84,29 +91,47 @@ export function PhotoBand({
   scrim,
   preload = false,
   imageQuality,
+  stackBelowSm = false,
   className,
   contentClassName,
   children,
   ...sectionProps
 }: PhotoBandProps) {
+  const photo = (
+    <SurfaceImage
+      src={image}
+      alt={alt}
+      fill
+      preload={preload}
+      // `fetchPriority` follows `preload` rather than being a second knob:
+      // a band that claims the preload wants the high hint too, and one that
+      // does not must not send it.
+      fetchPriority={preload ? "high" : "auto"}
+      quality={imageQuality}
+      surface="hero"
+      className="object-cover"
+    />
+  );
+
   return (
     <section
       {...sectionProps}
-      className={cn("relative overflow-hidden py-section", className)}
+      className={cn(
+        "relative overflow-hidden py-section",
+        // The stacked photo starts at the top edge of the band.
+        stackBelowSm && "max-sm:pt-0",
+        className,
+      )}
     >
-      <SurfaceImage
-        src={image}
-        alt={alt}
-        fill
-        preload={preload}
-        // `fetchPriority` follows `preload` rather than being a second knob:
-        // a band that claims the preload wants the high hint too, and one that
-        // does not must not send it.
-        fetchPriority={preload ? "high" : "auto"}
-        quality={imageQuality}
-        surface="hero"
-        className="object-cover"
-      />
+      {stackBelowSm ? (
+        // A 4:3 block in flow below `sm`, the usual full-bleed backdrop from
+        // `sm` up. `fill` sizes the image to whichever box this is.
+        <div className="relative mb-stack aspect-[4/3] w-full sm:absolute sm:inset-0 sm:mb-0 sm:aspect-auto">
+          {photo}
+        </div>
+      ) : (
+        photo
+      )}
 
       {/* THE SCRIM. Its opacity is not editable here — it comes from the
           variant's stops, which the contrast gate checks against this exact
@@ -117,11 +142,18 @@ export function PhotoBand({
           A stylesheet rather than an inline `style` because the stops differ
           per breakpoint and the `style` prop cannot hold a media query; the
           rules are generated from the same spec the gate measures, so there is
-          no second copy of the numbers to drift. */}
+          no second copy of the numbers to drift.
+
+          A stacked band hides it below `sm`: the copy no longer sits on the
+          photograph there, so there is nothing for it to protect. */}
       <style>{scrimStyleRules(scrim)}</style>
       <div
         aria-hidden="true"
-        className={cn("absolute inset-0", scrimClassName(scrim))}
+        className={cn(
+          "absolute inset-0",
+          stackBelowSm && "max-sm:hidden",
+          scrimClassName(scrim),
+        )}
       />
 
       {children != null && (

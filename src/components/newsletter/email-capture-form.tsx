@@ -99,10 +99,11 @@ export function EmailCaptureForm() {
         <p className="type-body-sm font-medium text-ink-soft">
           {t("interestsLabel")}
         </p>
-        {/* A scrolling row, not a wrapping one — but still a `ChipRow`, so
+        {/* Wraps below `sm` so every chip stays visible on a phone (DS-42),
+            and scrolls as one row from `sm` up — but always a `ChipRow`, so
             the 14px that keeps the 36px chip's touch target honest is the same
             here as everywhere else. */}
-        <ChipRow className="flex-nowrap overflow-x-auto">
+        <ChipRow className="sm:flex-nowrap sm:overflow-x-auto">
           {INTEREST_CHIPS.map((chip) => {
             const isSelected = selectedChips.includes(chip.slug);
 
