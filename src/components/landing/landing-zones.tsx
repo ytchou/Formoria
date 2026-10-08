@@ -12,11 +12,10 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { Grid, gridStyles } from "@/components/ui/grid";
 import { PageShell } from "@/components/ui/page-shell";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import type { GroupedWallSlots } from "@/lib/curated-products/home-wall";
+import type { WallTileSlot } from "@/lib/curated-products/wall-tile";
 import type { Locale } from "@/lib/seo/alternates";
-import type { CuratedProduct } from "@/lib/services/curated-products";
-import type { StoryEntry } from "@/lib/services/stories";
-import type { TrailEntry } from "@/lib/services/trails";
+import type { StoryCardEntry } from "@/lib/stories/story-card";
+import type { TrailCard, TrailPeekProduct } from "@/lib/trails/trail-card";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -36,13 +35,16 @@ export type LandingZonesProps = {
    */
   hero: ReactNode;
   close: ReactNode;
-  /** `null` when the wall is below its publication floor and must not render. */
-  wall: { groups: GroupedWallSlots } | null;
+  /**
+   * The server-rendered "all" group of the selection band. `null` when the
+   * wall is below its publication floor and must not render.
+   */
+  wall: { slots: WallTileSlot[] } | null;
   /** Every indexable trail rendered in the dedicated editorial zone. */
-  trails: TrailEntry[];
+  trails: TrailCard[];
   /** Up to four placed products per trail slug, shown under each card. */
-  trailPeeks: Record<string, CuratedProduct[]>;
-  stories: StoryEntry[];
+  trailPeeks: Record<string, TrailPeekProduct[]>;
+  stories: StoryCardEntry[];
   brands: PublicBrandCard[];
   /** Directory-wide brand count; BrandStrip rounds it for display. */
   totalBrandCount: number;
@@ -94,7 +96,7 @@ export async function LandingZones({
       <SavedBrandsProvider>
         {wall ? (
           <div data-landing-zone="selection">
-            <CuratedProductGrid groups={wall.groups} locale={locale} />
+            <CuratedProductGrid slots={wall.slots} locale={locale} />
           </div>
         ) : null}
 

@@ -5,6 +5,7 @@ import {
   getBrandTrailSlugs,
   getCuratedProductsByBrandBatch,
   getCuratedProductWriteContext,
+  getHomepageWallCategory,
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   getPublishedCuratedProductsForTrail,
@@ -902,6 +903,41 @@ describe("getPublishedCuratedProductsForHomepage", () => {
     await expect(
       getPublishedCuratedProductsForHomepage(client),
     ).rejects.toThrow(/42703.*product_description_zh/);
+  });
+});
+
+describe("getHomepageWallCategory", () => {
+  it("filters the read by category and returns projected tile slots", async () => {
+    const { client, calls } = stubClient({
+      data: [
+        homepageRow({ id: "p-home", key: "home-pick", category: "home" }),
+        // The stub ignores filters, so a second L1 proves the composer's own
+        // category guard as well as the query's.
+        homepageRow({
+          id: "p-beauty",
+          key: "beauty-pick",
+          category: "beauty",
+          subcategory: "skincare",
+        }),
+      ],
+    });
+
+    const slots = await getHomepageWallCategory("home", "2026-10-08", client);
+
+    expect(calls.eq).toContainEqual(["category", "home"]);
+    expect(slots.map((slot) => slot.product.key)).toEqual(["home-pick"]);
+    const product = slots[0]!.product as Record<string, unknown>;
+    expect(product.brandSlug).toBe("warmwood");
+    expect(product).not.toHaveProperty("imageWidth");
+    expect(product).not.toHaveProperty("createdAt");
+  });
+
+  it("leaves the homepage read unfiltered by category", async () => {
+    const { client, calls } = stubClient({ data: [homepageRow()] });
+
+    await getPublishedCuratedProductsForHomepage(client);
+
+    expect(calls.eq.some(([column]) => column === "category")).toBe(false);
   });
 });
 

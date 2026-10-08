@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import en from "../../../messages/en.json";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import type { GroupedWallSlots, WallSlot } from "@/lib/curated-products/home-wall";
+import type { WallSlot } from "@/lib/curated-products/home-wall";
 import type {
   CuratedProduct,
   HomepageCuratedProduct,
@@ -112,8 +112,8 @@ vi.mock("@/lib/auth/use-user", () => ({
 // the grid so the zone-structure assertions stay fast and deterministic. The
 // trail cards render for real: they are plain links with no client library.
 vi.mock("@/components/landing/curated-product-grid", () => ({
-  CuratedProductGrid: ({ groups }: { groups: Record<string, unknown[]> }) => (
-    <div data-testid="curated-product-grid">{(groups.all ?? []).length} products</div>
+  CuratedProductGrid: ({ slots }: { slots: unknown[] }) => (
+    <div data-testid="curated-product-grid">{slots.length} products</div>
   ),
 }));
 
@@ -213,12 +213,12 @@ function buildProduct(index: number): HomepageCuratedProduct {
   };
 }
 
-function buildWall(count = 2): { groups: GroupedWallSlots } {
+function buildWall(count = 2): { slots: WallSlot[] } {
   const slots: WallSlot[] = Array.from({ length: count }, (_, index) => ({
     product: buildProduct(index),
     ratio: "4:3" as const,
   }));
-  return { groups: { all: slots } };
+  return { slots };
 }
 
 function buildStory(slug: string): StoryEntry {

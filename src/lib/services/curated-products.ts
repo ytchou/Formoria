@@ -23,6 +23,11 @@ import {
   hasRenderableCuratedImage,
 } from "@/lib/curated-products/image-eligibility";
 import { normalizeCuratedProductName } from "@/lib/curated-products/product-name";
+import { buildCategoryWallSlots } from "@/lib/curated-products/home-wall";
+import {
+  toWallTileProduct,
+  type WallTileSlot,
+} from "@/lib/curated-products/wall-tile";
 import {
   PREVIEW_THUMBNAIL_LIMIT,
   TRAIL_PEEK_SIZE,
@@ -219,6 +224,7 @@ type HomepageCuratedProductQuery = PromiseLike<{
   error: unknown;
 }> & {
   in(column: string, values: string[]): HomepageCuratedProductQuery;
+  eq(column: string, value: string): HomepageCuratedProductQuery;
   not(
     column: string,
     operator: string,
@@ -602,8 +608,52 @@ export async function getPublishedProductPreviewsForBrands(
 export async function getPublishedCuratedProductsForHomepage(
   client?: CuratedProductSupabase,
 ): Promise<HomepageCuratedProduct[]> {
-  const runQuery = (select: string) =>
-    excludeTestBrands(
+  return readHomepageCuratedProducts(client);
+}
+
+/**
+ * One L1 category's group for the homepage band, fetched when a reader selects
+ * its chip (DEV-1972) through `GET /api/home-wall`.
+ *
+ * Same eligibility gates and the same deterministic order as
+ * `getPublishedCuratedProductsForHomepage`; the category is filtered in the
+ * query, which leaves that order untouched because it is applied after the
+ * rows are flattened. Composed by `buildCategoryWallSlots` and projected to the
+ * tile's fields, because this result ships to the browser as JSON.
+ *
+ * Deliberate trade-offs:
+ *   - Hidden-category products are no longer in the homepage's server HTML;
+ *     crawlers still reach every product through /discover.
+ *   - The seed is the Taipei day at request time. An ISR "all" group composed
+ *     before midnight can coexist with a category fetched after it, so the two
+ *     may come from different days' shuffles until the page revalidates.
+ */
+export async function getHomepageWallCategory(
+  category: string,
+  seed?: string,
+  client?: CuratedProductSupabase,
+): Promise<WallTileSlot[]> {
+  return auditedCall(
+    {
+      provider: "curatedProducts",
+      operation: "getHomepageWallCategory",
+      kind: "service",
+    },
+    async () => {
+      const products = await readHomepageCuratedProducts(client, category);
+      return buildCategoryWallSlots({ products, category, seed }).map(
+        (slot) => ({ product: toWallTileProduct(slot.product) }),
+      );
+    },
+  );
+}
+
+async function readHomepageCuratedProducts(
+  client?: CuratedProductSupabase,
+  category?: string,
+): Promise<HomepageCuratedProduct[]> {
+  const runQuery = (select: string) => {
+    const query = excludeTestBrands(
       curatedProductClient(client)
         .from("curated_products")
         .select(
@@ -619,6 +669,8 @@ export async function getPublishedCuratedProductsForHomepage(
         .limit(1_000) as unknown as HomepageCuratedProductQuery,
       "brands.name",
     );
+    return category ? query.eq("category", category) : query;
+  };
   let { data, error } = await runQuery(CURATED_PRODUCT_READ_SELECT);
   if (error && isMissingSubcategoryColumn(error)) {
     ({ data, error } = await runQuery(LEGACY_CURATED_PRODUCT_READ_SELECT));

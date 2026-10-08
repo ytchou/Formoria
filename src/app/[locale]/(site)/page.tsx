@@ -15,13 +15,15 @@ import {
   MIN_HOME_CURATED_PRODUCTS,
   trailPeekRequests,
 } from "@/lib/services/curated-products";
-import { buildGroupedWallSlots } from "@/lib/curated-products/home-wall";
+import { buildHomeGridSlots } from "@/lib/curated-products/home-wall";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
+import { toStoryCard } from "@/lib/stories/story-card";
+import { toTrailCard, toTrailPeeks } from "@/lib/trails/trail-card";
 import { toPublicBrandCard } from "@/lib/brands/contracts";
 
 /** Stories shown in the topics zone before the reader is sent to `/stories`. */
@@ -147,14 +149,17 @@ export default async function LandingPage({ params }: PageProps) {
   const exploreBrands = (exploreResult?.brands ?? []).map(toPublicBrandCard);
   const totalBrandCount = exploreResult?.totalCount ?? 0;
   const latestStories = storyResult.ok
-    ? storyResult.stories.slice(0, LANDING_STORY_LIMIT)
+    ? storyResult.stories.slice(0, LANDING_STORY_LIMIT).map(toStoryCard)
     : [];
   const curatedProducts = curatedProductsResult ?? [];
-  // Straight off the MDX read already in flight.
+  // Straight off the MDX read already in flight. The server-only hero takes
+  // whole entries; the client trail tiles get card fields only, because
+  // client-component props ship in the inline RSC payload (DEV-1972).
   const publishedTrails = trailResult?.ok ? trailResult.trails : [];
-  const wallGroups = buildGroupedWallSlots({
-    products: curatedProducts,
-  });
+  const trailCards = publishedTrails.map(toTrailCard);
+  // Only the "all" group is server-rendered; each category chip fetches its
+  // own group from `/api/home-wall` on first selection (DEV-1972).
+  const wallSlots = buildHomeGridSlots({ products: curatedProducts });
 
   return (
     <>
@@ -175,11 +180,11 @@ export default async function LandingPage({ params }: PageProps) {
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS
-              ? { groups: wallGroups }
+              ? { slots: wallSlots }
               : null
           }
-          trails={publishedTrails}
-          trailPeeks={trailPeeksResult ?? {}}
+          trails={trailCards}
+          trailPeeks={toTrailPeeks(trailPeeksResult ?? {})}
           stories={latestStories}
           brands={exploreBrands}
           totalBrandCount={totalBrandCount}

@@ -7,9 +7,8 @@ import { SurfaceImage } from "@/components/ui/image";
 import { Link } from "@/i18n/navigation";
 import { trackTrailCardClicked } from "@/lib/analytics";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
-import type { CuratedProduct } from "@/lib/services/curated-products";
 import { TRAIL_PEEK_SIZE } from "@/lib/services/curated-products.constants";
-import type { TrailEntry } from "@/lib/services/trails";
+import type { TrailCard, TrailPeekProduct } from "@/lib/trails/trail-card";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 import { contentLangFor } from "@/lib/trails/content-lang";
@@ -41,12 +40,12 @@ export function TrailTile({
   singleColumn = false,
   className,
 }: {
-  trail: TrailEntry;
+  trail: TrailCard;
   labels: TrailTileLabels;
   position: number;
   /** Analytics surface reported with the click, e.g. `homepage_trails`. */
   trailSurface: string;
-  peek?: CuratedProduct[];
+  peek?: TrailPeekProduct[];
   headingLevel?: "h2" | "h3";
   singleColumn?: boolean;
   className?: string;
@@ -158,11 +157,15 @@ export function TrailTile({
                   <SurfaceImage
                     src={peekSrc}
                     alt=""
-                    fill
                     // A quarter of a card cell: ~80px on a phone, ~110px in
-                    // the three-up grid.
-                    sizes="120px"
-                    className="object-cover"
+                    // the three-up grid. A fixed 120px box rather than `fill` +
+                    // `sizes="120px"`: Next then emits a 1x/2x srcSet (128w,
+                    // 256w) instead of every configured width (DEV-1972). The
+                    // classes stretch it over the square cell exactly as
+                    // `fill` did.
+                    width={120}
+                    height={120}
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                 ) : null}
               </li>

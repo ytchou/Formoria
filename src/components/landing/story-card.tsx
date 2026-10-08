@@ -7,11 +7,11 @@ import { Link } from "@/i18n/navigation";
 import { trackStoryCardClicked } from "@/lib/analytics";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
-import type { StoryEntry } from "@/lib/services/stories";
+import type { StoryCardEntry } from "@/lib/stories/story-card";
 import { formatStoryDate } from "@/components/stories/story-date";
 
 export type StoryCardProps = {
-  story: StoryEntry;
+  story: StoryCardEntry;
   locale: string;
   position: number;
   trackingSurface?: string;

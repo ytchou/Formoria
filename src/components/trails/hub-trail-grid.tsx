@@ -1,16 +1,19 @@
 import { TrailTile, type TrailTileLabels } from "@/components/landing/trail-tile";
 import { gridStyles } from "@/components/ui/grid";
-import type { CuratedProduct } from "@/lib/services/curated-products";
-import type { TrailEntry } from "@/lib/services/trails";
+import type { TrailCard, TrailPeekProduct } from "@/lib/trails/trail-card";
 
-/** The /style hub's card grid: one TrailTile per listed trail, with its peek. */
+/**
+ * The /style hub's card grid: one TrailTile per listed trail, with its peek.
+ * Takes the card projections, not whole entries: TrailTile is a client
+ * component, so every field passed here is serialized into the page (DEV-1972).
+ */
 export function HubTrailGrid({
   trails,
   peeks,
   labels,
 }: {
-  trails: TrailEntry[];
-  peeks: Record<string, CuratedProduct[]>;
+  trails: TrailCard[];
+  peeks: Record<string, TrailPeekProduct[]>;
   labels: TrailTileLabels;
 }) {
   return (
