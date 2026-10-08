@@ -24,8 +24,14 @@ export type TrailTileLabels = {
  * container) and no fixed `min-h` leave the aspect-ratio box its content-based
  * minimum, so a three-line promise grows the tile instead of pushing the title
  * off its top edge, as the old fixed 224px floor did at 390px. md and up keep
- * a 320px floor. A single-column band also has a ceiling so it cannot grow
- * taller than the viewport-scale section it belongs to.
+ * a 320px floor. A single-column band (the hub's odd last trail, spanning both
+ * pair columns) takes the feature band's 21:9 from md, so it never stands
+ * taller than the feature above it; below md it is one more 3:2 card.
+ *
+ * `variant="feature"` is the DESIGN.md §8 TrailCard feature variant (/style hub
+ * only): a full-width band at 4:3 below md and 21:9 from md, title in
+ * `type-section` at every width. It keeps the same overflow-clip, no-fixed-min-h
+ * floor below md, so the copy still grows the band instead of clipping.
  *
  * The optional peek sits BELOW the band, inside the same list item, and is
  * decorative: the one card link already carries the trail's name.
@@ -38,6 +44,7 @@ export function TrailTile({
   peek,
   headingLevel = "h3",
   singleColumn = false,
+  variant = "default",
   className,
 }: {
   trail: TrailCard;
@@ -48,9 +55,11 @@ export function TrailTile({
   peek?: TrailPeekProduct[];
   headingLevel?: "h2" | "h3";
   singleColumn?: boolean;
+  variant?: "default" | "feature";
   className?: string;
 }) {
   const Heading = headingLevel;
+  const feature = variant === "feature";
   // Trails are authored in zh-TW and listed on /en too; mark the copy so a
   // screen reader switches voice instead of reading 中文 with an English one.
   const contentLang = contentLangFor(trail.frontmatter.locale, useLocale());
@@ -77,7 +86,12 @@ export function TrailTile({
   const titleId = `trail-${trail.slug}-title`;
 
   return (
-    <li className={cn("flex list-none flex-col gap-2", className)}>
+    <li
+      data-variant={variant}
+      // A single-column band spans its whole grid row; the caller sets the span.
+      data-span={singleColumn ? "full" : undefined}
+      className={cn("flex list-none flex-col gap-2", className)}
+    >
       <Link
         href={routes.trail(trail.slug)}
         prefetch={false}
@@ -87,8 +101,12 @@ export function TrailTile({
           trackTrailCardClicked(trail.slug, position, trailSurface)
         }
         className={cn(
-          "group relative flex aspect-[3/2] flex-col justify-end overflow-clip rounded-surface bg-ink p-5 text-ground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3 md:min-h-80 md:p-8",
-          singleColumn && "max-h-[35rem]",
+          "group relative flex flex-col justify-end overflow-clip rounded-surface bg-ink p-5 text-ground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3 md:min-h-80 md:p-8",
+          feature
+            ? "aspect-[4/3] md:aspect-[21/9]"
+            : singleColumn
+              ? "aspect-[3/2] md:aspect-[21/9]"
+              : "aspect-[3/2]",
         )}
       >
         {imageSrc ? (
@@ -96,7 +114,11 @@ export function TrailTile({
             src={imageSrc}
             alt={imageAlt}
             fill
-            sizes={singleColumn ? "100vw" : "(max-width: 1024px) 100vw, 33vw"}
+            sizes={
+              feature || singleColumn
+                ? "100vw"
+                : "(max-width: 1024px) 100vw, 33vw"
+            }
             className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
           />
         ) : null}
@@ -126,7 +148,12 @@ export function TrailTile({
             <Heading
               id={titleId}
               lang={contentLang}
-              className="line-clamp-2 type-card-title text-ground md:type-section md:text-ground"
+              className={cn(
+                "line-clamp-2 text-ground",
+                feature
+                  ? "type-section"
+                  : "type-card-title md:type-section md:text-ground",
+              )}
             >
               {title}
             </Heading>

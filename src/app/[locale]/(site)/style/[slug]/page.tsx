@@ -72,10 +72,17 @@ const getTrailPageData = cache(
 export function buildTrailMetadata({
   locale,
   trail,
+  sectionLabel,
   productsReadFailed = false,
 }: {
   locale: string;
   trail: TrailEntry;
+  /**
+   * The localized section name (`style.metaTitle`). Required: the document
+   * title names the section after the trail. The layout's `%s | Formoria`
+   * template supplies the brand, so it is never added here.
+   */
+  sectionLabel: string;
   /** `products === null` from `getTrailPageData` — the read threw, see below. */
   productsReadFailed?: boolean;
 }): Metadata {
@@ -90,7 +97,8 @@ export function buildTrailMetadata({
   const heroSrc = editorialHeroSrc(trail.frontmatter.heroImage);
 
   return {
-    title: trail.frontmatter.title,
+    // Document title only; share cards keep the bare trail title.
+    title: `${trail.frontmatter.title} | ${sectionLabel}`,
     description: trail.frontmatter.description,
     alternates: { canonical, languages },
     openGraph: {
@@ -154,13 +162,17 @@ export async function generateMetadata({
   setRequestLocale(locale);
   // Already in hand and request-cached, so reading `products` here costs no extra
   // round trip: `getTrailPageData` is the same `cache`d call the page body makes.
-  const { trail, products } = await getTrailPageData(slug);
+  const [{ trail, products }, t] = await Promise.all([
+    getTrailPageData(slug),
+    getTranslations({ locale, namespace: "style" }),
+  ]);
 
   if (!trail) notFound();
 
   return buildTrailMetadata({
     locale,
     trail: trail.entry,
+    sectionLabel: t("metaTitle"),
     productsReadFailed: products === null,
   });
 }

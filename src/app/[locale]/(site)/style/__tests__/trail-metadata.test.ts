@@ -44,11 +44,31 @@ const sparseFrontmatter: TrailEntry = {
   frontmatter: { ...trail.frontmatter, promise: undefined },
 };
 
+const sectionLabel = "主題選物";
+
 describe("style trail metadata", () => {
+  it("titles the document with the trail, then the section name", () => {
+    const metadata = buildTrailMetadata({
+      locale: "zh-TW",
+      trail,
+      sectionLabel,
+    });
+
+    // The layout template appends "| Formoria"; share cards keep the bare title.
+    expect(metadata.title).toBe(
+      "A reading corner for a small room | 主題選物",
+    );
+    expect(metadata.openGraph?.title).toBe(trail.frontmatter.title);
+  });
+
   it("emits no robots directive for a published trail, however sparse its frontmatter", () => {
     for (const entry of [trail, sparseFrontmatter]) {
       for (const locale of ["en", "zh-TW"]) {
-        const metadata = buildTrailMetadata({ locale, trail: entry });
+        const metadata = buildTrailMetadata({
+          locale,
+          trail: entry,
+          sectionLabel,
+        });
 
         expect(metadata.robots).toBeUndefined();
         // Absent, not merely undefined: `robots: undefined` would still be a
@@ -66,6 +86,7 @@ describe("style trail metadata", () => {
     const readFailed = buildTrailMetadata({
       locale: "zh-TW",
       trail,
+      sectionLabel,
       productsReadFailed: true,
     });
 
@@ -74,6 +95,7 @@ describe("style trail metadata", () => {
     const readEmpty = buildTrailMetadata({
       locale: "zh-TW",
       trail,
+      sectionLabel,
       productsReadFailed: false,
     });
 
@@ -82,7 +104,7 @@ describe("style trail metadata", () => {
 
   it("uses the prefix-free zh-TW canonical on both locales", () => {
     const [en, zh] = ["en", "zh-TW"].map((locale) =>
-      buildTrailMetadata({ locale, trail }),
+      buildTrailMetadata({ locale, trail, sectionLabel }),
     );
 
     expect(en.alternates?.canonical).toMatch(
@@ -101,7 +123,11 @@ describe("style trail metadata", () => {
       },
     };
 
-    const metadata = buildTrailMetadata({ locale: "zh-TW", trail: withHero });
+    const metadata = buildTrailMetadata({
+      locale: "zh-TW",
+      trail: withHero,
+      sectionLabel,
+    });
 
     expect(metadata.openGraph).toMatchObject({
       siteName: "Formoria",
@@ -122,7 +148,11 @@ describe("style trail metadata", () => {
       frontmatter: { ...trail.frontmatter, heroImage: "/images/trails/x.webp" },
     };
 
-    const metadata = buildTrailMetadata({ locale: "en", trail: withHero });
+    const metadata = buildTrailMetadata({
+      locale: "en",
+      trail: withHero,
+      sectionLabel: "Guides",
+    });
 
     expect(metadata.openGraph).toMatchObject({
       images: [{ url: "/images/trails/x.webp", alt: trail.frontmatter.title }],
@@ -130,7 +160,7 @@ describe("style trail metadata", () => {
   });
 
   it("emits no images and no twitter card without a hero", () => {
-    const metadata = buildTrailMetadata({ locale: "zh-TW", trail });
+    const metadata = buildTrailMetadata({ locale: "zh-TW", trail, sectionLabel });
 
     expect(metadata.openGraph).toMatchObject({ siteName: "Formoria" });
     expect("images" in (metadata.openGraph ?? {})).toBe(false);
