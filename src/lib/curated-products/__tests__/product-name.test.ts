@@ -4,6 +4,7 @@ import {
   isShopSkuToken,
   normalizeCuratedProductName,
   publicCuratedProductName,
+  stripTrailingModelCode,
 } from "../product-name";
 import catalog from "./fixtures/catalog-names-2026-10-08.json";
 import stagingCatalog from "./fixtures/staging-catalog-names-2026-10-08.json";
@@ -162,6 +163,52 @@ describe("publicCuratedProductName", () => {
 
   it("falls back to the stored value when normalising would empty it", () => {
     expect(publicCuratedProductName("   ")).toBe("   ");
+  });
+
+  // Round-2 review: these three led the first home screen.
+  it.each([
+    ["6cm超穩跟繫帶高跟鞋 LA034-000-OBK", "6cm超穩跟繫帶高跟鞋"],
+    ["冰淇淋球布偶 HFMIC26-0722", "冰淇淋球布偶"],
+    ["精品無框磁吸廣告架 OKEMARU_31", "精品無框磁吸廣告架"],
+  ])("hides the trailing model code in %s", (name, expected) => {
+    expect(publicCuratedProductName(name)).toBe(expected);
+  });
+
+  it("hides a model code left once a shop token is stripped", () => {
+    expect(publicCuratedProductName("日檜布墊餐椅 MO-JC20-1 aBcDeF12")).toBe("日檜布墊餐椅");
+  });
+
+  it("never changes the stored name the backfill writes", () => {
+    expect(normalizeCuratedProductName("6cm超穩跟繫帶高跟鞋 LA034-000-OBK")).toBe(
+      "6cm超穩跟繫帶高跟鞋 LA034-000-OBK",
+    );
+  });
+});
+
+describe("stripTrailingModelCode", () => {
+  it.each([
+    // Lowercase segments: a phrase, not a code.
+    "三合一收納包 2-in-1",
+    "原創經典室內拖鞋 YWC_core_001",
+    // No capital: a year range or a plain number.
+    "年曆 2025-26",
+    "辦公椅腳輪 6004-23",
+    // Fewer than two digits.
+    "托特包 AB-CD-E1",
+    // No separator: the documented ceiling.
+    "防水機能薄襪 DKGP730",
+    // Latin-only head: the code may be the name.
+    "Dyson V15-X2",
+    "Velcro PATCH",
+    // A code with nothing in front of it.
+    "LA034-000-OBK",
+  ])("keeps %s", (name) => {
+    expect(stripTrailingModelCode(name)).toBe(name);
+  });
+
+  it("is idempotent", () => {
+    const once = stripTrailingModelCode("新馬可床架 MO-J11");
+    expect(stripTrailingModelCode(once)).toBe(once);
   });
 });
 

@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 
-import { publicCuratedProductName } from "@/lib/curated-products/product-name";
+import { normalizeCuratedProductName } from "@/lib/curated-products/product-name";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -100,8 +100,14 @@ function brandSlugOf(row: NameRow): string | null {
   return brands?.slug ?? null;
 }
 
-/** A normalised name, or the stored one when normalising would empty it. */
-const normalized = publicCuratedProductName;
+/**
+ * A normalised name, or the stored one when normalising would empty it. NOT
+ * `publicCuratedProductName`: that one also hides trailing model codes, which
+ * stay in the stored name as product facts.
+ */
+function normalized(name: string): string {
+  return normalizeCuratedProductName(name) || name;
+}
 
 /**
  * Pure: which rows change under `normalizeCuratedProductName`, and which rows

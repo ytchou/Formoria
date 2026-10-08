@@ -173,12 +173,14 @@ export const LLM_PROFILES = {
   },
   /**
    * Verbatim transcription of one curated-product image's visible text, for
-   * the commerce-truth gate (DEV-1962, `services/image-text.ts`). 1500 tokens
-   * covers a crowded packaging shot; a truncated answer fails closed.
+   * the commerce-truth gate (DEV-1962, `services/image-text.ts`). A truncated
+   * answer fails closed. 1500 tokens truncated on 15 of 1,345 staging images
+   * once the answer also carried the ad-creative fields (DEV-1989) — the
+   * text-dense infographics the gate most needs to read — so 3000.
    */
   imageText: {
     model: "vision",
-    maxTokens: 1500,
+    maxTokens: 3000,
     temperature: 0,
     reasoningEffort: "none",
     timeoutMs: 60_000,

@@ -144,12 +144,42 @@ export function normalizeCuratedProductName(name: string): string {
 }
 
 /**
+ * A trailing retailer model code: segments of capitals and digits joined by
+ * `-` or `_`, with at least one capital and two digits (`LA034-000-OBK`,
+ * `HFMIC26-0722`, `OKEMARU_31`). Lowercase segments never match, so a real
+ * phrase such as `2-in-1` or `YWC_core_001` stays; neither does a bare number
+ * or year range (`2025-26`), which needs a capital.
+ */
+const TRAILING_MODEL_CODE =
+  /\s+((?=[A-Z0-9_-]*[A-Z])(?=(?:[^0-9]*[0-9]){2})[A-Z0-9]+(?:[-_][A-Z0-9]+)+)$/u;
+
+/** A Han, kana, or CJK/fullwidth punctuation character. */
+const CJK_CHAR = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303f\uff00-\uffef]/u;
+
+/**
+ * Display only (DEV-1989 round 2): drops a trailing model code from a name
+ * whose head is CJK text, so 「6cm超穩跟繫帶高跟鞋 LA034-000-OBK」 reads
+ * 「6cm超穩跟繫帶高跟鞋」 on a tile. The stored name keeps the code — it is a
+ * product fact an editor and the official listing use — so this is NOT part of
+ * `normalizeCuratedProductName` and the backfill never writes it. Latin-only
+ * names (the EN column) are left alone: there the code is often the name.
+ * Ceiling: codes without a separator (`DKGP730`, `BAL 5642`) still render.
+ */
+export function stripTrailingModelCode(name: string): string {
+  const match = TRAILING_MODEL_CODE.exec(name);
+  if (!match) return name;
+  const head = name.slice(0, match.index).trim();
+  return head && CJK_CHAR.test(head) ? head : name;
+}
+
+/**
  * The name a public read renders (DEV-1989, DS2-01): the normalised name, or
- * the stored one when normalising would empty it. Read projections apply it at
- * their transformer boundary so a stored token name never renders, even on rows
- * the backfill has not reached. Admin edit reads must NOT use it — an editor
- * has to see, and can fix, the value that is actually stored.
+ * the stored one when normalising would empty it, with a trailing model code
+ * hidden. Read projections apply it at their transformer boundary so a stored
+ * token name never renders, even on rows the backfill has not reached. Admin
+ * edit reads must NOT use it — an editor has to see, and can fix, the value
+ * that is actually stored.
  */
 export function publicCuratedProductName(name: string): string {
-  return normalizeCuratedProductName(name) || name;
+  return stripTrailingModelCode(normalizeCuratedProductName(name) || name);
 }
