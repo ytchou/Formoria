@@ -20,7 +20,7 @@ import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 /**
- * Trails the md-and-up grid shows; the snap row below md shows every trail,
+ * Trails the lg-and-up grid shows; the snap row below lg shows every trail,
  * with the next card peeking past the edge and a 「1 / 5」 counter under it.
  */
 const DESKTOP_TRAIL_LIMIT = 3;
@@ -59,7 +59,7 @@ export type LandingZonesProps = {
  *     trails    the style zone — every indexable trail as an editorial card
  *     manifesto the photo band
  *     topics    stories
- *     close     the CTA band — recommend · newsletter
+ *     close     the CTA band — newsletter · recommend
  *
  * Every zone carries `data-landing-zone`, which is the structure's contract: a
  * marker survives copy edits that a heading-text assertion would not.
@@ -100,8 +100,15 @@ export async function LandingZones({
           </div>
         ) : null}
 
+        {/* Directory and trails share the same ground, so one section gap
+            separates them: the trails zone's top padding. Two stacked
+            `py-section`s left a 192px dead band. The bottom padding returns
+            only when the trails zone is withheld. */}
         {brands.length > 0 && (
-          <div data-landing-zone="directory" className="py-section">
+          <div
+            data-landing-zone="directory"
+            className={cn("pt-section", trails.length === 0 && "pb-section")}
+          >
             <PageShell measure="page">
               <BrandStrip
                 brands={brands}
@@ -128,12 +135,14 @@ export async function LandingZones({
                 linkLabel={t("trails.linkText")}
               />
               {/* ONE list serves both breakpoints, so each trail is one card
-                  and one link in the DOM. Below md it is a native snap-scroll
-                  row of every trail; from md up it becomes the three-up grid
+                  and one link in the DOM. Below lg it is a native snap-scroll
+                  row of every trail; from lg up it becomes the three-up grid
                   and cards past the third leave the layout (and the tab
-                  order) via `md:hidden`. The row's overflow would clip the
-                  cards' 5px focus ring (2px ring + 3px offset), so below md
-                  it carries 6px of padding inside a matching negative margin
+                  order) via `lg:hidden`. The grid waits for lg because a
+                  three-up card at 768px is ~230px wide: its copy stack
+                  covered the whole photograph (DS2-06). The row's overflow
+                  would clip the cards' 5px focus ring (2px ring + 3px
+                  offset), so below lg it carries 6px of padding inside a matching negative margin
                   and 6px less top margin, which keeps the 32px stack.
 
                   Each card is `min-w-0` with an 82% basis. The `min-w-0` is
@@ -143,13 +152,13 @@ export async function LandingZones({
                   With it, about 50px of the next card shows at 390px.
 
                   TrailSnapRow is a client component that owns this `<ul>` and
-                  the below-md 「1 / 5」 counter under it; the cards stay
+                  the below-lg 「1 / 5」 counter under it; the cards stay
                   server-rendered children. */}
               <TrailSnapRow
                 count={trails.length}
                 className={cn(
                   gridStyles({ cols: "triptych" }),
-                  "-mx-1.5 mt-6.5 flex snap-x snap-mandatory overflow-x-auto p-1.5 md:mx-0 md:mt-8 md:grid md:snap-none md:overflow-visible md:p-0",
+                  "-mx-1.5 mt-6.5 flex snap-x snap-mandatory overflow-x-auto p-1.5 lg:mx-0 lg:mt-8 lg:grid lg:snap-none lg:overflow-visible lg:p-0",
                 )}
               >
                 {trails.map((trail, index) => (
@@ -165,8 +174,8 @@ export async function LandingZones({
                       cta: t("trails.cta"),
                     }}
                     className={cn(
-                      "min-w-0 shrink-0 basis-[82%] snap-start scroll-mx-1.5 md:basis-auto",
-                      index >= DESKTOP_TRAIL_LIMIT && "md:hidden",
+                      "min-w-0 shrink-0 basis-[82%] snap-start scroll-mx-1.5 lg:basis-auto",
+                      index >= DESKTOP_TRAIL_LIMIT && "lg:hidden",
                     )}
                   />
                 ))}

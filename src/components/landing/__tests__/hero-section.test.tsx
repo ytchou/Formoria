@@ -13,7 +13,10 @@ vi.mock("next/image", () => ({
   ),
 }));
 
+const intl = vi.hoisted(() => ({ locale: "zh-TW" }));
+
 vi.mock("next-intl/server", () => ({
+  getLocale: async () => intl.locale,
   getTranslations: async () =>
     Object.assign((key: string) => key, {
       rich: (key: string) => key,
@@ -52,8 +55,8 @@ vi.mock("@/components/ui/photo-band", () => ({
 
 const HeroSection = (await import("../hero-section")).default;
 
-function trail(slug: string, title: string): TrailEntry {
-  return { slug, frontmatter: { title } } as unknown as TrailEntry;
+function trail(slug: string, title: string, locale = "zh-TW"): TrailEntry {
+  return { slug, frontmatter: { title, locale } } as unknown as TrailEntry;
 }
 
 const FIVE_TRAILS = [
@@ -67,6 +70,7 @@ const FIVE_TRAILS = [
 describe("HeroSection — the editorial opener", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    intl.locale = "zh-TW";
   });
 
   it("renders the original positioning copy with search retained", async () => {
@@ -122,6 +126,30 @@ describe("HeroSection — the editorial opener", () => {
 
     expect(
       screen.queryByRole("list", { name: "situationsLabel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("marks zh-TW chips and notes the language on an English page", async () => {
+    intl.locale = "en";
+    render(await HeroSection({ trails: FIVE_TRAILS.slice(0, 2) }));
+
+    const list = screen.getByRole("list", { name: "situationsLabel" });
+    for (const link of within(list).getAllByRole("link")) {
+      expect(link).toHaveAttribute("lang", "zh-Hant-TW");
+    }
+    expect(screen.getByText("situationsLanguageNote")).toBeInTheDocument();
+    expect(list).toHaveClass("mt-2");
+  });
+
+  it("adds no language note or chip lang on a zh-TW page", async () => {
+    render(await HeroSection({ trails: FIVE_TRAILS.slice(0, 2) }));
+
+    const list = screen.getByRole("list", { name: "situationsLabel" });
+    for (const link of within(list).getAllByRole("link")) {
+      expect(link).not.toHaveAttribute("lang");
+    }
+    expect(
+      screen.queryByText("situationsLanguageNote"),
     ).not.toBeInTheDocument();
   });
 });

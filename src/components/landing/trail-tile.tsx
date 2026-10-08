@@ -33,8 +33,15 @@ export type TrailTileLabels = {
  * `type-section` at every width. It keeps the same overflow-clip, no-fixed-min-h
  * floor below md, so the copy still grows the band instead of clipping.
  *
+ * Titles wrap and never truncate: `type-card-title` below xl (a three-up
+ * card is ~300px wide at 1024px, where 26px titles ran to three lines),
+ * `type-section` from xl and for the feature and single-column bands at every
+ * width. Every `type-*` role carries a default `text-ink`, and `cn()` cannot
+ * merge it away, so `text-ground` is restated at the same breakpoint.
+ *
  * The optional peek sits BELOW the band, inside the same list item, and is
- * decorative: the one card link already carries the trail's name.
+ * decorative: the one card link already carries the trail's name. Its four
+ * thumbnails stay left-aligned and never grow past 96px.
  */
 export function TrailTile({
   trail,
@@ -60,6 +67,13 @@ export function TrailTile({
 }) {
   const Heading = headingLevel;
   const feature = variant === "feature";
+  /*
+   * The copy stack is bottom-anchored, so a one-line title beside a two-line
+   * one sat its eyebrow lower in the row. From md, where default cards stand
+   * side by side (the hub's pair grid; the homepage's peeking snap row), the title reserves two lines and the promise three, so every
+   * card in a row has the same stack height and the eyebrows line up.
+   */
+  const alignRow = !feature && !singleColumn;
   // Trails are authored in zh-TW and listed on /en too; mark the copy so a
   // screen reader switches voice instead of reading 中文 with an English one.
   const contentLang = contentLangFor(trail.frontmatter.locale, useLocale());
@@ -149,10 +163,11 @@ export function TrailTile({
               id={titleId}
               lang={contentLang}
               className={cn(
-                "line-clamp-2 text-ground",
-                feature
+                "text-ground",
+                feature || singleColumn
                   ? "type-section"
-                  : "type-card-title md:type-section md:text-ground",
+                  : "type-card-title xl:type-section xl:text-ground",
+                alignRow && "md:min-h-[2lh]",
               )}
             >
               {title}
@@ -160,7 +175,10 @@ export function TrailTile({
             {promise ? (
               <span
                 lang={contentLang}
-                className="type-body text-on-ink line-clamp-3"
+                className={cn(
+                  "type-body text-on-ink line-clamp-3",
+                  alignRow && "md:min-h-[3lh]",
+                )}
               >
                 {promise}
               </span>
@@ -172,7 +190,10 @@ export function TrailTile({
         </span>
       </Link>
       {peekItems.length > 0 ? (
-        <ul aria-hidden="true" className="grid grid-cols-4 gap-2">
+        <ul
+          aria-hidden="true"
+          className="grid grid-cols-[repeat(4,minmax(0,6rem))] gap-2"
+        >
           {peekItems.map((product) => {
             const peekSrc = safeImageSrc(product.imageUrl);
             return (
@@ -184,14 +205,14 @@ export function TrailTile({
                   <SurfaceImage
                     src={peekSrc}
                     alt=""
-                    // A quarter of a card cell: ~80px on a phone, ~110px in
-                    // the three-up grid. A fixed 120px box rather than `fill` +
-                    // `sizes="120px"`: Next then emits a 1x/2x srcSet (128w,
-                    // 256w) instead of every configured width (DEV-1972). The
-                    // classes stretch it over the square cell exactly as
-                    // `fill` did.
-                    width={120}
-                    height={120}
+                    // A quarter of a card cell, capped at 96px by the grid's
+                    // columns: ~70px on a phone, at most 96px elsewhere. A
+                    // fixed 96px box rather than `fill` + `sizes="96px"`: Next
+                    // then emits a 1x/2x srcSet instead of every configured
+                    // width (DEV-1972). The classes stretch it over the square
+                    // cell exactly as `fill` did.
+                    width={96}
+                    height={96}
                     className="absolute inset-0 h-full w-full object-cover"
                   />
                 ) : null}

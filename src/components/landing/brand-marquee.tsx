@@ -114,7 +114,12 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
 
   return (
     <div className="mt-8">
-      <div ref={emblaRef} className="overflow-hidden">
+      {/* The edge fade signals the rail continues and keeps the first avatar
+          from reading as hard-clipped. */}
+      <div
+        ref={emblaRef}
+        className="overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_48px,black_calc(100%-48px),transparent)]"
+      >
         {/* Slide padding, not `gap`: Embla's loop does not measure a flex gap,
             so the seam between the last and first slide lost 24px and the
             spacing visibly jumped once per cycle. Same shape as ProductShelf. */}
@@ -129,8 +134,13 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
                   name={brand.name}
                   imageSrc={brand.imageSrc}
                   size="lg"
-                  nameFace="content"
+                  showName={false}
                 />
+                {/* The avatar's own lg + content-face name, but clamped to
+                    two lines: one line cut most zh-TW brand names short. */}
+                <span className="mt-2 line-clamp-2 type-body-sm text-ink-soft text-center">
+                  {brand.name}
+                </span>
               </Link>
             </li>
           ))}

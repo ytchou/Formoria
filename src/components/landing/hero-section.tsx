@@ -1,14 +1,16 @@
 import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { ProductSearchBoxCompact } from "@/components/products/product-situation-search-form";
 import { actionLinkStyles } from "@/components/ui/action-link";
 import { PhotoBand } from "@/components/ui/photo-band";
 import { ChipRow, taxonomyLinkClasses } from "@/components/ui/toggle-chip";
 import { routes } from "@/lib/routes";
 import type { TrailEntry } from "@/lib/services/trails";
+import { contentLangFor } from "@/lib/trails/content-lang";
 import { trailShortTitle } from "@/lib/trails/trail-short-title";
+import { cn } from "@/lib/utils";
 
 /** Situation chips under the search: enough to show the shape, not a menu. */
 const HERO_SITUATION_LIMIT = 4;
@@ -35,7 +37,16 @@ export default async function HeroSection({
   trails: TrailEntry[];
 }) {
   const t = await getTranslations("landing.hero");
-  const situations = trails.slice(0, HERO_SITUATION_LIMIT);
+  const locale = await getLocale();
+  // `lang` marks a chip whose trail is in another language than the page, so
+  // a screen reader switches voice (as TrailTile does for its title).
+  const situations = trails.slice(0, HERO_SITUATION_LIMIT).map((trail) => ({
+    trail,
+    lang: contentLangFor(trail.frontmatter.locale, locale),
+  }));
+  const showLanguageNote = situations.some(
+    (situation) => situation.lang !== undefined,
+  );
 
   return (
     <PhotoBand
@@ -89,16 +100,37 @@ export default async function HeroSection({
           </div>
         </div>
 
-        {/* Situation chips: start from a need, not a brand name. */}
+        {/* Situations are zh-TW trail titles; on another locale a note says
+            so, and the chips sit closer under it. */}
+        {showLanguageNote && (
+          <p className="mt-6 type-metadata text-ink-soft">
+            {t("situationsLanguageNote")}
+          </p>
+        )}
+
+        {/* Situation chips: start from a need, not a brand name. Below `sm`
+            they form one horizontal scroll row instead of wrapping into an
+            orphaned last chip. The row's overflow would clip the chips' focus
+            rings, so it carries 6px of padding inside a matching negative
+            margin (as the trail snap row in landing-zones.tsx does) and 6px
+            less top margin, which keeps the visual gap. */}
         {situations.length > 0 && (
-          <ChipRow as="ul" aria-label={t("situationsLabel")} className="mt-6">
-            {situations.map((trail) => (
-              <li key={trail.slug}>
+          <ChipRow
+            as="ul"
+            aria-label={t("situationsLabel")}
+            className={cn(
+              "max-sm:-mx-1.5 max-sm:snap-x max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:p-1.5",
+              showLanguageNote ? "mt-2" : "mt-6 max-sm:mt-4.5",
+            )}
+          >
+            {situations.map((situation) => (
+              <li key={situation.trail.slug} className="shrink-0 snap-start">
                 <Link
-                  href={routes.trail(trail.slug)}
+                  href={routes.trail(situation.trail.slug)}
+                  lang={situation.lang}
                   className={taxonomyLinkClasses()}
                 >
-                  {trailShortTitle(trail.frontmatter.title)}
+                  {trailShortTitle(situation.trail.frontmatter.title)}
                 </Link>
               </li>
             ))}

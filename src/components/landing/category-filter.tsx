@@ -15,6 +15,7 @@ import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { WallTileSlot } from "@/lib/curated-products/wall-tile";
 import { fadeInSwappedItems } from "@/lib/motion/chip-swap";
+import { cn } from "@/lib/utils";
 import { WallGroupPlaceholder } from "./wall-group";
 
 /**
@@ -182,17 +183,21 @@ export function CategoryFilter({
 
   return (
     <>
-      <ChipRow className="mt-6 justify-center">
+      {/* Below `sm` the chips form one left-aligned scroll row instead of
+          wrapping 3/3/1. The row's overflow would clip the focus rings, so it
+          carries 6px of padding inside a matching negative margin and 6px
+          less top margin, which keeps the visual gap. */}
+      <ChipRow className="mt-6 justify-center max-sm:-mx-1.5 max-sm:mt-4.5 max-sm:snap-x max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:p-1.5">
         {categories.map((cat) => (
           <ToggleChip
             key={cat.slug}
             pressed={active === cat.slug}
             onPressedChange={() => handleSelect(cat.slug)}
-            className={
-              active !== cat.slug
-                ? "border-on-ink/40 text-on-ink hover:border-on-ink hover:bg-white/10 hover:text-on-ink"
-                : undefined
-            }
+            className={cn(
+              "shrink-0 snap-start",
+              active !== cat.slug &&
+                "border-on-ink/40 text-on-ink hover:border-on-ink hover:bg-white/10 hover:text-on-ink",
+            )}
           >
             {cat.label}
           </ToggleChip>
