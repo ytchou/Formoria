@@ -92,7 +92,18 @@ const supabaseOrigin = (() => {
   }
 })();
 
+/*
+ * `'unsafe-eval'` is admitted in development only, where React Refresh and the
+ * dev overlay evaluate strings. The production bundle never needs it
+ * (DEV-1961: a production build browsed with it removed raised no CSP
+ * violation). `'unsafe-inline'` stays until a nonce-based CSP replaces it.
+ */
+const scriptSrcEval =
+  process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'";
+
 const nextConfig: NextConfig = {
+  // Drops `x-powered-by: Next.js` from every response (DEV-1961).
+  poweredByHeader: false,
   // Railway injects `RAILWAY_ENVIRONMENT_NAME` into the build, but only a
   // `NEXT_PUBLIC_` name is inlined into the browser bundle. Without this
   // mirror, `resolveSentryEnvironment()` finds no deploy marker on the client
@@ -164,7 +175,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io https://static.cloudflareinsights.com https://e.formoria.com",
+              `script-src 'self' 'unsafe-inline'${scriptSrcEval} https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io https://static.cloudflareinsights.com https://e.formoria.com`,
               "style-src 'self' 'unsafe-inline'",
               `img-src 'self' data: blob: ${imgSrcHosts} ${signedStorageImgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
               "font-src 'self'",

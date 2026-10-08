@@ -9,6 +9,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
 import { routes } from "@/lib/routes";
 
+// Bounds the edge copy to an hour under the Cloudflare HTML cache rule
+// (DEV-1961); without it Next sends s-maxage=31536000.
+export const revalidate = 3600;
+
 type PageProps = {
   params: Promise<{ locale: string }>;
 };
