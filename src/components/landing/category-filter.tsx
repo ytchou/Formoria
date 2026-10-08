@@ -169,7 +169,15 @@ export function CategoryFilter({
               variant="secondary"
               shape="pill"
               className="focus-visible:ring-on-ink focus-visible:ring-offset-surface-dark"
-              onClick={() => load(active)}
+              onClick={() => {
+                // Retrying unmounts this button. Hand focus back to the
+                // pressed chip — the reader's place in the filter — instead of
+                // letting it fall to <body>.
+                containerRef.current?.previousElementSibling
+                  ?.querySelector<HTMLElement>('[aria-pressed="true"]')
+                  ?.focus();
+                load(active);
+              }}
             >
               {labels.retry}
             </Button>

@@ -184,6 +184,8 @@ describe("CategoryFilter", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "再試一次" }));
+    // The retry button unmounts; focus returns to the pressed chip, not <body>.
+    expect(screen.getByRole("button", { name: "居家生活" })).toHaveFocus();
     expect(fetchMock.fn).toHaveBeenCalledTimes(2);
     expect(fetchMock.fn.mock.calls[1]![0]).toBe("/api/home-wall?category=home");
 
