@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { useBrandEngagement } from "./brand-engagement-tracker";
 
+// Horizontal travel before a touch counts as a swipe rather than a tap.
+const SWIPE_MIN_PX = 40;
+
 interface ImageCarouselProps {
   images: string[];
   alt: string;
@@ -51,6 +54,7 @@ export function ImageCarousel({
   const viewedIndices = useRef(new Set<number>([0]));
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const completedFired = useRef(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const initial = [...alt][0];
 
@@ -121,6 +125,26 @@ export function ImageCarousel({
     fadeTimerRef.current = setTimeout(() => setPrevious(null), 200);
   }
 
+  // Swipe is the only navigation cue below `sm`, where the arrows and the
+  // thumbnail strip are hidden. A gesture counts only when it is mostly
+  // horizontal, so a vertical page scroll that drifts sideways never flips
+  // the photo.
+  function handleTouchStart(event: React.TouchEvent) {
+    const touch = event.touches[0];
+    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  function handleTouchEnd(event: React.TouchEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) <= Math.abs(dy)) return;
+    goTo(dx < 0 ? current + 1 : current - 1);
+  }
+
   const isCurrentBroken = brokenImages.has(current);
   /*
    * Bounds-guarded, not indexed directly.
@@ -188,10 +212,19 @@ export function ImageCarousel({
         // in the grid, so the same photo was cropped two different ways
         // depending on where you looked at it. `aspect-media` is 1:1 — see the
         // token's comment in globals.css for the measurement.
+        //
+        // At xl the hero is a grid item, and a grid item with `mx-auto` and no
+        // definite width shrinks to its content. Its only content is an
+        // absolutely positioned `fill` image, so it collapsed to 0×0 and took
+        // the thumbnail rail's row height with it (DEV-1948). `xl:w-full`
+        // gives it the column's width back.
         className={cn(
           "relative mx-auto aspect-media max-w-[70svh] overflow-hidden rounded-surface bg-surface-deep xl:max-w-none",
-          hasDetailGallery && "xl:col-start-2 xl:row-start-1",
+          hasDetailGallery && "xl:col-start-2 xl:row-start-1 xl:mx-0 xl:w-full",
         )}
+        data-brand-hero
+        onTouchStart={total > 1 ? handleTouchStart : undefined}
+        onTouchEnd={total > 1 ? handleTouchEnd : undefined}
       >
         {previousImage && (
           <SurfaceImage
@@ -263,9 +296,13 @@ export function ImageCarousel({
               // colour. Over a photograph an outline alone is illegible, so
               // the control wears a paper fill here — a call-site treatment,
               // not a new variant.
+              // Below `sm` the detail gallery keeps one cue, the counter, and
+              // navigates by swipe; arrows and thumbnails would be three.
               className={cn(
                 "absolute top-1/2 -translate-y-1/2 bg-ground/90 hover:bg-ground",
-                variant === "detail" ? "left-4" : "left-2",
+                variant === "detail"
+                  ? "left-4 hidden sm:inline-flex"
+                  : "left-2",
               )}
               onClick={() => goTo(current - 1)}
               aria-label={t("gallery.previous")}
@@ -282,7 +319,9 @@ export function ImageCarousel({
               size="icon"
               className={cn(
                 "absolute top-1/2 -translate-y-1/2 bg-ground/90 hover:bg-ground",
-                variant === "detail" ? "right-4" : "right-2",
+                variant === "detail"
+                  ? "right-4 hidden sm:inline-flex"
+                  : "right-2",
               )}
               onClick={() => goTo(current + 1)}
               aria-label={t("gallery.next")}
@@ -291,10 +330,11 @@ export function ImageCarousel({
               <ChevronRight className="size-5" />
             </Button>
 
-            {/* Counter badge */}
+            {/* Counter badge — paper, not accent: accent is interaction-only
+                (DESIGN.md §2) and this is a label. */}
             <span
               className={cn(
-                "absolute rounded-full bg-accent/80 px-2.5 py-1 type-metadata text-ground backdrop-blur-sm",
+                "absolute rounded-surface bg-ground/90 px-2.5 py-1 type-metadata text-ink",
                 variant === "detail" ? "bottom-4 right-4" : "bottom-2 right-2",
               )}
             >
@@ -321,7 +361,7 @@ export function ImageCarousel({
 
       {/* Thumbnail grid */}
       {total > 1 && variant === "detail" && (
-        <div className="xl:relative xl:col-start-1 xl:row-start-1 xl:min-h-0 xl:self-stretch">
+        <div className="hidden sm:block xl:relative xl:col-start-1 xl:row-start-1 xl:min-h-0 xl:self-stretch">
           <div className="scrollbar-none flex gap-2 overflow-x-auto xl:absolute xl:inset-0 xl:grid xl:grid-cols-1 xl:content-start xl:overflow-y-auto xl:p-1">
             {validImages.map(({ src }, i) => {
               const thumbFill = fill(i, "p-1.5");
