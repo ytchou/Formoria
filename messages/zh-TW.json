@@ -328,14 +328,15 @@
       "overview": "本頁導覽"
     },
     "selectedProducts": {
-      "heading": "我們從這個品牌挑的",
-      "note": "這裡是 Formoria 挑出的幾件，不是品牌的完整商品目錄；價格與規格請以品牌官網為準。",
-      "cta": "前往品牌官方網站",
-      "unavailable": "這個產品頁面暫時無法連線。",
-      "brandSiteCta": "前往品牌官網",
+      "heading": "這個品牌的商品",
+      "note": "這裡只列出 {count} 件，不是品牌的完整商品目錄；價格和規格以品牌官網為準。",
+      "cta": "（在品牌官網查看）",
+      "unavailable": "商品頁暫時連不上。",
+      "brandSiteCta": "（前往品牌官方網站）",
       "madeInTaiwan": "台灣製造",
-      "previous": "上一組產品",
-      "next": "下一組產品",
+      "inGuide": "出自主題選物",
+      "previous": "上一組商品",
+      "next": "下一組商品",
       "allCategories": "全部"
     },
     "verified": "品牌經營",
@@ -362,7 +363,7 @@
       "dialogTitle": "分享",
       "urlLabel": "品牌頁網址",
       "copy": "複製",
-      "copied": "已複製！",
+      "copied": "已複製",
       "orShareTo": "或分享至",
       "line": "LINE",
       "threads": "Threads",
@@ -493,7 +494,7 @@
       "faq": "常見問題"
     },
     "channels": {
-      "subtitle": "以下為品牌可能的實體通路，部分資料為社群提供",
+      "subtitle": "這些地方可能買得到，部分資料由社群提供；出發前建議先跟店家確認。",
       "provideInfo": "提供實體通路",
       "groups": {
         "all_taiwan": "全台",
@@ -507,6 +508,16 @@
         "formoria": "站方確認",
         "evidence": "來自官網",
         "evidenceOther": "來源佐證"
+      },
+      "provenanceSummary": {
+        "owner": "以下通路都經品牌確認。",
+        "formoria": "以下通路都經站方確認。",
+        "evidence": "以下通路資料來自品牌官網。",
+        "evidenceOther": "以下通路都有來源佐證。"
+      },
+      "status": {
+        "confirmed": "已確認",
+        "possible": "待確認"
       },
       "dialog": {
         "title": "提供實體通路",
@@ -556,36 +567,25 @@
     },
     "relatedBrands": {
       "heading": "更多{category}",
-      "subtext": "{category}還收錄了 {count} 個品牌",
+      "subtext": "同樣收錄在{category}的品牌",
       "viewAll": "看全部 {count} 個{category}品牌"
     },
     "brandFaq": {
-      "listSeparator": "、",
       "channels": {
         "website": "品牌官網",
         "pinkoi": "Pinkoi",
         "shopee": "蝦皮購物",
         "myship": "7-ELEVEN 賣貨便"
       },
-      "context": {
-        "city": "在{city}創立",
-        "founded": "於 {year} 年成立",
-        "suffix": "{details}。"
-      },
       "mainProducts": {
         "question": "{brandName}的主要產品有哪些？",
-        "answerWithCategoryAndSubcategories": "{brandName}主要做{category}，商品類型包括{subcategories}。{context}",
-        "answerWithSubcategories": "{brandName}的商品類型包括{subcategories}。{context}"
+        "answer": "{brandName}的商品以{subcategories}為主。"
       },
       "whereToBuy": {
         "question": "{brandName}在哪裡可以買到？",
-        "answer": "{brandName}的產品可以透過{channels}購買。{stockistNote}{context}",
-        "stockistSuffix": "也可以在 {count} 個實體通路找到。",
-        "noOnlineChannels": "實體通路"
-      },
-      "originStory": {
-        "question": "{brandName}是怎麼開始的？",
-        "answer": "{brandName}於 {year} 年在{city}創立。{context}"
+        "answer": "可以在{channels}買到{brandName}的商品。{stockistNote}",
+        "stockistSuffix": "另外也有 {count} 家實體通路，出發前建議先跟店家確認。",
+        "answerStockistsOnly": "可以在 {count} 家實體通路找到{brandName}的商品，出發前建議先跟店家確認。"
       }
     }
   },
@@ -1495,7 +1495,7 @@
       },
       "madeInTaiwanBadge": {
         "question": "商品上的「台灣製造」代表什麼？",
-        "answer": "「台灣製造」只代表標出它的那件商品。商品要和經濟部「MIT 微笑標章」的最新登錄資料相符，或經檢查確認在台灣製造、主要材料也來自台灣，才會標上。品牌自己說明的製造範圍會標為「品牌聲明」，那是品牌的說法，Formoria 沒有另外查核。收錄審核只確認品牌真實存在、符合收錄規則，不判斷商品產地。"
+        "answer": "「台灣製造」只代表標出它的那件商品。商品要和經濟部「MIT 微笑標章」的最新登錄資料相符，或經檢查確認在台灣製造、主要材料也來自台灣，才會標上。收錄審核只確認品牌真實存在、符合收錄規則，不判斷商品產地。"
       },
       "howToSubmit": {
         "question": "如何推薦品牌到 Formoria？",
