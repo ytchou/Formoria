@@ -7,6 +7,7 @@ import { load } from "cheerio";
 import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
 import { e2eBrandImageKey, e2eProxyImageUrl } from "../helpers/image-refs";
 import { BUDGET, POLL } from "../budgets";
+import { e2eProxyImageUrl } from "../helpers/image-refs";
 
 /**
  * The three channel corrections (purchase link, stockist, social link) share
@@ -363,6 +364,10 @@ test.describe("Brand detail — product shelf focus", () => {
         source_checked_at: new Date().toISOString(),
         product_description_zh:
           "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
+        // Public reads drop a product with no renderable image (DEV-1962).
+        image_url: e2eProxyImageUrl(
+          `curated-products/${seeded.brand.id}/${productKey}/e2e.webp`,
+        ),
         visible: true,
       })
       .select("id")

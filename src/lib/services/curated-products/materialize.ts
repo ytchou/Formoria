@@ -32,7 +32,8 @@ import { diffCuratedProductProposals } from "./proposal-diff";
  * (`apply_brand_refresh`), so neither RPC needed a change for this.
  *
  * WHY BOTH TICKED AND UNTICKED PROPOSALS BECOME ROWS. A row is how a decision
- * is remembered. A ticked proposal materializes visible; an unticked one
+ * is remembered. A ticked proposal materializes visible (when it carries an L2
+ * and a source image, DEV-1962 — otherwise hidden); an unticked one
  * materializes hidden, and that hidden row is the whole rejection record —
  * `diffCuratedProductProposals` finds it on the next run and classifies the
  * proposal `previously-rejected`, so the brand is never re-proposed a product a
@@ -719,8 +720,13 @@ export async function materializeSubmissionCuratedProducts(
       return;
     }
 
+    // A kept proposal with no image at all stays hidden (DEV-1962): a 選物
+    // without a photo renders a letter placeholder, and with no source image
+    // there is nothing for the mirror to fill it with later.
     const publishAfterEvidence =
-      keptKeys.has(proposal.key) && Boolean(proposal.subcategory);
+      keptKeys.has(proposal.key) &&
+      Boolean(proposal.subcategory) &&
+      Boolean(proposal.imageSourceUrl?.trim());
     try {
       // `imageUrl` is deliberately absent: mirroring an image is a network fetch
       // plus a decode, and this runs inside the approval's own timeout budget.

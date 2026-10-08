@@ -140,6 +140,15 @@ describe('findForbiddenProductTerms', () => {
   it('returns [] on a clean factual description', () => {
     expect(findForbiddenProductTerms('義大利植鞣牛皮手染鞋面，容量 500ml')).toEqual([])
   })
+  it.each(['高級', '頂級', '最好', '首選', '人氣第一'])(
+    'flags the brand-voice superlative %s (DEV-1962)',
+    (term) => {
+      expect(findForbiddenProductTerms(`手工縫製的${term}皮夾`)).toEqual([term])
+    },
+  )
+  it('flags 必買 and 療癒', () => {
+    expect(findForbiddenProductTerms('必買的療癒小物')).toEqual(['必買', '療癒'])
+  })
 })
 
 describe('restatesProductName', () => {

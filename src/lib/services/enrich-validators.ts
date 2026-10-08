@@ -199,6 +199,13 @@ const PRODUCT_DESCRIPTION_FORBIDDEN_TERMS: readonly string[] = [
   '到貨',
   '出貨',
   '規格選擇',
+  // Brand-voice superlatives (DEV-1962): a ranking claim Formoria cannot stand
+  // behind, and the 選物 label already carries the editorial endorsement.
+  '高級',
+  '頂級',
+  '最好',
+  '首選',
+  '人氣第一',
 ]
 
 export const PRICING_OVERLAP_TERMS: ReadonlySet<string> = new Set(

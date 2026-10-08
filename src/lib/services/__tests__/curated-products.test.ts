@@ -114,7 +114,9 @@ function productRow(overrides: Record<string, unknown> = {}) {
     category: "home",
     subcategory: "tableware",
     official_url: "https://example.com/pick",
-    image_url: null,
+    // A mirrored, same-origin image: the common case for a published product,
+    // and the only kind the public reads now return (DEV-1962).
+    image_url: "/i/curated-products/pick.webp",
     image_source_url: null,
     visible: true,
     link_state: "ok",
@@ -173,6 +175,29 @@ describe("getPublishedCuratedProductsForTrail", () => {
       "curated_product_selections.trail_slug",
       "small-space-reading-corner",
     ]);
+  });
+
+  it("drops a photo-less product from the trail (DEV-1962)", async () => {
+    // A 選物 tile without a photo renders a letter placeholder, so the query
+    // asks for an image and the row filter re-checks it is one the tile renders.
+    const { client, calls } = stubClient({
+      data: [
+        trailProductRow({ key: "with-photo" }),
+        trailProductRow({ key: "no-photo", image_url: null }),
+        trailProductRow({
+          key: "unrenderable",
+          image_url: "//evil.example/pick.jpg",
+        }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      client,
+    );
+
+    expect(calls.not).toContainEqual(["image_url", "is", null]);
+    expect(products.map((product) => product.key)).toEqual(["with-photo"]);
   });
 
   // Same reasoning as the homepage rail: a trail page turns this read into its
@@ -386,6 +411,24 @@ describe("getPublishedCuratedProductsForBrand", () => {
     expect(calls.not).toContainEqual(["source_checked_at", "is", null]);
   });
 
+  it("drops a photo-less product from the brand page (DEV-1962)", async () => {
+    const { client, calls } = stubClient({
+      data: [
+        productRow({ key: "with-photo" }),
+        productRow({ key: "no-photo", image_url: null }),
+        productRow({ key: "unrenderable", image_url: "//evil.example/a.jpg" }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForBrand(
+      "brand-1",
+      client,
+    );
+
+    expect(calls.not).toContainEqual(["image_url", "is", null]);
+    expect(products.map((product) => product.key)).toEqual(["with-photo"]);
+  });
+
   it("returns [] when the table is not in the PostgREST schema cache", async () => {
     // Deploys ship on push while migrations are applied by hand, so this window
     // is normal — and a throw here 500s every brand page.
@@ -566,7 +609,7 @@ describe("getPublishedCuratedProductsForBrand", () => {
 
 function homepageRow(overrides: Record<string, unknown> = {}) {
   return productRow({
-    image_url: "https://images.example.com/selected-product.webp",
+    image_url: "/i/curated-products/selected-product.webp",
     curated_product_sources: [{ id: "source-1", state: "active" }],
     curated_product_selections: [
       {
@@ -789,13 +832,18 @@ describe("getPublishedCuratedProductsForHomepage", () => {
   });
 
   it("requires an image and keeps the other publication gates", async () => {
-    const { client } = stubClient({
+    const { client, calls } = stubClient({
       data: [
         homepageRow({ key: "live" }),
         homepageRow({ key: "hidden", visible: false }),
         homepageRow({ key: "no-url", official_url: null }),
         homepageRow({ key: "unchecked", source_checked_at: null }),
         homepageRow({ key: "no-image", image_url: null }),
+        // Present but not renderable: the tile would fall back to a letter.
+        homepageRow({
+          key: "unrenderable-image",
+          image_url: "//evil.example/pick.jpg",
+        }),
         homepageRow({
           key: "no-active-source",
           curated_product_sources: [{ id: "s", state: "retired" }],
@@ -805,9 +853,23 @@ describe("getPublishedCuratedProductsForHomepage", () => {
 
     const products = await getPublishedCuratedProductsForHomepage(client);
 
+    expect(calls.not).toContainEqual(["image_url", "is", null]);
     expect(products.map((product) => product.key)).toEqual([
       "live",
     ]);
+  });
+
+  it("still drops an image smaller than 200px on either side", async () => {
+    const { client } = stubClient({
+      data: [
+        homepageRow({ key: "large", image_width: 800, image_height: 600 }),
+        homepageRow({ key: "tiny", image_width: 120, image_height: 600 }),
+      ],
+    });
+
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.key)).toEqual(["large"]);
   });
 
   // A missing table or column means the schema is older than this code, which
@@ -1144,6 +1206,69 @@ describe("createCuratedProduct", () => {
     // must always send an array.
     expect(calls.insert.at(0)?.material).toEqual([]);
   });
+
+  it("normalizes the names before they are stored (DEV-1962)", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "pick" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "啵啵杯710ml 啵啵杯710ml",
+        nameEn: "Wood-fired Mug 7cFSL8yz",
+        category: "home",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+      },
+      client,
+    );
+
+    expect(calls.insert.at(0)).toMatchObject({
+      name_zh: "啵啵杯710ml",
+      name_en: "Wood-fired Mug",
+    });
+  });
+
+  it("refuses to create a visible product with no image (DEV-1962)", async () => {
+    // A published 選物 without a photo renders a letter placeholder.
+    const { client, calls } = stubWriteClient([]);
+
+    await expect(
+      createCuratedProduct(
+        {
+          brandId: BRAND_ID,
+          nameZh: "Teacup",
+          category: "home",
+          subcategory: "tableware",
+          visible: true,
+          productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+        },
+        client,
+      ),
+    ).rejects.toThrow("Visible products require an image");
+    expect(calls.insert).toEqual([]);
+  });
+
+  it("creates a visible product whose image is still waiting to be mirrored", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { id: PRODUCT_ID, key: "teacup" } },
+    ]);
+
+    await createCuratedProduct(
+      {
+        brandId: BRAND_ID,
+        nameZh: "Teacup",
+        category: "home",
+        subcategory: "tableware",
+        visible: true,
+        imageSourceUrl: "https://shop.example.com/teacup.jpg",
+        productDescriptionZh: "陶土燒製，容量約 200 毫升。",
+      },
+      client,
+    );
+
+    expect(calls.insert.at(0)?.visible).toBe(true);
+  });
 });
 
 describe("curated product writers", () => {
@@ -1407,7 +1532,11 @@ describe("curated product writers", () => {
   });
 
   it("update payload omits the dropped columns even when a caller supplies them", async () => {
-    const { client, calls } = stubWriteClient([{}]);
+    // First reply: the image read a publishing patch makes (DEV-1962).
+    const { client, calls } = stubWriteClient([
+      { data: { image_url: "/i/curated-products/pick.webp", image_source_url: null } },
+      {},
+    ]);
 
     await updateCuratedProduct(
       PRODUCT_ID,
@@ -1426,6 +1555,86 @@ describe("curated product writers", () => {
     expect(Object.keys(payload)).not.toContain("wall_position");
     expect(Object.keys(payload)).not.toContain("lifecycle");
     expect(Object.keys(payload)).not.toContain("image_usage");
+  });
+
+  it("normalizes supplied names on update and leaves absent ones absent (DEV-1962)", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      PRODUCT_ID,
+      { nameZh: "Your Monkey 眼鏡架兼存錢筒 7cFSL8yz" },
+      client,
+    );
+
+    const payload = calls.update.at(0) ?? {};
+    expect(payload.name_zh).toBe("Your Monkey 眼鏡架兼存錢筒");
+    expect(Object.keys(payload)).not.toContain("name_en");
+  });
+
+  it("refuses to publish a row that has no image (DEV-1962)", async () => {
+    const { client, calls } = stubWriteClient([
+      { data: { image_url: null, image_source_url: null } },
+    ]);
+
+    await expect(
+      updateCuratedProduct(PRODUCT_ID, { visible: true }, client),
+    ).rejects.toThrow("Visible products require an image");
+    expect(calls.eq).toContainEqual(["id", PRODUCT_ID]);
+    expect(calls.update).toEqual([]);
+  });
+
+  it("publishes a row whose image is still waiting to be mirrored", async () => {
+    // The generated pipeline publishes before the mirror runs.
+    const { client, calls } = stubWriteClient([
+      {
+        data: {
+          image_url: null,
+          image_source_url: "https://shop.example.com/pick.jpg",
+        },
+      },
+      {},
+    ]);
+
+    await updateCuratedProduct(PRODUCT_ID, { visible: true }, client);
+
+    expect(calls.update.at(0)).toEqual({ visible: true });
+  });
+
+  it("judges a publishing patch on the image it supplies, without reading the row", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(
+      PRODUCT_ID,
+      { visible: true, imageUrl: "/i/curated-products/pick.webp" },
+      client,
+    );
+
+    // One `from` — the update itself. No read when the patch proves the image.
+    expect(calls.table).toEqual(["curated_products"]);
+    expect(calls.update.at(0)).toMatchObject({ visible: true });
+  });
+
+  it("refuses a publishing patch that clears the only image", async () => {
+    // The patch's own nulls win over whatever the row stored.
+    const { client, calls } = stubWriteClient([]);
+
+    await expect(
+      updateCuratedProduct(
+        PRODUCT_ID,
+        { visible: true, imageUrl: null, imageSourceUrl: null },
+        client,
+      ),
+    ).rejects.toThrow("Visible products require an image");
+    expect(calls.update).toEqual([]);
+  });
+
+  it("does not read the row when the patch does not publish", async () => {
+    const { client, calls } = stubWriteClient([{}]);
+
+    await updateCuratedProduct(PRODUCT_ID, { visible: false }, client);
+
+    expect(calls.table).toEqual(["curated_products"]);
+    expect(calls.update.at(0)).toEqual({ visible: false });
   });
 
   it("retire sets visible=false, never deleting the row", async () => {
@@ -1830,6 +2039,17 @@ describe("groupTrailPeek", () => {
 
     expect(Object.keys(peek).sort()).toEqual(["alpha", "empty"]);
     expect(peek.empty).toEqual([]);
+  });
+
+  it("groupTrailPeek drops a photo-less product rather than spend a slot on it", () => {
+    const rows = [
+      { ...peekRow("a-1", [{ trail_slug: "alpha", position: 1 }]), image_url: null },
+      peekRow("a-2", [{ trail_slug: "alpha", position: 2 }]),
+    ];
+
+    const peek = groupTrailPeek(rows, requests("alpha"), 1);
+
+    expect(peek.alpha?.map((product) => product.key)).toEqual(["a-2"]);
   });
 
   it("groupTrailPeek ignores rows for slugs not requested", () => {
