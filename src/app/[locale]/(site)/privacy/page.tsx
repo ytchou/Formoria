@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
+import { CONTACT_EMAILS } from '@/lib/constants'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -46,33 +48,55 @@ const sectionKeys = [
   'contact',
 ] as const
 
+const inlineLinkClassName =
+  'rounded-control break-words text-accent underline underline-offset-4 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ground'
+
+const tocLinkClassName =
+  'inline-flex min-h-11 items-center rounded-control type-body-sm text-accent underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+
 export default async function PrivacyPage({ params }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('legal.privacy')
+  const tLegal = await getTranslations('legal')
+
+  const emailLinks = {
+    privacy: (chunks: ReactNode) => (
+      <a href={`mailto:${CONTACT_EMAILS.privacy}`} className={inlineLinkClassName}>
+        {chunks}
+      </a>
+    ),
+  }
 
   return (
-    // Wide shell, narrow prose, no `mx-auto` on the cap — same two-column
-    // arrangement as `terms/page.tsx`, and the reasoning is written out there.
-    <PageShell as="main" measure="page" className="py-10">
-      <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
-        <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
-          <h1 className="type-section">{t('title')}</h1>
-          <p className="type-body-sm">{t('intro')}</p>
-          <p className="type-body-sm">{t('lastUpdated')}</p>
-        </aside>
-        <div className="divide-y divide-rule">
-          {sectionKeys.map((key) => (
-            <section key={key} className="space-y-3 py-6 first:pt-0">
-              <h2 className="type-section">
-                {t(`${key}.heading`)}
-              </h2>
-              <p className="prose-measure type-body-sm">
-                {t(`${key}.body`)}
-              </p>
-            </section>
-          ))}
-        </div>
+    // A page that is read, so it takes the prose measure (DESIGN.md §4).
+    <PageShell as="main" measure="prose" className="py-10">
+      <header className="space-y-4 border-b border-rule pb-8">
+        <h1 className="type-page-title">{t('title')}</h1>
+        <p className="type-body">{t('intro')}</p>
+        <p className="type-body-sm text-ink-muted">{t('lastUpdated')}</p>
+        <nav aria-labelledby="privacy-toc-heading">
+          <p id="privacy-toc-heading" className="type-body-sm font-semibold text-ink">
+            {tLegal('onThisPage')}
+          </p>
+          <ol className="mt-1">
+            {sectionKeys.map((key) => (
+              <li key={key}>
+                <a href={`#${key}`} className={tocLinkClassName}>
+                  {t(`${key}.heading`)}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      </header>
+      <div className="divide-y divide-rule">
+        {sectionKeys.map((key) => (
+          <section key={key} id={key} className="scroll-mt-24 space-y-3 py-8">
+            <h2 className="type-section">{t(`${key}.heading`)}</h2>
+            <p className="type-body">{t.rich(`${key}.body`, emailLinks)}</p>
+          </section>
+        ))}
       </div>
     </PageShell>
   )

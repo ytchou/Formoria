@@ -1375,6 +1375,7 @@
     }
   },
   "legal": {
+    "onThisPage": "On this page",
     "terms": {
       "metadata": {
         "title": "Terms of Service",
@@ -1384,20 +1385,20 @@
       "intro": "Thank you for using Formoria. By using this platform, you agree to the following terms. Please read carefully before providing brand information.",
       "lastUpdated": "Last updated: August 2026",
       "contentOwnership": {
-        "heading": "Content Ownership",
+        "heading": "Content ownership",
         "body": "Brand information you provide to Formoria (including name, description, images, links, etc.) must be content you legally own or have the right to use. By providing it, you grant Formoria a non-exclusive, royalty-free license to display and promote the content on this platform for the purpose of showcasing Taiwanese brands."
       },
       "dataUse": {
-        "heading": "Data Usage",
+        "heading": "Data use",
         "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
       },
       "automatedAccess": {
-        "heading": "Automated Access and Data Extraction",
+        "heading": "Automated access and data extraction",
         "body": "Ordinary browsing, approved search-engine indexing, and citation that attributes Formoria and links back to the source page all remain permitted. Beyond that, and without our prior written permission, you may not use automated means to extract the directory in bulk, replicate or redistribute all or a substantial part of our dataset, clone the directory into a competing or commercial service, republish our editorial brand descriptions at scale, use our content to train or fine-tune AI models, circumvent rate limits, access controls, or bot challenges, or use source images beyond the license their owners granted to Formoria.",
-        "bodyDetail": "Automated clients must respect the machine-readable signals we publish at /robots.txt, which permit search indexing and answer-time citation while declining AI training. For research collaborations, licensing, or bulk dataset access, contact hello@formoria.com — we review these requests case by case."
+        "bodyDetail": "Automated clients must respect the machine-readable signals we publish at /robots.txt, which permit search indexing and answer-time citation while declining AI training. For research collaborations, licensing, or bulk dataset access, email <hello>hello@formoria.com</hello>. We review these requests case by case."
       },
       "reviewProcess": {
-        "heading": "Brand Review Process",
+        "heading": "Brand review process",
         "body": "New brand recommendations are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the person who provided it. Approval does not constitute endorsement or certification of the brand by Formoria."
       },
       "disclaimer": {
@@ -1405,8 +1406,8 @@
         "body": "Formoria provides this service as-is and makes no warranties regarding the completeness, accuracy, or timeliness of content on the platform. Formoria is not liable for any direct or indirect losses arising from the use of this platform."
       },
       "changes": {
-        "heading": "Changes to Terms",
-        "body": "Formoria reserves the right to modify these terms at any time. Significant changes will be announced on the platform. Continued use of the service constitutes acceptance of the updated terms. If you have questions, please contact us via the contact page."
+        "heading": "Changes to these terms",
+        "body": "Formoria reserves the right to modify these terms at any time. Significant changes will be announced on the platform. Continued use of the service constitutes acceptance of the updated terms. If you have questions, email <hello>hello@formoria.com</hello>."
       }
     },
     "privacy": {
@@ -1415,140 +1416,140 @@
         "description": "Learn how Formoria collects, processes, and uses your personal data in compliance with Taiwan's Personal Data Protection Act."
       },
       "title": "Privacy Policy",
-      "intro": "Formoria values your privacy. This policy explains how we collect, process, and use your personal data in accordance with Taiwan's Personal Data Protection Act (個人資料保護法).",
+      "intro": "This policy explains how we collect, process, and use your personal data in accordance with Taiwan's Personal Data Protection Act.",
       "lastUpdated": "Last updated: July 2026",
       "dataCollection": {
-        "heading": "Data Collection",
-        "body": "When you use Formoria, we may collect your email address and optional name when you recommend a brand, provide brand details, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We collect browsing and product-usage events through PostHog and continue collecting Google Analytics data. Analytics events record the words you type into site search, so we can see what visitors are looking for and add the brands they cannot find; a search that looks like an email address or a phone number is not recorded at all. Analytics events exclude form values, names, email addresses, phone numbers, authentication codes, and tokens."
+        "heading": "Data collection",
+        "body": "When you use Formoria, we may collect your email address and optional name when you recommend a brand, provide brand details, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We record browsing and usage events with PostHog and Google Analytics 4. Analytics events record the words you type into site search, so we can see what visitors are looking for and add the brands they cannot find; a search that looks like an email address or a phone number is not recorded at all. Analytics events exclude form values, names, email addresses, phone numbers, authentication codes, and tokens."
       },
       "purpose": {
-        "heading": "Purpose of Use",
+        "heading": "Purpose of use",
         "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send recommendation, claim, verification, security, and account-related notices. We send the newsletter only after separate consent, and you can turn it off at any time. Declining marketing email does not affect brand recommendations, account creation, or core service access."
       },
       "thirdParty": {
-        "heading": "Third-Party Services",
+        "heading": "Third-party services",
         "body": "To provide our service, we use the following third-party providers: Supabase (database and authentication, servers in the US), Resend (email delivery, data may be processed in the US), PostHog and Google Analytics 4 (website analytics, data processed in the US), Sentry (error monitoring, data processed in the US), Cloudflare Turnstile (bot protection), and Railway (web hosting, servers in the US). We do not sell your personal data to third parties. Data is shared only to the extent necessary to provide our services."
       },
       "userRights": {
-        "heading": "Your Rights",
-        "body": "Under Article 3 of the Personal Data Protection Act, you have the right to: query or request access to your personal data, request a copy, request corrections or supplements, request cessation of collection, processing, or use, and request deletion. To exercise any of these rights, please contact privacy@formoria.com. We will respond to your request within 30 days."
+        "heading": "Your rights",
+        "body": "Under Article 3 of the Personal Data Protection Act, you have the right to: query or request access to your personal data, request a copy, request corrections or supplements, request cessation of collection, processing, or use, and request deletion. To exercise any of these rights, please contact <privacy>privacy@formoria.com</privacy>. We will respond to your request within 30 days."
       },
       "dataProtection": {
-        "heading": "Data Protection",
+        "heading": "Data protection",
         "body": "We protect personal data with HTTPS, access controls, and regular security reviews. Brand data is retained while the brand is listed, account data while the account remains active, and marketing-consent records until you withdraw consent or request deletion. After an unsubscribe request, we may retain a minimal suppression record so we do not send marketing email you have declined."
       },
       "cookies": {
-        "heading": "Cookies and Tracking",
+        "heading": "Cookies and tracking",
         "body": "This website uses PostHog and Google Analytics 4 to record page views and usage events. PostHog is delivered through our e.formoria.com analytics endpoint, does not retain IP addresses, and has session replay disabled. Cloudflare Turnstile uses session cookies for bot detection to protect forms from spam. We do not use advertising cookies."
       },
       "changes": {
-        "heading": "Policy Changes",
+        "heading": "Policy changes",
         "body": "We may update this privacy policy from time to time. Material changes will be posted on this page with an updated \"Last updated\" date. Your continued use of the service after changes are posted constitutes acceptance of the updated policy."
       },
       "contact": {
-        "heading": "Contact Us",
-        "body": "If you have any questions about this privacy policy or wish to exercise your personal data rights, please contact: privacy@formoria.com. We will respond to your request within 30 days as required by the Personal Data Protection Act."
+        "heading": "Contact us",
+        "body": "If you have any questions about this privacy policy or wish to exercise your personal data rights, please contact: <privacy>privacy@formoria.com</privacy>. We will respond to your request within 30 days as required by the Personal Data Protection Act."
       }
     }
   },
   "faq": {
     "metadata": {
       "title": "FAQ",
-      "description": "Frequently asked questions about Formoria's Taiwanese brand discovery and curation platform, including listings versus selections, online stores and stockists, trust tiers, recommendations, and the review process."
+      "description": "Answers about Formoria: listed brands versus Formoria Selections, where to buy, how to recommend a brand, and how long review takes."
     },
-    "title": "Frequently Asked Questions",
-    "intro": "Inclusion rules, curation labels, where to buy — the questions we are asked most, gathered here. If the answer is not here, please <contact>contact us</contact>.",
+    "title": "Frequently asked questions",
+    "intro": "Answers to the questions we hear most about listing rules, selection labels, and where to buy. Can't find yours? <contact>Contact us</contact>.",
     "sections": {
       "navigation": "FAQ sections",
-      "general": "General"
+      "listing": "Listing and selections",
+      "review": "Recommendations and review",
+      "more": "Buying and more"
     },
     "items": {
       "whatIsFormoria": {
         "question": "What is Formoria?",
-        "answer": "Formoria is a Taiwanese brand discovery and curation platform. It currently starts with a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists; content selected by Formoria is labelled separately."
+        "answer": "Formoria is a Taiwanese brand discovery and curation platform. It starts from a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists. Anything Formoria selects is labeled separately."
       },
       "listingVsSelection": {
         "question": "What is the difference between a listed brand and a Formoria Selection?",
-        "answer": "A listed brand meets the directory rules and can be found in the searchable record; listing is not Formoria endorsement, selection, certification, or ranking. A Formoria Selection is a product or content item deliberately chosen for a situation, use, preference, or editorial argument, labelled separately and described for what it is and where to order it from the brand."
+        "answer": "A listed brand meets the listing rules and can be found in the directory. Listing does not mean Formoria recommends, certifies, or ranks it. A Formoria Selection is a product our editors chose on purpose for a particular situation. It is labeled separately, and the reason for choosing it is written out."
       },
       "purchaseThroughFormoria": {
-        "question": "Can I purchase through Formoria?",
-        "answer": "No. Formoria owns inspiration, selection, context, and the outbound route; it does not accept orders or process checkout. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfilment, and after-sales service."
+        "question": "Can I buy through Formoria?",
+        "answer": "No. Formoria does not take orders or handle checkout. Price, variants, stock, shipping, and after-sales service are up to the brand or the store selling it. Our job is to help you find it, then hand you to the brand."
       },
       "whoCanSubmit": {
         "question": "Who can recommend a brand?",
-        "answer": "Anyone can recommend a brand — you do not need to be the owner."
+        "answer": "Anyone can recommend a brand. You do not need to be the brand owner."
       },
       "taiwaneseBrandCriteria": {
-        "question": "What counts as a Taiwanese brand?",
-        "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company founded in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome recommendations from brand owners, fans, and community members alike."
+        "question": "Which brands qualify for listing?",
+        "answer": "A brand qualifies if it was founded, designed, or made in Taiwan. Any one of the three is enough. For example, a company founded in Taipei qualifies under \"founded\"; a studio that designs in Taiwan and manufactures overseas qualifies under \"designed\"; a workshop making goods in Yingge qualifies under \"made\". Brand owners and fans alike can recommend one."
       },
       "notListedBrands": {
         "question": "What kinds of brands are not listed?",
         "answer": "Formoria lists brands with their own products, so we do not list proxy buyers, curated or multi-brand shops without a product line of their own, platforms and retailers, media and review sites, importers of foreign brands, or personal accounts offering only services or digital goods. A curated shop that makes its own product line, or a creator with their own physical products, does qualify."
       },
       "madeInTaiwanBadge": {
-        "question": "What does the Made in Taiwan badge mean?",
-        "answer": "The badge applies only to the product where it appears. Formoria awards it when a fresh official registry record matches that product exactly, or when both automated checks confirm that the product is made in Taiwan and all primary materials come from Taiwan."
+        "question": "What does \"Made in Taiwan\" on a product mean?",
+        "answer": "\"Made in Taiwan\" applies only to the product it appears on. We show it when the product matches a current record in the MIT Smile registry run by Taiwan's Ministry of Economic Affairs, or when checks confirm it is made in Taiwan and its main materials come from Taiwan. A brand's own account of where it makes things is shown as \"Brand declared\": that is the brand's claim, and Formoria has not checked it. Listing review only confirms that a brand exists and meets the listing rules; it does not judge where products are made."
       },
       "howToSubmit": {
         "question": "How do I recommend a brand to Formoria?",
-        "answer": "Anyone can share a brand through our recommendation form. Go to Recommend a Brand, provide the brand name and an official link, and the Formoria team will review it. There is no fee; we check that the information is complete, the brand exists, and it has a genuine connection to Taiwan."
+        "answer": "Anyone can recommend a brand. Open the recommendation form, enter the brand name and an official link, and send it; Formoria will review it. Recommending is free. The review checks that the information is complete, the brand exists, and it has a real connection to Taiwan."
       },
       "reviewTime": {
-        "question": "How long does the brand review take?",
-        "answer": "Brand reviews generally take about 7 business days. We check that the brand exists, the information is complete, and it meets our inclusion criteria. Approved brands then appear in the directory; if information is missing, we may contact the person who recommended it by email."
+        "question": "How long does review take?",
+        "answer": "Review usually takes about 7 business days. We check that the brand exists, the information is complete, and it meets the listing rules. Once approved, the brand appears in the directory. If information is missing, we may email the person who recommended it."
       },
       "dataAccuracy": {
-        "question": "How is the accuracy of brand information ensured?",
-        "answer": "Formoria collects brand information through community contributions and public sources, and our admin team performs an initial review before a listing goes live. If any brand information is incorrect or outdated, tell us through the correction report on the brand page or the contact details in the footer, and we'll address it promptly."
+        "question": "What if brand information is wrong?",
+        "answer": "Brand information comes from recommendations and public sources, and we check it before it goes live. If something is wrong or out of date, use \"Report incorrect information\" on the brand page, or contact us from the footer."
       },
       "isBrandFree": {
-        "question": "Is it free to list a brand on Formoria?",
-        "answer": "Yes. Recommending a brand to Formoria is free, and brand owners, fans, and community members are all welcome to help build the Taiwanese brand directory."
+        "question": "Does it cost anything to be listed?",
+        "answer": "No. Recommending and listing are both free, and paying never changes listing or ranking."
       },
       "whatCategories": {
-        "question": "What product categories does Formoria cover?",
-        "answer": "Formoria covers twelve categories: Fashion & Apparel, Bags & Accessories, Jewelry, Beauty & Personal Care, Home & Living, Food & Beverage, Stationery & Design, Tech & Electronics, Outdoor & Camping, Sports & Fitness, Kids & Baby, and Pets."
+        "question": "Which categories does Formoria cover?",
+        "answer": "{count, plural, one {# category is} other {# categories are}} open for browsing: {categories}. More will open as their brands are reviewed."
       },
       "languageSupport": {
         "question": "Is Formoria available in English?",
-        "answer": "Yes. Formoria is available in Traditional Chinese (zh-TW) and English — switch languages from the navigation bar."
-      },
-      "howVerified": {
-        "question": "How does brand verification work?",
-        "answer": "Listing review checks that a brand exists and meets our inclusion criteria. Manufacturing signals are separate: MIT Verified is matched to the official MIT Smile registry, while MIT Declared records the scope stated by the brand owner."
+        "answer": "Yes. Formoria is available in Traditional Chinese and English. Switch languages from the navigation bar."
       },
       "contact": {
         "question": "How do I contact the Formoria team?",
-        "answer": "For any questions, suggestions, or partnership inquiries, visit our <link>contact page</link> to pick the right channel. Our team typically responds within 2–3 business days."
+        "answer": "For questions, suggestions, or partnerships, visit the <link>contact page</link> and pick a channel. We usually reply within 2–3 business days."
       }
     }
   },
   "contact": {
     "metadata": {
       "title": "Contact us",
-      "description": "Report a problem, request a feature, or fix brand data — find the right way to reach the Formoria team."
+      "description": "Report a site problem, fix brand information, or ask a general question: find the right way to reach the Formoria team."
     },
     "hero": {
       "eyebrow": "Contact Formoria",
-      "title": "Find the right way to reach us",
-      "intro": "Different questions have different fastest paths. Pick a channel below and we'll get back to you."
+      "title": "Pick the right channel to reach us",
+      "intro": "Pick the channel that fits your question. We usually reply within 2–3 business days."
     },
     "channels": {
       "problem": {
         "title": "Report a problem",
-        "body": "Something broken, a page that won't load, or an error message while using the site? Email us — a page URL and a screenshot help us fix it faster.",
-        "cta": "Email us"
+        "body": "Something broken, a page that won't load, or an error message? Email us. A page URL and a screenshot help us fix it faster.",
+        "cta": "Email us",
+        "copy": "Copy address",
+        "copied": "Copied"
       },
       "brand": {
-        "title": "Something wrong with a brand",
-        "body": "Every brand page has its own report and correction dialogs. Submitting there goes straight into our review queue, which is faster than email.",
-        "cta": "Browse brands"
+        "title": "Wrong brand information",
+        "body": "Use \"Report incorrect information\" on the brand page. It goes straight to review, which is faster than email.",
+        "cta": "Find the brand"
       },
       "question": {
         "title": "General questions",
-        "body": "Listing criteria, review times, and how to claim a brand page are already answered on our FAQ.",
+        "body": "Listing criteria, review times, and where to buy are mostly answered in the FAQ.",
         "cta": "Read the FAQ"
       }
     }
