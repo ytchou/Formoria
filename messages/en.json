@@ -185,7 +185,9 @@
       "headline": "This season's selection",
       "subtitle": "Moving in, styling a shop, changing a lamp: a few things to start with",
       "cta": "See all products",
-      "allCategories": "All"
+      "allCategories": "All",
+      "loading": "Loading…",
+      "loadFailed": "This category couldn't load."
     },
     "missionCloser": {
       "headline": "The things you love shouldn't just be chance encounters",

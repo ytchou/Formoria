@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { HomepageCuratedProduct } from "@/lib/services/curated-products";
 import {
+  MAX_HOME_GRID_PRODUCTS,
   MAX_HOME_WALL_PRODUCTS,
+  buildCategoryWallSlots,
+  buildHomeGridSlots,
   buildWallSlots,
   shuffleWithSeed,
   wallSeedForDate,
@@ -265,6 +268,76 @@ describe("buildWallSlots", () => {
     expect(selected[0]).toBe(shuffled[0]);
     expect(selected).toHaveLength(2);
     expect(selected[1]!.subcategory).not.toBe(selected[0]!.subcategory);
+  });
+});
+
+describe("homepage band groups (DEV-1972)", () => {
+  // A mixed read in the service's own order: three L1s, several brands with
+  // more than two products, so the shuffle, the per-brand cap and the grid cap
+  // all have work to do.
+  const products = [
+    ...Array.from({ length: 14 }, (_, index) =>
+      product(`home-${index}`, {
+        category: "home",
+        brandId: `brand-home-${index % 5}`,
+      }),
+    ),
+    ...Array.from({ length: 9 }, (_, index) =>
+      product(`beauty-${index}`, {
+        category: "beauty",
+        brandId: `brand-beauty-${index % 3}`,
+      }),
+    ),
+    ...Array.from({ length: 4 }, (_, index) =>
+      product(`fashion-${index}`, { category: "fashion" }),
+    ),
+  ];
+
+  // The composition the server used to render into each hidden group, kept
+  // verbatim as the oracle so a category fetched on click shows exactly the
+  // tiles that group showed for the same seed and read.
+  function previousGroup(category: string, seed: string) {
+    return buildWallSlots({
+      products: products.filter((entry) => entry.category === category),
+      seed,
+    }).slice(0, MAX_HOME_GRID_PRODUCTS);
+  }
+
+  it("returns exactly what the old hidden category group returned", () => {
+    for (const seed of [SEED, OTHER_SEED]) {
+      for (const category of ["home", "beauty", "fashion", "food"]) {
+        expect(buildCategoryWallSlots({ products, category, seed })).toEqual(
+          previousGroup(category, seed),
+        );
+      }
+    }
+  });
+
+  it("keeps only the selected category, capped at the grid size", () => {
+    const slots = buildCategoryWallSlots({
+      products,
+      category: "home",
+      seed: SEED,
+    });
+
+    expect(slots.length).toBeLessThanOrEqual(MAX_HOME_GRID_PRODUCTS);
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots.every((slot) => slot.product.category === "home")).toBe(true);
+  });
+
+  it("returns an empty group for a category with no supply", () => {
+    expect(
+      buildCategoryWallSlots({ products, category: "food", seed: SEED }),
+    ).toEqual([]);
+  });
+
+  it("builds the home grid exactly as the old all group", () => {
+    expect(buildHomeGridSlots({ products, seed: SEED })).toEqual(
+      buildWallSlots({ products, seed: SEED }).slice(0, MAX_HOME_GRID_PRODUCTS),
+    );
+    expect(buildHomeGridSlots({ products, seed: SEED })).toHaveLength(
+      MAX_HOME_GRID_PRODUCTS,
+    );
   });
 });
 

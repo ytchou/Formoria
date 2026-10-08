@@ -38,12 +38,16 @@ export function BrandAvatar({
           <SurfaceImage
             src={imageSrc}
             alt=""
-            fill
             preload={preload}
-            surface="thumb"
-            // The lg circle measures 80px; `thumb` alone would hint 72px.
-            sizes={size === "lg" ? "80px" : undefined}
-            className="object-cover"
+            // A fixed box rather than `fill` + a px `sizes`: Next then emits a
+            // 1x/2x srcSet instead of every configured width (DEV-1972). The lg
+            // circle measures 80px. The sm circle measures 44px but keeps the
+            // 72px `thumb` box, so its 2x candidate stays 256w and a 3x phone
+            // still gets a sharp circle. The classes stretch it over the circle
+            // exactly as `fill` did.
+            width={size === "lg" ? 80 : 72}
+            height={size === "lg" ? 80 : 72}
+            className="absolute inset-0 h-full w-full object-cover"
             onError={() => setFailedSrc(imageSrc)}
           />
         </div>

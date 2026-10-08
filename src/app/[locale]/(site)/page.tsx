@@ -15,7 +15,7 @@ import {
   MIN_HOME_CURATED_PRODUCTS,
   trailPeekRequests,
 } from "@/lib/services/curated-products";
-import { buildGroupedWallSlots } from "@/lib/curated-products/home-wall";
+import { buildHomeGridSlots } from "@/lib/curated-products/home-wall";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
@@ -157,9 +157,9 @@ export default async function LandingPage({ params }: PageProps) {
   // client-component props ship in the inline RSC payload (DEV-1972).
   const publishedTrails = trailResult?.ok ? trailResult.trails : [];
   const trailCards = publishedTrails.map(toTrailCard);
-  const wallGroups = buildGroupedWallSlots({
-    products: curatedProducts,
-  });
+  // Only the "all" group is server-rendered; each category chip fetches its
+  // own group from `/api/home-wall` on first selection (DEV-1972).
+  const wallSlots = buildHomeGridSlots({ products: curatedProducts });
 
   return (
     <>
@@ -180,7 +180,7 @@ export default async function LandingPage({ params }: PageProps) {
           close={<SectionBand />}
           wall={
             curatedProducts.length >= MIN_HOME_CURATED_PRODUCTS
-              ? { groups: wallGroups }
+              ? { slots: wallSlots }
               : null
           }
           trails={trailCards}

@@ -24,6 +24,7 @@ import {
 } from "@/lib/services/trails";
 import { categoryLabel, VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { routes } from "@/lib/routes";
+import { toTrailCard, toTrailPeeks } from "@/lib/trails/trail-card";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -174,8 +175,8 @@ export default async function StyleHubPage({ params, searchParams }: PageProps) 
           <EmptyState icon={<Compass />} title={t("comingSoon")} />
         ) : (
           <HubTrailGrid
-            trails={view.trails}
-            peeks={peeks}
+            trails={view.trails.map(toTrailCard)}
+            peeks={toTrailPeeks(peeks)}
             labels={{
               eyebrow: tLanding("trails.eyebrow"),
               cta: tLanding("trails.cta"),

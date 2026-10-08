@@ -35,9 +35,31 @@ export type SelectedProductTileLabels = {
   madeInTaiwan?: string;
 };
 
+/**
+ * Exactly the product fields this tile reads, in ANY mode. Narrower than
+ * `CuratedProduct` so a client-fetched homepage group (DEV-1972) can ship a
+ * projection instead of the whole row; every `CuratedProduct` still fits.
+ * Add a field here when the tile starts reading it.
+ */
+export type SelectedProductTileProduct = Pick<
+  CuratedProduct,
+  | "id"
+  | "key"
+  | "nameZh"
+  | "nameEn"
+  | "productDescriptionZh"
+  | "productDescriptionEn"
+  | "imageUrl"
+  | "subcategory"
+  | "category"
+  | "linkState"
+  | "officialUrl"
+  | "mitQualified"
+>;
+
 export type SelectedProductTileProps = {
   locale: AppLocale;
-  product: CuratedProduct;
+  product: SelectedProductTileProduct;
   labels: SelectedProductTileLabels;
   mode: "outbound" | "trail" | "wall" | "shelf";
   /**
@@ -83,6 +105,9 @@ const BROKEN_LINK_STATE = "broken";
  * outbound chip. The wall turns the whole tile into one accessible link to
  * that brand's page. The optional client link child adds click tracking
  * without moving the tile into the client graph.
+ *
+ * Keep it isomorphic: the homepage's category groups (DEV-1972) render it on
+ * the client, from a lazy chunk, after a chip fetches its tiles.
  */
 export function SelectedProductTile({
   locale,

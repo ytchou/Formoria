@@ -185,7 +185,9 @@
       "headline": "這一季的選物",
       "subtitle": "搬新家、佈置店面、想換一盞燈的時候，可以從這幾件開始看",
       "cta": "看全部商品",
-      "allCategories": "全部"
+      "allCategories": "全部",
+      "loading": "載入中…",
+      "loadFailed": "這個分類暫時載不出來。"
     },
     "missionCloser": {
       "headline": "喜歡的東西，不該只是偶然遇見",

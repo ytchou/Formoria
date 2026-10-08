@@ -85,10 +85,24 @@ type BaseSurfaceImageProps = Omit<NextImageProps, "sizes" | "alt"> & {
 };
 
 export type SurfaceImageProps = BaseSurfaceImageProps &
-  // Exactly one of the two answers, never neither: a named slot (which an
-  // explicit `sizes` may still override for one crop of that slot), or a
-  // measurement with no slot to name.
-  ({ surface: ImageSurface } | { surface?: never; sizes: string });
+  // Exactly one of the answers, never none: a named slot (which an explicit
+  // `sizes` may still override for one crop of that slot), a measurement with
+  // no slot to name, or — for a non-`fill` image only — a fixed box.
+  (
+    | { surface: ImageSurface }
+    | { surface?: never; sizes: string }
+    // A fixed box declares its size through `width`/`height`, so Next emits a
+    // 1x/2x srcSet (two entries) instead of the full width list (DEV-1972:
+    // srcSet bytes repeat on every `<img>` in every page's HTML). `sizes` stays
+    // undefined: any `sizes` value makes Next list every configured width.
+    | {
+        surface?: never;
+        sizes?: never;
+        fill?: false;
+        width: number;
+        height: number;
+      }
+  );
 
 export function SurfaceImage(props: SurfaceImageProps) {
   // Widened on the way in rather than destructured off the union: the body has

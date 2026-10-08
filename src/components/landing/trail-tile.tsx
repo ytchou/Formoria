@@ -157,11 +157,15 @@ export function TrailTile({
                   <SurfaceImage
                     src={peekSrc}
                     alt=""
-                    fill
                     // A quarter of a card cell: ~80px on a phone, ~110px in
-                    // the three-up grid.
-                    sizes="120px"
-                    className="object-cover"
+                    // the three-up grid. A fixed 120px box rather than `fill` +
+                    // `sizes="120px"`: Next then emits a 1x/2x srcSet (128w,
+                    // 256w) instead of every configured width (DEV-1972). The
+                    // classes stretch it over the square cell exactly as
+                    // `fill` did.
+                    width={120}
+                    height={120}
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                 ) : null}
               </li>

@@ -143,9 +143,17 @@ const nextConfig: NextConfig = {
     // were buckets no request could ever land in. Fewer buckets means more
     // sharing across similar-but-not-identical thumbnails, which is what
     // matters on a container whose optimizer cache is ephemeral and re-derives
-    // every sharp encode on cold start. `deviceSizes` is deliberately left at
-    // the default: hero images use an unconstrained `100vw`.
+    // every sharp encode on cold start.
     imageSizes: [64, 96, 128, 256, 384],
+    // Trimmed from Next's default [640,750,828,1080,1200,1920,2048,3840]
+    // (DEV-1972). Every width is one srcSet entry — a ~200-character optimizer
+    // URL — repeated on each responsive `<img>` in every page's HTML; the
+    // homepage alone carried 285 KB of them. 750≈828 and 1080≈1200 were
+    // near-duplicate buckets, and 2560 replaces 2048+3840 as the cap: it covers
+    // a 1280-CSS-px `100vw` hero at 2x, and a 1440px retina desktop fetching
+    // 2560 instead of 3840 is imperceptible for photography at q≤75.
+    // cap 2560w; add 3840 back if a full-bleed hero must stay sharp on 5K displays
+    deviceSizes: [640, 828, 1200, 1920, 2560],
     // Keep the default while allowing lower, explicitly requested qualities
     // for the scrimmed selection background and its product photography.
     qualities: [20, 60, 75],

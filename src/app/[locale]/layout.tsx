@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations, setRequestLocale } from 'next-intl/server'
 import { RootDocument } from '@/components/shared/root-document'
+import { pickClientMessages } from '@/i18n/client-messages'
 import { routing } from '@/i18n/routing'
 import type { Locale } from '@/lib/seo/alternates'
 import { getSiteUrl } from '@/lib/seo/site-url'
@@ -59,7 +60,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
       locale={safeLocale}
       skipToContentLabel={tCommon('skipToContent')}
     >
-      <NextIntlClientProvider locale={safeLocale} messages={messages}>
+      <NextIntlClientProvider locale={safeLocale} messages={pickClientMessages(messages)}>
         {children}
       </NextIntlClientProvider>
     </RootDocument>

@@ -5,7 +5,6 @@ import {
   WALL_RATIOS,
   type WallRatio,
 } from "@/lib/curated-products/wall-ratio";
-import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 /**
  * Re-exported so existing importers of this module keep working. The values
@@ -183,26 +182,36 @@ export function buildWallSlots({
     .map((product) => ({ product, ratio: wallRatioFor(product) }));
 }
 
-export type GroupedWallSlots = Record<string, WallSlot[]>;
-
-export function buildGroupedWallSlots({
+/**
+ * The homepage band's server-rendered "all" group: the day's wall, cut to two
+ * rows of the five-column grid.
+ */
+export function buildHomeGridSlots({
   products,
   seed = wallSeedForDate(),
-}: BuildWallSlotsInput): GroupedWallSlots {
-  const allSlots = buildWallSlots({ products, seed }).slice(
-    0,
-    MAX_HOME_GRID_PRODUCTS,
-  );
+}: BuildWallSlotsInput): WallSlot[] {
+  return buildWallSlots({ products, seed }).slice(0, MAX_HOME_GRID_PRODUCTS);
+}
 
-  const groups: GroupedWallSlots = { all: allSlots };
+export type BuildCategoryWallSlotsInput = BuildWallSlotsInput & {
+  /** An L1 slug; products are matched on `category` exactly. */
+  category: string;
+};
 
-  for (const category of VISIBLE_L1_CATEGORIES) {
-    const filtered = products.filter((p) => p.category === category.slug);
-    groups[category.slug] = buildWallSlots({ products: filtered, seed }).slice(
-      0,
-      MAX_HOME_GRID_PRODUCTS,
-    );
-  }
-
-  return groups;
+/**
+ * One L1 category's group for the homepage band, fetched when its chip is
+ * selected (DEV-1972). The same composition the server used to render into a
+ * hidden group: filter (which preserves the read's order), then the daily
+ * shuffle and per-brand cap, then the grid cap. For a given seed and the same
+ * read, a category shows exactly the tiles its hidden group used to.
+ */
+export function buildCategoryWallSlots({
+  products,
+  category,
+  seed = wallSeedForDate(),
+}: BuildCategoryWallSlotsInput): WallSlot[] {
+  return buildWallSlots({
+    products: products.filter((product) => product.category === category),
+    seed,
+  }).slice(0, MAX_HOME_GRID_PRODUCTS);
 }
