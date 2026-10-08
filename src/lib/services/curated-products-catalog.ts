@@ -373,11 +373,6 @@ type CatalogMemoEntry = {
 
 const catalogMemo = new Map<string, CatalogMemoEntry>();
 
-/** @internal Test-only — clear the catalog memo. */
-export function _resetCatalogMemo(): void {
-  catalogMemo.clear();
-}
-
 function memoKey(filters: CatalogFilters): string {
   const sorted = (values: readonly string[] | undefined) =>
     values && values.length > 0 ? [...values].sort() : null;

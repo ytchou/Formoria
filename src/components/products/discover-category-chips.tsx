@@ -2,7 +2,7 @@ import { ResultsLinkPendingReporter } from "@/components/filters/results-transit
 import { ChipRow, taxonomyLinkClasses } from "@/components/ui/toggle-chip";
 import { Link } from "@/i18n/navigation";
 
-export type DiscoverCategoryChip = {
+type DiscoverCategoryChip = {
   /** `null` is the all-categories chip. */
   slug: string | null;
   label: string;
