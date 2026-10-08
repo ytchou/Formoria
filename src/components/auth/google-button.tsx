@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 
 type GoogleButtonProps = {
   action: () => void | Promise<void>;
+  /** Translated by the caller: sign-in and sign-up name the action differently. */
+  label: string;
 };
 
 function GoogleGlyph() {
@@ -34,7 +36,7 @@ function GoogleGlyph() {
   );
 }
 
-export function GoogleButton({ action }: GoogleButtonProps) {
+export function GoogleButton({ action, label }: GoogleButtonProps) {
   const t = useTranslations("auth");
 
   return (
@@ -55,7 +57,7 @@ export function GoogleButton({ action }: GoogleButtonProps) {
           width="full"
         >
           <GoogleGlyph />
-          {t("continueWithGoogle")}
+          {label}
         </Button>
       </form>
     </div>

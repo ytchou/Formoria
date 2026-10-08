@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -8,11 +8,18 @@ import { signInWithGoogle, signUp } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
 import { AuthFormError } from "@/components/auth/auth-form-error";
 import { GoogleButton } from "@/components/auth/google-button";
+import {
+  describedBy,
+  useBlurValidation,
+} from "@/components/auth/use-blur-validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/forms/form-field";
 import { MarketingEmailOptInField } from "@/components/forms/marketing-email-opt-in-field";
+import { getSignUpSchema } from "@/lib/auth/validations";
 import { routes } from "@/lib/routes";
+
+const PASSWORD_HINT_ID = "password-hint";
 
 export function SignUpForm() {
   const [state, action, pending] = useActionState<AuthState, FormData>(
@@ -30,6 +37,13 @@ export function SignUpForm() {
     locale,
   );
   const t = useTranslations("auth");
+  const schema = useMemo(
+    () => getSignUpSchema((key) => t(key as Parameters<typeof t>[0])),
+    [t],
+  );
+  const { errors, validate } = useBlurValidation<"email" | "confirmPassword">(
+    schema,
+  );
 
   const signInHref = routes.auth.signIn();
 
@@ -45,8 +59,11 @@ export function SignUpForm() {
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
 
-        <div className="space-y-2">
-          <Label htmlFor="email">{t("signUp.emailLabel")}</Label>
+        <FormField
+          id="email"
+          label={t("signUp.emailLabel")}
+          error={errors.email}
+        >
           <Input
             id="email"
             name="email"
@@ -55,34 +72,59 @@ export function SignUpForm() {
             defaultValue={email}
             required
             autoComplete="email"
+            onBlur={(event) => validate(event.currentTarget.form, ["email"])}
+            onChange={(event) => {
+              if (errors.email) validate(event.currentTarget.form, ["email"]);
+            }}
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">{t("signUp.passwordLabel")}</Label>
+        <FormField
+          id="password"
+          label={t("signUp.passwordLabel")}
+          description={
+            <span id={PASSWORD_HINT_ID}>{t("signUp.passwordHint")}</span>
+          }
+        >
           <Input
             id="password"
             name="password"
             type="password"
-            placeholder={t("signUp.passwordPlaceholder")}
             required
             autoComplete="new-password"
+            aria-describedby={describedBy(PASSWORD_HINT_ID)}
+            onBlur={(event) =>
+              validate(event.currentTarget.form, ["confirmPassword"])
+            }
+            onChange={(event) => {
+              if (errors.confirmPassword) {
+                validate(event.currentTarget.form, ["confirmPassword"]);
+              }
+            }}
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">
-            {t("signUp.confirmPasswordLabel")}
-          </Label>
+        <FormField
+          id="confirmPassword"
+          label={t("signUp.confirmPasswordLabel")}
+          error={errors.confirmPassword}
+        >
           <Input
             id="confirmPassword"
             name="confirmPassword"
             type="password"
-            placeholder={t("signUp.passwordPlaceholder")}
             required
             autoComplete="new-password"
+            onBlur={(event) =>
+              validate(event.currentTarget.form, ["confirmPassword"])
+            }
+            onChange={(event) => {
+              if (errors.confirmPassword) {
+                validate(event.currentTarget.form, ["confirmPassword"]);
+              }
+            }}
           />
-        </div>
+        </FormField>
 
         <MarketingEmailOptInField
           id="signup-marketing-email"
@@ -100,15 +142,36 @@ export function SignUpForm() {
         >
           {pending ? t("signUp.submitting") : t("signUp.submit")}
         </Button>
+
+        <p className="text-center type-metadata">
+          {t.rich("signUp.terms", {
+            terms: (chunks) => (
+              <Link
+                href={routes.terms()}
+                className="text-accent underline underline-offset-4"
+              >
+                {chunks}
+              </Link>
+            ),
+            privacy: (chunks) => (
+              <Link
+                href={routes.privacy()}
+                className="text-accent underline underline-offset-4"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
+        </p>
       </form>
 
-      <GoogleButton action={googleAction} />
+      <GoogleButton action={googleAction} label={t("continueWithGoogle")} />
 
-      <p className="text-center type-body-sm">
-        {t("signUp.hasAccount")}{" "}
+      <p className="flex flex-wrap items-center justify-center gap-x-1 type-body-sm">
+        {t("signUp.hasAccount")}
         <Link
           href={signInHref}
-          className="font-medium text-accent underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center font-medium text-accent underline-offset-4 hover:underline"
         >
           {t("signUp.signInLink")}
         </Link>

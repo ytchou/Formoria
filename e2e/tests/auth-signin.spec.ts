@@ -27,7 +27,7 @@ test.describe("Auth — locale intent", () => {
     const document = signInDocument(await response.text());
     expect(document).toEqual({
       lang: "en",
-      heading: "Sign In",
+      heading: "Sign in",
       submittedLocale: "en",
     });
   });
@@ -49,6 +49,21 @@ test.describe("Auth — locale intent", () => {
       heading: "登入 Formoria",
       submittedLocale: "zh-TW",
     });
+  });
+});
+
+test.describe("Auth — sign-in context", () => {
+  test("names the page that sent the visitor to sign in", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto("/auth/sign-in?next=%2Ffavorites");
+
+    await expect(
+      anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
+    await expect(
+      anonPage.getByText("登入後即可查看你的收藏", { exact: true }),
+    ).toBeVisible();
   });
 });
 
