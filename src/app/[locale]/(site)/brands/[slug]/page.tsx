@@ -29,7 +29,11 @@ import { BrandActions } from "@/components/brands/brand-actions";
 import { AdminBrandMenu } from "@/components/brands/admin-brand-menu";
 import { BrandAbout } from "@/components/brands/brand-about";
 import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
-import { BrandLinks } from "@/components/brands/brand-links";
+import {
+  BrandOtherLinks,
+  BrandPurchaseLinks,
+  BrandSocialLinks,
+} from "@/components/brands/brand-links";
 import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { StockistsSection } from "@/components/brands/stockists-section";
 import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
@@ -37,6 +41,7 @@ import { RelatedBrands } from "@/components/brands/related-brands";
 import { EditorialAppearances } from "@/components/brands/editorial-appearances";
 import { getBrandEditorialAppearances } from "@/lib/services/editorial-links";
 import { PageShell } from "@/components/ui/page-shell";
+import { Typography } from "@/components/ui/typography";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
@@ -54,10 +59,21 @@ import { getBrandIndexability } from "@/lib/seo/brand-indexability";
 import { getBrandGalleryImages } from "@/lib/services/brand-images";
 import { routes } from "@/lib/routes";
 
-// Shared section rhythm: hairline rule above each section, and enough scroll offset to clear
-// the sticky main nav (100px) plus the mobile section-nav strip (48px).
-const brandSectionClassName =
-  "scroll-mt-40 border-t border-rule pt-stack first:border-t-0 first:pt-0 md:scroll-mt-28";
+// Scroll offset for every section-nav target: clears the sticky main nav (100px)
+// plus the mobile section-nav strip (48px). From md up there is no strip.
+const sectionScrollClassName = "scroll-mt-40 md:scroll-mt-28";
+// Content sections (story, selected products, where-to-buy) are separated by
+// the section rhythm.
+const contentSectionClassName = cn(
+  sectionScrollClassName,
+  "mt-section first:mt-0",
+);
+// Utility sections (featured-in, FAQ, social, other links) keep the hairline
+// rhythm, and their headings step down to the card-title size (BD-12).
+const utilitySectionClassName = cn(
+  sectionScrollClassName,
+  "mt-stack border-t border-rule pt-stack",
+);
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; paths
 // omitted from generateStaticParams are rendered on demand and cached between
@@ -235,25 +251,38 @@ export default async function BrandDetailPage({ params }: PageProps) {
     safeLocale === "en"
       ? (displayBrand.descriptionEn ?? displayBrand.description)
       : displayBrand.description;
+  const hasEditorialAppearances =
+    editorialAppearances.trails.length > 0 ||
+    editorialAppearances.stories.length > 0;
+  // One label key per section, the same key its heading renders, in page order.
+  // An entry exists only when its section renders.
   const sections = [
+    ...(description
+      ? [{ id: "about", label: tBrandDetail("sections.about") }]
+      : []),
     ...(curatedProducts.length > 0
       ? [
           {
             id: "selected-products",
-            label: tBrandDetail("tabNav.selectedProducts"),
+            label: tBrandDetail("selectedProducts.heading"),
           },
         ]
       : []),
-    // Both link sections render unconditionally now — a stockist with no known
-    // URL shows as a dimmed chip rather than disappearing.
-    { id: "social", label: tBrandDetail("tabNav.social") },
-    { id: "purchase", label: tBrandDetail("tabNav.purchase") },
-    ...(stockistCount > 0
-      ? [{ id: "locations", label: tBrandDetail("tabNav.locations") }]
+    // Where-to-buy and social render unconditionally — a destination with no
+    // known URL shows as a dimmed chip rather than disappearing.
+    { id: "where-to-buy", label: tBrandDetail("sections.whereToBuy") },
+    ...(hasEditorialAppearances
+      ? [
+          {
+            id: "featured-in",
+            label: tBrandDetail("editorialAppearances.heading"),
+          },
+        ]
       : []),
     ...(faqItems.length > 0
-      ? [{ id: "faq", label: tBrandDetail("tabNav.faq") }]
+      ? [{ id: "faq", label: tBrandDetail("sections.faq") }]
       : []),
+    { id: "social", label: tBrandDetail("links.socialPlatforms") },
   ];
   const hasSectionNav = shouldShowBrandSectionNav(sections.length);
 
@@ -323,9 +352,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
             brandName={displayBrand.name}
           />
 
-          {/* Hero */}
-          <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
-            <div className="w-full lg:w-1/2">
+          {/* Hero: gallery 7 / info 5 at lg, the info column sticky beside
+              the gallery. Below lg the info column is ordered first, so the
+              name, metadata line and route to the brand lead the screen (BD-04)
+              while the DOM keeps gallery, then info. */}
+          <div className="grid gap-stack lg:grid-cols-12 lg:gap-x-gutter">
+            <div className="min-w-0 lg:col-span-7">
               <ImageCarousel
                 images={galleryImages}
                 alt={displayBrand.name}
@@ -336,12 +368,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
               />
             </div>
 
-            <div className="min-w-0 lg:w-1/2">
+            <div className="min-w-0 max-lg:order-first lg:sticky lg:top-(--nav-height) lg:col-span-5 lg:self-start">
               <BrandHeader
                 brand={displayBrand}
                 categoryLabel={categoryLabel || null}
                 cityLabel={cityLabel}
-                locale={safeLocale}
                 adminSlot={
                   <AdminBrandMenu
                     brandId={displayBrand.id}
@@ -357,40 +388,28 @@ export default async function BrandDetailPage({ params }: PageProps) {
                     brandName={displayBrand.name}
                     brandImageUrl={displayBrand.heroImageUrl ?? undefined}
                     categoryLabel={categoryLabel || null}
+                    categorySlug={displayBrand.categorySlug ?? null}
+                    subcategories={displayBrand.subcategories}
                   />
                 }
               />
-              {description ? (
-                <div className="mt-8 pt-8">
-                  <BrandAbout brand={displayBrand} locale={safeLocale} />
-                </div>
-              ) : null}
             </div>
           </div>
 
-          <div
-            className={cn(
-              "mt-stack border-t border-rule pt-stack",
-              hasSectionNav && "grid md:grid-cols-5 md:gap-16",
-            )}
-          >
+          {/* The section nav is a sibling of the sections it indexes so its
+              sticky strip stays pinned across all of them. Mobile only. */}
+          <div className="mt-section">
             <BrandSectionNav sections={sections} />
 
-            <div
-              className={cn(
-                "flex min-w-0 flex-col gap-8",
-                // Mobile only: the nav is a full-width sticky strip directly
-                // above this column, and the first section carries `first:pt-0`,
-                // so its heading would otherwise sit flush against the strip's
-                // bottom rule. On md+ the nav is a left rail beside this column,
-                // not above it, and the offset would be dead space.
-                hasSectionNav && "pt-6 md:col-span-4 md:pt-0",
-              )}
-            >
+            {/* Below md the first heading would otherwise sit flush against
+                the strip's bottom rule; from md up there is no strip. */}
+            <div className={cn("min-w-0", hasSectionNav && "pt-6 md:pt-0")}>
+              <BrandAbout brand={displayBrand} locale={safeLocale} />
+
               {curatedProducts.length > 0 && (
                 <section
                   id="selected-products"
-                  className={brandSectionClassName}
+                  className={contentSectionClassName}
                 >
                   <BrandSelectedProducts
                     locale={safeLocale}
@@ -400,39 +419,81 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 </section>
               )}
 
-              <BrandLinks
-                brand={displayBrand}
-                sectionIds={{ social: "social", purchase: "purchase" }}
-                sectionClassName={brandSectionClassName}
-              />
+              {/* Online and physical channels as one section, official site
+                  first (BrandPurchaseLinks' first slot is the website).
+                  `[&_section_h2]:type-card-title` demotes the two inner
+                  headings visually below this section's own h2, which is a
+                  direct child and so never matches; remove once DEV-1952
+                  renders them as h3 sub-headings. */}
+              <section
+                id="where-to-buy"
+                aria-labelledby="where-to-buy-heading"
+                className={cn(
+                  contentSectionClassName,
+                  "[&_section_h2]:type-card-title",
+                )}
+              >
+                <Typography
+                  as="h2"
+                  id="where-to-buy-heading"
+                  variant="sectionTitleLarge"
+                >
+                  {tBrandDetail("sections.whereToBuy")}
+                </Typography>
+                <div className="mt-stack flex flex-col gap-stack">
+                  <BrandPurchaseLinks brand={displayBrand} />
+                  {stockistCount > 0 && (
+                    <StockistsSection
+                      locale={safeLocale}
+                      confirmed={stockists.confirmed}
+                      possible={stockists.possible}
+                      brandId={displayBrand.id}
+                      brandSlug={displayBrand.slug}
+                    />
+                  )}
+                </div>
+              </section>
 
-              {stockistCount > 0 && (
-                <section id="locations" className={brandSectionClassName}>
-                  <StockistsSection
+              {hasEditorialAppearances && (
+                <div id="featured-in" className={utilitySectionClassName}>
+                  <EditorialAppearances
                     locale={safeLocale}
-                    confirmed={stockists.confirmed}
-                    possible={stockists.possible}
-                    brandId={displayBrand.id}
-                    brandSlug={displayBrand.slug}
+                    trails={editorialAppearances.trails}
+                    stories={editorialAppearances.stories}
                   />
-                </section>
+                </div>
               )}
 
-              <EditorialAppearances
-                locale={safeLocale}
-                trails={editorialAppearances.trails}
-                stories={editorialAppearances.stories}
-                sectionClassName={brandSectionClassName}
-              />
-
               {faqItems.length > 0 && (
-                <section id="faq" className={brandSectionClassName}>
+                <section
+                  id="faq"
+                  className={cn(
+                    utilitySectionClassName,
+                    "[&_h2]:type-card-title",
+                  )}
+                >
                   <BrandFaqAccordion
                     items={faqItems}
                     brandSlug={displayBrand.slug}
                   />
                 </section>
               )}
+
+              <BrandSocialLinks
+                brand={displayBrand}
+                sectionIds={{ social: "social" }}
+                sectionClassName={cn(
+                  utilitySectionClassName,
+                  "[&_h2]:type-card-title",
+                )}
+              />
+              <BrandOtherLinks
+                brand={displayBrand}
+                sectionClassName={cn(
+                  utilitySectionClassName,
+                  "[&_h2]:type-card-title",
+                )}
+              />
             </div>
           </div>
 

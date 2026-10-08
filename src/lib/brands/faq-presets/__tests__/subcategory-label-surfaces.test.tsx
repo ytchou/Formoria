@@ -88,14 +88,7 @@ vi.mock("@/lib/auth/use-user", () => ({
   }),
 }));
 
-// The correction dialog reaches a server action and is not what this file is
-// about; the header's chip row is. Stubbing it keeps the render to the chips.
-vi.mock("@/components/brands/correction-dialog", () => ({
-  CorrectionDialog: () => null,
-}));
-
 const { BrandCard } = await import("@/components/brands/brand-card");
-const { BrandHeader } = await import("@/components/brands/brand-header");
 const { CorrectionsQueue } =
   await import("@/components/admin/corrections-queue");
 
@@ -167,37 +160,9 @@ describe("subcategory label surfaces", () => {
     expect(screen.queryByText(MIGRATED_SLUG)).toBeNull();
     enCard.unmount();
 
-    const zhDetail = renderInLocale(
-      <BrandHeader brand={brand} locale="zh-TW" />,
-      "zh-TW",
-    );
-    expect(screen.getByText(MIGRATED_LABEL_ZH)).toBeInTheDocument();
-    expect(screen.queryByText(MIGRATED_SLUG)).toBeNull();
-    zhDetail.unmount();
-
-    const enDetail = renderInLocale(
-      <BrandHeader brand={brand} locale="en" />,
-      "en",
-    );
-    expect(screen.getByText(MIGRATED_LABEL_EN)).toBeInTheDocument();
-    expect(screen.queryByText(MIGRATED_SLUG)).toBeNull();
-    enDetail.unmount();
-
-    // A tag the vocabulary has never known keeps the string it was authored
-    // with, in both locales — the novel-tag escape hatch.
-    const novelBrand = buildBrand({
-      subcategories: ["手工燈籠"],
-      subcategoriesEn: ["Handmade Lanterns"],
-    });
-    const zhNovel = renderInLocale(
-      <BrandHeader brand={novelBrand} locale="zh-TW" />,
-      "zh-TW",
-    );
-    expect(screen.getByText("手工燈籠")).toBeInTheDocument();
-    zhNovel.unmount();
-
-    renderInLocale(<BrandHeader brand={novelBrand} locale="en" />, "en");
-    expect(screen.getByText("Handmade Lanterns")).toBeInTheDocument();
+    // The brand detail header no longer renders subcategory chips (DEV-1951):
+    // the hero carries one category · city · year line instead, so there is no
+    // detail-page chip surface left to check here.
   });
 
   it("corrections_queue_does_not_flag_migrated_tags", () => {
