@@ -24,8 +24,9 @@ export type TrailTileLabels = {
  * container) and no fixed `min-h` leave the aspect-ratio box its content-based
  * minimum, so a three-line promise grows the tile instead of pushing the title
  * off its top edge, as the old fixed 224px floor did at 390px. md and up keep
- * a 320px floor. A single-column band also has a ceiling so it cannot grow
- * taller than the viewport-scale section it belongs to.
+ * a 320px floor. A single-column band (the hub's odd last trail, spanning both
+ * pair columns) takes the feature band's 21:9 from md, so it never stands
+ * taller than the feature above it; below md it is one more 3:2 card.
  *
  * `variant="feature"` is the DESIGN.md §8 TrailCard feature variant (/style hub
  * only): a full-width band at 4:3 below md and 21:9 from md, title in
@@ -101,8 +102,11 @@ export function TrailTile({
         }
         className={cn(
           "group relative flex flex-col justify-end overflow-clip rounded-surface bg-ink p-5 text-ground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3 md:min-h-80 md:p-8",
-          feature ? "aspect-[4/3] md:aspect-[21/9]" : "aspect-[3/2]",
-          singleColumn && "max-h-[35rem]",
+          feature
+            ? "aspect-[4/3] md:aspect-[21/9]"
+            : singleColumn
+              ? "aspect-[3/2] md:aspect-[21/9]"
+              : "aspect-[3/2]",
         )}
       >
         {imageSrc ? (
