@@ -1,6 +1,12 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import dynamic from "next/dynamic";
 
 import type { SelectedProductTileLabels } from "@/components/brands/selected-product-tile";
@@ -20,7 +26,33 @@ import { WallGroupPlaceholder } from "./wall-group";
 const loadWallGroupGrid = () =>
   import("./wall-group-grid").then((m) => m.WallGroupGrid);
 
-const WallGroupGrid = dynamic(loadWallGroupGrid, {
+/**
+ * DESIGN.md §7b chip swap for a fetched or cached group: its tiles fade in
+ * when the real grid mounts. The fade lives inside the lazy chunk because the
+ * chunk can land after the group's data — an effect in the filter would then
+ * find only the loading fallback and the swap would lose its fade.
+ */
+const loadFadingWallGroupGrid = () =>
+  loadWallGroupGrid().then((Grid) => {
+    function FadingWallGroupGrid(props: ComponentProps<typeof Grid>) {
+      const ref = useRef<HTMLDivElement>(null);
+      useLayoutEffect(() => {
+        if (ref.current) {
+          fadeInSwappedItems(
+            ref.current.querySelectorAll(":scope > div > ul > li"),
+          );
+        }
+      }, []);
+      return (
+        <div ref={ref} className="contents">
+          <Grid {...props} />
+        </div>
+      );
+    }
+    return FadingWallGroupGrid;
+  });
+
+const WallGroupGrid = dynamic(loadFadingWallGroupGrid, {
   ssr: false,
   loading: () => <WallGroupPlaceholder />,
 });
@@ -75,9 +107,10 @@ export function CategoryFilter({
   const [groups, setGroups] = useState<Record<string, GroupState>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const inflightRef = useRef<InflightRequest | null>(null);
-  // The group last faded in. Starts at the server-rendered "all" group so the
-  // page load is never animated (DESIGN.md §7b reserves entrance for the hero).
-  const revealedRef = useRef<string | null>("all");
+  // The group shown before this render, so only a swap back to the
+  // server-rendered "all" group fades — never the page load (DESIGN.md §7b
+  // reserves entrance motion for the hero).
+  const previousActiveRef = useRef(active);
 
   function load(slug: string) {
     inflightRef.current?.controller.abort();
@@ -132,26 +165,20 @@ export function CategoryFilter({
   }
 
   const activeGroup = active === "all" ? undefined : groups[active];
-  const activeStatus = activeGroup?.status;
 
-  // DESIGN.md §7b chip swap: fade the incoming group's tiles in once they are
-  // on screen — at once for "all" or a cached group, on arrival for a fetched
-  // one. The placeholder and the error block are never faded.
+  // DESIGN.md §7b chip swap back to "all": the server group is un-hidden in
+  // place, so fade its tiles here. Every other group fades on mount, inside
+  // the lazy chunk above; keyed by slug, a cached group remounts on a swap.
   useLayoutEffect(() => {
-    if (active !== "all" && activeStatus !== "ready") {
-      revealedRef.current = null;
-      return;
-    }
-    if (revealedRef.current === active) return;
-    revealedRef.current = active;
-    const group = Array.from(containerRef.current?.children ?? []).find(
-      (el): el is HTMLElement =>
-        el instanceof HTMLElement &&
-        el.dataset.category === active &&
-        !el.hidden,
+    const previous = previousActiveRef.current;
+    previousActiveRef.current = active;
+    if (active !== "all" || previous === "all") return;
+    const allGroup = containerRef.current?.querySelector<HTMLElement>(
+      '[data-category="all"]',
     );
-    if (group) fadeInSwappedItems(group.querySelectorAll(":scope > ul > li"));
-  }, [active, activeStatus]);
+    if (allGroup)
+      fadeInSwappedItems(allGroup.querySelectorAll(":scope > ul > li"));
+  }, [active]);
 
   return (
     <>
@@ -176,6 +203,7 @@ export function CategoryFilter({
         {children}
         {active === "all" ? null : activeGroup?.status === "ready" ? (
           <WallGroupGrid
+            key={active}
             slug={active}
             slots={activeGroup.slots}
             locale={locale}
