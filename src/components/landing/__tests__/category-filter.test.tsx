@@ -231,3 +231,84 @@ describe("CategoryFilter", () => {
     ).toHaveLength(0);
   });
 });
+
+describe("CategoryFilter chip-swap motion (DESIGN.md §7b)", () => {
+  const animated: Element[] = [];
+  const originalAnimate = Element.prototype.animate;
+  const originalMatchMedia = window.matchMedia;
+
+  function animatedText() {
+    return animated.map((el) => el.textContent);
+  }
+
+  beforeEach(() => {
+    animated.length = 0;
+    Element.prototype.animate = vi.fn(function (this: Element) {
+      animated.push(this);
+    }) as unknown as Element["animate"];
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+  });
+
+  afterEach(() => {
+    Element.prototype.animate = originalAnimate;
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it("does not animate the page load or the loading placeholder", async () => {
+    const user = userEvent.setup();
+    renderFilter();
+    expect(animated).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "居家生活" }));
+    expect(animated).toHaveLength(0);
+  });
+
+  it("fades a fetched group's tiles in once, when they arrive", async () => {
+    const user = userEvent.setup();
+    renderFilter();
+
+    await user.click(screen.getByRole("button", { name: "居家生活" }));
+    fetchMock.pending[0]!.resolve(
+      okResponse([slot("cup", "陶土馬克杯"), slot("bowl", "木碗")]),
+    );
+    await screen.findByText("陶土馬克杯");
+
+    expect(animatedText()).toEqual(["陶土馬克杯", "木碗"]);
+  });
+
+  it("fades the server group and a cached group in on a swap back", async () => {
+    const user = userEvent.setup();
+    renderFilter();
+
+    await user.click(screen.getByRole("button", { name: "居家生活" }));
+    fetchMock.pending[0]!.resolve(okResponse([slot("cup", "陶土馬克杯")]));
+    await screen.findByText("陶土馬克杯");
+    animated.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "全部" }));
+    expect(animatedText()).toEqual(["伺服器商品"]);
+
+    await user.click(screen.getByRole("button", { name: "居家生活" }));
+    expect(animatedText()).toEqual(["伺服器商品", "陶土馬克杯"]);
+  });
+
+  it("swaps instantly under prefers-reduced-motion", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    const user = userEvent.setup();
+    renderFilter();
+
+    await user.click(screen.getByRole("button", { name: "居家生活" }));
+    fetchMock.pending[0]!.resolve(okResponse([slot("cup", "陶土馬克杯")]));
+    await screen.findByText("陶土馬克杯");
+
+    expect(animated).toHaveLength(0);
+  });
+});

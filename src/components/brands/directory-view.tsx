@@ -57,7 +57,12 @@ import type { PublicBrandCard } from "@/lib/brands/contracts";
 import { DirectoryResultStatus } from "./directory-landing-head";
 import { routes } from "@/lib/routes";
 import { PageShell } from "@/components/ui/page-shell";
-import { ActiveFilterChips, FilterAside } from "@/components/filters";
+import {
+  ActiveFilterChips,
+  FilterAside,
+  PendingResults,
+  ResultsTransitionProvider,
+} from "@/components/filters";
 import { DirectoryHeader } from "@/components/directory/directory-header";
 import { DirectoryToolbar } from "@/components/directory/directory-toolbar";
 import { getCategoryEditorialLinks } from "@/lib/services/editorial-links";
@@ -455,6 +460,7 @@ export async function DirectoryView({
           }
         />
 
+        <ResultsTransitionProvider>
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Desktop sidebar */}
           <FilterAside aria-label={t("filters.title")}>
@@ -494,6 +500,7 @@ export async function DirectoryView({
               }
             />
 
+            <PendingResults>
             <Suspense
               fallback={
                 <MasonryGrid>
@@ -539,6 +546,7 @@ export async function DirectoryView({
               currentPage={clampedPage}
               pageSize={DEFAULT_PAGE_SIZE}
             />
+            </PendingResults>
             {editorialLinks.stories.length > 0 ||
             editorialLinks.trails.length > 0 ? (
               <nav
@@ -599,6 +607,7 @@ export async function DirectoryView({
             ) : null}
           </div>
         </div>
+        </ResultsTransitionProvider>
       </div>
     </PageShell>
   );

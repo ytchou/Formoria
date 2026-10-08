@@ -20,7 +20,11 @@ import {
   ProductFilterSidebar,
   ProductFilterDrawer,
 } from "@/components/products/product-filter-sidebar";
-import { FilterAside } from "@/components/filters";
+import {
+  FilterAside,
+  PendingResults,
+  ResultsTransitionProvider,
+} from "@/components/filters";
 import { ProductSortSelect } from "@/components/products/product-sort-select";
 import {
   ProductActiveFilters,
@@ -529,6 +533,7 @@ export default async function DiscoverPage({
         )}
 
         <SavedProductsProvider>
+        <ResultsTransitionProvider>
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Desktop sidebar */}
           <FilterAside>
@@ -613,6 +618,7 @@ export default async function DiscoverPage({
               />
             )}
 
+            <PendingResults>
             {isSearchMode && searchId && page === 1 && (
               <DiscoverBrandRow brands={relatedBrands} heading={t("brandRow.heading")} query={searchQuery} searchId={searchId} />
             )}
@@ -655,8 +661,10 @@ export default async function DiscoverPage({
                 />
               </>
             )}
+            </PendingResults>
           </div>
         </div>
+        </ResultsTransitionProvider>
         </SavedProductsProvider>
       </div>
     </PageShell>

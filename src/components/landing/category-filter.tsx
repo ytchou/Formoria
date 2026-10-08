@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 
 import type { SelectedProductTileLabels } from "@/components/brands/selected-product-tile";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { WallTileSlot } from "@/lib/curated-products/wall-tile";
+import { fadeInSwappedItems } from "@/lib/motion/chip-swap";
 import { WallGroupPlaceholder } from "./wall-group";
 
 /**
@@ -74,6 +75,9 @@ export function CategoryFilter({
   const [groups, setGroups] = useState<Record<string, GroupState>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const inflightRef = useRef<InflightRequest | null>(null);
+  // The group last faded in. Starts at the server-rendered "all" group so the
+  // page load is never animated (DESIGN.md §7b reserves entrance for the hero).
+  const revealedRef = useRef<string | null>("all");
 
   function load(slug: string) {
     inflightRef.current?.controller.abort();
@@ -128,6 +132,26 @@ export function CategoryFilter({
   }
 
   const activeGroup = active === "all" ? undefined : groups[active];
+  const activeStatus = activeGroup?.status;
+
+  // DESIGN.md §7b chip swap: fade the incoming group's tiles in once they are
+  // on screen — at once for "all" or a cached group, on arrival for a fetched
+  // one. The placeholder and the error block are never faded.
+  useLayoutEffect(() => {
+    if (active !== "all" && activeStatus !== "ready") {
+      revealedRef.current = null;
+      return;
+    }
+    if (revealedRef.current === active) return;
+    revealedRef.current = active;
+    const group = Array.from(containerRef.current?.children ?? []).find(
+      (el): el is HTMLElement =>
+        el instanceof HTMLElement &&
+        el.dataset.category === active &&
+        !el.hidden,
+    );
+    if (group) fadeInSwappedItems(group.querySelectorAll(":scope > ul > li"));
+  }, [active, activeStatus]);
 
   return (
     <>

@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useCallback, useMemo, useTransition } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useResultsTransition } from '@/components/filters/results-transition'
 import {
   parsePageParam,
   parseSortParam,
@@ -16,7 +17,7 @@ export function useFilterParams() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [isPending, startTransition] = useTransition()
+  const [isPending, startTransition] = useResultsTransition()
 
   const currentPage = useMemo(
     () => parsePageParam(searchParams.get('page') ?? undefined),
@@ -48,7 +49,7 @@ export function useFilterParams() {
     startTransition(() => {
       router.push(buildUrl(params), { scroll: false })
     })
-  }, [router, buildUrl, searchParams])
+  }, [router, buildUrl, searchParams, startTransition])
 
   const setPage = useCallback(
     (page: number) => {
@@ -62,7 +63,7 @@ export function useFilterParams() {
         router.push(buildUrl(params), { scroll: false })
       })
     },
-    [router, buildUrl, searchParams]
+    [router, buildUrl, searchParams, startTransition]
   )
 
   const setSort = useCallback(
@@ -79,7 +80,7 @@ export function useFilterParams() {
         router.push(buildUrl(params), { scroll: false })
       })
     },
-    [router, buildUrl, searchParams]
+    [router, buildUrl, searchParams, startTransition]
   )
 
   const setSearch = useCallback(
@@ -98,7 +99,7 @@ export function useFilterParams() {
         router.push(buildUrl(params), { scroll: false })
       })
     },
-    [router, buildUrl, currentSearch, searchParams]
+    [router, buildUrl, currentSearch, searchParams, startTransition]
   )
 
   return {

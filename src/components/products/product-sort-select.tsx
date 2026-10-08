@@ -1,12 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { trackProductSortChanged } from "@/lib/analytics";
+import { useResultsTransition } from "@/components/filters/results-transition";
 
 type ProductSortSelectProps = {
   currentSort: string;
@@ -19,7 +19,7 @@ export function ProductSortSelect({ currentSort, showRelevance }: ProductSortSel
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startTransition] = useResultsTransition();
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const value = event.target.value;
