@@ -259,13 +259,6 @@ export const ANALYTICS_EVENTS = {
   GALLERY_COMPLETED: "gallery_completed",
 
   /**
-   * An FAQ item on a brand page was expanded.
-   * @property brand_slug {string} Brand slug.
-   * @property preset_id {string} Stable preset id of the expanded item.
-   */
-  FAQ_ITEM_EXPANDED: "faq_item_expanded",
-
-  /**
    * A brand in the "you may also like" section was clicked.
    * @property brand_id {string} Destination brand UUID.
    * @property brand_slug {string} Destination brand slug.
@@ -866,7 +859,7 @@ export interface AnalyticsEventPayloads {
   };
   [ANALYTICS_EVENTS.BRAND_DETAIL_ENGAGED]: {
     brand_slug: string;
-    trigger: "dwell" | "gallery" | "faq" | "scroll_50";
+    trigger: "dwell" | "gallery" | "scroll_50";
     brand_id?: string;
   };
   [ANALYTICS_EVENTS.EXTERNAL_LINK_CLICKED]: {
@@ -891,10 +884,6 @@ export interface AnalyticsEventPayloads {
     brand_id: string;
     brand_slug: string;
     image_count: number;
-  };
-  [ANALYTICS_EVENTS.FAQ_ITEM_EXPANDED]: {
-    brand_slug: string;
-    preset_id: string;
   };
   [ANALYTICS_EVENTS.RECOMMENDATION_BRAND_CLICKED]: {
     brand_id: string;

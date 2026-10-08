@@ -277,6 +277,98 @@ describe("getBrandFaq", () => {
     );
   });
 
+  describe("CJK/Latin spacing on the template floor", () => {
+    const TEMPLATES: Record<string, string> = {
+      "brandFaq.mainProducts.question": "{brandName}的主要產品有哪些？",
+      "brandFaq.mainProducts.answerWithSubcategories":
+        "{brandName}的代表產品包含{subcategories}。{context}",
+      "brandFaq.listSeparator": "、",
+    };
+    const EN_TEMPLATES: Record<string, string> = {
+      "brandFaq.mainProducts.question": "What does {brandName} make?",
+      "brandFaq.mainProducts.answerWithSubcategories":
+        "{brandName} makes {subcategories} as signature products.{context}",
+      "brandFaq.listSeparator": ", ",
+    };
+    const translator =
+      (templates: Record<string, string>) =>
+      (key: string, params: Record<string, unknown> = {}) =>
+        (templates[key] ?? "").replace(/\{(\w+)\}/g, (_, name: string) =>
+          String(params[name] ?? ""),
+        );
+
+    function mainProducts(
+      items: Array<{ id: string; question: string; answer: string }>,
+    ) {
+      return items.find((item) => item.id === "main-products");
+    }
+
+    it("spaces a Latin-final brand name from the following Han character in zh", async () => {
+      const { items } = await getFaq(
+        makeBrand({ name: "Golday Jewelry", subcategories: ["戒指"] }),
+        [],
+        translator(TEMPLATES),
+      );
+
+      expect(mainProducts(items)?.question).toBe(
+        "Golday Jewelry 的主要產品有哪些？",
+      );
+      expect(mainProducts(items)?.answer).toBe(
+        "Golday Jewelry 的代表產品包含戒指。",
+      );
+    });
+
+    it("leaves a Han-final brand name unspaced in zh", async () => {
+      const { items } = await getFaq(
+        makeBrand({ name: "Simply Made 簡單製造", subcategories: ["木器"] }),
+        [],
+        translator(TEMPLATES),
+      );
+
+      expect(mainProducts(items)?.question).toBe(
+        "Simply Made 簡單製造的主要產品有哪些？",
+      );
+    });
+
+    it("leaves en copy unchanged", async () => {
+      const { items } = await getFaq(
+        makeBrand({
+          name: "Golday Jewelry",
+          subcategories: ["戒指"],
+          subcategoriesEn: ["rings"],
+        }),
+        [],
+        translator(EN_TEMPLATES),
+        "en",
+      );
+
+      expect(mainProducts(items)?.question).toBe(
+        "What does Golday Jewelry make?",
+      );
+      expect(mainProducts(items)?.answer).toBe(
+        "Golday Jewelry makes rings as signature products.",
+      );
+    });
+
+    it("does not touch stored rows", async () => {
+      const { items } = await getFaq(
+        makeBrand({ name: "Golday Jewelry", subcategories: ["戒指"] }),
+        [
+          row({
+            preset_id: "main-products",
+            question_zh: "Golday Jewelry的主要產品有哪些？",
+            answer_zh: "Golday Jewelry的代表產品包含戒指。",
+          }),
+        ],
+        translator(TEMPLATES),
+      );
+
+      expect(mainProducts(items)?.question).toBe(
+        "Golday Jewelry的主要產品有哪些？",
+      );
+    });
+  });
+
   it("renders every stored custom row in position order", async () => {
     const { items } = await getFaq(makeBrand(), [
       row({

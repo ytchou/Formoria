@@ -758,7 +758,7 @@ export function trackBrandSaved(
 }
 
 /** First qualifying signal that a visitor actually engaged with a brand page. */
-export type EngagementTrigger = "dwell" | "gallery" | "faq" | "scroll_50";
+export type EngagementTrigger = "dwell" | "gallery" | "scroll_50";
 
 // PostHog-only, like trackBrandSaved: engagement depth is a product metric, not a
 // GA conversion signal, and GA4 event quota is better spent elsewhere.
@@ -859,13 +859,6 @@ export function trackGalleryCompleted(
     brand_id: brandId,
     brand_slug: slug,
     image_count: imageCount,
-  });
-}
-
-export function trackFaqItemExpanded(brandSlug: string, presetId: string) {
-  capturePostHogEvent(ANALYTICS_EVENTS.FAQ_ITEM_EXPANDED, {
-    brand_slug: brandSlug,
-    preset_id: presetId,
   });
 }
 
