@@ -1,6 +1,6 @@
 {
   "common": {
-    "exploreBrands": "看收錄品牌",
+    "exploreBrands": "看品牌目錄",
     "submitBrand": "推薦品牌",
     "all": "全部",
     "skipToContent": "跳至主要內容",
@@ -1542,7 +1542,7 @@
       "description": "Formoria 是台灣好物選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。這裡說明我們怎麼收錄、怎麼挑選，以及不做哪些事。"
     },
     "hero": {
-      "title": "搬新家、佈置店面、<br></br>在市集<wbr></wbr>停下來的那一刻",
+      "title": "搬新家、佈置店面、<br></br>在市集<wbr></wbr>停下來的<wbr></wbr>那一刻",
       "subtitle": "喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
       "statsBoth": "目前收錄 {brands} 個品牌，分在 {categories} 個分類。",
       "statsBrands": "目前收錄 {count} 個品牌。",
@@ -1766,7 +1766,7 @@
       "description": "這個網址沒有對應的頁面，可能已經搬走了。",
       "cta": "返回首頁",
       "browseProducts": "逛商品",
-      "browseDirectory": "看收錄品牌",
+      "browseDirectory": "看品牌目錄",
       "categoriesHeading": "從這些分類開始逛："
     },
     "boundary": {

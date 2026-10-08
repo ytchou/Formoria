@@ -1,6 +1,6 @@
 {
   "common": {
-    "exploreBrands": "Browse listed brands",
+    "exploreBrands": "Browse the brand directory",
     "submitBrand": "Recommend a brand",
     "all": "All",
     "skipToContent": "Skip to content",
@@ -1766,7 +1766,7 @@
       "description": "There's no page at this address. It may have moved.",
       "cta": "Back to home",
       "browseProducts": "Browse products",
-      "browseDirectory": "Browse listed brands",
+      "browseDirectory": "Browse the brand directory",
       "categoriesHeading": "Start browsing:"
     },
     "boundary": {

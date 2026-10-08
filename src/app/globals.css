@@ -382,17 +382,21 @@
 
 /* ── 明體 (font-ming) — content ─────────────────────────────────────────── */
 
-/* zh headings break at spaces and punctuation, not mid-word, at 390px.
-   `keep-all` alone would turn an unpunctuated CJK heading into one
-   unbreakable word that overflows; `overflow-wrap: anywhere` lets that one
-   case break mid-run, only when it must (not `break-word`, which leaves the
-   min-content width wide and stretches grid and flex columns past 390px). Not `auto-phrase`: Chromium segments
-   only Japanese with it, so zh headings got no phrase breaking at all. */
+/* zh headings keep the default `word-break`, so `text-wrap: balance` can
+   even the lines and no character is left alone on the last line. No
+   `keep-all` here: it removes every break between Han characters, so an
+   unpunctuated heading became one word that `overflow-wrap` split at the
+   overflow edge. Declaring any `word-break` here would also override a call
+   site's `break-keep`. A heading that must break only between words opts in
+   with `break-keep` plus `<wbr>`: in its message (hero) or from
+   `phraseBreaks()` (components/ui/phrase-breaks.tsx). `line-break: strict`
+   keeps closing punctuation off the start of a line. `anywhere` only fires
+   on an unbreakable run (a long Latin brand name) and, unlike `break-word`,
+   lowers min-content width so grid and flex columns stay inside 390px. */
 
 @utility type-display {
   @apply font-ming text-[2.875rem] font-[560] tracking-[-0.02em] leading-[1.1] text-ink;
   &:lang(zh) {
-    word-break: keep-all;
     overflow-wrap: anywhere;
     line-break: strict;
     text-wrap: balance;
@@ -402,7 +406,6 @@
 @utility type-page-title {
   @apply font-ming text-[2.5rem] font-[560] tracking-[-0.02em] leading-[1.15] text-ink;
   &:lang(zh) {
-    word-break: keep-all;
     overflow-wrap: anywhere;
     line-break: strict;
     text-wrap: balance;
@@ -412,7 +415,6 @@
 @utility type-section {
   @apply font-ming text-[1.625rem] font-[560] tracking-[-0.015em] leading-[1.25] text-ink;
   &:lang(zh) {
-    word-break: keep-all;
     overflow-wrap: anywhere;
     line-break: strict;
     text-wrap: balance;
@@ -422,7 +424,6 @@
 @utility type-card-title {
   @apply font-ming text-[1.3125rem] font-semibold leading-[1.35] text-ink;
   &:lang(zh) {
-    word-break: keep-all;
     overflow-wrap: anywhere;
     line-break: strict;
     text-wrap: balance;
