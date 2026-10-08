@@ -281,13 +281,13 @@ describe("getBrandFaq", () => {
     const TEMPLATES: Record<string, string> = {
       "brandFaq.mainProducts.question": "{brandName}的主要產品有哪些？",
       "brandFaq.mainProducts.answerWithSubcategories":
-        "{brandName}的代表產品包含{subcategories}。{context}",
+        "{brandName}的商品類型包括{subcategories}。{context}",
       "brandFaq.listSeparator": "、",
     };
     const EN_TEMPLATES: Record<string, string> = {
       "brandFaq.mainProducts.question": "What does {brandName} make?",
       "brandFaq.mainProducts.answerWithSubcategories":
-        "{brandName} makes {subcategories} as signature products.{context}",
+        "{brandName}'s products include {subcategories}.{context}",
       "brandFaq.listSeparator": ", ",
     };
     const translator =
@@ -314,7 +314,7 @@ describe("getBrandFaq", () => {
         "Golday Jewelry 的主要產品有哪些？",
       );
       expect(mainProducts(items)?.answer).toBe(
-        "Golday Jewelry 的代表產品包含戒指。",
+        "Golday Jewelry 的商品類型包括戒指。",
       );
     });
 
@@ -346,7 +346,7 @@ describe("getBrandFaq", () => {
         "What does Golday Jewelry make?",
       );
       expect(mainProducts(items)?.answer).toBe(
-        "Golday Jewelry makes rings as signature products.",
+        "Golday Jewelry's products include rings.",
       );
     });
 

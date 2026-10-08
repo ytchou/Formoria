@@ -315,7 +315,7 @@ test.describe("Brand detail deep", () => {
     const firstItem = page.locator('[id^="faq-"]').first();
     // The first rendered item is the main-products floor.
     await expect(firstItem).toHaveAttribute("id", "faq-main-products");
-    await expect(firstItem.locator("dd")).toContainText("代表產品包含");
+    await expect(firstItem.locator("dd")).toContainText("商品類型包括");
     await expect(page.locator("#faq details")).toHaveCount(0);
 
     // The literal acceptance criterion — "verifiable by curl". Asserting on the
@@ -324,11 +324,11 @@ test.describe("Brand detail deep", () => {
     const response = await request.get(`/brands/${seeded.slug}`);
     expect(response.status()).toBe(200);
     const html = await response.text();
-    expect(html).toContain("代表產品包含");
+    expect(html).toContain("商品類型包括");
     const $ = load(html);
     const serverItem = $('[id^="faq-"]').first();
     expect(serverItem.attr("id")).toBe("faq-main-products");
-    expect(serverItem.find("dd").text()).toContain("代表產品包含");
+    expect(serverItem.find("dd").text()).toContain("商品類型包括");
     expect($("#faq details")).toHaveLength(0);
   });
 });

@@ -31,8 +31,10 @@ vi.mock("next-intl/server", () => ({
 
 const { EditorialAppearances } = await import("../editorial-appearances");
 
-const trails = [{ slug: "slow-mornings", title: "慢慢醒來的早晨" }];
-const stories = [{ slug: "expo-guide", title: "展覽導覽" }];
+const trails = [
+  { slug: "slow-mornings", title: "慢慢醒來的早晨", locale: "zh-TW" },
+];
+const stories = [{ slug: "expo-guide", title: "展覽導覽", locale: "zh-TW" }];
 
 describe("EditorialAppearances", () => {
   it("renders nothing when there are no trails or stories", async () => {
@@ -67,5 +69,40 @@ describe("EditorialAppearances", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText("慢慢醒來的早晨")).not.toHaveAttribute("lang");
     expect(screen.getByText("展覽導覽")).not.toHaveAttribute("lang");
+  });
+
+  it("marks each title by its own content locale", async () => {
+    render(
+      await EditorialAppearances({
+        locale: "en",
+        trails: [
+          { slug: "slow-mornings", title: "Slow mornings", locale: "en" },
+        ],
+        stories,
+      }),
+    );
+
+    expect(screen.getByText("Slow mornings")).not.toHaveAttribute("lang");
+    expect(screen.getByText("展覽導覽")).toHaveAttribute("lang", "zh-Hant-TW");
+    expect(screen.getAllByText("editorialAppearances.zhOnlyNote")).toHaveLength(
+      1,
+    );
+  });
+
+  it("marks an en title on a zh page and shows no zh-only note", async () => {
+    render(
+      await EditorialAppearances({
+        locale: "zh-TW",
+        trails: [
+          { slug: "slow-mornings", title: "Slow mornings", locale: "en" },
+        ],
+        stories: [],
+      }),
+    );
+
+    expect(screen.getByText("Slow mornings")).toHaveAttribute("lang", "en");
+    expect(
+      screen.queryByText("editorialAppearances.zhOnlyNote"),
+    ).not.toBeInTheDocument();
   });
 });

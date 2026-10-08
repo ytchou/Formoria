@@ -572,15 +572,10 @@
         "founded": "於 {year} 年成立",
         "suffix": "{details}。"
       },
-      "isMadeInTaiwan": {
-        "question": "{brandName} 是台灣品牌嗎？",
-        "answer": "Formoria 已比對到 {brandName} 的產品與 MIT 微笑標章登錄資料；此驗證僅適用於登錄資料涵蓋的產品。",
-        "registrySource": "資料來源：MIT Smile 台灣製產品名錄。"
-      },
       "mainProducts": {
         "question": "{brandName}的主要產品有哪些？",
-        "answerWithCategoryAndSubcategories": "{brandName}以{category}為主要領域，代表產品包含{subcategories}。{context}",
-        "answerWithSubcategories": "{brandName}的代表產品包含{subcategories}。{context}"
+        "answerWithCategoryAndSubcategories": "{brandName}主要做{category}，商品類型包括{subcategories}。{context}",
+        "answerWithSubcategories": "{brandName}的商品類型包括{subcategories}。{context}"
       },
       "whereToBuy": {
         "question": "{brandName}在哪裡可以買到？",
