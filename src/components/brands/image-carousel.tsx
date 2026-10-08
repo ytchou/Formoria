@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { SurfaceImage } from "@/components/ui/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -55,6 +55,9 @@ export function ImageCarousel({
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const completedFired = useRef(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  // A fade still pending at unmount would call setState on a dead tree.
+  useEffect(() => () => clearTimeout(fadeTimerRef.current), []);
 
   const initial = [...alt][0];
 

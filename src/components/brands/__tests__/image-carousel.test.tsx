@@ -144,6 +144,21 @@ describe("ImageCarousel", () => {
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
   });
 
+  // A cross-fade timer left pending at unmount fires after the jsdom
+  // environment is torn down and fails the whole suite run (DEV-1973).
+  it("clears the cross-fade timer on unmount", () => {
+    vi.useFakeTimers();
+    try {
+      const { unmount } = renderCarousel();
+      fireEvent.click(screen.getByRole("button", { name: "gallery.next" }));
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the mapping after advancing past the dropped image", () => {
     renderCarousel();
     fireEvent.click(screen.getByRole("button", { name: "gallery.next" }));
