@@ -1850,7 +1850,7 @@
   "submit": {
     "metadata": {
       "title": "推薦品牌",
-      "description": "推薦值得被看見的台灣品牌，通過審核後加入 Formoria 品牌目錄"
+      "description": "推薦一個台灣品牌給 Formoria，審核通過後會收錄進品牌目錄。"
     },
     "overview": {
       "heading": "推薦台灣品牌",
@@ -1871,232 +1871,88 @@
       "ownerPoint3": "品牌頁收錄後，你可以持續維護品牌資訊",
       "ownerCtaLoggedIn": "建立我的品牌頁"
     },
-    "wizard": {
-      "heading": "推薦品牌",
-      "subheading": "與社群分享台灣品牌",
-      "next": "下一步",
-      "submitting": "送出中...",
-      "submitBrand": "送出推薦",
-      "steps": {
-        "brandInfo": "品牌資訊",
-        "tags": "分類與特色",
-        "products": "產品",
-        "links": "連結",
-        "review": "確認"
-      }
-    },
-    "url": {
-      "heading": "推薦你喜愛的品牌",
-      "subheading": "與社群分享台灣品牌",
-      "label": "品牌網站",
-      "socialLinksLabel": "社群連結",
-      "addLink": "新增連結",
-      "purchaseWebsite": "品牌官網",
-      "purchaseShopee": "蝦皮購物",
-      "urlInvalid": "請輸入有效的網址。",
-      "loading": "正在取得品牌資訊...",
-      "cancel": "取消",
-      "retry": "再試一次",
-      "skip": "跳過，手動填寫"
-    },
     "attribution": {
       "bought_product": "買過他們的產品",
       "saw_at_market": "在市集或實體通路看到",
       "found_online": "在網路上發現",
       "friend_recommended": "朋友推薦",
-      "work_there": "在這裡工作"
+      "work_there": "我在這個品牌工作"
     },
-    "city": "品牌創立縣市",
-    "cityPlaceholder": "請選擇創立縣市（選填）",
     "fields": {
-      "brandName": "品牌名稱",
-      "brandNamePlaceholder": "例：雨靴工作室",
-      "heroImage": "品牌主圖",
-      "heroImageHelper": "選填 — 提供圖片就會直接使用；若未提供，系統會自動搜尋（品質不保證）。",
-      "heroImageDescription": "建議上傳品牌 Logo 或代表性產品照片",
-      "productPhotos": "產品照片",
-      "productPhotosHelper": "選填 — 最多 5 張產品照片，幫助我們更了解這個品牌。",
-      "suggestedName": "建議名稱：",
-      "applySuggestion": "套用",
-      "brandDescription": "品牌描述",
-      "brandDescriptionPlaceholder": "告訴我們這個品牌在做什麼…",
-      "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——做什麼、使用哪些材料，以及品牌如何在台灣創立、設計或製造。",
-      "mitSmileMarkNumber": "MIT 微笑標章編號",
-      "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
-      "mitSmileMarkNumberHint": "通過驗證後，品牌頁會顯示 MIT 微笑認證標籤。",
-      "charCount": "{count} / {max} 個字元上限",
-      "photos": "品牌照片",
-      "photosDragHint": "拖曳以排序。第一張照片將成為主圖。",
-      "noPhotos": "未從網站找到照片",
-      "addPhotos": "新增照片",
-      "addMorePhotos": "新增更多照片",
-      "fromWebsite": "來自網站",
-      "uploaded": "已上傳",
-      "category": "品牌類別",
-      "categoryPlaceholder": "選擇類別",
-      "tags": "標籤",
-      "tagsHint": "最多新增 5 個標籤，幫助大家找到這個品牌",
-      "tagsInputPlaceholder": "輸入後按 Enter 新增標籤",
-      "removeTag": "移除標籤 {tag}",
-      "logoRequired": "Logo *",
-      "logoOptional": "Logo（選填）",
-      "logoHint": "上傳品牌 Logo（最大 5MB，將調整至最大 1200px）",
-      "productPhotosHint": "上傳最多 9 張照片展示產品",
-      "brandHighlights": "品牌亮點",
-      "brandHighlightsHint": "這個品牌和其他品牌不一樣的地方是什麼？",
-      "brandHighlightsPlaceholder": "例：以台灣本地檜木手工製作...",
-      "purchaseLinksRequired": "購買連結 *",
-      "purchaseLinksOptional": "購買連結（可選）",
-      "purchaseLinksHint": "新增可以買到產品的連結",
-      "purchaseLinkError": "請至少新增一個購買連結",
-      "addAnotherLink": "新增另一個連結",
-      "platform": "平台",
-      "socialLinks": "社群連結",
-      "storeName": "店名",
-      "address": "地址",
-      "addLocation": "新增地點",
-      "region": "品牌創立縣市",
-      "regionPlaceholder": "選擇創立縣市",
-      "regionHint": "品牌最初創立的縣市",
-      "regionOptionalHint": "選填",
-      "categoryMultiSelect": "",
-      "categoryHint": "選擇最符合的品牌類別",
-      "categoryFreeTextToggle": "以上都不適合？",
-      "categoryFreeTextToggleHint": "— 改為手動輸入品牌類別",
-      "categoryNoteLabel": "請描述品牌類別",
-      "categoryNoteHint": "我們將審核此建議",
-      "categoryNotePlaceholder": "例如：皮革製品",
-      "ubn": "統一編號（選填）",
-      "ubnHint": "8位數字，公司或商號的統一編號，由經濟部核發",
-      "ubnDuplicateTitle": "此統一編號的品牌已存在於目錄中",
-      "ubnDuplicateSeeExisting": "請查看現有品牌：",
       "nameDuplicateTitle": "發現相似品牌名稱",
-      "websiteDuplicateTitle": "這個網站已經登錄在其他品牌資料中",
+      "websiteDuplicateTitle": "目錄裡已有品牌用了這個網址",
       "nameDuplicateConfirmLabel": "我確認這不是重複的品牌",
+      "duplicateConfirmRequired": "請先確認這不是重複的品牌",
       "duplicateReasonCjk": "中文名稱相似",
-      "duplicateReasonLatin": "英文名稱相似",
-      "checking": "檢查中",
-      "next": "下一步",
-      "dedup_check_failed": "無法驗重複，請再試一次。"
+      "duplicateReasonLatin": "英文名稱相似"
     },
     "review": {
-      "brandInfo": "品牌資訊",
-      "productPhotos": "產品照片",
-      "edit": "編輯",
-      "brandName": "品牌名稱",
-      "description": "描述",
-      "category": "類別",
-      "tags": "標籤",
-      "logo": "Logo",
-      "pdpaConsent": "我同意依據<privacyPolicy>隱私權政策</privacyPolicy>收集和使用我的個人資料，並已了解依據《個人資料保護法》所賦予之各項權利。",
-      "socialLinks": "社群連結",
-      "purchaseLinks": "購買連結",
-      "purchaseWebsite": "品牌官網",
-      "purchaseShopee": "蝦皮購物"
+      "pdpaConsent": "我同意 Formoria 依<privacyPolicy>隱私權政策</privacyPolicy>蒐集和使用我的個人資料，也了解我在《個人資料保護法》下的權利。"
     },
     "confirmation": {
       "metadata": {
-        "title": "已收到品牌資料",
-        "description": "我們已收到品牌資料，正在進行審核。"
+        "title": "已收到你的推薦",
+        "description": "我們收到品牌資料了，正在審核。"
       },
-      "heading": "感謝推薦！",
       "subheading": "我們已收到你的品牌推薦",
       "timeline": {
         "review": {
           "label": "審核中",
-          "description": "我們的團隊通常在 2 個工作天內完成審核"
+          "description": "審核通常約需 7 個工作天。"
         },
         "result": {
-          "label": "品牌上架",
-          "description": "審核完成後，通過的品牌會出現在 Formoria 目錄中；若有留下電子郵件，我們會寄出審核結果。"
+          "label": "收錄進目錄",
+          "description": "審核通過的品牌會收錄進品牌目錄。如果你留了電子郵件，我們會寄信通知審核結果。"
         }
       },
       "cta": {
-        "explore": "探索 Formoria 目錄",
+        "explore": "回到首頁",
         "submitAnother": "再推薦一個品牌"
       },
       "whatNext": {
-        "heading": "接下來會發生什麼",
-        "reviewTime": {
-          "question": "審核需要多久？",
-          "answer": "我們的團隊通常會在 2 個工作天內完成審核。"
-        },
-        "contact": {
-          "question": "你們會如何聯繫我？",
-          "answer": "我們會透過留下的電子郵件地址聯繫。"
-        },
-        "afterApproval": {
-          "question": "審核通過後會怎樣？",
-          "answer": "通過審核的品牌會出現在 Formoria 目錄中，供訪客探索。"
-        },
         "learnMore": {
-          "question": "想了解更多？",
-          "answer": "想更了解審核、品牌認領與資料更新方式？請參閱<link>常見問題</link>。"
+          "answer": "想了解審核方式、品牌認領或資料更新？請看<link>常見問題</link>。"
         }
       }
     },
     "validation": {
-      "nameMinLength": "品牌名稱至少需要 2 個字元",
-      "descriptionRequired": "請填寫品牌簡介",
+      "nameMinLength": "品牌名稱至少要 2 個字",
+      "descriptionRequired": "請填寫品牌介紹",
       "heroImageRequired": "請上傳品牌主圖",
       "emailInvalid": "請輸入有效的電子郵件地址",
       "emailRequiredForNewsletter": "若要訂閱電子報，請填寫電子郵件地址",
       "platformRequired": "請選擇平台",
-      "urlInvalid": "請輸入有效的網址",
-      "pdpaRequired": "請同意隱私政策",
-      "turnstileRequired": "請完成驗證"
+      "urlInvalid": "請輸入完整網址，例如 https://brand.com",
+      "pdpaRequired": "請勾選同意隱私權政策",
+      "turnstileRequired": "請完成真人驗證",
+      "sourceRequired": "請選擇你認識這個品牌的方式"
     },
     "errors": {
-      "notAuthenticated": "請先登入才能建立品牌頁面",
-      "rateLimit": "操作次數過多，請稍後再試。",
-      "validation": "驗證失敗，請再試一次。",
-      "unexpected": "發生預期外的錯誤，請再試一次。",
-      "turnstileError": "驗證失敗，請重新整理頁面後再試。"
+      "rateLimit": "送出次數太多，請過幾分鐘再試。",
+      "validation": "驗證沒有通過，請重新整理頁面再試一次。",
+      "unexpected": "沒有送出成功，請再試一次。",
+      "turnstileError": "驗證沒有載入，請重新整理頁面再試一次。"
     },
     "recommendForm": {
       "heading": "推薦品牌",
-      "subheading": "提供品牌名稱與網址，讓我們開始審核這個台灣品牌。",
-      "websiteLabel": "品牌官方網站",
-      "websiteHint": "請提供品牌官方網站，若無官方網站則提供社群網站亦可。",
+      "subheading": "告訴我們品牌名稱和網址，我們審核後會決定是否收錄。",
+      "websiteLabel": "品牌官網",
+      "websiteHint": "填品牌官網；沒有官網的話，Instagram 或 Facebook 也可以。",
       "websitePlaceholder": "https://brand.example",
       "brandNameLabel": "品牌名稱",
       "brandNamePlaceholder": "例：暖木家居",
-      "brandNameHint": "請填正式品牌名稱，方便我們檢驗與審核。",
+      "brandNameHint": "填品牌對外使用的正式名稱，方便我們查證。",
       "guestEmailLabel": "電子郵件",
       "guestEmailHint": "想收到審核結果通知的話，請留下電子郵件。",
       "guestEmailPlaceholder": "name@example.com",
-      "descriptionLabel": "補充說明",
-      "descriptionHint": "知道品牌特色、產品或背景的話，可以留在這裡，幫助我們審核。",
-      "descriptionPlaceholder": "例如：品牌在台南設計，並與台灣在地工坊合作生產。",
-      "sourceLabel": "你如何知道這個品牌？",
-      "sourcePlaceholder": "選擇認識這個品牌的方式",
+      "descriptionLabel": "補充說明（選填）",
+      "descriptionHint": "如果知道品牌的特色、商品或背景，可以寫在這裡，幫我們審核。",
+      "descriptionPlaceholder": "例：品牌在台南設計，和台灣在地工坊合作生產。",
+      "sourceLabel": "你怎麼認識這個品牌？",
+      "sourcePlaceholder": "請選擇",
       "requiredHint": "為必填欄位",
       "submitButton": "送出推薦",
       "submittingButton": "送出中…",
-      "suggestedName": "建議名稱：",
-      "suggestedUrl": "建議網址：",
-      "applySuggestion": "套用"
-    },
-    "submissionWizard": {
-      "heading": "填寫品牌資料",
-      "subheading": "依照步驟填寫品牌資料，確保品牌資訊精準呈現。",
-      "backButton": "上一步",
-      "submitButton": "送出品牌資料",
-      "submittingButton": "送出中…"
-    },
-    "form": {
-      "heading": "推薦品牌",
-      "subheading": "與社群分享台灣品牌",
-      "websiteLabel": "品牌官方網站",
-      "websitePlaceholder": "https://yourbrand.com",
-      "brandNameLabel": "品牌名稱",
-      "brandNamePlaceholder": "例：雨靴工作室",
-      "brandNameHint": "品牌名稱將顯示於品牌頁面，也會作為搜尋品牌資訊的依據，請填寫正式名稱",
-      "sourceLabel": "資料來源",
-      "sourcePlaceholder": "選擇認識這個品牌的方式",
-      "requiredHint": "為必填欄位",
-      "submitButton": "送出推薦",
-      "submittingButton": "送出中...",
       "suggestedName": "建議名稱：",
       "suggestedUrl": "建議網址：",
       "applySuggestion": "套用"

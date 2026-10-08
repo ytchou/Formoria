@@ -33,8 +33,15 @@ async function fillRequiredFields(
   page: Page,
   values: { name: string; website: string },
 ) {
-  await page.locator('#submit-website').fill(values.website)
+  // Typed without its scheme on purpose: the submit button is always enabled
+  // now, so it no longer signals that the form is hydrated. Seeing the blur
+  // handler write `https://` back is that signal — only client code does it.
+  const website = page.locator('#submit-website')
+  await website.fill(values.website.replace(/^https:\/\//, ''))
   await page.locator('#submit-name').fill(values.name)
+  await expect(website).toHaveValue(values.website, {
+    timeout: BUDGET.SERVER_RENDER,
+  })
   await page.locator('#submit-source').selectOption('found_online')
   await page.locator('#submit-pdpa').check()
 }
@@ -92,17 +99,26 @@ test.describe('Submit recommendation edge cases', () => {
       anonPage.getByText('發現相似品牌名稱'),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER })
 
-    const submitButton = anonPage.getByRole('button', { name: '送出推薦' })
-    await expect(submitButton).toBeDisabled()
+    // The button stays enabled; an unconfirmed duplicate is refused on click
+    // with a blocker message and focus on the confirm checkbox, and nothing
+    // reaches the server.
+    await anonPage.getByRole('button', { name: '送出推薦' }).click()
+    await expect(
+      anonPage.getByText('請先確認這不是重複的品牌'),
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE })
+    await expect(anonPage.locator('#submit-duplicate-confirmed')).toBeFocused()
+    await expect(anonPage).toHaveURL(/\/submit\/recommend/)
 
     await anonPage
       .locator('#submit-name')
       .fill(`${SUBMISSION_PREFIX} Recovery ${Date.now()}`)
 
     await expect(
+      anonPage.getByText('請先確認這不是重複的品牌'),
+    ).toHaveCount(0)
+    await expect(
       anonPage.getByText('發現相似品牌名稱'),
     ).toHaveCount(0)
-    await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER })
   })
 
   test('rapid repeat activation creates exactly one submission', async ({
@@ -119,8 +135,9 @@ test.describe('Submit recommendation edge cases', () => {
       website: `https://submit-edge-${suffix}.example.com`,
     })
 
+    // fillRequiredFields has already proven hydration; the button is always
+    // enabled, so the race below is the only thing being measured.
     const submitButton = anonPage.getByRole('button', { name: '送出推薦' })
-    await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER })
 
     const attempts = await Promise.allSettled([
       submitButton.click({ timeout: BUDGET.RENDERED }),
@@ -183,9 +200,7 @@ test.describe('Submit recommendation edge cases', () => {
 
       const confirmations = await Promise.all(
         pages.map(async (page) => {
-          const submitButton = page.getByRole('button', { name: '送出推薦' })
-          await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER })
-          await submitButton.click()
+          await page.getByRole('button', { name: '送出推薦' }).click()
           await page.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI })
           await expect(page.getByRole('heading', { name: '我們已收到你的品牌推薦' })).toBeVisible({
             timeout: BUDGET.SERVER_RENDER,

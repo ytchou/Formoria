@@ -138,7 +138,7 @@ export function BrandCard({
     return (
       <article
         className={surfaceCardStyles({
-          tone: "white",
+          tone: "background",
           // h-full fills the grid cell so every strip in a row can sit on
           // the same bottom edge (mt-auto below).
           className: cn(CARD_ARTICLE_CLASS, "h-full"),
