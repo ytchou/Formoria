@@ -217,7 +217,7 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page.getByRole('link', { name: exactName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     await page.goto('/about');
-    const desktopNavSearch = page.getByRole("search", { name: "全站商品搜尋" }).getByRole("searchbox", { name: "全站商品搜尋" });
+    const desktopNavSearch = page.getByRole("banner").getByRole("search", { name: "搜尋商品", exact: true }).getByRole("searchbox", { name: "搜尋商品", exact: true });
     await desktopNavSearch.fill(englishToken);
     await desktopNavSearch.press('Enter');
     await expect(page).toHaveURL(url => url.pathname === '/discover' && url.searchParams.get('q') === englishToken);
@@ -226,7 +226,7 @@ test.describe.serial('Public brand search edge cases', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/en');
     await page.getByRole('button', { name: 'Open menu' }).click();
-    const mobileSearch = page.getByRole("dialog").getByRole("search", { name: "Site product search" }).getByRole("searchbox", { name: "Site product search" });
+    const mobileSearch = page.getByRole("dialog").getByRole("search", { name: "Search products", exact: true }).getByRole("searchbox", { name: "Search products", exact: true });
     await mobileSearch.fill(englishToken);
     await mobileSearch.press('Enter');
     await expect(page).toHaveURL((url) =>

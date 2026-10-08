@@ -1,7 +1,7 @@
 {
   "common": {
     "brandName": "Formoria",
-    "exploreBrands": "探索品牌",
+    "exploreBrands": "逛逛品牌",
     "submitBrand": "推薦品牌",
     "all": "全部",
     "allBrands": "全部品牌",
@@ -12,12 +12,12 @@
     "loading": "載入中…"
   },
   "nav": {
-    "searchAria": "全站商品搜尋",
+    "searchAria": "搜尋商品",
     "faq": "常見問題",
     "submitBrand": "推薦品牌",
-    "searchPlaceholder": "搜尋商品、品牌或需求…",
+    "searchPlaceholder": "搜尋商品、品牌，或一個情境…",
     "openMenu": "開啟選單",
-    "navigation": "導覽選單",
+    "navigation": "主選單",
     "signIn": "登入",
     "languageLabel": "切換語言",
     "languageTraditionalChinese": "繁體中文",
@@ -29,20 +29,22 @@
     "brands": "收錄品牌"
   },
   "footer": {
-    "about": "關於我們",
+    "about": "關於 Formoria",
     "terms": "服務條款",
     "privacy": "隱私權政策",
     "contact": "聯絡我們",
     "copyright": "© {year} Formoria",
     "tagline": "生活可以更像自己一點",
-    "discoverHeading": "探索",
+    "discoverHeading": "逛逛",
     "directory": "品牌目錄",
     "stories": "專題",
     "submit": "推薦品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
     "connectHeading": "聯絡",
-    "discover": "風格"
+    "style": "風格",
+    "products": "商品",
+    "disclosure": "Formoria 不販售商品；所有購買都在品牌自己的通路完成。"
   },
   "style": {
     "metaTitle": "風格",

@@ -1,10 +1,10 @@
 {
   "common": {
     "brandName": "Formoria",
-    "exploreBrands": "Explore Brands",
-    "submitBrand": "Recommend a Brand",
+    "exploreBrands": "Browse brands",
+    "submitBrand": "Recommend a brand",
     "all": "All",
-    "allBrands": "All Brands",
+    "allBrands": "All brands",
     "skipToContent": "Skip to content",
     "close": "Close",
     "closeDialog": "Close dialog",
@@ -12,12 +12,12 @@
     "loading": "Loading…"
   },
   "nav": {
-    "searchAria": "Site product search",
+    "searchAria": "Search products",
     "faq": "FAQ",
-    "submitBrand": "Recommend a Brand",
-    "searchPlaceholder": "Search products, brands or needs…",
+    "submitBrand": "Recommend a brand",
+    "searchPlaceholder": "Search products, brands, or a situation…",
     "openMenu": "Open menu",
-    "navigation": "Navigation",
+    "navigation": "Main menu",
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "languageTraditionalChinese": "Traditional Chinese",
@@ -29,20 +29,22 @@
     "brands": "Listed brands"
   },
   "footer": {
-    "about": "About",
+    "about": "About Formoria",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
     "contact": "Contact",
     "copyright": "© {year} Formoria",
-    "tagline": "Life can look a little more like you",
-    "discoverHeading": "Discover",
-    "directory": "Brand Directory",
+    "tagline": "Life can feel a little more like you",
+    "discoverHeading": "Browse",
+    "directory": "Brand directory",
     "stories": "Stories",
-    "submit": "Recommend a Brand",
-    "companyHeading": "Company",
+    "submit": "Recommend a brand",
+    "companyHeading": "About",
     "faq": "FAQ",
-    "connectHeading": "Connect",
-    "discover": "Styles"
+    "connectHeading": "Contact",
+    "style": "Styles",
+    "products": "Products",
+    "disclosure": "Formoria doesn't sell anything. Every purchase happens on the brand's own channel."
   },
   "style": {
     "metaTitle": "Styles",
