@@ -68,7 +68,7 @@ const trail = (slug: string, tags: string[]): TrailEntry => ({
   },
 });
 
-const labels = { eyebrow: "風格", cta: "探索這個風格 →" };
+const labels = { eyebrow: "主題選物", cta: "看這組選物 →" };
 
 function peekProduct(trailSlug: string, index: number): CuratedProduct {
   return {
@@ -245,6 +245,57 @@ describe("style trail hub", () => {
     expect(screen.getByRole("link", { name: "全部" })).not.toHaveAttribute(
       "aria-current",
     );
+  });
+
+  describe("feature layout (DESIGN.md §8 TrailCard feature variant)", () => {
+    const renderGrid = (count: number) => {
+      const trails = Array.from({ length: count }, (_, index) =>
+        trail(`trail-${index}`, ["home"]),
+      );
+      const { container } = render(
+        <HubTrailGrid trails={trails} peeks={{}} labels={labels} />,
+      );
+      // The grid's own items only, never a peek row's squares.
+      return Array.from(
+        container.querySelector("ul")?.querySelectorAll(":scope > li") ?? [],
+      );
+    };
+
+    it("renders the newest trail as the feature band", () => {
+      const items = renderGrid(3);
+
+      expect(items).toHaveLength(3);
+      expect(items[0]).toHaveAttribute("data-variant", "feature");
+      expect(items[0]).toHaveTextContent("trail-0");
+      for (const item of items.slice(1)) {
+        expect(item).toHaveAttribute("data-variant", "default");
+      }
+    });
+
+    it("spans the last trail across both columns when the remainder is odd", () => {
+      const items = renderGrid(4);
+
+      expect(items.at(-1)).toHaveAttribute("data-span", "full");
+      for (const item of items.slice(1, -1)) {
+        expect(item).not.toHaveAttribute("data-span");
+      }
+    });
+
+    it("spans no pair tile when the remainder is even", () => {
+      const items = renderGrid(3);
+
+      for (const item of items.slice(1)) {
+        expect(item).not.toHaveAttribute("data-span");
+      }
+    });
+
+    it("renders a lone trail as just the feature band", () => {
+      const items = renderGrid(1);
+
+      expect(items).toHaveLength(1);
+      expect(items[0]).toHaveAttribute("data-variant", "feature");
+      expect(items[0]).not.toHaveAttribute("data-span");
+    });
   });
 
   it("renders cards without peeks when the peek read fails", async () => {

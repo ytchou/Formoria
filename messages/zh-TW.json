@@ -25,7 +25,7 @@
     "about": "關於 Formoria",
     "stories": "專題",
     "products": "商品",
-    "style": "風格",
+    "style": "主題選物",
     "brands": "收錄品牌"
   },
   "footer": {
@@ -42,19 +42,19 @@
     "companyHeading": "關於",
     "faq": "常見問題",
     "connectHeading": "聯絡",
-    "style": "風格",
+    "style": "主題選物",
     "products": "商品",
     "disclosure": "Formoria 不販售商品；所有購買都在品牌自己的通路完成。"
   },
   "style": {
-    "metaTitle": "風格",
+    "metaTitle": "主題選物",
     "metaDescription": "書桌、每天出門的包、年末送禮：從一個具體情境出發，看看哪些台灣商品適合放進去。",
-    "heading": "風格",
+    "heading": "主題選物",
     "subheading": "從一個具體情境出發，看看有哪些台灣產品適合放進去。",
-    "comingSoon": "第一個風格還在準備。",
-    "loadError": "風格暫時無法載入，請稍後再試。",
+    "comingSoon": "第一組主題選物還在準備。",
+    "loadError": "主題選物暫時無法載入，請稍後再試。",
     "retry": "再試一次",
-    "breadcrumb": "風格",
+    "breadcrumb": "主題選物",
     "breadcrumbAria": "目前位置",
     "editorLabel": "編輯",
     "updatedLabel": "最後更新",
@@ -67,7 +67,7 @@
     "brandProvidedBadge": "品牌提供",
     "unavailable": "品牌的商品頁暫時打不開",
     "relatedStories": "繼續閱讀",
-    "relatedTrails": "其他風格",
+    "relatedTrails": "其他主題選物",
     "exploreMore": "再逛逛類似的商品",
     "untranslatedNotice": "這份內容以繁體中文撰寫。"
   },
@@ -110,7 +110,7 @@
       "countTop": "依相關度列出前 {count} 件",
       "empty": "找不到「{query}」相關的商品，換個關鍵字，或清除篩選條件。",
       "emptyRoutes": {
-        "trailsHeading": "從這幾個風格逛起",
+        "trailsHeading": "從這幾組主題選物逛起",
         "categoriesHeading": "依分類看全部商品"
       }
     }
@@ -149,7 +149,7 @@
       "headline": "生活可以<wbr></wbr>更像自己一點",
       "searchLabel": "搜尋台灣商品",
       "searchPlaceholder": "例：旅行必備小物、結婚禮物推薦、夏天防曬好物",
-      "browseCta": "從風格開始",
+      "browseCta": "從主題選物開始",
       "eyebrow": "台灣品牌探索與選物",
       "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
       "browsePrefix": "或",
@@ -175,11 +175,11 @@
       "linkText": "看全部專題"
     },
     "trails": {
-      "heading": "風格",
+      "heading": "主題選物",
       "note": "從一個具體情境挑出的商品",
-      "linkText": "看全部風格",
-      "eyebrow": "風格",
-      "cta": "看這個風格 →"
+      "linkText": "看全部主題選物",
+      "eyebrow": "主題選物",
+      "cta": "看這組選物 →"
     },
     "selection": {
       "headline": "這一季的選物",
@@ -279,9 +279,9 @@
     },
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果",
-    "editorialLinksAria": "相關專題與風格",
+    "editorialLinksAria": "相關專題與主題選物",
     "editorialStories": "相關專題",
-    "editorialTrails": "相關風格",
+    "editorialTrails": "相關主題選物",
     "subheading": "依分類或關鍵字，找收錄的台灣品牌"
   },
   "challenge": {
@@ -549,8 +549,8 @@
     "locations": {},
     "editorialAppearances": {
       "heading": "這個品牌出現在",
-      "ariaLabel": "出現這個品牌的專題與風格",
-      "trailPrefix": "風格",
+      "ariaLabel": "出現這個品牌的專題與主題選物",
+      "trailPrefix": "主題選物",
       "storyPrefix": "專題",
       "zhOnlyNote": "中文內容"
     },
@@ -1650,7 +1650,7 @@
     },
     "guide": {
       "heading": "從一個情境開始",
-      "cta": "看看風格選物",
+      "cta": "看看主題選物",
       "directoryPrefix": "或",
       "directoryCta": "看品牌目錄"
     }
@@ -2041,8 +2041,8 @@
     "eventPage": "活動頁",
     "eventFinePrint": "詳細安排請以官方網站公告為準",
     "boothLabel": "攤位",
-    "relatedTrails": "相關風格",
-    "relatedTrailsAria": "與這篇專題相關的風格"
+    "relatedTrails": "相關主題選物",
+    "relatedTrailsAria": "與這篇專題相關的主題選物"
   },
   "districts": {
     "alian": "阿蓮區",

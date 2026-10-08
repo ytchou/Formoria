@@ -32,12 +32,12 @@ async function tabUntilFocused(page: Page, field: Locator) {
 }
 
 test.describe("Homepage hero product search", () => {
-  test("visitors choosing a style reach the style collection in either locale", async ({
+  test("visitors choosing a guide reach the guides collection in either locale", async ({
     page,
   }) => {
     for (const { path, label, destination } of [
-      { path: "/", label: "從風格開始", destination: "/style" },
-      { path: "/en", label: "Start from a style", destination: "/en/style" },
+      { path: "/", label: "從主題選物開始", destination: "/style" },
+      { path: "/en", label: "Start from a guide", destination: "/en/style" },
     ]) {
       await page.goto(path);
       await page.getByRole("link", { name: label, exact: true }).click();
