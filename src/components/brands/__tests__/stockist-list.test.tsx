@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it } from "vitest";
@@ -7,7 +7,7 @@ import zh from "../../../../messages/zh-TW.json";
 import { CHAIN_REGION_LABEL } from "@/lib/brands/stockist-display";
 import type { Stockist } from "@/lib/types";
 
-import { StockistList } from "../stockist-list";
+import { StockistList, stockistDistrict } from "../stockist-list";
 
 function makeStockist(
   index: number,
@@ -26,11 +26,15 @@ function makeStockist(
   };
 }
 
-/** The grouped layout only kicks in at 4+ stockists, so chip cases need padding. */
+/** The grouped layout only kicks in at 4+ stockists. */
 function makeStockists(count: number, overrides: Partial<Stockist> = {}) {
   return Array.from({ length: count }, (_, index) =>
     makeStockist(index + 1, overrides),
   );
+}
+
+function mapsHref(address: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
 function renderList(
@@ -49,67 +53,48 @@ function renderList(
   );
 }
 
-function getChip(container: HTMLElement, name: string): HTMLElement {
-  const chip = Array.from(
-    container.querySelectorAll<HTMLElement>("[data-stockist-chip]"),
-  ).find((element) => element.textContent?.includes(name));
-  if (!chip) throw new Error(`Chip not found: ${name}`);
-  return chip;
+function entries(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>("[data-stockist-row]"),
+  );
+}
+
+// An entry folds either by its own `hidden` or by a hidden region group.
+function isFolded(entry: HTMLElement) {
+  return entry.closest("[hidden]") !== null;
 }
 
 describe("StockistList", () => {
-  it("renders a flat chip list without group headings below four stockists", () => {
+  it("renders a flat list without region subheads below four stockists", () => {
     const { container } = renderList({ possible: makeStockists(3) });
 
-    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(3);
-    expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(0);
-    expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    expect(entries(container)).toHaveLength(3);
+    expect(container.querySelectorAll("[data-stockist-kind]")).toHaveLength(0);
+    expect(screen.queryByRole("heading", { level: 4 })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   /**
-   * The four `data-stockist-*` hooks are the ONLY contract between this
-   * component and `e2e/tests/brand-detail.spec.ts`. `tsconfig` excludes `e2e/`,
-   * so neither `tsc` nor `vitest` reads that spec: a renamed attribute breaks
-   * it at runtime, in CI, with nothing failing here first. This test is the
-   * unit-side anchor for the rename -- it fails loudly in the same suite that
-   * the wave gate runs.
+   * The `data-stockist-*` hooks are the ONLY contract between this component
+   * and `e2e/tests/brand-detail.spec.ts` (`data-stockist-list`,
+   * `data-stockist-kind` on each region group, `data-stockist-row` on each
+   * entry). `tsconfig` excludes `e2e/`, so neither `tsc` nor `vitest` reads
+   * that spec: a renamed attribute breaks it at runtime, in CI, with nothing
+   * failing here first. This test is the unit-side anchor for those hooks.
    */
-  it("renders stockist rows with the renamed data attributes", () => {
-    const { container } = renderList({
-      // An evidence-backed entry with an address renders as a full row; the
-      // three plain entries render as chips. Four entries in total is what
-      // tips the layout into groups, so all four hooks appear at once.
-      confirmed: [
-        makeStockist(1, {
-          name: "茶籽堂大稻埕門市",
-          address: "臺北市大同區迪化街一段94號",
-          source: "import",
-          status: "confirmed",
-          confirmedBy: "evidence",
-          evidenceSource: "official_website",
-        }),
-      ],
-      possible: makeStockists(3),
-    });
+  it("renders the data attributes the e2e spec selects on", () => {
+    const { container } = renderList({ possible: makeStockists(4) });
 
+    expect(container.querySelector("[data-stockist-list]")).not.toBeNull();
     expect(container.querySelectorAll("[data-stockist-kind]")).toHaveLength(1);
     expect(
       container.querySelector('[data-stockist-kind="taipei"]'),
     ).not.toBeNull();
-    expect(
-      container.querySelector('[data-stockist-chip-group="taipei"]'),
-    ).not.toBeNull();
-    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(3);
-    expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(1);
+    expect(entries(container)).toHaveLength(4);
 
-    // The pre-rename hooks must be gone, or the e2e spec would keep passing
-    // against a stale attribute while the new one goes unasserted. Scanned by
-    // SUBSTRING rather than by a prefix or by four literals: two of the real
-    // pre-rename hooks were `data-brand-channel-list` (on the list root, which
-    // is in this render tree) and `data-brand-channels-section`, and a
-    // `data-channel` prefix scan reports neither. It also keeps the retired
-    // token itself out of the file, where a repo-wide sweep would read it as a
-    // missed rename.
+    // Pre-rename hooks must stay gone. Scanned by SUBSTRING: a prefix scan
+    // misses `data-brand-channel-list`, one of the real retired hooks, and
+    // the substring keeps the retired token itself out of this file.
     const staleAttributes = Array.from(container.querySelectorAll("*"))
       .flatMap((element) => Array.from(element.attributes))
       .map((attribute) => attribute.name)
@@ -118,66 +103,97 @@ describe("StockistList", () => {
     expect(staleAttributes).toEqual([]);
   });
 
-  it("starts every region collapsed and allows multiple regions to stay open", async () => {
-    const user = userEvent.setup();
+  it("renders region subheads as h4 with the count outside the heading", () => {
     const { container } = renderList({
-      confirmed: [
-        makeStockist(1, {
-          name: "官方門市",
-          ownerStatus: "confirmed",
-          source: "owner",
-          status: "confirmed",
-          confirmedBy: "owner",
-        }),
-      ],
       possible: [
-        makeStockist(2, { name: "有地址門市", address: "台北市信義區" }),
-        makeStockist(3, { name: "連鎖門市" }),
-        // The second region is an overseas stockist. It used to be an online
-        // stockist, which was the only other group a fixture could reach before
-        // DEV-1513 removed that bucket.
-        makeStockist(4, {
-          name: "香港門市",
-          regionLabel: "香港",
-          country: "HK",
-        }),
+        ...makeStockists(3),
+        makeStockist(4, { name: "香港門市", regionLabel: "香港", country: "HK" }),
       ],
     });
 
+    const taipeiHeading = screen.getByRole("heading", {
+      level: 4,
+      name: "臺北市",
+    });
     expect(
-      screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
+      screen.getByRole("heading", { level: 4, name: "海外" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 3, name: "海外 (1)" }),
-    ).toBeInTheDocument();
-
-    const taipei = container.querySelector<HTMLDetailsElement>(
+    // The count is 黑體 metadata beside the heading, never inside it.
+    expect(taipeiHeading).not.toHaveTextContent("3");
+    const taipeiGroup = container.querySelector<HTMLElement>(
       '[data-stockist-kind="taipei"]',
     );
-    const overseas = container.querySelector<HTMLDetailsElement>(
-      '[data-stockist-kind="overseas"]',
-    );
-    expect(taipei).not.toHaveAttribute("open");
-    expect(overseas).not.toHaveAttribute("open");
-
-    await user.click(
-      screen.getByRole("heading", { level: 3, name: "臺北市 (3)" }),
-    );
-    await user.click(
-      screen.getByRole("heading", { level: 3, name: "海外 (1)" }),
-    );
-
-    expect(taipei).toHaveAttribute("open");
-    expect(overseas).toHaveAttribute("open");
+    expect(within(taipeiGroup as HTMLElement).getByText("3 家")).toBeVisible();
+    expect(screen.queryByText(/\(\d+\)/)).not.toBeInTheDocument();
   });
 
-  it("renders an evidence-backed stockist as a full row", () => {
-    const address = "臺北市大同區迪化街一段94號";
+  it("shows every entry open with no toggle at or below eight", () => {
+    const { container } = renderList({ possible: makeStockists(8) });
+
+    expect(entries(container).filter(isFolded)).toHaveLength(0);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  // Content answering "where can I buy this" ships in the server HTML even
+  // when folded: the cap hides entries, it never drops them.
+  it("keeps entries past eight in the markup behind one toggle", async () => {
+    const user = userEvent.setup();
+    const { container } = renderList({ possible: makeStockists(10) });
+
+    expect(entries(container)).toHaveLength(10);
+    expect(entries(container).filter((entry) => !isFolded(entry))).toHaveLength(
+      8,
+    );
+    expect(entries(container).filter(isFolded)).toHaveLength(2);
+
+    const showAll = screen.getByRole("button", { name: "看全部 10 家" });
+    expect(showAll).toHaveAttribute("aria-expanded", "false");
+    expect(showAll.querySelector("[data-chevron]")).toHaveAttribute(
+      "data-chevron",
+      "down",
+    );
+
+    await user.click(showAll);
+
+    expect(entries(container).filter(isFolded)).toHaveLength(0);
+    const collapse = screen.getByRole("button", { name: "收合" });
+    expect(collapse).toHaveAttribute("aria-expanded", "true");
+    expect(collapse.querySelector("[data-chevron]")).toHaveAttribute(
+      "data-chevron",
+      "up",
+    );
+
+    await user.click(collapse);
+    expect(entries(container).filter(isFolded)).toHaveLength(2);
+  });
+
+  it("counts the cap across groups and hides a group wholly past it", () => {
     const { container } = renderList({
+      possible: [
+        ...makeStockists(9),
+        makeStockist(10, { name: "新北門市", regionLabel: "新北市" }),
+      ],
+    });
+
+    const newTaipei = container.querySelector('[data-stockist-kind="new_taipei"]');
+    expect(newTaipei).toHaveAttribute("hidden");
+    expect(
+      container.querySelector('[data-stockist-kind="taipei"]'),
+    ).not.toHaveAttribute("hidden");
+    expect(entries(container).filter(isFolded)).toHaveLength(2);
+    expect(
+      screen.getByRole("button", { name: "看全部 10 家" }),
+    ).toBeInTheDocument();
+  });
+
+  it("makes the whole entry the Maps link when there is an address", () => {
+    const address = "臺北市大同區迪化街一段94號";
+    renderList({
       confirmed: [
         makeStockist(1, {
           name: "茶籽堂大稻埕門市",
           address,
+          url: "https://example.com/store",
           source: "import",
           fetchedAt: "2026-08-11T00:00:00.000Z",
           status: "confirmed",
@@ -187,89 +203,20 @@ describe("StockistList", () => {
       ],
     });
 
-    expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: address })).toHaveAttribute(
-      "href",
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-    );
+    const links = screen.getAllByRole("link");
+    // Exactly one way through: the address wins over the outbound URL.
+    expect(links).toHaveLength(1);
+    const link = links[0] as HTMLElement;
+    expect(link).toHaveAttribute("href", mapsHref(address));
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveTextContent("茶籽堂大稻埕門市");
+    expect(link).toHaveTextContent("大同區");
+    expect(link.className).toContain("min-h-11");
     expect(screen.queryByText(/讀取於/)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /我確認/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText(/人確認/)).not.toBeInTheDocument();
-  });
-
-  // The chain sentinel is a marker the enrichment phase writes, not a place.
-  // The chip guarded it and the row did not, so `content/stockists/crafts.csv`
-  // shipped one published row that printed the marker where an address goes —
-  // and with it a retired term, onto a live brand page, through a data path the
-  // message-catalogue lock cannot see. Referenced by the exported constant so
-  // the token itself stays out of this file.
-  it("never prints the chain sentinel as a row location", () => {
-    renderList({
-      confirmed: [
-        makeStockist(1, {
-          name: "有情門",
-          regionLabel: CHAIN_REGION_LABEL,
-          address: null,
-          source: "import",
-          status: "confirmed",
-          confirmedBy: "evidence",
-          evidenceSource: "official_website",
-        }),
-      ],
-    });
-
-    expect(screen.queryByText(CHAIN_REGION_LABEL)).not.toBeInTheDocument();
-  });
-
-  // 來自官網 is a trust claim about WHERE the fact came from, so it may only
-  // appear when the evidence really is the brand's own site.
-  it("labels official-website evidence 來自官網 and other evidence 來源佐證", () => {
-    renderList({
-      confirmed: [
-        makeStockist(1, {
-          name: "官網列出的門市",
-          source: "import",
-          status: "confirmed",
-          confirmedBy: "evidence",
-          evidenceSource: "official_website",
-        }),
-        makeStockist(2, {
-          name: "其他來源的門市",
-          source: "enriched",
-          status: "confirmed",
-          confirmedBy: "evidence",
-          evidenceSource: "other",
-        }),
-      ],
-    });
-
-    expect(screen.getByText("來自官網")).toBeInTheDocument();
-    expect(screen.getByText("來源佐證")).toBeInTheDocument();
-  });
-
-  it("shows neither evidence label when the row has no evidence", () => {
-    renderList({
-      confirmed: [
-        makeStockist(1, {
-          name: "品牌自己確認的門市",
-          ownerStatus: "confirmed",
-          status: "confirmed",
-          confirmedBy: "owner",
-        }),
-      ],
-    });
-
-    expect(screen.getByText("品牌確認")).toBeInTheDocument();
-    expect(screen.queryByText("來自官網")).not.toBeInTheDocument();
-    expect(screen.queryByText("來源佐證")).not.toBeInTheDocument();
   });
 
   // 14 rows in content/stockists/*.csv are offline with a url and no address.
-  // Gating the outbound link on the old stockist type left them with no way
-  // through.
-  it("falls back to the outbound link when an offline row has no address", () => {
+  it("links an addressless entry to its own url", () => {
     renderList({
       confirmed: [
         makeStockist(1, {
@@ -284,20 +231,30 @@ describe("StockistList", () => {
       ],
     });
 
-    expect(screen.getByRole("link", { name: /前往官方頁面/ })).toHaveAttribute(
-      "href",
-      "https://pngl.com.tw/",
-    );
+    expect(
+      screen.getByRole("link", { name: /穿山甲裝備門市/ }),
+    ).toHaveAttribute("href", "https://pngl.com.tw/");
   });
 
-  it("keeps the Maps link as the only way through when there is an address", () => {
-    const address = "臺北市大同區迪化街一段94號";
+  it("renders an entry with no destination as plain text", () => {
+    const { container } = renderList({ possible: makeStockists(1) });
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(entries(container)[0]).toHaveTextContent("測試通路 1");
+  });
+
+  // The chain sentinel is a marker the enrichment phase writes, not a place.
+  // A row once printed it where an address goes — and with it a retired term,
+  // onto a live brand page, through a data path the message-catalogue lock
+  // cannot see. Referenced by the exported constant so the token itself stays
+  // out of this file.
+  it("never prints the chain sentinel", () => {
     renderList({
       confirmed: [
         makeStockist(1, {
-          name: "有地址的門市",
-          address,
-          url: "https://example.com/store",
+          name: "有情門",
+          regionLabel: CHAIN_REGION_LABEL,
+          address: null,
           source: "import",
           status: "confirmed",
           confirmedBy: "evidence",
@@ -306,228 +263,74 @@ describe("StockistList", () => {
       ],
     });
 
-    expect(screen.getByRole("link", { name: address })).toHaveAttribute(
-      "href",
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-    );
-    expect(
-      screen.queryByRole("link", { name: /前往官方頁面/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("有情門")).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(CHAIN_REGION_LABEL))).toBeNull();
   });
 
-  it("renders addressed and addressless physical retailers as one chip group", () => {
-    const address = "台北市信義區信義路五段 7 號";
-    const { container } = renderList({
-      possible: [
-        makeStockist(1, { name: "有地址門市", address }),
-        ...makeStockists(4).slice(1),
-      ],
-    });
-
-    expect(getChip(container, "有地址門市")).toBeInTheDocument();
-    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(4);
-    expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(0);
-    expect(screen.getByRole("link", { name: "臺北市" })).toHaveAttribute(
-      "href",
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-    );
-  });
-
-  it("caps a chip group at 6 and reveals the rest behind a toggle", async () => {
-    const user = userEvent.setup();
-    const { container } = renderList({ possible: makeStockists(10) });
-
-    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(6);
-    const showRest = screen.getByRole("button", { name: "顯示其餘 4 家" });
-    expect(showRest).toHaveAttribute("aria-expanded", "false");
-
-    await user.click(showRest);
-
-    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(10);
-    expect(
-      screen.getByRole("button", { name: "顯示其餘 4 家" }),
-    ).toHaveAttribute("aria-expanded", "true");
-  });
-
-  it("keeps community chips inside the collapsed region without a second fold", () => {
-    const { container } = renderList({
+  // 來自官網 is a trust claim about WHERE the fact came from, so it may only
+  // appear when the evidence really is the brand's own site.
+  it("labels confirmed entries with their provenance", () => {
+    renderList({
       confirmed: [
         makeStockist(1, {
-          name: "官方門市",
-          address: "台北市信義區",
+          name: "官網列出的門市",
+          address: "台北市信義區松高路11號",
+          source: "import",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "official_website",
+        }),
+        makeStockist(2, {
+          name: "其他來源的門市",
+          source: "enriched",
+          status: "confirmed",
+          confirmedBy: "evidence",
+          evidenceSource: "other",
+        }),
+        makeStockist(3, {
+          name: "品牌自己確認的門市",
           ownerStatus: "confirmed",
-          source: "owner",
           status: "confirmed",
           confirmedBy: "owner",
         }),
       ],
-      possible: makeStockists(3, { address: "台中市西區" }),
     });
 
-    expect(container.querySelector("details")).not.toHaveAttribute("open");
-    expect(container.querySelectorAll("[data-stockist-chip]")).toHaveLength(3);
-    expect(
-      screen.queryByRole("button", { name: /顯示其餘/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("3 個社群提供的通路待確認"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("信義區 · 來自官網")).toBeInTheDocument();
+    expect(screen.getByText("臺北市 · 來源佐證")).toBeInTheDocument();
+    expect(screen.getByText("臺北市 · 品牌確認")).toBeInTheDocument();
   });
-  describe("long lists", () => {
-    const TEN_REGIONS = [
-      "臺北市",
-      "新北市",
-      "桃園市",
-      "臺中市",
-      "臺南市",
-      "高雄市",
-      "基隆市",
-      "新竹市",
-      "嘉義市",
-      "宜蘭縣",
-    ];
 
-    function makeConfirmed(index: number, regionLabel = "臺北市") {
-      return makeStockist(index, {
-        name: `確認門市 ${index}`,
-        regionLabel,
-        ownerStatus: "confirmed",
-        source: "owner",
-        status: "confirmed",
-        confirmedBy: "owner",
-      });
-    }
-
-    // A row folds either by its own `hidden` or by a hidden overflow stack.
-    function isFolded(row: HTMLElement) {
-      return row.closest("[hidden]") !== null;
-    }
-
-    function chevron(button: HTMLElement) {
-      return button
-        .querySelector("[data-chevron]")
-        ?.getAttribute("data-chevron");
-    }
-
-    function groups(container: HTMLElement) {
-      return Array.from(
-        container.querySelectorAll<HTMLElement>("[data-stockist-kind]"),
-      );
-    }
-
-    it("caps visible groups at 6", () => {
-      const { container } = renderList({
-        possible: TEN_REGIONS.map((regionLabel, index) =>
-          makeStockist(index + 1, { regionLabel }),
-        ),
-      });
-
-      const all = groups(container);
-      expect(all).toHaveLength(10);
-      expect(all.filter((group) => !group.hasAttribute("hidden"))).toHaveLength(
-        6,
-      );
-      expect(all.filter((group) => group.hasAttribute("hidden"))).toHaveLength(
-        4,
-      );
-      const showAll = screen.getByRole("button", {
-        name: "顯示全部 10 個地區",
-      });
-      expect(showAll).toHaveAttribute("aria-expanded", "false");
+  it("prints no provenance on an unconfirmed entry", () => {
+    renderList({
+      possible: [
+        makeStockist(1, { name: "社群門市", address: "台北市信義區松高路11號" }),
+      ],
     });
 
-    it("caps visible rows at 8 per group", () => {
-      const { container } = renderList({
-        confirmed: Array.from({ length: 20 }, (_, index) =>
-          makeConfirmed(index + 1),
-        ),
-      });
+    expect(screen.getByText("信義區")).toBeInTheDocument();
+    expect(screen.queryByText(/確認|來自官網|來源佐證/)).not.toBeInTheDocument();
+  });
+});
 
-      const rows = Array.from(
-        container.querySelectorAll<HTMLElement>("[data-stockist-row]"),
-      );
-      expect(rows).toHaveLength(20);
-      expect(rows.filter((row) => !isFolded(row))).toHaveLength(8);
-      expect(rows.filter(isFolded)).toHaveLength(12);
-      expect(
-        screen.getByRole("button", { name: "顯示其餘 12 家" }),
-      ).toHaveAttribute("aria-expanded", "false");
-    });
+describe("stockistDistrict", () => {
+  it.each([
+    ["台北市信義區松高路11號", "信義區"],
+    ["110臺北市大安區復興南路一段", "大安區"],
+    ["110 臺北市 大安區 復興南路一段", "大安區"],
+    ["新竹縣竹北市光明六路", "竹北市"],
+    ["嘉義市東區民族路", "東區"],
+    ["高雄市前鎮區中華五路", "前鎮區"],
+    ["香港九龍彌敦道100號", "香港九龍彌敦道100號"],
+  ])("reads the district out of %s", (address, district) => {
+    expect(stockistDistrict(makeStockist(1, { address }))).toBe(district);
+  });
 
-    it("toggles expand and collapse", async () => {
-      const user = userEvent.setup();
-      const { container } = renderList({
-        confirmed: Array.from({ length: 20 }, (_, index) =>
-          makeConfirmed(index + 1),
-        ),
-        possible: TEN_REGIONS.map((regionLabel, index) =>
-          makeStockist(index + 100, { regionLabel }),
-        ),
-      });
-
-      const showAll = screen.getByRole("button", {
-        name: "顯示全部 10 個地區",
-      });
-      expect(chevron(showAll)).toBe("down");
-      await user.click(showAll);
-      expect(
-        groups(container).filter((group) => !group.hasAttribute("hidden")),
-      ).toHaveLength(10);
-      const collapseGroups = screen.getByRole("button", { name: "收合地區" });
-      expect(collapseGroups).toHaveAttribute("aria-expanded", "true");
-      expect(chevron(collapseGroups)).toBe("up");
-
-      await user.click(collapseGroups);
-      expect(
-        groups(container).filter((group) => !group.hasAttribute("hidden")),
-      ).toHaveLength(6);
-
-      const showRest = screen.getByRole("button", { name: "顯示其餘 12 家" });
-      expect(chevron(showRest)).toBe("down");
-      await user.click(showRest);
-      const rows = () =>
-        Array.from(
-          container.querySelectorAll<HTMLElement>("[data-stockist-row]"),
-        );
-      expect(rows().filter((row) => !isFolded(row))).toHaveLength(20);
-      const collapseRows = screen.getByRole("button", { name: "收合" });
-      expect(collapseRows).toHaveAttribute("aria-expanded", "true");
-      expect(chevron(collapseRows)).toBe("up");
-
-      await user.click(collapseRows);
-      expect(rows().filter((row) => !isFolded(row))).toHaveLength(8);
-    });
-
-    // Content answering "where can I buy this" ships in the server HTML even
-    // when folded: the cap hides rows, it never drops them.
-    it("keeps every row in the markup", () => {
-      const { container } = renderList({
-        confirmed: Array.from({ length: 20 }, (_, index) =>
-          makeConfirmed(index + 1),
-        ),
-      });
-
-      expect(container.querySelectorAll("[data-stockist-row]")).toHaveLength(
-        20,
-      );
-    });
-
-    it("renders no toggle buttons below both caps", () => {
-      renderList({
-        confirmed: ["臺北市", "新北市", "桃園市"].flatMap(
-          (regionLabel, group) =>
-            Array.from({ length: 4 }, (_, index) =>
-              makeConfirmed(group * 10 + index + 1, regionLabel),
-            ),
-        ),
-      });
-
-      expect(
-        screen.queryByRole("button", { name: /顯示全部/ }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /顯示其餘/ }),
-      ).not.toBeInTheDocument();
-    });
+  it("falls back to the region label, never the chain sentinel", () => {
+    expect(stockistDistrict(makeStockist(1))).toBe("臺北市");
+    expect(
+      stockistDistrict(makeStockist(1, { regionLabel: CHAIN_REGION_LABEL })),
+    ).toBeNull();
+    expect(stockistDistrict(makeStockist(1, { regionLabel: null }))).toBeNull();
   });
 });

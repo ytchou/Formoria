@@ -6,13 +6,38 @@ import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
 import { e2eBrandImageKey, e2eProxyImageUrl } from "../helpers/image-refs";
 import { BUDGET, POLL } from "../budgets";
 
-async function openStockistGroup(page: Page, key: string) {
-  const group = page.locator(`details[data-stockist-kind="${key}"]`);
-  await expect(group).toBeVisible();
-  if ((await group.getAttribute("open")) === null) {
-    await group.locator("summary").click();
-  }
-  await expect(group).toHaveAttribute("open", "");
+/**
+ * The three channel corrections (purchase link, stockist, social link) share
+ * one 「告訴我們」 menu at the end of the where-to-buy block. The trigger ships in
+ * the server-rendered HTML, so a missing one is a real regression rather than a
+ * timing problem: assert it before the retry loop so that case does not surface
+ * as an opaque "predicate timed out" on the dialog. The page is statically
+ * served and hydrates afterwards, so a click that lands too early is a silent
+ * no-op — retry the idempotent open instead of sleeping on a guessed hydration
+ * delay (same pattern as openCategoryDialog in brand-corrections.spec.ts).
+ */
+async function openChannelCorrection(
+  page: Page,
+  menuItemName: string,
+  dialogTitle: string,
+) {
+  const trigger = page.getByRole("button", { name: "告訴我們", exact: true });
+  await expect(trigger).toBeVisible();
+
+  const menuItem = page.getByRole("menuitem", {
+    name: menuItemName,
+    exact: true,
+  });
+  const dialog = page.getByRole("dialog", { name: dialogTitle });
+  await expect(async () => {
+    if (!(await dialog.isVisible())) {
+      // A second click on an open menu's trigger would close it again.
+      if (!(await menuItem.isVisible())) await trigger.click();
+      await menuItem.click();
+    }
+    await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+  }).toPass(POLL.UI);
+  return dialog;
 }
 
 test.describe("Brand detail deep", () => {
@@ -89,9 +114,9 @@ test.describe("Brand detail deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
 
-    // Verify the purchase section heading is visible
+    // Verify the purchase sub-heading (under where-to-buy's h2) is visible
     await expect(
-      page.getByRole("heading", { name: "線上購買", level: 2 }),
+      page.getByRole("heading", { name: "線上購買", level: 3 }),
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
@@ -502,7 +527,7 @@ test.describe("Brand detail — brand without links", () => {
     await seeded.cleanup();
   });
 
-  test("social section is hidden and purchase section shows its empty prompt when brand has no links", async ({
+  test("both link sections stay and say no link is known when brand has no links", async ({
     page,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -519,26 +544,33 @@ test.describe("Brand detail — brand without links", () => {
       );
     }).toPass(POLL.DB);
 
-    // Both link sections stay rendered when the brand has no links: every
-    // destination shows as a dimmed, inert chip so the gap reads as "unknown"
-    // rather than "not on that channel".
+    // Both link sections stay rendered when the brand has no links, and each
+    // says so in one muted line instead of a dimmed chip per destination.
     await expect(
       page.getByRole("heading", { name: "社群平台", level: 2 }),
     ).toHaveCount(1);
     await expect(
-      page.getByRole("heading", { name: "線上購買", level: 2 }),
+      page.getByRole("heading", { name: "線上購買", level: 3 }),
     ).toHaveCount(1);
+    await expect(page.getByText("還沒有線上購買的連結。")).toBeVisible();
+    await expect(page.getByText("還沒有社群連結。")).toBeVisible();
 
+    // No inert chips: an unknown destination renders nothing at all.
+    for (const sectionId of ["#where-to-buy", "#social"]) {
+      await expect(
+        page.locator(sectionId).locator('[aria-disabled="true"]'),
+      ).toHaveCount(0);
+    }
     for (const label of ["Instagram", "Threads", "Facebook", "品牌官網"]) {
-      const chip = page.getByRole("button", {
-        name: new RegExp(`^${label} — 尚無已知連結$`),
-      });
-      await expect(chip).toBeVisible();
-      await expect(chip).toHaveAttribute("aria-disabled", "true");
+      await expect(
+        page.locator("#social, #where-to-buy").getByText(label, {
+          exact: true,
+        }),
+      ).toHaveCount(0);
     }
 
     await expect(
-      page.getByRole("button", { name: "提供購買連結" }),
+      page.getByRole("button", { name: "告訴我們", exact: true }),
     ).toBeVisible();
   });
 });
@@ -563,7 +595,7 @@ test.describe("Brand detail — myship-only purchase channel", () => {
     await seeded.cleanup();
   });
 
-  test("myship renders as a live link while the website chip stays inert", async ({
+  test("myship renders as a live link while the unknown website is absent", async ({
     page,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -583,11 +615,16 @@ test.describe("Brand detail — myship-only purchase channel", () => {
       page.getByRole("link", { name: "前往 7-ELEVEN 賣貨便" }),
     ).toBeVisible();
 
-    const websiteChip = page.getByRole("button", {
-      name: /^品牌官網 — 尚無已知連結$/,
-    });
-    await expect(websiteChip).toBeVisible();
-    await expect(websiteChip).toHaveAttribute("aria-disabled", "true");
+    // The website is absent, not inert: no chip, no link, and one muted line
+    // stands in for every store with no known link.
+    const whereToBuy = page.locator("#where-to-buy");
+    await expect(
+      whereToBuy.getByText("品牌官網", { exact: true }),
+    ).toHaveCount(0);
+    await expect(whereToBuy.locator('[aria-disabled="true"]')).toHaveCount(0);
+    await expect(
+      whereToBuy.getByText("還沒有其他通路的連結。"),
+    ).toBeVisible();
   });
 });
 
@@ -828,7 +865,7 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     await Promise.all([seeded.cleanup(), emptySeeded.cleanup()]);
   });
 
-  test("location regions start collapsed and can remain open together", async ({
+  test("stockists render as an open list grouped by region", async ({
     page,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -842,29 +879,37 @@ test.describe("Brand detail — public locations and retail stockists", () => {
           timeout: BUDGET.INTERACTIVE,
         },
       );
+      // Region subheads are named by the region alone; the count sits
+      // beside the heading, not inside it. Either spelling of 台 passes:
+      // the cities.* labels move from 臺 to 台 in DEV-1971.
       await expect(
-        page.getByRole("heading", { name: "臺北市 (1)", level: 3 }),
+        page.getByRole("heading", { name: /^[台臺]北市$/, level: 4 }),
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", {
-          name: "臺中市 (1)",
-          level: 3,
-        }),
+        page.getByRole("heading", { name: /^[台臺]中市$/, level: 4 }),
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", { name: "實體通路", level: 2 }),
+        page.getByRole("heading", { name: "實體通路", level: 3 }),
       ).toBeVisible();
     }).toPass(POLL.DB);
 
-    const taipei = page.locator('details[data-stockist-kind="taipei"]');
-    const taichung = page.locator('details[data-stockist-kind="taichung"]');
-    await expect(taipei).not.toHaveAttribute("open");
-    await expect(taichung).not.toHaveAttribute("open");
-
-    await openStockistGroup(page, "taipei");
-    await openStockistGroup(page, "taichung");
-    await expect(taipei).toHaveAttribute("open", "");
-    await expect(taichung).toHaveAttribute("open", "");
+    await expect(
+      page
+        .locator('[data-stockist-kind="taipei"]')
+        .getByText("1 家", { exact: true }),
+    ).toBeVisible();
+    // Open by default: every store is on screen without a click.
+    for (const name of [
+      confirmedStoreName,
+      unlocatedStockistName,
+      approvedCommunityName,
+      ownerConfirmedCommunityName,
+    ]) {
+      await expect(
+        page.locator("[data-stockist-row]").filter({ hasText: name }),
+      ).toBeVisible();
+    }
+    await expect(page.locator("details[data-stockist-kind]")).toHaveCount(0);
   });
 
   test("an imported stockist renders its address and Maps link", async ({
@@ -873,11 +918,16 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     await page.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
-    await openStockistGroup(page, "taipei");
 
-    await expect(
-      page.getByRole("link", { name: confirmedStoreAddress, exact: true }),
-    ).toHaveAttribute("href", /^https:\/\/www\.google\.com\/maps\/search\//);
+    // The whole entry is the Maps link, and it prints the district.
+    const stockistRow = page
+      .locator("[data-stockist-row]")
+      .filter({ hasText: confirmedStoreName });
+    await expect(stockistRow.getByRole("link")).toHaveAttribute(
+      "href",
+      /^https:\/\/www\.google\.com\/maps\/search\//,
+    );
+    await expect(stockistRow).toContainText("信義區");
     // An imported stockist must not publish when it was scraped. Anchored on
     // any rendered date rather than on one label ("讀取於", which no message
     // key emits any more), so a timestamp returning under new copy still
@@ -895,7 +945,6 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     await page.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
-    await openStockistGroup(page, "taipei");
 
     // The row carries `url: confirmedStoreUrl` AND an address, so this asserts
     // the outbound link is suppressed because the address already links
@@ -905,12 +954,10 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     const stockistRow = page
       .locator("[data-stockist-row]")
       .filter({ hasText: confirmedStoreName });
-    await expect(
-      stockistRow.getByRole("link", {
-        name: confirmedStoreAddress,
-        exact: true,
-      }),
-    ).toHaveAttribute("href", /google\.com\/maps/);
+    const rowLink = stockistRow.getByRole("link");
+    await expect(rowLink).toHaveCount(1);
+    await expect(rowLink).toHaveAttribute("href", /google\.com\/maps/);
+    await expect(rowLink).toContainText(confirmedStoreName);
     await expect(
       stockistRow.locator(`a[href="${confirmedStoreUrl}"]`),
     ).toHaveCount(0);
@@ -924,25 +971,11 @@ test.describe("Brand detail — public locations and retail stockists", () => {
       waitUntil: "domcontentloaded",
     });
 
-    // The trigger ships in the server-rendered HTML, so a missing one is a real
-    // regression rather than a timing problem. Assert it before the retry loop so
-    // that case does not surface as an opaque "predicate timed out" on the dialog.
-    const trigger = userPage.getByRole("button", {
-      name: "提供實體通路",
-      exact: true,
-    });
-    await expect(trigger).toBeVisible();
-
-    // The brand page is statically served and hydrates afterwards, so a click that
-    // lands too early is a silent no-op and every later step then times out waiting
-    // on a dialog that was never opened. Retry the idempotent open instead of
-    // sleeping on a guessed hydration delay — same pattern as openCategoryDialog in
-    // brand-corrections.spec.ts.
-    const dialog = userPage.getByRole("dialog", { name: "提供實體通路" });
-    await expect(async () => {
-      if (!(await dialog.isVisible())) await trigger.click();
-      await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    }).toPass(POLL.UI);
+    const dialog = await openChannelCorrection(
+      userPage,
+      "實體通路",
+      "提供實體通路",
+    );
     await dialog
       .getByRole("textbox", { name: "實體通路名稱" })
       .fill(submittedStockistName);
@@ -981,9 +1014,10 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     // write did. One reload, after the success toast, is the honest check.
     await userPage.reload({ waitUntil: "domcontentloaded" });
     await expect(
-      userPage.getByRole("heading", { name: "臺北市 (1)", level: 3 }),
+      userPage
+        .locator('[data-stockist-kind="taipei"]')
+        .getByText("1 家", { exact: true }),
     ).toBeVisible();
-    await openStockistGroup(userPage, "taipei");
     await expect(
       userPage
         .locator("[data-stockists-section]")
@@ -1000,7 +1034,7 @@ test.describe("Brand detail — public locations and retail stockists", () => {
 
     await expect(page.locator("[data-stockists-section]")).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "實體通路", level: 2 }),
+      page.getByRole("heading", { name: "實體通路", level: 3 }),
     ).toHaveCount(0);
   });
 });

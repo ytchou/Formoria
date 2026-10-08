@@ -365,17 +365,24 @@
       "instagramCopied": "Link copied — paste it into your story or bio"
     },
     "links": {
-      "socialPlatforms": "Social Platforms",
-      "onlineStores": "Online Stores",
-      "otherLinks": "Other Links",
+      "socialPlatforms": "Social platforms",
+      "onlineStores": "Online stores",
+      "otherLinks": "Other links",
       "instagram": "Instagram",
       "threads": "Threads",
       "facebook": "Facebook",
-      "website": "Official Website",
+      "website": "Official website",
       "pinkoi": "Pinkoi",
       "shopee": "Shopee",
       "myship": "7-ELEVEN MyShip",
-      "unknown": "No link known yet"
+      "missingChannels": "No links for other stores yet.",
+      "noChannels": "No online store links yet.",
+      "noSocialLinks": "No social links yet.",
+      "correctionPrompt": "Know another place to buy?",
+      "correctionAction": "Tell us",
+      "correctionPurchase": "Online store link",
+      "correctionStockist": "Stockist",
+      "correctionSocial": "Social link"
     },
     "report": {
       "trigger": "Report a problem",
@@ -485,18 +492,10 @@
       "groups": {
         "all_taiwan": "Across Taiwan",
         "overseas": "Overseas",
-        "showAll": "Show all {count} regions",
-        "collapse": "Show fewer regions"
+        "count": "{count, plural, one {# stockist} other {# stockists}}"
       },
-      "confirmed": {
-        "officialPageLink": "Official page"
-      },
-      "chips": {
-        "showRest": "Show {count} more"
-      },
-      "rows": {
-        "collapse": "Show less"
-      },
+      "showAll": "{count, plural, one {See # stockist} other {See all # stockists}}",
+      "collapse": "Show less",
       "provenance": {
         "owner": "Brand confirmed",
         "formoria": "Confirmed by Formoria",
@@ -579,7 +578,7 @@
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",
         "answer": "{brandName} products are available through {channels}.{stockistNote}{context}",
-        "stockistSuffix": " There are also {count} physical retail locations.",
+        "stockistSuffix": " You can also find them at {count, plural, one {# shop} other {# shops}}.",
         "noOnlineChannels": "physical retail locations"
       },
       "originStory": {

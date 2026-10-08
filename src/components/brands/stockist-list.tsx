@@ -2,29 +2,36 @@
 
 import { useTranslations } from "next-intl";
 import { Check, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
-import { useState } from "react";
-import { Accordion, AccordionItem } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { FOCUS_RING } from "@/components/ui/control-surface";
 import {
   CHAIN_REGION_LABEL,
   groupStockistsByRegion,
-  type StockistRegionGroup,
 } from "@/lib/brands/stockist-display";
 import type { Stockist } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const MAX_VISIBLE_CHIPS = 6;
 /**
- * Region groups and rows past these caps render with the `hidden` attribute,
- * never sliced out: the stockist list answers "where can I buy this", so every
- * group and row must stay in the server HTML even while folded. The chip stack
- * (MAX_VISIBLE_CHIPS) is a pre-existing slice, deliberately left as-is.
+ * Entries past this cap render with the `hidden` attribute, never sliced out:
+ * the stockist list answers "where can I buy this", so every entry must stay
+ * in the server HTML even while folded. Counted across groups, in display
+ * order.
  */
-const MAX_VISIBLE_GROUPS = 6;
-const MAX_VISIBLE_ROWS = 8;
-/** Below this count the grouping is noise — entries render without headings. */
+const MAX_VISIBLE_ENTRIES = 8;
+/** Below this count the grouping is noise — entries render without subheads. */
 const GROUPED_LAYOUT_MIN_STOCKISTS = 4;
+
+/**
+ * Optional city or county, then the first administrative unit after it. The
+ * unit alternation tries township/town/city + district first, so a district
+ * whose name contains a town or city character is not cut short. Han
+ * characters are written as \u escapes to keep CJK out of component source
+ * (`no-hardcoded-cjk.test.ts`): \u53F0 tai, \u81FA tai (traditional),
+ * \u5E02 city, \u7E23 county, \u9109 township, \u93AE town, \u5340 district.
+ */
+const DISTRICT_PATTERN =
+  /^(?:[\u53F0\u81FA]?\S{1,3}?[\u5E02\u7E23])?(\S{1,3}?(?:[\u9109\u93AE\u5E02]\u5340|[\u5340\u9109\u93AE\u5E02]))/;
 
 type Translate = (
   key: string,
@@ -33,15 +40,29 @@ type Translate = (
 
 /**
  * The chain sentinel is a marker, not a place: it is the one region label that
- * must never print. Row and chip both call this — the row printed it raw until
- * DEV-1513's review, which put CHAIN_REGION_LABEL under the all-Taiwan heading
- * of a live brand page. That value carries a retired term, and the
- * message-catalogue lock cannot see it because it arrives as data, not copy.
+ * must never print. Every entry's location line goes through this — the row
+ * printed it raw until DEV-1513's review, which put CHAIN_REGION_LABEL under
+ * the all-Taiwan heading of a live brand page. That value carries a retired
+ * term, and the message-catalogue lock cannot see it because it arrives as
+ * data, not copy.
  */
 function printableRegionLabel(stockist: Stockist): string | null {
   return stockist.regionLabel && stockist.regionLabel !== CHAIN_REGION_LABEL
     ? stockist.regionLabel
     : null;
+}
+
+/**
+ * The short location an entry prints: the district read out of the address
+ * (a district such as Xinyi or Zhubei), the whole address when no district parses, or the region
+ * label when there is no address.
+ */
+export function stockistDistrict(stockist: Stockist): string | null {
+  if (stockist.address) {
+    const compact = stockist.address.replace(/\s+/g, "").replace(/^\d+/, "");
+    return compact.match(DISTRICT_PATTERN)?.[1] ?? stockist.address;
+  }
+  return printableRegionLabel(stockist);
 }
 
 export type StockistListProps = {
@@ -54,7 +75,7 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
     return (
       <span
         aria-hidden="true"
-        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-verified-green-bg text-verified-green"
+        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-verified-green-bg text-verified-green"
       >
         <Check className="size-4" />
       </span>
@@ -64,15 +85,10 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-dashed border-ink-muted/60"
+      className="size-5 shrink-0 rounded-full border-2 border-dashed border-ink-muted/60"
     />
   );
 }
-
-type StockistListRowProps = {
-  stockist: Stockist;
-  t: Translate;
-};
 
 /** Chevron for a fold toggle: down while folded, up once expanded. */
 function ToggleChevron({ expanded }: { expanded: boolean }) {
@@ -86,20 +102,20 @@ function ToggleChevron({ expanded }: { expanded: boolean }) {
   );
 }
 
-function StockistListRow({ stockist, t }: StockistListRowProps) {
-  // Every stockist is a physical place since DEV-1513, so the address is always
-  // the location worth printing and the region label is its fallback — except
-  // the chain sentinel, which is not a location at all.
-  const region = stockist.address ?? printableRegionLabel(stockist);
+type StockistEntryProps = {
+  stockist: Stockist;
+  t: Translate;
+  hidden: boolean;
+};
+
+function StockistEntry({ stockist, t, hidden }: StockistEntryProps) {
   const mapsHref = stockist.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stockist.address)}`
     : null;
-  // Only a rendered Maps link counts as a way through.
-  const showsMapsLink = region !== null && mapsHref !== null;
-  // The href itself rather than a boolean beside it: `stockist.url` is
-  // `string | null`, and a separate flag proves nothing to the compiler at the
-  // point of use — the anchor below needs the narrowing, not the answer.
-  const outboundHref = showsMapsLink ? null : stockist.url;
+  // Exactly one way through per stockist, and the whole entry is it. An
+  // address goes to Google Maps; without one, the stockist's own page is the
+  // only way through.
+  const href = mapsHref ?? stockist.url;
   // No `?? "community"` fallback: `confirmedBy` is set by
   // `groupStockistsForDisplay` for every confirmed row and read only here, and
   // guessing a provenance for a row the server declined to vouch for is how a
@@ -110,136 +126,56 @@ function StockistListRow({ stockist, t }: StockistListRowProps) {
       ? "evidenceOther"
       : stockist.confirmedBy;
   const isConfirmed = stockist.status === "confirmed";
+  const metadata = [
+    stockistDistrict(stockist),
+    isConfirmed && provenanceKey
+      ? t(`channels.provenance.${provenanceKey}`)
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
-  return (
-    <div
-      className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between"
-      data-stockist-row
-    >
-      <div className="flex min-w-0 items-start gap-3">
-        <StatusMarker confirmed={isConfirmed} />
-        <div className="min-w-0">
-          <p className="type-label">{stockist.name}</p>
-          {region ? (
-            <div className="mt-2 type-body-sm text-ink-soft">
-              {mapsHref ? (
-                <a
-                  href={mapsHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-4"
-                >
-                  {region}
-                </a>
-              ) : (
-                <span>{region}</span>
-              )}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-        {isConfirmed && provenanceKey ? (
-          <Badge variant="success">
-            {t(`channels.provenance.${provenanceKey}`)}
-          </Badge>
-        ) : null}
-        {/* Exactly one way through per stockist. When the address renders as a
-            Google Maps link that IS the way through, so the outbound button
-            would send the reader to a second page saying the same thing. When
-            there is no rendered address, the outbound link is the only way
-            through and it stays. */}
-        {outboundHref !== null ? (
-          <a
-            href={outboundHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({
-              variant: "secondary",
-              size: "compact",
-            })}
-          >
-            {t("channels.confirmed.officialPageLink")}
-            <ExternalLink aria-hidden="true" className="size-4" />
-          </a>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-type StockistChipProps = {
-  stockist: Stockist;
-  t: Translate;
-};
-
-function StockistChip({ stockist, t }: StockistChipProps) {
-  const isConfirmed = stockist.status === "confirmed";
-  const region = printableRegionLabel(stockist);
-  const mapsHref = stockist.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stockist.address)}`
-    : null;
-  // Same rule as the row: the outbound icon is a fallback, not a duplicate.
-  const showsMapsLink = region !== null && mapsHref !== null;
-  // Held as the href, not as a boolean — see the row above.
-  const outboundHref = showsMapsLink ? null : stockist.url;
-
-  return (
-    <li
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5",
-        isConfirmed
-          ? "border-rule bg-verified-green-bg text-verified-green"
-          : "border-dashed border-rule",
-      )}
-      data-stockist-chip
-    >
-      {isConfirmed ? (
-        <Check aria-hidden="true" className="size-3.5 shrink-0" />
-      ) : null}
-      {/* A retailer name is interface, not content: it labels a place you can
-          go, and it sits inside a chip beside a state marker. The interface
-          face at the label step, not the content face at a body step. */}
-      <span className="type-label">{stockist.name}</span>
-      {region ? (
-        <span className="type-metadata text-ink-muted">
-          (
-          {mapsHref ? (
-            <a
-              href={mapsHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline underline-offset-4 hover:text-ink"
-            >
-              {region}
-            </a>
-          ) : (
-            region
-          )}
-          )
+  const content: ReactNode = (
+    <>
+      <StatusMarker confirmed={isConfirmed} />
+      <span className="min-w-0 flex-1">
+        {/* A retailer name is interface, not content: it labels a place you
+            can go. The interface face at the label step. */}
+        <span className="block type-label group-hover:underline group-hover:underline-offset-4">
+          {stockist.name}
         </span>
+        {metadata ? (
+          <span className="block type-metadata">{metadata}</span>
+        ) : null}
+      </span>
+      {href !== null && mapsHref === null ? (
+        <ExternalLink
+          aria-hidden="true"
+          className="size-4 shrink-0 text-ink-muted"
+        />
       ) : null}
-      {/* A location with a printed region reaches its destination through the
-          Maps link above, so the icon would duplicate it. Without that link — a
-          chip whose region is the chain sentinel or unknown — this icon is the
-          only way through. */}
-      {outboundHref !== null ? (
+    </>
+  );
+
+  return (
+    <li hidden={hidden} data-stockist-row>
+      {href !== null ? (
         <a
-          href={outboundHref}
+          href={href}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`${stockist.name} ${t("channels.confirmed.officialPageLink")}`}
-          // ::after grows the 32px icon to a 44px touch target, the same way the
-          // confirm button below and `ui/switch` do it — the visible mark stays
-          // small because it sits inside a dense chip row, but the target does
-          // not. The accessible name comes from `aria-label` and names the
-          // ACTION plus the stockist it acts on, not the glyph.
-          className="relative inline-flex min-h-8 min-w-8 items-center justify-center text-ink-muted after:absolute after:-inset-1.5 after:content-[''] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className={cn(
+            "group flex min-h-11 items-center gap-3 rounded-control py-1.5",
+            FOCUS_RING,
+          )}
         >
-          <ExternalLink aria-hidden="true" className="size-4" />
+          {content}
         </a>
-      ) : null}
+      ) : (
+        <div className="flex min-h-11 items-center gap-3 py-1.5">
+          {content}
+        </div>
+      )}
     </li>
   );
 }
@@ -247,186 +183,88 @@ function StockistChip({ stockist, t }: StockistChipProps) {
 export function StockistList({ confirmed, possible }: StockistListProps) {
   const t = useTranslations("brandDetail");
   const tCities = useTranslations("cities");
+  const [expanded, setExpanded] = useState(false);
   const allStockists = [...confirmed, ...possible];
-  const [expandedChipGroups, setExpandedChipGroups] = useState<
-    Partial<Record<string, boolean>>
-  >({});
-  const [expandedRowGroups, setExpandedRowGroups] = useState<
-    Partial<Record<string, boolean>>
-  >({});
-  const [groupsExpanded, setGroupsExpanded] = useState(false);
-
   const displayGroups = groupStockistsByRegion(allStockists);
+  const total = allStockists.length;
 
-  // The row/chip split is now a pure function of the row itself: a confirmed
-  // stockist gets a full row, everything else a chip. It used to also depend on
-  // the viewer being the brand's owner, which was parked with the claim flow
-  // (DEV-1570) -- nobody can be an owner, so no viewer state remains.
-  function rendersAsRow(stockist: Stockist) {
-    return stockist.status === "confirmed";
-  }
+  const isFolded = (position: number) =>
+    !expanded && position >= MAX_VISIBLE_ENTRIES;
 
-  function renderRow(stockist: Stockist) {
-    return <StockistListRow key={stockist.id} stockist={stockist} t={t} />;
-  }
-
-  function renderRowStack(rows: Stockist[]) {
-    if (rows.length === 0) return null;
-
-    return <div className="divide-y divide-rule">{rows.map(renderRow)}</div>;
-  }
-
-  /** The grouped layout's row stack: rows past the cap fold behind a toggle. */
-  function renderCappedRowStack(kind: string, rows: Stockist[]) {
-    if (rows.length === 0) return null;
-
-    const isExpanded = expandedRowGroups[kind] === true;
-    const hiddenRowCount = Math.max(rows.length - MAX_VISIBLE_ROWS, 0);
-
-    // Two sibling stacks, not one stack with hidden rows: a hidden last child
-    // would leave the 8th row's divider and bottom padding above the toggle.
-    // The overflow stack's top border and padding continue the row rhythm.
+  function renderEntries(stockists: Stockist[], offset: number) {
     return (
-      <>
-        <div className="divide-y divide-rule">
-          {rows.slice(0, MAX_VISIBLE_ROWS).map(renderRow)}
-        </div>
-        {hiddenRowCount > 0 ? (
-          <div
-            className="divide-y divide-rule border-t border-rule pt-4"
-            hidden={!isExpanded}
-            data-stockist-row-overflow
-          >
-            {rows.slice(MAX_VISIBLE_ROWS).map(renderRow)}
-          </div>
-        ) : null}
-        {hiddenRowCount > 0 ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="compact"
-            aria-expanded={isExpanded}
-            onClick={() =>
-              setExpandedRowGroups((current) => ({
-                ...current,
-                [kind]: !isExpanded,
-              }))
-            }
-          >
-            {isExpanded
-              ? t("channels.rows.collapse")
-              : t("channels.chips.showRest", { count: hiddenRowCount })}
-            <ToggleChevron expanded={isExpanded} />
-          </Button>
-        ) : null}
-      </>
+      <ul className="grid gap-x-gutter sm:grid-cols-2">
+        {stockists.map((stockist, index) => (
+          <StockistEntry
+            key={stockist.id}
+            stockist={stockist}
+            t={t}
+            hidden={isFolded(offset + index)}
+          />
+        ))}
+      </ul>
     );
   }
 
-  function renderChipStack(kind: string, chips: Stockist[]) {
-    if (chips.length === 0) return null;
+  // Too few entries for grouping to earn subheads: render one flat list.
+  const list =
+    total < GROUPED_LAYOUT_MIN_STOCKISTS ? (
+      renderEntries(
+        displayGroups.flatMap((group) => group.stockists),
+        0,
+      )
+    ) : (
+      <div className="space-y-6">
+        {displayGroups.map((group, index) => {
+          const offset = displayGroups
+            .slice(0, index)
+            .reduce((sum, previous) => sum + previous.stockists.length, 0);
+          const heading =
+            group.key === "overseas" || group.key === "all_taiwan"
+              ? t(`channels.groups.${group.key}`)
+              : tCities(group.key);
 
-    const isExpanded = expandedChipGroups[kind] === true;
-    const hiddenChipCount = Math.max(chips.length - MAX_VISIBLE_CHIPS, 0);
-    const visibleChips = isExpanded ? chips : chips.slice(0, MAX_VISIBLE_CHIPS);
-
-    return (
-      <div className="space-y-3" data-stockist-chip-group={kind}>
-        <ul className="flex flex-wrap gap-2">
-          {visibleChips.map((stockist) => (
-            <StockistChip key={stockist.id} stockist={stockist} t={t} />
-          ))}
-        </ul>
-        {hiddenChipCount > 0 ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="compact"
-            aria-expanded={isExpanded}
-            onClick={() =>
-              setExpandedChipGroups((current) => ({
-                ...current,
-                [kind]: !isExpanded,
-              }))
-            }
-          >
-            {t("channels.chips.showRest", { count: hiddenChipCount })}
-          </Button>
-        ) : null}
-        {/* No live region here any more. It existed for the community confirm
-            round-trip, which is gone: a chip is a static entry now, and nothing
-            in this list raises a message. */}
+          return (
+            <div
+              key={group.key}
+              className="space-y-2"
+              data-stockist-kind={group.key}
+              hidden={isFolded(offset)}
+            >
+              {/* The count sits beside the heading, not inside it: the
+                  heading names the region alone. */}
+              <div className="flex items-baseline gap-2">
+                <h4 className="type-label">{heading}</h4>
+                <span className="type-metadata">
+                  {t("channels.groups.count", {
+                    count: group.stockists.length,
+                  })}
+                </span>
+              </div>
+              {renderEntries(group.stockists, offset)}
+            </div>
+          );
+        })}
       </div>
     );
-  }
 
-  function renderGroup(group: StockistRegionGroup, index: number) {
-    const rowStockists = group.stockists.filter(rendersAsRow);
-    const chipStockists = group.stockists.filter(
-      (stockist) => !rendersAsRow(stockist),
-    );
-    const heading =
-      group.key === "overseas" || group.key === "all_taiwan"
-        ? t(`channels.groups.${group.key}`)
-        : tCities(group.key);
-
-    return (
-      <AccordionItem
-        key={group.key}
-        data-stockist-kind={group.key}
-        hidden={!groupsExpanded && index >= MAX_VISIBLE_GROUPS}
-        title={
-          <h3 className="type-body-sm font-semibold text-ink">{`${heading} (${group.stockists.length})`}</h3>
-        }
-        panelClassName="space-y-4 px-4 py-4"
-      >
-        {renderChipStack(group.key, chipStockists)}
-        {renderCappedRowStack(group.key, rowStockists)}
-      </AccordionItem>
-    );
-  }
-
-  // Too few entries for grouping to earn headings: render one flat list.
-  if (allStockists.length < GROUPED_LAYOUT_MIN_STOCKISTS) {
-    const rowStockists = displayGroups.flatMap((group) =>
-      group.stockists.filter(rendersAsRow),
-    );
-    const chipStockists = displayGroups.flatMap((group) =>
-      group.stockists.filter((stockist) => !rendersAsRow(stockist)),
-    );
-
-    return (
-      <div className="space-y-8" data-stockist-list>
-        {renderChipStack("all_taiwan", chipStockists)}
-        {renderRowStack(rowStockists)}
-      </div>
-    );
-  }
-
-  const hiddenGroupCount = Math.max(
-    displayGroups.length - MAX_VISIBLE_GROUPS,
-    0,
-  );
-
-  // The group toggle is the Accordion's last child, so it sits after the last
-  // visible group in both states: hidden groups take no space.
   return (
-    <Accordion data-stockist-list>
-      {displayGroups.map(renderGroup)}
-      {hiddenGroupCount > 0 ? (
+    <div className="space-y-4" data-stockist-list>
+      {list}
+      {total > MAX_VISIBLE_ENTRIES ? (
         <Button
           type="button"
           variant="secondary"
           size="compact"
-          aria-expanded={groupsExpanded}
-          onClick={() => setGroupsExpanded((current) => !current)}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
         >
-          {groupsExpanded
-            ? t("channels.groups.collapse")
-            : t("channels.groups.showAll", { count: displayGroups.length })}
-          <ToggleChevron expanded={groupsExpanded} />
+          {expanded
+            ? t("channels.collapse")
+            : t("channels.showAll", { count: total })}
+          <ToggleChevron expanded={expanded} />
         </Button>
       ) : null}
-    </Accordion>
+    </div>
   );
 }
