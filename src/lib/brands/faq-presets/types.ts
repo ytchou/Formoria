@@ -108,7 +108,7 @@ export function formatFaqList(
   return new Intl.ListFormat(listLocale, { type: "conjunction" }).format(items);
 }
 
-const TITLE_CASE_WORD = /^[A-Z][a-z]+$/u;
+const TITLE_CASE_WORD = /^\p{Lu}\p{Ll}+$/u;
 
 /**
  * Taxonomy labels are Title Case ("Home Fragrance"); inside an English

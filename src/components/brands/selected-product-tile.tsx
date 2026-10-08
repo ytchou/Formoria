@@ -36,11 +36,11 @@ export type SelectedProductTileLabels = {
   brandSiteCta: string;
   unavailable: string;
   madeInTaiwan?: string;
-  /** Screen-reader lead-in for the shelf's guide link (主題選物). */
+  /** Screen-reader lead-in for the shelf's guide link (guide). */
   inGuide?: string;
 };
 
-/** The published trail (主題選物 guide) that placed a shelf product. */
+/** The published trail (guide guide) that placed a shelf product. */
 export type SelectedProductTileGuide = {
   slug: string;
   title: string;
@@ -109,7 +109,7 @@ export type SelectedProductTileProps = {
   };
   /**
    * Shelf-only: the guide that placed this product. Its presence is the
-   * reason a 選物 label may render (CP2-15); without it the tile shows none.
+   * reason a Formoria-selection label may render (CP2-15); without it the tile shows none.
    */
   guide?: SelectedProductTileGuide;
   /**
@@ -170,7 +170,7 @@ export function SelectedProductTile({
       ? "zh-Hant-TW"
       : undefined;
   const imageSrc = safeImageSrc(product.imageUrl);
-  // Render-side guard: a 選物 shelf tile never draws a letter placeholder. The
+  // Render-side guard: a Formoria-selection shelf tile never draws a letter placeholder. The
   // data-side publish precondition (no photo, no publish) is a separate ticket.
   if (mode === "shelf" && !imageSrc) return null;
   const subcategoryName = product.subcategory
@@ -315,7 +315,7 @@ export function SelectedProductTile({
       </div>
 
       <div className={wallCaptionClass}>
-        {/* Phones step down to the next 明體 size (there is no smaller
+        {/* Phones step down to the next Ming size (there is no smaller
             card-title token) and clamp to two lines (DS2-20); `sm` and up
             keep the card title. */}
         <Typography
@@ -327,8 +327,8 @@ export function SelectedProductTile({
           {name}
         </Typography>
         {brandName ? (
-          // A brand name is content: 明體, muted, never accent (DS2-19). 15px —
-          // 明體 strokes break below ~14px, so never a smaller step.
+          // A brand name is content: Ming, muted, never accent (DS2-19). 15px —
+          // Ming strokes break below ~14px, so never a smaller step.
           <p className={brandLineClassName}>{brandName}</p>
         ) : null}
         {subcategoryName ? (
@@ -416,7 +416,7 @@ export function SelectedProductTile({
           {productDescription}
         </p>
       ) : null}
-      {/* 選物 only with its reason (CP2-15): the guide that placed it. */}
+      {/* Formoria-selection only with its reason (CP2-15): the guide that placed it. */}
       {guide ? (
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <TrustLabel />
@@ -533,8 +533,8 @@ export function SelectedProductTile({
           </Typography>
         )}
 
-        {/* The note is content, so 明體 at body size; the brand line below
-            is 明體 too, muted (DS2-19). */}
+        {/* The note is content, so Ming at body size; the brand line below
+            is Ming too, muted (DS2-19). */}
         {mode === "trail" && note ? (
           <p className="type-body line-clamp-2">{note}</p>
         ) : null}

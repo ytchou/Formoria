@@ -620,6 +620,7 @@ describe("FAQ list and casing helpers", () => {
       "tops & T-shirts",
     );
     expect(lowercaseLabelForSentence("Home Fragrance")).toBe("home fragrance");
+    expect(lowercaseLabelForSentence("Home Décor")).toBe("home décor");
     expect(lowercaseLabelForSentence("LED Lamps")).toBe("LED lamps");
     expect(lowercaseLabelForSentence("3C Accessories")).toBe("3C accessories");
     expect(lowercaseLabelForSentence("tea ware")).toBe("tea ware");
@@ -681,7 +682,7 @@ describe("FAQ template floors (DEV-1994)", () => {
 
   it("en main-products lowercases Title Case labels and lists with and", () => {
     expect(floor("main-products", homeCtx, "en")).toBe(
-      "Harbor Form mainly makes furniture, mattresses, and bedding.",
+      "Harbor Form mainly offers furniture, mattresses, and bedding.",
     );
   });
 
@@ -694,7 +695,7 @@ describe("FAQ template floors (DEV-1994)", () => {
     });
 
     expect(floor("main-products", ctx, "en")).toBe(
-      "Harbor Form mainly makes tops & T-shirts.",
+      "Harbor Form mainly offers tops & T-shirts.",
     );
   });
 

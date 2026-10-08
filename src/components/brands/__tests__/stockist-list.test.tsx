@@ -438,7 +438,10 @@ describe("StockistList", () => {
       ],
     });
 
-    const [hanRow, latinRow] = entries(container);
+    // Rows render grouped by region, not in fixture order, so find them by text.
+    const rows = entries(container);
+    const hanRow = rows.find((row) => row.textContent?.includes("茶籽堂"));
+    const latinRow = rows.find((row) => row.textContent?.includes("Latin Store"));
     expect(within(hanRow as HTMLElement).getByText("茶籽堂")).toHaveAttribute(
       "lang",
       "zh-Hant-TW",

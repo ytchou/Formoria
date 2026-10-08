@@ -559,7 +559,7 @@
       },
       "mainProducts": {
         "question": "What does {brandName} make?",
-        "answer": "{brandName} mainly makes {subcategories}."
+        "answer": "{brandName} mainly offers {subcategories}."
       },
       "whereToBuy": {
         "question": "Where can I buy {brandName} products?",

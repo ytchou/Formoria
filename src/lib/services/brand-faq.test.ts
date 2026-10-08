@@ -286,7 +286,7 @@ describe("getBrandFaq", () => {
     const EN_TEMPLATES: Record<string, string> = {
       "brandFaq.mainProducts.question": "What does {brandName} make?",
       "brandFaq.mainProducts.answer":
-        "{brandName} mainly makes {subcategories}.",
+        "{brandName} mainly offers {subcategories}.",
     };
     const translator =
       (templates: Record<string, string>) =>
@@ -344,7 +344,7 @@ describe("getBrandFaq", () => {
         "What does Golday Jewelry make?",
       );
       expect(mainProducts(items)?.answer).toBe(
-        "Golday Jewelry mainly makes rings.",
+        "Golday Jewelry mainly offers rings.",
       );
     });
 
