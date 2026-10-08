@@ -1557,50 +1557,53 @@
   },
   "about": {
     "metadata": {
-      "title": "About Formoria",
-      "description": "Why Formoria exists: four broken paths, and how we connect them. From one thing you love, to its brand, its story, and the place you can buy it."
+      "title": "About",
+      "description": "Formoria is a Taiwanese brand discovery and curation platform: from one thing you love, to its brand, its story, and the place you can buy it. Here is how we list, how we select, and what we never do."
     },
     "hero": {
-      "title": "Moving into a new home, setting up a shop,\nstopping at a market stall",
-      "subtitle": "Something you love shouldn't stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
-      "statsBrands": "brands",
-      "statsCategories": "categories",
-      "recentWeek": "new brands",
-      "recentMonth": "new brands",
-      "cta": "Explore brands"
+      "title": "Moving into a new home, styling a shop,<br></br> the moment you stop at a market stall",
+      "subtitle": "The things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+      "statsBoth": "Formoria lists {brands, plural, one {# brand} other {# brands}} across {categories, plural, one {# category} other {# categories}}.",
+      "statsBrands": "Formoria lists {count, plural, one {# brand} other {# brands}}.",
+      "statsCategories": "Brands are sorted into {count, plural, one {# category} other {# categories}}.",
+      "recentWeek": "{count, plural, one {# brand} other {# brands}} added in the last 7 days.",
+      "recentMonth": "{count, plural, one {# brand} other {# brands}} added in the last 30 days.",
+      "cta": "Browse products",
+      "directoryPrefix": "or",
+      "directoryCta": "see the brand directory"
     },
     "scenes": {
-      "heading": "Four paths that break",
+      "heading": "Four familiar moments",
       "items": {
         "intention": {
-          "scene": "Moving into a new home, wanting one corner of the living room to feel different — and ending up in IKEA again.",
-          "detail": "There is no place to browse Taiwanese things by taste, occasion, or budget, so the convenient default wins."
+          "scene": "Moving into a new home, wanting one corner of the living room to feel different, and ending up in IKEA again.",
+          "detail": "A search turns up mostly marketplaces and price-comparison pages. Few places lay out Taiwanese things by room, occasion, or budget."
         },
         "encounter": {
-          "scene": "Meeting a brand you love at a design fair, then losing the thread on the way home.",
-          "detail": "The moment leaves nothing behind. Later, all that is left is a vague impression."
+          "scene": "Stopping at a stall at a design fair and holding a desk lamp for a long time.",
+          "detail": "Back home, the phone holds one blurry photo of the stall, and the brand's name is unreadable."
         },
         "alternatives": {
-          "scene": "Finding a cup you like, without knowing what else is out there.",
-          "detail": "Similar Taiwanese products live on scattered sites, with no way to see them side by side."
+          "scene": "Picking out a cup you like, to give as a gift.",
+          "detail": "Before ordering, a dozen tabs open on similar cups. Each brand's site describes only itself, so nothing sits side by side."
         },
         "adjacent": {
-          "scene": "Liking how one brand works, and wanting to know others that work the same way.",
-          "detail": "Loving one brand leads nowhere; brands with the same spirit are invisible to each other."
+          "scene": "Carrying the same brand's canvas bag for years, and starting to notice how it chooses materials and makes things.",
+          "detail": "Plenty of Taiwanese brands work with the same care, but each runs on its own, and they rarely appear in one place."
         }
       }
     },
     "loop": {
       "heading": "Connecting the path",
-      "body1": "Formoria is a directory of Taiwanese brands — not a shop, not a platform, not a magazine. We gather what is known about each brand, sort it, and put it in one place, so you can look by what you actually need.",
+      "body1": "Formoria is a Taiwanese brand discovery and curation platform. We don't sell anything, and we aren't a magazine: we gather and sort what is known about Taiwanese brands so you can look by what you need, and the few products we pick ourselves are marked Formoria Selection.",
       "body2": "From one thing you love, you can reach the brand that makes it, read how it came to be, and go to the place that sells it. That path used to break. We connect it.",
-      "pullQuote": "Formoria never owns the transaction. We connect liking something to the place that sells it, and hand you over to the brand.",
+      "pullQuote": "Formoria never handles the sale. We connect what you love to the place you can buy it, then hand you over to the brand.",
       "brandHeading": "For brands",
-      "brandBody": "Taiwan makes a great deal of good work, scattered across separate worlds and hard to find. Formoria gathers these brands so the right people can find them, get to know them, and go to the brand's own website or a stockist. We take no commission and sell nothing ourselves — we get good things seen, and sold."
+      "brandBody": "Taiwan's good work is scattered across brands' own sites, markets, and social accounts. Formoria gathers these brands into one directory, so people looking can find them by category and go on to the brand's own site or a stockist. We take no commission and sell nothing ourselves."
     },
     "taiwanStats": {
       "heading": "The scale of Taiwan's small businesses",
-      "intro": "The people we work for are the largest and quietest part of Taiwan's economy.",
+      "intro": "Most Taiwanese brands are small and medium-sized businesses.",
       "items": {
         "count": {
           "value": "1.674M+",
@@ -1608,15 +1611,14 @@
         },
         "share": {
           "value": "98%",
-          "label": "of all businesses"
+          "label": "of all businesses are SMEs"
         },
         "employment": {
           "value": "Nearly 80%",
-          "label": "of national employment, at SMEs"
+          "label": "of workers are employed by SMEs"
         }
       },
-      "sourceLabel": "Source",
-      "sourceName": "SME White Paper 2024, SME & Startup Administration, MOEA (2023 data)"
+      "source": "Source: <link>SME White Paper 2024, SME & Startup Administration, MOEA (2023 data)</link>"
     },
     "stance": {
       "heading": "How we work",
@@ -1626,22 +1628,24 @@
           "body": "Price, options, stock, checkout, shipping, and after-sales all belong to the brand. Formoria takes no orders and holds no inventory."
         },
         "noPayToWin": {
-          "lead": "Paying changes no order.",
-          "body": "Payment does not affect whether a brand is listed, what gets selected, or the order things appear in. Paid or commercial content is always labelled and kept separate."
+          "lead": "Payment buys no placement.",
+          "body": "Payment does not affect whether a brand is listed, what gets selected, or the order things appear in. Paid or commercial content is always labeled and kept separate."
         },
         "incomplete": {
-          "lead": "What is here is selected, not everything.",
-          "body": "The directory lists every brand that meets the published rules. A selection is a separate thing — the few we deliberately chose and gave a reason for. Not finding something here does not mean it does not exist."
+          "lead": "Not finding it here doesn't mean it doesn't exist.",
+          "body": "The directory lists brands that meet the published rules, and it is still growing. A selection is something else: the few products we chose on purpose and wrote a reason for."
         },
         "judgment": {
-          "lead": "The judgement is ours, and we show it.",
-          "body": "Formoria has a point of view and writes down the reasoning behind a choice, rather than posing as a neutral database."
+          "lead": "The judgment is ours, and we show it.",
+          "body": "Formoria has a point of view and writes down the reasoning behind each choice. We don't pose as a neutral database."
         }
       }
     },
     "guide": {
-      "heading": "Ready to explore Taiwanese brands?",
-      "cta": "Browse brands"
+      "heading": "Start from a situation",
+      "cta": "Browse styles",
+      "directoryPrefix": "or",
+      "directoryCta": "see the brand directory"
     }
   },
   "auth": {

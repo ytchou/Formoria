@@ -63,18 +63,18 @@ test.describe("SEO deep", () => {
     const aboutLocales = [
       {
         path: "/about",
-        title: "關於 Formoria | Formoria",
+        title: "關於我們 | Formoria",
         description:
-          "為什麼會有 Formoria：四條斷掉的路，和我們把它們接起來的方式。從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
-        heading: "搬新家、佈置店面、\n在市集停下來的那一刻",
+          "Formoria 是台灣品牌探索與選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。這裡說明我們怎麼收錄、怎麼挑選，以及不做哪些事。",
+        heading: /搬新家、佈置店面、\s*在市集\s*停下來的那一刻/,
       },
       {
         path: "/en/about",
-        title: "About Formoria | Formoria",
+        title: "About | Formoria",
         description:
-          "Why Formoria exists: four broken paths, and how we connect them. From one thing you love, to its brand, its story, and the place you can buy it.",
+          "Formoria is a Taiwanese brand discovery and curation platform: from one thing you love, to its brand, its story, and the place you can buy it. Here is how we list, how we select, and what we never do.",
         heading:
-          "Moving into a new home, setting up a shop, stopping at a market stall",
+          /Moving into a new home, styling a shop,\s*the moment you stop at a market stall/,
       },
     ] as const;
 

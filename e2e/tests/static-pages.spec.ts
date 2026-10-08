@@ -23,7 +23,8 @@ const TERMS_SECTIONS = legalSections(zhTW.legal.terms);
  *
  * Journeys:
  *  - /about renders with heading
- *  - both About locales state the mission and the commitments
+ *  - both About locales state the mission and the commitments, and exit
+ *    product-led (hero to /discover, closing band to /style)
  *  - vision routes remain absent
  *  - /mission remains absent
  *  - /getting-started remains absent
@@ -44,27 +45,37 @@ test.describe("Static & compliance pages", () => {
     const locales = [
       {
         path: "/about",
-        heading: "搬新家、佈置店面、\n在市集停下來的那一刻",
+        heading: /搬新家、佈置店面、\s*在市集\s*停下來的那一刻/,
         mission:
           "喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
         stanceLeads: [
           "我們把你交到品牌手上。",
-          "付費不會改變任何順序。",
-          "這裡是選出來的，不是全部。",
+          "付錢買不到位置。",
+          "找不到，不代表不存在。",
           "判斷是我們的，而且會說明理由。",
+        ],
+        // Product-led exits: the hero and the closing band lead to products
+        // and styles; the brand directory is the secondary link.
+        exits: [
+          { name: "逛商品", href: "/discover" },
+          { name: "看看風格選物", href: "/style" },
         ],
       },
       {
         path: "/en/about",
         heading:
-          "Moving into a new home, setting up a shop,\nstopping at a market stall",
+          /Moving into a new home, styling a shop,\s*the moment you stop at a market stall/,
         mission:
-          "Something you love shouldn't stay a chance encounter. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+          "The things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
         stanceLeads: [
           "We hand you to the brand.",
-          "Paying changes no order.",
-          "What is here is selected, not everything.",
-          "The judgement is ours, and we show it.",
+          "Payment buys no placement.",
+          "Not finding it here doesn't mean it doesn't exist.",
+          "The judgment is ours, and we show it.",
+        ],
+        exits: [
+          { name: "Browse products", href: "/en/discover" },
+          { name: "Browse styles", href: "/en/style" },
         ],
       },
     ] as const;
@@ -87,6 +98,13 @@ test.describe("Static & compliance pages", () => {
         await expect(
           anonPage.getByText(lead, { exact: true }),
         ).toBeVisible();
+      }
+      for (const exit of locale.exits) {
+        await expect(
+          anonPage
+            .getByRole("main")
+            .getByRole("link", { name: exit.name, exact: true }),
+        ).toHaveAttribute("href", exit.href);
       }
     }
   });
