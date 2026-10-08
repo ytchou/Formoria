@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
+import { waitForViewerReady } from '../helpers/viewer-ready';
 import zhTW from '../../messages/zh-TW.json';
 
 /**
@@ -151,6 +152,12 @@ async function openCorrectionDialog(page: Page, field: 'category' | 'subcategori
   // an opaque "predicate timed out" pointing at the dialog, which reads like a
   // broken dialog selector and sends debugging the wrong way.
   await expect(moreActionsButton(page)).toBeVisible();
+
+  // Hydration is what makes the open below stick. On a loaded runner it can take
+  // longer than the retry window, which then reports as "the dialog never
+  // opened". Gate on the app's own readiness signal so a slow hydration is
+  // told apart from a broken dialog.
+  await waitForViewerReady(page);
 
   const dialog = correctionDialog(page);
   await expect(async () => {

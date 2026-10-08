@@ -193,6 +193,9 @@ test.describe("Admin dashboard deep", () => {
   test("operations ledger remains actionable on mobile", async ({
     adminPage,
   }) => {
+    // Its own waits below are budgeted at BUDGET.NAVIGATION, which is longer than
+    // the 30s default test timeout; every sibling admin test sets this.
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.setViewportSize({ width: 390, height: 844 });
     await adminPage.goto("/admin");
     const needsData = adminPage.getByRole("link", { name: /Needs data/ });
@@ -209,18 +212,24 @@ test.describe("Admin dashboard deep", () => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto("/admin");
     const navLinks = adminPage.locator('nav a, [data-testid="admin-nav"] a');
-    const count = await navLinks.count();
-    for (let i = 0; i < count; i++) {
-      const href = await navLinks.nth(i).getAttribute("href");
-      if (href?.startsWith("/admin")) {
-        await adminPage.goto(href);
-        await expect(adminPage.getByRole("main")).toBeVisible({
-          timeout: BUDGET.NAVIGATION,
-        });
-        await expect(
-          adminPage.getByText(/something went wrong/i),
-        ).not.toBeVisible();
-      }
+    const hrefs = await navLinks.evaluateAll((links) =>
+      links
+        .map((link) => link.getAttribute("href") ?? "")
+        .filter((href) => href.startsWith("/admin")),
+    );
+    // Playwright turns the browser HTTP cache off while the origin guard's
+    // context.route is active, so every goto re-downloads the page's whole JS
+    // graph. Waiting for `load` on a dozen such pages (traced at 13-20s each on
+    // deployed staging) outruns the test budget without any page being broken.
+    // The assertion below needs the document and its <main>, not the load event.
+    for (const href of new Set(hrefs)) {
+      await adminPage.goto(href, { waitUntil: "domcontentloaded" });
+      await expect(adminPage.getByRole("main")).toBeVisible({
+        timeout: BUDGET.NAVIGATION,
+      });
+      await expect(
+        adminPage.getByText(/something went wrong/i),
+      ).not.toBeVisible();
     }
   });
 

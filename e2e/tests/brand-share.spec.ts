@@ -1,6 +1,7 @@
 import { BUDGET, POLL } from "../budgets";
 import { test, expect, type Page } from "@playwright/test";
 import { seedBrand, type SeededBrand } from "../helpers/seed";
+import { waitForViewerReady } from "../helpers/viewer-ready";
 
 /**
  * Share dialog journey (DEV-849, redesigned in DEV-1242)
@@ -32,6 +33,9 @@ import { seedBrand, type SeededBrand } from "../helpers/seed";
 async function openShareDialog(page: Page) {
   const trigger = page.getByRole("button", { name: "分享" });
   const dialog = page.getByRole("dialog", { name: "分享" });
+  // Gate on the app's readiness signal first: on a slow runner hydration can
+  // outlast the retry window below, which then reads as "the dialog is broken".
+  await waitForViewerReady(page);
   await expect(async () => {
     if (!(await dialog.isVisible())) await trigger.click();
     await expect(dialog).toBeVisible({ timeout: BUDGET.INTERACTIVE });

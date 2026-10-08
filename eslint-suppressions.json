@@ -13,11 +13,8 @@
     }
   },
   "e2e/tests/admin-dashboard.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 2
-    },
     "playwright/no-conditional-in-test": {
-      "count": 3
+      "count": 2
     },
     "playwright/no-skipped-test": {
       "count": 1
@@ -39,14 +36,6 @@
   "e2e/tests/auth-signin.spec.ts": {
     "playwright/no-conditional-in-test": {
       "count": 1
-    }
-  },
-  "e2e/tests/auth-signup-journey.spec.ts": {
-    "playwright/no-conditional-expect": {
-      "count": 2
-    },
-    "playwright/no-conditional-in-test": {
-      "count": 2
     }
   },
   "e2e/tests/brand-actions.spec.ts": {

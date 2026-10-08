@@ -2,6 +2,7 @@ import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 import { load } from "cheerio";
 import { seedBrand, type SeededBrand } from "../helpers/seed";
+import { waitForViewerReady } from "../helpers/viewer-ready";
 
 test("Opening the language menu does not report mismatched native buttons", async ({
   page,
@@ -248,8 +249,13 @@ test.describe("i18n English browse", () => {
       .locator('main [role="list"] article a[href^="/en/brands/"]')
       .first();
     await expect(firstBrand).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    // The card is in the server HTML before the client router is attached; a
+    // click that lands in between is a silent no-op. Hydration done first.
+    await waitForViewerReady(page);
     await firstBrand.click();
-    await expect(page).toHaveURL(/\/en\/brands\/[^/?#]+$/);
+    await expect(page).toHaveURL(/\/en\/brands\/[^/?#]+$/, {
+      timeout: BUDGET.NAVIGATION,
+    });
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
@@ -259,8 +265,9 @@ test.describe("i18n English browse", () => {
     page,
   }) => {
     await page.goto(`/en/brands/${seeded.slug}`);
+    // The footer repeats this link (DEV-1958), so name the header explicitly.
     await expect(
-      page.getByRole("link", { name: "About Formoria" }),
+      page.getByRole("banner").getByRole("link", { name: "About Formoria" }),
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
@@ -277,7 +284,7 @@ test.describe("i18n English browse", () => {
   }) => {
     await page.goto("/en/stories");
     await expect(
-      page.getByRole("link", { name: "About Formoria" }),
+      page.getByRole("banner").getByRole("link", { name: "About Formoria" }),
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
