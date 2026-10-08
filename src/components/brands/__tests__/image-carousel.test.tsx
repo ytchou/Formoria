@@ -124,6 +124,26 @@ describe("ImageCarousel", () => {
     expect(secondThumb).toHaveClass("object-contain", "p-1.5");
   });
 
+  // Below `sm` the arrows are hidden, so swipe is the only way through the
+  // gallery. A mostly-vertical gesture is a page scroll, not a swipe.
+  it("advances on a horizontal swipe and ignores a vertical scroll", () => {
+    const { container } = renderCarousel();
+    const hero = container.querySelector("[data-brand-hero]");
+    expect(hero).not.toBeNull();
+
+    fireEvent.touchStart(hero!, { touches: [{ clientX: 200, clientY: 100 }] });
+    fireEvent.touchEnd(hero!, {
+      changedTouches: [{ clientX: 190, clientY: 300 }],
+    });
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+
+    fireEvent.touchStart(hero!, { touches: [{ clientX: 200, clientY: 100 }] });
+    fireEvent.touchEnd(hero!, {
+      changedTouches: [{ clientX: 100, clientY: 110 }],
+    });
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  });
+
   it("keeps the mapping after advancing past the dropped image", () => {
     renderCarousel();
     fireEvent.click(screen.getByRole("button", { name: "gallery.next" }));
