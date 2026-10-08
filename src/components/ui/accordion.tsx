@@ -5,8 +5,9 @@ import { cn } from "@/lib/utils";
 
 /**
  * The shared disclosure accordion. Every collapsible FAQ and collapsible group
- * on the site renders through this file. The brand-page FAQ is not one: it is
- * an open `<dl>` (`brand-faq-accordion.tsx`, DESIGN.md §7).
+ * on the site renders through this file. /faq and the brand-page FAQ are not
+ * among them: both render an open `<dl>` (`brand-faq-accordion.tsx`,
+ * DESIGN.md §7).
  *
  * VISUAL ANATOMY IS ADAPTED FROM FLOWBITE'S DEFAULT ACCORDION
  * (https://flowbite.com/docs/components/accordion/): a boxed container, a
@@ -22,11 +23,8 @@ import { cn } from "@/lib/utils";
  * carries no 'use client': it must render on the server, and one e2e spec
  * parses the raw server HTML to prove it does.
  *
- * `...props` lands on the <details> element itself, deliberately. Three
+ * `...props` lands on the <details> element itself, deliberately. Two
  * separate consumers reach for that node directly:
- *   - `id`   — OpenTargetDetails opens the element matching location.hash, and
- *              guards on `instanceof HTMLDetailsElement`. An id on a wrapper
- *              silently kills every deep link.
  *   - `data-*` — the only handle e2e has on a stockist region group.
  *   - `onToggle` — the toggle event does not bubble, so a handler anywhere
  *              else never fires.

@@ -30,40 +30,39 @@ export default function SubmissionApprovedEmail({
   brandUrl,
   locale,
 }: ApprovalTemplateProps) {
+  // Most recipients recommended the brand rather than own it, so the copy
+  // never says "your brand".
   if (locale === "en") {
     return (
-      <Layout lang="en" previewText="Your brand has been approved!">
-        <EmailHeading>Your brand has been approved!</EmailHeading>
+      <Layout lang="en" previewText="The brand you recommended is now listed">
+        <EmailHeading>The brand you recommended is now listed</EmailHeading>
         <EmailText>
-          Great news -{" "}
           <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} /> is now
-          listed on Formoria.
+          in the Formoria brand directory.
         </EmailText>
-        <EmailText>You can view your brand page here:</EmailText>
+        <EmailText>Here&apos;s the brand page:</EmailText>
         <EmailText>
           <EmailLink href={brandUrl}>{brandUrl}</EmailLink>
         </EmailText>
-        <Button href={brandUrl}>View your brand page</Button>
-        <EmailText>
-          Thank you for helping more people discover Taiwanese brands.
-        </EmailText>
+        <Button href={brandUrl}>View the brand page</Button>
+        <EmailText>Thanks for the recommendation.</EmailText>
       </Layout>
     );
   }
 
   return (
-    <Layout previewText="品牌已通過審核！">
-      <EmailHeading>品牌已通過審核！</EmailHeading>
+    <Layout previewText="你推薦的品牌已經收錄">
+      <EmailHeading>你推薦的品牌已經收錄</EmailHeading>
       <EmailText>
-        好消息 - <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />{" "}
-        現已刊登於 Formoria。
+        <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />{" "}
+        已經收錄進 Formoria 的品牌目錄。
       </EmailText>
-      <EmailText>品牌頁面已上線：</EmailText>
+      <EmailText>品牌頁在這裡：</EmailText>
       <EmailText>
         <EmailLink href={brandUrl}>{brandUrl}</EmailLink>
       </EmailText>
-      <Button href={brandUrl}>查看品牌頁面</Button>
-      <EmailText>感謝協助更多人發現台灣品牌。</EmailText>
+      <Button href={brandUrl}>看品牌頁</Button>
+      <EmailText>謝謝你的推薦。</EmailText>
     </Layout>
   );
 }
@@ -76,8 +75,8 @@ export async function buildApprovalEmail(
   const brandUrl = `${params.siteUrl}/brands/${params.brandSlug}`;
   const subject =
     locale === "en"
-      ? `Your brand "${brandName}" has been approved — Formoria`
-      : `品牌「${brandName}」已通過審核 — Formoria`;
+      ? `"${brandName}" is now listed on Formoria`
+      : `「${brandName}」已收錄進 Formoria`;
 
   return {
     to: params.submitterEmail,

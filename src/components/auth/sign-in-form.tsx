@@ -66,7 +66,9 @@ export function SignInForm({
         <p className="type-body-sm">
           {context
             ? t(`signIn.context.${context}`)
-            : t("signIn.subheading")}
+            : showOptionalAuthMethods
+              ? t("signIn.subheading")
+              : t("signIn.subheadingEmailOnly")}
         </p>
       </div>
 

@@ -9,9 +9,10 @@ test.describe("Public routing regressions deep", () => {
       expect(response?.status()).toBe(200);
       await expect(page.locator("main h1")).toBeVisible();
       // DEV-1956: the CTA goes straight to the recommend form; /submit only
-      // offered brand owners a coming-soon card.
+      // offered brand owners a coming-soon card. DEV-1988: it now appears
+      // under the hero and again at the close; the first is above the fold.
       await expect(
-        page.locator('main a[href$="/submit/recommend"]'),
+        page.locator('main a[href$="/submit/recommend"]').first(),
       ).toBeVisible();
       // The layout template appends "| Formoria"; the page title must not
       // carry the brand a second time.

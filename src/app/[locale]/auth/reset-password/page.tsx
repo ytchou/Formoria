@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { buildPrivatePageMetadata } from '@/lib/seo/private-page-metadata'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ResetPasswordForm } from '@/components/auth/reset-password-form'
 
@@ -10,10 +11,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('auth')
-  return {
+  return buildPrivatePageMetadata({
+    locale,
     title: t('resetPassword.heading'),
-    robots: { index: false, follow: true },
-  }
+    description: t('resetPassword.metaDescription'),
+  })
 }
 
 export default async function ResetPasswordPage({ params }: PageProps) {

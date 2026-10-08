@@ -64,8 +64,11 @@ function buildFieldSchemas(t: Translator) {
   const nameField = z
     .string()
     .trim()
+    .min(1, t('validation.nameRequired'))
     .max(100)
-    .refine((value) => hasMinimumVisibleCharacters(value, 2), {
+    // An empty name is reported once, as required. zod v3 still runs a refine
+    // after a failed min check, so the length rule skips the empty case itself.
+    .refine((value) => value.length === 0 || hasMinimumVisibleCharacters(value, 2), {
       message: t('validation.nameMinLength'),
     })
   // Preprocessed so both the client resolver and the server action's parse
@@ -153,9 +156,11 @@ function getBotDetectionSchema(t: Translator) {
 // variants (get*Schema) in all new call sites. ----
 const zhT = (key: string): string => {
   const map: Record<string, string> = {
+    'validation.nameRequired': '請輸入品牌名稱',
     'validation.nameMinLength': '品牌名稱至少要 2 個字',
     'validation.descriptionRequired': '請填寫品牌介紹',
-    'validation.emailInvalid': '請輸入有效的電子郵件地址',
+    'validation.emailInvalid': '電子郵件格式不對，請再檢查一次',
+    'validation.emailRequiredForNewsletter': '要訂閱電子報的話，請填電子郵件',
     'validation.heroImageRequired': '請上傳品牌主圖',
     'validation.platformRequired': '請選擇平台',
     'validation.urlInvalid': '請輸入完整網址，例如 https://brand.com',

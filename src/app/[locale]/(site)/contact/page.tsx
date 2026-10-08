@@ -78,7 +78,9 @@ export default async function ContactPage({ params }: PageProps) {
       </section>
 
       <section className="py-10">
-        <div className="grid gap-4 md:grid-cols-3">
+        {/* Three columns only from lg: at md each card was ~218px, so the
+            body wrapped every eight or nine characters. */}
+        <div className="grid gap-4 lg:grid-cols-3">
           {channels.map(({ key, icon: Icon, href, external }) => (
             <article
               key={key}
@@ -100,7 +102,10 @@ export default async function ContactPage({ params }: PageProps) {
                   <>
                     {/* The address in plain sight: a mailto link does
                         nothing for a reader with no mail client set up. */}
-                    <div className="mb-3 flex flex-wrap items-center gap-x-2">
+                    {/* Stacked, with the ghost button pulled out by its own
+                        inline padding so its label shares the address's
+                        left edge. */}
+                    <div className="mb-3 flex flex-col items-start">
                       <span className="select-all break-all type-body-sm text-ink">
                         {CONTACT_EMAILS.contact}
                       </span>
@@ -108,6 +113,7 @@ export default async function ContactPage({ params }: PageProps) {
                         text={CONTACT_EMAILS.contact}
                         label={t(`channels.${key}.copy`)}
                         copiedLabel={t(`channels.${key}.copied`)}
+                        className="-ml-3"
                       />
                     </div>
                     <a href={href} className={ctaClassName}>

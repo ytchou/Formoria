@@ -39,7 +39,7 @@ export function Layout({
         <Container style={container}>
           <Header />
           {children}
-          <Footer unsubscribeUrl={unsubscribeUrl} />
+          <Footer unsubscribeUrl={unsubscribeUrl} lang={lang} />
         </Container>
       </Body>
     </Html>

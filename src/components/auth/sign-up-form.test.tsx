@@ -39,10 +39,10 @@ const { SignUpForm } = await import("./sign-up-form");
 const MISMATCH = "兩次輸入的密碼不一致";
 const EMAIL_INVALID = zh.auth.validation.emailInvalid;
 
-function renderForm() {
+function renderForm({ showOptionalAuthMethods = true } = {}) {
   render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
-      <SignUpForm />
+      <SignUpForm showOptionalAuthMethods={showOptionalAuthMethods} />
     </NextIntlClientProvider>,
   );
   return {
@@ -110,6 +110,24 @@ describe("SignUpForm", () => {
     expect(
       screen.getByRole("button", { name: "使用 Google 繼續" }),
     ).toBeInTheDocument();
+  });
+
+  // SP2-27: staging hides Google on sign-in, so sign-up must not offer it.
+  it("hides the Google button and its divider when optional methods are off", () => {
+    renderForm({ showOptionalAuthMethods: false });
+
+    expect(
+      screen.queryByRole("button", { name: "使用 Google 繼續" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(zh.auth.orDivider)).not.toBeInTheDocument();
+  });
+
+  // CP2-34: no page lists saved products, so sign-up must not promise them.
+  it("promises only what an account can do", () => {
+    renderForm();
+
+    expect(screen.getByText(zh.auth.signUp.subheading)).toBeInTheDocument();
+    expect(zh.auth.signUp.subheading).not.toContain("商品");
   });
 
   it("links the terms line to the terms and privacy pages", () => {

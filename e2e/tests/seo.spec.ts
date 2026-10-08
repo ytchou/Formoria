@@ -410,7 +410,8 @@ test.describe("SEO deep", () => {
       "/contact",
       "/terms",
       "/privacy",
-      "/submit",
+      // `/submit` redirects here (DEV-1988); the sitemap lists the target.
+      "/submit/recommend",
     ]);
     const staticLocations = locations.filter((url) => {
       const path =

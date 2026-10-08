@@ -118,7 +118,7 @@ describe("/about page", () => {
     expect(source).toContain('"adjacent"');
 
     // The scene text is rendered inside a <p>, not an <h> tag.
-    // Source pattern: <p className="type-section">\n{t(`scenes.items.${key}.scene`)}
+    // Source pattern: <p className="type-section ...">\n{t(`scenes.items.${key}.scene`)}
     const scenesStart = source.indexOf("{/* Scenes */}");
     const loopStart = source.indexOf("{/* Loop */}");
     expect(scenesStart).toBeGreaterThan(-1);
@@ -129,7 +129,7 @@ describe("/about page", () => {
     // is allowed to be an h2, so we check specifically for `.items.` expressions.
     expect(sceneBlock).not.toMatch(/<h[23][^>]*>[^<]*scenes\.items/);
     // Confirm the <p> wrapper is present.
-    expect(sceneBlock).toMatch(/<p className="type-section">\s*\{t\(`scenes\.items\.\$\{key\}\.scene`\)\}/);
+    expect(sceneBlock).toMatch(/<p className="type-section[^"]*">\s*\{t\(`scenes\.items\.\$\{key\}\.scene`\)\}/);
   });
 
   it("renders the four commitments as paragraphs, not headings", () => {
@@ -145,7 +145,7 @@ describe("/about page", () => {
     const stanceBlock = source.slice(stanceStart, ctaStart);
     expect(stanceBlock).toContain("stance.items.");
     expect(stanceBlock).not.toMatch(/<h[23][^>]*>[^<]*stance\.items/);
-    expect(stanceBlock).toMatch(/<p className="type-section">\s*\{t\(`stance\.items\.\$\{key\}\.lead`\)\}/);
+    expect(stanceBlock).toMatch(/<p className="type-section[^"]*">\s*\{t\(`stance\.items\.\$\{key\}\.lead`\)\}/);
   });
 
   it("emits Organization JSON-LD and no Article JSON-LD", () => {

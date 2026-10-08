@@ -19,7 +19,14 @@ type BrandCardProps = {
   imageUrl: string
   blurb: string
   ctaUrl: string
+  /** One language per email; the CTA follows the message's locale. */
+  lang?: 'zh-TW' | 'en'
 }
+
+const CTA_LABEL = {
+  'zh-TW': '看品牌頁',
+  en: 'View the brand page',
+} as const
 
 /**
  * A hairline-ruled band, not a bordered rounded box. v2's elevation is the
@@ -30,7 +37,13 @@ type BrandCardProps = {
  * Imports the three components directly rather than through the barrel. The
  * barrel exports this file, so going back through it is a cycle.
  */
-export function BrandCard({ name, imageUrl, blurb, ctaUrl }: BrandCardProps) {
+export function BrandCard({
+  name,
+  imageUrl,
+  blurb,
+  ctaUrl,
+  lang = 'zh-TW',
+}: BrandCardProps) {
   const truncatedBlurb = truncateForMeta(blurb)
 
   return (
@@ -38,7 +51,7 @@ export function BrandCard({ name, imageUrl, blurb, ctaUrl }: BrandCardProps) {
       <Img src={imageUrl} alt={name} width="552" style={image} />
       <EmailHeading as="h2">{name}</EmailHeading>
       <EmailText>{truncatedBlurb}</EmailText>
-      <Button href={ctaUrl}>了解更多 / Learn More</Button>
+      <Button href={ctaUrl}>{CTA_LABEL[lang]}</Button>
     </Section>
   )
 }

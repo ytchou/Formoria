@@ -35,6 +35,16 @@ describe("Layout", () => {
     expect(html).toContain("取消訂閱");
   });
 
+  it("passes its lang to the footer", async () => {
+    const html = await render(
+      <Layout lang="en" previewText="Test" unsubscribeUrl="https://formoria.com/unsub">
+        <EmailText>Content</EmailText>
+      </Layout>,
+    );
+    expect(html).toContain("Unsubscribe");
+    expect(html).not.toContain("取消訂閱");
+  });
+
   it("omits unsubscribe link when not provided", async () => {
     const html = await render(
       <Layout previewText="Test">
@@ -65,7 +75,18 @@ describe("Footer", () => {
       <Footer unsubscribeUrl="https://formoria.com/unsub" />,
     );
     expect(html).toContain("取消訂閱");
+    expect(html).not.toContain("Unsubscribe");
     expect(html).toContain("formoria.com/unsub");
+  });
+
+  it("renders one language per email for en", async () => {
+    const html = await render(
+      <Footer lang="en" unsubscribeUrl="https://formoria.com/unsub" />,
+    );
+    expect(html).toContain("A curated platform for Taiwanese goods");
+    expect(html).toContain("Unsubscribe");
+    expect(html).not.toContain("台灣好物選物平台");
+    expect(html).not.toContain("取消訂閱");
   });
 });
 
