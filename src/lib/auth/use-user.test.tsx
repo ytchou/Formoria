@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ViewerContext } from '@/lib/actions/viewer-context'
 
 const getViewerContextAction = vi.hoisted(() => vi.fn())
+const captureException = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/actions/viewer-context', () => ({ getViewerContextAction }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/' }))
+vi.mock('@sentry/nextjs', () => ({ captureException }))
 
 const { ViewerProvider, useUser } = await import('./use-user')
 
@@ -72,6 +74,35 @@ describe('ViewerProvider', () => {
     // The security-critical invariant: a throwing action must never grant a
     // privilege. `viewerError` is what makes this distinguishable from a
     // legitimate "resolved, not an admin" — without it both are silence.
+    expect(result.current.viewer.isAdmin).toBe(false)
+    expect(result.current.viewerError).toBe(true)
+  })
+
+  it("reports the router's non-RSC rejection as deployment skew at warning", async () => {
+    getViewerContextAction.mockRejectedValue(
+      new Error('An unexpected response was received from the server.'),
+    )
+
+    const { result } = renderViewer()
+    await waitFor(() => expect(captureException).toHaveBeenCalledTimes(1))
+
+    expect(captureException.mock.calls[0]?.[1]).toEqual({
+      level: 'warning',
+      tags: { scope: 'viewer-context', deployment_skew: true },
+    })
+    expect(result.current.viewer.isAdmin).toBe(false)
+    expect(result.current.viewerError).toBe(true)
+  })
+
+  it('still reports an unrelated viewer failure at default severity', async () => {
+    getViewerContextAction.mockRejectedValue(new Error('down'))
+
+    const { result } = renderViewer()
+    await waitFor(() => expect(captureException).toHaveBeenCalledTimes(1))
+
+    expect(captureException.mock.calls[0]?.[1]).toEqual({
+      tags: { scope: 'viewer-context' },
+    })
     expect(result.current.viewer.isAdmin).toBe(false)
     expect(result.current.viewerError).toBe(true)
   })

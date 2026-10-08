@@ -16,6 +16,7 @@ import {
   getViewerContextAction,
   type ViewerContext,
 } from '@/lib/actions/viewer-context'
+import { isDeploymentSkewError } from '@/lib/observability/deployment-skew'
 
 type ViewerUser = NonNullable<ViewerContext['user']>
 
@@ -54,7 +55,14 @@ const VIEWER_RETRY_DELAY_MS = 300
 function reportViewerFailure(error: unknown) {
   void import('@sentry/nextjs')
     .then(({ captureException }) => {
-      captureException(error, { tags: { scope: 'viewer-context' } })
+      // Same downgrade RouteError applies: still reported and searchable by
+      // tag, but a non-RSC reply to the action POST is not an app regression.
+      captureException(
+        error,
+        isDeploymentSkewError(error)
+          ? { level: 'warning', tags: { scope: 'viewer-context', deployment_skew: true } }
+          : { tags: { scope: 'viewer-context' } },
+      )
     })
     .catch(() => {
       // A failed telemetry chunk load must not surface as an app error.
