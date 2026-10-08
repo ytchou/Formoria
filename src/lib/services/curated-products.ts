@@ -22,7 +22,10 @@ import {
   canPublishCuratedProduct,
   hasRenderableCuratedImage,
 } from "@/lib/curated-products/image-eligibility";
-import { normalizeCuratedProductName } from "@/lib/curated-products/product-name";
+import {
+  normalizeCuratedProductName,
+  publicCuratedProductName,
+} from "@/lib/curated-products/product-name";
 import { buildCategoryWallSlots } from "@/lib/curated-products/home-wall";
 import {
   toWallTileProduct,
@@ -279,8 +282,9 @@ function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
     id: row.id,
     brandId: row.brand_id,
     key: row.key,
-    nameZh: row.name_zh,
-    nameEn: row.name_en ?? null,
+    // Public read: the read-side name guard (DEV-1989).
+    nameZh: publicCuratedProductName(row.name_zh),
+    nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
     category: row.category,
     subcategory: productSubcategory(row),
     officialUrl: row.official_url ?? null,
@@ -328,8 +332,9 @@ function toTrailProduct(
     id: row.id,
     brandId: row.brand_id,
     key: row.key,
-    nameZh: row.name_zh,
-    nameEn: row.name_en ?? null,
+    // Public read: the read-side name guard (DEV-1989).
+    nameZh: publicCuratedProductName(row.name_zh),
+    nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
     category: row.category,
     subcategory: productSubcategory(row),
     officialUrl: row.official_url ?? null,

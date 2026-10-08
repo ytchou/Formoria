@@ -1,0 +1,153 @@
+{
+  "_source": "2026-10-08 staging review, docs/reviews/2026-10-08-staging-review/ds2-evidence/catalog-names.json (1,329 public catalog names, gitignored); hand-picked subset for DEV-1989 DS2-01. `expected` is the name a public read must render.",
+  "cases": [
+    {
+      "name": "米拉諾蕾絲緞帶德訓鞋 khNTqkeV",
+      "expected": "米拉諾蕾絲緞帶德訓鞋"
+    },
+    {
+      "name": "Handscript 手稿藝術家系列鋼珠筆 zJJGtwgx",
+      "expected": "Handscript 手稿藝術家系列鋼珠筆"
+    },
+    {
+      "name": "Celebrate慶祝花圈戒指 l 世界的微光 ndRssjP6",
+      "expected": "Celebrate慶祝花圈戒指 l 世界的微光"
+    },
+    {
+      "name": "綁帶甜椒日・白菊姊姊 32141747",
+      "expected": "綁帶甜椒日・白菊姊姊"
+    },
+    {
+      "name": "啵啵杯710ml 啵啵杯710ml",
+      "expected": "啵啵杯710ml"
+    },
+    {
+      "name": "T Torch T Torch",
+      "expected": "T Torch"
+    },
+    {
+      "name": "日用背包 Bb8beK8h",
+      "expected": "日用背包"
+    },
+    {
+      "name": "海廢彈珠編織項鍊 AuCXmkNG",
+      "expected": "海廢彈珠編織項鍊"
+    },
+    {
+      "name": "鮭魚切片醬油碟 rSNtYhWX",
+      "expected": "鮭魚切片醬油碟"
+    },
+    {
+      "name": "印度蓋染布緋紅森林高腰落地寬褲  S93YZ6gd",
+      "expected": "印度蓋染布緋紅森林高腰落地寬褲"
+    },
+    {
+      "name": "金屬雙用靜音桌鐘 Mesa - 1y9JSeGG",
+      "expected": "金屬雙用靜音桌鐘 Mesa"
+    },
+    {
+      "name": "ocean /// 925純銀 GKqQkPbJ",
+      "expected": "ocean /// 925純銀"
+    },
+    {
+      "name": "果實纍纍 Ruby 迷你紅寶石項鍊 鎖骨鍊 SV925/14KGF rYaGdtmg",
+      "expected": "果實纍纍 Ruby 迷你紅寶石項鍊 鎖骨鍊 SV925/14KGF"
+    },
+    {
+      "name": "2026馬年立體刺繡春聯｜馬上有錢 wzSu3eaa",
+      "expected": "2026馬年立體刺繡春聯｜馬上有錢"
+    },
+    {
+      "name": "復刻章｜數字123（2.0版） jWK3YW97",
+      "expected": "復刻章｜數字123（2.0版）"
+    },
+    {
+      "name": "小花梅醬的花園・ピクニック 32150811",
+      "expected": "小花梅醬的花園・ピクニック"
+    },
+    {
+      "name": "多WAY皺皺掛繩 41020001",
+      "expected": "多WAY皺皺掛繩"
+    },
+    {
+      "name": "彎曲小圈落地燈 Circulos aEQnjHRS",
+      "expected": "彎曲小圈落地燈 Circulos"
+    },
+    {
+      "name": "石虎機能設計襪（女款）fv6wjmPG",
+      "expected": "石虎機能設計襪（女款）"
+    },
+    {
+      "name": "針葉機能設計襪（女款）dEAv5LSs",
+      "expected": "針葉機能設計襪（女款）"
+    },
+    {
+      "name": "衝突機能設計襪（女款）3ekgggHz",
+      "expected": "衝突機能設計襪（女款）"
+    },
+    {
+      "name": "恐龍與花機能設計襪（女款）HbQDMsYx",
+      "expected": "恐龍與花機能設計襪（女款）"
+    },
+    {
+      "name": "菱格與蛇機能設計襪（女款）9GBpMrMY",
+      "expected": "菱格與蛇機能設計襪（女款）"
+    },
+    {
+      "name": "台灣穗花杉機能設計襪（女款）DxRY4GYa",
+      "expected": "台灣穗花杉機能設計襪（女款）"
+    },
+    {
+      "name": "經典透明防撕裂褲襪 4” Waistband",
+      "expected": "經典透明防撕裂褲襪 4” Waistband"
+    },
+    {
+      "name": "城市迷宮〈淺黃〉",
+      "expected": "城市迷宮〈淺黃〉"
+    },
+    {
+      "name": "秘密花園門鎖項鍊 925銀",
+      "expected": "秘密花園門鎖項鍊 925銀"
+    },
+    {
+      "name": "Vinna 珍珠手環 14Kgf",
+      "expected": "Vinna 珍珠手環 14Kgf"
+    },
+    {
+      "name": "手感花色翻立領上衣 5M565",
+      "expected": "手感花色翻立領上衣 5M565"
+    },
+    {
+      "name": "星球運行・耳夾 80-A-E00027-B",
+      "expected": "星球運行・耳夾 80-A-E00027-B"
+    },
+    {
+      "name": "三重紗漂亮裙 003",
+      "expected": "三重紗漂亮裙 003"
+    },
+    {
+      "name": "Aiman 電動 NAPPA 皮沙發 G8116",
+      "expected": "Aiman 電動 NAPPA 皮沙發 G8116"
+    },
+    {
+      "name": "22%維生素C高效美白精華 TCW1023FX00",
+      "expected": "22%維生素C高效美白精華 TCW1023FX00"
+    },
+    {
+      "name": "POPOLA x DOUGHNUT 遛遛包 PLC01040010",
+      "expected": "POPOLA x DOUGHNUT 遛遛包 PLC01040010"
+    },
+    {
+      "name": "非洲柚木一枚板 P0630601A12VB",
+      "expected": "非洲柚木一枚板 P0630601A12VB"
+    },
+    {
+      "name": "MORE Dining Cabinet 餐邊櫃",
+      "expected": "MORE Dining Cabinet 餐邊櫃"
+    },
+    {
+      "name": "友善海洋防曬水凝乳 40g",
+      "expected": "友善海洋防曬水凝乳 40g"
+    }
+  ]
+}

@@ -13,8 +13,11 @@ import {
   uploadPublicImage,
 } from "@/lib/services/image-upload";
 import { imagePathToUrl } from "@/lib/images/image-url";
-import { findCommerceTruthText } from "@/lib/curated-products/commerce-text";
-import { readImageText } from "@/lib/services/image-text";
+import {
+  findImageRejectionReasons,
+  type ImageTextSignals,
+} from "@/lib/curated-products/commerce-text";
+import { readImageSignals } from "@/lib/services/image-text";
 
 /**
  * Curated-product image storage (DEV-1465).
@@ -137,10 +140,13 @@ export type StoredCuratedProductImage = {
   height: number;
 };
 
-/** Reads the visible text off a processed image; production is `readImageText`. */
-type CuratedProductImageTextReader = (
+/**
+ * Reads the visible text and ad-creative signals off a processed image;
+ * production is `readImageSignals`.
+ */
+type CuratedProductImageSignalsReader = (
   processed: ProcessedImage,
-) => Promise<string>;
+) => Promise<ImageTextSignals>;
 
 /**
  * Injectable storage and text-reader seams. Tests drive the upload without a
@@ -150,7 +156,7 @@ type CuratedProductImageTextReader = (
 export type CuratedProductImageDeps = {
   upload?: typeof uploadPublicImage;
   deletePaths?: typeof deleteStoredImagePaths;
-  readText?: CuratedProductImageTextReader;
+  readSignals?: CuratedProductImageSignalsReader;
 };
 
 /** Module-private: the key shape is derived here and nowhere else. */
@@ -197,11 +203,16 @@ function curatedProductImageKey(input: {
  * and so hidden — until the next refresh retries it, which is self-healing.
  * Letting an unread image through would make every OpenAI outage a window
  * for promo banners.
+ *
+ * AD-CREATIVE GATE (DEV-1989): the same read reports whether a person presents
+ * the product and how much of the image is overlaid text, and
+ * `findImageRejectionReasons` rejects a spokesperson ad, a banner or ad copy
+ * (「一件可印」) the same way, failing closed the same way.
  */
 export async function prepareCuratedProductImage(
   imageSourceUrl: string,
   subjectId?: string,
-  deps: Pick<CuratedProductImageDeps, "readText"> = {},
+  deps: Pick<CuratedProductImageDeps, "readSignals"> = {},
 ): Promise<ProcessedImage> {
   // The fetch is audited on its own span (`http.fetch_curated_image`) so
   // the bytes stored against a product trace back to the exact request.
@@ -258,22 +269,27 @@ export async function prepareCuratedProductImage(
   });
 
   // The PROCESSED bytes are read because they are what gets stored and shown.
-  const readText =
-    deps.readText ??
-    ((image: ProcessedImage) => readImageText(image, { subjectId }));
-  let text: string;
+  const readSignals =
+    deps.readSignals ??
+    ((image: ProcessedImage) => readImageSignals(image, { subjectId }));
+  let signals: ImageTextSignals;
   try {
-    text = await readText(processed);
+    signals = await readSignals(processed);
   } catch (error) {
     console.error("[curatedProducts] image text read failed", error);
     throw new Error(
       "Could not check the image for prices or promotions; try again",
     );
   }
-  const hits = findCommerceTruthText(text);
-  if (hits.length > 0) {
+  const { commerce, adCreative } = findImageRejectionReasons(signals);
+  if (commerce.length > 0) {
     throw new Error(
-      `The image shows prices or promotions (${hits.join(", ")}); choose a clean product photo`,
+      `The image shows prices or promotions (${commerce.join(", ")}); choose a clean product photo`,
+    );
+  }
+  if (adCreative.length > 0) {
+    throw new Error(
+      `The image is an advertisement (${adCreative.join(", ")}); choose a clean product photo`,
     );
   }
 
@@ -358,7 +374,7 @@ export async function storeCuratedProductImage(
   const processed = await prepareCuratedProductImage(
     input.imageSourceUrl,
     input.productId,
-    { readText: deps.readText },
+    { readSignals: deps.readSignals },
   );
   return uploadCuratedProductImage({ ...input, processed }, deps);
 }

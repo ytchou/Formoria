@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { isShopSkuToken, normalizeCuratedProductName } from "../product-name";
+import {
+  isShopSkuToken,
+  normalizeCuratedProductName,
+  publicCuratedProductName,
+} from "../product-name";
 import catalog from "./fixtures/catalog-names-2026-10-08.json";
+import stagingCatalog from "./fixtures/staging-catalog-names-2026-10-08.json";
 
 describe("isShopSkuToken", () => {
   it.each(["7cFSL8yz", "zJJGtwgx", "QJVtWFVy", "q2wz7ii6", "AuCXmkNG", "998twnrh", "mvgmaaE5"])(
@@ -76,6 +81,68 @@ describe("normalizeCuratedProductName", () => {
     expect(normalizeCuratedProductName("夏慕尼沙發 Chamonix")).toBe("夏慕尼沙發 Chamonix");
   });
 
+  it("strips an 8-digit shop SKU directly after CJK text (DEV-1989)", () => {
+    expect(normalizeCuratedProductName("綁帶甜椒日・白菊姊姊 32141747")).toBe(
+      "綁帶甜椒日・白菊姊姊",
+    );
+    expect(normalizeCuratedProductName("小花梅醬的花園・ピクニック 32150811")).toBe(
+      "小花梅醬的花園・ピクニック",
+    );
+    expect(normalizeCuratedProductName("城市迷宮〈淺黃〉 32980605")).toBe("城市迷宮〈淺黃〉");
+    expect(normalizeCuratedProductName("復刻章「數字」 41020001")).toBe("復刻章「數字」");
+  });
+
+  it("keeps 8 digits after Latin text, where they read as a model number", () => {
+    expect(normalizeCuratedProductName("辦公椅 DKGP 10131234")).toBe("辦公椅 DKGP 10131234");
+    expect(normalizeCuratedProductName("Model 32141747")).toBe("Model 32141747");
+    expect(normalizeCuratedProductName("鋼筆 2024 32141747")).toBe("鋼筆 2024 32141747");
+  });
+
+  it("keeps digit tails that are not exactly 8 digits, or not space-separated", () => {
+    expect(normalizeCuratedProductName("三重紗漂亮裙 003")).toBe("三重紗漂亮裙 003");
+    expect(normalizeCuratedProductName("白菊姊姊 321417470")).toBe("白菊姊姊 321417470");
+    expect(normalizeCuratedProductName("白菊姊姊32141747")).toBe("白菊姊姊32141747");
+  });
+
+  it("strips a shop token glued to a fullwidth closing bracket", () => {
+    expect(normalizeCuratedProductName("石虎機能設計襪（女款）fv6wjmPG")).toBe("石虎機能設計襪（女款）");
+    expect(normalizeCuratedProductName("書籤「鯨落」q2wz7ii6")).toBe("書籤「鯨落」");
+    expect(normalizeCuratedProductName("書籤『鯨落』q2wz7ii6")).toBe("書籤『鯨落』");
+    expect(normalizeCuratedProductName("書籤【鯨落】q2wz7ii6")).toBe("書籤【鯨落】");
+    expect(normalizeCuratedProductName("書籤〔鯨落〕q2wz7ii6")).toBe("書籤〔鯨落〕");
+  });
+
+  it("keeps a glued token after any other character, or a name-shaped one", () => {
+    expect(normalizeCuratedProductName("書籤〉q2wz7ii6")).toBe("書籤〉q2wz7ii6");
+    expect(normalizeCuratedProductName("書籤)q2wz7ii6")).toBe("書籤)q2wz7ii6");
+    expect(normalizeCuratedProductName("鯨落q2wz7ii6")).toBe("鯨落q2wz7ii6");
+    expect(normalizeCuratedProductName("沙發（款）Chamonix")).toBe("沙發（款）Chamonix");
+    expect(normalizeCuratedProductName("鋼筆（黑）DKGP1013")).toBe("鋼筆（黑）DKGP1013");
+  });
+
+  it("trims a separator left dangling by a stripped token", () => {
+    expect(normalizeCuratedProductName("金屬雙用靜音桌鐘 Mesa - 1y9JSeGG")).toBe("金屬雙用靜音桌鐘 Mesa");
+    expect(normalizeCuratedProductName("桌鐘 Mesa – 1y9JSeGG")).toBe("桌鐘 Mesa");
+    expect(normalizeCuratedProductName("桌鐘 Mesa — 1y9JSeGG")).toBe("桌鐘 Mesa");
+    expect(normalizeCuratedProductName("桌鐘 Mesa | 1y9JSeGG")).toBe("桌鐘 Mesa");
+    expect(normalizeCuratedProductName("桌鐘 Mesa / 1y9JSeGG")).toBe("桌鐘 Mesa");
+    expect(normalizeCuratedProductName("春聯｜馬上有錢｜ wzSu3eaa")).toBe("春聯｜馬上有錢");
+    expect(normalizeCuratedProductName("春聯・ wzSu3eaa")).toBe("春聯");
+    expect(normalizeCuratedProductName("春聯／ 32141747")).toBe("春聯");
+  });
+
+  it("trims no separator when no token was stripped", () => {
+    expect(normalizeCuratedProductName("桌鐘 Mesa -")).toBe("桌鐘 Mesa -");
+    expect(normalizeCuratedProductName("ocean /// 925純銀")).toBe("ocean /// 925純銀");
+    expect(normalizeCuratedProductName("春聯｜")).toBe("春聯｜");
+  });
+
+  it("keeps a Latin letter l, which is not a separator", () => {
+    expect(normalizeCuratedProductName("Celebrate慶祝花圈戒指 l 世界的微光 ndRssjP6")).toBe(
+      "Celebrate慶祝花圈戒指 l 世界的微光",
+    );
+  });
+
   it("never empties a name that is only a token", () => {
     expect(normalizeCuratedProductName("7cFSL8yz")).toBe("7cFSL8yz");
   });
@@ -83,6 +150,18 @@ describe("normalizeCuratedProductName", () => {
   it("is idempotent", () => {
     const once = normalizeCuratedProductName("Your Monkey 眼鏡架兼存錢筒 7cFSL8yz");
     expect(normalizeCuratedProductName(once)).toBe(once);
+    const digits = normalizeCuratedProductName("綁帶甜椒日・白菊姊姊 32141747");
+    expect(normalizeCuratedProductName(digits)).toBe(digits);
+  });
+});
+
+describe("publicCuratedProductName", () => {
+  it("returns the normalised name", () => {
+    expect(publicCuratedProductName("米拉諾蕾絲緞帶德訓鞋 khNTqkeV")).toBe("米拉諾蕾絲緞帶德訓鞋");
+  });
+
+  it("falls back to the stored value when normalising would empty it", () => {
+    expect(publicCuratedProductName("   ")).toBe("   ");
   });
 });
 
@@ -94,11 +173,20 @@ describe("normalizeCuratedProductName", () => {
 describe("catalog guard (2026-10-08 scan)", () => {
   const trailingToken = /\s+[A-Za-z0-9]{8}$/;
 
-  it("strips exactly the 173 SKU-suffixed names the review counted", () => {
+  // 173 alphanumeric tokens, plus the 5 all-digit tails after CJK text that
+  // DEV-1989 (DS2-01) added to the rule.
+  it("strips exactly the 178 SKU-suffixed names the reviews counted", () => {
     const changed = catalog.trailingTokenNames.filter(
       (name) => normalizeCuratedProductName(name) !== name,
     );
-    expect(changed).toHaveLength(173);
+    expect(changed).toHaveLength(178);
+    expect(changed.filter((name) => /\s\d{8}$/.test(name))).toEqual([
+      "多WAY皺皺掛繩 41020001",
+      "綁帶甜椒日・白菊姊姊 32141747",
+      "小花梅醬的花園・ピクニック 32150811",
+      "紅色雨靴的日子 32980605",
+      "樂芙日・黃花悠悠 32020832",
+    ]);
   });
 
   it("leaves no stripped name still ending in a SKU token", () => {
@@ -116,5 +204,23 @@ describe("catalog guard (2026-10-08 scan)", () => {
       expect(normalized.length, name).toBeLessThan(name.length / 2 + 1);
       expect(/^(.+?)\s+\1$/u.test(normalized), name).toBe(false);
     }
+  });
+});
+
+/**
+ * Real names from the 2026-10-08 staging review (DEV-1989, DS2-01): every
+ * token shape the review quoted, the two doubled names, and clean names —
+ * model codes, units, short numbers — that must render unchanged.
+ */
+describe("staging catalog fixture (2026-10-08 review)", () => {
+  it.each(stagingCatalog.cases)("renders $name as $expected", ({ name, expected }) => {
+    expect(publicCuratedProductName(name)).toBe(expected);
+  });
+
+  it("covers both token names and clean names", () => {
+    const changed = stagingCatalog.cases.filter(({ name, expected }) => name !== expected);
+    const clean = stagingCatalog.cases.filter(({ name, expected }) => name === expected);
+    expect(changed.length).toBeGreaterThanOrEqual(15);
+    expect(clean.length).toBeGreaterThanOrEqual(10);
   });
 });
