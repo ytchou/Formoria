@@ -231,6 +231,17 @@ describe("BrandCard recommendation variant", () => {
   });
 });
 
+describe("BrandCard hideCategory", () => {
+  it("drops the category from the metadata line, keeping the city", () => {
+    renderCard(
+      <BrandCard brand={buildBrand()} variant="recommendation" hideCategory />,
+    );
+
+    expect(screen.getByText("台北市")).toBeInTheDocument();
+    expect(screen.queryByText(/居家生活/)).toBeNull();
+  });
+});
+
 describe("BrandCard editorial variant", () => {
   it("keeps its category badge", () => {
     const editorial = renderCard(

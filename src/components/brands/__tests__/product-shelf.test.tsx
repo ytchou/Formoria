@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
-import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render as rtlRender,
+  screen,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -68,6 +73,12 @@ vi.mock("@/components/ui/save-button", () => ({
   SaveButton: () => <button data-testid="save-button" />,
 }));
 
+const fadeInSwappedItemsMock = vi.fn();
+vi.mock("@/lib/motion/chip-swap", () => ({
+  fadeInSwappedItems: (items: NodeListOf<Element>) =>
+    fadeInSwappedItemsMock(items),
+}));
+
 vi.mock("@/lib/taxonomy/ontology", async (importOriginal) => {
   const mod =
     await importOriginal<typeof import("@/lib/taxonomy/ontology")>();
@@ -113,6 +124,21 @@ function makeGroups(): ProductRailGroup[] {
     {
       subcategory: "bags",
       products: [makeProduct({ key: "bg-1", nameEn: "Bag A" })],
+    },
+  ];
+}
+
+// Four products: past the static-grid ceiling, so the shelf is a carousel.
+function makeLargeGroups(): ProductRailGroup[] {
+  const [eyewear, bags] = makeGroups();
+  return [
+    eyewear!,
+    {
+      ...bags!,
+      products: [
+        ...bags!.products,
+        makeProduct({ key: "bg-2", nameEn: "Bag B" }),
+      ],
     },
   ];
 }
@@ -202,7 +228,7 @@ describe("ProductShelf", () => {
     canScrollPrevValue = true;
     canScrollNextValue = true;
 
-    render(<ProductShelf {...defaultProps} groups={makeGroups()} />);
+    render(<ProductShelf {...defaultProps} groups={makeLargeGroups()} />);
 
     scrollToMock.mockClear();
 
@@ -241,13 +267,13 @@ describe("ProductShelf", () => {
     canScrollPrevValue = true;
     canScrollNextValue = true;
 
-    render(<ProductShelf {...defaultProps} groups={makeGroups()} />);
+    render(<ProductShelf {...defaultProps} groups={makeLargeGroups()} />);
 
     // Trigger the sync by simulating reInit
-    emblaReInitHandler?.();
+    act(() => emblaReInitHandler?.());
 
     // Re-render to pick up state
-    render(<ProductShelf {...defaultProps} groups={makeGroups()} />);
+    render(<ProductShelf {...defaultProps} groups={makeLargeGroups()} />);
 
     // Controls should be present (the mock sets canScroll* to true)
     expect(
@@ -258,7 +284,7 @@ describe("ProductShelf", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the 選物 trust label beside the heading, outside the h2", () => {
+  it("carries no 選物 trust label in the shelf header", () => {
     canScrollPrevValue = false;
     canScrollNextValue = false;
 
@@ -268,10 +294,116 @@ describe("ProductShelf", () => {
       level: 2,
       name: "Formoria Selected",
     });
-    const label = document.querySelector('[data-trust-label="selected"]');
-    expect(label).not.toBeNull();
-    expect(label?.textContent).toBe(enMessages.trustLabel.selected);
-    expect(heading.contains(label)).toBe(false);
-    expect(heading.parentElement?.contains(label)).toBe(true);
+    expect(heading.className).toContain("text-balance");
+    expect(document.querySelector('[data-trust-label="selected"]')).toBeNull();
+  });
+
+  it("shows a tile's trust label only when a guide placed it", () => {
+    render(
+      <ProductShelf
+        {...defaultProps}
+        groups={makeGroups()}
+        guides={{
+          "ew-1": { slug: "reading-corner", title: "Reading corner", locale: "en" },
+        }}
+      />,
+    );
+
+    const labels = document.querySelectorAll('[data-trust-label="selected"]');
+    expect(labels).toHaveLength(1);
+    expect(labels[0]!.closest("li")?.id).toBe("product-ew-1");
+    expect(
+      screen.getByRole("link", { name: /Reading corner/ }),
+    ).toHaveAttribute("href", "/style/reading-corner");
+  });
+
+  it("renders three or fewer products as a static grid, not a carousel", () => {
+    canScrollPrevValue = true;
+    canScrollNextValue = true;
+
+    render(<ProductShelf {...defaultProps} groups={makeGroups()} />);
+    act(() => emblaReInitHandler?.());
+
+    const region = screen.getByRole("region", { name: "Formoria Selected" });
+    expect(region).not.toHaveAttribute("aria-roledescription");
+    expect(
+      screen.queryByRole("button", { name: "Previous products" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next products" }),
+    ).not.toBeInTheDocument();
+    const list = region.querySelector("ul")!;
+    expect(list.className).toContain("grid");
+    expect(list.className).toContain("gap-gutter");
+  });
+
+  it("keeps the carousel past three products, arrows hidden on phones", () => {
+    canScrollPrevValue = true;
+    canScrollNextValue = true;
+
+    render(<ProductShelf {...defaultProps} groups={makeLargeGroups()} />);
+    act(() => emblaReInitHandler?.());
+
+    const region = screen.getByRole("region", { name: "Formoria Selected" });
+    expect(region).toHaveAttribute("aria-roledescription", "carousel");
+    const arrows = screen.getByRole("button", {
+      name: "Previous products",
+    }).parentElement!;
+    expect(arrows.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["hidden", "sm:flex"]),
+    );
+  });
+
+  it("hides the chip row when there is only one subcategory", () => {
+    render(
+      <ProductShelf
+        {...defaultProps}
+        groups={[makeGroups()[0]!]}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "All" })).toBeNull();
+    expect(screen.getByText("Glasses A")).toBeInTheDocument();
+  });
+
+  it("drops a tile whose image fails to load", () => {
+    render(<ProductShelf {...defaultProps} groups={makeGroups()} />);
+
+    const image = document.querySelector("#product-ew-1 img")!;
+    fireEvent.error(image);
+
+    expect(document.querySelector("#product-ew-1")).toBeNull();
+    expect(screen.getByText("Glasses B")).toBeInTheDocument();
+  });
+
+  it("renders no list when every image fails", () => {
+    render(
+      <ProductShelf
+        {...defaultProps}
+        groups={[
+          {
+            subcategory: "eyewear",
+            products: [makeProduct({ key: "ew-1" })],
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.error(document.querySelector("#product-ew-1 img")!);
+
+    expect(document.querySelector("ul")).toBeNull();
+  });
+
+  it("fades the incoming tiles in on a chip swap", () => {
+    render(<ProductShelf {...defaultProps} groups={makeGroups()} />);
+    fadeInSwappedItemsMock.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Eyewear" }));
+
+    expect(fadeInSwappedItemsMock).toHaveBeenCalledTimes(1);
+    const items = Array.from(
+      fadeInSwappedItemsMock.mock.calls[0]![0] as NodeListOf<Element>,
+    );
+    expect(items.map((el) => el.id)).toEqual(["product-ew-1", "product-ew-2"]);
   });
 });

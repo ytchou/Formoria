@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { CuratedProduct } from "@/lib/services/curated-products";
+import enMessages from "../../../../messages/en.json";
+import { subcategoryDisplayLabel } from "@/lib/taxonomy/ontology";
 import { SelectedProductTile } from "../selected-product-tile";
 
 // `next/image` becomes a plain `img` so the props this spec reads — `priority`
@@ -460,20 +463,47 @@ describe("SelectedProductTile", () => {
   });
 
   // --- shelf mode ---
-  // DEV-1950: every shelf tile is a route onward — an internal link wrapping
-  // image + name, and an outbound route row (DESIGN.md §8 ProductCard).
+  // DEV-1994: one honest link per shelf tile. Image + name are a single
+  // outbound link to the product's own page (BD2-03, BD2-12, CP2-09).
 
-  it("links the shelf image and name to the product anchor", () => {
+  it("makes image and name one outbound link to the product page", () => {
     const { container } = renderWallTile({ mode: "shelf" });
 
-    // Anchored: the route-row chip's name ends with ": Pour-over kettle".
-    const link = screen.getByRole("link", { name: /^Pour-over kettle/ });
-    expect(link).toHaveAttribute("href", "/brands/kettle-co#product-kettle");
+    const links = container.querySelectorAll("a");
+    expect(links).toHaveLength(1);
+    const link = links[0]!;
+    expect(link).toHaveAttribute("href", "https://example.com/kettle");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link).toHaveAttribute("data-brand-slug", "kettle-co");
+    expect(link).toHaveAttribute("data-link-type", "curated_product");
+    expect(link).toHaveAttribute("data-link-surface", "selected_product");
     expect(link.querySelector("img")).not.toBeNull();
     expect(link.querySelector("h3")?.textContent).toBe("Pour-over kettle");
+    expect(link.querySelector(".sr-only")?.textContent).toBe("Visit product");
+    expect(container.querySelector('a[href*="#product-"]')).toBeNull();
     const image = container.querySelector("img")!;
     expect(image.className).toContain("object-cover");
     expect(image.className).toContain("group-hover:scale-[1.03]");
+  });
+
+  it("clamps the shelf name to two lines with a two-line floor", () => {
+    renderWallTile({ mode: "shelf" });
+
+    const classes = screen
+      .getByRole("heading", { name: "Pour-over kettle" })
+      .className.split(/\s+/);
+    expect(classes).toContain("line-clamp-2");
+    expect(classes).toContain("min-h-[2lh]");
+  });
+
+  it("renders no pill and no subcategory badge on a shelf tile", () => {
+    const { container } = renderWallTile({ mode: "shelf" });
+
+    const subcategory = subcategoryDisplayLabel("tableware", "en");
+    expect(subcategory).toBeTruthy();
+    expect(container.textContent).not.toContain(subcategory);
+    expect(container.querySelectorAll("a")).toHaveLength(1);
   });
 
   it("keeps the save button outside the shelf link", () => {
@@ -483,26 +513,40 @@ describe("SelectedProductTile", () => {
     expect(save.closest("a")).toBeNull();
   });
 
-  it("renders the outbound product chip in the shelf route row", () => {
-    renderWallTile({ mode: "shelf" });
-
-    const chip = screen.getByRole("link", { name: /Visit product/ });
-    expect(chip).toHaveAttribute("href", "https://example.com/kettle");
-    expect(chip).toHaveAttribute("target", "_blank");
-    expect(chip).toHaveAttribute("data-link-surface", "selected_product");
-  });
-
-  it("falls back to the brand site chip when the shelf product link is broken", () => {
-    renderWallTile({
+  it("links a broken shelf product to the brand site with the brand-site hint", () => {
+    const { container } = renderWallTile({
       mode: "shelf",
       product: buildProduct({ linkState: "broken" }),
     });
 
-    expect(
-      screen.getByRole("link", { name: /Visit brand site/ }),
-    ).toHaveAttribute("href", "https://example.com");
-    expect(screen.queryByRole("link", { name: /Visit product/ })).toBeNull();
+    const links = container.querySelectorAll("a");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", "https://example.com");
+    expect(links[0]).toHaveAttribute("data-link-type", "brand_site");
+    expect(links[0]!.querySelector(".sr-only")?.textContent).toBe(
+      "Visit brand site",
+    );
     expect(screen.getByText("Link unavailable")).toBeInTheDocument();
+  });
+
+  it("renders image and name unlinked when the shelf tile has no destination", () => {
+    const { container } = renderWallTile({
+      mode: "shelf",
+      product: buildProduct({ officialUrl: null }),
+    });
+
+    expect(container.querySelector("a")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Pour-over kettle" }),
+    ).toBeInTheDocument();
+  });
+
+  it("reports a shelf image load failure through onImageError", () => {
+    const onImageError = vi.fn();
+    const { container } = renderWallTile({ mode: "shelf", onImageError });
+
+    fireEvent.error(container.querySelector("img")!);
+    expect(onImageError).toHaveBeenCalledTimes(1);
   });
 
   it("drops the hover scrim and the focus-only wrapper in shelf mode", () => {
@@ -519,10 +563,12 @@ describe("SelectedProductTile", () => {
     expect(descEl.className).not.toMatch(/\bhidden\b/);
   });
 
-  it("keeps product anchor id in shelf mode", () => {
+  it("keeps product anchor id in shelf mode, clear of the sticky header", () => {
     const { container } = renderWallTile({ mode: "shelf" });
 
-    expect(container.querySelector("#product-kettle")).not.toBeNull();
+    const tile = container.querySelector("#product-kettle");
+    expect(tile).not.toBeNull();
+    expect(tile?.className).toContain("scroll-mt-40");
   });
 
   it("renders nothing for a photo-less product in shelf mode", () => {
@@ -654,12 +700,77 @@ describe("SelectedProductTile trail note", () => {
     outbound.unmount();
   });
 
-  it("brand line uses ink-muted, not accent", () => {
+  it("brand line is 明體 in ink-muted, not accent", () => {
+    // DS2-19: brand names are content, so the 明體 face at ≥14px.
     const view = renderTrailTile();
 
-    const brandLine = view.getByText("Kettle Co");
-    expect(brandLine.className).not.toContain("text-accent");
-    expect(brandLine.className).toContain("type-metadata");
+    const classes = view.getByText("Kettle Co").className.split(/\s+/);
+    expect(classes).not.toContain("text-accent");
+    expect(classes).toContain("type-body-sm");
+    expect(classes).toContain("text-ink-muted");
     view.unmount();
+  });
+
+  it("names the product in the chip's screen-reader text without punctuation", () => {
+    const view = renderTrailTile();
+
+    const chip = view.getByRole("link", { name: /Visit product/ });
+    expect(chip.querySelector(".sr-only")?.textContent).toBe(
+      " Pour-over kettle",
+    );
+    view.unmount();
+  });
+});
+
+// DEV-1994 CP2-15: a 選物 label shows only with its reason — the guide.
+describe("SelectedProductTile guide link", () => {
+  const guide = {
+    slug: "reading-corner",
+    title: "小坪數閱讀角落",
+    locale: "zh-TW",
+  };
+
+  function renderShelfTile(
+    props: Partial<Parameters<typeof SelectedProductTile>[0]> = {},
+  ) {
+    return render(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <ul>
+          <SelectedProductTile
+            locale="en"
+            product={buildProduct()}
+            labels={{ ...labels, inGuide: "From the guide" }}
+            mode="shelf"
+            brand={brand}
+            {...props}
+          />
+        </ul>
+      </NextIntlClientProvider>,
+    );
+  }
+
+  it("shows no trust label without a guide", () => {
+    const { container } = renderShelfTile();
+
+    expect(container.querySelector('[data-trust-label="selected"]')).toBeNull();
+  });
+
+  it("shows the trust label and a link to the guide that placed the product", () => {
+    const { container } = renderShelfTile({ guide });
+
+    const label = container.querySelector('[data-trust-label="selected"]');
+    expect(label?.textContent).toBe(enMessages.trustLabel.selected);
+    const link = screen.getByRole("link", { name: /小坪數閱讀角落/ });
+    expect(link).toHaveAttribute("href", "/style/reading-corner");
+    expect(link.querySelector(".sr-only")?.textContent).toContain(
+      "From the guide",
+    );
+    expect(screen.getByText("小坪數閱讀角落")).toHaveAttribute(
+      "lang",
+      "zh-Hant-TW",
+    );
+    const classes = link.className.split(/\s+/);
+    expect(classes).toContain("after:min-h-11");
+    expect(classes).toContain("text-accent");
   });
 });

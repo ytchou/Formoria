@@ -238,6 +238,56 @@ describe("ShareDialog", () => {
     expect(dialog.querySelector('[data-slot="dialog-footer"]')).toBeNull();
   });
 
+  // DESIGN.md: the palette has no exceptions — no platform brand colours on
+  // the channel discs, no status green on the copied states.
+  it("draws every channel disc and copied state from the palette", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
+
+    const dialog = await findLoadedDialog();
+    for (const name of [
+      share.line,
+      share.threads,
+      share.facebook,
+      share.instagram,
+    ]) {
+      const disc = within(dialog)
+        .getByRole("button", { name })
+        .querySelector('[aria-hidden="true"]');
+      expect(disc).toHaveClass("bg-surface", "text-ink");
+      expect(disc?.getAttribute("style") ?? "").toBe("");
+    }
+
+    await user.click(screen.getByRole("button", { name: share.copy }));
+    await user.click(screen.getByRole("button", { name: share.instagram }));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        share.instagramCopied,
+      ),
+    );
+
+    expect(dialog.innerHTML).not.toMatch(/verified-green|bg-\[#/);
+    expect(dialog.innerHTML).not.toContain("gradient(");
+  });
+
+  // 44px through the size axis: the copy button is `compact`, never the 36px
+  // `chip`, and the URL field takes the Input's own height.
+  it("sizes the copy control and url field from their primitives", async () => {
+    const user = setupUser();
+    renderDialog();
+    await openDialog(user);
+
+    const copy = screen.getByRole("button", { name: share.copy });
+    expect(copy).toHaveClass("h-11");
+    expect(copy).not.toHaveClass("h-9", "absolute");
+
+    const field = screen.getByRole("textbox", { name: share.urlLabel });
+    expect(field).toHaveClass("h-11");
+    expect(field).not.toHaveClass("h-10");
+    expect(field.className).not.toMatch(/text-\[\d+px\]/);
+  });
+
   it("preview card falls back to the brand initial without a hero image", async () => {
     const user = setupUser();
     renderDialog();

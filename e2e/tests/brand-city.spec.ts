@@ -54,9 +54,9 @@ test.describe('Brand city badge', () => {
       await page.goto(`/brands/${brandSlug}`, { waitUntil: 'domcontentloaded' });
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: BUDGET.INTERACTIVE });
       // The city is one part of the brand's metadata line (DEV-1951), not a
-      // badge. Match it as a standalone word, not by the line's separator: the
-      // FAQ copy on this page can also mention the city inside a sentence
-      // (brandFaq.context.city).
+      // badge. Match it as a standalone word, not by the line's separator, so
+      // a sentence elsewhere on the page that names the city cannot satisfy
+      // it.
       await expect(
         page.locator('#main-content').getByText(/(^|\s)台北市(\s|$)/),
       ).toBeVisible({ timeout: BUDGET.RENDERED });

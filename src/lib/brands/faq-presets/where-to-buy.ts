@@ -1,5 +1,6 @@
+import { spaceNameBoundaries } from "@/lib/i18n/cjk-spacing";
 import {
-  buildBrandContextSuffix,
+  formatFaqList,
   hasValue,
   type FaqBrandContext,
   type FaqPreset,
@@ -13,7 +14,8 @@ import {
   withinLengthBand,
 } from "./validators";
 
-function channelList(ctx: FaqBrandContext, t: FaqTFn): string {
+/** Channel names are proper nouns: never case-folded, in any locale. */
+function channelNames(ctx: FaqBrandContext, t: FaqTFn): string[] {
   const channels: string[] = [];
   if (hasValue(ctx.brand.purchaseWebsite))
     channels.push(t("brandFaq.channels.website"));
@@ -23,7 +25,7 @@ function channelList(ctx: FaqBrandContext, t: FaqTFn): string {
     channels.push(t("brandFaq.channels.shopee"));
   if (hasValue(ctx.brand.purchaseMyship))
     channels.push(t("brandFaq.channels.myship"));
-  return channels.join(t("brandFaq.listSeparator"));
+  return channels;
 }
 
 const whereToBuy: FaqPreset = {
@@ -37,20 +39,28 @@ const whereToBuy: FaqPreset = {
   requiredEvidence: ["purchaseChannels"],
   render: {
     questionKey: "brandFaq.whereToBuy.question",
-    templateFloor: (ctx, t) => {
-      const channels = channelList(ctx, t);
-      const stockistNote =
-        (ctx.brand.stockistCount ?? 0) > 0
-          ? t("brandFaq.whereToBuy.stockistSuffix", {
-              count: ctx.brand.stockistCount,
-            })
-          : "";
-      return t("brandFaq.whereToBuy.answer", {
+    // DEV-1994: no city/year suffix — both are on the page's metadata line.
+    templateFloor: (ctx, t, locale) => {
+      const stockistCount = ctx.brand.stockistCount ?? 0;
+      const channels = channelNames(ctx, t);
+      if (channels.length === 0 && stockistCount > 0) {
+        return t("brandFaq.whereToBuy.answerStockistsOnly", {
+          brandName: ctx.brand.name,
+          count: stockistCount,
+        });
+      }
+      const answer = t("brandFaq.whereToBuy.answer", {
         brandName: ctx.brand.name,
-        channels: channels || t("brandFaq.whereToBuy.noOnlineChannels"),
-        stockistNote,
-        context: buildBrandContextSuffix(ctx, t),
+        channels: formatFaqList(channels, locale),
+        stockistNote:
+          stockistCount > 0
+            ? t("brandFaq.whereToBuy.stockistSuffix", { count: stockistCount })
+            : "",
       });
+      if (locale.startsWith("en")) return answer;
+      // zh: a Latin-edged channel (Pinkoi, 7-ELEVEN) sits between Han
+      // characters, so space it the same way the brand name is spaced.
+      return channels.reduce(spaceNameBoundaries, answer);
     },
   },
   promptFragment: {

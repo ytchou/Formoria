@@ -1,4 +1,6 @@
+import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
+import enMessages from "../../../../../messages/en.json";
 import zhMessages from "../../../../../messages/zh-TW.json";
 import type { Brand } from "@/lib/types";
 import snapshot from "@/lib/prompts/langfuse-snapshot.json";
@@ -10,7 +12,14 @@ import {
   type FaqFragmentResolver,
 } from "../index";
 import type { PromptName } from "@/lib/langfuse/prompt";
-import type { FaqBrandContext, FaqPreset, FaqValidatorContext } from "../types";
+import {
+  formatFaqList,
+  lowercaseLabelForSentence,
+  type FaqBrandContext,
+  type FaqPreset,
+  type FaqTFn,
+  type FaqValidatorContext,
+} from "../types";
 import {
   noCommerceClaims,
   notDuplicateOf,
@@ -40,6 +49,23 @@ function resolveBrandDetail(
   return node.replace(/\{(\w+)\}/gu, (_, name: string) =>
     String(values[name] ?? `{${name}}`),
   );
+}
+
+type TranslatorOptions = Parameters<typeof createTranslator>[0];
+
+/**
+ * The real `brandDetail` catalog through next-intl's ICU formatter — the same
+ * translator the brand page passes to `getBrandFaq`, so plural rules and the
+ * shipped copy are what the floor assertions read.
+ */
+function brandDetailT(locale: "zh-TW" | "en"): FaqTFn {
+  // Same cast as the other createTranslator call sites: the catalogs are a
+  // union of two JSON shapes, which next-intl's key inference cannot take.
+  return createTranslator({
+    locale,
+    messages: locale === "en" ? enMessages : zhMessages,
+    namespace: "brandDetail",
+  } as unknown as TranslatorOptions) as unknown as FaqTFn;
 }
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
@@ -265,12 +291,13 @@ describe("FAQ preset catalog", () => {
 
     const en = mainProducts.render?.templateFloor(
       slugStored,
-      resolveBrandDetail,
+      brandDetailT("en"),
       "en",
     );
 
-    expect(en).toContain("Backpacks");
-    expect(en).toContain("Tote Bags");
+    // Mid-sentence, the ontology's Title Case labels read as sentence case.
+    expect(en).toContain("backpacks");
+    expect(en).toContain("tote bags");
     expect(en).not.toContain("tote-bags");
 
     // A string the vocabulary has never known is still rendered verbatim. That
@@ -287,8 +314,8 @@ describe("FAQ preset catalog", () => {
       mainProducts.render?.templateFloor(novel, resolveBrandDetail, "zh-TW"),
     ).toContain("手工燈籠");
     expect(
-      mainProducts.render?.templateFloor(novel, resolveBrandDetail, "en"),
-    ).toContain("Handmade Lanterns");
+      mainProducts.render?.templateFloor(novel, brandDetailT("en"), "en"),
+    ).toContain("handmade lanterns");
   });
 
   it("derives groundedIn from requiredEvidence for every preset that declares it", () => {
@@ -503,6 +530,13 @@ describe("FAQ preset catalog", () => {
     expect(presetById("origin-story").promptFragment).toBeNull();
   });
 
+  // DEV-1994: its only floor restated the founding year and city, which the
+  // brand page's metadata line already shows. Stored human rows still render.
+  it("origin-story renders no template floor", () => {
+    expect(presetById("origin-story").render).toBeNull();
+    expect(FAQ_PRESETS.map((preset) => preset.id)).toContain("origin-story");
+  });
+
   it("category-position prompt contains no founding-city clusters", () => {
     const ctx = makeContext();
     const prompt = fragmentText(presetById("category-position"), ctx) ?? "";
@@ -568,5 +602,142 @@ describe("FAQ preset catalog", () => {
     expect(
       results.some((r) => !r.ok && /brand-specific/.test(r.reason ?? "")),
     ).toBe(false);
+  });
+});
+
+describe("FAQ list and casing helpers", () => {
+  it("joins with the locale's conjunction list format", () => {
+    expect(formatFaqList(["家具", "床墊", "寢具"], "zh-TW")).toBe(
+      "家具、床墊和寢具",
+    );
+    expect(formatFaqList(["a", "b", "c"], "en")).toBe("a, b, and c");
+    expect(formatFaqList(["a", "b"], "en-US")).toBe("a and b");
+    expect(formatFaqList(["only"], "zh-TW")).toBe("only");
+  });
+
+  it("lowercases Title Case words and leaves acronyms, hyphens and digits", () => {
+    expect(lowercaseLabelForSentence("Tops & T-shirts")).toBe(
+      "tops & T-shirts",
+    );
+    expect(lowercaseLabelForSentence("Home Fragrance")).toBe("home fragrance");
+    expect(lowercaseLabelForSentence("LED Lamps")).toBe("LED lamps");
+    expect(lowercaseLabelForSentence("3C Accessories")).toBe("3C accessories");
+    expect(lowercaseLabelForSentence("tea ware")).toBe("tea ware");
+  });
+});
+
+describe("FAQ template floors (DEV-1994)", () => {
+  const homeOverrides: Partial<Brand> = {
+    name: "Harbor Form",
+    categorySlug: "home",
+    categoryLabel: "居家生活",
+    city: "new-taipei",
+    foundingYear: 2015,
+    subcategories: ["furniture", "mattresses", "bedding"],
+    subcategoriesEn: ["Furniture", "Mattresses", "Bedding"],
+    purchaseWebsite: "https://harbor.example.com",
+    purchasePinkoi: "https://www.pinkoi.com/store/harbor",
+  };
+  const homeCtx = makeContext({
+    brand: { ...makeBrand(homeOverrides), stockistCount: 3 },
+    cityLabel: "新北市",
+  });
+
+  function floor(
+    id: string,
+    ctx: FaqBrandContext,
+    locale: "zh-TW" | "en",
+  ): string {
+    const render = presetById(id).render;
+    if (!render) throw new Error(`${id} has no floor`);
+    return render.templateFloor(ctx, brandDetailT(locale), locale);
+  }
+
+  function withChannels(
+    overrides: Partial<Brand>,
+    stockistCount = 0,
+  ): FaqBrandContext {
+    const brand = makeBrand({
+      ...homeOverrides,
+      purchaseWebsite: null,
+      purchasePinkoi: null,
+      purchaseShopee: null,
+      purchaseMyship: null,
+      ...overrides,
+    });
+    return makeContext({
+      brand: { ...brand, stockistCount },
+      cityLabel: "新北市",
+    });
+  }
+
+  it("zh main-products names only the subcategories", () => {
+    const zh = floor("main-products", homeCtx, "zh-TW");
+
+    expect(zh).toBe("Harbor Form的商品以家具、床墊和寢具為主。");
+    expect(zh).not.toContain("居家生活");
+    expect(zh.endsWith("。")).toBe(true);
+  });
+
+  it("en main-products lowercases Title Case labels and lists with and", () => {
+    expect(floor("main-products", homeCtx, "en")).toBe(
+      "Harbor Form mainly makes furniture, mattresses, and bedding.",
+    );
+  });
+
+  it("en main-products keeps acronyms and hyphenated words", () => {
+    const ctx = makeContext({
+      brand: makeBrand({
+        subcategories: ["tops-and-tshirts"],
+        subcategoriesEn: ["Tops & T-shirts"],
+      }),
+    });
+
+    expect(floor("main-products", ctx, "en")).toBe(
+      "Harbor Form mainly makes tops & T-shirts.",
+    );
+  });
+
+  it("where-to-buy with channels and stockists", () => {
+    expect(floor("where-to-buy", homeCtx, "zh-TW")).toBe(
+      "可以在品牌官網和 Pinkoi 買到Harbor Form的商品。另外也有 3 家實體通路，出發前建議先跟店家確認。",
+    );
+    expect(floor("where-to-buy", homeCtx, "en")).toBe(
+      "You can buy Harbor Form products from the brand's own site and Pinkoi. They're also stocked at 3 shops. Check with the shop before you go.",
+    );
+  });
+
+  it("where-to-buy with channels only", () => {
+    const ctx = withChannels({ purchaseShopee: "https://shopee.tw/harbor" });
+
+    expect(floor("where-to-buy", ctx, "zh-TW")).toBe(
+      "可以在蝦皮購物買到Harbor Form的商品。",
+    );
+    expect(floor("where-to-buy", ctx, "en")).toBe(
+      "You can buy Harbor Form products from Shopee.",
+    );
+  });
+
+  it("where-to-buy with stockists only", () => {
+    const ctx = withChannels({}, 1);
+
+    expect(floor("where-to-buy", ctx, "zh-TW")).toBe(
+      "可以在 1 家實體通路找到Harbor Form的商品，出發前建議先跟店家確認。",
+    );
+    expect(floor("where-to-buy", ctx, "en")).toBe(
+      "Harbor Form products are stocked at 1 shop. Check with the shop before you go.",
+    );
+  });
+
+  it("no floor carries the city or founding year from context", () => {
+    for (const locale of ["zh-TW", "en"] as const) {
+      for (const preset of FAQ_PRESETS) {
+        if (!preset.render || !preset.eligible(homeCtx, locale)) continue;
+        const answer = floor(preset.id, homeCtx, locale);
+        expect(answer, `${preset.id} ${locale}`).not.toContain("新北市");
+        expect(answer, `${preset.id} ${locale}`).not.toContain("new-taipei");
+        expect(answer, `${preset.id} ${locale}`).not.toContain("2015");
+      }
+    }
   });
 });

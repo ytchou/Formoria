@@ -45,13 +45,10 @@ export async function RelatedBrands({
             <Typography as="h2" variant="sectionTitleLarge">
               {t("relatedBrands.heading", { category: displayLabel })}
             </Typography>
+            {/* No count here: the view-all link carries the one category
+                total, and a second "others" count contradicted it. */}
             <p className="type-body-sm">
-              {/* `count` is the category total, this brand included; the
-                  subtext counts the others. */}
-              {t("relatedBrands.subtext", {
-                count: Math.max(count - 1, 0),
-                category: displayLabel,
-              })}
+              {t("relatedBrands.subtext", { category: displayLabel })}
             </p>
           </div>
           <Link
@@ -64,7 +61,10 @@ export async function RelatedBrands({
             <ArrowRight aria-hidden="true" />
           </Link>
         </div>
-        <Grid>
+        {/* Below `sm` one horizontal snap row (cards at 85% so the next one
+            peeks), so four cards no longer stack ~1,100px tall; only the row
+            scrolls, never the page. From `sm` the shared card columns apply. */}
+        <Grid className="*:snap-start max-sm:grid-flow-col max-sm:auto-cols-[85%] max-sm:grid-cols-none max-sm:overflow-x-auto max-sm:snap-x max-sm:snap-mandatory">
           {brands.map((brand, index) => (
             <BrandCard
               key={brand.id}
@@ -72,6 +72,7 @@ export async function RelatedBrands({
               variant="recommendation"
               sourceBrandSlug={currentBrandSlug}
               position={index}
+              hideCategory
             />
           ))}
         </Grid>

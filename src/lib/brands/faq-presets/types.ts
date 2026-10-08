@@ -96,22 +96,33 @@ export function hasValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== "";
 }
 
-export function buildBrandContextSuffix(
-  ctx: FaqBrandContext,
-  t: FaqTFn,
+/**
+ * Joins FAQ list items the way each locale writes a list in running text —
+ * 「家具、床墊和寢具」, "furniture, mattresses, and bedding".
+ */
+export function formatFaqList(
+  items: readonly string[],
+  locale: string,
 ): string {
-  const details = [
-    hasValue(ctx.cityLabel)
-      ? t("brandFaq.context.city", { city: ctx.cityLabel })
-      : null,
-    ctx.brand.foundingYear
-      ? t("brandFaq.context.founded", { year: ctx.brand.foundingYear })
-      : null,
-  ].filter((value): value is string => hasValue(value));
+  const listLocale = locale.startsWith("en") ? "en" : "zh-TW";
+  return new Intl.ListFormat(listLocale, { type: "conjunction" }).format(items);
+}
 
-  return details.length > 0
-    ? t("brandFaq.context.suffix", {
-        details: details.join(t("brandFaq.listSeparator")),
-      })
-    : "";
+const TITLE_CASE_WORD = /^[A-Z][a-z]+$/u;
+
+/**
+ * Taxonomy labels are Title Case ("Home Fragrance"); inside an English
+ * sentence they read as sentence case. Only plain capitalised words are
+ * lowered — acronyms (LED, 3C), hyphenated words (T-shirts), digits and "&"
+ * keep their form.
+ */
+export function lowercaseLabelForSentence(label: string): string {
+  return label
+    .split(" ")
+    .map((word) =>
+      TITLE_CASE_WORD.test(word)
+        ? word.charAt(0).toLowerCase() + word.slice(1)
+        : word,
+    )
+    .join(" ");
 }

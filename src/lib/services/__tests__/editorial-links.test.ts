@@ -3,6 +3,7 @@ import {
   deriveBrandTrailLinks,
   deriveBrandStoryLinks,
   deriveCategoryEditorialLinks,
+  deriveProductTrailLinks,
   deriveStoryRelatedTrails,
 } from "../editorial-links";
 
@@ -13,6 +14,7 @@ import {
 // A minimal curated product placement record
 type ProductPlacement = {
   brandSlug: string;
+  productKey: string;
   trailSlug: string;
   trailTitle: string;
   trailLocale: string;
@@ -37,6 +39,7 @@ describe("deriveBrandTrailLinks", () => {
     const placements: ProductPlacement[] = [
       {
         brandSlug: "yuyu",
+        productKey: "p",
         trailSlug: "small-space-reading-corner",
         trailTitle: "小坪數閱讀角落",
         trailLocale: "zh-TW",
@@ -45,6 +48,7 @@ describe("deriveBrandTrailLinks", () => {
       },
       {
         brandSlug: "yuyu",
+        productKey: "p",
         trailSlug: "small-space-reading-corner",
         trailTitle: "小坪數閱讀角落",
         trailLocale: "zh-TW",
@@ -53,6 +57,7 @@ describe("deriveBrandTrailLinks", () => {
       },
       {
         brandSlug: "other-brand",
+        productKey: "p",
         trailSlug: "another-trail",
         trailTitle: "Another Trail",
         trailLocale: "zh-TW",
@@ -74,6 +79,7 @@ describe("deriveBrandTrailLinks", () => {
     const placements: ProductPlacement[] = [
       {
         brandSlug: "other-brand",
+        productKey: "p",
         trailSlug: "some-trail",
         trailTitle: "Some Trail",
         trailLocale: "zh-TW",
@@ -141,6 +147,7 @@ describe("deriveCategoryEditorialLinks", () => {
     const placements: ProductPlacement[] = [
       {
         brandSlug: "yuyu",
+        productKey: "p",
         trailSlug: "small-space-reading-corner",
         trailTitle: "小坪數閱讀角落",
         trailLocale: "zh-TW",
@@ -149,6 +156,7 @@ describe("deriveCategoryEditorialLinks", () => {
       },
       {
         brandSlug: "pang",
+        productKey: "p",
         trailSlug: "another-trail",
         trailTitle: "Another",
         trailLocale: "zh-TW",
@@ -209,6 +217,7 @@ describe("deriveStoryRelatedTrails", () => {
     const placements: ProductPlacement[] = [
       {
         brandSlug: "yuyu",
+        productKey: "p",
         trailSlug: "small-space-reading-corner",
         trailTitle: "小坪數閱讀角落",
         trailLocale: "zh-TW",
@@ -217,6 +226,7 @@ describe("deriveStoryRelatedTrails", () => {
       },
       {
         brandSlug: "other",
+        productKey: "p",
         trailSlug: "unrelated-trail",
         trailTitle: "Unrelated",
         trailLocale: "zh-TW",
@@ -236,3 +246,53 @@ describe("deriveStoryRelatedTrails", () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// deriveProductTrailLinks
+// ---------------------------------------------------------------------------
+
+describe("deriveProductTrailLinks", () => {
+  function placement(
+    overrides: Partial<ProductPlacement>,
+  ): ProductPlacement {
+    return {
+      brandSlug: "yuyu",
+      productKey: "lamp",
+      trailSlug: "reading-corner",
+      trailTitle: "小坪數閱讀角落",
+      trailLocale: "zh-TW",
+      category: "home",
+      subcategories: [],
+      ...overrides,
+    };
+  }
+
+  it("maps each of the brand's products to its first trail, in placement order", () => {
+    const result = deriveProductTrailLinks("yuyu", [
+      placement({}),
+      placement({ trailSlug: "later-trail", trailTitle: "Later" }),
+      placement({ productKey: "mug", trailSlug: "tea", trailTitle: "Tea" }),
+    ]);
+
+    expect(result).toEqual({
+      lamp: {
+        slug: "reading-corner",
+        title: "小坪數閱讀角落",
+        locale: "zh-TW",
+      },
+      mug: { slug: "tea", title: "Tea", locale: "zh-TW" },
+    });
+  });
+
+  it("ignores other brands' placements", () => {
+    const result = deriveProductTrailLinks("yuyu", [
+      placement({ brandSlug: "other-brand", productKey: "chair" }),
+    ]);
+
+    expect(result).toEqual({});
+  });
+
+  it("returns an empty map for no placements", () => {
+    expect(deriveProductTrailLinks("yuyu", [])).toEqual({});
+  });
+});

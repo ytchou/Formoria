@@ -1,6 +1,6 @@
 'use client'
 
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { UnstyledButton } from '@/components/ui/unstyled-button'
 import { FOCUS_RING } from '@/components/ui/control-surface'
 import { cn } from '@/lib/utils'
@@ -9,15 +9,14 @@ interface ShareChannelButtonProps {
   /** The channel's glyph. */
   icon: ReactNode
   label: string
-  /** Background + glyph colour for the 44px disc. Brand marks only. */
+  /** Background + glyph colour for the 44px disc, from the palette only. */
   discClass: string
-  /** For channels whose mark is a gradient rather than a flat fill. */
-  discStyle?: CSSProperties
   onClick: () => void
 }
 
 /**
- * A 44px brand-coloured disc with a text label beneath it.
+ * A 44px neutral disc with a text label beneath it. Every channel shares one
+ * palette fill; the glyph and the label identify the channel.
  *
  * Not a `Button` shape — the disc is the affordance and the button box only
  * carries the hit rectangle — so the geometry is spelled out here ONCE, on top
@@ -27,7 +26,6 @@ export function ShareChannelButton({
   icon,
   label,
   discClass,
-  discStyle,
   onClick,
 }: ShareChannelButtonProps) {
   return (
@@ -49,7 +47,6 @@ export function ShareChannelButton({
     >
       <span
         aria-hidden="true"
-        style={discStyle}
         className={cn(
           // Tailwind's `hover:` variant is already wrapped in @media (hover: hover).
           'flex size-11 items-center justify-center rounded-full transition-transform duration-150 hover:scale-105',
