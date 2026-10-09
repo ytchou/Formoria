@@ -1,12 +1,12 @@
 {
   "en": {
-    "title": "Something went wrong",
-    "description": "An unexpected error occurred. Please try again.",
+    "title": "This page didn't load",
+    "description": "It may be a temporary problem. Try again.",
     "retry": "Try again"
   },
   "zh-TW": {
-    "title": "發生錯誤",
-    "description": "發生了預期外的錯誤，請再試一次。",
+    "title": "頁面沒有正常載入",
+    "description": "可能只是暫時的問題，請再試一次。",
     "retry": "再試一次"
   }
 }

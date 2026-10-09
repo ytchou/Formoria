@@ -231,7 +231,7 @@ describe('SearchInput autocomplete', () => {
     await user.type(input, 'xyznonexistent')
 
     await waitFor(() => {
-      expect(screen.getByText(/no results/i)).toBeInTheDocument()
+      expect(screen.getByText(/no matching brands/i)).toBeInTheDocument()
     })
   })
 

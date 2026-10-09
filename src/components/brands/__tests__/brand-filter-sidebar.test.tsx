@@ -8,7 +8,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh-TW.json";
-import { VISIBLE_L1_CATEGORIES } from "@/lib/taxonomy/ontology";
 
 const { replace, push, searchParams } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -42,7 +41,6 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/analytics", () => ({
-  trackCategoryFilterApplied: vi.fn(),
   trackFilterCleared: vi.fn(),
   trackSubcategoryFilterApplied: vi.fn(),
 }));
@@ -65,9 +63,7 @@ function renderSidebar(
   return render(
     <NextIntlClientProvider locale={locale} messages={messagesFor(locale)}>
       <BrandFilterSidebar
-        locale={locale}
         activeCategory={null}
-        allLabel={messagesFor(locale).common.all}
         totalCount={24}
         {...props}
       />
@@ -80,32 +76,15 @@ describe("BrandFilterSidebar", () => {
     vi.clearAllMocks();
   });
 
-  it("renders category links for all visible L1 categories", () => {
-    renderSidebar();
-
-    // "All" link
-    const allLink = screen.getByRole("link", { name: "全部" });
-    expect(allLink).toHaveAttribute("aria-current", "page");
-    expect(allLink).toHaveAttribute("href", "/brands");
-
-    // Each visible L1 category has a link
-    for (const category of VISIBLE_L1_CATEGORIES) {
-      expect(
-        screen.getByRole("link", { name: category.nameZh }),
-      ).toBeInTheDocument();
-    }
-  });
-
-  it("marks the active category link with aria-current", () => {
-    renderSidebar({ activeCategory: "fashion" });
-
-    const fashionLink = screen.getByRole("link", {
-      name: VISIBLE_L1_CATEGORIES.find((c) => c.slug === "fashion")!.nameZh,
+  it("renders no category links: /brands picks the L1 from its chip row (R2-10)", () => {
+    renderSidebar({
+      subcategoryOptions: [
+        { slug: "candles", label: "香氛蠟燭", count: 5, category: "home" },
+      ],
     });
-    expect(fashionLink).toHaveAttribute("aria-current", "page");
 
-    const allLink = screen.getByRole("link", { name: "全部" });
-    expect(allLink).not.toHaveAttribute("aria-current");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /香氛蠟燭/ })).toBeInTheDocument();
   });
 
   it("filter drawer renders and opens", () => {
@@ -113,9 +92,7 @@ describe("BrandFilterSidebar", () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <BrandFilterDrawer
-          locale="en"
           activeCategory={null}
-          allLabel="All"
           totalCount={24}
         />
       </NextIntlClientProvider>,
@@ -136,9 +113,7 @@ describe("BrandFilterSidebar", () => {
     render(
       <NextIntlClientProvider locale="en" messages={enMessages}>
         <BrandFilterDrawer
-          locale="en"
           activeCategory="home"
-          allLabel="All"
           totalCount={24}
         />
       </NextIntlClientProvider>,

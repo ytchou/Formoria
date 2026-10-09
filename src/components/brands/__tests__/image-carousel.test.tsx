@@ -329,6 +329,99 @@ describe("ImageCarousel", () => {
     expect(hero).toHaveAttribute("alt", "gallery.photoAltWithBrand");
   });
 
+  /*
+   * BD2-06 — a photo that fails to load leaves the gallery. It used to stay as a
+   * letter slide while the counter still promised the full set.
+   */
+  const THREE = [
+    `${ALLOWED_HOST}/a.jpg`,
+    `${ALLOWED_HOST}/b.jpg`,
+    `${ALLOWED_HOST}/c.jpg`,
+  ];
+
+  function renderThree() {
+    return render(
+      <ImageCarousel
+        images={THREE}
+        alt="Formoria"
+        brandId="brand-id"
+        brandSlug="formoria"
+      />,
+    );
+  }
+
+  function thumbnails(): HTMLElement[] {
+    return screen.getAllByRole("button", { name: "gallery.viewPhoto" });
+  }
+
+  it("drops a failed hero image from the counter and the rail", () => {
+    renderThree();
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+
+    const [hero] = images();
+    fireEvent.error(hero!);
+
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(thumbnails()).toHaveLength(2);
+    // The next photo slid into the failed one's place.
+    expect(images()[0]).toHaveAttribute("src", THREE[1]);
+  });
+
+  it("renders the empty state when every image fails", () => {
+    renderThree();
+
+    for (let i = 0; i < THREE.length; i++) {
+      const [hero] = screen.queryAllByRole("img");
+      if (hero) fireEvent.error(hero);
+    }
+
+    expect(screen.queryByText(/\d+ \/ \d+/)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "gallery.next" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "gallery.previous" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: "gallery.viewPhoto" })).toHaveLength(0);
+  });
+
+  // BD2-08 — the rail is ONE tab stop; arrows move within it.
+  it("makes the thumbnail rail a single roving tab stop", () => {
+    renderThree();
+
+    const tabbable = () => thumbnails().filter((b) => b.tabIndex === 0);
+    expect(tabbable()).toHaveLength(1);
+    expect(tabbable()[0]).toBe(thumbnails()[0]);
+    expect(thumbnails()[0]).toHaveAttribute("aria-current", "true");
+
+    const rail = screen.getByRole("group", { name: "gallery.viewer" });
+    fireEvent.keyDown(rail, { key: "ArrowRight" });
+
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    expect(tabbable()).toHaveLength(1);
+    expect(tabbable()[0]).toBe(thumbnails()[1]);
+    expect(document.activeElement).toBe(thumbnails()[1]);
+
+    fireEvent.keyDown(rail, { key: "End" });
+    expect(screen.getByText("3 / 3")).toBeInTheDocument();
+    fireEvent.keyDown(rail, { key: "ArrowRight" });
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+    fireEvent.keyDown(rail, { key: "ArrowLeft" });
+    expect(screen.getByText("3 / 3")).toBeInTheDocument();
+    fireEvent.keyDown(rail, { key: "Home" });
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+  });
+
+  // BD2-07 — the hero is the 7/12 column (~672px at xl), not a 580px cap.
+  it("states the hero's real rendered width in sizes", () => {
+    renderThree();
+    const [hero] = images();
+    expect(hero).toHaveAttribute(
+      "sizes",
+      "(min-width: 1280px) 672px, (min-width: 1024px) 56vw, 100vw",
+    );
+  });
+
   it("shows no credit when no image carries provenance", () => {
     // A brand with zero owner-supplied rows is the common case today, and a
     // conditional render is correct at zero rows. There is deliberately no

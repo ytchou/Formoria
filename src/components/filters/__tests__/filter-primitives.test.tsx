@@ -311,14 +311,10 @@ describe("FilterToken", () => {
 
 describe("FilterDrawer clearAll", () => {
   const drawerProps = {
-    locale: "zh-TW",
     activeCategory: "home",
-    allLabel: "全部",
     totalCount: 10,
-    categoryHref: (slug: string | null) => (slug ? `/brands/${slug}` : "/brands"),
     labels: {
       title: "篩選",
-      category: "分類",
       subcategory: "子分類",
       material: "材質",
       showMore: (count: number) => `再顯示 ${count} 項`,
@@ -377,18 +373,13 @@ describe("FilterDrawer clearAll", () => {
 
 describe("FilterSidebar", () => {
   const sidebarProps = {
-    locale: "zh-TW",
     activeCategory: null,
-    allLabel: "全部",
     totalCount: 10,
-    categoryCounts: { home: 41, kitchen: 17 },
     subcategoryOptions: [
       { slug: "cups", label: "杯子", count: 23, category: "kitchen" },
     ],
-    categoryHref: (slug: string | null) => (slug ? `/brands/${slug}` : "/brands"),
     labels: {
       title: "篩選",
-      category: "分類",
       subcategory: "子分類",
       material: "材質",
       showMore: (count: number) => `再顯示 ${count} 項`,
@@ -396,12 +387,12 @@ describe("FilterSidebar", () => {
     },
   };
 
-  it("shows 全部, category and subcategory counts by default", () => {
+  it("shows subcategory counts by default and renders no category links", () => {
     currentSearch = "";
     render(<FilterSidebar {...sidebarProps} />);
 
-    expect(screen.getByRole("link", { name: "全部" })).toHaveTextContent(/\d/);
     expect(screen.getByText("23")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("hides every count when hideCounts is set", () => {
@@ -409,15 +400,7 @@ describe("FilterSidebar", () => {
     render(<FilterSidebar {...sidebarProps} hideCounts />);
 
     const nav = screen.getByRole("navigation", { name: "篩選" });
-    expect(screen.getByRole("link", { name: "全部" })).not.toHaveTextContent(/\d/);
     expect(screen.getByRole("checkbox", { name: "杯子" })).toBeInTheDocument();
     expect(nav).not.toHaveTextContent(/\d/);
-  });
-
-  it("makes each category link a 44px row", () => {
-    currentSearch = "";
-    render(<FilterSidebar {...sidebarProps} />);
-
-    expect(screen.getByRole("link", { name: "全部" })).toHaveClass("min-h-11");
   });
 });

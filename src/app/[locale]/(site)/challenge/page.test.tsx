@@ -129,7 +129,7 @@ describe('ChallengePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
 
-    expect(await screen.findByText('驗證失敗，請再試一次。')).toBeInTheDocument()
+    expect(await screen.findByText('驗證沒有通過，請再試一次。')).toBeInTheDocument()
     expect(hrefValues).toHaveLength(0)
   })
 
@@ -143,7 +143,7 @@ describe('ChallengePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
 
-    expect(await screen.findByText('驗證失敗，請再試一次。')).toBeInTheDocument()
+    expect(await screen.findByText('驗證沒有通過，請再試一次。')).toBeInTheDocument()
     expect(hrefValues).toHaveLength(0)
   })
 
@@ -156,7 +156,7 @@ describe('ChallengePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Fail verification' }))
 
-    expect(screen.getByText('驗證失敗，請再試一次。')).toBeInTheDocument()
+    expect(screen.getByText('驗證沒有通過，請再試一次。')).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
@@ -174,7 +174,7 @@ describe('ChallengePage', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
-    expect(await screen.findByText('驗證失敗，請再試一次。')).toBeInTheDocument()
+    expect(await screen.findByText('驗證沒有通過，請再試一次。')).toBeInTheDocument()
 
     const retry = screen.getByRole('button', { name: 'Complete verification' })
     expect(retry).toBeEnabled()
@@ -190,7 +190,7 @@ function TestChallengeWidget() {
     <ChallengeWidget
       returnTo="/brands/talkoo"
       verifyingLabel="驗證中…"
-      errorLabel="驗證失敗，請再試一次。"
+      errorLabel="驗證沒有通過，請再試一次。"
     />
   )
 }

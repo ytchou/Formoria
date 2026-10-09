@@ -44,8 +44,12 @@ export function ProductSortSelect({ currentSort, showRelevance }: ProductSortSel
   return (
     <Label className="flex items-center gap-2">
       {/* The text style sits on the span, not the Label, because the Label also
-          wraps the select: the select inherits the Label's font weight. */}
-      <span className="type-metadata shrink-0 text-ink-soft">{t("sortLabel")}</span>
+          wraps the select: the select inherits the Label's font weight. Below
+          `sm` the label is visually hidden so the filter button and the sort share one row;
+          it stays the select's native accessible name at every width. */}
+      <span className="sr-only type-metadata shrink-0 text-ink-soft sm:not-sr-only">
+        {t("sortLabel")}
+      </span>
       <NativeSelect
         value={currentSort}
         onChange={handleChange}

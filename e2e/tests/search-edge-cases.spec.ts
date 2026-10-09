@@ -221,7 +221,8 @@ test.describe.serial('Public brand search edge cases', () => {
     await desktopNavSearch.fill(englishToken);
     await desktopNavSearch.press('Enter');
     await expect(page).toHaveURL(url => url.pathname === '/discover' && url.searchParams.get('q') === englishToken);
-    await expect(page.getByRole('heading', { name: `符合「${englishToken}」的商品` })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '搜尋結果', exact: true })).toBeVisible();
+    await expect(page.locator('main').getByText(`「${englishToken}」`, { exact: true })).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/en');
@@ -232,7 +233,8 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page).toHaveURL((url) =>
       url.pathname === '/en/discover' && url.searchParams.get('q') === englishToken,
     );
-    await expect(page.getByRole('heading', { name: `Products matching "${englishToken}"` })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(page.getByRole('heading', { level: 1, name: 'Search results', exact: true })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+    await expect(page.locator('main').getByText(`"${englishToken}"`, { exact: true })).toBeVisible();
   });
 
   test('directory search preserves filters, resets pagination, synchronizes the URL, and clears', async ({ page }) => {

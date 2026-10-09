@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { PhotoBand } from "@/components/ui/photo-band";
 import { buttonVariants } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
+import { phraseBreaks } from "@/components/ui/phrase-breaks";
 
 export default async function MissionCloser() {
   const t = await getTranslations("landing");
@@ -15,8 +16,8 @@ export default async function MissionCloser() {
       scrim="flat"
       contentClassName="text-center"
     >
-      <h2 className="type-page-title font-ming mx-auto prose-measure">
-        {t("missionCloser.headline")}
+      <h2 className="type-page-title font-ming mx-auto prose-measure break-keep">
+        {phraseBreaks(t("missionCloser.headline"))}
       </h2>
       <p className="type-body text-ink-soft mt-3 mx-auto prose-measure">
         {t("missionCloser.subtitle")}

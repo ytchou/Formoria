@@ -22,7 +22,11 @@ type LayoutProps = {
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations({ locale: safeLocale, namespace: 'landing.metadata' })
+  const [t, tCommon] = await Promise.all([
+    getTranslations({ locale: safeLocale, namespace: 'landing.metadata' }),
+    getTranslations({ locale: safeLocale, namespace: 'common' }),
+  ])
+  const description = tCommon('metadataDescription')
 
   const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
   const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
@@ -31,12 +35,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     metadataBase: new URL(getSiteUrl()),
     title: {
       default: t('title'),
-      template: '%s | Formoria',
+      // zh titles use the full-width bar with no spaces; en keeps ' | '.
+      template: safeLocale === 'zh-TW' ? '%s｜Formoria' : '%s | Formoria',
     },
-    description: t('description'),
+    description,
     ...buildOpenGraph({
       title: t('title'),
-      description: t('description'),
+      description,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
     }),
@@ -59,6 +64,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
     <RootDocument
       locale={safeLocale}
       skipToContentLabel={tCommon('skipToContent')}
+      notificationsLabel={tCommon('notifications')}
     >
       <NextIntlClientProvider locale={safeLocale} messages={pickClientMessages(messages)}>
         {children}

@@ -76,6 +76,62 @@ export function createQueryEmbeddingCache(
   };
 }
 
+const MEMORY_MAX_ENTRIES = 500;
+
+/**
+ * In-process LRU in front of another cache (DEV-1991). A repeated query skips
+ * the embeddings call even when Upstash is not configured, and skips the
+ * Redis round trip when it is. An embedding is a pure function of
+ * (model, normalized query), so serving it from memory never goes stale
+ * within the TTL.
+ *
+ * Shortcut: per-process, bounded at MEMORY_MAX_ENTRIES (~12 KB each for a
+ * 1536-dim vector, ~6 MB total). Each replica warms its own copy. Upgrade
+ * path: rely on the shared Redis layer alone once it is configured everywhere
+ * and its latency is measured below the memory win.
+ */
+export function withMemoryLayer(
+  inner: QueryEmbeddingCache,
+  options: { maxEntries?: number; ttlMs?: number; now?: () => number } = {},
+): QueryEmbeddingCache {
+  const maxEntries = options.maxEntries ?? MEMORY_MAX_ENTRIES;
+  const ttlMs = options.ttlMs ?? TTL_SECONDS * 1000;
+  const now = options.now ?? (() => Date.now());
+  const entries = new Map<string, { at: number; embedding: number[] }>();
+  const keyOf = (query: string, model: string) => `${model}\u0000${query}`;
+
+  const remember = (key: string, embedding: number[]) => {
+    entries.delete(key);
+    entries.set(key, { at: now(), embedding });
+    while (entries.size > maxEntries) {
+      const oldest = entries.keys().next().value;
+      if (oldest === undefined) break;
+      entries.delete(oldest);
+    }
+  };
+
+  return {
+    async get(normalizedQuery, model) {
+      const key = keyOf(normalizedQuery, model);
+      const hit = entries.get(key);
+      if (hit && now() - hit.at < ttlMs) {
+        // Refresh recency without extending the TTL.
+        entries.delete(key);
+        entries.set(key, hit);
+        return hit.embedding;
+      }
+      if (hit) entries.delete(key);
+      const embedding = await inner.get(normalizedQuery, model);
+      if (embedding) remember(key, embedding);
+      return embedding;
+    },
+    async set(normalizedQuery, model, embedding) {
+      remember(keyOf(normalizedQuery, model), embedding);
+      await inner.set(normalizedQuery, model, embedding);
+    },
+  };
+}
+
 /**
  * Default cache instance, created from env vars. Singleton per process.
  */
@@ -83,10 +139,12 @@ let _defaultCache: QueryEmbeddingCache | null = null;
 
 export function getDefaultQueryEmbeddingCache(): QueryEmbeddingCache {
   if (!_defaultCache) {
-    _defaultCache = createQueryEmbeddingCache({
-      redisUrl: process.env.UPSTASH_REDIS_REST_URL,
-      redisToken: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
+    _defaultCache = withMemoryLayer(
+      createQueryEmbeddingCache({
+        redisUrl: process.env.UPSTASH_REDIS_REST_URL,
+        redisToken: process.env.UPSTASH_REDIS_REST_TOKEN,
+      }),
+    );
   }
   return _defaultCache;
 }

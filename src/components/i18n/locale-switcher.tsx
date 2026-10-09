@@ -10,7 +10,8 @@ import { UnstyledButton } from '@/components/ui/unstyled-button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { usePathname } from '@/i18n/navigation'
@@ -73,29 +74,37 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
         {compact ? t(locale === 'zh-TW' ? 'languageTraditionalChinese' : 'languageEnglish') : <Globe className="size-4" />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-36 min-w-36">
-        {(['zh-TW', 'en'] as const).map((targetLocale) => (
-          <form
-            key={targetLocale}
-            action={setLocalePreference.bind(null, targetLocale)}
-            onSubmit={(event) => preserveCurrentUrl(event, targetLocale)}
-          >
-            <input type="hidden" name="returnTo" defaultValue={pathname} />
-            <DropdownMenuItem
-              className={locale === targetLocale ? 'font-medium' : undefined}
-              render={
-                <UnstyledButton
-                  type="submit"
-                  className="w-full text-left"
-                  aria-current={locale === targetLocale ? 'true' : undefined}
-                  data-ph-no-autocapture
-                  onClick={() => trackLanguageSwitched(locale, targetLocale, location)}
-                />
-              }
+        {/* A radio group, so the current language is exposed as
+            `menuitemradio` + `aria-checked` rather than by weight alone, and
+            `size="touch"` holds each item at the 44px floor (SP2-19). Each item
+            still submits its own form: the radio state is display-only. */}
+        <DropdownMenuRadioGroup value={locale}>
+          {(['zh-TW', 'en'] as const).map((targetLocale) => (
+            <form
+              key={targetLocale}
+              action={setLocalePreference.bind(null, targetLocale)}
+              onSubmit={(event) => preserveCurrentUrl(event, targetLocale)}
             >
-              {t(targetLocale === 'zh-TW' ? 'languageTraditionalChinese' : 'languageEnglish')}
-            </DropdownMenuItem>
-          </form>
-        ))}
+              <input type="hidden" name="returnTo" defaultValue={pathname} />
+              <DropdownMenuRadioItem
+                value={targetLocale}
+                size="touch"
+                closeOnClick
+                className={locale === targetLocale ? 'font-medium' : undefined}
+                render={
+                  <UnstyledButton
+                    type="submit"
+                    className="w-full text-left"
+                    data-ph-no-autocapture
+                    onClick={() => trackLanguageSwitched(locale, targetLocale, location)}
+                  />
+                }
+              >
+                {t(targetLocale === 'zh-TW' ? 'languageTraditionalChinese' : 'languageEnglish')}
+              </DropdownMenuRadioItem>
+            </form>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

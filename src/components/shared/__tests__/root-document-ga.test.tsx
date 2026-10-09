@@ -36,7 +36,7 @@ function renderDocument() {
   // RootDocument owns <html>/<body>, which cannot nest in the default container.
   const container = document.createElement('div')
   return render(
-    <RootDocument locale="zh-TW" skipToContentLabel="skip">
+    <RootDocument locale="zh-TW" skipToContentLabel="skip" notificationsLabel="notifications">
       <main />
     </RootDocument>,
     { container: document.body.appendChild(container) },

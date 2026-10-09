@@ -35,7 +35,7 @@ test.describe('Story detail deep', () => {
     await expect(
       anonPage.getByRole('heading', { name: firstStory.title, level: 1 })
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    await expect(anonPage.getByText(/something went wrong|發生錯誤/i)).not.toBeVisible();
+    await expect(anonPage.getByText(/something went wrong|this page didn't load|發生錯誤|頁面沒有正常載入/i)).not.toBeVisible();
   });
 
   test('BrandCard components render (live card or not-found placeholder)', async ({ anonPage }) => {

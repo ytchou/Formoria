@@ -42,6 +42,7 @@ import { ProductCard } from "@/components/products/product-card";
 import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import { Grid, gridStyles } from "@/components/ui/grid";
 import { IMAGE_SURFACE_SIZES, SurfaceImage } from "@/components/ui/image";
+import { phraseBreaks } from "@/components/ui/phrase-breaks";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -324,9 +325,9 @@ export default async function StyleTrailPage({ params }: PageProps) {
   const safeProducts = products ?? [];
   const similarProducts =
     safeProducts.length > 0
-      ? await findSimilarProductsForTrail(
-          safeProducts.map((p) => p.id),
-        ).catch(() => [])
+      ? await findSimilarProductsForTrail(safeProducts.map((p) => p.id)).catch(
+          () => [],
+        )
       : [];
 
   const entry = trail.entry;
@@ -469,8 +470,8 @@ export default async function StyleTrailPage({ params }: PageProps) {
                 />
                 <PageShell measure="page" className="pt-1 pb-8 md:pb-12">
                   <div lang={contentLang} className="space-y-4">
-                    <h1 className="type-page-title text-ground">
-                      {frontmatter.title}
+                    <h1 className="type-page-title break-keep text-ground">
+                      {phraseBreaks(frontmatter.title)}
                     </h1>
                     {lede ? (
                       <p className="type-lede text-on-ink">{lede}</p>
@@ -482,7 +483,9 @@ export default async function StyleTrailPage({ params }: PageProps) {
           ) : (
             <PageShell measure="page" className="pt-6">
               <div lang={contentLang} className="space-y-4">
-                <h1 className="type-page-title">{frontmatter.title}</h1>
+                <h1 className="type-page-title break-keep">
+                  {phraseBreaks(frontmatter.title)}
+                </h1>
                 {lede ? <p className="type-lede">{lede}</p> : null}
               </div>
             </PageShell>
@@ -505,10 +508,7 @@ export default async function StyleTrailPage({ params }: PageProps) {
           </div>
           {similarProducts.length >= 3 && (
             <SavedProductsProvider>
-              <section
-                aria-label={t("exploreMore")}
-                className="mt-section"
-              >
+              <section aria-label={t("exploreMore")} className="mt-section">
                 <h2 className="type-card-title">{t("exploreMore")}</h2>
                 {/*
                   Two-up on phones (DS2-15): `thirds` alone is one-up there and
