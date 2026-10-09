@@ -3125,13 +3125,6 @@
     "zuoying": "Zuoying District",
     "zuozhen": "Zuozhen District"
   },
-  "saveProduct": {
-    "save": "Save",
-    "unsave": "Remove from saved",
-    "saveAriaLabel": "Save this product",
-    "unsaveAriaLabel": "Remove this product from saved",
-    "loginToSave": "Sign in to save products"
-  },
   "filters": {
     "token": "{label}: {value}"
   }

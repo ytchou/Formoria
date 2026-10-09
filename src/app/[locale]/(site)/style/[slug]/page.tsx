@@ -42,7 +42,6 @@ import { TrailContent } from "./trail-content";
 import { routes } from "@/lib/routes";
 import { findSimilarProductsForTrail } from "@/lib/services/product-situation-search";
 import { ProductCard } from "@/components/products/product-card";
-import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import { Grid, gridStyles } from "@/components/ui/grid";
 import { IMAGE_SURFACE_SIZES } from "@/components/ui/image";
 
@@ -449,24 +448,19 @@ export default async function StyleTrailPage({ params }: PageProps) {
             />
           </div>
           {similarProducts.length >= 3 && (
-            <SavedProductsProvider>
-              <section
-                aria-label={t("exploreMore")}
-                className="mt-section"
-              >
-                <h2 className="type-card-title">{t("exploreMore")}</h2>
-                <Grid cols="thirds" as="ul" className="mt-6">
-                  {similarProducts.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      locale={safeLocale}
-                      imageSizes={IMAGE_SURFACE_SIZES.tile}
-                    />
-                  ))}
-                </Grid>
-              </section>
-            </SavedProductsProvider>
+            <section aria-label={t("exploreMore")} className="mt-section">
+              <h2 className="type-card-title">{t("exploreMore")}</h2>
+              <Grid cols="thirds" as="ul" className="mt-6">
+                {similarProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    locale={safeLocale}
+                    imageSizes={IMAGE_SURFACE_SIZES.tile}
+                  />
+                ))}
+              </Grid>
+            </section>
           )}
           {(relatedStories.length > 0 || relatedTrails.length > 0) && (
             <div className="mt-section space-y-8">

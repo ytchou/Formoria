@@ -2326,13 +2326,6 @@
     "zuoying": "左營區",
     "zuozhen": "左鎮區"
   },
-  "saveProduct": {
-    "save": "收藏",
-    "unsave": "取消收藏",
-    "saveAriaLabel": "收藏這個商品",
-    "unsaveAriaLabel": "取消收藏這個商品",
-    "loginToSave": "登入後即可收藏商品"
-  },
   "filters": {
     "token": "{label}：{value}"
   }

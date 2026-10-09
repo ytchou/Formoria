@@ -5,35 +5,27 @@ import { useLocale, useTranslations } from 'next-intl'
 import { type MouseEvent, useRef } from 'react'
 
 import { useSavedBrands } from '@/hooks/use-saved-brands'
-import { useSavedProducts } from '@/hooks/use-saved-products'
 import { Button } from '@/components/ui/button'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
-import {
-  trackBrandSaved,
-  trackBrandUnsaved,
-  trackProductSaved,
-  trackProductUnsaved,
-} from '@/lib/analytics'
+import { trackBrandSaved, trackBrandUnsaved } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
 
 type SaveButtonProps = {
-  kind: 'brand' | 'product'
   id: string
-  /** Brand slug (for brand save analytics) or product key (for product save analytics). */
+  /** Brand slug, for save analytics. */
   slug: string
   variant?: 'overlay' | 'inline'
   /** `inline` only: a square 44px icon button; the label stays in `aria-label`. */
   iconOnly?: boolean
   className?: string
-  /** Names the item in the accessible label. Only the `saveBrand` namespace carries the named keys. */
+  /** Names the brand in the accessible label. */
   name?: string
 }
 
 export function SaveButton({
-  kind,
   id,
   slug,
   variant = 'overlay',
@@ -41,14 +33,12 @@ export function SaveButton({
   className,
   name,
 }: SaveButtonProps) {
-  const t = useTranslations(kind === 'brand' ? 'saveBrand' : 'saveProduct')
+  const t = useTranslations('saveBrand')
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
   const { user, loading: userLoading } = useUser()
-  const brandCtx = useSavedBrands()
-  const productCtx = useSavedProducts()
-  const ctx = kind === 'brand' ? brandCtx : productCtx
+  const ctx = useSavedBrands()
   const isSaved = ctx.savedIds.has(id)
   const isLoading = userLoading || ctx.loading
   const label = isSaved ? t('unsave') : t('save')
@@ -71,18 +61,10 @@ export function SaveButton({
       return
     }
 
-    if (kind === 'brand') {
-      if (isSaved) {
-        trackBrandUnsaved(id, slug, variant)
-      } else {
-        trackBrandSaved(id, slug, variant)
-      }
+    if (isSaved) {
+      trackBrandUnsaved(id, slug, variant)
     } else {
-      if (isSaved) {
-        trackProductUnsaved(id, slug, variant)
-      } else {
-        trackProductSaved(id, slug, variant)
-      }
+      trackBrandSaved(id, slug, variant)
     }
     ctx.toggle(id)
 
