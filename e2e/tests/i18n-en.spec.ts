@@ -86,12 +86,14 @@ test.describe("i18n English browse", () => {
       expect(document.headerText).toContain(text);
     }
     // Only fixture-backed copy and ontology-stable strings belong here. The
-    // controlled brand cannot drift during a normal curation run.
+    // controlled brand cannot drift during a normal curation run. The founding
+    // year is a colophon dt/dd pair (BD2-31), so its label and value abut in
+    // the collapsed text: "Founded2020" / "創立2020".
     for (const text of [
       "Brand directory",
       "Visit the brand's site",
       "Where to buy",
-      "Founded 2020",
+      "Founded2020",
       "Home & Living",
     ]) {
       expect(document.mainText).toContain(text);
@@ -100,7 +102,7 @@ test.describe("i18n English browse", () => {
       "品牌目錄",
       "前往品牌官方網站",
       "哪裡買得到",
-      "2020 年創立",
+      "創立2020",
       "居家生活",
     ]) {
       expect(document.mainText).not.toContain(text);
@@ -124,7 +126,7 @@ test.describe("i18n English browse", () => {
       "品牌目錄",
       "前往品牌官方網站",
       "哪裡買得到",
-      "2020 年創立",
+      "創立2020",
       "居家生活",
     ]) {
       expect(document.mainText).toContain(text);

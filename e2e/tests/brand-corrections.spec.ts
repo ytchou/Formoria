@@ -3,6 +3,7 @@ import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 import { BUDGET, POLL } from '../budgets';
 import { waitForViewerReady } from '../helpers/viewer-ready';
+import { heroMetaLine } from '../helpers/brand-hero';
 import zhTW from '../../messages/zh-TW.json';
 
 /**
@@ -135,11 +136,12 @@ function correctionDialog(page: Page) {
   return page.getByRole('dialog', { name: CORRECTION_DIALOG_TITLE });
 }
 
-// The hero metadata line (category · city · founded year). Anchored on the
-// seeded founding year: the category value alone also appears in the
-// breadcrumb and the related-brands rail.
+// The hero metadata line under the h1. The seeded brand has a founding year,
+// so the colophon carries it and this line is the category alone (BD2-31).
+// Located by position: the category text also appears in the breadcrumb and
+// the related-brands rail.
 function categoryValue(page: Page) {
-  return page.getByRole('main').getByText(/· 2020 年創立$/);
+  return heroMetaLine(page);
 }
 
 // The brand page is statically served and hydrates afterwards, so a click that
