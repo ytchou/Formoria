@@ -40,6 +40,16 @@ const IMAGE_FETCH_TIMEOUT_MS = 15_000;
 /** Matches the `brand-images` bucket limit while keeping other upload paths at 5 MiB. */
 const MAX_CURATED_PRODUCT_SOURCE_BYTES = 10 * 1024 * 1024;
 
+class ImageSourceRejection extends Error {
+  constructor(
+    message: string,
+    readonly reason:
+      "missing_image" | "unsupported_content_type" | "source_too_large",
+  ) {
+    super(message);
+  }
+}
+
 /**
  * The content types whose bytes `processImage` is willing to decode
  * (jpeg/png/webp). Checked BEFORE the body is read so an HTML error page or a
@@ -82,8 +92,9 @@ export async function readImageBodyCapped(response: Response): Promise<Buffer> {
     Number.isFinite(declaredLength) &&
     declaredLength > MAX_CURATED_PRODUCT_SOURCE_BYTES
   ) {
-    throw new Error(
+    throw new ImageSourceRejection(
       `The image is too large (${declaredLength} bytes); the maximum is ${MAX_CURATED_PRODUCT_SOURCE_BYTES}`,
+      "source_too_large",
     );
   }
 
@@ -104,8 +115,9 @@ export async function readImageBodyCapped(response: Response): Promise<Buffer> {
       if (!value) continue;
       total += value.byteLength;
       if (total > MAX_CURATED_PRODUCT_SOURCE_BYTES) {
-        throw new Error(
+        throw new ImageSourceRejection(
           `The image is too large; the maximum is ${MAX_CURATED_PRODUCT_SOURCE_BYTES} bytes`,
+          "source_too_large",
         );
       }
       chunks.push(Buffer.from(value));
@@ -221,8 +233,9 @@ export async function prepareCuratedProductImage(
       provider: "http",
       operation: "fetch_curated_image",
       kind: "external",
+      meta: { url: imageSourceUrl, method: "GET" },
     },
-    async () => {
+    async (ctx) => {
       if (isPrivateUrl(imageSourceUrl)) {
         throw new Error("That image URL is not reachable from this server");
       }
@@ -237,6 +250,10 @@ export async function prepareCuratedProductImage(
           signal: controller.signal,
           headers: { Accept: "image/*" },
         });
+        ctx.summary.status = response.status;
+        ctx.summary.contentType = response.headers.get("content-type");
+        ctx.summary.resolvedUrl = response.url || imageSourceUrl;
+        ctx.summary.contentLength = response.headers.get("content-length");
         if (
           response.url &&
           response.url !== imageSourceUrl &&
@@ -245,24 +262,45 @@ export async function prepareCuratedProductImage(
           throw new Error("That image URL redirects somewhere unreachable");
         }
         if (!response.ok) {
+          if (response.status === 404 || response.status === 410) {
+            throw new ImageSourceRejection(
+              `Could not download the image (HTTP ${response.status})`,
+              "missing_image",
+            );
+          }
           throw new Error(
             `Could not download the image (HTTP ${response.status})`,
           );
         }
         if (!isAllowedImageContentType(response.headers.get("content-type"))) {
-          throw new Error(
+          throw new ImageSourceRejection(
             `That URL did not serve an image (content-type ${
               response.headers.get("content-type") ?? "missing"
             })`,
+            "unsupported_content_type",
           );
         }
-        return await readImageBodyCapped(response);
+        const bytes = await readImageBodyCapped(response);
+        ctx.summary.byteLength = bytes.length;
+        return bytes;
+      } catch (error) {
+        if (!(error instanceof ImageSourceRejection)) throw error;
+        ctx.summary.rejectionReason = error.reason;
+        ctx.summary.error = error.message;
+        return error;
       } finally {
         clearTimeout(timeoutId);
       }
     },
-    { subjectId },
+    {
+      subjectId,
+      classify: (result) =>
+        result instanceof ImageSourceRejection ? "empty" : "succeeded",
+    },
   );
+
+  // An unusable candidate is an empty fetch outcome, but remains a field error.
+  if (buffer instanceof ImageSourceRejection) throw buffer;
 
   const processed = await processImage(buffer, {
     maxFileSizeBytes: MAX_CURATED_PRODUCT_SOURCE_BYTES,
