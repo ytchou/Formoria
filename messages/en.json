@@ -54,10 +54,10 @@
     "retry": "Try again",
     "breadcrumb": "Guides",
     "breadcrumbAria": "Breadcrumb",
-    "editorLabel": "Editor",
+    "editorLabel": "By",
     "updatedLabel": "Last updated",
     "selectionLabel": "Selection",
-    "selectionSummary": "{count, plural, one {# item} other {# items}} · {categories, plural, one {# category} other {# categories}}",
+    "selectionSummary": "{count, plural, one {# item} other {# items}}",
     "languageBadge": "In Chinese",
     "productCta": "View on the brand's site",
     "brandSiteCta": "Visit the brand's site",
@@ -66,7 +66,9 @@
     "relatedStories": "Continue reading",
     "relatedTrails": "More guides",
     "exploreMore": "More products like these",
-    "untranslatedNotice": "This guide is in Traditional Chinese."
+    "untranslatedNotice": "This guide is in Traditional Chinese.",
+    "relatedTrailCta": "See this guide",
+    "titleInChinese": "{title} (in Chinese)"
   },
   "products": {
     "brandRow": { "heading": "Related brands" },
@@ -2180,14 +2182,17 @@
     },
     "seriesLabel": "Series",
     "seriesHeading": "In this series",
-    "seriesNavAria": "Stories in this series",
+    "seriesNavAria": "Other stories in this series",
     "seriesCount": "{count, plural, one {# part} other {# parts}}",
     "seriesCountFiltered": "{shown} of {total, plural, one {# part} other {# parts}}",
-    "brandMissing": "This brand has no public page right now: {slug}",
+    "seriesPart": "Part {order}",
+    "brandMissing": "This brand doesn't have a public page right now",
     "galleryImageAlt": "{brand} product photo",
     "boothLabel": "Booth",
     "relatedTrails": "Related guides",
-    "relatedTrailsAria": "Guides related to this story"
+    "relatedTrailsAria": "Guides related to this story",
+    "untranslatedNotice": "This story is in Traditional Chinese.",
+    "titleInChinese": "{title} (in Chinese)"
   },
   "districts": {
     "alian": "Alian District",

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -13,10 +13,7 @@ import {
 } from "@/components/landing/trail-tile";
 import { RelatedStoryLink } from "@/components/stories/related-story-link";
 import { formatStoryDate } from "@/components/stories/story-date";
-import {
-  EditorialHero,
-  editorialHeroSrc,
-} from "@/components/ui/editorial-hero";
+import { editorialHeroSrc } from "@/components/ui/editorial-hero";
 import { PageShell } from "@/components/ui/page-shell";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
@@ -44,7 +41,7 @@ import { findSimilarProductsForTrail } from "@/lib/services/product-situation-se
 import { ProductCard } from "@/components/products/product-card";
 import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import { Grid, gridStyles } from "@/components/ui/grid";
-import { IMAGE_SURFACE_SIZES } from "@/components/ui/image";
+import { IMAGE_SURFACE_SIZES, SurfaceImage } from "@/components/ui/image";
 import { phraseBreaks } from "@/components/ui/phrase-breaks";
 
 type PageProps = {
@@ -74,6 +71,7 @@ export function buildTrailMetadata({
   locale,
   trail,
   sectionLabel,
+  titleInChinese,
   productsReadFailed = false,
 }: {
   locale: string;
@@ -84,6 +82,14 @@ export function buildTrailMetadata({
    * template supplies the brand, so it is never added here.
    */
   sectionLabel: string;
+  /**
+   * The localized `style.titleInChinese` formatter. Required, not optional: a
+   * caller that forgot it would silently drop the language marker. Applied only
+   * when the trail's language differs from the page's (a zh-TW trail on /en),
+   * so an English tab or result reads "<zh-TW title> (in Chinese)" rather than a bare
+   * Chinese title with no warning (DS2-08).
+   */
+  titleInChinese: (title: string) => string;
   /** `products === null` from `getTrailPageData` — the read threw, see below. */
   productsReadFailed?: boolean;
 }): Metadata {
@@ -96,10 +102,13 @@ export function buildTrailMetadata({
   // object. Without a hero, `images` and `twitter` are omitted so the inherited
   // site-wide default card stays in place — same shape as `stories/[slug]`.
   const heroSrc = editorialHeroSrc(trail.frontmatter.heroImage);
+  const documentTitle = contentLangFor(trail.frontmatter.locale, safeLocale)
+    ? titleInChinese(trail.frontmatter.title)
+    : trail.frontmatter.title;
 
   return {
     // Document title only; share cards keep the bare trail title.
-    title: `${trail.frontmatter.title} | ${sectionLabel}`,
+    title: `${documentTitle} | ${sectionLabel}`,
     description: trail.frontmatter.description,
     alternates: { canonical, languages },
     openGraph: {
@@ -174,6 +183,7 @@ export async function generateMetadata({
     locale,
     trail: trail.entry,
     sectionLabel: t("metaTitle"),
+    titleInChinese: (title) => t("titleInChinese", { title }),
     productsReadFailed: products === null,
   });
 }
@@ -194,29 +204,37 @@ function trailLabels(t: (key: string) => string): SelectedProductTileLabels {
   };
 }
 
-/**
- * One line of the header band's meta table: an interface-face label, an
- * interface-face value, a hairline between rows. It is a `<dl>`, not a list of
- * paragraphs, because every row is a name/value pair and a screen reader should
- * be able to say so.
- */
-function MetaRow({
-  label,
-  value,
-  lang,
-}: {
+type MetaItem = {
   label: string;
   value: ReactNode;
   /** The value's language when it is content, not UI (see `contentLangFor`). */
   lang?: string;
-}) {
+};
+
+/**
+ * The editorial frame — who chose this, when, how much of it there is — as ONE
+ * interface-face line under the header (DS2-35): editorLabel · updatedLabel · selectionLabel + selectionSummary.
+ * It replaced a three-row `<dl>` table that sat beside the title and stood as
+ * tall as the hero. A `<p>` of label/value spans, because a `<dl>` cannot hold
+ * the separators; the `·` between items is decoration and is hidden from
+ * assistive tech, which reads each label straight into its value.
+ */
+function MetaLine({ items }: { items: MetaItem[] }) {
+  if (items.length === 0) return null;
   return (
-    <div className="flex items-baseline justify-between gap-6 py-3">
-      <dt className="type-metadata">{label}</dt>
-      <dd lang={lang} className="min-w-0 text-right type-metadata text-ink">
-        {value}
-      </dd>
-    </div>
+    <p className="type-metadata flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      {items.map((item, index) => (
+        <Fragment key={item.label}>
+          {index > 0 ? <span aria-hidden="true">·</span> : null}
+          <span>
+            {item.label}{" "}
+            <span lang={item.lang} className="text-ink">
+              {item.value}
+            </span>
+          </span>
+        </Fragment>
+      ))}
+    </p>
   );
 }
 
@@ -307,9 +325,9 @@ export default async function StyleTrailPage({ params }: PageProps) {
   const safeProducts = products ?? [];
   const similarProducts =
     safeProducts.length > 0
-      ? await findSimilarProductsForTrail(
-          safeProducts.map((p) => p.id),
-        ).catch(() => [])
+      ? await findSimilarProductsForTrail(safeProducts.map((p) => p.id)).catch(
+          () => [],
+        )
       : [];
 
   const entry = trail.entry;
@@ -333,10 +351,33 @@ export default async function StyleTrailPage({ params }: PageProps) {
     frontmatter.updatedAt ?? frontmatter.publishedAt,
     safeLocale,
   );
-  // What the selection actually IS, counted rather than claimed. `category` is
-  // the product's L1, so this is "how many kinds of thing", not how many tags.
-  const categoryCount = new Set(safeProducts.map((product) => product.category))
-    .size;
+  const heroSrc = editorialHeroSrc(heroImage);
+  // ONE lede (DS2-23): the promise is the reader-facing sentence. The
+  // description is the search snippet and stays in metadata; it shows here only
+  // for a trail authored without a promise.
+  const lede = frontmatter.promise ?? frontmatter.description;
+  const metaItems: MetaItem[] = [
+    ...(frontmatter.editorialOwner
+      ? [
+          {
+            label: t("editorLabel"),
+            value: frontmatter.editorialOwner,
+            lang: contentLang,
+          },
+        ]
+      : []),
+    ...(updatedLabel
+      ? [{ label: t("updatedLabel"), value: updatedLabel }]
+      : []),
+    ...(safeProducts.length > 0
+      ? [
+          {
+            label: t("selectionLabel"),
+            value: t("selectionSummary", { count: safeProducts.length }),
+          },
+        ]
+      : []),
+  ];
   const articleJsonLd = buildArticleJsonLd({
     title: frontmatter.title,
     description: frontmatter.description ?? "",
@@ -346,7 +387,7 @@ export default async function StyleTrailPage({ params }: PageProps) {
     // The same image the hero renders, resolved by the same predicate: one the
     // page cannot display takes the imageless path and is not published here
     // either. Absolutised inside the builder.
-    image: editorialHeroSrc(heroImage),
+    image: heroSrc,
   });
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [
@@ -382,9 +423,17 @@ export default async function StyleTrailPage({ params }: PageProps) {
           is what separates the editorial frame — who chose this, when, how much
           of it there is — from the objects below, and it does that with tone and
           a rule rather than with a box around the title.
+
+          With a displayable hero the scene image opens the trail as a
+          full-bleed band (DS2-35, DESIGN.md §6 scene layer): 3:4 below md,
+          21:9 from md, the title and lede on an ink scrim over its foot — the
+          scrim pattern of the /style hub's feature TrailTile, sized by the copy
+          so every line sits on ink/80 or darker. No fixed min-height: the copy
+          grows the band instead of clipping. Without one, the title and lede
+          sit directly on the surface band.
         */}
         <header className="border-b border-rule bg-surface">
-          <PageShell measure="page" className="pt-8 pb-10 md:pt-12 md:pb-14">
+          <PageShell measure="page" className="space-y-6 pt-8">
             <Breadcrumb
               ariaLabel={t("breadcrumbAria")}
               items={[
@@ -392,49 +441,57 @@ export default async function StyleTrailPage({ params }: PageProps) {
                 { label: frontmatter.title },
               ]}
             />
-            <div className="grid gap-10 md:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)] md:items-start md:gap-16">
-              <div className="space-y-8">
-                {contentLang ? (
-                  <p className="type-body-sm text-ink-muted">
-                    {t("untranslatedNotice")}
-                  </p>
-                ) : null}
-                <div lang={contentLang} className="space-y-4">
-                  <h1 className="type-page-title break-keep">{phraseBreaks(frontmatter.title)}</h1>
-                  {frontmatter.description ? (
-                    <p className="type-body">{frontmatter.description}</p>
-                  ) : null}
-                  {frontmatter.promise ? (
-                    <p className="type-body-sm">{frontmatter.promise}</p>
-                  ) : null}
-                </div>
-                <dl className="divide-y divide-rule border-y border-rule">
-                  {frontmatter.editorialOwner ? (
-                    <MetaRow
-                      label={t("editorLabel")}
-                      value={frontmatter.editorialOwner}
-                      lang={contentLang}
-                    />
-                  ) : null}
-                  {updatedLabel ? (
-                    <MetaRow label={t("updatedLabel")} value={updatedLabel} />
-                  ) : null}
-                  {safeProducts.length > 0 ? (
-                    <MetaRow
-                      label={t("selectionLabel")}
-                      value={t("selectionSummary", {
-                        count: safeProducts.length,
-                        categories: categoryCount,
-                      })}
-                    />
-                  ) : null}
-                </dl>
-              </div>
-              <EditorialHero
-                src={heroImage}
+            {/* UI copy in the page's language, so outside the `lang` wrapper. */}
+            {contentLang ? (
+              <p className="type-body-sm text-ink-muted">
+                {t("untranslatedNotice")}
+              </p>
+            ) : null}
+          </PageShell>
+          {heroSrc ? (
+            <div className="relative mt-6 flex aspect-[3/4] flex-col justify-end overflow-clip bg-ink md:aspect-[21/9]">
+              {/*
+                `priority` and `fetchPriority="high"`, never lazy: this is the
+                route's LCP element, so deferring it defers the metric itself.
+              */}
+              <SurfaceImage
+                src={heroSrc}
                 alt={frontmatter.heroImageAlt ?? ""}
+                fill
+                priority
+                fetchPriority="high"
+                surface="hero"
+                className="object-cover"
               />
+              <div className="relative z-10 bg-gradient-to-t from-ink/90 to-ink/80">
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0 bottom-full h-16 bg-gradient-to-t from-ink/80 to-transparent md:h-24"
+                />
+                <PageShell measure="page" className="pt-1 pb-8 md:pb-12">
+                  <div lang={contentLang} className="space-y-4">
+                    <h1 className="type-page-title break-keep text-ground">
+                      {phraseBreaks(frontmatter.title)}
+                    </h1>
+                    {lede ? (
+                      <p className="type-lede text-on-ink">{lede}</p>
+                    ) : null}
+                  </div>
+                </PageShell>
+              </div>
             </div>
+          ) : (
+            <PageShell measure="page" className="pt-6">
+              <div lang={contentLang} className="space-y-4">
+                <h1 className="type-page-title break-keep">
+                  {phraseBreaks(frontmatter.title)}
+                </h1>
+                {lede ? <p className="type-lede">{lede}</p> : null}
+              </div>
+            </PageShell>
+          )}
+          <PageShell measure="page" className="pt-6 pb-8 md:pb-10">
+            <MetaLine items={metaItems} />
           </PageShell>
         </header>
         <PageShell measure="page">
@@ -451,12 +508,14 @@ export default async function StyleTrailPage({ params }: PageProps) {
           </div>
           {similarProducts.length >= 3 && (
             <SavedProductsProvider>
-              <section
-                aria-label={t("exploreMore")}
-                className="mt-section"
-              >
+              <section aria-label={t("exploreMore")} className="mt-section">
                 <h2 className="type-card-title">{t("exploreMore")}</h2>
-                <Grid cols="thirds" as="ul" className="mt-6">
+                {/*
+                  Two-up on phones (DS2-15): `thirds` alone is one-up there and
+                  stacked six full-width tiles. `grid-cols-2` replaces its base
+                  column through `cn`; three-up from lg keeps six as 3+3.
+                */}
+                <Grid cols="thirds" as="ul" className="mt-6 grid-cols-2">
                   {similarProducts.map((product) => (
                     <ProductCard
                       key={product.id}
@@ -478,7 +537,9 @@ export default async function StyleTrailPage({ params }: PageProps) {
               )}
               {relatedTrailTiles(t("relatedTrails"), relatedTrails, {
                 eyebrow: tLanding("trails.eyebrow"),
-                cta: tLanding("trails.cta"),
+                // No arrow glyph in a translated label (DESIGN.md §8
+                // actionLinkStyles); `landing.trails.cta` still carries one.
+                cta: t("relatedTrailCta"),
               })}
             </div>
           )}

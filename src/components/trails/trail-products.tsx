@@ -10,9 +10,9 @@ import {
   SelectedProductTile,
   type SelectedProductTileLabels,
 } from '@/components/brands/selected-product-tile'
-import { Grid } from '@/components/ui/grid'
 import { routes } from '@/lib/routes'
 import { pickNoteKey } from '@/lib/trails/note-key'
+import { cn } from '@/lib/utils'
 
 export type TrailProductsContextValue = {
   trailSlug: string
@@ -36,6 +36,29 @@ export function TrailProductsProvider({
 }
 
 /**
+ * The column formula for one section's shelf, chosen by how many products it
+ * holds so the last row never strands one tile beside empty cells (DS2-07),
+ * and two-up on phones so a section is half as tall as the old one-up stack
+ * (DS2-15). Literal class strings, so Tailwind's scanner sees every one.
+ *
+ * - 1: one tile's width (half a phone, a third from `lg`), never stretched.
+ * - 2: two-up at every width.
+ * - a multiple of 4: two-up, four-up from `xl`.
+ * - a remainder of 1 over 3 (7, 10, ...): three-up from `lg`, four-up from
+ *   `xl`, where 3+3+1 would orphan the last tile and 4+3 does not.
+ * - everything else (3, 5, 6, ...): two-up, three-up from `lg`.
+ *
+ * Odd counts above 1 still end a phone row on a single tile; at two columns
+ * there is no layout that avoids it.
+ */
+export function trailGridColumns(count: number): string {
+  if (count === 2) return 'grid-cols-2'
+  if (count > 0 && count % 4 === 0) return 'grid-cols-2 xl:grid-cols-4'
+  if (count > 1 && count % 3 === 1) return 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+  return 'grid-cols-2 lg:grid-cols-3'
+}
+
+/**
  * Renders the DB placements for one authored section. MDX expression props are
  * discarded by the renderer, so this component intentionally accepts only the
  * literal section key; products and labels arrive through the route context.
@@ -55,7 +78,11 @@ export function TrailProducts({ section }: { section: string }) {
 
   return (
     <div className="mt-8 border-t border-rule pt-8">
-      <Grid as="ul" cols="thirds" className="list-none p-0">
+      {/*
+        A plain `<ul>`, not `Grid`: the columns are count-aware, so no fixed
+        `cols` variant fits. The gap is still the gutter token.
+      */}
+      <ul className={cn('grid list-none gap-gutter p-0', trailGridColumns(products.length))}>
         {products.map((product, index) => (
           <SelectedProductTile
             key={`${product.key}-${product.position ?? index}`}
@@ -76,7 +103,7 @@ export function TrailProducts({ section }: { section: string }) {
             }}
           />
         ))}
-      </Grid>
+      </ul>
     </div>
   )
 }
