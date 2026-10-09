@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ImageTextSignals } from "@/lib/curated-products/commerce-text";
+import { setAuditWriteSeam, type AuditRecord } from "@/lib/audit";
 import {
   prepareCuratedProductImage,
   storeCuratedProductImage,
@@ -283,6 +284,95 @@ describe("prepareCuratedProductImage ad-creative gate", () => {
 });
 
 describe("prepareCuratedProductImage", () => {
+  it.each([
+    ["missing photo", 404, "image/png", null, "missing_image"],
+    ["removed photo", 410, "image/png", null, "missing_image"],
+    ["GIF candidate", 200, "image/gif", null, "unsupported_content_type"],
+    [
+      "oversized photo",
+      200,
+      "image/png",
+      String(11 * 1024 * 1024),
+      "source_too_large",
+    ],
+  ])(
+    "rejects a %s without reporting a provider outage",
+    async (_label, status, contentType, length, reason) => {
+      const records: AuditRecord[] = [];
+      setAuditWriteSeam(async (record) => {
+        records.push(record);
+        return null;
+      });
+      stubFetch(
+        new Response(new Uint8Array(8), {
+          status,
+          headers: {
+            "content-type": contentType,
+            ...(length ? { "content-length": length } : {}),
+          },
+        }),
+      );
+      const url = "https://photos.design-studio.tw/ceramic-cup.png";
+
+      await expect(
+        prepareCuratedProductImage(url, PRODUCT_ID),
+      ).rejects.toThrow();
+      expect(
+        records.find((record) => record.status !== "started"),
+      ).toMatchObject({
+        status: "empty",
+        subjectId: PRODUCT_ID,
+        summary: { url, status, contentType, rejectionReason: reason },
+      });
+    },
+  );
+
+  it("rejects an oversized streamed photo without reporting a provider outage", async () => {
+    const records: AuditRecord[] = [];
+    setAuditWriteSeam(async (record) => {
+      records.push(record);
+      return null;
+    });
+    stubFetch(
+      new Response(chunkedBody(11 * 1024 * 1024), {
+        headers: { "content-type": "image/png" },
+      }),
+    );
+    await expect(
+      prepareCuratedProductImage(
+        "https://photos.design-studio.tw/cup.png",
+        PRODUCT_ID,
+      ),
+    ).rejects.toThrow(/too large/i);
+    expect(records.find((record) => record.status !== "started")).toMatchObject(
+      {
+        status: "empty",
+        summary: { rejectionReason: "source_too_large" },
+      },
+    );
+  });
+
+  it.each([403, 500])(
+    "still reports HTTP %i as a failed download",
+    async (status) => {
+      const records: AuditRecord[] = [];
+      setAuditWriteSeam(async (record) => {
+        records.push(record);
+        return null;
+      });
+      stubFetch(new Response(null, { status }));
+      await expect(
+        prepareCuratedProductImage(
+          "https://photos.design-studio.tw/cup.png",
+          PRODUCT_ID,
+        ),
+      ).rejects.toThrow(`HTTP ${status}`);
+      expect(
+        records.find((record) => record.status !== "started")?.status,
+      ).toBe("failed");
+    },
+  );
+
   it("refuses a private URL BEFORE any request is made", async () => {
     // The URL is typed into an admin form and fetched by the server, so without
     // this the action is a request forger against the deployment's own network.

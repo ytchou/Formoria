@@ -139,15 +139,11 @@ describe("EditorialHero", () => {
 });
 
 /**
- * Both long-form routes are async server components that read the filesystem
- * and the database, so they cannot be rendered here — but the copy this
- * component replaced lived in exactly those two files, and it drifted. So the
- * decision is pinned at the source: they call the component, and neither
- * hand-rolls the frame again.
+ * The story route keeps the shared hero. Trail details use the full-bleed
+ * band approved in DEV-1998, so this shared-component contract excludes them.
  */
 const ROUTES = {
   story: join(process.cwd(), "src/app/[locale]/(site)/stories/[slug]/page.tsx"),
-  trail: join(process.cwd(), "src/app/[locale]/(site)/style/[slug]/page.tsx"),
 } as const;
 
 describe.each(Object.entries(ROUTES))(
