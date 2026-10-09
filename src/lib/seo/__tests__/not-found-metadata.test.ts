@@ -10,10 +10,11 @@ vi.mock('next-intl/server', () => ({
 import { buildNotFoundMetadata } from '../not-found-metadata'
 
 describe('buildNotFoundMetadata', () => {
-  it('titles the page in the requested locale and keeps it out of the index', async () => {
+  it('titles and describes the page in the requested locale and keeps it out of the index', async () => {
     const metadata = await buildNotFoundMetadata('en')
 
     expect(metadata.title).toBe('en:errors.notFound.title')
+    expect(metadata.description).toBe('en:errors.notFound.description')
     expect(metadata.robots).toEqual({ index: false, follow: true })
   })
 

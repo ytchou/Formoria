@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
+import { normalizePublicSearchQuery } from '@/lib/brands/normalize-public-search-query'
 import { trackSearchExecuted, trackSearchNoResults, trackProductSearchExecuted, trackProductSearchResultsViewed, trackProductSearchEmpty } from '@/lib/analytics'
 
 /**
@@ -15,8 +16,9 @@ import { trackSearchExecuted, trackSearchNoResults, trackProductSearchExecuted, 
 export const SEARCH_SETTLE_MS = 800
 
 /**
- * Mirrors the minimum enforced by `normalizePublicSearchQuery` in
- * `src/lib/services/brands.ts`, which is the authority: below it the service
+ * Product-search floor. Brand search defers to `normalizePublicSearchQuery`
+ * (`src/lib/brands/normalize-public-search-query.ts`), which is the authority
+ * and admits a single CJK character (DEV-1991): below it the service
  * short-circuits to zero results without ever calling the search RPC. Emitting
  * for a shorter query would report a zero-result search that never ran — and the
  * first keystroke of every Chinese search is a single ideograph.
@@ -107,7 +109,11 @@ export function SearchResultsTracker({ query, resultCount, trackerKind = 'brand'
 
   useEffect(() => {
     const trimmed = query.trim()
-    if (trimmed.length < MIN_SEARCH_QUERY_LENGTH) {
+    const searchRan =
+      trackerKind === 'brand'
+        ? normalizePublicSearchQuery(trimmed) !== null
+        : trimmed.length >= MIN_SEARCH_QUERY_LENGTH
+    if (!searchRan) {
       pendingRef.current = null
       return
     }

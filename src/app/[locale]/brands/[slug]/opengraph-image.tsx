@@ -17,7 +17,7 @@ export default async function OgImage({
 
   try {
     const brandDetail = await getBrandBySlug(slug)
-    const brandLabel = locale === 'en' ? 'Taiwanese Brand' : '台灣品牌'
+    const brandLabel = locale === 'en' ? 'Taiwanese brand' : '台灣品牌'
     const categoryName = brandDetail.categoryLabel ?? 'Taiwan brand'
 
     return new ImageResponse(
@@ -200,7 +200,7 @@ export default async function OgImage({
               fontFamily: 'Noto Sans TC',
             }}
           >
-            {locale === 'en' ? 'Taiwanese Brands' : '台灣品牌'}
+            {locale === 'en' ? 'Taiwanese brands' : '台灣品牌'}
           </div>
 
           <div
@@ -211,7 +211,7 @@ export default async function OgImage({
               fontFamily: 'Bricolage Grotesque',
             }}
           >
-            {locale === 'en' ? 'Taiwanese Brand' : '台灣品牌'}
+            {locale === 'en' ? 'Taiwanese brand' : '台灣品牌'}
           </div>
         </OgLayout>
       ),

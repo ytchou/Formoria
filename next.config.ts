@@ -510,6 +510,21 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   // Upload a larger set of source maps for prettier stack traces (increases build time)
   widenClientFileUpload: true,
 
+  // Replay is never enabled (`integrations: []`, both replay rates 0), so its
+  // optional code can go. Ceiling: in @sentry/nextjs 10.70 these flags become
+  // bundler defines only on the webpack path; under Turbopack (the `next
+  // build` default here) they reach just the post-build source-map upload and
+  // shrink nothing. What actually kept Replay out of the client graph was
+  // dropping the dynamic `import('@sentry/nextjs')` in `use-user.ts`, which
+  // Turbopack could not tree-shake (DEV-1987). Upgrade path: if Sentry adds
+  // Turbopack defines, these start working with no further change.
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeReplayIframe: true,
+    excludeReplayShadowDom: true,
+    excludeReplayWorker: true,
+  },
+
   // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
   // This can increase your server load as well as your hosting bill.
   // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-

@@ -1,12 +1,14 @@
 {
   "common": {
-    "exploreBrands": "Browse brands",
+    "exploreBrands": "Browse the brand directory",
     "submitBrand": "Recommend a brand",
     "all": "All",
     "skipToContent": "Skip to content",
     "close": "Close",
     "closeDialog": "Close dialog",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "notifications": "Notifications",
+    "metadataDescription": "Life can feel a little more like you. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it."
   },
   "nav": {
     "searchAria": "Search products",
@@ -33,12 +35,11 @@
     "copyright": "© {year} Formoria",
     "tagline": "Life can feel a little more like you",
     "discoverHeading": "Browse",
-    "directory": "Brand directory",
+    "directory": "Listed brands",
     "stories": "Stories",
     "submit": "Recommend a brand",
     "companyHeading": "About",
     "faq": "FAQ",
-    "connectHeading": "Contact",
     "style": "Guides",
     "products": "Products",
     "disclosure": "Formoria doesn't sell anything. Every purchase happens on the brand's own channel."
@@ -74,7 +75,7 @@
     "heading": "Products",
     "subheading": "Find Taiwanese products by category and material, then buy from the brand's site or stockists.",
     "emptyState": "No products match these filters. Remove one and try again.",
-    "resultCount": "{count} products",
+    "resultCount": "{count, plural, one {# product} other {# products}}",
     "filters": {
       "subcategory": "Subcategory",
       "material": "Material",
@@ -97,17 +98,22 @@
     },
     "search": {
       "label": "Search products",
-      "placeholder": "Search products, brands or needs…",
+      "placeholder": "Search products, brands, or a situation…",
       "submit": "Search",
       "clear": "Clear search",
-      "resultsHeading": "Products matching \"{query}\"",
-      "count": "{count, plural, one {# matching product} other {# matching products}}",
-      "countTop": "Top {count} by relevance",
+      "heading": "Search results",
+      "queryEcho": "\"{query}\"",
+      "count": "Sorted by relevance · {count, plural, one {# product} other {# products}}",
       "empty": "No products match \"{query}\". Try a different keyword or clear the filters.",
       "emptyRoutes": {
         "trailsHeading": "Start from one of these guides",
-        "categoriesHeading": "Browse all products by category"
+        "categoriesHeading": "Browse all products by category",
+        "brandMatches": "{count, plural, one {# brand has} other {# brands have}} “{query}” in the name or intro"
       }
+    },
+    "trailRail": {
+      "heading": "Start from a situation",
+      "linkText": "See all guides"
     }
   },
   "brandsJoin": {
@@ -217,7 +223,7 @@
     "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details."
   },
   "brands": {
-    "breadcrumbAria": "Brand directory breadcrumb",
+    "breadcrumbAria": "Breadcrumb",
     "metadata": {
       "title": "Taiwanese brand directory | Brands by category and where to buy | Formoria",
       "description": "Find brands founded, designed, or made in Taiwan by category or keyword, then go from each brand page to its official site or stockists."
@@ -250,22 +256,23 @@
     },
     "search": {
       "aria": "Search brands",
-      "placeholder": "Search brands...",
+      "placeholder": "Search brands…",
       "submit": "Search",
       "clear": "Clear search",
-      "loading": "Searching brands..."
+      "loading": "Searching brands…"
     },
     "pagination": {
       "label": "Pagination",
       "previous": "‹ Previous",
       "previousAria": "Previous page",
       "next": "Next ›",
-      "nextAria": "Next page"
+      "nextAria": "Next page",
+      "status": "Page {page} of {total}"
     },
     "card": {
       "productCount": "{count, plural, one {# product} other {# products}}"
     },
-    "noResultsInSuggestions": "No results found",
+    "noResultsInSuggestions": "No matching brands",
     "editorialLinksAria": "Related stories and guides",
     "editorialStories": "Related stories",
     "editorialTrails": "Related guides",
@@ -273,9 +280,9 @@
   },
   "challenge": {
     "title": "Quick verification",
-    "description": "Please complete the check to continue browsing.",
+    "description": "Complete the check to keep browsing.",
     "verifying": "Verifying…",
-    "error": "Verification failed. Please try again."
+    "error": "The check didn't go through. Try again."
   },
   "cities": {
     "taipei": "Taipei City",
@@ -309,10 +316,26 @@
   },
   "brandDetail": {
     "metadata": {
-      "fallbackDescription": "Explore {name}, a Taiwanese brand featured on Formoria."
+      "fallbackDescription": "{name}: brand story, products, official site, and stockists."
     },
     "tabNav": {
-      "overview": "On this page"
+      "overview": "On this page",
+      "short": {
+        "about": "Story",
+        "selectedProducts": "Products",
+        "whereToBuy": "Where to buy",
+        "featuredIn": "Featured",
+        "faq": "FAQ",
+        "social": "Social"
+      }
+    },
+    "colophon": {
+      "city": "Based in",
+      "founded": "Founded"
+    },
+    "heroJump": {
+      "selected": "{count, plural, one {# product} other {# products}} from this brand",
+      "stockists": "{count, plural, one {# stockist} other {# stockists}}"
     },
     "selectedProducts": {
       "heading": "From this brand",
@@ -333,7 +356,7 @@
       "moreActions": "More options"
     },
     "actions": {
-      "visitWebsite": "Visit Website",
+      "visitWebsite": "Visit the brand's site",
       "visitPinkoi": "Visit Pinkoi",
       "visitShopee": "Visit Shopee",
       "visitMyship": "Visit 7-ELEVEN MyShip",
@@ -466,7 +489,7 @@
     },
     "breadcrumb": {
       "ariaLabel": "Breadcrumb",
-      "directory": "Brands"
+      "directory": "Brand directory"
     },
     "sections": {
       "about": "Brand story",
@@ -534,9 +557,10 @@
       "close": "Close photo viewer",
       "previous": "Previous photo",
       "next": "Next photo",
-      "photoAltWithBrand": "{brand} product {n}",
+      "photoAltWithBrand": "{brand} photo {n}",
       "viewPhoto": "View photo {n}",
-      "brandSupplied": "Image supplied by the brand"
+      "brandSupplied": "Image supplied by the brand",
+      "viewer": "Choose a photo"
     },
     "locations": {},
     "editorialAppearances": {
@@ -571,19 +595,11 @@
     }
   },
   "categories": {
-    "index": {
-      "heading": "Product categories",
-      "intro": "Find Taiwanese brands by product type: fashion and footwear, bags and accessories, jewelry, beauty and personal care, home and living, and stationery.",
-      "metadata": {
-        "title": "Product categories | Formoria",
-        "description": "Browse Taiwanese brands by product type across Formoria's launch categories and subcategories."
-      }
-    },
     "landing": {
       "updated": "Updated {date}"
     },
     "metadata": {
-      "title": "{displayName} Brands from Taiwan",
+      "title": "Taiwanese {displayName} brands",
       "description": "Taiwanese {displayName} brands."
     },
     "subMetadata": {
@@ -594,765 +610,186 @@
       "fashion": "The wardrobe is missing one jacket you can wear to work and then straight out to dinner. Fashion and apparel covers everyday basics, commuting and outerwear, technical outdoor layers, footwear, and the accessories worn with them; materials, sizing, and place of manufacture follow each brand's own statements. Formoria lists apparel and footwear brands founded, designed, or made in Taiwan.",
       "bags-accessories": "A bag has to hold a laptop, a water bottle, and a lunch box — without the strap digging in. Bags and accessories covers commuter bags, backpacks, travel bags, wallets, and small leather goods, and some brands work with recycled fabrics or vegetable-tanned leather. Formoria lists bag and accessory brands founded, designed, or made in Taiwan, and gathers each brand's online stores and stockists.",
       "jewelry": "A pair of earrings you can wear every day and keep on in the shower. Jewelry covers earrings, necklaces, rings, bracelets, and hair accessories, in materials from sterling silver, brass, and stainless steel to natural stones and freshwater pearls; metal composition and care instructions are stated by each brand. Formoria lists jewelry brands founded, designed, or made in Taiwan.",
-      "beauty": "Taiwanese summers are hot and humid, so texture is often decided before the ingredient list is. Beauty and personal care covers facial skincare, haircare, body cleansing, and makeup, and many brands use local plants, mineral springs, or fermented ingredients. Formoria lists beauty brands founded, designed, or made in Taiwan; for ingredients and suitability, follow each brand's own labelling.",
-      "home": "Moving into a new home, changing a lamp, wanting the dining table to look different. Home and living covers furniture, storage, lighting, tableware, and decor, often in ceramics, wood, woven bamboo, and metalwork; in a small apartment the dimensions usually settle the choice before the style does. Formoria lists home and living brands founded, designed, or made in Taiwan.",
+      "beauty": "In Taiwan's hot, humid summers, many people judge texture before reading the ingredient list. Beauty and personal care covers facial skincare, haircare, body cleansing, and makeup, and many brands use local plants, mineral springs, or fermented ingredients. Formoria lists beauty brands founded, designed, or made in Taiwan; for ingredients and suitability, follow each brand's own labeling.",
+      "home": "Moving into a new home, changing a lamp, wanting the dining table to look different. Home and living covers furniture, storage, lighting, tableware, and decor, often in ceramics, wood, woven bamboo, and metalwork; when the room is small, size usually needs checking before style. Formoria lists home and living brands founded, designed, or made in Taiwan.",
       "food-drink": "A gift to send home, or a bag of coffee beans that runs out every morning. Food and beverage covers tea, coffee, fruit and farm produce, snacks, sauces, and traditional confections, and some brands work directly with growers. Formoria lists food and drink brands founded, designed, or made in Taiwan; for storage, ingredients, and delivery terms, see each brand's own pages.",
       "stationery": "A notebook that lies flat and doesn't bleed through under a fountain pen. Stationery and design covers notebooks, paper goods, pens, washi tape, stamps, and desk tools, and many brands work with local paper mills, printers, or illustrators. Formoria lists stationery and design brands founded, designed, or made in Taiwan.",
       "tech": "One more cable on the desk and it is a mess, so charging, expansion, and cable management usually get solved together. Tech and electronics covers consumer electronics, computer peripherals, creator tools, and smart home devices. Formoria lists tech brands founded, designed, or made in Taiwan; for specifications, compatibility, and warranty terms, follow each brand's official documentation.",
-      "outdoor": "A weekend in the mountains means carrying the sleeping bag, the stove, and the pack yourself. Outdoor and camping covers hiking, camping, climbing, and travel gear, along with the apparel, packs, and accessories that go with them; between high ridgelines and coastal campsites, low weight and damp resistance are the usual trade-off. Formoria lists outdoor and camping brands founded, designed, or made in Taiwan.",
+      "outdoor": "A weekend in the mountains means carrying the sleeping bag, the stove, and the pack yourself. Outdoor and camping covers hiking, camping, climbing, and travel gear, along with the apparel, packs, and accessories that go with them; on Taiwan's high ridgelines and coastal campsites, gear usually has to trade low weight against damp resistance. Formoria lists outdoor and camping brands founded, designed, or made in Taiwan.",
       "fitness": "A mat unrolled in the living room after work is the whole training space for the day. Fitness and sports covers yoga mats, resistance training equipment, activewear, and recovery tools; size, weight, and how a piece stores away often decide whether it gets used at all. Formoria lists fitness and sports brands founded, designed, or made in Taiwan.",
-      "kids": "Children put things in their mouths, and grow half a size in a season. Kids & Baby covers children's and baby clothing, bedding, wooden and fabric toys, feeding goods, and parenting essentials, where the material and how it washes are usually the first things to check. Formoria lists kids and baby brands founded, designed, or made in Taiwan; for safety labelling and test reports, follow each brand's own announcements.",
+      "kids": "Children put things in their mouths, and grow half a size in a season. Kids and baby covers children's and baby clothing, bedding, wooden and fabric toys, feeding goods, and parenting essentials, where the material and how it washes are usually the first things to check. Formoria lists kids and baby brands founded, designed, or made in Taiwan; for safety labeling and test reports, follow each brand's own announcements.",
       "pets": "Cats chew toys open, and leads get dragged across wet asphalt. Pets covers fresh food and treats, supplements, apparel and accessories, scratchers and beds, and grooming supplies, where durability and how a thing washes are usually the first things to check. Formoria lists pet brands founded, designed, or made in Taiwan; for ingredients and test reports, follow each brand's own announcements."
     },
     "l1": {
       "home": {
         "title": "Taiwanese home and living brands | Formoria",
-        "description": "In a small apartment, size and storage usually settle the choice before style does. Taiwanese brands for furniture, storage, lighting, and tableware.",
-        "h1": "Taiwanese home and living brands",
-        "intro": "From furniture and storage to lighting, tableware, and small decor pieces; in a small apartment, dimensions and how something stores away usually settle the choice before style does.",
-        "definition": "This category covers things that make a home easier to live in, not only decorative pieces. Brands are grouped by the product types recorded when they were approved.",
-        "faq": [
-          {
-            "question": "What products appear in Home & Living?",
-            "answer": "Common examples include furniture, storage, lighting, tableware, fragrance, and small decor objects. The exact tags follow each brand's main products."
-          },
-          {
-            "question": "Are all brands in this category made in Taiwan?",
-            "answer": "Not necessarily. Formoria lists brands founded, designed, or made in Taiwan; manufacturing details are shown separately when a brand provides them."
-          }
-        ]
+        "description": "In a small apartment, check size and storage first, then pick a style. Taiwanese brands for furniture, storage, lighting, and tableware."
       },
       "fashion": {
         "title": "Taiwanese fashion and apparel brands | Formoria",
-        "description": "One jacket has to work at the office and then straight out to dinner. Clothing, footwear, and accessory brands founded, designed, or made in Taiwan.",
-        "h1": "Taiwanese fashion and apparel brands",
-        "intro": "Clothing, footwear, and the accessories worn with them; one jacket has to work at the office and then straight out to dinner.",
-        "definition": "A fashion brand's point of view may come from cut, textile, last, or the setting in which a piece is worn. This category does not claim that every item is made in Taiwan; brand pages list where a brand was founded, designs, and manufactures separately.",
-        "faq": [
-          {
-            "question": "What brands are included in Fashion & Apparel?",
-            "answer": "Everyday clothing, technical layers, casual shoes, leather shoes, and other wearables may appear when they match a brand's main products and public tags."
-          },
-          {
-            "question": "Where can I find a brand's origin details?",
-            "answer": "Each brand page separates founding, design, and manufacturing information. The category page does not treat every listed label as Taiwan-made."
-          }
-        ]
+        "description": "One jacket has to work at the office and then straight out to dinner. Clothing, footwear, and accessory brands founded, designed, or made in Taiwan."
       },
       "beauty": {
         "title": "Taiwanese beauty and personal care brands | Formoria",
-        "description": "Taiwan's humid heat means texture and feel get judged first. Taiwanese brands for skincare, makeup, haircare, and body cleansing.",
-        "h1": "Taiwanese beauty and personal care brands",
-        "intro": "Skincare, makeup, haircare, and body cleansing; in Taiwan's humid heat, texture and how something feels on the skin get judged first.",
-        "definition": "The category is organised by body area and function, not by a promise that a product is natural, additive-free, or suitable for every skin type. A brand may be founded, designed, or manufactured in Taiwan; confirm formula, claims, and manufacturing details on its own listing.",
-        "faq": [
-          {
-            "question": "What products are in Beauty & Personal Care?",
-            "answer": "Skincare, body care, bath and shower, haircare, makeup, fragrance, and sun care can all appear, with narrower subcategories for primary use."
-          },
-          {
-            "question": "Does Formoria endorse a beauty product?",
-            "answer": "No. The directory organises brand and product information and shows available declarations or verification; follow product labels and professional advice for use."
-          }
-        ]
+        "description": "Taiwan's humid heat means texture and feel get judged first. Taiwanese brands for skincare, makeup, haircare, and body cleansing."
       },
       "food-drink": {
         "title": "Taiwanese food and beverage brands | Formoria",
-        "description": "Some stay in your own kitchen, others travel home as a gift. Taiwanese brands for tea, coffee, snacks, sauces, and sweets.",
-        "h1": "Taiwanese food and beverage brands",
-        "intro": "Ingredients, prepared foods, tea, coffee, snacks, and drinks; some stay in the kitchen, others travel home as a gift.",
-        "definition": "A food brand may be defined by its ingredients, source, recipe, processing method, or family practice. This category does not imply that every ingredient or product is Taiwan-made; listings show the brand's Taiwan connection and point to public information about origin and production.",
-        "faq": [
-          {
-            "question": "What can I find in Food & Beverage?",
-            "answer": "Tea, coffee, dried fruit, snacks, sauces, baked goods, and other everyday foods may appear, then sort into narrower subcategories by main product."
-          },
-          {
-            "question": "Does a category label mean all ingredients are from Taiwan?",
-            "answer": "No. The category shows the range of brands and products; it is not an origin claim. Check each brand page for ingredient, source, and manufacturing information."
-          }
-        ]
+        "description": "Some stay in your own kitchen, others travel home as a gift. Taiwanese brands for tea, coffee, snacks, sauces, and sweets."
       },
       "bags-accessories": {
         "title": "Taiwanese bags and accessories brands | Formoria",
-        "description": "What fits inside and whether the strap digs in are usually the same question. Taiwanese brands for backpacks, wallets, eyewear, and hats.",
-        "h1": "Taiwanese bags and accessories brands",
-        "intro": "Bags, leather goods, and everyday accessories; what fits inside and whether the strap digs in are usually the same question.",
-        "definition": "A brand may make bags, wallets, and other accessories at the same time, so subcategories follow the brand's main subcategories. Inclusion does not mean every item shares one material or manufacturing location; check the listing for the brand's own material and origin details.",
-        "faq": [
-          {
-            "question": "Which subcategories are included?",
-            "answer": "Backpacks, tote bags, crossbody bags, wallets, eyewear, hats, and travel accessories can appear when they match a brand's main product range."
-          },
-          {
-            "question": "Do all leather-goods brands use real leather?",
-            "answer": "Not necessarily. Brands may use leather, plant-based alternatives, recycled fabric, or other materials; each listing should be checked for the actual specification."
-          }
-        ]
+        "description": "The more a bag holds, the more the strap digs in, so start from what you carry every day. Taiwanese brands for backpacks, wallets, eyewear, and hats."
       },
       "jewelry": {
         "title": "Taiwanese jewelry brands | Formoria",
-        "description": "Metal content and care decide whether a piece can be worn every day. Taiwanese brands for earrings, necklaces, rings, and bracelets.",
-        "h1": "Taiwanese jewelry brands",
-        "intro": "Earrings, necklaces, rings, bracelets, and hair accessories; metal composition and care decide whether a piece can be worn every day.",
-        "definition": "This category includes everyday accessories and jewelry design without assuming that every piece uses precious metal, natural stones, or Taiwan-sourced material. Brand pages separate material, making, and origin details where they can.",
-        "faq": [
-          {
-            "question": "How are jewelry and accessories organised here?",
-            "answer": "Primary product and how a piece is worn guide the subcategory, so everyday accessories and fine-jewelry labels can share an earrings, necklace, or ring page."
-          },
-          {
-            "question": "Does Formoria verify the material of every piece?",
-            "answer": "No. Check the brand's material, stone, and production information; a category label is not a material guarantee."
-          }
-        ]
+        "description": "For jewelry you wear every day, get clear on the metal content and care first. Taiwanese brands for earrings, necklaces, rings, and bracelets."
       },
       "kids": {
         "title": "Taiwanese kids and baby brands | Formoria",
-        "description": "They end up in mouths and go through dozens of washes, so check material and washing first. Taiwanese brands for kids' clothing, bedding, toys, and tableware.",
-        "h1": "Taiwanese kids and baby brands",
-        "intro": "Children's and baby clothing, bedding, toys, tableware, and parenting essentials; they end up in mouths and go through dozens of washes, so material and washing are looked at first.",
-        "definition": "When choosing these products, check safety labeling, sizing, and age guidance first; the directory does not replace regulations, testing, or medical advice. A brand may be founded, designed, or manufactured in Taiwan; check its listing and packaging for age, material, and certification details.",
-        "faq": [
-          {
-            "question": "What products appear in Kids & Baby?",
-            "answer": "Children's and baby clothing, bedding, toys, learning aids, feeding goods, and parenting essentials may all appear in this category."
-          },
-          {
-            "question": "Does Formoria confirm that a product suits every child?",
-            "answer": "No. The directory organises public brand information; age, size, safety, and care decisions should follow the product label and professional guidance."
-          }
-        ]
+        "description": "Kids put things in their mouths, and clothes go through dozens of washes, so check material and washing first. Taiwanese brands for kids' clothing, bedding, toys, and tableware."
       },
       "stationery": {
         "title": "Taiwanese stationery and design brands | Formoria",
-        "description": "Paper weight and binding decide whether a notebook lies flat once opened. Taiwanese brands for pens, paper goods, washi tape, and desk tools.",
-        "h1": "Taiwanese stationery and design brands",
-        "intro": "Notebooks, paper goods, pens, and desk tools; paper weight and binding decide whether a page lies flat once it is opened.",
-        "definition": "A stationery product can differ through paper, ink, print, mechanism, or illustration rather than appearance alone. The Taiwan connection, manufacturing partners, and materials vary by brand, so the brand page remains the place to learn the specific details.",
-        "faq": [
-          {
-            "question": "What products are included in Stationery & Design?",
-            "answer": "Pens, notebooks, planners, paper goods, stamps, stickers, and desk organisers can appear, grouped by their primary use and subcategories."
-          },
-          {
-            "question": "Are stationery products all made in Taiwan?",
-            "answer": "No. A brand may be founded, designed, or manufactured in Taiwan; each listing shows the available origin and production information separately."
-          }
-        ]
+        "description": "Whether a notebook lies flat once opened comes down to paper weight and binding. Taiwanese brands for pens, paper goods, washi tape, and desk tools."
       },
       "outdoor": {
         "title": "Taiwanese outdoor and camping brands | Formoria",
-        "description": "Low weight against damp resistance is the usual trade-off between Taiwan's mountains and coast. Taiwanese brands for hiking, camping, climbing, and travel gear.",
-        "h1": "Taiwanese outdoor and camping brands",
-        "intro": "Hiking, camping, climbing, and travel gear, plus the apparel, packs, and accessories that go with them; between Taiwan's mountains and its coast, low weight against damp resistance is the usual trade-off.",
-        "definition": "Terrain, weather, and user experience affect whether a piece of gear is appropriate; this category does not make safety or performance guarantees. Founding, design, and manufacturing connections are recorded separately, while specifications and load limits belong to each brand's product page.",
-        "faq": [
-          {
-            "question": "Which activities are covered by Outdoor & Camping?",
-            "answer": "Hiking, camping, climbing, and outdoor travel gear may appear, with subcategories that follow a product's primary use."
-          },
-          {
-            "question": "Is every item here suitable for high-altitude trips?",
-            "answer": "No. Use the brand's specifications, testing conditions, and your own itinerary to choose equipment; a category path cannot make that decision for you."
-          }
-        ]
+        "description": "Hiking and camping in Taiwan usually means trading weight against damp resistance. Taiwanese brands for hiking, camping, climbing, and travel gear."
       }
     },
     "l2": {
       "bath-and-shower": {
         "title": "Taiwanese bath and shower brands | Formoria",
-        "description": "You use these up every day, so size and refill options are worth checking first. Taiwanese brands for body wash, facial cleansers, and everyday cleansing.",
-        "h1": "Taiwanese bath and shower brands",
-        "intro": "Bathing, facial cleansing, and body wash products; they run out constantly, so size and refill options are worth checking first.",
-        "definition": "This subcategory is about cleansing use, not a promise that a formula suits every skin type or has a particular origin. Check ingredients, directions, and the brand's available Taiwan connection and manufacturing details.",
-        "faq": [
-          {
-            "question": "How is Bath & Shower different from Body Care?",
-            "answer": "Bath and shower centres on removing sweat, oil, or dirt, while body care focuses on after-cleansing care; some brands span both uses."
-          },
-          {
-            "question": "Can sensitive skin use every product here?",
-            "answer": "No. Read the ingredients and cautions for each product and seek professional advice when needed."
-          }
-        ],
-        "guidance": "Check whether the formula is soap-based or amino-acid-based, and compare bottle sizes against refill options."
+        "description": "You use these up every day, so size and refill options are worth checking first. Taiwanese brands for body wash, facial cleansers, and everyday cleansing."
       },
       "necklaces": {
         "title": "Taiwanese necklace brands | Formoria",
-        "description": "Chain length decides whether a necklace sits at the collarbone or the chest. Necklace brands founded, designed, or made in Taiwan, by material and how they are worn.",
-        "h1": "Taiwanese necklace brands",
-        "intro": "Chains, pendants, and necklace designs of every kind; the length decides whether it sits at the collarbone or lower.",
-        "definition": "A necklace may use metal, stone, pearl, textile, or another material; this subcategory does not guarantee allergy, durability, or origin characteristics. Refer to the brand listing and product description for specifics.",
-        "faq": [
-          {
-            "question": "Can handmade labels appear in Necklaces?",
-            "answer": "Yes. A brand can appear when necklaces or pendants are among its primary products and it meets Formoria's directory scope."
-          },
-          {
-            "question": "How do I confirm a necklace's material?",
-            "answer": "Read the brand's material, care, and origin information; the subcategory name does not imply a particular metal or stone."
-          }
-        ],
-        "guidance": "Chain length (choker, princess, opera) and clasp type affect everyday wearability."
+        "description": "Chain length decides whether a necklace sits at the collarbone or the chest. Necklace brands founded, designed, or made in Taiwan, by material and how they are worn."
       },
       "earrings": {
         "title": "Taiwanese earring brands | Formoria",
-        "description": "Pierced ears or not, the choice works differently. Taiwanese brands for studs, clip-ons, and handmade earrings.",
-        "h1": "Taiwanese earring brands",
-        "intro": "Studs, clip-ons, and other pieces worn on the ear; pierced and unpierced call for entirely different choices.",
-        "definition": "Weight, fastening, material, and fit affect how earrings feel; this subcategory does not replace product specifications or allergy information. The brand page explains its available founding, design, and manufacturing connection to Taiwan.",
-        "faq": [
-          {
-            "question": "Are clip-on earrings included?",
-            "answer": "Yes. Clip-ons and stud earrings are both ear-worn products, and brands are grouped according to their public subcategories."
-          },
-          {
-            "question": "Are these earrings suitable for everyone?",
-            "answer": "Not necessarily. Check the material, dimensions, and care information, especially if you have a metal sensitivity."
-          }
-        ],
-        "guidance": "Distinguish studs from clip-ons, check whether the metal contains nickel, and consider single-earring weight for extended wear."
+        "description": "Pierced ears or not, the choice works differently. Taiwanese brands for studs, clip-ons, and handmade earrings."
       },
       "storage": {
         "title": "Taiwanese storage brands | Formoria",
-        "description": "Measure the shelf depth first, then pick a style. Taiwanese brands for storage boxes, shelving, and organizers.",
-        "h1": "Taiwanese storage brands",
-        "intro": "Boxes, racks, bags, and other storage pieces; measure the shelf depth first, then pick the style.",
-        "definition": "A storage product may also be furniture, travel gear, or a work accessory, so the subcategory follows the brand's main subcategories. Check dimensions, capacity, load, materials, and installation requirements before buying.",
-        "faq": [
-          {
-            "question": "Can large furniture appear in Storage?",
-            "answer": "A brand whose main products are storage furniture or systems may also appear in Furniture; the route follows its subcategories."
-          },
-          {
-            "question": "How should I choose storage for a small room?",
-            "answer": "Measure the available space, then compare capacity, load, opening method, and installation conditions. The category page is only a starting point."
-          }
-        ],
-        "guidance": "Measure available depth and height first, then compare load capacity, opening mechanism, and stackability."
+        "description": "Measure the shelf depth first, then pick a style. Taiwanese brands for storage boxes, shelving, and organizers."
       },
       "furniture": {
         "title": "Taiwanese furniture brands | Formoria",
-        "description": "Whether it fits through the elevator and the door frame is the first thing to check. Taiwanese brands for tables, chairs, cabinets, and bed frames.",
-        "h1": "Taiwanese furniture brands",
-        "intro": "Tables, chairs, cabinets, bed frames, and other furniture; whether it fits through the lift and the door frame is the first line of the size chart.",
-        "definition": "Furniture dimensions, structure, and materials need to suit the room and the way it is used; this subcategory does not imply that every piece is made by a Taiwan workshop. Check each brand's design, manufacturing, delivery, and installation information.",
-        "faq": [
-          {
-            "question": "What appears in Furniture?",
-            "answer": "Tables, chairs, cabinets, bed frames, and other objects that support everyday activities may appear in this subcategory."
-          },
-          {
-            "question": "Can I buy furniture directly from Formoria?",
-            "answer": "Formoria is a brand directory. Visit each brand's own website or a stockist for pricing, dimensions, delivery, and purchase details."
-          }
-        ],
-        "guidance": "Confirm the assembled dimensions (including packaging) clear your doorframe and lift, and note assembly method and material care needs."
+        "description": "Whether it fits through the elevator and the door frame is the first thing to check. Taiwanese brands for tables, chairs, cabinets, and bed frames."
       },
       "skincare": {
         "title": "Taiwanese skincare brands | Formoria",
-        "description": "Each brand states its own ingredients and order of use. Taiwanese brands for cleansers, toners, serums, creams, and masks.",
-        "h1": "Taiwanese skincare brands",
-        "intro": "Cleansers, toners, serums, moisturisers, and masks; ingredients and the order of use are stated by each brand.",
-        "definition": "Skin needs vary with the person, season, and formula; this subcategory does not offer diagnosis or efficacy guarantees. Use the full ingredient list, directions, and available manufacturing or verification information when choosing.",
-        "faq": [
-          {
-            "question": "Does Skincare include makeup?",
-            "answer": "It focuses on care and cleansing; makeup appears in other Beauty & Personal Care subcategories, although a brand may cover several uses."
-          },
-          {
-            "question": "Are product claims verified by Formoria?",
-            "answer": "No. Formoria organises brand information rather than endorsing product claims. Follow the label and professional guidance."
-          }
-        ],
-        "guidance": "Compare active-ingredient concentrations, texture (watery, lotion, cream), and the brand's recommended application order."
+        "description": "Each brand states its own ingredients and order of use. Taiwanese brands for cleansers, toners, serums, creams, and masks."
       },
       "tops-and-tshirts": {
         "title": "Taiwanese tops and T-shirt brands | Formoria",
-        "description": "The same size can mean a different shoulder line and length at every brand. Taiwanese brands for T-shirts, shirts, hoodies, and knitwear.",
-        "h1": "Taiwanese tops and T-shirt brands",
-        "intro": "T-shirts, button-ups, hoodies, polos, and knitwear; the same size label means a different shoulder line and body length at every brand.",
-        "definition": "This subcategory can include T-shirts, shirts, hoodies, polo shirts, and knitwear, without assuming a fabric, fit, or manufacturing location. Check the product page for size, care, and origin details.",
-        "faq": [
-          {
-            "question": "Are shirts included with T-shirts?",
-            "answer": "A brand may appear when shirts or other upper-body garments are part of its main range; the exact route follows its subcategories."
-          },
-          {
-            "question": "How can I confirm a top's fabric and origin?",
-            "answer": "Read the product page's material, care, size, and origin fields. The subcategory does not imply that every piece is made in Taiwan."
-          }
-        ],
-        "guidance": "Shoulder width, chest, and body length vary across brands at the same size label; fabric weight affects drape and opacity."
+        "description": "The same size can mean a different shoulder line and length at every brand. Taiwanese brands for T-shirts, shirts, hoodies, and knitwear."
       },
       "tableware": {
         "title": "Taiwanese tableware brands | Formoria",
-        "description": "Whether a piece is dishwasher- or microwave-safe is in each brand's care notes. Taiwanese brands for plates, cups, bowls, and cutlery.",
-        "h1": "Taiwanese tableware brands",
-        "intro": "Plates, cups, bowls, cutlery, and table accessories; whether a piece is dishwasher or microwave safe is in the brand's own care instructions.",
-        "definition": "Ceramic, glass, wood, and metal tableware have different care, heat, and use limits. This subcategory does not guarantee food-contact or safety certification; read each brand's specifications and care instructions.",
-        "faq": [
-          {
-            "question": "Does Tableware include kitchen tools?",
-            "answer": "It focuses on objects used for serving and dining. Products mainly used for cooking or kitchen storage may appear in another Home & Living route."
-          },
-          {
-            "question": "How do I know if a piece is microwave or dishwasher safe?",
-            "answer": "Use the brand's product page and packaging guidance rather than inferring use from the material name alone."
-          }
-        ],
-        "guidance": "Check whether the material is microwave-safe, dishwasher-safe, and resistant to acidic foods, and note the glaze finish."
+        "description": "Whether a piece is dishwasher- or microwave-safe is in each brand's care notes. Taiwanese brands for plates, cups, bowls, and cutlery."
       },
       "casual-shoes": {
         "title": "Taiwanese casual shoe brands | Formoria",
-        "description": "Toe-box width and insoles show their difference after a day of walking. Taiwanese brands for canvas sneakers, white sneakers, and slip-ons.",
-        "h1": "Taiwanese casual shoe brands",
-        "intro": "Sneakers, canvas shoes, and other easy-wearing styles; toe box width and insole show the difference after a full day of walking.",
-        "definition": "Casual does not mean suitable for every sport or terrain; sole, support, fit, and weather conditions differ between pairs. Read the brand's specifications, sizing guidance, and manufacturing details before choosing.",
-        "faq": [
-          {
-            "question": "How are casual shoes different from sports shoes?",
-            "answer": "Casual shoes are primarily for everyday wear, while sports shoes are designed around a specific activity and support need; follow the brand's stated use and specifications."
-          },
-          {
-            "question": "Are casual shoe brands all made in Taiwan?",
-            "answer": "No. Formoria separates a brand's founding, design, and manufacturing information. Check the individual listing for origin details."
-          }
-        ],
-        "guidance": "Toe-box width, removable insoles, and sole material affect grip on different surfaces."
+        "description": "Toe-box width and insoles show their difference after a day of walking. Taiwanese brands for canvas sneakers, white sneakers, and slip-ons."
       },
       "desserts-and-pastries": {
         "title": "Taiwanese dessert and pastry brands | Formoria",
-        "description": "Room-temperature or chilled storage decides whether a box can be shipped. Taiwanese brands for baked goods, sweets, cookies, and regional pastries.",
-        "h1": "Taiwanese dessert and pastry brands",
-        "intro": "Baked goods, confectionery, cookies, and regional pastries; whether it keeps at room temperature or needs refrigeration decides if it can be posted.",
-        "definition": "Ingredients, shelf life, allergens, and delivery conditions vary by product. This subcategory does not replace food labelling or storage guidance; brand pages provide the available Taiwan connection and production details.",
-        "faq": [
-          {
-            "question": "What belongs in Desserts & Pastries?",
-            "answer": "Cakes, breads, cookies, candy, traditional pastries, and other sweet treats may appear, grouped by a brand's main products."
-          },
-          {
-            "question": "Is this a food-safety recommendation?",
-            "answer": "No. The directory only organizes brand information. Use packaging, storage, allergen, and official-website information when deciding what to buy."
-          }
-        ],
-        "guidance": "Note storage requirements (ambient or refrigerated), shelf life, and whether allergen labelling is complete."
+        "description": "Whether pastries can be shipped depends on room-temperature or chilled storage. Taiwanese brands for baked goods, sweets, cookies, and regional pastries."
       },
       "home-decor": {
         "title": "Taiwanese home decor brands | Formoria",
-        "description": "Decide which wall or corner it is for first, and the size becomes easier to judge. Taiwanese brands for vases, ornaments, and decorative objects.",
-        "h1": "Taiwanese home decor brands",
-        "intro": "Vases, ornaments, diffuser stones, and decorative objects; decide which wall or corner the piece will live on before choosing a size.",
-        "definition": "Home decor spans different materials and uses. This subcategory does not guarantee durability, safety, or origin. Check the brand page for material care and Taiwan connection details.",
-        "faq": [
-          {
-            "question": "How is home decor different from furniture?",
-            "answer": "Decor objects add atmosphere rather than structural support or storage; a piece with furniture characteristics may appear in both subcategories."
-          },
-          {
-            "question": "Are these items suitable for outdoor use?",
-            "answer": "Check the brand's material and environment guidance; the subcategory does not assume an intended setting."
-          }
-        ],
-        "guidance": "Check actual dimensions and weight, and confirm the wall load capacity required for any hanging piece."
+        "description": "Decide which wall or corner it is for first, and the size becomes easier to judge. Taiwanese brands for vases, ornaments, and decorative objects."
       },
       "rings": {
         "title": "Taiwanese ring brands | Formoria",
-        "description": "Ring size, material, and setting decide whether a ring works every day. Taiwanese brands for everyday bands and custom metalwork.",
-        "h1": "Taiwanese ring brands",
-        "intro": "Ring size, material, and setting determine how comfortably a ring wears every day; measuring methods vary between brands.",
-        "definition": "A ring may use metal, wood, resin, or other materials. This subcategory does not replace allergy or wear-resistance information. Check the brand page for design, production location, and custom services.",
-        "faq": [
-          {
-            "question": "Does this subcategory include wedding rings?",
-            "answer": "A brand whose main products include couple rings or wedding bands may appear here; Formoria does not grade rings by occasion."
-          },
-          {
-            "question": "How do I find my ring size?",
-            "answer": "Brands measure differently; use the sizing chart on the brand's own product page."
-          }
-        ],
-        "guidance": "Sizing methods differ between brands; compare inner diameter against your knuckle width before ordering."
+        "description": "For a ring you want to wear every day, check the ring size, material, and setting first. Taiwanese brands for everyday bands and custom metalwork."
       },
       "tote-bags": {
         "title": "Taiwanese tote bag brands | Formoria",
-        "description": "Most totes have no zipper, so they hold a lot, but finding things inside is another matter. Taiwanese brands for canvas and leather totes.",
-        "h1": "Taiwanese tote bag brands",
-        "intro": "An open top with no zip is what most tote bags share; plenty of room, though finding things inside is another matter.",
-        "definition": "Material, stitching, and capacity vary by brand. This subcategory does not guarantee water resistance, load limits, or a specific use. Check the brand page for design origin, manufacturing, and care.",
-        "faq": [
-          {
-            "question": "What is the difference between a tote bag and a shopping bag?",
-            "answer": "Totes are usually everyday carry bags, while shopping bags lean toward lightweight foldable designs; some brands span both."
-          },
-          {
-            "question": "Can a tote bag hold a laptop?",
-            "answer": "It depends on the dimensions and inner pocket design; check the product specifications on the brand page."
-          }
-        ],
-        "guidance": "Compare opening width, whether there are internal dividers, and whether the handle length allows shoulder carry."
+        "description": "Most totes have no zipper, so they hold a lot, but finding things inside is another matter. Taiwanese brands for canvas and leather totes."
       },
       "body-care": {
         "title": "Taiwanese body care brands | Formoria",
-        "description": "Body care comes after the shower; how much to use and how fast it absorbs depend on the formula. Taiwanese brands for lotion, hand cream, body oil, and scrubs.",
-        "h1": "Taiwanese body care brands",
-        "intro": "Body lotions, hand creams, body oils, and scrubs; care follows cleansing, and absorption speed varies with the formula.",
-        "definition": "Body care results depend on skin type and season. This subcategory does not endorse product efficacy or allergy safety. Check the brand page for ingredient lists, directions, and manufacturing details.",
-        "faq": [
-          {
-            "question": "How is Body Care different from Bath & Shower?",
-            "answer": "Bath and shower removes sweat and oil; body care focuses on moisturising and repair after cleansing. Some brands cover both."
-          },
-          {
-            "question": "Are all body care products suitable for sensitive skin?",
-            "answer": "Not necessarily. Read the ingredients and cautions, and consult a professional when needed."
-          }
-        ],
-        "guidance": "Note the absorption-speed difference between lotions and oils, and check ingredient suitability for your skin type."
+        "description": "Body care comes after the shower; how much to use and how fast it absorbs depend on the formula. Taiwanese brands for lotion, hand cream, body oil, and scrubs."
       },
       "pants": {
         "title": "Taiwanese pants brands | Formoria",
-        "description": "Waist sizing differs by brand, so check the size chart first. Taiwanese brands for jeans, casual pants, trousers, and leggings.",
-        "h1": "Taiwanese pants brands",
-        "intro": "Jeans, chinos, dress trousers, and leggings; waist measurement conventions differ between brands, so check the size chart before buying.",
-        "definition": "This subcategory covers different fits, fabrics, and functional needs without assuming a manufacturing location or occasion. Check the product page for size, care, and fabric details.",
-        "faq": [
-          {
-            "question": "Does Pants include culottes?",
-            "answer": "A brand whose main products include culottes may appear here and in skirt-related subcategories; routing follows its subcategories."
-          },
-          {
-            "question": "How do I confirm a pair's fit and size?",
-            "answer": "Use the brand's size chart and fit notes; the same size label can mean different measurements at different brands."
-          }
-        ],
-        "guidance": "Waist labelling conventions (centimetres or inches) vary; rise length has a large effect on fit."
+        "description": "Waist sizing differs by brand, so check the size chart first. Taiwanese brands for jeans, casual pants, trousers, and leggings."
       },
       "backpacks": {
         "title": "Taiwanese backpack brands | Formoria",
-        "description": "Strap width and a breathable back panel only show their worth after a full day. Taiwanese brands for commuter, laptop, and hiking backpacks.",
-        "h1": "Taiwanese backpack brands",
-        "intro": "Backpacks, laptop bags, and hiking packs; strap width and back-panel ventilation show their value after a full day of carrying.",
-        "definition": "Capacity, structure, and intended terrain vary widely. This subcategory does not guarantee load rating, water resistance, or mountaineering safety. Check the brand page for specifications and manufacturing details.",
-        "faq": [
-          {
-            "question": "Are hiking-specific packs included?",
-            "answer": "Yes. A brand whose main products include hiking or outdoor packs may appear here; check the brand's specifications and suitability before buying."
-          },
-          {
-            "question": "How do I choose the right capacity?",
-            "answer": "Consider what you carry daily and the intended use; brand product pages usually list volume in litres and internal compartment layout."
-          }
-        ],
-        "guidance": "Compare capacity in litres, strap width, back-panel ventilation, and whether there is a dedicated laptop compartment."
+        "description": "Strap width and a breathable back panel only show their worth after a full day. Taiwanese brands for commuter, laptop, and hiking backpacks."
       },
       "crossbody-bags": {
         "title": "Taiwanese crossbody bag brands | Formoria",
-        "description": "An adjustable strap decides whether the bag sits at the waist or the hip. Taiwanese brands for crossbody bags, sling bags, and small pouches.",
-        "h1": "Taiwanese crossbody bag brands",
-        "intro": "Crossbody bags, sling bags, and compact pouches; whether the strap adjusts decides if the bag sits at the waist or the hip.",
-        "definition": "Material, dimensions, and strap design vary by brand. This subcategory does not guarantee anti-theft or waterproof features. Check the brand page for design and manufacturing details.",
-        "faq": [
-          {
-            "question": "Is there a difference between a crossbody bag and a sling bag?",
-            "answer": "The terms are often used interchangeably; Formoria groups them by the brand's own product classification."
-          },
-          {
-            "question": "Can a crossbody bag fit a tablet?",
-            "answer": "It depends on the bag's dimensions and internal layout; check the product specifications on the brand page."
-          }
-        ],
-        "guidance": "Adjustable strap range determines where the bag sits on your body; internal divider count affects retrieval convenience."
+        "description": "Whether a crossbody bag sits at the waist or the hip depends on whether the strap adjusts. Taiwanese brands for crossbody bags, sling bags, and small pouches."
       },
       "activewear": {
         "title": "Taiwanese activewear brands | Formoria",
-        "description": "Stretch and breathability only show once you move. Taiwanese brands for yoga pants, sports bras, and moisture-wicking tops.",
-        "h1": "Taiwanese activewear brands",
-        "intro": "Yoga leggings, sports bras, moisture-wicking tops, and compression tights; stretch and breathability only show under movement.",
-        "definition": "Performance depends on fabric, construction, and activity intensity. This subcategory does not endorse moisture-wicking, support, or compression claims. Check the brand page for fabric specifications, origin, and care.",
-        "faq": [
-          {
-            "question": "How is activewear different from performance apparel?",
-            "answer": "The two overlap heavily in everyday use; Formoria groups related brands under Activewear rather than maintaining a separate performance apparel page."
-          },
-          {
-            "question": "Are activewear brands all made in Taiwan?",
-            "answer": "Not necessarily. Formoria separates founding, design, and manufacturing information; check each brand page for origin details."
-          }
-        ],
-        "guidance": "Look at fabric stretch recovery, moisture-wicking treatment, and whether seams use flatlock construction."
+        "description": "Stretch and breathability only show once you move. Taiwanese brands for yoga pants, sports bras, and moisture-wicking tops."
       },
       "socks": {
         "title": "Taiwanese sock brands | Formoria",
-        "description": "Shetou in Changhua is where Taiwan's sock mills cluster. Taiwanese brands for odor-control, sport, and everyday socks.",
-        "h1": "Taiwanese sock brands",
-        "intro": "Odor-control socks, sport socks, no-show socks, and knee-highs; the Shetou area in Changhua is where Taiwan's sock mills cluster.",
-        "definition": "Functional claims such as odour control, antibacterial, or compression depend on material and process. This subcategory does not endorse those claims. Check the brand page for specifications, origin, and care.",
-        "faq": [
-          {
-            "question": "What makes technical socks different from regular socks?",
-            "answer": "Technical socks usually emphasise odour control, ventilation, or arch support, but specifics depend on the brand's materials and construction. Read the product description."
-          },
-          {
-            "question": "Are Taiwanese sock brands all manufactured in Taiwan?",
-            "answer": "Not necessarily. Brand pages separate founding, design, and manufacturing information."
-          }
-        ],
-        "guidance": "Compare cuff tightness, arch-support design, and any wash-cycle limits on odour-control treatments."
+        "description": "Shetou in Changhua is where Taiwan's sock mills cluster. Taiwanese brands for odor-control, sport, and everyday socks."
       },
       "beverages": {
         "title": "Taiwanese beverage brands | Formoria",
-        "description": "Chilled or shelf-stable storage affects buying and shipping. Taiwanese brands for juice, kombucha, sparkling, and functional drinks.",
-        "h1": "Taiwanese beverage brands",
-        "intro": "Juices, kombucha, sparkling drinks, and functional beverages; whether a product needs refrigeration affects both buying and shipping.",
-        "definition": "Ingredients, calories, and storage vary by product. This subcategory does not replace food labelling or nutritional advice. Check the brand page for manufacturing and ingredient details.",
-        "faq": [
-          {
-            "question": "Does Beverages include tea and coffee?",
-            "answer": "Tea and coffee appear in their own subcategories when available; this page focuses on juices, sparkling drinks, and other non-tea, non-coffee beverages."
-          },
-          {
-            "question": "Can I buy beverages from Formoria?",
-            "answer": "No. Formoria is a brand directory; visit the brand's own website or stockists to purchase."
-          }
-        ],
-        "guidance": "Confirm storage method (refrigerated or ambient) and volume format; some products are seasonal limited batches."
+        "description": "Chilled or shelf-stable storage affects buying and shipping. Taiwanese brands for juice, kombucha, sparkling, and functional drinks."
       },
       "handbags": {
         "title": "Taiwanese handbag brands | Formoria",
-        "description": "Handle height and opening width decide how easy things are to reach. Taiwanese brands for handbags, briefcases, and everyday carry.",
-        "h1": "Taiwanese handbag brands",
-        "intro": "Handbags, briefcases, and structured carry bags; handle height and opening width determine how easy it is to reach inside.",
-        "definition": "Material, structure, and dimensions vary by brand. This subcategory does not guarantee water resistance or a specific function. Check the brand page for design, manufacturing, and care details.",
-        "faq": [
-          {
-            "question": "What is the difference between a handbag and a tote bag?",
-            "answer": "Handbags usually have structured support and a zip closure, while tote bags are open-top and high-capacity; some brands span both categories."
-          },
-          {
-            "question": "Where can I find care instructions for a handbag?",
-            "answer": "Check the brand's product page for material and care guidance; maintenance methods vary widely between leather types and fabrics."
-          }
-        ],
-        "guidance": "Compare handle height, closure type (zip or magnetic snap), and internal compartment layout."
+        "description": "Handle height and opening width both affect how easy things are to reach. Taiwanese brands for handbags, briefcases, and everyday carry."
       },
       "outerwear": {
         "title": "Taiwanese outerwear brands | Formoria",
-        "description": "When a jacket goes on and off all day, weight and packed size matter too. Taiwanese brands for jackets, windbreakers, and sun-protection layers.",
-        "h1": "Taiwanese outerwear brands",
-        "intro": "Jackets, windbreakers, sun-protection layers, and technical shells; when you take a jacket on and off frequently, weight and pack size matter too.",
-        "definition": "Wind, water, and warmth performance depend on fabric and construction. This subcategory does not endorse specific technical claims. Check the brand page for fabric specifications, origin, and care.",
-        "faq": [
-          {
-            "question": "Does Outerwear include down jackets?",
-            "answer": "A brand whose main products include down or padded jackets may appear here; check the brand page for insulation specifications."
-          },
-          {
-            "question": "Can I check UPF ratings on this page?",
-            "answer": "UPF values are not shown on the subcategory page; refer to the brand's own product testing data."
-          }
-        ],
-        "guidance": "Note wind and water resistance ratings, packed volume, and zipper or fastener durability."
+        "description": "When a jacket goes on and off all day, weight and packed size matter too. Taiwanese brands for jackets, windbreakers, and sun-protection layers."
       },
       "handmade-soap": {
         "title": "Taiwanese handmade soap brands | Formoria",
-        "description": "Curing time and oil blend are where soap makers differ most. Taiwanese brands for cold-process, hot-process, and liquid soap.",
-        "h1": "Taiwanese handmade soap brands",
-        "intro": "Cold-process, hot-process, and liquid handmade soaps; curing time and oil formulation are where makers differ most.",
-        "definition": "Ingredients, pH, and skin suitability vary by formula. This subcategory does not endorse cleansing effectiveness or skin-sensitivity claims. Check the brand page for ingredient lists and usage guidance.",
-        "faq": [
-          {
-            "question": "How is handmade soap different from commercial soap?",
-            "answer": "Handmade soap usually refers to small-batch production that retains glycerin, but the exact definition varies by brand; read the brand's process description."
-          },
-          {
-            "question": "Can handmade soap be used on the face?",
-            "answer": "It depends on the formula's pH and ingredients; follow the brand's guidance on intended use areas."
-          }
-        ],
-        "guidance": "Cold-process and hot-process soaps differ in curing time; the oil formula affects lather and moisture retention."
+        "description": "Curing time and oil blend are where soap makers differ most. Taiwanese brands for cold-process, hot-process, and liquid soap."
       },
       "bedding": {
         "title": "Taiwanese bedding brands | Formoria",
-        "description": "Taiwan and Japan bed sizes differ, and the wrong one means a set that does not fit. Taiwanese brands for sheets, duvet covers, and pillows.",
-        "h1": "Taiwanese bedding brands",
-        "intro": "Sheets, duvet covers, pillows, and mattress protectors; Taiwan-standard and Japan-standard bed sizes differ, so the wrong one means a whole set that does not fit.",
-        "definition": "Fabric, weave, and sizing specifications vary by brand. This subcategory does not endorse sleep-quality or allergy-protection claims. Check the brand page for fabric composition, care, and manufacturing details.",
-        "faq": [
-          {
-            "question": "Does Bedding include mattresses?",
-            "answer": "It focuses on sheets, covers, and pillows; mattresses may appear in Furniture or a dedicated subcategory if they are a brand's main product."
-          },
-          {
-            "question": "How do I check if bedding fits my mattress?",
-            "answer": "Compare the brand's size chart with your mattress dimensions; common Taiwan sizes differ slightly from Japan and European standards."
-          }
-        ],
-        "guidance": "Confirm whether sheets follow Taiwan or Japan sizing (the two differ) and how the weave affects feel."
+        "description": "Taiwan and Japan bed sizes differ, and the wrong one means a set that does not fit. Taiwanese brands for sheets, duvet covers, and pillows."
       },
       "leather-shoes": {
         "title": "Taiwanese leather shoe brands | Formoria",
-        "description": "Leather stiffness and last width only show once you put them on. Taiwanese brands for handmade shoes, loafers, derbies, and oxfords.",
-        "h1": "Taiwanese leather shoe brands",
-        "intro": "Handmade leather shoes, loafers, derbies, and oxfords; leather softness and last width only reveal themselves once you step in.",
-        "definition": "Leather source, construction method, and last shape vary by brand. This subcategory does not endorse material grade or longevity. Check the brand page for production details and origin.",
-        "faq": [
-          {
-            "question": "Does Leather Shoes include synthetic leather?",
-            "answer": "A brand whose main products are leather-style shoes may appear here regardless of whether the material is genuine or synthetic."
-          },
-          {
-            "question": "Do leather shoes need special care?",
-            "answer": "Usually yes, but care varies by leather type; follow the brand's maintenance guidance on its product page."
-          }
-        ],
-        "guidance": "Compare leather softness, last width, and construction method (cemented, Goodyear welt, hand-sewn)."
+        "description": "Leather stiffness and last width only show once you put them on. Taiwanese brands for handmade shoes, loafers, derbies, and oxfords."
       },
       "fragrance": {
         "title": "Taiwanese fragrance brands | Formoria",
-        "description": "Concentration sets how long a scent lasts, though body temperature and surroundings change it. Taiwanese brands for eau de toilette, eau de parfum, and solid balms.",
-        "h1": "Taiwanese fragrance brands",
-        "intro": "Eau de toilette, eau de parfum, and solid balms; concentration determines longevity, but actual performance varies with body temperature and surroundings.",
-        "definition": "Scent descriptions and lasting power depend on individual body chemistry and environment. This subcategory does not endorse longevity or allergy claims. Check the brand page for ingredients and usage guidance.",
-        "faq": [
-          {
-            "question": "What is the difference between fragrance and home fragrance?",
-            "answer": "Fragrance here refers to personal wear; home fragrance covers diffusers and room scents. A brand producing both may appear in different subcategories."
-          },
-          {
-            "question": "Can I sample these fragrances?",
-            "answer": "Formoria does not offer sampling; visit the brand's official website or stockists for trial options."
-          }
-        ],
-        "guidance": "Tell eau de toilette and eau de parfum apart by concentration; when testing, wait a while before smelling again."
+        "description": "Concentration sets how long a scent lasts, though body temperature and surroundings change it. Taiwanese brands for eau de toilette, eau de parfum, and solid balms."
       },
       "dresses": {
         "title": "Taiwanese dress brands | Formoria",
-        "description": "The same dress reads differently with different shoes. Taiwanese brands for everyday and occasion dresses.",
-        "h1": "Taiwanese dress brands",
-        "intro": "Dresses, frocks, and cover-ups; the same dress paired with different shoes shifts its formality entirely.",
-        "definition": "Silhouette, fabric, and occasion vary by brand. This subcategory does not assume a manufacturing location or a particular style. Check the brand page for sizing, fabric, and origin.",
-        "faq": [
-          {
-            "question": "Does Dresses include long skirts?",
-            "answer": "Dresses are one-piece garments; standalone long or short skirts may appear in other fashion subcategories."
-          },
-          {
-            "question": "How do I check a dress's size?",
-            "answer": "Use the brand's own size chart; bust, waist, and length measurement methods may differ between brands."
-          }
-        ],
-        "guidance": "Note bust, waistline placement, and hem length; fit at the same nominal size varies widely between brands."
+        "description": "The same dress reads differently with different shoes. Taiwanese brands for everyday and occasion dresses."
       },
       "face-masks": {
         "title": "Taiwanese face mask brands | Formoria",
-        "description": "How long to leave it on and whether it works overnight are in each brand's instructions. Taiwanese brands for sheet, gel, clay, and overnight masks.",
-        "h1": "Taiwanese face mask brands",
-        "intro": "Sheet masks, gel masks, clay packs, and overnight treatments; how long to leave one on and whether it can stay overnight is stated in the brand's directions.",
-        "definition": "Ingredients and skin suitability vary by product. This subcategory does not endorse hydration, brightening, or repair claims. Check the brand page for ingredient lists and usage directions.",
-        "faq": [
-          {
-            "question": "How are face masks different from skincare?",
-            "answer": "Face masks are a concentrated care step, usually used alongside a daily routine; some brands offer both masks and skincare products."
-          },
-          {
-            "question": "How often should I use a face mask?",
-            "answer": "Formoria does not offer skincare advice; follow the brand's recommended frequency and your own skin condition."
-          }
-        ],
-        "guidance": "Compare format (sheet, gel, clay), recommended application time, and how irritating the active ingredients may be."
+        "description": "How long to leave it on and whether it works overnight are in each brand's instructions. Taiwanese brands for sheet, gel, clay, and overnight masks."
       },
       "wall-art": {
         "title": "Taiwanese illustration and wall art brands | Formoria",
-        "description": "Before hanging, check the size of the piece and what the wall can hold. Taiwanese brands for prints, frameless canvases, posters, and original illustration.",
-        "h1": "Taiwanese illustration and wall art brands",
-        "intro": "Prints, frameless canvases, posters, and original illustrations; check the piece's dimensions and your wall's load capacity before hanging.",
-        "definition": "Material, framing, and edition limits vary by brand. This subcategory does not endorse authenticity or collectible value. Check the brand page for creation details, framing advice, and edition information.",
-        "faq": [
-          {
-            "question": "What is the difference between an illustration brand and an artist brand?",
-            "answer": "Formoria groups by a brand's main product, not by the creator's professional title."
-          },
-          {
-            "question": "Can wall art be custom-sized?",
-            "answer": "It depends on the brand's services; visit the brand's official website for custom options."
-          }
-        ],
-        "guidance": "Confirm dimensions, framing style (framed or unframed), and whether the piece is a limited edition."
+        "description": "Before hanging, check the size of the piece and what the wall can hold. Taiwanese brands for prints, frameless canvases, posters, and original illustration."
       },
       "cookies-and-rice-crackers": {
         "title": "Taiwanese cookie and rice cracker brands | Formoria",
-        "description": "Shelf life varies a lot, so check the date before buying. Taiwanese brands for egg rolls, rice crackers, puffed rice, and artisan cookies.",
-        "h1": "Taiwanese cookie and rice cracker brands",
-        "intro": "Egg rolls, rice crackers, puffed rice, and artisan biscuits; shelf life varies a lot, so check the date before buying.",
-        "definition": "Ingredients, allergens, and storage vary by product. This subcategory does not replace food labelling. Check the brand page for origin and ingredient details.",
-        "faq": [
-          {
-            "question": "What is the difference between cookies and rice crackers?",
-            "answer": "Cookies are typically wheat-flour based, while rice crackers use rice as the main ingredient; Formoria groups them together because the buying occasion is similar."
-          },
-          {
-            "question": "Are these brands suitable as gifts?",
-            "answer": "Some brands offer gift packaging, but suitability depends on storage requirements and the recipient's dietary needs; check the brand product page."
-          }
-        ],
-        "guidance": "Note the wide range in shelf life, and check for allergen and manufacturing-origin labelling."
+        "description": "Shelf life varies a lot, so check the date before buying. Taiwanese brands for egg rolls, rice crackers, puffed rice, and artisan cookies."
       },
       "sandals-and-slippers": {
         "title": "Taiwanese sandal and slipper brands | Formoria",
-        "description": "Indoor and outdoor pairs need very different soles. Taiwanese brands for sandals, slippers, mules, and flip-flops.",
-        "h1": "Taiwanese sandal and slipper brands",
-        "intro": "Sandals, slippers, mules, and flip-flops; sole firmness differs drastically between indoor and outdoor wear.",
-        "definition": "Structure, sole material, and intended setting vary by brand. This subcategory does not endorse slip resistance or durability. Check the brand page for materials, origin, and sizing guidance.",
-        "faq": [
-          {
-            "question": "Why are sandals and slippers in the same subcategory?",
-            "answer": "Their wearing occasions and brand product lines overlap heavily; Formoria groups them to avoid readers browsing two near-identical lists."
-          },
-          {
-            "question": "Are sandals suitable for long walks?",
-            "answer": "It depends on sole support and arch design; choose a style that matches your needs using the brand's product specifications."
-          }
-        ],
-        "guidance": "Compare sole firmness (indoor and outdoor differ greatly), strap fastening method, and slip resistance."
+        "description": "Indoor and outdoor pairs need very different soles. Taiwanese brands for sandals, slippers, mules, and flip-flops."
       },
       "bracelets-and-bangles": {
         "title": "Taiwanese bracelet and bangle brands | Formoria",
-        "description": "Inner diameter and clasp type decide whether you can put one on single-handed. Taiwanese brands for bracelets, bangles, and cords.",
-        "h1": "Taiwanese bracelet and bangle brands",
-        "intro": "Bracelets, bangles, and woven cords; inner diameter and clasp type determine whether you can put one on single-handedly.",
-        "definition": "Material, clasp mechanism, and sizing vary by brand. This subcategory does not endorse allergy or water-resistance properties. Check the brand page for specifications and production details.",
-        "faq": [
-          {
-            "question": "What is the difference between a bracelet and a bangle?",
-            "answer": "Bracelets usually have linked segments and a clasp; bangles are rigid or open-ended. Formoria groups both in one subcategory."
-          },
-          {
-            "question": "How do I measure my wrist?",
-            "answer": "Methods differ between brands; use the wrist-measuring guide on the brand's own product page."
-          }
-        ],
-        "guidance": "Confirm inner diameter and clasp type, and check whether the material tolerates daily water contact."
+        "description": "To put one on single-handed, check the inner diameter and clasp first. Taiwanese brands for bracelets, bangles, and cords."
       },
       "essential-oils-and-hydrosols": {
         "title": "Taiwanese essential oil and hydrosol brands | Formoria",
-        "description": "Hydrosol is a by-product of distilling essential oil, so the two often come from the same brand. Taiwanese brands for single oils, blends, and floral waters.",
-        "h1": "Taiwanese essential oil and hydrosol brands",
-        "intro": "Single oils, blends, and floral hydrosols; a hydrosol is the water-phase by-product of essential-oil distillation, and the two often come from the same brand.",
-        "definition": "Quality, concentration, and suitability vary by product. This subcategory does not endorse therapeutic or safety claims. Check the brand page for extraction methods, origin, and usage guidance.",
-        "faq": [
-          {
-            "question": "Can essential oils be applied directly to skin?",
-            "answer": "Most essential oils need dilution before skin contact; read the brand's usage guide and safety information."
-          },
-          {
-            "question": "What is the difference between essential oils and fragrance?",
-            "answer": "Essential oils are plant extracts; fragrances are formulated scent products. Their ingredients and uses differ; check the brand's description."
-          }
-        ],
-        "guidance": "Distinguish single-origin from blended oils by intended use, and check that extraction method and origin labelling are complete."
+        "description": "Hydrosol is a by-product of distilling essential oil, so the two often come from the same brand. Taiwanese brands for single oils, blends, and floral waters."
       }
     }
   },
@@ -1746,13 +1183,13 @@
   "forms": {
     "uploader": {
       "uploading": "Uploading…",
-      "invalidType": "Please upload an image file",
-      "fileTooLarge": "File size must be under 5MB",
+      "invalidType": "Choose an image file",
+      "fileTooLarge": "Choose a file under 5 MB",
       "genericUploadFailed": "Upload failed. Please try again.",
       "clickOrDrag": "Choose a file or drag it here",
       "clickToReplace": "Choose a new image or drag it here",
       "replace": "Replace image",
-      "imageAlt": "Upload {n}",
+      "imageAlt": "Uploaded image {n}",
       "ariaRemove": "Remove image {n}",
       "uploadFailed": "The following files could not be uploaded: {files}"
     }
@@ -1763,19 +1200,20 @@
   "errors": {
     "notFound": {
       "title": "Page not found",
-      "description": "This page doesn't exist or may have moved.",
+      "description": "There's no page at this address. It may have moved.",
       "cta": "Back to home",
-      "browseDirectory": "Browse the directory",
+      "browseProducts": "Browse products",
+      "browseDirectory": "Browse the brand directory",
       "categoriesHeading": "Start browsing:"
     },
     "boundary": {
-      "title": "Something went wrong",
-      "description": "An unexpected error occurred. Please try again.",
+      "title": "This page didn't load",
+      "description": "It may be a temporary problem. Try again.",
       "brandDescription": "We couldn't load this brand. Please try again.",
       "storyDescription": "We couldn't load this story. Please try again.",
       "retry": "Try again",
-      "staleTitle": "This page is out of date",
-      "staleDescription": "The site was updated while this tab was open. Reload to get the latest version and try again.",
+      "staleTitle": "The site was just updated",
+      "staleDescription": "The site was updated while this tab was open. Reload the page to continue.",
       "staleRetry": "Reload the page"
     }
   },
@@ -2692,7 +2130,11 @@
     "emptyTitle": "No saved brands yet",
     "emptyDescription": "Select the heart on a brand page to save it here.",
     "exploreBrands": "Browse brands",
-    "loginToSave": "Sign in to save brands"
+    "loginToSave": "Sign in to save brands",
+    "signInPrompt": "Sign in to save this, and find it later in Saved brands.",
+    "signInPromptConfirm": "Sign in",
+    "signInPromptDismiss": "Not now",
+    "savedToast": "Saved"
   },
   "search": {
     "emptyState": {
@@ -2701,14 +2143,14 @@
       "actions": {
         "removeSearch": {
           "title": "Remove brand keyword",
-          "description": "Keep the other conditions and see more brands"
+          "description": "Keep your other filters and see more brands"
         },
         "clearFilters": {
           "title": "Clear filters",
-          "description": "Keep the brand keyword and remove other filters"
+          "description": "Keep the keyword and clear the other filters"
         },
         "browseAll": {
-          "title": "Browse all brands",
+          "title": "See all brands",
           "description": "See every brand, with no filters"
         }
       },
@@ -3123,7 +2565,11 @@
     "unsave": "Remove from saved",
     "saveAriaLabel": "Save this product",
     "unsaveAriaLabel": "Remove this product from saved",
-    "loginToSave": "Sign in to save products"
+    "loginToSave": "Sign in to save products",
+    "signInPrompt": "Sign in to save this product.",
+    "signInPromptConfirm": "Sign in",
+    "signInPromptDismiss": "Not now",
+    "savedToast": "Saved"
   },
   "filters": {
     "token": "{label}: {value}"

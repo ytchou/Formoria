@@ -63,7 +63,7 @@ test.describe("SEO deep", () => {
     const aboutLocales = [
       {
         path: "/about",
-        title: "關於我們 | Formoria",
+        title: "關於我們｜Formoria",
         description:
           "Formoria 是台灣好物選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。這裡說明我們怎麼收錄、怎麼挑選，以及不做哪些事。",
         heading: /搬新家、佈置店面、\s*在市集\s*停下來的那一刻/,

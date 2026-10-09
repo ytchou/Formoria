@@ -135,7 +135,11 @@ export default async function AdminLayout({
   };
 
   return (
-    <RootDocument locale="en" skipToContentLabel={tCommon("skipToContent")}>
+    <RootDocument
+      locale="en"
+      skipToContentLabel={tCommon("skipToContent")}
+      notificationsLabel={tCommon("notifications")}
+    >
       <NextIntlClientProvider locale="en" messages={messages}>
         <div className="min-h-screen bg-ground">
           {/* Admin is on the same three measures as the public site. The

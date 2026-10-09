@@ -205,7 +205,7 @@ export function buildBrandsItemListJsonLd(
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: locale === "zh-TW" ? "台灣品牌目錄" : "Taiwan Brands Directory",
+    name: locale === "zh-TW" ? "台灣品牌目錄" : "Taiwanese brand directory",
     inLanguage: toInLanguage(locale),
     numberOfItems: brands.length,
     itemListElement: brands.map((b, i) => ({

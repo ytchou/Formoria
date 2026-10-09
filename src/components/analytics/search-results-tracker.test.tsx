@@ -103,15 +103,22 @@ describe('SearchResultsTracker', () => {
     expect(trackSearchExecuted).toHaveBeenCalledTimes(3)
   })
 
-  // `normalizePublicSearchQuery` rejects anything shorter than two characters and
-  // returns zero results without calling the RPC — so a single ideograph, the first
-  // keystroke of every Chinese search, is not a search that happened.
+  // `normalizePublicSearchQuery` rejects a single Latin character and returns zero
+  // results without calling the RPC, so that is not a search that happened.
   it('emits nothing for a query the service would reject as too short', () => {
-    render(<SearchResultsTracker query="茶" resultCount={0} />)
+    render(<SearchResultsTracker query="a" resultCount={0} />)
     settle()
 
     expect(trackSearchExecuted).not.toHaveBeenCalled()
     expect(trackSearchNoResults).not.toHaveBeenCalled()
+  })
+
+  // A single CJK character is a real brand search since DEV-1991 (茶 → 38 brands).
+  it('emits for a single CJK character, which the service now searches', () => {
+    render(<SearchResultsTracker query="茶" resultCount={38} />)
+    settle()
+
+    expect(trackSearchExecuted).toHaveBeenCalledWith('茶', 38)
   })
 
   // A filter ticked on keeps `search=` in the URL but changes what it matched. The

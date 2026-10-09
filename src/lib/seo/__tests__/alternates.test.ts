@@ -73,26 +73,37 @@ describe('buildAlternates', () => {
       expect(result.languages['en']).toBe(`${base}/en/brands/acme`)
     })
 
-    it('uses the lowercase percent encoding served by Next for CJK slugs', () => {
+    it('uses the upper-case percent encoding internal links use for CJK slugs', () => {
       const result = buildAlternates('/brands/阿媽牌生鐵鍋', 'zh-TW')
 
       expect(result.canonical).toBe(
-        `${base}/brands/%e9%98%bf%e5%aa%bd%e7%89%8c%e7%94%9f%e9%90%b5%e9%8d%8b`,
+        `${base}/brands/%E9%98%BF%E5%AA%BD%E7%89%8C%E7%94%9F%E9%90%B5%E9%8D%8B`,
       )
       expect(result.languages.en).toBe(
-        `${base}/en/brands/%e9%98%bf%e5%aa%bd%e7%89%8c%e7%94%9f%e9%90%b5%e9%8d%8b`,
+        `${base}/en/brands/%E9%98%BF%E5%AA%BD%E7%89%8C%E7%94%9F%E9%90%B5%E9%8D%8B`,
       )
     })
 
     it('does not escape a path that arrives already encoded', () => {
       // `@/lib/routes` escapes each parameter once. Escaping the result again
-      // turns `%e9` into `%25e9`, a canonical that resolves to nothing.
+      // turns `%E9` into `%25E9`, a canonical that resolves to nothing.
       const result = buildAlternates(routes.brand('阿媽牌生鐵鍋'), 'zh-TW')
 
       expect(result.canonical).toBe(
-        `${base}/brands/%e9%98%bf%e5%aa%bd%e7%89%8c%e7%94%9f%e9%90%b5%e9%8d%8b`,
+        `${base}/brands/%E9%98%BF%E5%AA%BD%E7%89%8C%E7%94%9F%E9%90%B5%E9%8D%8B`,
       )
       expect(result.canonical).not.toContain('%25')
+    })
+
+    it('canonicalizes a CJK slug to exactly the URL `routes` links to', () => {
+      // Raw, pre-encoded upper-case and pre-encoded lower-case input must all
+      // land on the byte-identical URL every internal link and request uses.
+      const linked = `${base}${routes.brand('聲')}`
+      expect(linked).toBe(`${base}/brands/%E8%81%B2`)
+
+      for (const path of ['/brands/聲', '/brands/%E8%81%B2', '/brands/%e8%81%b2']) {
+        expect(buildAlternates(path, 'zh-TW').canonical).toBe(linked)
+      }
     })
   })
 

@@ -18,7 +18,7 @@ test("@cross-browser header search reaches product results from stories", async 
     { timeout: BUDGET.NAVIGATION },
   );
   await expect(
-    page.getByRole("heading", { name: "符合「帆布包」的商品" }),
+    page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true }),
   ).toBeVisible();
   await expect(
     page.locator("main").getByRole("heading", { level: 3 }).first(),
