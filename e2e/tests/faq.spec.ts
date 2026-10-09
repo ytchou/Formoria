@@ -13,8 +13,9 @@ const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
  * every translated question with its answer already visible: an open list,
  * never a collapsed panel (DESIGN.md §7, DEV-1988). The #review hash link
  * scrolls its section into view. The 台灣製造 answer names the MIT 微笑標章
- * without calling it 認證, and no longer promises a 品牌聲明 label that renders
- * nowhere (CP2-08). The categories answer lists the six visible categories,
+ * and says listing review does not judge product origin, without calling it
+ * 認證 or promising a 品牌聲明 label that renders nowhere (CP2-08).
+ * The categories answer lists the six visible categories,
  * derived from the taxonomy rather than hard-coded (DEV-1957).
  *
  * DEV-1570 removed the 品牌主專區 section and the id="claim" answer with the
@@ -165,11 +166,11 @@ test.describe("FAQ page", () => {
   });
 
   // The badge used to be named two ways (標章 / MIT 認證) across two answers.
-  // One answer now names the registry and calls nothing 認證 — scoped to this
-  // item, because the listing-versus-selection answer legitimately says
-  // 不代表…認證. It must not mention a 品牌聲明 label: no surface renders one
+  // One answer names the registry and says listing review does not judge origin.
+  // It calls nothing 認證 — scoped to this item, because the listing-versus-selection
+  // answer says 不代表…認證. It must not mention a 品牌聲明 label: no surface renders one
   // (CP2-08); restore that assertion only when the label ships.
-  test("台灣製造 answer names the MIT registry, not 認證 or an unshipped label", async ({
+  test("台灣製造 answer names the MIT registry and the listing-review limit, not 認證 or an unshipped label", async ({
     anonPage,
   }) => {
     await anonPage.goto("/faq", { timeout: BUDGET.GATED_UI });
@@ -181,6 +182,7 @@ test.describe("FAQ page", () => {
       timeout: BUDGET.SERVER_RENDER,
     });
     await expect(badgeItem).toContainText("「MIT 微笑標章」");
+    await expect(badgeItem).toContainText("不判斷商品產地");
     await expect(badgeItem).not.toContainText("品牌聲明");
     await expect(badgeItem).not.toContainText("認證");
   });
