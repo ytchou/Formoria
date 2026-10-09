@@ -54,19 +54,17 @@ test.describe("Product catalog (formerly category landings) deep", () => {
     }
   });
 
-  test("product catalog renders a category filter sidebar", async ({
-    page,
-  }) => {
+  test("product catalog renders a category chip row", async ({ page }) => {
     await page.goto("/discover");
 
-    const sidebar = page.locator("aside");
-    await expect(sidebar).toBeVisible();
-
-    // The sidebar contains category filter links.
-    const categoryLinks = sidebar.getByRole("link");
+    // The categories are a chip row of links, not a list in the filter panel.
+    const chips = page.getByRole("navigation", { name: "分類", exact: true });
+    await expect(chips).toBeVisible();
+    const categoryLinks = chips.getByRole("link");
     const count = await categoryLinks.count();
     // At minimum: "all" + at least one L1 category.
     expect(count).toBeGreaterThanOrEqual(2);
+    await expect(chips.locator('[aria-current="page"]')).toHaveCount(1);
   });
 
   test("product catalog with category filter shows products or empty state", async ({
@@ -90,7 +88,7 @@ test.describe("Product catalog (formerly category landings) deep", () => {
         // 麵包屑導覽 family (stories, brands.breadcrumbAria).
         page.getByRole("navigation", { name: /麵包屑導覽|目前位置/ }),
       ).toHaveCount(0);
-      await expect(page.getByText(/更新於 \d{4}年/)).toHaveCount(0);
+      await expect(page.getByText(/\d{4}年\d{1,2}月\d{1,2}日 更新/)).toHaveCount(0);
     }
   });
 
@@ -106,16 +104,20 @@ test.describe("Product catalog (formerly category landings) deep", () => {
     );
   });
 
-  test("product catalog search and out-of-range pages show empty state", async ({
+  test("out-of-range pages are not found on both catalogs (DS2-24)", async ({
     page,
+    request,
   }) => {
-    await page.goto(
-      "/discover?category=home&page=999",
+    expect((await request.get("/brands?page=999")).status()).toBe(404);
+    // A render-time notFound(): asserted on the hydrated page, which carries
+    // the not-found robots tag and no results, rather than on the status line.
+    await page.goto("/discover?category=home&page=999");
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /noindex/,
     );
-    // Out-of-range page: either shows empty state or redirects to valid page.
-    const emptyState = page.locator("[data-empty]");
-    const products = page.locator("main").getByRole("listitem").first();
-    await expect(emptyState.or(products)).toBeVisible();
+    await expect(page.locator("[data-empty]")).toHaveCount(0);
+    await expect(page.getByText(/共 \d+ 件商品/)).toHaveCount(0);
   });
 
   test("/categories/* redirects to /discover with correct query params", async ({

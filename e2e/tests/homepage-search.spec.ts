@@ -17,7 +17,7 @@ async function expectProductResults(page: Page) {
     { timeout: BUDGET.NAVIGATION },
   );
   await expect(
-    page.getByRole("heading", { name: `符合「${QUERY}」的商品` }),
+    page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true }),
   ).toBeVisible();
   await expect(
     page.locator("main").getByRole("heading", { level: 3 }).first(),

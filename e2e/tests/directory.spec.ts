@@ -82,16 +82,16 @@ test.describe("Directory deep", () => {
     const unfilteredCount = await readAnnouncedCount(page);
     expect(unfilteredCount).toBeGreaterThan(0);
 
-    // The sidebar is rendered as a <nav> with aria-label matching filters.title.
-    const sidebar = page.getByRole("navigation", {
-      name: zhTW.brands.filters.title,
+    // The categories are a chip row <nav> named filters.category (R2-10).
+    const chips = page.getByRole("navigation", {
+      name: zhTW.brands.filters.category,
+      exact: true,
     });
 
     for (const category of FILTER_SUBJECTS) {
-      // Categories are direct links in the new FilterSidebar — no collapsible
-      // toggle. Clicking a category link navigates to its filtered URL; the
-      // "All" link navigates back.
-      const categoryLink = sidebar.getByRole("link", {
+      // Clicking a category chip navigates to its filtered URL; the "All"
+      // chip navigates back.
+      const categoryLink = chips.getByRole("link", {
         name: category.nameZh,
         exact: true,
       });
@@ -115,7 +115,7 @@ test.describe("Directory deep", () => {
       ).toBeVisible({ timeout: BUDGET.RENDERED });
 
       // Navigate back to the unfiltered directory by clicking "All".
-      const allLink = sidebar.getByRole("link", { name: zhTW.brands.filters.all, exact: true });
+      const allLink = chips.getByRole("link", { name: zhTW.common.all, exact: true });
       await allLink.click();
       await expect(allLink).toHaveAttribute("aria-current", "page", {
         timeout: BUDGET.RENDERED,
