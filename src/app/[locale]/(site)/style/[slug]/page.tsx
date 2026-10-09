@@ -517,7 +517,7 @@ export default async function StyleTrailPage({ params }: PageProps) {
                     key={product.id}
                     product={product}
                     locale={safeLocale}
-                    imageSizes={IMAGE_SURFACE_SIZES.tile}
+                    imageSizes={IMAGE_SURFACE_SIZES.trailTile}
                   />
                 ))}
               </Grid>

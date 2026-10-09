@@ -375,20 +375,14 @@ describe("SelectedProductTile", () => {
     view.unmount();
   });
 
-  it("serves the three-up grid image source on both card modes", () => {
-    // Both modes lay these tiles out with `Grid cols="thirds"`, so both take
-    // the `tile` surface's hint and there is no override left to drift.
-    //
-    // The trail used to ask for `(max-width: 768px) 100vw, 720px`, correct when
-    // it was a single 720px column and wrong the moment it became three-up: it
-    // requested roughly 3x the pixels it displayed. Pinned as ONE expected
-    // string for both modes, because a second string here is the thing that
-    // went stale last time.
+  it("serves image hints for the trail and brand-page grids", () => {
     const tileSizes =
       "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw";
 
     const trail = renderImageBox("trail");
-    expect(trail.img.getAttribute("sizes")).toBe(tileSizes);
+    expect(trail.img.getAttribute("sizes")).toBe(
+      "(min-width: 1024px) calc(min(100vw, 1600px) / 3), calc(100vw / 2)",
+    );
     trail.view.unmount();
 
     const outbound = renderImageBox("outbound");

@@ -55,6 +55,8 @@ export const IMAGE_SURFACE_SIZES = {
   card: "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw",
   /** A cell of a three-up grid. */
   tile: "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw",
+  /** Trail shelves: two-up below lg, three-up above it, capped at the page measure. */
+  trailTile: `(min-width: 1024px) calc(min(100vw, ${MEASURE_PX.page}px) / 3), calc(100vw / 2)`,
   /** One half of a two-column split from `md` up. */
   split: "(max-width: 768px) 100vw, 50vw",
   /**

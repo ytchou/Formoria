@@ -83,7 +83,7 @@ export type SelectedProductTileProps = {
    * the row carries no measurement yet, which renders the legacy 4:3.
    */
   ratio?: WallRatio;
-  /** Explicit image measurement when a wall uses a non-default column count. */
+  /** Explicit image measurement when a wall or trail uses a non-default column count. */
   imageSizes?: string;
   /** Optional Next image quality for a specific wall. */
   imageQuality?: number;
@@ -556,17 +556,8 @@ export function SelectedProductTile({
             // (DESIGN.md §5). `null` meta is the point: curated products carry
             // no per-image framing data — see DEV-1519.
             className={brandImageFill(null, { fit: "cover" })}
-            // NO `sizes` OVERRIDE, IN EITHER MODE. Both the brand page and the
-            // trail lay these tiles out with `Grid cols="thirds"`
-            // (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`), which is exactly
-            // what the `tile` surface describes — so the surface IS the hint.
-            //
-            // The trail used to override with `(max-width: 768px) 100vw,
-            // 720px`, written when a trail was a single 720px column. It is now
-            // three-up, so that hint asked for roughly three times the pixels
-            // it displays on every trail product image. An override is a string
-            // nothing keeps honest: the column count moved and it did not.
-            surface="tile"
+            surface={mode === "trail" ? "trailTile" : "tile"}
+            sizes={imageSizes}
           />
         ) : (
           <BrandImageFallback

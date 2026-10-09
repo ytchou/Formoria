@@ -13,6 +13,7 @@ import {
 import { routes } from '@/lib/routes'
 import { pickNoteKey } from '@/lib/trails/note-key'
 import { cn } from '@/lib/utils'
+import { MEASURE_PX } from '@/lib/constants/layout'
 
 export type TrailProductsContextValue = {
   trailSlug: string
@@ -75,6 +76,15 @@ export function TrailProducts({ section }: { section: string }) {
   const products = context.products.filter((product) => product.sectionKey === section)
   if (products.length === 0) return null
   const sectionNotes = context.notes[section] ?? {}
+  // The shelf owns its count-aware columns, so it owns the matching image hint.
+  const pageWidth = `min(100vw, ${MEASURE_PX.page}px)`
+  const imageSizes = products.length === 2
+    ? `calc(${pageWidth} / 2)`
+    : products.length % 4 === 0
+      ? `(min-width: 1280px) calc(${pageWidth} / 4), calc(100vw / 2)`
+      : products.length > 1 && products.length % 3 === 1
+        ? `(min-width: 1280px) calc(${pageWidth} / 4), (min-width: 1024px) calc(${pageWidth} / 3), calc(100vw / 2)`
+        : undefined
 
   return (
     <div className="mt-8 border-t border-rule pt-8">
@@ -90,6 +100,7 @@ export function TrailProducts({ section }: { section: string }) {
             product={product}
             labels={context.labels}
             mode="trail"
+            imageSizes={imageSizes}
             brand={product.brand}
             brandSlug={product.brandSlug}
             brandName={product.brandName}
