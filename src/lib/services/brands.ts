@@ -776,7 +776,13 @@ export async function hydrateCardImageMeta<
   supabase: ReturnType<typeof createServiceClient>,
   brands: T[],
 ): Promise<
-  Array<T & Pick<Brand, "productPhotos" | "imageAlts" | "heroImageMetadata">>
+  Array<
+    T &
+      Pick<
+        Brand,
+        "productPhotos" | "imageAlts" | "heroImageMetadata" | "logoUrl"
+      >
+  >
 > {
   const withDefaults = (
     brand: T,
@@ -863,6 +869,16 @@ export async function hydrateCardImageMeta<
     rowsByBrand.set(row.brand_id, brandRows);
   }
 
+  // The brand's mark, for surfaces that show a brand rather than its goods
+  // (the homepage strip, DS2-39). Rows arrive by `sort_order`, so the first
+  // routable logo row wins.
+  const logoUrlByBrand = new Map<string, string>();
+  for (const row of productRows) {
+    if (!isLogoImageTags(row.tags) || logoUrlByBrand.has(row.brand_id)) continue;
+    const src = imagePathToUrl(row.storage_path);
+    if (src) logoUrlByBrand.set(row.brand_id, src);
+  }
+
   const productRowsByBrand = new Map<string, CardImageRow[]>();
   for (const row of productRows) {
     if (!row.tags?.includes("product") || isLogoImageTags(row.tags)) continue;
@@ -894,10 +910,15 @@ export async function hydrateCardImageMeta<
       ? imagePathToUrl(productRow.storage_path)
       : null;
 
+    // Set only when a logo row exists, unlike the replaced fields above: an
+    // absent key and `null` mean the same thing to every reader.
+    const logoUrl = logoUrlByBrand.get(brand.id);
+    const logo = logoUrl ? { logoUrl } : {};
+
     // No matching row is not an error: brands whose hero predates
     // `brand_images` (or whose row was rejected) keep the old hero behavior,
     // while a separately classified product photo can still improve the card.
-    if (!heroRow && !productRow) return withDefaults(brand);
+    if (!heroRow && !productRow) return { ...withDefaults(brand), ...logo };
 
     const heroMeta = heroRow
       ? {
@@ -915,6 +936,7 @@ export async function hydrateCardImageMeta<
     // their complete per-image projection through `brandToDomainWithImages`.
     return {
       ...brand,
+      ...logo,
       productPhotos: productPhoto ? [productPhoto] : [],
       imageAlts: [
         heroMeta,
@@ -2046,7 +2068,8 @@ const getCachedExploreBrandPool = unstable_cache(
   // v4 (DEV-1743): the payload is now the RPC's per-category sample rather than
   // the full approved corpus, and the count comes from a separate query. Bump
   // again on any further change to either shape.
-  ["homepage-explore-brand-pool-v4"],
+  // v5 (DEV-1990): cards carry `logoUrl`.
+  ["homepage-explore-brand-pool-v5"],
   { revalidate: 900, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 

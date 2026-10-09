@@ -55,8 +55,16 @@ vi.mock("@/components/ui/photo-band", () => ({
 
 const HeroSection = (await import("../hero-section")).default;
 
-function trail(slug: string, title: string, locale = "zh-TW"): TrailEntry {
-  return { slug, frontmatter: { title, locale } } as unknown as TrailEntry;
+function trail(
+  slug: string,
+  title: string,
+  locale = "zh-TW",
+  shortTitleEn?: string,
+): TrailEntry {
+  return {
+    slug,
+    frontmatter: { title, locale, shortTitleEn },
+  } as unknown as TrailEntry;
 }
 
 const FIVE_TRAILS = [
@@ -139,6 +147,38 @@ describe("HeroSection — the editorial opener", () => {
     }
     expect(screen.getByText("situationsLanguageNote")).toBeInTheDocument();
     expect(list).toHaveClass("mt-2");
+  });
+
+  it("labels a chip with its shortTitleEn on an English page", async () => {
+    intl.locale = "en";
+    render(
+      await HeroSection({
+        trails: [
+          trail("desk", "書桌：每天坐下來的那張桌子", "zh-TW", "Desk"),
+          trail("daily-bag", "每天出門的包：從包本身到掛在外面的小東西"),
+        ],
+      }),
+    );
+
+    const list = screen.getByRole("list", { name: "situationsLabel" });
+    const [desk, bag] = within(list).getAllByRole("link");
+    expect(desk).toHaveTextContent("Desk");
+    expect(desk).not.toHaveAttribute("lang");
+    // No English label: the zh-TW short title, marked for screen readers.
+    expect(bag).toHaveTextContent("每天出門的包");
+    expect(bag).toHaveAttribute("lang", "zh-Hant-TW");
+    // The trails still open in zh-TW.
+    expect(screen.getByText("situationsLanguageNote")).toBeInTheDocument();
+  });
+
+  it("keeps the zh-TW short title on a zh-TW page", async () => {
+    render(
+      await HeroSection({
+        trails: [trail("desk", "書桌：每天坐下來的那張桌子", "zh-TW", "Desk")],
+      }),
+    );
+
+    expect(screen.getByRole("link", { name: "書桌" })).toBeInTheDocument();
   });
 
   it("adds no language note or chip lang on a zh-TW page", async () => {

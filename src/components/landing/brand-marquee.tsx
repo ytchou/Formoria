@@ -14,6 +14,8 @@ type MarqueeBrand = {
   name: string;
   href: string;
   imageSrc: string | null;
+  /** True when `imageSrc` is the brand's logo rather than a product photo. */
+  isLogo?: boolean;
 };
 
 type BrandMarqueeProps = {
@@ -136,6 +138,7 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
                 <BrandAvatar
                   name={brand.name}
                   imageSrc={brand.imageSrc}
+                  imageFit={brand.isLogo ? "contain" : "cover"}
                   size="lg"
                   showName={false}
                 />

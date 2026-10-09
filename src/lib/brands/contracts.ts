@@ -33,6 +33,7 @@ export type PublicBrandCard = {
   productPhotos: string[];
   imageAlts: BrandImageMeta[];
   heroImageMetadata: Brand["heroImageMetadata"];
+  logoUrl?: string | null;
 };
 
 export type PublicBrandDetail = PublicBrandCard &
@@ -128,6 +129,7 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
       altZh: alt.altZh,
     })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
+    logoUrl: brand.logoUrl ?? null,
   };
 }
 

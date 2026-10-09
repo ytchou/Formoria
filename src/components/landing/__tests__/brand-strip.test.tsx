@@ -144,6 +144,26 @@ describe("BrandStrip", () => {
     expect(images[2]).toHaveAttribute("src", "/img/d.webp");
   });
 
+  it("leads with the brand logo, contained, where one exists", async () => {
+    const withLogo = [
+      { ...mockBrands[0], logoUrl: "/img/a-logo.webp" },
+      mockBrands[1],
+    ] as PublicBrandCard[];
+    render(await BrandStrip({ brands: withLogo, totalCount: 2 }));
+
+    const [logo, photo] = screen.getAllByTestId("brand-image");
+    expect(logo).toHaveAttribute("src", "/img/a-logo.webp");
+    expect(logo).toHaveAttribute(
+      "class",
+      expect.stringContaining("object-contain"),
+    );
+    expect(photo).toHaveAttribute("src", "/img/b.webp");
+    expect(photo).toHaveAttribute(
+      "class",
+      expect.stringContaining("object-cover"),
+    );
+  });
+
   it("does not render image when brand has no heroImageUrl", async () => {
     const brandsWithoutHero = [mockBrands[2]];
     render(await BrandStrip({ brands: brandsWithoutHero, totalCount: 1 }));

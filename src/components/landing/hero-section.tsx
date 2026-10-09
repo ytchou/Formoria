@@ -38,14 +38,22 @@ export default async function HeroSection({
 }) {
   const t = await getTranslations("landing.hero");
   const locale = await getLocale();
-  // `lang` marks a chip whose trail is in another language than the page, so
-  // a screen reader switches voice (as TrailTile does for its title).
-  const situations = trails.slice(0, HERO_SITUATION_LIMIT).map((trail) => ({
-    trail,
-    lang: contentLangFor(trail.frontmatter.locale, locale),
-  }));
+  // A trail in another language than the page gets its `shortTitleEn` label
+  // when it has one. Without one the chip keeps the zh-TW short title, and
+  // `lang` makes a screen reader switch voice (as TrailTile does for its
+  // title). Either way the trail opens in zh-TW, so the note still shows.
+  const situations = trails.slice(0, HERO_SITUATION_LIMIT).map((trail) => {
+    const contentLang = contentLangFor(trail.frontmatter.locale, locale);
+    const translated = contentLang ? trail.frontmatter.shortTitleEn : undefined;
+    return {
+      trail,
+      contentLang,
+      label: translated ?? trailShortTitle(trail.frontmatter.title),
+      lang: translated ? undefined : contentLang,
+    };
+  });
   const showLanguageNote = situations.some(
-    (situation) => situation.lang !== undefined,
+    (situation) => situation.contentLang !== undefined,
   );
 
   return (
@@ -100,8 +108,8 @@ export default async function HeroSection({
           </div>
         </div>
 
-        {/* Situations are zh-TW trail titles; on another locale a note says
-            so, and the chips sit closer under it. */}
+        {/* Situations open zh-TW trails; on another locale a note says so,
+            and the chips sit closer under it. */}
         {showLanguageNote && (
           <p className="mt-6 type-metadata text-ink-soft">
             {t("situationsLanguageNote")}
@@ -133,7 +141,7 @@ export default async function HeroSection({
                   lang={situation.lang}
                   className={taxonomyLinkClasses()}
                 >
-                  {trailShortTitle(situation.trail.frontmatter.title)}
+                  {situation.label}
                 </Link>
               </li>
             ))}
