@@ -15,6 +15,7 @@ import { PhotoBand } from "@/components/ui/photo-band";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { routes } from "@/lib/routes";
+import { phraseBreaks } from "@/components/ui/phrase-breaks";
 
 export const revalidate = 3600;
 
@@ -98,8 +99,8 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="bg-surface py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                {t("scenes.heading")}
+              <h2 className="type-page-title text-balance break-keep">
+                {phraseBreaks(t("scenes.heading"))}
               </h2>
               <div className="space-y-6">
                 {SCENE_KEYS.map((key, i) => (
@@ -124,8 +125,8 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                {t("loop.heading")}
+              <h2 className="type-page-title text-balance break-keep">
+                {phraseBreaks(t("loop.heading"))}
               </h2>
               <div>
                 <p className="type-body">{t("loop.body1")}</p>
@@ -142,8 +143,8 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="bg-surface py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                {t("taiwanStats.heading")}
+              <h2 className="type-page-title text-balance break-keep">
+                {phraseBreaks(t("taiwanStats.heading"))}
               </h2>
               <div>
                 <p className="type-body">{t("taiwanStats.intro")}</p>
@@ -190,8 +191,8 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                {t("stance.heading")}
+              <h2 className="type-page-title text-balance break-keep">
+                {phraseBreaks(t("stance.heading"))}
               </h2>
               <div className="space-y-8">
                 {STANCE_KEYS.map((key) => (
@@ -214,8 +215,8 @@ export default async function AboutPage({ params }: PageProps) {
           <PageShell measure="page">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                  {t("guide.heading")}
+                <h2 className="type-page-title text-balance break-keep">
+                  {phraseBreaks(t("guide.heading"))}
                 </h2>
               </div>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-3">

@@ -21,13 +21,19 @@ export type AlternatesResult = {
  * raw path is read as an existing escape. No route parameter in this app can
  * contain one, and the alternative — double-escaping every real slug — is the
  * far more expensive mistake.
+ *
+ * Escapes are normalised to UPPER case (RFC 3986 §2.1), the form `@/lib/routes`
+ * (`encodeURIComponent`) emits for every internal link, so a canonical equals
+ * the linked URL byte for byte. They were lower-cased while the proxy's path
+ * normalisation lower-cased escapes too and 301'd upper-case requests; that
+ * redirect has been gone since 1249332a3 ("preserve encoded slug redirects").
  */
 function encodeServedPath(path: string): string {
   return path
     .split(/(%[0-9A-Fa-f]{2})/)
     .map((part, index) => (index % 2 === 1 ? part : encodeURI(part)))
     .join('')
-    .replace(/%[0-9A-F]{2}/g, (escape) => escape.toLowerCase())
+    .replace(/%[0-9a-f]{2}/gi, (escape) => escape.toUpperCase())
 }
 
 /**

@@ -382,20 +382,52 @@
 
 /* ── 明體 (font-ming) — content ─────────────────────────────────────────── */
 
+/* zh headings keep the default `word-break`, so `text-wrap: balance` can
+   even the lines and no character is left alone on the last line. No
+   `keep-all` here: it removes every break between Han characters, so an
+   unpunctuated heading became one word that `overflow-wrap` split at the
+   overflow edge. Declaring any `word-break` here would also override a call
+   site's `break-keep`. A heading that must break only between words opts in
+   with `break-keep` plus `<wbr>`: in its message (hero) or from
+   `phraseBreaks()` (components/ui/phrase-breaks.tsx). `line-break: strict`
+   keeps closing punctuation off the start of a line. `anywhere` only fires
+   on an unbreakable run (a long Latin brand name) and, unlike `break-word`,
+   lowers min-content width so grid and flex columns stay inside 390px. */
+
 @utility type-display {
   @apply font-ming text-[2.875rem] font-[560] tracking-[-0.02em] leading-[1.1] text-ink;
+  &:lang(zh) {
+    overflow-wrap: anywhere;
+    line-break: strict;
+    text-wrap: balance;
+  }
 }
 
 @utility type-page-title {
   @apply font-ming text-[2.5rem] font-[560] tracking-[-0.02em] leading-[1.15] text-ink;
+  &:lang(zh) {
+    overflow-wrap: anywhere;
+    line-break: strict;
+    text-wrap: balance;
+  }
 }
 
 @utility type-section {
   @apply font-ming text-[1.625rem] font-[560] tracking-[-0.015em] leading-[1.25] text-ink;
+  &:lang(zh) {
+    overflow-wrap: anywhere;
+    line-break: strict;
+    text-wrap: balance;
+  }
 }
 
 @utility type-card-title {
   @apply font-ming text-[1.3125rem] font-semibold leading-[1.35] text-ink;
+  &:lang(zh) {
+    overflow-wrap: anywhere;
+    line-break: strict;
+    text-wrap: balance;
+  }
 }
 
 /* The one lede step (DESIGN.md §1): at most one per page, directly under a
@@ -407,10 +439,12 @@
 
 @utility type-body {
   @apply font-ming text-[1.03125rem] leading-[1.75] text-ink-soft;
+  text-wrap: pretty;
 }
 
 @utility type-body-sm {
   @apply font-ming text-[0.9375rem] leading-[1.7] text-ink-soft;
+  text-wrap: pretty;
 }
 
 /* ── 黑體 (font-hei) — interface ────────────────────────────────────────── */
@@ -444,13 +478,14 @@
 
 /* 12px, not 11px: at 11px the CJK strokes of a 黑體 eyebrow fill in on
    ordinary screens. Letter-spacing is a Latin small-caps device — tracked CJK
-   reads as gapped characters, not as an eyebrow — so it applies only under an
+   reads as gapped characters, not as an eyebrow — so it, and `uppercase`
+   (which would turn 「聯絡 Formoria」 into FORMORIA), apply only under an
    English `lang`. The ink stays in the first `@apply`: the photo-band contrast
    check reads each role's ink from the utility body up to its first `}`. */
 @utility type-eyebrow {
-  @apply font-hei text-[0.75rem] font-semibold uppercase text-ink-muted;
+  @apply font-hei text-[0.75rem] font-semibold text-ink-muted;
   &:lang(en) {
-    @apply tracking-widest;
+    @apply uppercase tracking-widest;
   }
 }
 

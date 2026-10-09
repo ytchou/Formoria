@@ -1,12 +1,14 @@
 {
   "common": {
-    "exploreBrands": "逛逛品牌",
+    "exploreBrands": "看品牌目錄",
     "submitBrand": "推薦品牌",
     "all": "全部",
     "skipToContent": "跳至主要內容",
     "close": "關閉",
     "closeDialog": "關閉對話框",
-    "loading": "載入中…"
+    "loading": "載入中…",
+    "notifications": "通知",
+    "metadataDescription": "生活可以更像自己一點。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。"
   },
   "nav": {
     "searchAria": "搜尋商品",
@@ -33,12 +35,11 @@
     "copyright": "© {year} Formoria",
     "tagline": "生活可以更像自己一點",
     "discoverHeading": "逛逛",
-    "directory": "品牌目錄",
+    "directory": "收錄品牌",
     "stories": "專題",
     "submit": "推薦品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
-    "connectHeading": "聯絡",
     "style": "主題選物",
     "products": "商品",
     "disclosure": "Formoria 不販售商品；所有購買都在品牌自己的通路完成。"
@@ -272,9 +273,9 @@
   },
   "challenge": {
     "title": "快速驗證",
-    "description": "請完成驗證以繼續瀏覽。",
+    "description": "完成驗證後就能繼續瀏覽。",
     "verifying": "驗證中…",
-    "error": "驗證失敗，請再試一次。"
+    "error": "驗證沒有通過，請再試一次。"
   },
   "cities": {
     "taipei": "台北市",
@@ -1558,7 +1559,7 @@
       "description": "Formoria 是台灣好物選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。這裡說明我們怎麼收錄、怎麼挑選，以及不做哪些事。"
     },
     "hero": {
-      "title": "搬新家、佈置店面、<br></br>在市集<wbr></wbr>停下來的那一刻",
+      "title": "搬新家、佈置店面、<br></br>在市集<wbr></wbr>停下來的<wbr></wbr>那一刻",
       "subtitle": "喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
       "statsBoth": "目前收錄 {brands} 個品牌，分在 {categories} 個分類。",
       "statsBrands": "目前收錄 {count} 個品牌。",
@@ -1762,13 +1763,13 @@
   "forms": {
     "uploader": {
       "uploading": "上傳中…",
-      "invalidType": "請上傳圖片檔案",
-      "fileTooLarge": "檔案大小不得超過 5MB",
+      "invalidType": "只能上傳圖片檔",
+      "fileTooLarge": "檔案請小於 5 MB",
       "genericUploadFailed": "上傳失敗，請再試一次。",
       "clickOrDrag": "選擇檔案，或拖曳到這裡",
       "clickToReplace": "選擇新圖片，或拖曳到這裡更換",
       "replace": "更換圖片",
-      "imageAlt": "上傳 {n}",
+      "imageAlt": "已上傳的圖片 {n}",
       "ariaRemove": "移除圖片 {n}",
       "uploadFailed": "以下檔案上傳失敗：{files}"
     }
@@ -1779,19 +1780,20 @@
   "errors": {
     "notFound": {
       "title": "找不到這個頁面",
-      "description": "這個頁面不存在或已移至其他位置。",
+      "description": "這個網址沒有對應的頁面，可能已經搬走了。",
       "cta": "返回首頁",
-      "browseDirectory": "瀏覽品牌目錄",
+      "browseProducts": "逛商品",
+      "browseDirectory": "看品牌目錄",
       "categoriesHeading": "從這些分類開始逛："
     },
     "boundary": {
-      "title": "發生錯誤",
-      "description": "發生了預期外的錯誤，請再試一次。",
+      "title": "頁面沒有正常載入",
+      "description": "可能只是暫時的問題，請再試一次。",
       "brandDescription": "這個品牌暫時無法載入，請再試一次。",
       "storyDescription": "這篇專題暫時無法載入，請再試一次。",
       "retry": "再試一次",
-      "staleTitle": "這個頁面已經過期",
-      "staleDescription": "這個分頁開啟期間網站已更新，請重新載入以取得最新版本後再試一次。",
+      "staleTitle": "網站剛更新過",
+      "staleDescription": "你開著這個分頁時，網站更新了。重新載入頁面就能繼續。",
       "staleRetry": "重新載入頁面"
     }
   },

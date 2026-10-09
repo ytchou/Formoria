@@ -45,6 +45,7 @@ import { ProductCard } from "@/components/products/product-card";
 import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import { Grid, gridStyles } from "@/components/ui/grid";
 import { IMAGE_SURFACE_SIZES } from "@/components/ui/image";
+import { phraseBreaks } from "@/components/ui/phrase-breaks";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -399,7 +400,7 @@ export default async function StyleTrailPage({ params }: PageProps) {
                   </p>
                 ) : null}
                 <div lang={contentLang} className="space-y-4">
-                  <h1 className="type-page-title">{frontmatter.title}</h1>
+                  <h1 className="type-page-title break-keep">{phraseBreaks(frontmatter.title)}</h1>
                   {frontmatter.description ? (
                     <p className="type-body">{frontmatter.description}</p>
                   ) : null}

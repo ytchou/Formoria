@@ -65,7 +65,7 @@ test.describe("Navbar auth journey", () => {
       userPage.getByRole("link", { name: /sign in|登入/i }),
     ).toHaveCount(0);
 
-    // The header's primary CTA is now unconditionally the submit link: the
+    // The header's CTA is now unconditionally the submit link: the
     // owner-only "我的品牌" branch was removed with the owner dashboard (DEV-1570).
 
     await accountTrigger.click();

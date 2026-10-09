@@ -11,12 +11,17 @@ import {
   type ReactNode,
 } from 'react'
 import { usePathname } from 'next/navigation'
+import { captureException } from '@sentry/nextjs'
 
 import {
   getViewerContextAction,
   type ViewerContext,
 } from '@/lib/actions/viewer-context'
-import { isDeploymentSkewError } from '@/lib/observability/deployment-skew'
+import { hasSupabaseAuthCookie } from '@/lib/auth/auth-cookie'
+import {
+  isDeploymentSkewError,
+  serverActionResponseStatus,
+} from '@/lib/observability/deployment-skew'
 
 type ViewerUser = NonNullable<ViewerContext['user']>
 
@@ -45,42 +50,67 @@ const EMPTY_VIEWER_CONTEXT: ViewerContext = {
   isAdmin: false,
 }
 
-/** One retry before settling closed; the failure is a network blip far more often than a real denial. */
+/** One retry before settling closed, for failures that a second attempt can fix. */
 const VIEWER_RETRY_DELAY_MS = 300
 
 /**
- * Lazily imported so `@sentry/nextjs` stays out of every page's client bundle —
- * ViewerProvider mounts in the root document, so a static import here is global.
+ * A static import, not `import('@sentry/nextjs')`: `instrumentation-client.ts`
+ * already puts the SDK on every page, and Turbopack does not tree-shake a
+ * dynamic import, so the lazy form built a ~330 KB async chunk holding all of
+ * `@sentry/browser` — Replay, rrweb and Feedback included — fetched on every
+ * viewer failure (DEV-1987).
  */
-function reportViewerFailure(error: unknown) {
-  void import('@sentry/nextjs')
-    .then(({ captureException }) => {
-      // Same downgrade RouteError applies: still reported and searchable by
-      // tag, but a non-RSC reply to the action POST is not an app regression.
-      captureException(
-        error,
-        isDeploymentSkewError(error)
-          ? { level: 'warning', tags: { scope: 'viewer-context', deployment_skew: true } }
-          : { tags: { scope: 'viewer-context' } },
-      )
-    })
-    .catch(() => {
-      // A failed telemetry chunk load must not surface as an app error.
-    })
+function reportViewerFailure(error: unknown, status: number | undefined) {
+  // Same downgrade RouteError applies to genuine skew. Everything else — a
+  // staging 403, a 429, a 5xx — is a real failure and keeps its status.
+  captureException(
+    error,
+    isDeploymentSkewError(error, status)
+      ? { level: 'warning', tags: { scope: 'viewer-context', deployment_skew: true } }
+      : {
+          level: 'error',
+          tags: {
+            scope: 'viewer-context',
+            ...(status === undefined ? {} : { http_status: status }),
+          },
+        },
+  )
 }
 
 /**
- * One retry, then rethrow. Callers still resolve closed on a thrown error; the
- * retry only stops a single transient failure from hiding admin and owner
- * controls for the rest of the page's life, which it previously did silently.
+ * A network failure (fetch rejects with a TypeError) or a 5xx can clear on a
+ * second attempt. A 403, 429 or 404 answers the same way twice, so retrying
+ * one only doubled the POST on every anonymous staging view (DEV-1987).
+ */
+function isTransientViewerFailure(error: unknown, status: number | undefined): boolean {
+  return error instanceof TypeError || (status !== undefined && status >= 500)
+}
+
+/**
+ * At most one retry, then rethrow. Callers still resolve closed on a thrown
+ * error; the retry only stops a single transient failure from hiding admin and
+ * owner controls for the rest of the page's life.
  */
 async function fetchViewerContextWithRetry(): Promise<ViewerContext> {
   try {
     return await getViewerContextAction()
-  } catch {
+  } catch (error) {
+    if (!isTransientViewerFailure(error, serverActionResponseStatus())) throw error
     await new Promise((resolve) => setTimeout(resolve, VIEWER_RETRY_DELAY_MS))
     return await getViewerContextAction()
   }
+}
+
+/**
+ * No session cookie means no user, so the server has nothing to add. Anonymous
+ * visitors resolve locally instead of paying an origin POST and an Auth call
+ * per page view. The check runs on every refresh, so sign-in (which navigates)
+ * and sign-out (which clears the cookie) still resolve correctly.
+ */
+function loadViewerContext(): Promise<ViewerContext> {
+  return hasSupabaseAuthCookie(document.cookie)
+    ? fetchViewerContextWithRetry()
+    : Promise.resolve(EMPTY_VIEWER_CONTEXT)
 }
 
 const UserContext = createContext<UseUserState | null>(null)
@@ -100,7 +130,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
   })
 
   const refreshViewer = useCallback(async () => {
-    const request = fetchViewerContextWithRetry()
+    const request = loadViewerContext()
     setState((current) => ({
       ...current,
       viewerLoading: true,
@@ -115,7 +145,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
       // Viewer state controls privileged UI, so failures must resolve closed —
       // but they are now reported rather than swallowed.
       viewerError = true
-      reportViewerFailure(error)
+      reportViewerFailure(error, serverActionResponseStatus())
     }
     setState((current) =>
       current.request === request
