@@ -317,12 +317,13 @@ describe("SelectedProductTile", () => {
         />
       </ul>,
     );
+    // R2-12: the name goes out to the product, the brand line to the brand page.
     expect(
-      trail.getByRole("link", { name: "Pour-over kettle" }),
-    ).toHaveAttribute("href", "/brands/kettle-co#product-kettle");
-    expect(trail.getByRole("link", { name: /Visit product/ })).toHaveAttribute(
+      trail.getByRole("link", { name: "Pour-over kettle Visit product" }),
+    ).toHaveAttribute("href", "https://example.com/kettle");
+    expect(trail.getByRole("link", { name: "Kettle Co" })).toHaveAttribute(
       "href",
-      "https://example.com/kettle",
+      "/brands/kettle-co#product-kettle",
     );
     trail.unmount();
   });
@@ -671,12 +672,16 @@ describe("SelectedProductTile trail note", () => {
     ]) {
       const view = renderTrailTile({ tracking });
 
-      const link = view.getByRole("link", { name: "Pour-over kettle" });
+      const link = view.getByRole("link", { name: /Pour-over kettle/ });
       const classes = link.className.split(/\s+/);
       expect(classes).toContain("relative");
       expect(classes).toContain("after:absolute");
       expect(classes).toContain("after:min-h-11");
-      expect(link.querySelector("h3")?.className).toContain("type-card-title");
+      const heading = link.querySelector("h3")?.className ?? "";
+      expect(heading).toContain("type-card-title");
+      // R2-03: two-up phone tiles step the name down to body size, 3 lines.
+      expect(heading).toContain("max-sm:type-body");
+      expect(heading).toContain("max-sm:line-clamp-3");
       view.unmount();
     }
   });
@@ -711,13 +716,30 @@ describe("SelectedProductTile trail note", () => {
     view.unmount();
   });
 
-  it("names the product in the chip's screen-reader text without punctuation", () => {
+  it("routes out through the name with a ↗ and no pill (R2-12)", () => {
     const view = renderTrailTile();
 
-    const chip = view.getByRole("link", { name: /Visit product/ });
-    expect(chip.querySelector(".sr-only")?.textContent).toBe(
-      " Pour-over kettle",
+    const name = view.getByRole("link", { name: /Pour-over kettle/ });
+    expect(name).toHaveAttribute("href", "https://example.com/kettle");
+    expect(name).toHaveAttribute("target", "_blank");
+    expect(name.querySelector("svg")).not.toBeNull();
+    expect(name.querySelector(".sr-only")?.textContent).toBe(" Visit product");
+    // One outbound link per tile: the pill is gone.
+    expect(view.getAllByRole("link", { name: /Visit product/ })).toHaveLength(
+      1,
     );
+    view.unmount();
+  });
+
+  it("keeps the brand-page route on the name when there is no outbound link", () => {
+    const view = renderTrailTile({
+      product: buildProduct({ officialUrl: null }),
+    });
+
+    expect(
+      view.getByRole("link", { name: "Pour-over kettle" }),
+    ).toHaveAttribute("href", "/brands/kettle-co#product-kettle");
+    expect(view.queryByRole("link", { name: "Kettle Co" })).toBeNull();
     view.unmount();
   });
 });

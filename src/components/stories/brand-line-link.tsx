@@ -30,12 +30,16 @@ type BrandLineLinkProps = {
  * `trackSavedBrandRevisited` is NOT fired here, unlike `BrandCard`: that event
  * means "a reader returned to a brand they had saved", and it is only
  * meaningful next to a save affordance. A line has none.
+ *
+ * The `after:` overlay stretches the link over its `relative` `BrandLine` row,
+ * so the hit target is the whole 44px row, not the name. The focus ring stays
+ * on the name itself.
  */
 export function BrandLineLink({ brand, position = 0 }: BrandLineLinkProps) {
   return (
     <Link
       href={routes.brand(brand.slug)}
-      className="rounded-control type-body-sm font-semibold text-ink underline-offset-4 hover:text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="rounded-control type-body-sm font-semibold text-ink underline-offset-4 after:absolute after:inset-0 hover:text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       onClick={() => {
         trackBrandCardClicked(brand.slug, brand.categoryLabel, position, brand.id)
       }}

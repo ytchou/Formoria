@@ -31,7 +31,7 @@ vi.mock("next-intl/server", async () => {
   };
 });
 
-import { BrandGallery } from "../brand-gallery";
+import { BrandGallery, galleryColumns } from "../brand-gallery";
 
 const imageUrl = (name: string) => `/i/brands/${name}.jpg`;
 
@@ -217,8 +217,10 @@ describe("BrandGallery", () => {
       }),
     );
 
-    const notice = screen.getByText("This brand has no public page right now: ghost-brand");
+    const notice = screen.getByText("This brand doesn't have a public page right now");
     expect(notice.className).toContain("border-dashed");
+    // CP2-24: the notice never prints the raw slug.
+    expect(screen.queryByText(/ghost-brand/)).toBeNull();
   });
 
   // DEV-1963: the notice is an authoring aid. A production build that is not
@@ -255,7 +257,7 @@ describe("BrandGallery", () => {
     );
 
     expect(
-      screen.getByText("This brand has no public page right now: ghost-brand"),
+      screen.getByText("This brand doesn't have a public page right now"),
     ).toBeInTheDocument();
   });
 
@@ -309,6 +311,41 @@ describe("BrandGallery", () => {
     const imgs = screen.getAllByRole("img");
     expect(imgs[0]).toHaveAttribute("alt", "品牌主圖");
     expect(imgs[1]).toHaveAttribute("alt", "產品照片");
+  });
+
+  // DS2-38: a column count that does not divide the image count leaves an
+  // empty cell in the grid. Three images go three-up, never 2x2 with a hole.
+  it("never leaves an empty grid cell", () => {
+    for (const count of [1, 2, 3, 4]) {
+      const columns = galleryColumns(count);
+      expect(count % columns, `${count} images in ${columns} columns`).toBe(0);
+    }
+  });
+
+  it("lays three images out three-up", async () => {
+    loadBrands.mockResolvedValue(
+      new Map([
+        [
+          "molasses",
+          makeBrand("molasses", "Molasses", imageUrl("hero"), [
+            imageUrl("one"),
+            imageUrl("two"),
+          ]),
+        ],
+      ]),
+    );
+
+    renderWithIntl(
+      await BrandGallery({
+        slug: "molasses",
+        loadBrands,
+        loadImages: makeImageFields(),
+      }),
+    );
+
+    const images = screen.getAllByRole("img");
+    expect(images).toHaveLength(3);
+    expect(images[0].parentElement?.className).toContain("grid-cols-3");
   });
 
   it("renders an optional caption", async () => {

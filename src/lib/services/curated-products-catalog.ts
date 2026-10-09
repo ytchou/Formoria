@@ -5,6 +5,7 @@ import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import { L2_SUBCATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 import { hasRenderableCuratedImage } from "@/lib/curated-products/image-eligibility";
+import { publicCuratedProductName } from "@/lib/curated-products/product-name";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,8 +97,9 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
   return {
     id: row.id,
     key: row.key,
-    nameZh: row.name_zh,
-    nameEn: row.name_en ?? null,
+    // Read-side name guard (DEV-1989): see `publicCuratedProductName`.
+    nameZh: publicCuratedProductName(row.name_zh),
+    nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
     category: row.category,
     subcategory,
     material: row.material ?? [],

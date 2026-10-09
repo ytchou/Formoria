@@ -26,9 +26,27 @@ import { visionDataUri } from "./vision-image";
  * UPGRADE PATH: fold text transcription into the classify-images contract, so
  * product-page images are read once at classification and the text persisted
  * with the verdict, instead of a second call at ingest.
+ *
+ * AD-CREATIVE SIGNALS (DEV-1989): the same call also estimates how much of the
+ * image is overlaid text (`textCoverage`) and whether a person presents the
+ * product (`endorsementPerson`), so `findAdCreativeSignals` can reject ad
+ * creatives without a second model call. Every field is REQUIRED: strict
+ * structured outputs drop optional fields. The instructions for the two new
+ * fields live in the user message, because the system prompt is the Langfuse
+ * `image-text` prompt and its repo snapshot mirrors Langfuse, never leads it.
+ * Ceiling: the v1 system prompt still says "one field"; the strict schema and
+ * the user message override it. Upgrade path: push an `image-text` v2 that
+ * describes all three fields, then pull the snapshot.
  */
 
-const imageTextShape = z.object({ text: z.string() });
+const imageTextShape = z.object({
+  text: z.string(),
+  textCoverage: z.number(),
+  endorsementPerson: z.boolean(),
+});
+
+/** The transcribed text plus the two ad-creative judgements. */
+export type ImageSignals = z.infer<typeof imageTextShape>;
 
 const IMAGE_TEXT_SCHEMA = {
   name: "image_text",
@@ -37,8 +55,12 @@ const IMAGE_TEXT_SCHEMA = {
 
 const IMAGE_TEXT_DETAIL = "low" as const;
 
-const IMAGE_TEXT_USER_MESSAGE =
-  'Transcribe all visible text in the image that follows. Return a JSON object whose "text" field holds it verbatim, or an empty string when there is none.';
+const IMAGE_TEXT_USER_MESSAGE = [
+  "Transcribe all visible text in the image that follows, then judge two things about the image. Return a JSON object with three fields:",
+  '- "text": all visible text verbatim, or an empty string when there is none.',
+  '- "textCoverage": a number from 0 to 1, the fraction of the image area covered by text overlaid on the photo or set as graphic design (banners, captions, slogans, badges, callouts). Do not count text physically printed on the product or its packaging. Return 0 when there is none.',
+  '- "endorsementPerson": true when a person or model is the subject of the image, presenting or endorsing the product (a spokesperson, celebrity or model advertisement). False for a product-only shot, a hand holding or using the product, or no person at all.',
+].join("\n");
 
 /** Just the `chat` seam of the profiled client, so tests pass a stand-in. */
 export type ImageTextChatClient = Pick<
@@ -53,28 +75,29 @@ export type ReadImageTextOptions = {
 };
 
 /**
- * Transcribes an image's visible text. Returns "" when the image shows none.
+ * Transcribes an image's visible text and reads its ad-creative signals.
+ * `text` is "" when the image shows none.
  *
  * THROWS on every failure — a failed request, a refusal, a truncated or
  * off-schema answer. A reader that answered "" on failure would pass every
  * image the moment OpenAI is down; callers decide how to fail.
  */
-export async function readImageText(
+export async function readImageSignals(
   processed: { buffer: Buffer } | Buffer,
   options: ReadImageTextOptions = {},
-): Promise<string> {
+): Promise<ImageSignals> {
   const buffer = Buffer.isBuffer(processed) ? processed : processed.buffer;
-  return readImageTextFromDataUri(await visionDataUri(buffer), options);
+  return readImageSignalsFromDataUri(await visionDataUri(buffer), options);
 }
 
 /**
  * The same read for an image already encoded as a vision data URI — what
  * `loadVisionDataUri` returns for a stored object.
  */
-export async function readImageTextFromDataUri(
+export async function readImageSignalsFromDataUri(
   dataUri: string,
   options: ReadImageTextOptions = {},
-): Promise<string> {
+): Promise<ImageSignals> {
   return auditedCall(
     { provider: "images", operation: "readImageText", kind: "service" },
     async (ctx) => {
@@ -111,8 +134,13 @@ export async function readImageTextFromDataUri(
       if (!parsed.success) {
         throw new Error(`image text response invalid: ${parsed.error}`);
       }
+      // A model estimate outside 0..1 is clamped, not rejected: rejecting
+      // would fail the gate closed on a rounding slip.
+      const textCoverage = Math.min(1, Math.max(0, parsed.data.textCoverage));
       ctx.summary.textLength = parsed.data.text.length;
-      return parsed.data.text;
+      ctx.summary.textCoverage = textCoverage;
+      ctx.summary.endorsementPerson = parsed.data.endorsementPerson;
+      return { ...parsed.data, textCoverage };
     },
     { subjectId: options.subjectId },
   );
