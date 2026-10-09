@@ -8,9 +8,9 @@ test.describe("Product catalog category navigation deep", () => {
   }) => {
     await page.goto("/discover");
 
-    // The sidebar renders category filter links as a nav with the "all" label.
-    const sidebar = page.locator("aside");
-    const homeLink = sidebar.getByRole("link", { name: "居家生活" });
+    // The categories are a chip row of links, led by the "all" chip.
+    const chips = page.getByRole("navigation", { name: "分類", exact: true });
+    const homeLink = chips.getByRole("link", { name: "居家生活" });
     await expect(homeLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await homeLink.click();
 
@@ -27,12 +27,12 @@ test.describe("Product catalog category navigation deep", () => {
   }) => {
     await page.goto("/discover?category=home");
 
-    const sidebar = page.locator("aside");
-    const activeLink = sidebar.locator('[aria-current="page"]');
+    const chips = page.getByRole("navigation", { name: "分類", exact: true });
+    const activeLink = chips.locator('[aria-current="page"]');
     await expect(activeLink).toHaveCount(1, { timeout: BUDGET.INTERACTIVE });
 
     // Clicking the "all" link clears the category filter.
-    const clearLink = sidebar
+    const clearLink = chips
       .getByRole("link")
       .filter({ hasNot: page.locator('[aria-current="page"]') })
       .first();

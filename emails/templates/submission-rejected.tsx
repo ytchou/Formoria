@@ -22,6 +22,12 @@ import type { DenialReason } from "@/lib/types";
 
 type Locale = "zh-TW" | "en";
 
+/**
+ * The guidance asks recipients to reply, and `FROM_ADDRESS` is a noreply
+ * mailbox, so replies route to the same ops inbox the appeal line names.
+ */
+const REPLY_TO = "ops@formoria.com";
+
 type RejectionEmailProps = {
   submitterEmail: string;
   brandName: string;
@@ -39,61 +45,65 @@ type RejectionTemplateProps = Omit<
   reviewerNotesHtml: string | null;
 };
 
+// Recipients are mostly fans who recommended a brand, not its owner, and the
+// recommend form takes only a name, the official site, a short description and
+// how they know the brand. Guidance asks only for what that form (or a reply to
+// this email, see `replyTo` below) can carry.
 const DENIAL_GUIDANCE: Record<DenialReason, { en: string; zh: string }> = {
   not_mit: {
-    en: "We couldn't verify that this brand is founded, designed, or made in Taiwan. Please provide documentation showing the brand's connection to Taiwan.",
-    zh: "我們無法確認此品牌在台灣創立、設計或製造。請提供說明品牌與台灣連結的相關文件。",
+    en: "We couldn't confirm that this brand was founded, designed, or made in Taiwan. If you have something that shows it, such as the About page on the brand's own site, reply to this email with it.",
+    zh: "我們沒辦法確認這個品牌在台灣創立、設計或製造。如果有能說明的資料（例如品牌官網上的介紹），請回信附上。",
   },
   insufficient_info: {
-    en: "The submission is missing key details. Please add a complete description and product photos.",
-    zh: "提交內容缺少關鍵資訊。請補充完整描述和產品照片。",
+    en: "We need a bit more. Add a short description and an official link, then recommend it again.",
+    zh: "資料還不夠完整。請補上品牌介紹和官方連結，再推薦一次。",
   },
   duplicate: {
-    en: "This brand has already been submitted. If you believe this is in error, please contact us.",
-    zh: "此品牌已經提交過。如果認為這是錯誤，請聯絡我們。",
+    en: "Someone has already recommended this brand. It's either in review or already listed. If you meant a different brand, reply to this email and tell us.",
+    zh: "這個品牌已經有人推薦過，正在審核或已經收錄。如果你推薦的是另一個品牌，請回信告訴我們。",
   },
   policy_violation: {
-    en: "This submission doesn't meet our community guidelines.",
-    zh: "此提交內容不符合我們的社群規範。",
+    en: "This recommendation doesn't meet Formoria's listing rules. The FAQ explains them.",
+    zh: "這次的推薦不符合 Formoria 的收錄規則，詳細說明請看常見問題。",
   },
   admin_reject: {
-    en: "This submission was not approved after admin review.",
-    zh: "此提交經管理員審核後未通過。",
+    en: "This recommendation wasn't approved.",
+    zh: "這次的推薦沒有通過審核。",
   },
   no_purchase_channel: {
-    en: "We could not find an online store or marketplace where this brand's products can be bought. Add the brand's shop, Pinkoi, Shopee, or MyShip link and resubmit.",
-    zh: "我們找不到可以購買此品牌產品的線上商店或平台。請補上品牌官網商店、Pinkoi、蝦皮或賣貨便連結後重新提交。",
+    en: "We couldn't find an online store that sells this brand's products. If you know one (the brand's own shop, Pinkoi, Shopee, or MyShip), reply to this email with the link.",
+    zh: "我們找不到能買到這個品牌商品的線上商店。如果你知道哪裡買得到（品牌官網商店、Pinkoi、蝦皮或賣貨便），請回信附上連結。",
   },
   other: {
-    en: "Please see the reviewer notes below for details.",
-    zh: "請參閱下方審核意見以了解詳細資訊。",
+    en: "The reviewer's notes below explain why.",
+    zh: "詳細原因寫在下方的審核意見。",
   },
 };
 
 const DENIAL_REASON_LABELS: Record<DenialReason, { en: string; zh: string }> = {
   not_mit: {
-    en: "Not a Taiwanese Brand",
-    zh: "非台灣品牌",
+    en: "Taiwan connection not confirmed",
+    zh: "無法確認和台灣的關聯",
   },
   insufficient_info: {
-    en: "Insufficient Information",
-    zh: "資訊不足",
+    en: "Not enough information",
+    zh: "資料不夠完整",
   },
   duplicate: {
-    en: "Duplicate Submission",
-    zh: "重複提交",
+    en: "Already recommended",
+    zh: "已經有人推薦過",
   },
   policy_violation: {
-    en: "Policy Violation",
-    zh: "違反政策",
+    en: "Doesn't meet the listing rules",
+    zh: "不符合收錄規則",
   },
   admin_reject: {
-    en: "Admin Rejected",
-    zh: "管理員拒絕",
+    en: "Not approved",
+    zh: "未通過審核",
   },
   no_purchase_channel: {
-    en: "No Purchase Channel Found",
-    zh: "找不到購買管道",
+    en: "No place to buy found",
+    zh: "找不到購買通路",
   },
   other: {
     en: "Other",
@@ -113,19 +123,16 @@ export default function SubmissionRejectedEmail({
 
   if (locale === "en") {
     return (
-      <Layout lang="en" previewText="Your submission needs revision">
-        <EmailHeading>Your submission needs revision</EmailHeading>
+      <Layout lang="en" previewText="We can't list this brand yet">
+        <EmailHeading>We can&apos;t list this brand yet</EmailHeading>
         <EmailText>
-          Thank you for submitting{" "}
-          <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} /> to
-          Formoria.
+          Thanks for recommending{" "}
+          <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />.
         </EmailText>
         <EmailText>
-          <strong>Denial reason:</strong> {denialReasonLabel}
+          <strong>Reason:</strong> {denialReasonLabel}
         </EmailText>
-        <EmailText>
-          After review, we are unable to approve this submission at this time.
-        </EmailText>
+        <EmailText>After review, we can&apos;t list this brand yet.</EmailText>
         <EmailText>{guidance}</EmailText>
         {reviewerNotesHtml ? (
           <ReviewerNotes
@@ -134,38 +141,39 @@ export default function SubmissionRejectedEmail({
           />
         ) : null}
         <EmailText>
-          If you believe this decision was made in error, contact us at{" "}
-          <EmailLink href="mailto:ops@formoria.com">ops@formoria.com</EmailLink>
-          .
+          If you think we got this wrong, email{" "}
+          <EmailLink href={`mailto:${REPLY_TO}`}>{REPLY_TO}</EmailLink>.
         </EmailText>
-        <EmailText>You are welcome to revise and resubmit.</EmailText>
+        <EmailText>
+          Once the details are complete, you&apos;re welcome to recommend it
+          again.
+        </EmailText>
         <Button href={SITE_URL}>Visit Formoria</Button>
       </Layout>
     );
   }
 
   return (
-    <Layout previewText="提交內容需要修改">
-      <EmailHeading>提交內容需要修改</EmailHeading>
+    <Layout previewText="這個品牌目前還不能收錄">
+      <EmailHeading>這個品牌目前還不能收錄</EmailHeading>
       <EmailText>
-        感謝向 Formoria 提交{" "}
-        <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />。
+        謝謝你推薦 <strong dangerouslySetInnerHTML={{ __html: brandNameHtml }} />
+        。
       </EmailText>
       <EmailText>
-        <strong>拒絕原因：</strong>
+        <strong>原因：</strong>
         {denialReasonLabel}
       </EmailText>
-      <EmailText>經審核後，我們目前無法批准此次提交。</EmailText>
+      <EmailText>審核後，這個品牌目前還不能收錄。</EmailText>
       <EmailText>{guidance}</EmailText>
       {reviewerNotesHtml ? (
         <ReviewerNotes label="審核意見：" notesHtml={reviewerNotesHtml} />
       ) : null}
       <EmailText>
-        如果認為此決定有誤，請透過{" "}
-        <EmailLink href="mailto:ops@formoria.com">ops@formoria.com</EmailLink>{" "}
-        聯絡我們。
+        如果你覺得判斷有誤，請寫信到{" "}
+        <EmailLink href={`mailto:${REPLY_TO}`}>{REPLY_TO}</EmailLink>。
       </EmailText>
-      <EmailText>修改資料後即可重新提交。</EmailText>
+      <EmailText>補齊資料後，可以再推薦一次。</EmailText>
       <Button href={SITE_URL}>前往 Formoria</Button>
     </Layout>
   );
@@ -211,13 +219,14 @@ export async function buildRejectionEmail(
     params.reviewerNotes != null ? escapeHtml(params.reviewerNotes) : null;
   const subject =
     locale === "en"
-      ? "[Action Needed] Your Formoria submission needs attention"
-      : `Formoria：「${brandName}」的提交內容需要修改`;
+      ? `About your recommendation: ${brandName}`
+      : `關於你推薦的「${brandName}」`;
 
   return {
     to: params.submitterEmail,
     from: FROM_ADDRESS,
     subject,
+    replyTo: REPLY_TO,
     html: await render(
       <SubmissionRejectedEmail
         brandName={params.brandName}

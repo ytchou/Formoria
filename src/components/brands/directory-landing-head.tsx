@@ -39,7 +39,7 @@ export async function DirectoryResultStatus({
         : {})}
       className="flex flex-wrap items-baseline gap-x-3 gap-y-1 tabular-nums"
     >
-      {/* The count inherits the toolbar's 黑體 label style. */}
+      {/* The count inherits the header intro line's 黑體 label style. */}
       <span>{brandsT('count', { count: totalCount })}</span>
       {updatedDate ? (
         <span className="type-metadata">

@@ -94,9 +94,9 @@ test.describe('Submit recommendation edge cases', () => {
 
     // Not `exact`: the duplicate hit now renders as one red line that carries
     // the title and the matched brand links in the same paragraph, so the
-    // element's full text is "發現相似品牌名稱 <brand>".
+    // element's full text is "目錄裡有名稱相近的品牌 <brand>".
     await expect(
-      anonPage.getByText('發現相似品牌名稱'),
+      anonPage.getByText('目錄裡有名稱相近的品牌'),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER })
 
     // The button stays enabled; an unconfirmed duplicate is refused on click
@@ -117,7 +117,7 @@ test.describe('Submit recommendation edge cases', () => {
       anonPage.getByText('請先確認這不是重複的品牌'),
     ).toHaveCount(0)
     await expect(
-      anonPage.getByText('發現相似品牌名稱'),
+      anonPage.getByText('目錄裡有名稱相近的品牌'),
     ).toHaveCount(0)
   })
 

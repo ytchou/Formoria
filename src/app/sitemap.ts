@@ -132,7 +132,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     routes.contact(),
     routes.terms(),
     routes.privacy(),
-    routes.submit.index(),
+    // Not `/submit`: it redirects here, and a sitemap lists final URLs only.
+    routes.submit.recommend(),
   ].flatMap((path) => localizedEntries(path));
 
   // Stories are zh-TW only. /en/stories and /en/stories/[slug] are reachable and now

@@ -68,7 +68,7 @@ test.describe("Static & compliance pages", () => {
         mission:
           "The things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
         stanceLeads: [
-          "We hand you to the brand.",
+          "We send you on to the brand.",
           "Payment buys no placement.",
           "Not finding it here doesn't mean it doesn't exist.",
           "The judgment is ours, and we show it.",
@@ -197,8 +197,8 @@ test.describe("Static & compliance pages", () => {
 
   test("legal page titles are single-suffixed", async ({ anonPage }) => {
     const pages = [
-      ["/terms", "服務條款 | Formoria"],
-      ["/privacy", "隱私權政策 | Formoria"],
+      ["/terms", "服務條款｜Formoria"],
+      ["/privacy", "隱私權政策｜Formoria"],
       ["/en/terms", "Terms of Service | Formoria"],
       ["/en/privacy", "Privacy Policy | Formoria"],
     ] as const;
@@ -228,23 +228,23 @@ test.describe("Static & compliance pages", () => {
     // The widget may redirect quickly in dev; assert the heading appeared above.
   });
 
-  test("submit landing page renders the recommendation CTA", async ({
-    anonPage,
-  }) => {
+  // DEV-1988 (SP2-05): the /submit hub held one card whose only action led to
+  // the form, so it now redirects there. The hub's no-account bullets and the
+  // brand-owner line moved above the form.
+  test("/submit redirects to the recommend form", async ({ anonPage }) => {
     const resp = await anonPage.goto("/submit", { timeout: BUDGET.GATED_UI });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
-    // Heading: "推薦台灣品牌"
+    await expect(anonPage).toHaveURL(/\/submit\/recommend$/);
     await expect(
-      anonPage.getByRole("heading", { name: "推薦台灣品牌" }),
+      anonPage.getByRole("heading", { level: 1, name: "推薦品牌" }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    await expect(anonPage.locator('a[href*="/submit/recommend"]')).toBeVisible({
+    await expect(anonPage.getByText("不用登入，也不用註冊帳號")).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-    // DEV-1570 removed the owner fork. Its CTA must stay gone: this page is the
-    // only entry point that ever linked to it.
+    // DEV-1570 removed the owner fork. Its CTA must stay gone.
     await expect(
       anonPage.locator('a[href*="/submit/owner"]'),
     ).toHaveCount(0);

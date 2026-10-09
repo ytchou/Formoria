@@ -93,7 +93,48 @@ describe("splitLede", () => {
     expect(splitLede(longZh, "zh-TW")).toEqual({ lede: null, rest: longZh });
     expect(splitLede(`${"木".repeat(79)}。第二句。`, "zh-TW").lede).not.toBeNull();
 
-    const longEn = `${"word ".repeat(32)}end. Second sentence.`;
+    const longEn = `${"word ".repeat(44)}end. Second sentence.`;
     expect(splitLede(longEn, "en").lede).toBeNull();
+  });
+
+  it("gives EN a wider budget than zh (about 3 lines in the hero column)", () => {
+    // ~180 Latin characters: past the zh budget, inside the EN one.
+    const en180 = `${"word ".repeat(35)}end. Second sentence.`;
+    expect(splitLede(en180, "en").lede).toBe(`${"word ".repeat(35)}end.`);
+
+    // ~240 Latin characters: past the EN budget.
+    const en240 = `${"word ".repeat(47)}end. Second sentence.`;
+    expect(splitLede(en240, "en")).toEqual({ lede: null, rest: en240 });
+  });
+
+  it("keeps the zh budget at 160 width units", () => {
+    expect(splitLede(`${"木".repeat(81)}。第二句。`, "zh-TW").lede).toBeNull();
+    expect(splitLede(`${"木".repeat(79)}。第二句。`, "zh-TW").lede).not.toBeNull();
+  });
+
+  it("uses the fallback lede when the first sentence is too long", () => {
+    const en240 = `${"word ".repeat(47)}end. Second sentence.`;
+    expect(
+      splitLede(en240, "en", { fallbackLede: "  A woodwork studio in Chiayi.  " }),
+    ).toEqual({ lede: "A woodwork studio in Chiayi.", rest: en240 });
+  });
+
+  it("uses the fallback lede when there is no split", () => {
+    expect(
+      splitLede("A woodwork studio in Chiayi.", "en", { fallbackLede: "Desks and lamps." }),
+    ).toEqual({ lede: "Desks and lamps.", rest: "A woodwork studio in Chiayi." });
+  });
+
+  it("ignores the fallback when the description yields a lede", () => {
+    expect(
+      splitLede("Simply Made is a woodwork studio. It makes desks.", "en", {
+        fallbackLede: "Desks and lamps.",
+      }),
+    ).toEqual({ lede: "Simply Made is a woodwork studio.", rest: "It makes desks." });
+  });
+
+  it("ignores an empty or missing fallback", () => {
+    expect(splitLede("A woodwork studio in Chiayi.", "en", { fallbackLede: "   " }).lede).toBeNull();
+    expect(splitLede("A woodwork studio in Chiayi.", "en", { fallbackLede: null }).lede).toBeNull();
   });
 });

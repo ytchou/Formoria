@@ -133,7 +133,7 @@ export async function BrandLine({
     if (slug && shouldShowMissingBrandNotice()) {
       return (
         <div className="col-span-full py-3">
-          <MissingBrandNotice label={t('brandMissing', { slug })} />
+          <MissingBrandNotice label={t('brandMissing')} />
         </div>
       )
     }
@@ -144,8 +144,10 @@ export async function BrandLine({
     // Inherits `BrandList`'s column track via `grid-cols-subgrid`, so booths,
     // names and notes line up down the whole list. Two columns at 375px — the
     // note drops to a full-width row of its own under the name — and three from
-    // `sm` up, where it shares the line.
-    <div className="col-span-full grid grid-cols-subgrid items-baseline gap-x-4 gap-y-1 py-3">
+    // `sm` up, where it shares the line. `relative min-h-11` is the hit area:
+    // `BrandLineLink` stretches over it with an `after:` overlay, so the whole
+    // row is a 44px target (DESIGN.md §7), the brand-card pattern.
+    <div className="relative col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-4 gap-y-1 py-3">
       {/* Always rendered, empty when there is no booth: an omitted cell would
           shift that row's remaining columns left and break the alignment the
           subgrid exists for. `tabular-nums` so the codes form a straight column

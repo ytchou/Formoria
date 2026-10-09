@@ -41,7 +41,7 @@ vi.mock("@/lib/analytics", () => ({
 const intl = vi.hoisted(() => ({ locale: "en" }));
 vi.mock("next-intl", () => ({ useLocale: () => intl.locale }));
 
-const labels = { eyebrow: "Guide", cta: "See this guide →" };
+const labels = { eyebrow: "Guide", cta: "See this guide" };
 
 function buildTrail(): TrailEntry {
   return {
@@ -309,5 +309,46 @@ describe("TrailTile", () => {
 
       expect(container.querySelector("[lang]")).toBeNull();
     });
+  });
+
+  it("wraps the title and reserves an equal copy stack in a multi-card row", () => {
+    renderTile(buildTrail(), { singleColumn: false });
+
+    const title = screen.getByRole("heading", { level: 3 });
+    expect(title).not.toHaveClass("line-clamp-2");
+    expect(title).toHaveClass(
+      "type-card-title",
+      "xl:type-section",
+      "xl:text-ground",
+      "md:min-h-[2lh]",
+    );
+    expect(
+      screen.getByText("Three objects that make a corner feel finished."),
+    ).toHaveClass("line-clamp-2", "md:min-h-[2lh]");
+  });
+
+  it("renders the eyebrow only when a label is passed (R2-07)", () => {
+    const { unmount } = renderTile(buildTrail());
+    expect(screen.getByText("Guide")).toBeInTheDocument();
+    unmount();
+
+    renderTile(buildTrail(), { labels: { cta: labels.cta } });
+    expect(screen.queryByText("Guide")).toBeNull();
+  });
+
+  it("draws the CTA arrow as an icon, not a glyph in the label (DS2-29)", () => {
+    const { container } = renderTile(buildTrail());
+
+    const cta = screen.getByText("See this guide");
+    expect(cta.textContent).not.toMatch(/[→›»]/);
+    expect(container.querySelector("svg.lucide-arrow-right")).not.toBeNull();
+  });
+
+  it("gives a single-column band a section title with no reserved height", () => {
+    renderTile(buildTrail());
+
+    const title = screen.getByRole("heading", { level: 3 });
+    expect(title).toHaveClass("type-section");
+    expect(title).not.toHaveClass("md:min-h-[2lh]");
   });
 });

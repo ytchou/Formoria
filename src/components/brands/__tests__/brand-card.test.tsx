@@ -46,22 +46,10 @@ vi.mock("@/lib/analytics", () => ({
   trackSavedBrandRevisited: vi.fn(),
   trackBrandSaved: vi.fn(),
   trackBrandUnsaved: vi.fn(),
-  trackProductSaved: vi.fn(),
-  trackProductUnsaved: vi.fn(),
 }));
 
 vi.mock("@/hooks/use-saved-brands", () => ({
   useSavedBrands: () => ({
-    savedIds: new Set<string>(),
-    toggle: vi.fn(),
-    loading: false,
-  }),
-}));
-
-// The real SaveBrandButton renders, so the card's stacking classes on it are
-// observable; only its context hooks are stubbed (no provider in this tree).
-vi.mock("@/hooks/use-saved-products", () => ({
-  useSavedProducts: () => ({
     savedIds: new Set<string>(),
     toggle: vi.fn(),
     loading: false,
@@ -173,14 +161,16 @@ describe("BrandCard directory variant", () => {
     expect(screen.queryByText(/件商品/u)).toBeNull();
   });
 
-  it("overlays a named save control on the mark, above the whole-card link", () => {
+  it("puts a named save control in the card's corner, off the mark, above the whole-card link", () => {
     const { container } = renderCard(<BrandCard brand={buildBrand()} />);
 
     const save = screen.getByRole("button", { name: "收藏 山間器物" });
-    expect(save).toHaveClass("absolute", "z-20");
+    expect(save).toHaveClass("absolute", "right-3", "top-3", "z-20");
+    expect(save.parentElement?.tagName).toBe("ARTICLE");
     const mark = container.querySelector(".h-20.w-20");
     if (!mark?.parentElement) throw new Error("mark has no wrapper");
-    expect(mark.parentElement).toContainElement(save);
+    expect(mark.parentElement).not.toContainElement(save);
+    expect(mark.parentElement.querySelector(".ring-rule")).not.toBeNull();
     expect(
       container.querySelector("[data-auth-required-indicator]"),
     ).toBeNull();

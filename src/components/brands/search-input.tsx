@@ -15,6 +15,7 @@ import {
   trackSearchSuggestionSelect,
 } from '@/lib/analytics'
 import type { SearchSuggestion } from '@/lib/brands/contracts'
+import { normalizePublicSearchQuery } from '@/lib/brands/normalize-public-search-query'
 import {
   SearchSuggestions,
   searchSuggestionOptionId,
@@ -79,7 +80,7 @@ function SearchInput({
   }
 
   const fetchSuggestions = useCallback(async (q: string) => {
-    if (q.trim().length < 2) {
+    if (!normalizePublicSearchQuery(q)) {
       setSuggestions([])
       setShowDropdown(false)
       setIsFetchingSuggestions(false)
@@ -129,7 +130,7 @@ function SearchInput({
       if (!redirectTo) {
         setSearch(value)
       }
-      if (value.trim().length < 2) {
+      if (!normalizePublicSearchQuery(value)) {
         setSuggestions([])
         setShowDropdown(false)
         setIsFetchingSuggestions(false)

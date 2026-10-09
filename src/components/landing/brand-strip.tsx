@@ -30,13 +30,19 @@ export default async function BrandStrip({
         })}
       </h2>
 
+      {/* The strip shows brands, so a brand's logo leads where one exists;
+          the hero photo is the fallback (DS2-39). */}
       <BrandMarquee
-        brands={brands.map((brand) => ({
-          id: brand.id,
-          name: brand.name,
-          href: routes.brand(brand.slug),
-          imageSrc: safeImageSrc(brand.heroImageUrl),
-        }))}
+        brands={brands.map((brand) => {
+          const logoSrc = safeImageSrc(brand.logoUrl);
+          return {
+            id: brand.id,
+            name: brand.name,
+            href: routes.brand(brand.slug),
+            imageSrc: logoSrc ?? safeImageSrc(brand.heroImageUrl),
+            isLogo: logoSrc !== null,
+          };
+        })}
       />
 
       <SectionBandCtaLink

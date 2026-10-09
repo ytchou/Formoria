@@ -13,12 +13,14 @@ type RootDocumentProps = {
   children: React.ReactNode
   locale: AppLocale
   skipToContentLabel: string
+  notificationsLabel: string
 }
 
 export function RootDocument({
   children,
   locale,
   skipToContentLabel,
+  notificationsLabel,
 }: RootDocumentProps) {
   // Gated on the deployment environment, not merely on the ID being present:
   // staging and local production builds carry the same measurement ID, and GA4
@@ -48,7 +50,8 @@ export function RootDocument({
               <PublicGoogleAnalytics gaId={gaId} />
             </Suspense>
           )}
-          <Toaster richColors position="top-right" />
+          {/* sonner's default region label is English ("Notifications alt+T"). */}
+          <Toaster richColors position="top-right" containerAriaLabel={notificationsLabel} />
         </ViewerProvider>
       </body>
     </html>

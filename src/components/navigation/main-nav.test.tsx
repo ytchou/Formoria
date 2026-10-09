@@ -61,7 +61,6 @@ vi.mock("@/hooks/use-filter-params", () => ({
 }));
 
 vi.mock("@/lib/analytics", () => ({
-  trackCategoryFilterApplied: vi.fn(),
   trackCtaClicked: vi.fn(),
   trackSearchExecuted: vi.fn(),
   trackSearchResultClicked: vi.fn(),

@@ -4,6 +4,7 @@ import { Link } from '@/i18n/navigation'
 import type { AppLocale } from '@/i18n/locale-preference'
 import type { StoryEntry } from '@/lib/services/stories'
 import { routes } from '@/lib/routes'
+import { contentLangFor } from '@/lib/trails/content-lang'
 
 type SeriesNavProps = {
   /** Series members, already ordered by `getStorySeries`. */
@@ -32,16 +33,22 @@ export async function SeriesNav({ series, currentSlug, locale }: SeriesNavProps)
         <p className="type-metadata">{t('seriesCount', { count: series.length })}</p>
       </div>
 
-      <SeriesList series={series} currentSlug={currentSlug} />
+      <SeriesList series={series} currentSlug={currentSlug} locale={locale} />
     </nav>
   )
 }
 
-function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale'>) {
+function SeriesList({ series, currentSlug, locale }: SeriesNavProps) {
   return (
     <ol className="mt-3 divide-y divide-rule">
       {series.map((entry, index) => {
         const isCurrent = entry.slug === currentSlug
+        // Titles are the stories' own copy; the nav chrome is page-locale.
+        const title = (
+          <span lang={contentLangFor(entry.frontmatter.locale, locale)}>
+            {entry.frontmatter.title}
+          </span>
+        )
         const position = (
           <span className="w-5 shrink-0 tabular-nums type-metadata" aria-hidden="true">
             {index + 1}
@@ -56,7 +63,7 @@ function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale'>) {
                 className="flex min-h-11 items-center gap-3 py-2 type-body-sm font-medium text-ink"
               >
                 {position}
-                {entry.frontmatter.title}
+                {title}
               </span>
             ) : (
               // Link by the top-level `slug` (the filename stem) — that is what
@@ -66,7 +73,7 @@ function SeriesList({ series, currentSlug }: Omit<SeriesNavProps, 'locale'>) {
                 className="flex min-h-11 items-center gap-3 rounded-control py-2 type-body-sm text-ink-soft transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {position}
-                {entry.frontmatter.title}
+                {title}
               </Link>
             )}
           </li>

@@ -1,14 +1,16 @@
 import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { ProductSearchBoxCompact } from "@/components/products/product-situation-search-form";
 import { actionLinkStyles } from "@/components/ui/action-link";
 import { PhotoBand } from "@/components/ui/photo-band";
 import { ChipRow, taxonomyLinkClasses } from "@/components/ui/toggle-chip";
 import { routes } from "@/lib/routes";
 import type { TrailEntry } from "@/lib/services/trails";
+import { contentLangFor } from "@/lib/trails/content-lang";
 import { trailShortTitle } from "@/lib/trails/trail-short-title";
+import { cn } from "@/lib/utils";
 
 /** Situation chips under the search: enough to show the shape, not a menu. */
 const HERO_SITUATION_LIMIT = 4;
@@ -35,7 +37,24 @@ export default async function HeroSection({
   trails: TrailEntry[];
 }) {
   const t = await getTranslations("landing.hero");
-  const situations = trails.slice(0, HERO_SITUATION_LIMIT);
+  const locale = await getLocale();
+  // A trail in another language than the page gets its `shortTitleEn` label
+  // when it has one. Without one the chip keeps the zh-TW short title, and
+  // `lang` makes a screen reader switch voice (as TrailTile does for its
+  // title). Either way the trail opens in zh-TW, so the note still shows.
+  const situations = trails.slice(0, HERO_SITUATION_LIMIT).map((trail) => {
+    const contentLang = contentLangFor(trail.frontmatter.locale, locale);
+    const translated = contentLang ? trail.frontmatter.shortTitleEn : undefined;
+    return {
+      trail,
+      contentLang,
+      label: translated ?? trailShortTitle(trail.frontmatter.title),
+      lang: translated ? undefined : contentLang,
+    };
+  });
+  const showLanguageNote = situations.some(
+    (situation) => situation.contentLang !== undefined,
+  );
 
   return (
     <PhotoBand
@@ -89,16 +108,40 @@ export default async function HeroSection({
           </div>
         </div>
 
-        {/* Situation chips: start from a need, not a brand name. */}
+        {/* Situations open zh-TW trails; on another locale a note says so,
+            and the chips sit closer under it. */}
+        {showLanguageNote && (
+          <p className="mt-6 type-metadata text-ink-soft">
+            {t("situationsLanguageNote")}
+          </p>
+        )}
+
+        {/* Situation chips: start from a need, not a brand name. Below `sm`
+            they form one horizontal scroll row instead of wrapping into an
+            orphaned last chip. The row bleeds to the viewport edge through
+            the 24px page gutter and pads it back, with matching scroll
+            padding, so a chip runs off the screen instead of being cut at the
+            gutter (R2-08, as the trail snap row in landing-zones.tsx does).
+            The overflow would clip the chips' focus rings top and bottom, so
+            it carries 6px of block padding and 6px less top margin, which
+            keeps the visual gap. */}
         {situations.length > 0 && (
-          <ChipRow as="ul" aria-label={t("situationsLabel")} className="mt-6">
-            {situations.map((trail) => (
-              <li key={trail.slug}>
+          <ChipRow
+            as="ul"
+            aria-label={t("situationsLabel")}
+            className={cn(
+              "max-sm:-mx-6 max-sm:scroll-px-6 max-sm:snap-x max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:px-6 max-sm:py-1.5",
+              showLanguageNote ? "mt-2" : "mt-6 max-sm:mt-4.5",
+            )}
+          >
+            {situations.map((situation) => (
+              <li key={situation.trail.slug} className="shrink-0 snap-start">
                 <Link
-                  href={routes.trail(trail.slug)}
+                  href={routes.trail(situation.trail.slug)}
+                  lang={situation.lang}
                   className={taxonomyLinkClasses()}
                 >
-                  {trailShortTitle(trail.frontmatter.title)}
+                  {situation.label}
                 </Link>
               </li>
             ))}

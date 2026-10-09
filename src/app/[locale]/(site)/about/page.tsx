@@ -15,6 +15,7 @@ import { PhotoBand } from "@/components/ui/photo-band";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { routes } from "@/lib/routes";
+import { phraseBreaks } from "@/components/ui/phrase-breaks";
 
 export const revalidate = 3600;
 
@@ -98,14 +99,14 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="bg-surface py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                {t("scenes.heading")}
+              <h2 className="type-section text-balance break-keep">
+                {phraseBreaks(t("scenes.heading"))}
               </h2>
               <div className="space-y-6">
                 {SCENE_KEYS.map((key, i) => (
                   <div key={key}>
-                    <p className="type-section">
-                      {t(`scenes.items.${key}.scene`)}
+                    <p className="type-card-title text-balance break-keep">
+                      {phraseBreaks(t(`scenes.items.${key}.scene`))}
                     </p>
                     <p className="mt-2 type-body-sm">
                       {t(`scenes.items.${key}.detail`)}
@@ -124,14 +125,16 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                {t("loop.heading")}
+              <h2 className="type-section text-balance break-keep">
+                {phraseBreaks(t("loop.heading"))}
               </h2>
               <div>
                 <p className="type-body">{t("loop.body1")}</p>
                 <p className="mt-6 type-body">{t("loop.body2")}</p>
                 <PullQuote>{t("loop.pullQuote")}</PullQuote>
-                <h3 className="type-section">{t("loop.brandHeading")}</h3>
+                <h3 className="type-card-title text-balance break-keep">
+                  {phraseBreaks(t("loop.brandHeading"))}
+                </h3>
                 <p className="mt-4 type-body">{t("loop.brandBody")}</p>
               </div>
             </div>
@@ -142,14 +145,18 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="bg-surface py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                {t("taiwanStats.heading")}
+              <h2 className="type-section text-balance break-keep">
+                {phraseBreaks(t("taiwanStats.heading"))}
               </h2>
               <div>
                 <p className="type-body">{t("taiwanStats.intro")}</p>
-                <div className="mt-8 flex flex-wrap gap-14">
+                {/* One figure per row at every width. A wrapping row of three
+                    broke 2 + 1 at 390px and stranded the last figure; three
+                    columns do not fit the 46px figures in this column, which
+                    caps at 660px (the EN "Nearly 80%" alone is ~240px). */}
+                <div className="mt-8 divide-y divide-rule border-y border-rule">
                   {(["count", "share", "employment"] as const).map((key) => (
-                    <div key={key}>
+                    <div key={key} className="py-6">
                       <p className="type-display tabular-nums">
                         {t(`taiwanStats.items.${key}.value`)}
                       </p>
@@ -159,7 +166,6 @@ export default async function AboutPage({ params }: PageProps) {
                     </div>
                   ))}
                 </div>
-                <hr className="mt-8 border-rule" />
                 <p className="mt-4 type-metadata">
                   {t.rich("taiwanStats.source", {
                     link: (chunks) => (
@@ -190,14 +196,14 @@ export default async function AboutPage({ params }: PageProps) {
         <section className="py-section">
           <PageShell measure="page">
             <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-              <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                {t("stance.heading")}
+              <h2 className="type-section text-balance break-keep">
+                {phraseBreaks(t("stance.heading"))}
               </h2>
               <div className="space-y-8">
                 {STANCE_KEYS.map((key) => (
                   <div key={key}>
-                    <p className="type-section">
-                      {t(`stance.items.${key}.lead`)}
+                    <p className="type-card-title text-balance break-keep">
+                      {phraseBreaks(t(`stance.items.${key}.lead`))}
                     </p>
                     <p className="mt-2 type-body">
                       {t(`stance.items.${key}.body`)}
@@ -214,8 +220,8 @@ export default async function AboutPage({ params }: PageProps) {
           <PageShell measure="page">
             <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
               <div>
-                <h2 className="type-page-title text-balance [word-break:auto-phrase]">
-                  {t("guide.heading")}
+                <h2 className="type-section text-balance break-keep">
+                  {phraseBreaks(t("guide.heading"))}
                 </h2>
               </div>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-3">

@@ -211,9 +211,7 @@ describe("public brand response contracts", () => {
 
   it("card projection carries city", () => {
     const brand = brandToDomain(buildRow(BRAND_COLUMN_LIST));
-    expect(toPublicBrandCard({ ...brand, city: "taipei" }).city).toBe(
-      "taipei",
-    );
+    expect(toPublicBrandCard({ ...brand, city: "taipei" }).city).toBe("taipei");
 
     const withoutCity = { ...brand } as Partial<typeof brand>;
     delete withoutCity.city;
@@ -230,7 +228,9 @@ describe("public brand response contracts", () => {
 
     const withoutCity = { ...card } as Partial<typeof card>;
     delete withoutCity.city;
-    expect(normalizePublicBrandCard(withoutCity as typeof card).city).toBeNull();
+    expect(
+      normalizePublicBrandCard(withoutCity as typeof card).city,
+    ).toBeNull();
   });
 });
 
@@ -278,6 +278,19 @@ describe("brandToDomain image derivation (DEV-1551)", () => {
       ...COLUMN_FIXTURE,
       hero_image_storage_path: null,
       hero_image_url: "",
+    } as unknown as BrandRowWithJoins);
+
+    expect(brand.heroImageUrl).toBeNull();
+  });
+
+  // DEV-1989 (SP2-33): promotion moves the brand_images row but not the
+  // denormalized hero copy, and `/i/submissions/…` always answers 400.
+  it("renders no hero for a private submissions/ key", () => {
+    const brand = brandToDomain({
+      ...COLUMN_FIXTURE,
+      hero_image_storage_path: "submissions/sub-1/hero.webp",
+      hero_image_url:
+        "https://other.supabase.co/storage/v1/object/public/brand-images/submissions/sub-1/hero.webp",
     } as unknown as BrandRowWithJoins);
 
     expect(brand.heroImageUrl).toBeNull();

@@ -54,12 +54,14 @@ export function SectionHeader({
       )}
     >
       <div className="min-w-0">
-        <h2 id={id} className="type-page-title">
+        {/* `type-section`, a step below the hero's `type-display` h1, so the
+            opener leads and each zone header reads as its subordinate. */}
+        <h2 id={id} className="type-section">
           {heading}
         </h2>
         {note ? (
           // `prose-measure`, the one reading width — the note is a sentence of
-          // body copy under a page title, and its band is as wide as the page.
+          // body copy under a section heading, and its band is as wide as the page.
           <p className="prose-measure mt-2 type-body-sm">{note}</p>
         ) : null}
       </div>

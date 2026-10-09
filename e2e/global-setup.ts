@@ -301,24 +301,6 @@ async function globalSetup() {
         .locator('input[type="url"]')
         .first()
         .waitFor({ state: "visible", timeout: BUDGET.WARMUP });
-      // The submit overview. Wrapped like its siblings so a warm-up failure
-      // here fails on its own rather than throwing past every warm-up below it.
-      try {
-        await page.goto(`${baseURL}/submit`, {
-          waitUntil: "domcontentloaded",
-          timeout: BUDGET.NAVIGATION,
-        });
-        await page
-          .getByRole("heading", { level: 1 })
-          .first()
-          .waitFor({ state: "visible", timeout: BUDGET.WARMUP });
-        console.log("[global-setup] /submit warm-up complete");
-      } catch (err) {
-        console.warn(
-          "[global-setup] /submit warm-up failed (non-fatal):",
-          err instanceof Error ? err.message : String(err),
-        );
-      }
       try {
         await page.goto(baseURL + "/admin", {
           waitUntil: "domcontentloaded",

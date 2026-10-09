@@ -51,10 +51,22 @@ describe('NewsletterConfirmEmail', () => {
     expect(html).toContain('>Newly listed brands<')
   })
 
+  it('tells a non-subscriber to ignore the email, not to unsubscribe', async () => {
+    // Double opt-in: until the link is clicked nothing is subscribed.
+    const zh = await render(NewsletterConfirmEmail(defaultProps))
+    expect(zh).toContain('忽略這封信就好')
+    expect(zh).not.toContain('若')
+
+    const en = await render(NewsletterConfirmEmail({ ...defaultProps, locale: 'en' }))
+    expect(en).toContain('ignore this email')
+    expect(en).not.toContain('取消訂閱')
+    expect(en).not.toContain('台灣好物選物平台')
+  })
+
   it('buildNewsletterConfirmEmail returns valid EmailMessage', async () => {
     const msg = await buildNewsletterConfirmEmail(defaultProps)
     expect(msg.to).toBe(defaultProps.to)
-    expect(msg.subject).toContain('Formoria')
+    expect(msg.subject).toBe('請確認訂閱 Formoria 電子報')
     expect(msg.html).toBeTruthy()
     expect(msg.headers?.['List-Unsubscribe']).toContain(
       '/api/newsletter/unsubscribe?token=unsubscribe-456',

@@ -1,7 +1,6 @@
 import { SurfaceImage } from "@/components/ui/image";
 import type { CSSProperties } from "react";
 import { Link } from "@/i18n/navigation";
-import { buttonVariants } from "@/components/ui/button";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { textStyles } from "@/components/ui/text-styles";
 import { TrustLabel } from "@/components/ui/trust-label";
@@ -24,7 +23,6 @@ import { cn } from "@/lib/utils";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
 import { SelectedProductExternalLink } from "./selected-product-external-link";
-import { SaveButton } from "@/components/ui/save-button";
 import { routes } from "@/lib/routes";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpRight, ShieldCheck } from "lucide-react";
@@ -122,8 +120,9 @@ export type SelectedProductTileProps = {
 const BROKEN_LINK_STATE = "broken";
 
 /**
- * The selected-product tile stays server-rendered. Trail cards keep their
- * outbound product chip. A brand-page shelf card is one honest link
+ * The selected-product tile stays server-rendered. A trail card's name goes
+ * out to the product with a ↗, and its brand line goes to the brand page
+ * (R2-12): the brand shelf's route treatment, no per-tile pill. A brand-page shelf card is one honest link
  * (DEV-1994): image and name together go out to the product's own page — the
  * brand site when the product link is broken. The wall turns the whole tile
  * into one accessible link to that brand's page. The optional client link child adds click tracking
@@ -185,27 +184,6 @@ export function SelectedProductTile({
   const chipHref = isBroken ? (visitLink?.href ?? null) : productHref;
   const chipLabel = isBroken ? labels.brandSiteCta : labels.cta;
   const chipLinkType = isBroken ? "brand_site" : "curated_product";
-  const chipClassName = buttonVariants({
-    variant: "secondary",
-    shape: "pill",
-    size: "compact",
-    className: cn("mt-auto max-w-full justify-center"),
-  });
-  // The trail's untracked outbound chip.
-  const plainChip = chipHref ? (
-    <a
-      href={chipHref}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={chipClassName}
-      data-brand-slug={brand?.slug}
-      data-link-type={chipLinkType}
-      data-link-surface="selected_product"
-    >
-      <span className="min-w-0 truncate">{chipLabel}</span>
-      {isBroken ? null : <span className="sr-only">{` ${name}`}</span>}
-    </a>
-  ) : null;
   const destinationSlug = brandSlug ?? brand?.slug ?? "";
   /*
    * The WALL lands on the top of the brand page; the trail keeps the
@@ -399,15 +377,11 @@ export function SelectedProductTile({
       ) : (
         <div className="flex flex-col">{shelfMedia}</div>
       )}
-      {/* A sibling of the link, never inside it: a button inside an `<a>` is
-          invalid. The overlay variant pins it to this box's top-right corner,
-          which is the image's corner because the link starts at the top. */}
-      <SaveButton
-        kind="product"
-        id={product.id}
-        slug={product.key}
-        variant="overlay"
-      />
+      {/* Product saving was removed (DEV-1988 owner decision): no page listed
+          saved products. The app-side save path (hook, action, service,
+          messages) was deleted and must be rebuilt when requested; the
+          saved_products table still holds its data. Render the save control as
+          a sibling of the link here, never inside it. */}
       {productDescription ? (
         <p
           className="mt-1 type-body-sm text-ink-muted line-clamp-2"
@@ -442,6 +416,119 @@ export function SelectedProductTile({
         </Typography>
       ) : null}
     </div>
+  );
+
+  /*
+   * Trail route treatment (R2-12, the shelf's since DEV-1994): the name is the
+   * outbound link with a ↗, so eleven tiles no longer repeat one pill. The
+   * brand line keeps the route to the brand page's `#product-` anchor. With
+   * no outbound href the name keeps that internal route instead.
+   *
+   * Phones step the name down to body size, three lines (R2-03): the trail
+   * grid is two-up there, and a 21px title in a ~100px column split Latin
+   * words and ran five lines.
+   *
+   * `wrap-break-word` under `:lang(zh)` out-ranks the card title's zh
+   * `overflow-wrap: anywhere` (N-02), which let `text-wrap: balance` split
+   * "Orii×DO / T" at 320. `break-word` splits only a word wider than the
+   * whole line, so nothing overflows; the caption's narrower inline padding
+   * below 360px keeps an ~80px Latin word inside the line.
+   */
+  const trailHeading = (
+    <Typography
+      as="h3"
+      variant="cardTitle"
+      className="min-w-0 flex-1 group-hover:text-accent [&:lang(zh)]:wrap-break-word max-sm:type-body max-sm:text-ink max-sm:line-clamp-3"
+      lang={nameLang}
+    >
+      {name}
+    </Typography>
+  );
+  const trailOutboundClassName = cn(
+    trailNameLinkClassName,
+    "group flex items-start gap-1",
+  );
+  const trailOutboundContent = (
+    <>
+      {trailHeading}
+      <ArrowUpRight
+        aria-hidden
+        className="mt-1 size-4 shrink-0 text-ink-muted group-hover:text-accent"
+      />
+      <span className="sr-only">{` ${chipLabel}`}</span>
+    </>
+  );
+  const trailInternalClassName = cn(trailNameLinkClassName, "group");
+  const trailName = chipHref ? (
+    tracking && brand ? (
+      <SelectedProductExternalLink
+        href={chipHref}
+        brandSlug={brand.slug}
+        linkType={chipLinkType}
+        referrerPage={tracking.referrerPage ?? routes.discover()}
+        surface={tracking.surface as `trail:${string}:${string}`}
+        brandId={tracking.brandId}
+        className={trailOutboundClassName}
+      >
+        {trailOutboundContent}
+      </SelectedProductExternalLink>
+    ) : (
+      <a
+        href={chipHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={trailOutboundClassName}
+        data-brand-slug={brand?.slug}
+        data-link-type={chipLinkType}
+        data-link-surface="selected_product"
+      >
+        {trailOutboundContent}
+      </a>
+    )
+  ) : tracking ? (
+    <SelectedProductTileLink
+      href={internalHref}
+      className={trailInternalClassName}
+      productKey={product.key}
+      brandSlug={tracking.brandSlug}
+      position={tracking.position}
+      surface={tracking.surface}
+    >
+      {trailHeading}
+    </SelectedProductTileLink>
+  ) : (
+    <Link
+      href={internalHref}
+      className={trailInternalClassName}
+      data-ph-no-autocapture
+    >
+      {trailHeading}
+    </Link>
+  );
+  const trailBrandLinkClassName = cn(
+    trailNameLinkClassName,
+    brandLineClassName,
+    "hover:text-accent",
+  );
+  const trailBrandLink = tracking ? (
+    <SelectedProductTileLink
+      href={internalHref}
+      className={trailBrandLinkClassName}
+      productKey={product.key}
+      brandSlug={tracking.brandSlug}
+      position={tracking.position}
+      surface={tracking.surface}
+    >
+      {brandName}
+    </SelectedProductTileLink>
+  ) : (
+    <Link
+      href={internalHref}
+      className={trailBrandLinkClassName}
+      data-ph-no-autocapture
+    >
+      {brandName}
+    </Link>
   );
 
   const content = (
@@ -491,42 +578,14 @@ export function SelectedProductTile({
         {originBadge}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
+      <div
+        className={cn(
+          "flex flex-1 flex-col gap-2 p-4",
+          mode === "trail" && "max-sm:p-3 max-sm:max-[359px]:px-2",
+        )}
+      >
         {mode === "trail" ? (
-          tracking ? (
-            <SelectedProductTileLink
-              href={internalHref}
-              className={trailNameLinkClassName}
-              productKey={product.key}
-              brandSlug={tracking.brandSlug}
-              position={tracking.position}
-              surface={tracking.surface}
-            >
-              <Typography
-                as="h3"
-                variant="cardTitle"
-                className="hover:text-accent"
-                lang={nameLang}
-              >
-                {name}
-              </Typography>
-            </SelectedProductTileLink>
-          ) : (
-            <Link
-              href={internalHref}
-              className={trailNameLinkClassName}
-              data-ph-no-autocapture
-            >
-              <Typography
-                as="h3"
-                variant="cardTitle"
-                className="hover:text-accent"
-                lang={nameLang}
-              >
-                {name}
-              </Typography>
-            </Link>
-          )
+          trailName
         ) : (
           <Typography as="h3" variant="cardTitle" lang={nameLang}>
             {name}
@@ -540,7 +599,11 @@ export function SelectedProductTile({
         ) : null}
 
         {mode === "trail" && brandName ? (
-          <p className={brandLineClassName}>{brandName}</p>
+          chipHref ? (
+            <p>{trailBrandLink}</p>
+          ) : (
+            <p className={brandLineClassName}>{brandName}</p>
+          )
         ) : null}
 
         {productDescription ? (
@@ -570,25 +633,6 @@ export function SelectedProductTile({
           <Typography as="p" variant="metadata">
             {labels.unavailable}
           </Typography>
-        ) : null}
-
-        {mode === "trail" && chipHref ? (
-          tracking && brand ? (
-            <SelectedProductExternalLink
-              href={chipHref}
-              brandSlug={brand.slug}
-              linkType={chipLinkType}
-              referrerPage={tracking.referrerPage ?? routes.discover()}
-              surface={tracking.surface as `trail:${string}:${string}`}
-              brandId={tracking.brandId}
-              className={chipClassName}
-            >
-              <span className="min-w-0 truncate">{chipLabel}</span>
-              {isBroken ? null : <span className="sr-only">{` ${name}`}</span>}
-            </SelectedProductExternalLink>
-          ) : (
-            plainChip
-          )
         ) : null}
       </div>
     </>

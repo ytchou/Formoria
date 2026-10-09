@@ -1,9 +1,15 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
-import { findCommerceTruthText } from "@/lib/curated-products/commerce-text";
+import {
+  findImageRejectionReasons,
+  type ImageTextSignals,
+} from "@/lib/curated-products/commerce-text";
 import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
 import { updateCuratedProduct } from "@/lib/services/curated-products";
 import { loadVisionDataUri } from "@/lib/services/enrich-phases/classify-images";
-import { readImageTextFromDataUri } from "@/lib/services/image-text";
+import { readImageSignalsFromDataUri } from "@/lib/services/image-text";
 import { curatedProductStorageKeyFromPublicUrl } from "@/lib/services/image-upload";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadScriptTarget } from "../../../shared/target";
@@ -17,10 +23,12 @@ import {
 
 /**
  * Flags stored curated-product images whose visible text shows prices or
- * promotions (DEV-1962).
+ * promotions (DEV-1962), or that are advertising creatives — a spokesperson
+ * ad, an overlaid banner, ad copy such as 「一件可印」 (DEV-1989).
  *
- * WRITTEN FOR DEV-1962 AND NOT EXECUTED AS PART OF ITS PR. Run it against
- * staging first, read the dry-run list, then production.
+ * Written for DEV-1962 and not executed by its PR. DEV-1989 runs it against
+ * staging (dry run, then --apply); production follows once the staging list
+ * has been read.
  *
  *   pnpm exec tsx scripts/enrichment/products/curated-products/flag-commerce-images.ts
  *   …--brand=<slug>          scope the run to one brand (e.g. the LAB52 brand)
@@ -31,9 +39,22 @@ import {
  *
  * The ingest gate in `prepareCuratedProductImage` stops NEW promo images; this
  * finds the ones stored before it existed. Each stored object is read from
- * Storage and its text transcribed by one vision call (`readImageText`), then
- * matched with `findCommerceTruthText` — the same two functions the gate runs,
- * so the script and the gate cannot disagree about what a promo image is.
+ * Storage by one vision call (`readImageSignals`: text, overlay coverage,
+ * endorsement person), then judged by `findImageRejectionReasons` — the same
+ * two functions the gate runs, so the script and the gate cannot disagree
+ * about what a rejected image is. A row's `hits` are its commerce markers
+ * followed by its ad-creative reasons.
+ *
+ * ROLLBACK REPORT: every run writes the flagged rows (id, brand slug, name,
+ * image_url, hits) to `scripts/backup/` BEFORE the first clear. Restoring a
+ * row's `image_url` from it undoes an --apply (width/height come back on the
+ * next dimension backfill or refresh).
+ *
+ * REVALIDATION: production revalidates the cleared brands' pages. Staging has
+ * no reachable revalidation route (`.env.staging` deliberately carries no
+ * ORIGIN_SECRET or FORMORIA_RAILWAY_URL; the old values pointed at
+ * production), so a staging run skips it and says so; staging pages refresh
+ * by ISR or a staging redeploy.
  *
  * WRITE SCOPE on `--apply`: `image_url`, `image_width`, `image_height` → NULL
  * on the flagged rows, through the service `updateCuratedProduct`.
@@ -93,11 +114,11 @@ export type FlagReader = {
   from(table: string): { select(columns: string): FlagQuery };
 };
 
-/** Reads one stored image's visible text. Injected by the test. */
-export type ReadStoredImageText = (
+/** Reads one stored image's text and ad-creative signals. Injected by the test. */
+export type ReadStoredImageSignals = (
   imageUrl: string,
   rowId: string,
-) => Promise<string>;
+) => Promise<ImageTextSignals>;
 
 /** Clears one row's stored image. Injected by the test. */
 export type ClearImage = (rowId: string) => Promise<void>;
@@ -136,7 +157,7 @@ export async function loadFlagCandidates(
  * storage form) resolves to a bucket key, which `loadVisionDataUri` downloads
  * through the service client and encodes exactly as the classifier does.
  */
-export const readStoredImageText: ReadStoredImageText = async (
+export const readStoredImageSignals: ReadStoredImageSignals = async (
   imageUrl,
   rowId,
 ) => {
@@ -144,7 +165,7 @@ export const readStoredImageText: ReadStoredImageText = async (
   if (!key) throw new Error(`not a curated-product storage url: ${imageUrl}`);
   const dataUri = await loadVisionDataUri({ storage_path: key });
   if (!dataUri) throw new Error(`could not load ${key} from storage`);
-  return readImageTextFromDataUri(dataUri, { subjectId: rowId });
+  return readImageSignalsFromDataUri(dataUri, { subjectId: rowId });
 };
 
 export const clearStoredImage: ClearImage = (rowId) =>
@@ -158,6 +179,8 @@ export type FlaggedImage = {
   brandSlug: string | null;
   id: string;
   name: string;
+  /** The stored image the run read: what a rollback restores. */
+  imageUrl: string | null;
   hits: string[];
 };
 
@@ -177,16 +200,23 @@ export type FlagReport = {
 export type FlagInput = {
   rows: readonly FlagRow[];
   apply: boolean;
-  readText: ReadStoredImageText;
+  readSignals: ReadStoredImageSignals;
   clearImage: ClearImage;
+  /**
+   * Receives the flagged rows after every image is read and BEFORE the first
+   * clear; `main` writes the rollback report here. A throw aborts the run with
+   * nothing cleared.
+   */
+  onFlagged?: (flagged: readonly FlaggedImage[]) => Promise<void>;
   concurrency?: number;
 };
 
 export async function flagCommerceImages({
   rows,
   apply,
-  readText,
+  readSignals,
   clearImage,
+  onFlagged,
   concurrency = CONCURRENCY,
 }: FlagInput): Promise<FlagReport> {
   const report: FlagReport = {
@@ -207,11 +237,15 @@ export async function flagCommerceImages({
     return false;
   });
 
+  // Read everything first, so the rollback report exists before any clear.
   await mapWithConcurrency(pending, concurrency, async (row) => {
     let hits: string[];
     try {
       // The filter above is what makes this assertion safe.
-      hits = findCommerceTruthText(await readText(row.image_url!, row.id));
+      const { commerce, adCreative } = findImageRejectionReasons(
+        await readSignals(row.image_url!, row.id),
+      );
+      hits = [...commerce, ...adCreative];
       report.scanned += 1;
     } catch (error: unknown) {
       report.failures.push(
@@ -225,10 +259,20 @@ export async function flagCommerceImages({
       brandSlug: brandSlugOf(row),
       id: row.id,
       name: row.name_zh,
+      imageUrl: row.image_url,
       hits,
     });
-    if (!apply) return;
+  });
 
+  // Input order, not completion order, so two runs print the same list.
+  report.flagged = pending
+    .map((row) => flaggedById.get(row.id))
+    .filter((entry): entry is FlaggedImage => entry !== undefined);
+  const flaggedRows = pending.filter((row) => flaggedById.has(row.id));
+  await onFlagged?.(report.flagged);
+  if (!apply) return report;
+
+  await mapWithConcurrency(flaggedRows, concurrency, async (row) => {
     try {
       await clearImage(row.id);
       report.cleared += 1;
@@ -241,10 +285,6 @@ export async function flagCommerceImages({
     }
   });
 
-  // Input order, not completion order, so two runs print the same list.
-  report.flagged = pending
-    .map((row) => flaggedById.get(row.id))
-    .filter((entry): entry is FlaggedImage => entry !== undefined);
   report.clearedBrandSlugs = [...clearedBrandSlugs].sort();
   return report;
 }
@@ -253,22 +293,63 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * Writes the rollback report under `scripts/backup/` (gitignored). Runs from
+ * the repo root, like every other script that writes a backup there.
+ */
+async function writeFlagReport(
+  flagged: readonly FlaggedImage[],
+  meta: { target: string; mode: string; brand: string | null },
+): Promise<string> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const file = path.join(
+    "scripts",
+    "backup",
+    `flag-commerce-images-${meta.target}-${timestamp}.json`,
+  );
+  await mkdir(path.dirname(file), { recursive: true });
+  const rows = flagged.map((entry) => ({
+    id: entry.id,
+    brand_slug: entry.brandSlug,
+    name: entry.name,
+    image_url: entry.imageUrl,
+    hits: entry.hits,
+  }));
+  await writeFile(
+    file,
+    `${JSON.stringify({ ...meta, rows }, null, 2)}\n`,
+    "utf8",
+  );
+  return file;
+}
+
 async function main(): Promise<void> {
   // Strips `--target` and proves the credentials belong to that project
   // before any client opens. Staging is the default.
-  const { argv } = loadScriptTarget();
+  const { target, argv } = loadScriptTarget();
   const apply = parseApplyOption(argv);
   const brandSlug = parseBrandOption(argv);
+  // Staging has no reachable revalidation route (see the header).
+  const revalidate = target !== "staging";
   // Preflight BEFORE the first write: a clear that lands while revalidation is
   // unconfigured leaves the promo image on the cached pages for up to an hour.
-  if (apply) assertRevalidationConfigured();
+  if (apply && revalidate) assertRevalidationConfigured();
 
   const rows = await loadFlagCandidates(brandSlug);
+  const mode = apply ? "apply" : "dry-run";
   const report = await flagCommerceImages({
     rows,
     apply,
-    readText: readStoredImageText,
+    readSignals: readStoredImageSignals,
     clearImage: clearStoredImage,
+    onFlagged: async (flagged) => {
+      const file = await writeFlagReport(flagged, {
+        target,
+        mode,
+        brand: brandSlug,
+      });
+      console.log(JSON.stringify({ report: file, rows: flagged.length }));
+    },
   });
 
   for (const entry of report.flagged) {
@@ -280,7 +361,7 @@ async function main(): Promise<void> {
   }
   console.log(
     JSON.stringify({
-      mode: apply ? "apply" : "dry-run",
+      mode,
       brand: brandSlug,
       selected: report.selected,
       skipped: report.skipped,
@@ -305,6 +386,16 @@ async function main(): Promise<void> {
     return;
   }
   if (report.cleared === 0) return;
+  if (!revalidate) {
+    console.log(
+      JSON.stringify({
+        revalidated: 0,
+        skipped:
+          "staging has no revalidation route; pages refresh by ISR or a staging redeploy",
+      }),
+    );
+    return;
+  }
 
   const revalidation = await requestPublicBrandRevalidation(
     report.clearedBrandSlugs,

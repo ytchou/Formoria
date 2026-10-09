@@ -15,6 +15,7 @@ import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { WallTileSlot } from "@/lib/curated-products/wall-tile";
 import { fadeInSwappedItems } from "@/lib/motion/chip-swap";
+import { cn } from "@/lib/utils";
 import { WallGroupPlaceholder } from "./wall-group";
 
 /**
@@ -182,17 +183,22 @@ export function CategoryFilter({
 
   return (
     <>
-      <ChipRow className="mt-6 justify-center">
+      {/* Below `sm` the chips form one left-aligned scroll row instead of
+          wrapping 3/3/1. The row bleeds through the 24px gutter to the screen
+          edge (same as the hero chips) so a cropped chip signals more. Its
+          6px vertical padding keeps focus rings unclipped; 6px less top
+          margin keeps the visual gap. */}
+      <ChipRow className="mt-6 justify-center max-sm:-mx-6 max-sm:mt-4.5 max-sm:scroll-px-6 max-sm:snap-x max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:px-6 max-sm:py-1.5">
         {categories.map((cat) => (
           <ToggleChip
             key={cat.slug}
             pressed={active === cat.slug}
             onPressedChange={() => handleSelect(cat.slug)}
-            className={
-              active !== cat.slug
-                ? "border-on-ink/40 text-on-ink hover:border-on-ink hover:bg-white/10 hover:text-on-ink"
-                : undefined
-            }
+            className={cn(
+              "shrink-0 snap-start",
+              active !== cat.slug &&
+                "border-on-ink/40 text-on-ink hover:border-on-ink hover:bg-white/10 hover:text-on-ink",
+            )}
           >
             {cat.label}
           </ToggleChip>

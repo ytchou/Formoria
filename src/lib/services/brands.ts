@@ -1,5 +1,8 @@
 import { normalizePublicSearchQuery } from "@/lib/brands/normalize-public-search-query";
-import { matchBrandNames, type BrandNameMatch } from "@/lib/brands/brand-name-match";
+import {
+  matchBrandNames,
+  type BrandNameMatch,
+} from "@/lib/brands/brand-name-match";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { auditedCall } from "@/lib/audit";
@@ -60,7 +63,10 @@ import {
   imagePathToUrl,
   storagePathFromImageUrl,
 } from "@/lib/images/image-url";
-import { isBrandOwnedStoragePath } from "@/lib/images/storage-keys";
+import {
+  isBrandOwnedStoragePath,
+  isPublicStorageKey,
+} from "@/lib/images/storage-keys";
 import {
   getBrandImages,
   insertBrandImage,
@@ -87,13 +93,26 @@ import {
  * not a URL: DEV-1551 gave the column a `''` default, which makes `''` the
  * common case for rows written by the two hand-patched SQL functions.
  */
+/**
+ * A hero key as a render URL, or null when the key cannot be served publicly.
+ * A private `submissions/` key always answers 400 through the `/i/` proxy, so
+ * a hero copy left pointing at one (DEV-1989, SP2-33: promotion moves the
+ * `brand_images` row but not the denormalized hero copy) must fall back to the
+ * letter avatar rather than render a broken image.
+ */
+function publicHeroUrl(key: string | null | undefined): string | null {
+  const trimmed = key?.trim();
+  return trimmed && isPublicStorageKey(trimmed)
+    ? imagePathToUrl(trimmed)
+    : null;
+}
+
 function storageBackedHeroFallback(
   legacyUrl: string | null | undefined,
 ): string | null {
   const trimmed = legacyUrl?.trim();
   if (!trimmed) return null;
-  const key = storageKeyFromPublicUrlForRead(trimmed);
-  return key ? imagePathToUrl(key) : null;
+  return publicHeroUrl(storageKeyFromPublicUrlForRead(trimmed));
 }
 function mulberry32(seed: number): () => number {
   return () => {
@@ -250,8 +269,6 @@ type SearchBrandPageRow = {
   search_source: string;
   total_count: number;
 };
-
-
 
 export type SearchBrandAutocompleteResult = SearchSuggestion;
 
@@ -674,7 +691,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     // Ceiling: remove the fallback once those two functions have real source
     // and write the bucket key.
     heroImageUrl:
-      imagePathToUrl(row.hero_image_storage_path) ??
+      publicHeroUrl(row.hero_image_storage_path) ??
       storageBackedHeroFallback(row.hero_image_url),
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
@@ -776,7 +793,13 @@ export async function hydrateCardImageMeta<
   supabase: ReturnType<typeof createServiceClient>,
   brands: T[],
 ): Promise<
-  Array<T & Pick<Brand, "productPhotos" | "imageAlts" | "heroImageMetadata">>
+  Array<
+    T &
+      Pick<
+        Brand,
+        "productPhotos" | "imageAlts" | "heroImageMetadata" | "logoUrl"
+      >
+  >
 > {
   const withDefaults = (
     brand: T,
@@ -863,6 +886,16 @@ export async function hydrateCardImageMeta<
     rowsByBrand.set(row.brand_id, brandRows);
   }
 
+  // The brand's mark, for surfaces that show a brand rather than its goods
+  // (the homepage strip, DS2-39). Rows arrive by `sort_order`, so the first
+  // routable logo row wins.
+  const logoUrlByBrand = new Map<string, string>();
+  for (const row of productRows) {
+    if (!isLogoImageTags(row.tags) || logoUrlByBrand.has(row.brand_id)) continue;
+    const src = imagePathToUrl(row.storage_path);
+    if (src) logoUrlByBrand.set(row.brand_id, src);
+  }
+
   const productRowsByBrand = new Map<string, CardImageRow[]>();
   for (const row of productRows) {
     if (!row.tags?.includes("product") || isLogoImageTags(row.tags)) continue;
@@ -894,10 +927,15 @@ export async function hydrateCardImageMeta<
       ? imagePathToUrl(productRow.storage_path)
       : null;
 
+    // Set only when a logo row exists, unlike the replaced fields above: an
+    // absent key and `null` mean the same thing to every reader.
+    const logoUrl = logoUrlByBrand.get(brand.id);
+    const logo = logoUrl ? { logoUrl } : {};
+
     // No matching row is not an error: brands whose hero predates
     // `brand_images` (or whose row was rejected) keep the old hero behavior,
     // while a separately classified product photo can still improve the card.
-    if (!heroRow && !productRow) return withDefaults(brand);
+    if (!heroRow && !productRow) return { ...withDefaults(brand), ...logo };
 
     const heroMeta = heroRow
       ? {
@@ -915,6 +953,7 @@ export async function hydrateCardImageMeta<
     // their complete per-image projection through `brandToDomainWithImages`.
     return {
       ...brand,
+      ...logo,
       productPhotos: productPhoto ? [productPhoto] : [],
       imageAlts: [
         heroMeta,
@@ -2046,7 +2085,8 @@ const getCachedExploreBrandPool = unstable_cache(
   // v4 (DEV-1743): the payload is now the RPC's per-category sample rather than
   // the full approved corpus, and the count comes from a separate query. Bump
   // again on any further change to either shape.
-  ["homepage-explore-brand-pool-v4"],
+  // v5 (DEV-1990): cards carry `logoUrl`.
+  ["homepage-explore-brand-pool-v5"],
   { revalidate: 900, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
@@ -2100,7 +2140,7 @@ const getCachedBrandNameIndex = unstable_cache(
             name: row.name,
             romanizedName: row.romanized_name,
             heroImageUrl:
-              imagePathToUrl(row.hero_image_storage_path) ??
+              publicHeroUrl(row.hero_image_storage_path) ??
               storageBackedHeroFallback(row.hero_image_url),
           }));
       },

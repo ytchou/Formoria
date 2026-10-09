@@ -5,7 +5,6 @@ import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
 import type { CatalogProduct } from "@/lib/services/curated-products-catalog";
-import { SaveButton } from "@/components/ui/save-button";
 
 /** Tile widths at the `catalog` grid stops — /discover's results column. */
 const CATALOG_IMAGE_SIZES =
@@ -68,12 +67,8 @@ export function ProductCard({
               size="card"
             />
           )}
-          <SaveButton
-            kind="product"
-            id={product.id}
-            slug={product.key}
-            variant="overlay"
-          />
+          {/* Product saving was removed (DEV-1988 owner decision); its app-side
+              save path was deleted and must be rebuilt when requested. */}
         </div>
 
         <div className="mt-3 flex flex-col gap-1">

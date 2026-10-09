@@ -10,6 +10,7 @@ type CopyTextButtonProps = {
   text: string
   label: string
   copiedLabel: string
+  className?: string
 }
 
 /**
@@ -19,7 +20,12 @@ type CopyTextButtonProps = {
  * On a failed write the label stays as it was: the text this copies is
  * printed beside the button and can still be selected by hand.
  */
-export function CopyTextButton({ text, label, copiedLabel }: CopyTextButtonProps) {
+export function CopyTextButton({
+  text,
+  label,
+  copiedLabel,
+  className,
+}: CopyTextButtonProps) {
   const [copied, setCopied] = useState(false)
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -43,7 +49,12 @@ export function CopyTextButton({ text, label, copiedLabel }: CopyTextButtonProps
 
   return (
     <>
-      <Button variant="ghost" size="compact" onClick={handleCopy}>
+      <Button
+        variant="ghost"
+        size="compact"
+        className={className}
+        onClick={handleCopy}
+      >
         {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
         {copied ? copiedLabel : label}
       </Button>

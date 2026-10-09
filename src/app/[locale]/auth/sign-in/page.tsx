@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirectIfAuthenticated } from "@/lib/auth/redirect-if-authenticated";
 import { SignInForm } from "@/components/auth/sign-in-form";
-import { headers } from "next/headers";
-import { isStagingRequest } from "@/lib/deployment-environment";
-import { verifyStagingSessionHeaders } from "@/lib/security/staging-session";
+import { shouldShowOptionalAuthMethods } from "@/lib/auth/optional-auth-methods";
+import { buildPrivatePageMetadata } from "@/lib/seo/private-page-metadata";
 
 // The page reads the request session before rendering. Without an explicit
 // dynamic boundary, the RSC response can be reused across auth states and a
@@ -24,13 +23,14 @@ export async function generateMetadata({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("auth");
-  return {
+  return buildPrivatePageMetadata({
+    locale,
     // Do not use signIn.heading: it already contains the brand name, while the
     // layout template appends it again (DEV-698).
     // metaTitle carries the brand-free form so the template supplies it exactly once.
     title: t("signIn.metaTitle"),
-    robots: { index: false, follow: true },
-  };
+    description: t("signIn.metaDescription"),
+  });
 }
 
 export default async function SignInPage({ params, searchParams }: Props) {
@@ -40,12 +40,7 @@ export default async function SignInPage({ params, searchParams }: Props) {
   await redirectIfAuthenticated();
 
   const search = await searchParams;
-  const headerStore = await headers();
-  const requestHost =
-    headerStore.get("x-forwarded-host") ?? headerStore.get("host");
-  const showOptionalAuthMethods =
-    !isStagingRequest(requestHost) ||
-    Boolean(await verifyStagingSessionHeaders(headerStore));
+  const showOptionalAuthMethods = await shouldShowOptionalAuthMethods();
 
   return (
     <SignInForm

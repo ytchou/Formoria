@@ -51,7 +51,7 @@ export function Footer() {
             <p className="mt-2 type-body-sm text-on-ink-muted">{t("disclosure")}</p>
           </div>
 
-          <div className="grid flex-1 grid-cols-2 gap-stack sm:grid-cols-3">
+          <div className="grid flex-1 grid-cols-2 gap-stack">
             {/* Browse — products first, the same order as the header. */}
             <div>
               <p className={columnHeadingClasses}>{t("discoverHeading")}</p>
@@ -85,7 +85,9 @@ export function Footer() {
               </ul>
             </div>
 
-            {/* About */}
+            {/* About, and contact with it: a one-link 聯絡 column wrapped to a
+                lone row at 390px (SP2-17). The legal documents sit in the
+                bottom row. */}
             <div>
               <p className={columnHeadingClasses}>{t("companyHeading")}</p>
               <ul className="mt-4 flex list-none flex-col p-0">
@@ -100,17 +102,10 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href={routes.submit.index()} prefetch={false} className={linkClasses}>
+                  <Link href={routes.submit.recommend()} prefetch={false} className={linkClasses}>
                     {t("submit")}
                   </Link>
                 </li>
-              </ul>
-            </div>
-
-            {/* Contact. The legal documents sit in the bottom row instead. */}
-            <div>
-              <p className={columnHeadingClasses}>{t("connectHeading")}</p>
-              <ul className="mt-4 flex list-none flex-col p-0">
                 <li>
                   <Link href={routes.contact()} prefetch={false} className={linkClasses}>
                     {t("contact")}

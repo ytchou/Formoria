@@ -219,6 +219,27 @@ describe('hydrateCardImageMeta', () => {
     ])
   })
 
+  it('carries the first logo row as logoUrl, and none when there is no logo', async () => {
+    table = [
+      imageRow({ brand_id: 'b1', storage_path: 'brands/b1/hero.webp', tags: ['product'], sort_order: 0 }),
+      imageRow({ brand_id: 'b1', storage_path: 'brands/b1/logo.webp', tags: ['logo'], sort_order: 1 }),
+      imageRow({ brand_id: 'b1', storage_path: 'brands/b1/logo-2.webp', tags: ['logo'], sort_order: 2 }),
+      imageRow({ brand_id: 'b2', storage_path: 'brands/b2/hero.webp', tags: ['product'], sort_order: 0 }),
+    ]
+
+    const [withLogo, withoutLogo] = await hydrateCardImageMeta(client(), [
+      brand('b1', '/i/brands/b1/hero.webp'),
+      brand('b2', '/i/brands/b2/hero.webp'),
+    ])
+
+    expect(withLogo?.logoUrl).toBe(
+      'https://project.supabase.co/storage/v1/object/public/brand-images/brands/b1/logo.webp',
+    )
+    // The logo never doubles as the card's product photo.
+    expect(withLogo?.productPhotos).toEqual([])
+    expect(withoutLogo?.logoUrl).toBeUndefined()
+  })
+
   it('image_alts_stay_index_aligned', async () => {
     table = [
       imageRow({

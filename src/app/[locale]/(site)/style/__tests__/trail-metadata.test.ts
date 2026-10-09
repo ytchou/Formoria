@@ -45,6 +45,8 @@ const sparseFrontmatter: TrailEntry = {
 };
 
 const sectionLabel = "主題選物";
+// The `style.titleInChinese` en message, as next-intl would format it.
+const titleInChinese = (title: string) => `${title} (in Chinese)`;
 
 describe("style trail metadata", () => {
   it("titles the document with the trail, then the section name", () => {
@@ -52,6 +54,7 @@ describe("style trail metadata", () => {
       locale: "zh-TW",
       trail,
       sectionLabel,
+      titleInChinese,
     });
 
     // The layout template appends "| Formoria"; share cards keep the bare title.
@@ -61,6 +64,29 @@ describe("style trail metadata", () => {
     expect(metadata.openGraph?.title).toBe(trail.frontmatter.title);
   });
 
+  it("marks a zh-TW trail's document title as Chinese on /en, and only there", () => {
+    const en = buildTrailMetadata({
+      locale: "en",
+      trail,
+      sectionLabel: "Guides",
+      titleInChinese,
+    });
+    const zh = buildTrailMetadata({
+      locale: "zh-TW",
+      trail,
+      sectionLabel,
+      titleInChinese,
+    });
+
+    expect(en.title).toBe(
+      "A reading corner for a small room (in Chinese) | Guides",
+    );
+    expect(zh.title).toBe("A reading corner for a small room | 主題選物");
+    // Share cards keep the bare title on both locales.
+    expect(en.openGraph?.title).toBe(trail.frontmatter.title);
+    expect(en.twitter).toBeUndefined();
+  });
+
   it("emits no robots directive for a published trail, however sparse its frontmatter", () => {
     for (const entry of [trail, sparseFrontmatter]) {
       for (const locale of ["en", "zh-TW"]) {
@@ -68,6 +94,7 @@ describe("style trail metadata", () => {
           locale,
           trail: entry,
           sectionLabel,
+          titleInChinese,
         });
 
         expect(metadata.robots).toBeUndefined();
@@ -87,6 +114,7 @@ describe("style trail metadata", () => {
       locale: "zh-TW",
       trail,
       sectionLabel,
+      titleInChinese,
       productsReadFailed: true,
     });
 
@@ -96,6 +124,7 @@ describe("style trail metadata", () => {
       locale: "zh-TW",
       trail,
       sectionLabel,
+      titleInChinese,
       productsReadFailed: false,
     });
 
@@ -104,7 +133,7 @@ describe("style trail metadata", () => {
 
   it("uses the prefix-free zh-TW canonical on both locales", () => {
     const [en, zh] = ["en", "zh-TW"].map((locale) =>
-      buildTrailMetadata({ locale, trail, sectionLabel }),
+      buildTrailMetadata({ locale, trail, sectionLabel, titleInChinese }),
     );
 
     expect(en.alternates?.canonical).toMatch(
@@ -127,6 +156,7 @@ describe("style trail metadata", () => {
       locale: "zh-TW",
       trail: withHero,
       sectionLabel,
+      titleInChinese,
     });
 
     expect(metadata.openGraph).toMatchObject({
@@ -152,6 +182,7 @@ describe("style trail metadata", () => {
       locale: "en",
       trail: withHero,
       sectionLabel: "Guides",
+    titleInChinese,
     });
 
     expect(metadata.openGraph).toMatchObject({
@@ -160,7 +191,7 @@ describe("style trail metadata", () => {
   });
 
   it("emits no images and no twitter card without a hero", () => {
-    const metadata = buildTrailMetadata({ locale: "zh-TW", trail, sectionLabel });
+    const metadata = buildTrailMetadata({ locale: "zh-TW", trail, sectionLabel, titleInChinese });
 
     expect(metadata.openGraph).toMatchObject({ siteName: "Formoria" });
     expect("images" in (metadata.openGraph ?? {})).toBe(false);

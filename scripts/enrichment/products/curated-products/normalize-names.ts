@@ -1,25 +1,45 @@
+import { writeFileSync } from "node:fs";
+
 import { normalizeCuratedProductName } from "@/lib/curated-products/product-name";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
 import { createServiceClient } from "@/lib/supabase/service";
 
-import { loadScriptTarget } from "../../../shared/target";
+import { escapeCsvField } from "../../eval/search-eval/label-shared";
+import { loadScriptTarget, type ScriptTarget } from "../../../shared/target";
 import {
   assertRevalidationConfigured,
   fetchAllRows,
   parseApplyOption,
   parseBrandOption,
+  parseCsvPath,
 } from "./shared";
 
 /**
  * Normalises stored `curated_products.name_zh` / `name_en` (DEV-1962).
  *
- * WRITTEN FOR DEV-1962 AND NOT EXECUTED AS PART OF ITS PR. Run it against
- * staging first, read the dry-run output, and only then consider production.
+ * Written for DEV-1962, which did not run it; DEV-1989 (DS2-01) ran it on
+ * staging. Run it against staging first, read the dry-run output, and only
+ * then consider production.
  *
  *   pnpm exec tsx scripts/enrichment/products/curated-products/normalize-names.ts
  *   …--brand=<slug>          one brand only
  *   …--apply                 write the fixes (dry run without it)
+ *   …--csv=<path>            rollback CSV path; defaults to
+ *                            normalize-names-<target>-<timestamp>.csv in the cwd
  *   …--target=production     defaults to staging; see scripts/shared/target.ts
+ *
+ * ROLLBACK: every run, dry or not, writes a CSV of each planned fix (id, brand
+ * slug, both names before and after) BEFORE any write. Restoring a row is
+ * `updateCuratedProduct(id, { nameZh: before, nameEn: before })` per line —
+ * note that the write path normalises again, so a restore through the service
+ * cannot bring a token back; that needs a direct column write.
+ *
+ * REVALIDATION ON STAGING IS SKIPPED. `.env.staging` deliberately carries no
+ * ORIGIN_SECRET / FORMORIA_RAILWAY_URL (the old values pointed at production's
+ * origin), so staging has no revalidation route. A staging run skips the
+ * preflight and the post-write request and says so; its pages pick the change
+ * up by ISR (1h) or a staging redeploy. Production keeps both. Upgrade path:
+ * give staging its own origin secret and URL, then drop the skip.
  *
  * The 2026-10-08 public catalog scan found 173 of 1,366 names ending in a
  * shop's random SKU token (「Your Monkey 眼鏡架兼存錢筒 7cFSL8yz」) and 5 names
@@ -80,7 +100,11 @@ function brandSlugOf(row: NameRow): string | null {
   return brands?.slug ?? null;
 }
 
-/** A normalised name, or the stored one when normalising would empty it. */
+/**
+ * A normalised name, or the stored one when normalising would empty it. NOT
+ * `publicCuratedProductName`: that one also hides trailing model codes, which
+ * stay in the stored name as product facts.
+ */
 function normalized(name: string): string {
   return normalizeCuratedProductName(name) || name;
 }
@@ -197,6 +221,54 @@ export async function applyNameFixes({
   return report;
 }
 
+const ROLLBACK_CSV_COLUMNS = [
+  "id",
+  "brand_slug",
+  "before_name_zh",
+  "before_name_en",
+  "after_name_zh",
+  "after_name_en",
+] as const;
+
+/**
+ * Pure: the rollback CSV for a plan, one row per fix, header first. A null
+ * English name is an empty cell. Written before any `--apply` write, so the
+ * file exists even when the run dies mid-way.
+ */
+export function buildRollbackCsv(fixes: readonly NameFix[]): string {
+  const lines = [ROLLBACK_CSV_COLUMNS.join(",")];
+  for (const fix of fixes) {
+    lines.push(
+      [
+        fix.id,
+        fix.brandSlug ?? "",
+        fix.before.nameZh,
+        fix.before.nameEn ?? "",
+        fix.after.nameZh,
+        fix.after.nameEn ?? "",
+      ]
+        .map(escapeCsvField)
+        .join(","),
+    );
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/** `normalize-names-staging-2026-10-09T01-02-03.456Z.csv`: colons are not path-safe everywhere. */
+export function defaultRollbackCsvPath(target: ScriptTarget, now: Date): string {
+  return `normalize-names-${target}-${now.toISOString().replaceAll(":", "-")}.csv`;
+}
+
+/**
+ * Printed instead of revalidating on staging, which has no revalidation route.
+ * Shared with repair-missing-images.ts so both scripts say the same thing.
+ */
+export const STAGING_REVALIDATION_SKIPPED = {
+  revalidation: "skipped",
+  reason:
+    "staging has no revalidation route (no ORIGIN_SECRET / FORMORIA_RAILWAY_URL in .env.staging); pages refresh by ISR (1h) or a staging redeploy",
+} as const;
+
 /** Paged with a stable order: an unpaged read stops at `db-max-rows`. */
 async function loadRows(brandSlug: string | null): Promise<NameRow[]> {
   const supabase = createServiceClient();
@@ -216,15 +288,21 @@ async function loadRows(brandSlug: string | null): Promise<NameRow[]> {
 async function main(): Promise<void> {
   // Strips `--target` and proves the credentials belong to that project
   // before any client opens. Staging is the default.
-  const { argv } = loadScriptTarget();
+  const { target, argv } = loadScriptTarget();
   const apply = parseApplyOption(argv);
   const brandSlug = parseBrandOption(argv);
+  const csvPath = parseCsvPath(argv) ?? defaultRollbackCsvPath(target, new Date());
+  // Staging has no revalidation route — see the header.
+  const revalidate = target !== "staging";
   // Preflight BEFORE the first write: a write that lands while revalidation is
   // unconfigured leaves every touched brand page serving its hour-old shell.
-  if (apply) assertRevalidationConfigured();
+  if (apply && revalidate) assertRevalidationConfigured();
 
   const rows = await loadRows(brandSlug);
   const plan = planNameFixes(rows);
+  // Before any write, so a run that dies mid-way still leaves its rollback.
+  writeFileSync(csvPath, buildRollbackCsv(plan.fixes));
+  console.log(JSON.stringify({ rollbackCsv: csvPath, rows: plan.fixes.length }));
   // Imported here, not at the top: the test imports this module for its pure
   // functions and has no reason to load the whole curated-product service.
   const { updateCuratedProduct } = await import(
@@ -271,6 +349,10 @@ async function main(): Promise<void> {
     return;
   }
   if (report.written === 0) return;
+  if (!revalidate) {
+    console.log(JSON.stringify(STAGING_REVALIDATION_SKIPPED));
+    return;
+  }
 
   // Without this every touched brand page keeps serving the old name from its
   // ISR shell for up to an hour, and the run still exits clean.

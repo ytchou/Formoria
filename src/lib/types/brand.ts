@@ -88,6 +88,8 @@ export type Brand = {
   otherUrls: OtherUrl[];
   productPhotos: string[];
   imageAlts: BrandImageMeta[];
+  /** First active `brand_images` row tagged as a logo; set by `hydrateCardImageMeta` on card surfaces only. */
+  logoUrl?: string | null;
   contactEmail: string | null;
   subcategories: string[];
   subcategoriesEn: string[];

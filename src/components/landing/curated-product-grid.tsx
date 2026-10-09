@@ -55,7 +55,7 @@ export async function CuratedProductGrid({
       contentClassName="text-on-ink"
     >
       <div className="text-center">
-        <h2 className="type-page-title font-ming text-on-ink">
+        <h2 className="type-section text-on-ink">
           {t("selection.headline")}
         </h2>
         <p className="mt-3 type-body text-on-ink">{t("selection.subtitle")}</p>

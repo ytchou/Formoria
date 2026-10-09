@@ -181,6 +181,24 @@ describe("transformCatalogRow", () => {
     const result = transformCatalogRow(baseRow);
     expect(result.productDescriptionEn).toBeNull();
   });
+
+  // Read-side guard (DEV-1989, DS2-01): a stored token or doubled name never
+  // renders, even on a row the backfill has not reached.
+  it("renders the normalised name, not the stored shop token", () => {
+    const result = transformCatalogRow({
+      ...baseRow,
+      name_zh: "米拉諾蕾絲緞帶德訓鞋 khNTqkeV",
+      name_en: "T Torch T Torch",
+    });
+    expect(result.nameZh).toBe("米拉諾蕾絲緞帶德訓鞋");
+    expect(result.nameEn).toBe("T Torch");
+  });
+
+  it("keeps the stored name when normalising would empty it", () => {
+    const result = transformCatalogRow({ ...baseRow, name_zh: "  ", name_en: null });
+    expect(result.nameZh).toBe("  ");
+    expect(result.nameEn).toBeNull();
+  });
 });
 
 describe("interleaveCatalogProducts", () => {

@@ -215,7 +215,7 @@ test.describe("Discovery trail deep", () => {
     await expect(sectionEl).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     // A tile is a list item carrying the product name as a level-3 heading
-    // (inside the link to the brand page). The editorial note is the first
+    // (inside the name link). The editorial note is the first
     // paragraph directly after that link, ahead of the brand name and the
     // longer product description.
     const tiles = sectionEl
@@ -244,35 +244,42 @@ test.describe("Discovery trail deep", () => {
   });
 
   // DS-39: the trail tile's name link is grown to a 44px hit area by a
-  // `::after` overlay, so its own box stays the text's height. DEV-1950 kept
-  // the outbound chip as the route to the brand's site.
-  test("trail tile name has a 44px hit area and an outbound chip", async ({
+  // `::after` overlay, so its own box stays the text's height. R2-12: the name
+  // is the outbound link (with a ↗), the brand line goes to the brand page,
+  // and there is no per-tile pill.
+  test("trail tile name is a 44px outbound link; brand line links the brand page", async ({
     anonPage,
   }) => {
     const response = await anonPage.goto(TRAIL_URL);
     test.skip(response?.status() === 503, "PREVIEW_MODE active");
 
+    // A tile whose product has an outbound link; one without keeps the name
+    // on the brand-page route, which the unit test covers.
     const tile = anonPage
       .locator("li[id^='product-']")
-      .filter({ has: anonPage.locator("a h3") })
+      .filter({ has: anonPage.locator('a[target="_blank"] h3') })
       .first();
     test.skip(
       (await tile.count()) === 0,
-      `trail "${trail!.slug}" has no product supply on this target`,
+      `trail "${trail!.slug}" has no outbound product supply on this target`,
     );
     await expect(tile).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     const nameLink = tile.locator("a:has(h3)");
-    await expect(nameLink).toHaveAttribute("href", /\/brands\/[^/#]+#product-/);
     const hitHeight = await nameLink.evaluate((el) =>
       parseFloat(getComputedStyle(el, "::after").height),
     );
     expect(hitHeight).toBeGreaterThanOrEqual(44);
 
-    const chip = tile.locator('a[target="_blank"]');
-    await expect(chip).toHaveCount(1);
-    await expect(chip).toHaveAttribute("href", /^https?:\/\//);
-    await expect(chip).toHaveAttribute("rel", /noopener/);
-    await expect(chip).toHaveText(/在品牌官網查看|前往品牌官方網站/);
+    await expect(nameLink).toHaveAttribute("href", /^https?:\/\//);
+    await expect(nameLink).toHaveAttribute("rel", /noopener/);
+    await expect(nameLink).toHaveAccessibleName(
+      /在品牌官網查看|前往品牌官方網站/,
+    );
+    // No pill: the name is the tile's only outbound link.
+    await expect(tile.locator('a[target="_blank"]')).toHaveCount(1);
+    await expect(
+      tile.locator('a[href*="/brands/"][href*="#product-"]'),
+    ).toHaveCount(1);
   });
 });

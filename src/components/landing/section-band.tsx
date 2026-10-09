@@ -9,9 +9,11 @@ import { routes } from '@/lib/routes'
  * THE CLOSING CTA BAND.
  *
  * The closing ask, on `surface` — the second material, and the only flat-color
- * background on the page. The recommendation block holds a single CTA; it once
- * sat beside a feature-request ask as two stacked blocks with a heading each,
- * which read as two competing sections at the foot of the page.
+ * background on the page. The newsletter is the band's primary and leads (left
+ * on md+, on top below it); the recommendation is the secondary ask, with a
+ * smaller heading and an outline CTA. The recommendation block holds a single
+ * CTA; it once sat beside a feature-request ask as two stacked blocks with a
+ * heading each, which read as two competing sections at the foot of the page.
  *
  * The newsletter stays a real form rather than the mock's monthly-selection
  * subscribe button: `e2e/tests/newsletter-subscribe.spec.ts` subscribes through
@@ -40,25 +42,27 @@ export default async function SectionBand() {
             wraps below `sm` and only scrolls from `sm` up, so the 393px case
             no longer scrolls at all; `min-w-0` still guards the sm+ scroller. */}
         <div className="grid gap-stack md:grid-cols-2 md:gap-16 items-start">
+          {/* Newsletter: the band's primary, first in reading order. */}
           <div className="min-w-0">
-            <h2 className="type-section">{tRecommend('headline')}</h2>
+            <h2 className="type-section">{tNewsletter('heading')}</h2>
+            <p className="mt-3 type-body-sm">{tNewsletter('subtext')}</p>
+            <div className="mt-6">
+              <EmailCaptureForm />
+            </div>
+          </div>
+
+          {/* Recommendation: the secondary ask, so a smaller heading and an
+              outline CTA. The form's 訂閱 stays the band's one filled button. */}
+          <div className="min-w-0">
+            <h2 className="type-card-title">{tRecommend('headline')}</h2>
             <p className="mt-3 prose-measure type-body-sm">{tRecommend('body')}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <SectionBandCtaLink
                 href={routes.submit.index()}
                 label={tRecommend('cta')}
                 ctaName="submit_brand"
-                className={buttonVariants({ variant: 'primary' })}
+                className={buttonVariants({ variant: 'secondary' })}
               />
-            </div>
-          </div>
-
-          {/* Newsletter */}
-          <div className="min-w-0">
-            <h2 className="type-section">{tNewsletter('heading')}</h2>
-            <p className="mt-3 type-body-sm">{tNewsletter('subtext')}</p>
-            <div className="mt-6">
-              <EmailCaptureForm />
             </div>
           </div>
         </div>

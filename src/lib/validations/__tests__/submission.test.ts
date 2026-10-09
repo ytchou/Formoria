@@ -115,7 +115,7 @@ describe('simplified submission schema', () => {
     }).success).toBe(true)
   })
 
-  it.each(['  ', '茶', '😀'])(
+  it.each(['', '  ', '茶', '😀'])(
     'rejects a name with fewer than two visible characters: %j',
     (name) => {
       const result = createRecommendationSubmissionSchema().safeParse({
@@ -130,6 +130,45 @@ describe('simplified submission schema', () => {
       expect(result.success).toBe(false)
     },
   )
+
+  // An empty field is missing, not short: it must say "enter the name", and
+  // only that — never the length rule on top of it.
+  it.each(['', '   '])('reports an empty name as required: %j', (name) => {
+    const result = createRecommendationSubmissionSchema(t).safeParse({
+      name,
+      website: 'https://example.com',
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    expect(result.success).toBe(false)
+    const nameMessages = result.success
+      ? []
+      : result.error.issues
+          .filter((issue) => issue.path[0] === 'name')
+          .map((issue) => issue.message)
+    expect(nameMessages).toEqual(['validation.nameRequired'])
+  })
+
+  it('reports a one-character name with the length rule', () => {
+    const result = createRecommendationSubmissionSchema(t).safeParse({
+      name: '茶',
+      website: 'https://example.com',
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+
+    const nameMessages = result.success
+      ? []
+      : result.error.issues
+          .filter((issue) => issue.path[0] === 'name')
+          .map((issue) => issue.message)
+    expect(nameMessages).toEqual(['validation.nameMinLength'])
+  })
 
   it('accepts two emoji as two visible characters', () => {
     const result = createRecommendationSubmissionSchema().safeParse({

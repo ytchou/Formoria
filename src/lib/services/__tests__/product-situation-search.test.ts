@@ -122,8 +122,9 @@ describe("normalizeSituationQuery", () => {
     expect(normalizeSituationQuery("　hello　world　")).toBe("hello world");
   });
 
-  it("rejects too_short (< 2 chars after normalize)", () => {
-    expect(() => normalizeSituationQuery("　茶　")).toThrow(SituationQueryError);
+  it("rejects too_short (< 2 chars after normalize) unless the character is Han", () => {
+    expect(normalizeSituationQuery("　茶　")).toBe("茶");
+    expect(() => normalizeSituationQuery("a")).toThrow(SituationQueryError);
     try {
       normalizeSituationQuery("a");
     } catch (e) {
@@ -1614,5 +1615,134 @@ describe("searchProductsBySituation — hidden categories", () => {
     expect(result.armBySlot!.length).toBe(result.products.length);
     // Shadow-logging contracts stay full-pool.
     expect(result.ltrScores).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Diversification on the served path (DEV-1991)
+// ---------------------------------------------------------------------------
+
+describe("searchProductsBySituation — diversification", () => {
+  const brand = (slug: string) => ({
+    brandSlug: slug,
+    brandName: slug,
+    brand: { slug, purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, purchaseMyship: null, socialInstagram: null, socialThreads: null, socialFacebook: null },
+  });
+  // a1 and a2 are size variants of one product (same name stem).
+  const ranked = [
+    product("a1", "陶瓷杯 350ml", brand("cups")),
+    product("a2", "陶瓷杯 500ml", brand("cups")),
+    product("a3", "玻璃壺", brand("cups")),
+    product("b1", "茶壺", brand("teapots")),
+  ];
+
+  function diversifyDeps(overrides: Partial<SearchDeps> = {}): SearchDeps {
+    return createDeps({
+      rpc: vi.fn().mockResolvedValue({
+        data: ranked.map((p, i) => rpcRow(p.id, 1 - i / 10)),
+        error: null,
+      }),
+      hydrate: vi.fn().mockResolvedValue(ranked),
+      ...overrides,
+    });
+  }
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("moves a near-duplicate SKU down in the served relevance order", async () => {
+    const result = await searchProductsBySituation(
+      { query: "結婚禮物推薦", locale: "zh-TW" },
+      diversifyDeps(),
+    );
+    expect(result.products.map((p) => p.id)).toEqual(["a1", "a3", "b1", "a2"]);
+    expect(result.totalCount).toBe(4);
+  });
+
+  it("keeps the raw order for pool generation (relevanceFloor=false)", async () => {
+    const result = await searchProductsBySituation(
+      { query: "結婚禮物推薦", locale: "zh-TW", relevanceFloor: false },
+      diversifyDeps(),
+    );
+    expect(result.products.map((p) => p.id)).toEqual(["a1", "a2", "a3", "b1"]);
+  });
+
+  it("leaves non-relevance sorts alone", async () => {
+    const result = await searchProductsBySituation(
+      { query: "結婚禮物推薦", locale: "zh-TW", sort: "newest" },
+      diversifyDeps(),
+    );
+    expect(result.products.map((p) => p.id)).toEqual(["a1", "a2", "a3", "b1"]);
+  });
+
+  it("moves armBySlot with its product under interleave", async () => {
+    vi.stubEnv("SEARCH_LTR_MODE", "interleave");
+    // Team-Draft is seeded on searchId; pin it so both runs draw the same arms.
+    const uuid = vi
+      .spyOn(crypto, "randomUUID")
+      .mockReturnValue("00000000-0000-4000-8000-000000000000");
+    const deps = diversifyDeps({
+      ltrScore: vi.fn().mockResolvedValue([0.1, 0.2, 0.3, 0.4]),
+      ltrFeatures: vi.fn().mockResolvedValue(new Map()),
+    });
+    const raw = await searchProductsBySituation(
+      { query: "結婚禮物推薦", locale: "zh-TW", relevanceFloor: false },
+      deps,
+    );
+    const served = await searchProductsBySituation(
+      { query: "結婚禮物推薦", locale: "zh-TW" },
+      deps,
+    );
+    uuid.mockRestore();
+
+    const armOf = new Map(raw.products.map((p, i) => [p.id, raw.armBySlot![i]]));
+    expect(served.armBySlot).toHaveLength(served.products.length);
+    served.products.forEach((p, i) => {
+      expect(served.armBySlot![i]).toBe(armOf.get(p.id));
+    });
+  });
+});
+
+describe("searchProductsBySituation — single Han character (R2-02)", () => {
+  const bags = { category: "bags-accessories" };
+  const catalog = [
+    product("tote", "帆布托特", { ...bags, subcategory: "tote-bags" }),
+    product("pouch", "零錢包", { ...bags, subcategory: "handbags" }),
+    product("leather", "名片夾", { ...bags, subcategory: "card-holders", material: ["leather"] }),
+    product("hidden", "隱藏包", { category: "not-a-visible-category" }),
+    product("none", "水壺", bags),
+  ];
+
+  it("matches name, then subcategory label, without embedding or the RPC", async () => {
+    const deps = createDeps({ listCatalog: vi.fn().mockResolvedValue(catalog) });
+    const result = await searchProductsBySituation({ query: "包", locale: "zh-TW" }, deps);
+
+    // 零錢包 by name; 帆布托特 by its subcategory label 托特包.
+    expect(result.products.map((p) => p.id)).toEqual(["pouch", "tote"]);
+    expect(result.totalCount).toBe(2);
+    expect(result.searchSource).toBe("lexical");
+    expect(deps.embed).not.toHaveBeenCalled();
+    expect(deps.rpc).not.toHaveBeenCalled();
+  });
+
+  it("matches the zh material label and honours manual filters", async () => {
+    const deps = createDeps({ listCatalog: vi.fn().mockResolvedValue(catalog) });
+    const result = await searchProductsBySituation(
+      { query: "皮", locale: "zh-TW", materials: ["leather"] },
+      deps,
+    );
+    expect(result.products.map((p) => p.id)).toEqual(["leather"]);
+
+    const filtered = await searchProductsBySituation(
+      { query: "包", locale: "zh-TW", subcategories: ["tote-bags"] },
+      deps,
+    );
+    expect(filtered.products.map((p) => p.id)).toEqual(["tote"]);
+  });
+
+  it("returns an empty result without a catalog source", async () => {
+    const result = await searchProductsBySituation({ query: "包", locale: "zh-TW" }, createDeps());
+    expect(result.totalCount).toBe(0);
   });
 });

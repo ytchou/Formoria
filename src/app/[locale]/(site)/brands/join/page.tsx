@@ -5,9 +5,12 @@ import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { Link } from "@/i18n/navigation";
+import { BrandCard } from "@/components/brands/brand-card";
 import { buttonVariants } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
+import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { routes } from "@/lib/routes";
+import { getRandomBrands } from "@/lib/services/brands";
 
 // Bounds the edge copy to an hour under the Cloudflare HTML cache rule
 // (DEV-1961); without it Next sends s-maxage=31536000.
@@ -63,23 +66,58 @@ const STEP_KEYS = [
   "howItWorksStep3",
 ] as const;
 
+/**
+ * The recruitment CTA, shown under the hero and again at the close. Same
+ * shape and size as the recommend form's submit button it leads to (SP2-23).
+ */
+function RecommendCta({ label, note }: { label: string; note: string }) {
+  return (
+    <>
+      <Link
+        href={routes.submit.recommend()}
+        className={buttonVariants({ variant: "primary" })}
+      >
+        {label}
+        <ArrowRight aria-hidden="true" />
+      </Link>
+      <p className="mt-3 type-body-sm text-ink-soft">{note}</p>
+    </>
+  );
+}
+
 export default async function BrandsJoinPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("brandsJoin");
 
+  // One real approved brand as the example listing (SP2-09). Random among
+  // approved brands, never picked by any editorial or responsiveness signal;
+  // it changes at most once per revalidate window. No brand, no example.
+  const exampleBrands = await getRandomBrands(1).catch(
+    captureReadFailure("brandsJoin.exampleBrand"),
+  );
+  if (exampleBrands === null) {
+    await markRenderDegraded("brandsJoin");
+  }
+  const exampleBrand = exampleBrands?.at(0) ?? null;
+
   return (
     <PageShell as="main" measure="page">
       {/* Hero. Bottom padding is a stack gap, not a section gap: the value
-          props below explain the hero, and a doubled section gap left a void. */}
+          props below explain the hero, and a doubled section gap left a void.
+          The CTA sits under the lede so a convinced owner need not scroll
+          past the whole explainer (SP2-06). */}
       <section className="pt-section pb-stack">
         <p className="type-metadata text-ink-muted">{t("heroSubtitle")}</p>
-        <h1 className="mt-3 type-page-title text-balance">
-          {t("heading")}
+        {/* `break-keep` plus the zh message's `<wbr>`: a 390px screen wraps
+            only between the two phrases, never inside a word (SP2-10). */}
+        <h1 className="mt-3 type-page-title text-balance break-keep">
+          {t.rich("heading", { wbr: () => <wbr /> })}
         </h1>
-        <p className="prose-measure mt-6 type-body text-ink-muted">
-          {t("heroDescription")}
-        </p>
+        <p className="mt-6 type-lede">{t("heroDescription")}</p>
+        <div className="mt-8">
+          <RecommendCta label={t("ctaLabel")} note={t("ctaDescription")} />
+        </div>
       </section>
 
       {/* Value propositions */}
@@ -87,10 +125,13 @@ export default async function BrandsJoinPage({ params }: PageProps) {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-12">
           {VALUE_PROP_KEYS.map((n) => (
             <div key={n}>
-              <h2 className="type-section">
+              {/* h2 by outline (no heading sits between it and the h1),
+                  card size by look, so it steps below the section h2s and
+                  the page reads h1 → section → card (SP2-07). */}
+              <h2 className="type-card-title">
                 {t(`valueProp${n}Title`)}
               </h2>
-              <p className="mt-2 type-body-sm text-ink-muted">
+              <p className="mt-2 type-body-sm text-ink-soft">
                 {t(`valueProp${n}Description`)}
               </p>
             </div>
@@ -101,9 +142,19 @@ export default async function BrandsJoinPage({ params }: PageProps) {
       {/* Trust labels */}
       <section className="border-t border-rule py-section">
         <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-          <h2 className="type-page-title text-balance">
-            {t("trustLabelsHeading")}
-          </h2>
+          <div>
+            <h2 className="type-section text-balance">
+              {t("trustLabelsHeading")}
+            </h2>
+            {exampleBrand ? (
+              <figure className="mt-6 content-column">
+                <figcaption className="mb-3 type-metadata text-ink-muted">
+                  {t("exampleLabel")}
+                </figcaption>
+                <BrandCard brand={exampleBrand} listSource="brands_join_example" />
+              </figure>
+            ) : null}
+          </div>
           <dl className="space-y-6">
             {TRUST_LABEL_KEYS.map((key) => {
               const text = t(key);
@@ -124,7 +175,7 @@ export default async function BrandsJoinPage({ params }: PageProps) {
       {/* How it works */}
       <section className="border-t border-rule py-section">
         <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
-          <h2 className="type-page-title text-balance">
+          <h2 className="type-section text-balance">
             {t("howItWorksHeading")}
           </h2>
           <ol className="space-y-6">
@@ -141,18 +192,7 @@ export default async function BrandsJoinPage({ params }: PageProps) {
       {/* CTA. Points straight at the recommend form: the owner flow has not
           shipped, and /submit only offered a coming-soon card for it. */}
       <section className="border-t border-rule py-section">
-        <Link
-          href={routes.submit.recommend()}
-          className={buttonVariants({
-            variant: "primary",
-            size: "large",
-            shape: "pill",
-          })}
-        >
-          {t("ctaLabel")}
-          <ArrowRight aria-hidden="true" />
-        </Link>
-        <p className="mt-4 type-body-sm text-ink-muted">{t("ctaDescription")}</p>
+        <RecommendCta label={t("ctaLabel")} note={t("ctaDescription")} />
       </section>
     </PageShell>
   );

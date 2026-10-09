@@ -386,12 +386,12 @@ describe("landing page zones", () => {
         `/style/${slug}`,
       );
     }
-    // Desktop shows the first three; the snap row below md shows them all.
+    // Desktop shows the first three; the snap row below lg shows them all.
     for (const card of cards.slice(0, 3)) {
-      expect(card).not.toHaveClass("md:hidden");
+      expect(card).not.toHaveClass("lg:hidden");
     }
     for (const card of cards.slice(3)) {
-      expect(card).toHaveClass("md:hidden");
+      expect(card).toHaveClass("lg:hidden");
     }
 
     // A trail with placements carries its decorative peek; one without none.
@@ -408,7 +408,7 @@ describe("landing page zones", () => {
 
   // Bug caught: with a bare 85% basis each card's min-content width won, so
   // one card filled the 342px row and nothing peeked to say "scroll".
-  it("sizes each trail card to leave the next one peeking below md", async () => {
+  it("sizes each trail card to leave the next one peeking below lg", async () => {
     const slugs = ["a", "b", "c", "d", "e"];
     const { container } = await renderZones({
       trails: slugs.map((slug) => buildTrail(slug)),
@@ -420,11 +420,11 @@ describe("landing page zones", () => {
     for (const card of within(trails).getAllByRole("listitem")) {
       expect(card).toHaveClass("min-w-0");
       expect(card).toHaveClass("basis-[82%]");
-      expect(card).toHaveClass("md:basis-auto");
+      expect(card).toHaveClass("lg:basis-auto");
     }
   });
 
-  it("counts the snap row position below md, decoratively", async () => {
+  it("counts the snap row position below lg, decoratively", async () => {
     const slugs = ["a", "b", "c", "d", "e"];
     const { container } = await renderZones({
       trails: slugs.map((slug) => buildTrail(slug)),
@@ -437,7 +437,7 @@ describe("landing page zones", () => {
     expect(counter).not.toBeNull();
     expect(counter).toHaveTextContent(`1 / ${slugs.length}`);
     expect(counter).toHaveAttribute("aria-hidden", "true");
-    expect(counter).toHaveClass("md:hidden");
+    expect(counter).toHaveClass("lg:hidden");
     // The counter sits under the list, not inside it as a sixth item.
     expect(within(trails).getAllByRole("listitem")).toHaveLength(slugs.length);
   });

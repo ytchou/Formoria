@@ -182,17 +182,19 @@ export function MainNav() {
           })}
           {!user ? <LocaleSwitcher /> : null}
           <Link
-            href={routes.submit.index()}
+            href={routes.submit.recommend()}
             data-ph-no-autocapture
             onClick={() =>
               trackCtaClicked(
                 "submit_brand",
                 "header_nav",
-                routes.submit.index(),
+                routes.submit.recommend(),
                 pathname,
               )
             }
-            className={buttonVariants({ variant: "primary" })}
+            // Ink outline, not a fill: the page's own primary action is the
+            // one filled control per view (SP2-04).
+            className={buttonVariants({ variant: "secondary" })}
           >
             {t("submitBrand")}
           </Link>
@@ -276,19 +278,19 @@ export function MainNav() {
                 {/* CTA */}
                 <div className="mt-6 px-4">
                   <Link
-                    href={routes.submit.index()}
+                    href={routes.submit.recommend()}
                     data-ph-no-autocapture
                     onClick={() => {
                       trackCtaClicked(
                         "submit_brand",
                         "header_nav",
-                        routes.submit.index(),
+                        routes.submit.recommend(),
                         pathname,
                       );
                       setOpen(false);
                     }}
                     className={buttonVariants({
-                      variant: "primary",
+                      variant: "secondary",
                       width: "full",
                     })}
                   >

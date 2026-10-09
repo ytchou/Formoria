@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { buildPrivatePageMetadata } from '@/lib/seo/private-page-metadata'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { redirectIfAuthenticated } from '@/lib/auth/redirect-if-authenticated'
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
@@ -11,10 +12,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('auth')
-  return {
+  return buildPrivatePageMetadata({
+    locale,
     title: t('forgotPassword.heading'),
-    robots: { index: false, follow: true },
-  }
+    description: t('forgotPassword.metaDescription'),
+  })
 }
 
 export default async function ForgotPasswordPage({ params }: PageProps) {

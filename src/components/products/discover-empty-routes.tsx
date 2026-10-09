@@ -19,11 +19,13 @@ type DiscoverEmptyRoutesProps = {
   categories: DiscoverEmptyRouteCategory[];
   trailsHeading: string;
   categoriesHeading: string;
+  /** The brand search for the same query, when it finds any brand. */
+  brandMatch?: { href: string; label: string } | null;
 };
 
 /**
- * The ways forward from a zero-result /discover search: a few discovery
- * trails, then every visible category. It sits beside `EmptyState` rather than
+ * The ways forward from a zero-result /discover search: the brands that match
+ * the query, a few discovery trails, then every visible category. It sits beside `EmptyState` rather than
  * in its `action` slot because that slot takes a single control by contract.
  *
  * Props are localized data, not fetchers, so the page owns every read and
@@ -34,9 +36,19 @@ export function DiscoverEmptyRoutes({
   categories,
   trailsHeading,
   categoriesHeading,
+  brandMatch,
 }: DiscoverEmptyRoutesProps) {
   return (
     <div className="space-y-8">
+      {brandMatch ? (
+        <p className="border-t border-rule pt-6">
+          <Link href={brandMatch.href} className={actionLinkStyles()}>
+            {brandMatch.label}
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        </p>
+      ) : null}
+
       {trails.length > 0 ? (
         <section className="border-t border-rule pt-6">
           <h2 className="type-card-title">{trailsHeading}</h2>

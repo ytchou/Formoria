@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
 import { Grid } from '@/components/ui/grid'
 import { PageShell, shellStyles } from '@/components/ui/page-shell'
+import { buildPrivatePageMetadata } from '@/lib/seo/private-page-metadata'
 
 type Props = {
   params: Promise<{ locale: string }>
@@ -23,10 +24,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('favorites')
-  return {
+  return buildPrivatePageMetadata({
+    locale,
     title: t('metadata.title'),
-    robots: { index: false, follow: true },
-  }
+    description: t('metadata.description'),
+  })
 }
 
 function BrandImage({ brand }: { brand: SavedBrand }) {

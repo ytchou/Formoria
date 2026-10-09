@@ -145,7 +145,9 @@ test.describe("Submit funnel", () => {
 
     // Both CTAs: return home and submit another
     await expect(anonPage.locator('a[href="/"]').first()).toBeVisible();
-    await expect(anonPage.locator('a[href="/submit"]').first()).toBeVisible();
+    await expect(
+      anonPage.locator('a[href="/submit/recommend"]').first(),
+    ).toBeVisible();
 
     // Verify brand_submissions row was created in DB
     const supabase: AnySupabaseClient = createClient(

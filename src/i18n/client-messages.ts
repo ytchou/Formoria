@@ -39,7 +39,6 @@ export const CLIENT_MESSAGE_NAMESPACES = [
   'newsletter',
   'products',
   'saveBrand',
-  'saveProduct',
   'search',
   'settings',
   'stories',
@@ -61,10 +60,6 @@ export const NON_LITERAL_NAMESPACE_CALLERS: Readonly<
 > = {
   // Root-level call with no namespace; reads `nav.*` and `account.*` keys.
   'src/components/auth/account-menu.tsx': ['nav', 'account'],
-  // Takes a `namespace` prop defaulting to 'stories'; no caller overrides it.
-  'src/components/stories/story-row.tsx': ['stories'],
-  // Namespace is `kind === 'brand' ? 'saveBrand' : 'saveProduct'`.
-  'src/components/ui/save-button.tsx': ['saveBrand', 'saveProduct'],
 }
 
 /** Returns only the namespaces in `CLIENT_MESSAGE_NAMESPACES` that exist in `messages`. */

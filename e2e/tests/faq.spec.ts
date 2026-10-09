@@ -2,7 +2,7 @@ import { BUDGET } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 import zhTW from "../../messages/zh-TW.json";
 
-/** Every `faq.items` entry renders as one <details>; see the count assertion below. */
+/** Every `faq.items` entry renders as one <dt>/<dd> pair; see the count assertion below. */
 const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
 
 /**
@@ -10,10 +10,13 @@ const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
  *
  * Journey: Anonymous visitor lands on /faq (zh-TW, the default locale path),
  * sees the three section headings (收錄與選物 / 推薦與審核 / 購買與其他) and
- * every translated expandable item; the #review hash link scrolls its section
- * into view. The 台灣製造 answer names the MIT 微笑標章, says listing review
- * does not judge origin, and never says 認證; the categories answer lists the six visible
- * categories, derived from the taxonomy rather than hard-coded (DEV-1957).
+ * every translated question with its answer already visible: an open list,
+ * never a collapsed panel (DESIGN.md §7, DEV-1988). The #review hash link
+ * scrolls its section into view. The 台灣製造 answer names the MIT 微笑標章
+ * and says listing review does not judge product origin, without calling it
+ * 認證 or promising a 品牌聲明 label that renders nowhere (CP2-08).
+ * The categories answer lists the six visible categories,
+ * derived from the taxonomy rather than hard-coded (DEV-1957).
  *
  * DEV-1570 removed the 品牌主專區 section and the id="claim" answer with the
  * claim flow. The legacy /faq#claim deep link is still asserted to land on the
@@ -23,7 +26,7 @@ const EXPECTED_FAQ_ITEMS = Object.keys(zhTW.faq.items).length;
  * Seed: none
  */
 test.describe("FAQ page", () => {
-  test("@smoke renders the section heading and every translated details element", async ({
+  test("@smoke renders the section headings and every question with its answer open", async ({
     anonPage,
   }) => {
     // /faq is the zh-TW canonical URL (localePrefix: 'as-needed', defaultLocale: 'zh-TW')
@@ -58,28 +61,31 @@ test.describe("FAQ page", () => {
     // (DEV-1414).
     //
     // The coupling is deliberate: every entry under `faq.items` is expected to
-    // render as a <details>, so a mismatch means either an entry the page never
+    // render as one <dt>, so a mismatch means either an entry the page never
     // renders or a rendered item with no copy. Both are worth failing on.
-    await expect(anonPage.locator("details")).toHaveCount(EXPECTED_FAQ_ITEMS, {
+    await expect(anonPage.locator("main dt")).toHaveCount(EXPECTED_FAQ_ITEMS, {
       timeout: BUDGET.RENDERED,
     });
-    const listingDetails = anonPage.locator("details").filter({
+    await expect(anonPage.locator("main dd")).toHaveCount(EXPECTED_FAQ_ITEMS);
+    // No collapsed panels: every answer is visible without a click.
+    await expect(anonPage.locator("main details")).toHaveCount(0);
+    await expect(anonPage.locator("main [aria-expanded]")).toHaveCount(0);
+
+    const listingItem = anonPage.locator("main dl > div").filter({
       hasText: "收錄品牌和 Formoria 選物有什麼不同？",
     });
-    await listingDetails.locator("summary").click();
     await expect(
-      listingDetails.getByText(
+      listingItem.getByText(
         "「收錄品牌」是符合收錄規則、在品牌目錄裡找得到的品牌，不代表 Formoria 推薦、認證或排名。「Formoria 選物」是編輯為某個情境刻意挑選的商品，會另外標示，並寫明挑選的理由。",
         { exact: true },
       ),
     ).toBeVisible();
 
-    const purchaseDetails = anonPage.locator("details").filter({
+    const purchaseItem = anonPage.locator("main dl > div").filter({
       hasText: "可以直接在 Formoria 購買嗎？",
     });
-    await purchaseDetails.locator("summary").click();
     await expect(
-      purchaseDetails.getByText(
+      purchaseItem.getByText(
         "不行。Formoria 不接單，也不處理結帳。價格、規格、庫存、出貨和售後都由品牌或販售的店家負責；我們負責幫你找到它，再把你交到品牌手上。",
         { exact: true },
       ),
@@ -91,27 +97,25 @@ test.describe("FAQ page", () => {
   }) => {
     await anonPage.goto("/en/faq", { timeout: BUDGET.GATED_UI });
 
-    const listingDetails = anonPage.locator("details").filter({
+    const listingItem = anonPage.locator("main dl > div").filter({
       hasText:
         "What is the difference between a listed brand and a Formoria Selection?",
     });
-    await expect(listingDetails.locator("summary")).toBeVisible({
+    await expect(listingItem.locator("dt")).toBeVisible({
       timeout: BUDGET.SERVER_RENDER,
     });
-    await listingDetails.locator("summary").click();
     await expect(
-      listingDetails.getByText(
+      listingItem.getByText(
         "A listed brand meets the listing rules and can be found in the directory. Listing does not mean Formoria recommends, certifies, or ranks it. A Formoria Selection is a product our editors chose on purpose for a particular situation. It is labeled separately, and the reason for choosing it is written out.",
         { exact: true },
       ),
     ).toBeVisible();
 
-    const purchaseDetails = anonPage.locator("details").filter({
+    const purchaseItem = anonPage.locator("main dl > div").filter({
       hasText: "Can I buy through Formoria?",
     });
-    await purchaseDetails.locator("summary").click();
     await expect(
-      purchaseDetails.getByText(
+      purchaseItem.getByText(
         "No. Formoria does not take orders or handle checkout. Price, variants, stock, shipping, and after-sales service are up to the brand or the store selling it. Our job is to help you find it, then hand you to the brand.",
         { exact: true },
       ),
@@ -156,31 +160,31 @@ test.describe("FAQ page", () => {
       anonPage.getByRole("heading", { name: "收錄與選物", level: 2 }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(anonPage.locator("#claim")).toHaveCount(0);
-    await expect(anonPage.locator("details")).toHaveCount(EXPECTED_FAQ_ITEMS, {
+    await expect(anonPage.locator("main dt")).toHaveCount(EXPECTED_FAQ_ITEMS, {
       timeout: BUDGET.RENDERED,
     });
   });
 
   // The badge used to be named two ways (標章 / MIT 認證) across two answers.
-  // One answer names the registry and says listing review does not judge
-  // product origin (the 品牌聲明 sentence was cut in DEV-1994), and never says
-  // 認證 — scoped to this <details>, because the
-  // listing-versus-selection answer legitimately says 不代表…認證.
-  test("台灣製造 answer names the MIT registry and the listing-review limit, not 認證", async ({
+  // One answer names the registry and says listing review does not judge origin.
+  // It calls nothing 認證 — scoped to this item, because the listing-versus-selection
+  // answer says 不代表…認證. It must not mention a 品牌聲明 label: no surface renders one
+  // (CP2-08); restore that assertion only when the label ships.
+  test("台灣製造 answer names the MIT registry and the listing-review limit, not 認證 or an unshipped label", async ({
     anonPage,
   }) => {
     await anonPage.goto("/faq", { timeout: BUDGET.GATED_UI });
 
-    const badgeDetails = anonPage.locator("details").filter({
+    const badgeItem = anonPage.locator("main dl > div").filter({
       hasText: "商品上的「台灣製造」代表什麼？",
     });
-    await expect(badgeDetails.locator("summary")).toBeVisible({
+    await expect(badgeItem.locator("dd")).toBeVisible({
       timeout: BUDGET.SERVER_RENDER,
     });
-    await badgeDetails.locator("summary").click();
-    await expect(badgeDetails).toContainText("「MIT 微笑標章」");
-    await expect(badgeDetails).toContainText("不判斷商品產地");
-    await expect(badgeDetails).not.toContainText("認證");
+    await expect(badgeItem).toContainText("「MIT 微笑標章」");
+    await expect(badgeItem).toContainText("不判斷商品產地");
+    await expect(badgeItem).not.toContainText("品牌聲明");
+    await expect(badgeItem).not.toContainText("認證");
   });
 
   // The answer once claimed twelve categories while the site showed six. It is
@@ -191,17 +195,16 @@ test.describe("FAQ page", () => {
   }) => {
     await anonPage.goto("/faq", { timeout: BUDGET.GATED_UI });
 
-    const categoriesDetails = anonPage.locator("details").filter({
+    const categoriesItem = anonPage.locator("main dl > div").filter({
       hasText: "Formoria 收錄哪些分類？",
     });
-    await expect(categoriesDetails.locator("summary")).toBeVisible({
+    await expect(categoriesItem.locator("dd")).toBeVisible({
       timeout: BUDGET.SERVER_RENDER,
     });
-    await categoriesDetails.locator("summary").click();
-    await expect(categoriesDetails).toContainText(
+    await expect(categoriesItem).toContainText(
       "服飾鞋履、包袋配件、飾品珠寶、美妝保養、居家生活、文具設計",
     );
-    await expect(categoriesDetails).toContainText("6 個");
-    await expect(categoriesDetails).not.toContainText("食品飲料");
+    await expect(categoriesItem).toContainText("6 個");
+    await expect(categoriesItem).not.toContainText("食品飲料");
   });
 });

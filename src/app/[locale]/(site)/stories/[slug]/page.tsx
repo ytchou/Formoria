@@ -36,12 +36,26 @@ import { routes } from "@/lib/routes";
 import { getStoryRelatedTrails } from "@/lib/services/editorial-links";
 import { RelatedTrailLink } from "@/components/stories/related-story-link";
 import { MEASURE_PX } from "@/lib/constants/layout";
+import { contentLangFor } from "@/lib/trails/content-lang";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
 };
 
 export const revalidate = 3600;
+
+/**
+ * The document title. On a page whose locale differs from the story's (every
+ * /en story today), the title says the story is in Chinese; share cards keep
+ * the bare title.
+ */
+export function storyDocumentTitle(
+  title: string,
+  contentLang: string | undefined,
+  titleInChinese: (title: string) => string,
+): string {
+  return contentLang ? titleInChinese(title) : title;
+}
 
 const STORY_HERO_SIZES = `(max-width: ${MEASURE_PX.prose}px) calc(100vw - 3rem), calc(${MEASURE_PX.prose}px - 5rem)`;
 
@@ -102,9 +116,16 @@ export async function generateMetadata({
   // there is no hero image, which is what leaves the inherited default intact.
   const heroImage = story.entry.frontmatter.heroImage;
   const ogLocale = locale === "en" ? "en_US" : "zh_TW";
+  const t = await getTranslations({ locale, namespace: "stories" });
+  const contentLang = contentLangFor(
+    story.entry.frontmatter.locale,
+    locale === "en" ? "en" : "zh-TW",
+  );
 
   return {
-    title: story.entry.frontmatter.title,
+    title: storyDocumentTitle(story.entry.frontmatter.title, contentLang, (title) =>
+      t("titleInChinese", { title }),
+    ),
     description: story.entry.frontmatter.description,
     alternates: { canonical, languages },
     ...(heroImage
@@ -150,6 +171,9 @@ export default async function StoryPage({ params }: PageProps) {
   }
 
   const t = await getTranslations({ locale, namespace: "stories" });
+  // Set when the story's language is not the page's (every /en story until
+  // English editions exist): zh content is marked `lang`, UI labels are not.
+  const contentLang = contentLangFor(story.entry.frontmatter.locale, safeLocale);
 
   // Siblings are resolved against the story's OWN authored locale, not the request
   // locale: `/en` serves the zh-TW document, so asking for the (empty) `en` set here
@@ -204,11 +228,11 @@ export default async function StoryPage({ params }: PageProps) {
         : null;
     })
     .filter((tag): tag is { key: string; label: string } => tag !== null);
-  const seriesTitle =
+  const authoredSeriesTitle =
     story.entry.frontmatter.seriesTitle ??
     series.find((entry) => entry.frontmatter.seriesTitle)?.frontmatter
-      .seriesTitle ??
-    t("seriesHeading");
+      .seriesTitle;
+  const seriesTitle = authoredSeriesTitle ?? t("seriesHeading");
   // Mirrors the visible breadcrumb below, so the two never disagree. Same
   // builder every other content route uses (`/brands/[slug]`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
@@ -254,7 +278,7 @@ export default async function StoryPage({ params }: PageProps) {
             <ChevronRight className="size-3.5" />
           </li>
           <li>
-            <span aria-current="page" className="text-ink">
+            <span aria-current="page" lang={contentLang} className="text-ink">
               {story.entry.frontmatter.title}
             </span>
           </li>
@@ -300,11 +324,17 @@ export default async function StoryPage({ params }: PageProps) {
           sizes={STORY_HERO_SIZES}
           imageQuality={60}
         />
+        {/* Outside every `lang` wrapper: the notice is page-locale text. */}
+        {contentLang ? (
+          <p className="type-body-sm text-ink-muted">
+            {t("untranslatedNotice")}
+          </p>
+        ) : null}
         <header className="space-y-4">
-          <h1 className="type-page-title">
+          <h1 lang={contentLang} className="type-page-title">
             {story.entry.frontmatter.title}
           </h1>
-          <p className="type-body">
+          <p lang={contentLang} className="type-body">
             {story.entry.frontmatter.description}
           </p>
           {/* The byline sits under a hairline, the way a feature's credits do in
@@ -328,7 +358,11 @@ export default async function StoryPage({ params }: PageProps) {
                     href="#series"
                     className="rounded-control hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
-                    {seriesTitle}
+                    <span
+                      lang={authoredSeriesTitle ? contentLang : undefined}
+                    >
+                      {seriesTitle}
+                    </span>
                   </a>
                 </dd>
               </div>
@@ -384,7 +418,7 @@ export default async function StoryPage({ params }: PageProps) {
           Scoped to the MDX body — nothing else on the page saves anything.
         */}
         <SavedBrandsProvider>
-          <div>
+          <div lang={contentLang}>
             <StoryContent
               source={story.content}
             />
@@ -403,7 +437,8 @@ export default async function StoryPage({ params }: PageProps) {
                     trailSurface="story_related_trails"
                     className="text-accent underline underline-offset-4 hover:text-ink"
                   >
-                    {trail.title}
+                    {/* Trails are zh-TW content, like the story. */}
+                    <span lang={contentLang}>{trail.title}</span>
                   </RelatedTrailLink>
                 </li>
               ))}
@@ -412,7 +447,10 @@ export default async function StoryPage({ params }: PageProps) {
         ) : null}
         {story.entry.frontmatter.faq &&
           story.entry.frontmatter.faq.length > 0 && (
-            <FaqBlock questions={story.entry.frontmatter.faq} />
+            <FaqBlock
+              questions={story.entry.frontmatter.faq}
+              lang={contentLang}
+            />
           )}
         {seriesId ? (
           <SeriesNav

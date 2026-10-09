@@ -50,25 +50,26 @@ const INTEREST_LABELS: Record<string, Record<string, string>> = {
 
 const COPY = {
   "zh-TW": {
-    preview: "確認 Formoria 訂閱",
+    preview: "按一下按鈕，完成訂閱",
     heading: "確認訂閱",
-    body: "感謝訂閱 Formoria 電子報。完成確認後，就會收到新的專題、新收錄的品牌和 Formoria 選物。",
-    interestsLabel: "已選擇的主題",
+    body: "確認之後，你會收到新的專題、新收錄的品牌和 Formoria 選物。",
+    interestsLabel: "你選的內容",
     button: "確認訂閱",
-    fallbackLink: "若按鈕無法使用，請開啟此連結：",
-    disclaimer: "若未訂閱 Formoria 電子報，可使用頁尾連結取消訂閱。",
-    subject: "確認 Formoria 訂閱 — Formoria",
+    fallbackLink: "按鈕打不開的話，請用這個連結：",
+    // Double opt-in: until the link is clicked there is no subscription to
+    // cancel, so the disclaimer says to ignore the email, not to unsubscribe.
+    disclaimer: "如果不是你訂閱的，忽略這封信就好，我們不會寄電子報給你。",
+    subject: "請確認訂閱 Formoria 電子報",
   },
   en: {
-    preview: "Confirm your Formoria subscription",
+    preview: "One click to finish subscribing",
     heading: "Confirm your subscription",
-    body: "Thanks for subscribing to the Formoria newsletter. Confirm your subscription to receive new stories, newly listed brands, and Formoria Selections.",
-    interestsLabel: "Selected interests",
+    body: "Once you confirm, you'll get new stories, newly listed brands, and Formoria Selections.",
+    interestsLabel: "What you chose",
     button: "Confirm subscription",
-    fallbackLink: "If the button does not work, open this link:",
-    disclaimer:
-      "If you did not request this subscription, you can unsubscribe from the footer link.",
-    subject: "Confirm your Formoria subscription — Formoria",
+    fallbackLink: "If the button doesn't work, use this link:",
+    disclaimer: "If you didn't sign up, ignore this email. We won't send you anything.",
+    subject: "Confirm your Formoria newsletter subscription",
   },
 } as const;
 

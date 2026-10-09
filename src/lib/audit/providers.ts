@@ -95,8 +95,6 @@ const PROVIDERS = {
     "retireCuratedProduct",
     "retireCuratedProductSelection",
     "retireCuratedProductSource",
-    "saveProduct",
-    "unsaveProduct",
     "updateCuratedProduct",
     "upsertCuratedProductSelection",
     "upsertCuratedProductSource",

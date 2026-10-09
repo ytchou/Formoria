@@ -37,9 +37,9 @@ test.describe("SEO deep", () => {
         path: "/",
         title: "Formoria：台灣好物選物平台",
         description:
-          "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣好物選物平台，從生活出發認識產品與品牌。",
+          "生活可以更像自己一點。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
         heading: "生活可以更像自己一點",
-        lede: "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
+        lede: "從一件喜歡的東西，找到做它的台灣品牌，和買得到它的地方。",
         manifestoHeading: "喜歡的東西，不該只是偶然遇見",
       },
       {
@@ -53,9 +53,9 @@ test.describe("SEO deep", () => {
         // `landing.metadata.description` — always did. Nothing caught
         // it because the suite only runs against deployed staging (DEV-1489).
         description:
-          "A curated platform for Taiwanese goods: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path.",
+          "Life can feel a little more like you. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
         heading: "Life can feel a little more like you",
-        lede: "Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+        lede: "From one thing you love to the Taiwanese brand that makes it, and the place you can buy it.",
         manifestoHeading:
           "The things you love shouldn't just be chance encounters",
       },
@@ -63,7 +63,7 @@ test.describe("SEO deep", () => {
     const aboutLocales = [
       {
         path: "/about",
-        title: "關於我們 | Formoria",
+        title: "關於我們｜Formoria",
         description:
           "Formoria 是台灣好物選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。這裡說明我們怎麼收錄、怎麼挑選，以及不做哪些事。",
         heading: /搬新家、佈置店面、\s*在市集\s*停下來的那一刻/,
@@ -91,8 +91,8 @@ test.describe("SEO deep", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: locale.heading }),
       ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-      // The hero lede carries the brand-voice scene line under the promise;
-      // the positioning subheadline it replaced was deleted in DEV-1965.
+      // The hero lede is one line under the promise (DEV-1990); the
+      // positioning subheadline it replaced was deleted in DEV-1965.
       await expect(page.getByText(locale.lede, { exact: true })).toBeVisible();
       // The trust line "收錄與選物，清楚分開" left the homepage on 2026-08-17
       // when the manifesto band replaced the trust seam. It ships on /faq and
@@ -410,7 +410,8 @@ test.describe("SEO deep", () => {
       "/contact",
       "/terms",
       "/privacy",
-      "/submit",
+      // `/submit` redirects here (DEV-1988); the sitemap lists the target.
+      "/submit/recommend",
     ]);
     const staticLocations = locations.filter((url) => {
       const path =

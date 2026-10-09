@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyNameFixes,
+  buildRollbackCsv,
+  defaultRollbackCsvPath,
   planNameFixes,
   type NameRow,
   type UpdateName,
@@ -162,5 +164,43 @@ describe("applyNameFixes", () => {
     expect(report.written).toBe(1);
     expect(report.failures).toEqual(["a (island-studio): boom"]);
     expect(report.writtenBrandSlugs).toEqual(["other-brand"]);
+  });
+});
+
+describe("buildRollbackCsv (DEV-1989)", () => {
+  it("writes one row per fix with both names before and after", () => {
+    const { fixes } = planNameFixes([
+      row({ id: "a", name_zh: "綁帶甜椒日・白菊姊姊 32141747", name_en: null }),
+      row({
+        id: "b",
+        name_zh: "啵啵杯710ml 啵啵杯710ml",
+        name_en: "Cup, \"Bubble\" Cup, \"Bubble\"",
+        brands: null,
+      }),
+      row({ id: "c" }),
+    ]);
+
+    expect(buildRollbackCsv(fixes)).toBe(
+      [
+        "id,brand_slug,before_name_zh,before_name_en,after_name_zh,after_name_en",
+        "a,island-studio,綁帶甜椒日・白菊姊姊 32141747,,綁帶甜椒日・白菊姊姊,",
+        'b,,啵啵杯710ml 啵啵杯710ml,"Cup, ""Bubble"" Cup, ""Bubble""",啵啵杯710ml,"Cup, ""Bubble"""',
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("writes only the header for an empty plan", () => {
+    expect(buildRollbackCsv([])).toBe(
+      "id,brand_slug,before_name_zh,before_name_en,after_name_zh,after_name_en\n",
+    );
+  });
+});
+
+describe("defaultRollbackCsvPath", () => {
+  it("names the target and a path-safe timestamp", () => {
+    expect(
+      defaultRollbackCsvPath("staging", new Date("2026-10-09T01:02:03.456Z")),
+    ).toBe("normalize-names-staging-2026-10-09T01-02-03.456Z.csv");
   });
 });

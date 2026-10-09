@@ -37,4 +37,36 @@ describe('auth page metadata', () => {
       expect(pageMetadata.robots).toEqual({ index: false, follow: true })
     }
   })
+
+  // CP2-35: without its own description an auth page inherited the
+  // homepage's, in <meta name="description"> and in the share card.
+  it.each([
+    ['sign-in', signInMetadata, 'signIn.metaTitle', 'signIn.metaDescription'],
+    ['sign-up', signUpMetadata, 'signUp.heading', 'signUp.metaDescription'],
+    [
+      'forgot-password',
+      forgotPasswordMetadata,
+      'forgotPassword.heading',
+      'forgotPassword.metaDescription',
+    ],
+    [
+      'reset-password',
+      resetPasswordMetadata,
+      'resetPassword.heading',
+      'resetPassword.metaDescription',
+    ],
+  ] as const)(
+    '%s has its own title and description, also in the share card',
+    async (_name, build, title, description) => {
+      const metadata = await build({ params: Promise.resolve({ locale: 'en' }) })
+
+      expect(metadata.title).toBe(title)
+      expect(metadata.description).toBe(description)
+      expect(metadata.openGraph?.title).toBe(title)
+      expect(metadata.openGraph?.description).toBe(description)
+      expect(metadata.twitter?.description).toBe(description)
+      expect(metadata.openGraph?.locale).toBe('en_US')
+      expect(metadata.alternates).toEqual({ canonical: null, languages: {} })
+    },
+  )
 })
