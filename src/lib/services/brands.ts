@@ -1,5 +1,8 @@
 import { normalizePublicSearchQuery } from "@/lib/brands/normalize-public-search-query";
-import { matchBrandNames, type BrandNameMatch } from "@/lib/brands/brand-name-match";
+import {
+  matchBrandNames,
+  type BrandNameMatch,
+} from "@/lib/brands/brand-name-match";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { auditedCall } from "@/lib/audit";
@@ -60,7 +63,10 @@ import {
   imagePathToUrl,
   storagePathFromImageUrl,
 } from "@/lib/images/image-url";
-import { isBrandOwnedStoragePath } from "@/lib/images/storage-keys";
+import {
+  isBrandOwnedStoragePath,
+  isPublicStorageKey,
+} from "@/lib/images/storage-keys";
 import {
   getBrandImages,
   insertBrandImage,
@@ -87,13 +93,26 @@ import {
  * not a URL: DEV-1551 gave the column a `''` default, which makes `''` the
  * common case for rows written by the two hand-patched SQL functions.
  */
+/**
+ * A hero key as a render URL, or null when the key cannot be served publicly.
+ * A private `submissions/` key always answers 400 through the `/i/` proxy, so
+ * a hero copy left pointing at one (DEV-1989, SP2-33: promotion moves the
+ * `brand_images` row but not the denormalized hero copy) must fall back to the
+ * letter avatar rather than render a broken image.
+ */
+function publicHeroUrl(key: string | null | undefined): string | null {
+  const trimmed = key?.trim();
+  return trimmed && isPublicStorageKey(trimmed)
+    ? imagePathToUrl(trimmed)
+    : null;
+}
+
 function storageBackedHeroFallback(
   legacyUrl: string | null | undefined,
 ): string | null {
   const trimmed = legacyUrl?.trim();
   if (!trimmed) return null;
-  const key = storageKeyFromPublicUrlForRead(trimmed);
-  return key ? imagePathToUrl(key) : null;
+  return publicHeroUrl(storageKeyFromPublicUrlForRead(trimmed));
 }
 function mulberry32(seed: number): () => number {
   return () => {
@@ -250,8 +269,6 @@ type SearchBrandPageRow = {
   search_source: string;
   total_count: number;
 };
-
-
 
 export type SearchBrandAutocompleteResult = SearchSuggestion;
 
@@ -674,7 +691,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     // Ceiling: remove the fallback once those two functions have real source
     // and write the bucket key.
     heroImageUrl:
-      imagePathToUrl(row.hero_image_storage_path) ??
+      publicHeroUrl(row.hero_image_storage_path) ??
       storageBackedHeroFallback(row.hero_image_url),
     heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
@@ -2100,7 +2117,7 @@ const getCachedBrandNameIndex = unstable_cache(
             name: row.name,
             romanizedName: row.romanized_name,
             heroImageUrl:
-              imagePathToUrl(row.hero_image_storage_path) ??
+              publicHeroUrl(row.hero_image_storage_path) ??
               storageBackedHeroFallback(row.hero_image_url),
           }));
       },

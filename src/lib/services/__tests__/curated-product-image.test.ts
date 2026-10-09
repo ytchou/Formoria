@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ImageTextSignals } from "@/lib/curated-products/commerce-text";
 import {
   prepareCuratedProductImage,
   storeCuratedProductImage,
@@ -141,7 +142,15 @@ afterEach(() => {
  * The text reader is injected on every path that gets past the download, so no
  * test here ever calls OpenAI. A clean product photo reads as no text at all.
  */
-const noText = async (): Promise<string> => "";
+const noText = async (): Promise<ImageTextSignals> => signals("");
+
+/** A product-only shot: no overlay, no person. */
+function signals(
+  text: string,
+  overrides: Partial<ImageTextSignals> = {},
+): ImageTextSignals {
+  return { text, textCoverage: 0, endorsementPerson: false, ...overrides };
+}
 
 function stubImageFetch(source: Buffer): void {
   stubFetch(
@@ -160,18 +169,18 @@ describe("prepareCuratedProductImage commerce-truth gate", () => {
   it("rejects an image whose text shows prices or promotions", async () => {
     stubImageFetch(await sourceImage(800, 600));
     // The LAB52 homepage wall image that motivated the gate.
-    const readText = vi.fn(
-      async () => "9月淨齒節 滿額最高再省$220\n贈\n$589\n原價$676",
+    const readSignals = vi.fn(async () =>
+      signals("9月淨齒節 滿額最高再省$220\n贈\n$589\n原價$676"),
     );
 
     await expect(
       prepareCuratedProductImage("https://example.com/promo.png", PRODUCT_ID, {
-        readText,
+        readSignals,
       }),
     ).rejects.toThrow(
       "The image shows prices or promotions ($, 省, 贈); choose a clean product photo",
     );
-    expect(readText).toHaveBeenCalledTimes(1);
+    expect(readSignals).toHaveBeenCalledTimes(1);
   });
 
   it("passes an image whose text carries no commerce markers", async () => {
@@ -180,7 +189,10 @@ describe("prepareCuratedProductImage commerce-truth gate", () => {
     const result = await prepareCuratedProductImage(
       "https://example.com/clean.png",
       PRODUCT_ID,
-      { readText: async () => "OR-21 鋼筆 710ml" },
+      {
+        readSignals: async () =>
+          signals("OR-21 鋼筆 710ml", { textCoverage: 0.05 }),
+      },
     );
 
     expect(result.contentType).toBe("image/webp");
@@ -188,19 +200,19 @@ describe("prepareCuratedProductImage commerce-truth gate", () => {
 
   it("reads the PROCESSED bytes, not the source", async () => {
     stubImageFetch(await sourceImage(2400, 1200));
-    const readText = vi.fn(async (processed: { width: number }) => {
+    const readSignals = vi.fn(async (processed: { width: number }) => {
       expect(processed.width).toBe(1200);
-      return "";
+      return signals("");
     });
 
     await prepareCuratedProductImage(
       "https://example.com/wide.png",
       PRODUCT_ID,
       {
-        readText,
+        readSignals,
       },
     );
-    expect(readText).toHaveBeenCalledTimes(1);
+    expect(readSignals).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed when the text cannot be read", async () => {
@@ -208,7 +220,7 @@ describe("prepareCuratedProductImage commerce-truth gate", () => {
 
     await expect(
       prepareCuratedProductImage("https://example.com/any.png", PRODUCT_ID, {
-        readText: async () => {
+        readSignals: async () => {
           throw new Error("image text request failed (HTTP 503)");
         },
       }),
@@ -229,10 +241,44 @@ describe("prepareCuratedProductImage commerce-truth gate", () => {
           imageSourceUrl: "https://example.com/promo.png",
           previousImageUrl: null,
         },
-        { upload, readText: async () => "限時 8折" },
+        { upload, readSignals: async () => signals("限時 8折") },
       ),
     ).rejects.toThrow(/prices or promotions/);
     expect(upload).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The ad-creative gate (DEV-1989): the three staging review images carried no
+ * price, so the commerce markers let them through.
+ */
+describe("prepareCuratedProductImage ad-creative gate", () => {
+  it.each([
+    [
+      "the spokesperson face-mask ad",
+      signals("超導晶凍面膜 Plus\n品牌代言人", { endorsementPerson: true }),
+      "endorsement, 代言",
+    ],
+    [
+      "the 一件可印 overlay",
+      signals("客製圖案 一件可印\n蓋賀杯", { textCoverage: 0.1 }),
+      "一件可印, 客製",
+    ],
+    [
+      "the banner tile",
+      signals("可收納吸管的雙層吸管杯", { textCoverage: 0.22 }),
+      "text-coverage",
+    ],
+  ])("rejects %s", async (_label, read, reasons) => {
+    stubImageFetch(await sourceImage(800, 600));
+
+    await expect(
+      prepareCuratedProductImage("https://example.com/ad.png", PRODUCT_ID, {
+        readSignals: async () => read,
+      }),
+    ).rejects.toThrow(
+      `The image is an advertisement (${reasons}); choose a clean product photo`,
+    );
   });
 });
 
@@ -284,7 +330,7 @@ describe("prepareCuratedProductImage", () => {
     const result = await prepareCuratedProductImage(
       "https://example.com/large.png",
       PRODUCT_ID,
-      { readText: noText },
+      { readSignals: noText },
     );
 
     expect(result.contentType).toBe("image/webp");
@@ -366,7 +412,7 @@ describe("storeCuratedProductImage dimensions", () => {
         imageSourceUrl: "https://example.com/wide.png",
         previousImageUrl: null,
       },
-      { upload: async ({ path }) => ({ path }), readText: noText },
+      { upload: async ({ path }) => ({ path }), readSignals: noText },
     );
 
     // The processor caps at 1200px on the long edge, so 2400x1200 in must come
