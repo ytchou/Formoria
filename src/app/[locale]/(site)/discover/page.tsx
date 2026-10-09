@@ -17,7 +17,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageShell } from "@/components/ui/page-shell";
 import { captureReadFailure } from "@/lib/degraded-render";
 import { ProductGrid } from "@/components/products/product-grid";
-import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import {
   ProductFilterSidebar,
   ProductFilterDrawer,
@@ -583,7 +582,6 @@ export default async function DiscoverPage({
           />
         )}
 
-        <SavedProductsProvider>
         <ResultsTransitionProvider>
         <DiscoverCategoryChips
           label={t("filters.category")}
@@ -728,7 +726,6 @@ export default async function DiscoverPage({
           </div>
         </div>
         </ResultsTransitionProvider>
-        </SavedProductsProvider>
       </div>
     </PageShell>
   );

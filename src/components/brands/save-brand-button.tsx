@@ -22,7 +22,6 @@ export function SaveBrandButton({
 }: SaveBrandButtonProps) {
   return (
     <SaveButton
-      kind="brand"
       id={brandId}
       slug={slug}
       variant={variant}

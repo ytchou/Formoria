@@ -31,8 +31,6 @@ vi.mock('@/i18n/navigation', () => ({
 vi.mock('@/lib/analytics', () => ({
   trackBrandSaved: vi.fn(),
   trackBrandUnsaved: vi.fn(),
-  trackProductSaved: vi.fn(),
-  trackProductUnsaved: vi.fn(),
 }))
 
 vi.mock('@/hooks/use-saved-brands', () => ({
@@ -40,14 +38,6 @@ vi.mock('@/hooks/use-saved-brands', () => ({
     savedIds: mocks.saves.savedIds,
     loading: mocks.saves.loading,
     toggle: mocks.toggle,
-  }),
-}))
-
-vi.mock('@/hooks/use-saved-products', () => ({
-  useSavedProducts: () => ({
-    savedIds: new Set<string>(),
-    loading: false,
-    toggle: vi.fn(),
   }),
 }))
 
@@ -71,7 +61,7 @@ import { SaveButton } from '@/components/ui/save-button'
 function Subject() {
   return (
     <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
-      <SaveButton kind="brand" id="brand-1" slug="mountain-goods" variant="inline" />
+      <SaveButton id="brand-1" slug="mountain-goods" variant="inline" />
     </NextIntlClientProvider>
   )
 }

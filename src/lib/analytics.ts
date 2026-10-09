@@ -797,30 +797,6 @@ export function trackBrandUnsaved(
   });
 }
 
-export function trackProductSaved(
-  productId: string,
-  productKey: string,
-  location: string,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_SAVED, {
-    product_id: productId,
-    product_key: productKey,
-    location,
-  });
-}
-
-export function trackProductUnsaved(
-  productId: string,
-  productKey: string,
-  location: string,
-) {
-  capturePostHogEvent(ANALYTICS_EVENTS.PRODUCT_UNSAVED, {
-    product_id: productId,
-    product_key: productKey,
-    location,
-  });
-}
-
 export function trackRecommendationBrandClicked(
   brandId: string,
   slug: string,
@@ -854,20 +830,6 @@ export function trackGalleryCompleted(
     brand_id: brandId,
     brand_slug: slug,
     image_count: imageCount,
-  });
-}
-
-export function trackSubmissionPathSelected(
-  path: string,
-  isAuthenticated: boolean,
-) {
-  const utmParams =
-    typeof window !== "undefined" ? getUtmParams(window.location.search) : {};
-
-  capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_PATH_SELECTED, {
-    path,
-    is_authenticated: isAuthenticated,
-    ...utmParams,
   });
 }
 

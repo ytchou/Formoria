@@ -21,7 +21,12 @@ import { routes } from "@/lib/routes";
 
 const PASSWORD_HINT_ID = "password-hint";
 
-export function SignUpForm() {
+type SignUpFormProps = {
+  /** Google sign-up; hidden on staging, the same gate as sign-in. */
+  showOptionalAuthMethods: boolean;
+};
+
+export function SignUpForm({ showOptionalAuthMethods }: SignUpFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(
     signUp,
     {},
@@ -165,7 +170,9 @@ export function SignUpForm() {
         </p>
       </form>
 
-      <GoogleButton action={googleAction} label={t("continueWithGoogle")} />
+      {showOptionalAuthMethods ? (
+        <GoogleButton action={googleAction} label={t("continueWithGoogle")} />
+      ) : null}
 
       <p className="flex flex-wrap items-center justify-center gap-x-1 type-body-sm">
         {t("signUp.hasAccount")}

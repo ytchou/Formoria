@@ -15,18 +15,32 @@ import {
 
 type FooterProps = {
   unsubscribeUrl?: string;
+  /** One language per email: the footer follows the message's locale. */
+  lang?: "zh-TW" | "en";
 };
+
+const FOOTER_COPY = {
+  "zh-TW": {
+    tagline: "Formoria｜台灣好物選物平台",
+    unsubscribe: "取消訂閱",
+  },
+  en: {
+    tagline: "Formoria · A curated platform for Taiwanese goods",
+    unsubscribe: "Unsubscribe",
+  },
+} as const;
 
 /**
  * Left-aligned, matching the masthead. v1 centred all three lines, which put
  * the unsubscribe link in the optical centre of the message — the one place a
  * reader's eye lands on the way down.
  */
-export function Footer({ unsubscribeUrl }: FooterProps) {
+export function Footer({ unsubscribeUrl, lang = "zh-TW" }: FooterProps) {
+  const copy = FOOTER_COPY[lang];
   return (
     <>
       <Hr style={rule} />
-      <Text style={tagline}>Formoria — 台灣好物選物平台</Text>
+      <Text style={tagline}>{copy.tagline}</Text>
       <Text style={contact}>
         <EmailLink href="mailto:ops@formoria.com" tone="muted">
           ops@formoria.com
@@ -35,9 +49,8 @@ export function Footer({ unsubscribeUrl }: FooterProps) {
       {unsubscribeUrl ? (
         <Text style={unsubscribe}>
           <EmailLink href={unsubscribeUrl} tone="muted">
-            取消訂閱
-          </EmailLink>{" "}
-          / Unsubscribe
+            {copy.unsubscribe}
+          </EmailLink>
         </Text>
       ) : null}
     </>

@@ -21,6 +21,9 @@ function Checkbox({ className, indeterminate, onCheckedChange, ref, ...props }: 
       className={cn(
         "size-4 cursor-pointer accent-accent",
         "disabled:cursor-not-allowed disabled:opacity-50",
+        // A native box takes no border colour, so the error state is a ring
+        // (box-shadow), which leaves the browser's focus outline intact.
+        "aria-invalid:ring-2 aria-invalid:ring-danger aria-invalid:ring-offset-2 aria-invalid:ring-offset-ground",
         className
       )}
       onChange={(e) => onCheckedChange?.(e.target.checked)}

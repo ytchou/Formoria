@@ -49,7 +49,6 @@ import { getBrandEditorialAppearances } from "@/lib/services/editorial-links";
 import { PageShell } from "@/components/ui/page-shell";
 import { Typography } from "@/components/ui/typography";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import { SavedProductsProvider } from "@/hooks/use-saved-products";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { getBrandVisitLink } from "@/lib/brands/link-fallback";
@@ -332,7 +331,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
     // here does not add a fetch — it was already mounted on this page, only
     // around the actions slot.
     <SavedBrandsProvider>
-      <SavedProductsProvider>
       <BrandEngagementTracker brandId={displayBrand.id} slug={slug}>
         <PageShell as="main" measure="page" className="py-10">
           <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
@@ -540,7 +538,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
           )}
         </PageShell>
       </BrandEngagementTracker>
-      </SavedProductsProvider>
     </SavedBrandsProvider>
   );
 }

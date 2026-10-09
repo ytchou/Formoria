@@ -48,6 +48,11 @@ import {
 import { useSubmissionAnalytics } from "@/hooks/use-submission-analytics";
 import { routes } from "@/lib/routes";
 import { HoneypotField } from '@/components/forms/honeypot-field'
+import { Check } from "lucide-react";
+
+// Inlined at build time; the widget renders nothing without it, so neither
+// does its row (SP2-21).
+const TURNSTILE_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
 /**
  * A duplicate hit reads as a plain red line, matching every other field error
@@ -108,6 +113,7 @@ export default function SubmitForm({
   const t = useTranslations("submit");
   const tForm = useTranslations("submit.recommendForm");
   const tReview = useTranslations("submit.review");
+  const tOverview = useTranslations("submit.overview");
   const router = useRouter();
   const { complete } = useSubmissionAnalytics(source, "opened");
   const nameBlurRequestRef = useRef(0);
@@ -157,7 +163,6 @@ export default function SubmitForm({
     mode: "onTouched",
   });
 
-  const pdpaConsent = useWatch({ control, name: "pdpaConsent" });
   // Opting into the newsletter makes the otherwise-optional email mandatory
   // (enforced in the schema) — mirror that in the label's required marker.
   const marketingEmailOptIn = useWatch({
@@ -352,7 +357,9 @@ export default function SubmitForm({
           return;
         }
 
-        setPendingRedirect(routes.submit.confirmation());
+        // `sent` is what lets the confirmation page say the recommendation
+        // arrived; opened without it, the page stays neutral (SP2-31).
+        setPendingRedirect(routes.submit.confirmation({ sent: 1 }));
 
         trackSubmissionCompleted(
           data.name,
@@ -394,28 +401,54 @@ export default function SubmitForm({
   );
 
   // The non-field reasons a submit is refused. Field errors stay inline under
-  // their fields; these have no field of their own to sit under.
+  // their fields; these have no field of their own to sit under. PDPA consent
+  // is a field, so its message sits under the checkbox instead (SP2-20).
   const submitBlockers = [
-    !pdpaConsent ? t("validation.pdpaRequired") : null,
     !turnstileToken ? t("validation.turnstileRequired") : null,
     hasUnconfirmedDuplicates ? t("fields.duplicateConfirmRequired") : null,
   ].filter((message): message is string => message !== null);
 
   return (
-    <PageShell as="main" measure="form" className="py-20">
-      <div className="mb-10">
-        <h1 className="text-balance text-center type-page-title">
+    // A `page` shell, with the form capped by a bare `form-measure` below:
+    // a `form` shell centres the column (x≈248 at 1440) while /brands/join
+    // and /contact start at the 64px gutter (SP2-22).
+    <PageShell as="main" measure="page" className="py-section">
+      {/* Left-aligned to the form edge, like every sibling page (SP2-22). The
+          points and the owner line came from the removed /submit hub; they
+          answer "do I need an account" and "is this for owners" (SP2-05). */}
+      <div className="mb-10 prose-measure">
+        <h1 className="text-balance break-keep type-page-title">
           {tForm("heading")}
         </h1>
-        <p className="mt-4 text-center type-body-sm">
-          {tForm("subheading")}
-        </p>
+        <p className="mt-4 type-body text-pretty">{tForm("subheading")}</p>
+        <ul className="mt-4 space-y-2">
+          {(["recommendPoint1", "recommendPoint2", "recommendPoint3"] as const).map(
+            (key) => (
+              <li key={key} className="flex items-start gap-2">
+                <Check
+                  aria-hidden="true"
+                  className="mt-1 size-4 shrink-0 text-ink-muted"
+                />
+                <span className="type-body-sm">{tOverview(key)}</span>
+              </li>
+            ),
+          )}
+        </ul>
+        <p className="mt-4 type-body-sm text-pretty">{tOverview("ownerNote")}</p>
       </div>
 
-      <StandardForm onSubmit={onSubmit} noValidate>
+      {/* Below `sm` the page is the panel: a bordered, padded box inside the
+          24px gutter left the inputs ~290px wide on a 390px screen (SP2-21). */}
+      <StandardForm
+        onSubmit={onSubmit}
+        noValidate
+        className="form-measure max-sm:border-0 max-sm:bg-transparent max-sm:p-0"
+      >
         <div className="flex flex-col gap-5">
           <p className="type-metadata">
-            <span className="text-danger">*</span> {tForm("requiredHint")}
+            {tForm.rich("requiredHint", {
+              mark: (chunks) => <span className="text-danger">{chunks}</span>,
+            })}
           </p>
 
           <div className="grid gap-5 md:grid-cols-2">
@@ -646,11 +679,11 @@ export default function SubmitForm({
                       onCheckedChange={(checked) => field.onChange(checked)}
                       className="mt-0.5 size-[18px] shrink-0"
                       aria-required="true"
-                      // The message itself lives in the submit blockers under
-                      // the button; repeating it here showed it twice.
+                      // The message sits right under this row, not in the
+                      // submit blockers below the button (SP2-20).
                       aria-invalid={fieldState.invalid || undefined}
                       aria-describedby={
-                        fieldState.invalid ? "submit-blockers" : undefined
+                        fieldState.error ? "submit-pdpa-error" : undefined
                       }
                     />
                     <span className="type-body-sm text-ink-soft font-normal">
@@ -672,6 +705,14 @@ export default function SubmitForm({
                       </span>
                     </span>
                   </Label>
+                  {fieldState.error?.message ? (
+                    <p
+                      id="submit-pdpa-error"
+                      className="pl-[30px] type-metadata text-danger"
+                    >
+                      {fieldState.error.message}
+                    </p>
+                  ) : null}
                 </div>
               )}
             />
@@ -679,13 +720,25 @@ export default function SubmitForm({
 
           <HoneypotField {...register("honeypot")} />
 
-          <div className="flex justify-center">
-            <TurnstileWidget
-              onSuccess={handleTurnstileSuccess}
-              onError={handleTurnstileError}
-              onExpire={handleTurnstileExpire}
-            />
-          </div>
+          {/* Reserves the widget's real height (65px) with a status line
+              behind it, so the slot never reads as an empty gap while the
+              widget paints. Both children share one grid cell. */}
+          {TURNSTILE_ENABLED ? (
+            <div className="grid min-h-[65px] place-items-center">
+              {!turnstileToken && !turnstileError ? (
+                <p className="col-start-1 row-start-1 type-metadata">
+                  {tForm("turnstileLoading")}
+                </p>
+              ) : null}
+              <div className="col-start-1 row-start-1">
+                <TurnstileWidget
+                  onSuccess={handleTurnstileSuccess}
+                  onError={handleTurnstileError}
+                  onExpire={handleTurnstileExpire}
+                />
+              </div>
+            </div>
+          ) : null}
           {turnstileError ? (
             <p className="type-body-sm text-danger" role="alert">
               {t("errors.turnstileError")}

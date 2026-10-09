@@ -6,7 +6,6 @@ import { type MouseEvent, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { useSavedBrands } from '@/hooks/use-saved-brands'
-import { useSavedProducts } from '@/hooks/use-saved-products'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -24,32 +23,25 @@ import {
   writePendingSave,
 } from '@/lib/auth/pending-save'
 import { useUser } from '@/lib/auth/use-user'
-import {
-  trackBrandSaved,
-  trackBrandUnsaved,
-  trackProductSaved,
-  trackProductUnsaved,
-} from '@/lib/analytics'
+import { trackBrandSaved, trackBrandUnsaved } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 import { routes } from '@/lib/routes'
 
 const LOADING = Symbol('loading')
 
 type SaveButtonProps = {
-  kind: 'brand' | 'product'
   id: string
-  /** Brand slug (for brand save analytics) or product key (for product save analytics). */
+  /** Brand slug, for brand save analytics. */
   slug: string
   variant?: 'overlay' | 'inline'
   /** `inline` only: a square 44px icon button; the label stays in `aria-label`. */
   iconOnly?: boolean
   className?: string
-  /** Names the item in the accessible label. Only the `saveBrand` namespace carries the named keys. */
+  /** Names the brand in the accessible label. */
   name?: string
 }
 
 export function SaveButton({
-  kind,
   id,
   slug,
   variant = 'overlay',
@@ -57,14 +49,12 @@ export function SaveButton({
   className,
   name,
 }: SaveButtonProps) {
-  const t = useTranslations(kind === 'brand' ? 'saveBrand' : 'saveProduct')
+  const t = useTranslations('saveBrand')
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
   const { user, loading: userLoading } = useUser()
-  const brandCtx = useSavedBrands()
-  const productCtx = useSavedProducts()
-  const ctx = kind === 'brand' ? brandCtx : productCtx
+  const ctx = useSavedBrands()
   const isSaved = ctx.savedIds.has(id)
   const label = isSaved ? t('unsave') : t('save')
   const iconRef = useRef<SVGSVGElement>(null)
@@ -86,18 +76,10 @@ export function SaveButton({
   )
 
   function toggleSave(saved: boolean) {
-    if (kind === 'brand') {
-      if (saved) {
-        trackBrandUnsaved(id, slug, variant)
-      } else {
-        trackBrandSaved(id, slug, variant)
-      }
+    if (saved) {
+      trackBrandUnsaved(id, slug, variant)
     } else {
-      if (saved) {
-        trackProductUnsaved(id, slug, variant)
-      } else {
-        trackProductSaved(id, slug, variant)
-      }
+      trackBrandSaved(id, slug, variant)
     }
     ctx.toggle(id)
 
@@ -134,7 +116,7 @@ export function SaveButton({
     }
 
     // A save asked for before signing in, in this tab, for this exact item.
-    if (userId !== null && takePendingSave(sessionStorageOrNull(), kind, id)) {
+    if (userId !== null && takePendingSave(sessionStorageOrNull(), 'brand', id)) {
       if (!isSaved) toggleSave(false)
       toast.success(t('savedToast'))
     }
@@ -162,7 +144,7 @@ export function SaveButton({
     document.cookie = `post_auth_next=${encodeURIComponent(
       localizedPath
     )}; path=/; max-age=600; SameSite=Lax`
-    writePendingSave(sessionStorageOrNull(), kind, id)
+    writePendingSave(sessionStorageOrNull(), 'brand', id)
     setPromptOpen(false)
     router.push(routes.auth.signIn({ reason: 'save' }))
   }

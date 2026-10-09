@@ -121,9 +121,9 @@
   "brandsJoin": {
     "metaTitle": "品牌收錄說明",
     "metaDescription": "台灣品牌怎麼收錄進 Formoria 品牌目錄、選物怎麼挑，以及購買連結會連到哪裡。",
-    "heading": "你的品牌怎麼出現在 Formoria",
+    "heading": "你的品牌<wbr></wbr>怎麼出現在 Formoria",
     "heroSubtitle": "給品牌的說明",
-    "heroDescription": "Formoria 整理台灣品牌的資料，讓讀者照自己的需要去找。品牌目錄依公開規則收錄；Formoria 選物由編輯獨立挑選；購買連結一律回到品牌自己的通路。",
+    "heroDescription": "Formoria 整理台灣品牌的資料，讓訪客照自己的需要去找。品牌目錄依公開規則收錄；Formoria 選物由編輯獨立挑選；購買連結一律回到品牌自己的通路。",
     "valueProp1Title": "依分類被找到",
     "valueProp1Description": "通過審核後，品牌會列在對應的分類裡，訪客可以依分類或搜尋找到。",
     "valueProp2Title": "Formoria 選物",
@@ -131,6 +131,7 @@
     "valueProp3Title": "購買回到你的通路",
     "valueProp3Description": "購買連結一律連到品牌自己的官網或商店，Formoria 不經手任何交易。",
     "trustLabelsHeading": "Formoria 上的標示代表什麼",
+    "exampleLabel": "範例：收錄品牌在目錄裡的樣子",
     "trustLabelDirectory": "收錄品牌 — 符合收錄規則、通過審核的品牌。不代表推薦、認證或排名。",
     "trustLabelSelection": "Formoria 選物 — 編輯為特定情境挑選的商品，每一件都寫出理由。品牌不能申請，也不能付費取得。",
     "trustLabelProvided": "品牌提供 — 品牌給的資料或圖片，會標出來源。提供資料不代表一定刊出，也不能決定內容怎麼寫。",
@@ -140,8 +141,8 @@
     "howItWorksStep1": "用推薦表單送出品牌名稱，附上品牌官網或線上商店的連結。",
     "howItWorksStep2": "Formoria 團隊審核資料，確認品牌符合收錄規則。",
     "howItWorksStep3": "審核通過後，品牌會列進品牌目錄，訪客就能在目錄裡找到你。",
-    "ctaLabel": "提交品牌資料",
-    "ctaDescription": "先以推薦表單提交，審核通過後我們會與你聯繫，討論如何管理品牌頁。"
+    "ctaLabel": "推薦你的品牌",
+    "ctaDescription": "目前請先用推薦表單送出，審核通過後我們會寫信給你，再談品牌頁怎麼管理。"
   },
   "landing": {
     "metadata": {
@@ -802,20 +803,20 @@
         "description": "了解 Formoria 的服務條款，包括內容所有權、資料使用方式、品牌審核流程及免責聲明。"
       },
       "title": "服務條款",
-      "intro": "感謝您使用 Formoria。使用本平台即表示您同意以下條款。請在提供品牌資料前仔細閱讀。",
+      "intro": "使用 Formoria 即表示你同意以下條款。提供品牌資料前，請先詳細閱讀。",
       "lastUpdated": "最後更新：2026 年 8 月",
       "contentOwnership": {
         "heading": "內容所有權",
-        "body": "您提供給 Formoria 的品牌資料（包括名稱、描述、圖片、連結等）應為您合法擁有或已獲授權使用的內容。提供內容即表示您授予 Formoria 非獨家、免授權費的使用權，用於在本平台展示及推廣台灣品牌。"
+        "body": "你提供給 Formoria 的品牌資料（包括名稱、描述、圖片、連結等）應為你合法擁有或已獲授權使用的內容。提供內容即表示你授予 Formoria 非獨家、免授權費的使用權，用來在本平台展示及推廣台灣品牌。"
       },
       "dataUse": {
         "heading": "資料使用方式",
-        "body": "品牌資料用於建立與維護目錄、提供搜尋與選物功能、改善資料品質，以及在 Formoria 上展示與推廣台灣品牌。我們不會將您的個人資料或品牌資訊出售予第三方。資料使用方式以本條款及相關隱私政策為準。"
+        "body": "品牌資料用於建立與維護目錄、提供搜尋與選物功能、改善資料品質，以及在 Formoria 上展示與推廣台灣品牌。我們不會將你的個人資料或品牌資訊出售給第三方。資料使用方式以本條款及《隱私權政策》為準。"
       },
       "automatedAccess": {
         "heading": "自動化存取與資料擷取",
-        "body": "一般瀏覽、經允許的搜尋引擎索引，以及標註 Formoria 出處並連回原始頁面的引用，均不在本條限制之列。除上述情形外，未經 Formoria 事前書面同意，您不得以自動化方式大量擷取本平台目錄內容、重製或散布本平台資料集之全部或重要部分、將本目錄複製為競爭性或商業性服務、大規模轉載本平台編輯撰寫之品牌介紹、以本平台內容訓練或微調人工智慧模型、規避流量限制、存取控制或人機驗證機制，亦不得逾越圖片權利人授權 Formoria 之範圍使用來源圖片。",
-        "bodyDetail": "自動化程式應遵守本平台在 /robots.txt 公布的機器可讀規則：這些規則允許搜尋索引與生成式回答中的引用，但不允許用於人工智慧模型訓練。如有學術研究、授權合作或大量資料存取需求，請來信 <hello>hello@formoria.com</hello>，我們將個案審酌。"
+        "body": "一般瀏覽、經允許的搜尋引擎索引，以及標註 Formoria 出處並連回原始頁面的引用，均不在本條限制之列。除上述情形外，未經 Formoria 事前書面同意，你不得以自動化方式大量擷取本平台目錄內容、重製或散布本平台資料集之全部或重要部分、將本目錄複製為競爭性或商業性服務、大規模轉載本平台編輯撰寫之品牌介紹、以本平台內容訓練或微調人工智慧模型、規避流量限制、存取控制或人機驗證機制，亦不得逾越圖片權利人授權 Formoria 之範圍使用來源圖片。",
+        "bodyDetail": "自動化程式應遵守本平台在 /robots.txt 公布的機器可讀規則：這些規則允許搜尋索引與生成式回答中的引用，但不允許用來訓練人工智慧模型。有學術研究、授權合作或大量資料存取需求的話，請來信 <hello>hello@formoria.com</hello>，我們會個別審酌。"
       },
       "reviewProcess": {
         "heading": "品牌審核流程",
@@ -827,36 +828,36 @@
       },
       "changes": {
         "heading": "條款變更",
-        "body": "Formoria 保留隨時修改本服務條款的權利。重大變更將於平台公告，持續使用本服務即視為接受更新後的條款。如有疑問，請來信 <hello>hello@formoria.com</hello>。"
+        "body": "Formoria 保留隨時修改本服務條款的權利。重大變更會在本平台公告，持續使用本服務即視為接受更新後的條款。有疑問的話，請來信 <hello>hello@formoria.com</hello>。"
       }
     },
     "privacy": {
       "metadata": {
         "title": "隱私權政策",
-        "description": "了解 Formoria 如何依據《個人資料保護法》蒐集、處理及利用您的個人資料。"
+        "description": "了解 Formoria 如何依據《個人資料保護法》蒐集、處理及利用你的個人資料。"
       },
       "title": "隱私權政策",
-      "intro": "本政策說明我們如何依據中華民國《個人資料保護法》蒐集、處理及利用您的個人資料。",
+      "intro": "本政策說明我們如何依據中華民國《個人資料保護法》蒐集、處理及利用你的個人資料。",
       "lastUpdated": "最後更新：2026 年 7 月",
       "dataCollection": {
         "heading": "資料蒐集",
-        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：推薦品牌、提供品牌資料、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌創立縣市、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。若您選擇接收行銷信件，我們也會保存同意類別、來源、版本與時間。我們使用 PostHog 和 Google Analytics 4 記錄瀏覽與使用事件。分析事件會記錄您在站內搜尋輸入的關鍵字，讓我們了解訪客想找什麼、補上找不到的品牌；若搜尋內容看起來像電子郵件地址或電話號碼，則完全不會記錄。分析事件不包含表單內容、姓名、電子郵件地址、電話號碼、驗證碼或權杖。"
+        "body": "當你使用 Formoria 時，我們可能蒐集以下個人資料：推薦品牌、提供品牌資料、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌成立的縣市、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集你的電子郵件與驗證資訊。你選擇接收行銷信件的話，我們也會保存同意類別、來源、版本與時間。我們使用 PostHog 和 Google Analytics 4 記錄瀏覽與使用事件。分析事件會記錄你在站內搜尋輸入的關鍵字，讓我們了解訪客想找什麼、補上找不到的品牌；搜尋內容看起來像電子郵件地址或電話號碼的話，完全不會記錄。分析事件不包含表單內容、姓名、電子郵件地址、電話號碼、驗證碼或權杖。"
       },
       "purpose": {
         "heading": "使用目的",
-        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌瀏覽與搜尋功能、補充與校正品牌資料、防止垃圾訊息與濫用、改善網站功能與使用體驗，以及處理您的品牌推薦、認領、驗證、安全性與帳號相關通知。只有在您另外選擇同意後，我們才會寄送電子報，且您可以隨時關閉。是否同意行銷信件不影響您推薦品牌、建立帳號或使用核心服務。"
+        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌瀏覽與搜尋功能、補充與校正品牌資料、防止垃圾訊息與濫用、改善網站功能與使用體驗，以及處理你的品牌推薦、認領、驗證、安全性與帳號相關通知。只有在你另外選擇同意後，我們才會寄送電子報，你也可以隨時關閉。是否同意行銷信件，不影響你推薦品牌、建立帳號或使用核心服務。"
       },
       "thirdParty": {
         "heading": "第三方服務",
-        "body": "為提供本服務，我們使用以下第三方服務供應商：Supabase（資料庫與身分驗證，伺服器位於美國）、Resend（電子郵件寄送，資料可能於美國處理）、PostHog 與 Google Analytics 4（網站分析，資料處理於美國）、Sentry（錯誤監控，資料處理於美國）、Cloudflare Turnstile（機器人防護），以及 Railway（網站託管，伺服器位於美國）。我們不會將您的個人資料出售予第三方。資料僅在提供服務所必要之範圍內共享。"
+        "body": "為提供本服務，我們使用以下第三方服務供應商：Supabase（資料庫與身分驗證，伺服器位於美國）、Resend（電子郵件寄送，資料可能在美國處理）、PostHog 與 Google Analytics 4（網站分析，資料在美國處理）、Sentry（錯誤監控，資料在美國處理）、Cloudflare Turnstile（機器人防護），以及 Railway（網站託管，伺服器位於美國）。我們不會將你的個人資料出售給第三方。資料僅在提供服務所必要之範圍內共享。"
       },
       "userRights": {
-        "heading": "您的權利",
-        "body": "依據《個人資料保護法》第三條，您享有以下權利：查詢或請求閱覽您的個人資料、請求製給複製本、請求補充或更正、請求停止蒐集、處理或利用，以及請求刪除。如欲行使上述權利，請來信 <privacy>privacy@formoria.com</privacy>，我們將於三十日內回覆您的請求。"
+        "heading": "你的權利",
+        "body": "依據《個人資料保護法》第三條，你享有以下權利：查詢或請求閱覽你的個人資料、請求製給複製本、請求補充或更正、請求停止蒐集、處理或利用，以及請求刪除。要行使上述權利，請來信 <privacy>privacy@formoria.com</privacy>，我們會在三十日內回覆你的請求。"
       },
       "dataProtection": {
         "heading": "資料保護",
-        "body": "我們採取適當的安全措施保護您的個人資料，包括：全站使用 HTTPS 加密連線、實施存取控制以限制資料存取權限，以及定期檢視安全措施。品牌資料於品牌收錄期間保留，帳號資料於帳號存續期間保留，行銷同意紀錄則保留至您撤回同意或要求刪除為止。退訂後，我們可能保留最少量的退訂紀錄，以避免再次寄送您已拒絕的行銷信件。"
+        "body": "我們採取適當的安全措施保護你的個人資料，包括：全站使用 HTTPS 加密連線、實施存取控制以限制資料存取權限，以及定期檢視安全措施。品牌資料在品牌收錄期間保留，帳號資料在帳號存續期間保留，行銷同意紀錄則保留到你撤回同意或要求刪除為止。退訂後，我們可能保留最少量的退訂紀錄，以免再寄給你已經拒絕的行銷信件。"
       },
       "cookies": {
         "heading": "Cookie 與追蹤技術",
@@ -864,11 +865,11 @@
       },
       "changes": {
         "heading": "政策變更",
-        "body": "我們可能不定期更新本隱私權政策。重大變更將於本頁面公告並更新「最後更新」日期。您於變更後繼續使用本服務，即表示您同意更新後的政策內容。"
+        "body": "我們可能不定期更新本隱私權政策。重大變更會在這一頁公告，並更新「最後更新」日期。你在變更後繼續使用本服務，即表示你同意更新後的政策內容。"
       },
       "contact": {
         "heading": "聯絡我們",
-        "body": "如對本隱私權政策有任何疑問，或欲行使您的個人資料相關權利，請來信：<privacy>privacy@formoria.com</privacy>。我們將依據《個人資料保護法》規定，於三十日內回覆您的請求。"
+        "body": "對本隱私權政策有疑問，或想行使你的個人資料相關權利，請來信：<privacy>privacy@formoria.com</privacy>。我們會依《個人資料保護法》規定，在三十日內回覆你的請求。"
       }
     }
   },
@@ -888,7 +889,7 @@
     "items": {
       "whatIsFormoria": {
         "question": "Formoria 是什麼？",
-        "answer": "Formoria 是台灣好物選物平台。目前從可搜尋的品牌收錄出發，整理品牌資料、產品特色，以及品牌官方的線上購買與實體通路；由 Formoria 挑選的內容會另外標示。"
+        "answer": "Formoria 是台灣好物選物平台：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。品牌目錄照公開的規則收錄品牌；Formoria 選物是編輯挑出來、寫下理由的商品。我們不賣東西，要買都在品牌自己的通路。"
       },
       "listingVsSelection": {
         "question": "收錄品牌和 Formoria 選物有什麼不同？",
@@ -898,13 +899,9 @@
         "question": "可以直接在 Formoria 購買嗎？",
         "answer": "不行。Formoria 不接單，也不處理結帳。價格、規格、庫存、出貨和售後都由品牌或販售的店家負責；我們負責幫你找到它，再把你交到品牌手上。"
       },
-      "whoCanSubmit": {
-        "question": "誰可以推薦品牌？",
-        "answer": "任何人都可以推薦，不必是品牌方。"
-      },
       "taiwaneseBrandCriteria": {
         "question": "什麼樣的品牌符合收錄資格？",
-        "answer": "只要品牌在台灣創立、設計或製造，符合其中任何一項即可。例如：在台北創立的公司符合「創立」條件；在台灣設計、海外生產的工作室符合「設計」條件；在鶯歌製作產品的工坊符合「製造」條件。品牌方、喜歡這個品牌的人，誰都可以推薦。"
+        "answer": "品牌在台灣成立、在台灣設計，或是台灣製造，符合其中一項就可以。例如：在台北成立的公司符合「成立」；在台灣設計、海外生產的工作室符合「設計」；在鶯歌做商品的工坊符合「製造」。"
       },
       "notListedBrands": {
         "question": "哪些類型的品牌不會被收錄？",
@@ -915,12 +912,12 @@
         "answer": "「台灣製造」只代表標出它的那件商品。商品要和經濟部「MIT 微笑標章」的最新登錄資料相符，或經檢查確認在台灣製造、主要材料也來自台灣，才會標上。收錄審核只確認品牌真實存在、符合收錄規則，不判斷商品產地。"
       },
       "howToSubmit": {
-        "question": "如何推薦品牌到 Formoria？",
-        "answer": "任何人都可以推薦。到「推薦品牌」頁填品牌名稱和官方連結，送出後由 Formoria 審核。推薦不收費；審核會確認資料完整、品牌真實存在，以及品牌和台灣的連結。"
+        "question": "怎麼推薦品牌給 Formoria？",
+        "answer": "任何人都可以推薦，不必是品牌方：到「推薦品牌」頁填品牌名稱和官方連結就能送出。推薦不收費。"
       },
       "reviewTime": {
         "question": "推薦的品牌要審核多久？",
-        "answer": "審核通常約 7 個工作天。我們會確認品牌真實存在、資料完整，並符合收錄規則。審核通過後，品牌會出現在品牌目錄裡；資料不完整的話，我們可能會寫信請推薦人補充。"
+        "answer": "審核通常約 7 個工作天。我們會確認品牌真實存在、資料完整、和台灣有實際的連結，並符合收錄規則。審核通過後，品牌會出現在品牌目錄裡；資料不完整的話，我們可能會寫信請推薦人補充。"
       },
       "dataAccuracy": {
         "question": "品牌資料錯了怎麼辦？",
@@ -995,7 +992,7 @@
       "heading": "四個常見的時刻",
       "items": {
         "intention": {
-          "scene": "搬新家，想讓客廳的角落不一樣，最後還是走進 IKEA。",
+          "scene": "搬新家，想讓客廳的角落不一樣，最後還是買了大賣場那一款。",
           "detail": "搜尋跳出來的多半是賣場和比價頁，很少有地方照空間、場合或預算，把台灣的東西排在一起逛。"
         },
         "encounter": {
@@ -1015,7 +1012,7 @@
     "loop": {
       "heading": "把路接起來",
       "body1": "Formoria 是台灣好物選物平台。我們不賣東西，也不是媒體：我們把台灣品牌的資料整理好、分好類，讓你照自己的需要去找；少數由我們挑出來的商品，會另外標成 Formoria 選物。",
-      "body2": "從一件喜歡的東西出發，你可以認識做它的品牌、了解品牌的故事，然後走到買得到它的地方。這條路本來是斷的，我們把它接起來。",
+      "body2": "從一件喜歡的東西出發，你可以認識做它的品牌、了解品牌的故事，然後走到買得到它的地方。這條路常常走到一半就斷了，Formoria 想把它接起來。",
       "pullQuote": "Formoria 不經手買賣。我們把你喜歡的東西和買得到它的地方接起來，接下來交給品牌。",
       "brandHeading": "對品牌來說",
       "brandBody": "台灣的好東西散在各自的官網、市集和社群帳號裡。Formoria 把這些品牌整理進同一個目錄，讓找東西的人能依分類找到，再走到品牌自己的官網或實體通路。我們不抽成，也不代售。"
@@ -1070,7 +1067,7 @@
   "auth": {
     "emailPlaceholder": "you@example.com",
     "validation": {
-      "emailInvalid": "請輸入有效的電子郵件地址",
+      "emailInvalid": "電子郵件格式不對，請再檢查一次",
       "passwordRequired": "請輸入密碼",
       "passwordMinLength": "密碼至少需要 8 個字元",
       "passwordMismatch": "兩次輸入的密碼不一致"
@@ -1078,7 +1075,9 @@
     "signIn": {
       "heading": "登入 Formoria",
       "metaTitle": "登入",
+      "metaDescription": "登入 Formoria，查看你收藏的品牌和帳號設定。",
       "subheading": "用電子郵件或 Google 帳號登入",
+      "subheadingEmailOnly": "用電子郵件登入",
       "context": {
         "favorites": "登入後即可查看你的收藏",
         "settings": "登入後即可管理帳號設定"
@@ -1099,6 +1098,7 @@
     },
     "forgotPassword": {
       "heading": "重設密碼",
+      "metaDescription": "輸入電子郵件，我們會寄重設密碼的連結給你。",
       "subheading": "輸入電子郵件，我們會寄重設連結給你。",
       "emailLabel": "電子郵件",
       "submit": "傳送重設連結",
@@ -1109,6 +1109,7 @@
     },
     "resetPassword": {
       "heading": "設定新密碼",
+      "metaDescription": "幫你的 Formoria 帳號設定新密碼。",
       "subheading": "請輸入新密碼",
       "passwordLabel": "新密碼",
       "passwordHint": "至少 8 個字元",
@@ -1122,7 +1123,8 @@
     },
     "signUp": {
       "heading": "建立帳號",
-      "subheading": "建立帳號後，可以收藏喜歡的商品和品牌。",
+      "metaDescription": "建立 Formoria 帳號，收藏喜歡的品牌。",
+      "subheading": "建立帳號後，可以收藏喜歡的品牌。",
       "emailLabel": "電子郵件",
       "passwordLabel": "密碼",
       "passwordHint": "至少 8 個字元",
@@ -1146,7 +1148,8 @@
   },
   "favorites": {
     "metadata": {
-      "title": "收藏品牌"
+      "title": "收藏品牌",
+      "description": "你在 Formoria 收藏的品牌。"
     },
     "heading": "收藏品牌",
     "count": "{count} 個品牌",
@@ -1156,7 +1159,8 @@
   },
   "settings": {
     "metadata": {
-      "title": "帳號設定"
+      "title": "帳號設定",
+      "description": "管理顯示名稱、語言和電子報設定。"
     },
     "heading": "帳號設定",
     "subheading": "管理個人資料與偏好設定",
@@ -1168,17 +1172,17 @@
     "marketingDescription": "電子報預設關閉，要你自己開啟，隨時都能關掉。帳號驗證、密碼重設和審核結果這類必要通知不受影響。",
     "newsletterMarketingLabel": "Formoria 電子報",
     "newsletterMarketingDescription": "新的專題、新收錄的品牌和 Formoria 選物。開啟後要先完成信箱確認。",
-    "newsletterPending": "確認信已寄出；完成信箱確認後才會開始寄送電子報。",
-    "unsubscribeAllMarketing": "取消訂閱所有電子報",
-    "marketingUnsubscribedAll": "已取消訂閱所有電子報",
-    "marketingUpdateError": "部分電子郵件偏好無法更新，請再試一次",
+    "newsletterPending": "確認信已寄出。點開信裡的連結後，才會開始收到電子報。",
+    "unsubscribeAllMarketing": "取消訂閱電子報",
+    "marketingUnsubscribedAll": "已取消訂閱電子報",
+    "marketingUpdateError": "電子報設定沒有儲存成功，請再試一次。",
     "submit": "儲存設定",
     "submitting": "儲存中…",
     "saved": "設定已儲存",
     "unauthorized": "請先登入再更新設定。",
     "validation": {
       "displayNameMaxLength": "顯示名稱不能超過 50 個字元",
-      "invalidLocale": "請選擇有效的語言"
+      "invalidLocale": "請從清單選一個語言"
     }
   },
   "forms": {
@@ -1224,26 +1228,20 @@
       "description": "推薦一個台灣品牌給 Formoria，審核通過後會收錄進品牌目錄。"
     },
     "overview": {
-      "heading": "推薦台灣品牌",
-      "description": "推薦你喜歡的台灣品牌，我們審核後會收錄進品牌目錄。",
-      "recommendEyebrow": "社群推薦",
-      "recommendTitle": "推薦一個值得被看見的品牌",
-      "recommendDescription": "熟客、朋友或品牌方自己，都可以用這份表單推薦。",
       "recommendPoint1": "不用登入，也不用註冊帳號",
       "recommendPoint2": "只要品牌名稱和網址就能送出",
       "recommendPoint3": "審核通過後收錄進品牌目錄",
-      "recommendCta": "推薦品牌",
-      "ownerNote": "是品牌方嗎？目前也請用這份表單提交，審核通過後我們會與你聯繫，討論如何管理品牌頁。"
+      "ownerNote": "是品牌方嗎？目前也請用這份表單推薦，審核通過後我們會寫信給你，再談品牌頁怎麼管理。"
     },
     "attribution": {
-      "bought_product": "買過他們的產品",
+      "bought_product": "買過他們的東西",
       "saw_at_market": "在市集或實體通路看到",
       "found_online": "在網路上發現",
       "friend_recommended": "朋友推薦",
       "work_there": "我在這個品牌工作"
     },
     "fields": {
-      "nameDuplicateTitle": "發現相似品牌名稱",
+      "nameDuplicateTitle": "目錄裡有名稱相近的品牌",
       "websiteDuplicateTitle": "目錄裡已有品牌用了這個網址",
       "nameDuplicateConfirmLabel": "我確認這不是重複的品牌",
       "duplicateConfirmRequired": "請先確認這不是重複的品牌",
@@ -1259,6 +1257,13 @@
         "description": "我們收到品牌資料了，正在審核。"
       },
       "subheading": "我們已收到你的品牌推薦",
+      "neutral": {
+        "metadata": {
+          "title": "推薦品牌之後會怎樣",
+          "description": "推薦的品牌會先經過審核，通過後收錄進品牌目錄。"
+        },
+        "heading": "推薦品牌之後會怎樣"
+      },
       "timeline": {
         "review": {
           "label": "審核中",
@@ -1271,20 +1276,22 @@
       },
       "cta": {
         "explore": "回到首頁",
-        "submitAnother": "再推薦一個品牌"
+        "submitAnother": "再推薦一個品牌",
+        "recommend": "推薦品牌"
       },
       "whatNext": {
         "learnMore": {
-          "answer": "想了解審核方式、品牌認領或資料更新？請看<link>常見問題</link>。"
+          "answer": "審核要多久、資料怎麼更新，<link>常見問題</link>裡都有說明。"
         }
       }
     },
     "validation": {
+      "nameRequired": "請輸入品牌名稱",
       "nameMinLength": "品牌名稱至少要 2 個字",
       "descriptionRequired": "請填寫品牌介紹",
       "heroImageRequired": "請上傳品牌主圖",
-      "emailInvalid": "請輸入有效的電子郵件地址",
-      "emailRequiredForNewsletter": "若要訂閱電子報，請填寫電子郵件地址",
+      "emailInvalid": "電子郵件格式不對，請再檢查一次",
+      "emailRequiredForNewsletter": "要訂閱電子報的話，請填電子郵件",
       "platformRequired": "請選擇平台",
       "urlInvalid": "請輸入完整網址，例如 https://brand.com",
       "pdpaRequired": "請勾選同意隱私權政策",
@@ -1314,7 +1321,8 @@
       "descriptionPlaceholder": "例：品牌在台南設計，和台灣在地工坊合作生產。",
       "sourceLabel": "你怎麼認識這個品牌？",
       "sourcePlaceholder": "請選擇",
-      "requiredHint": "為必填欄位",
+      "requiredHint": "標 <mark>*</mark> 的欄位必填",
+      "turnstileLoading": "驗證中…",
       "submitButton": "送出推薦",
       "submittingButton": "送出中…",
       "suggestedName": "建議名稱：",
@@ -1331,7 +1339,7 @@
     "unsaveNamedAriaLabel": "取消收藏 {name}",
     "emptyTitle": "還沒有收藏的品牌",
     "emptyDescription": "在品牌頁按愛心，就會收進這裡。",
-    "exploreBrands": "逛品牌目錄",
+    "exploreBrands": "看品牌目錄",
     "loginToSave": "登入後即可收藏品牌",
     "signInPrompt": "登入後就能收藏，之後在「收藏品牌」找得到。",
     "signInPromptConfirm": "登入",
@@ -1764,17 +1772,6 @@
     "ziguan": "梓官區",
     "zuoying": "左營區",
     "zuozhen": "左鎮區"
-  },
-  "saveProduct": {
-    "save": "收藏",
-    "unsave": "取消收藏",
-    "saveAriaLabel": "收藏這個商品",
-    "unsaveAriaLabel": "取消收藏這個商品",
-    "loginToSave": "登入後即可收藏商品",
-    "signInPrompt": "登入後就能收藏這件商品。",
-    "signInPromptConfirm": "登入",
-    "signInPromptDismiss": "先不用",
-    "savedToast": "已收藏"
   },
   "filters": {
     "token": "{label}：{value}"

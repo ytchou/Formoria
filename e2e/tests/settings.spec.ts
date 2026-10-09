@@ -53,7 +53,7 @@ test.describe("Settings page", () => {
       timeout: BUDGET.RENDERED,
     });
     await expect(
-      userPage.getByRole("button", { name: "取消訂閱所有電子報" }),
+      userPage.getByRole("button", { name: "取消訂閱電子報" }),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
   });
 });

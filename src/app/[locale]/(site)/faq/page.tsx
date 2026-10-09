@@ -4,8 +4,6 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
-import { Accordion, AccordionItem } from '@/components/ui/accordion'
-import { OpenTargetDetails } from '@/components/shared/open-target-details'
 import { PageShell } from '@/components/ui/page-shell'
 import { routes } from '@/lib/routes'
 import { visibleCategoryList } from '@/lib/taxonomy/category-list'
@@ -70,7 +68,6 @@ export default async function FaqPage({ params }: PageProps) {
     {
       key: 'review',
       itemKeys: [
-        'whoCanSubmit',
         'howToSubmit',
         'reviewTime',
         'isBrandFree',
@@ -82,14 +79,12 @@ export default async function FaqPage({ params }: PageProps) {
       itemKeys: ['purchaseThroughFormoria', 'languageSupport'],
     },
   ] as const
-  const itemClassName = 'scroll-mt-24 rounded-none! border-x-0 border-t-0'
 
   return (
     <PageShell as="main" measure="page" className="py-10">
-      <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
-          <h1 id="faq-heading" className="type-section">
+          <h1 id="faq-heading" className="type-page-title">
             {t('title')}
           </h1>
           <nav
@@ -124,35 +119,30 @@ export default async function FaqPage({ params }: PageProps) {
           {sections.map(({ key, itemKeys }) => (
             <section key={key} id={key} className="scroll-mt-24">
               <h2 className="mb-3 type-card-title">{t(`sections.${key}`)}</h2>
-              {/* A hairline-divided list, not a stack of boxed cards. Each
-                  item keeps only its bottom rule and the list adds the top
-                  one. Not `divide-y` on the list: Tailwind emits it under
-                  `:where()`, so the item's own border classes override it.
-                  `rounded-none!` needs the important flag because
-                  `rounded-surface` is a custom radius tailwind-merge does not
-                  know, so a plain `rounded-none` loses on emission order. */}
-              <Accordion variant="flush" className="border-t border-rule">
+              {/* An open definition list, never a collapsed panel: an answer
+                  to a question ships visible in the server HTML (DESIGN.md
+                  §7). Same markup as the brand-page FAQ
+                  (`brand-faq-accordion.tsx`), so the site has one FAQ
+                  pattern. */}
+              <dl className="space-y-stack">
                 {itemKeys.map((itemKey) => (
-                  <AccordionItem
-                    key={itemKey}
-                    className={itemClassName}
-                    panelClassName="border-t-0"
-                    title={t(`items.${itemKey}.question`)}
-                  >
-                    <p>
+                  <div key={itemKey}>
+                    <dt className="type-body font-semibold text-ink">
+                      {t(`items.${itemKey}.question`)}
+                    </dt>
+                    <dd className="mt-2 type-body">
                       {itemKey === 'whatCategories'
                         ? t('items.whatCategories.answer', { count, categories })
                         : t(`items.${itemKey}.answer`)}
-                    </p>
-                  </AccordionItem>
+                    </dd>
+                  </div>
                 ))}
                 {key === 'more' && (
-                  <AccordionItem
-                    className={itemClassName}
-                    panelClassName="border-t-0"
-                    title={t('items.contact.question')}
-                  >
-                    <p>
+                  <div>
+                    <dt className="type-body font-semibold text-ink">
+                      {t('items.contact.question')}
+                    </dt>
+                    <dd className="mt-2 type-body">
                       {t.rich('items.contact.answer', {
                         link: (chunks) => (
                           <Link href={routes.contact()} className="underline underline-offset-4">
@@ -160,10 +150,10 @@ export default async function FaqPage({ params }: PageProps) {
                           </Link>
                         ),
                       })}
-                    </p>
-                  </AccordionItem>
+                    </dd>
+                  </div>
                 )}
-              </Accordion>
+              </dl>
             </section>
           ))}
         </div>

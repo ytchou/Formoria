@@ -46,22 +46,10 @@ vi.mock("@/lib/analytics", () => ({
   trackSavedBrandRevisited: vi.fn(),
   trackBrandSaved: vi.fn(),
   trackBrandUnsaved: vi.fn(),
-  trackProductSaved: vi.fn(),
-  trackProductUnsaved: vi.fn(),
 }));
 
 vi.mock("@/hooks/use-saved-brands", () => ({
   useSavedBrands: () => ({
-    savedIds: new Set<string>(),
-    toggle: vi.fn(),
-    loading: false,
-  }),
-}));
-
-// The real SaveBrandButton renders, so the card's stacking classes on it are
-// observable; only its context hooks are stubbed (no provider in this tree).
-vi.mock("@/hooks/use-saved-products", () => ({
-  useSavedProducts: () => ({
     savedIds: new Set<string>(),
     toggle: vi.fn(),
     loading: false,

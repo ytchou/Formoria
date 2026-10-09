@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { SelectedProductTileLink } from "./selected-product-tile-link";
 import { SelectedProductExternalLink } from "./selected-product-external-link";
-import { SaveButton } from "@/components/ui/save-button";
 import { routes } from "@/lib/routes";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpRight, ShieldCheck } from "lucide-react";
@@ -378,15 +377,11 @@ export function SelectedProductTile({
       ) : (
         <div className="flex flex-col">{shelfMedia}</div>
       )}
-      {/* A sibling of the link, never inside it: a button inside an `<a>` is
-          invalid. The overlay variant pins it to this box's top-right corner,
-          which is the image's corner because the link starts at the top. */}
-      <SaveButton
-        kind="product"
-        id={product.id}
-        slug={product.key}
-        variant="overlay"
-      />
+      {/* Product saving was removed (DEV-1988 owner decision): no page listed
+          saved products. The app-side save path (hook, action, service,
+          messages) was deleted and must be rebuilt when requested; the
+          saved_products table still holds its data. Render the save control as
+          a sibling of the link here, never inside it. */}
       {productDescription ? (
         <p
           className="mt-1 type-body-sm text-ink-muted line-clamp-2"

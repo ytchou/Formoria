@@ -12,7 +12,6 @@ type SubjectCase = {
   build: () => Promise<EmailMessage>;
   expected?: string;
   includesBrandName?: boolean;
-  allowsPrefixException?: boolean;
 };
 
 const SITE_URL = "https://formoria.com";
@@ -52,40 +51,41 @@ const SUBJECT_CASES: SubjectCase[] = [
     name: "submission-approved",
     locale: "zh-TW",
     build: () => approval("zh-TW", ZH_BRAND),
-    expected: "品牌「測試品牌」已通過審核 — Formoria",
+    expected: "「測試品牌」已收錄進 Formoria",
     includesBrandName: true,
   },
   {
     name: "submission-approved",
     locale: "en",
     build: () => approval("en", EN_BRAND),
-    expected: 'Your brand "Test Brand" has been approved — Formoria',
+    expected: '"Test Brand" is now listed on Formoria',
     includesBrandName: true,
   },
   {
     name: "submission-rejected",
     locale: "zh-TW",
     build: () => rejection("zh-TW", ZH_BRAND),
-    expected: "Formoria：「測試品牌」的提交內容需要修改",
+    expected: "關於你推薦的「測試品牌」",
     includesBrandName: true,
-    allowsPrefixException: true,
   },
   {
     name: "submission-rejected",
     locale: "en",
     build: () => rejection("en", EN_BRAND),
-    expected: "[Action Needed] Your Formoria submission needs attention",
-    allowsPrefixException: true,
+    expected: "About your recommendation: Test Brand",
+    includesBrandName: true,
   },
   {
     name: "newsletter-confirm",
     locale: "zh-TW",
     build: () => newsletterConfirm("zh-TW"),
+    expected: "請確認訂閱 Formoria 電子報",
   },
   {
     name: "newsletter-confirm",
     locale: "en",
     build: () => newsletterConfirm("en"),
+    expected: "Confirm your Formoria newsletter subscription",
   },
 ];
 
@@ -99,9 +99,12 @@ describe("email subject line consistency", () => {
         expect(email.subject).toBe(testCase.expected);
       }
 
-      if (!testCase.allowsPrefixException) {
-        expect(email.subject).toMatch(/— Formoria$/);
-      }
+      // The sender already reads "Formoria", so a subject names it at most
+      // once and never as a trailing "— Formoria" suffix.
+      expect(email.subject.split("Formoria").length - 1).toBeLessThanOrEqual(1);
+      expect(email.subject).not.toMatch(/— Formoria$/);
+      expect(email.subject).not.toContain("！");
+      expect(email.subject).not.toContain("[");
 
       expect(email.subject).not.toContain("- Formoria");
       expect(email.subject).not.toContain("/ Formoria");
@@ -112,7 +115,7 @@ describe("email subject line consistency", () => {
       }
 
       if (testCase.includesBrandName && testCase.locale === "en") {
-        expect(email.subject).toContain(`"${EN_BRAND}"`);
+        expect(email.subject).toContain(EN_BRAND);
         expect(email.subject).not.toContain(`「${EN_BRAND}」`);
       }
     },

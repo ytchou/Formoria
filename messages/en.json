@@ -123,7 +123,7 @@
     "metaDescription": "How Taiwanese brands are listed in the Formoria directory, how selections are chosen, and where purchase links lead.",
     "heading": "How your brand appears on Formoria",
     "heroSubtitle": "For brands",
-    "heroDescription": "Formoria gathers and sorts what is known about Taiwanese brands so readers can look by what they need. The brand directory lists brands under published rules; Formoria Selection is chosen independently by editors; every purchase link goes back to the brand's own channel.",
+    "heroDescription": "Formoria gathers and sorts what is known about Taiwanese brands so visitors can look by what they need. The brand directory lists brands under published rules; Formoria Selection is chosen independently by editors; every purchase link goes back to the brand's own channel.",
     "valueProp1Title": "Found by category",
     "valueProp1Description": "Once approved, your brand is listed under its category, where visitors can find it by browsing or searching.",
     "valueProp2Title": "Formoria Selection",
@@ -131,6 +131,7 @@
     "valueProp3Title": "Purchases go to your channels",
     "valueProp3Description": "Every purchase link goes to your own site or store. Formoria never handles a transaction.",
     "trustLabelsHeading": "What our labels mean",
+    "exampleLabel": "Example: how a listed brand appears in the directory",
     "trustLabelDirectory": "Listed brand — a brand that meets our listing rules and passed review. Not a recommendation, certification, or ranking.",
     "trustLabelSelection": "Formoria Selection — a product editors chose for a specific situation, each with a written reason. Brands can't apply for it or pay for it.",
     "trustLabelProvided": "Brand-provided — facts or images a brand supplied, with the source shown. Supplying them guarantees neither publication nor any say in what we write.",
@@ -140,8 +141,8 @@
     "howItWorksStep1": "Send the brand name through the recommendation form, with a link to your website or online store.",
     "howItWorksStep2": "The Formoria team reviews the details to confirm the brand meets our listing rules.",
     "howItWorksStep3": "Once approved, your brand is listed in the brand directory, where visitors can find it.",
-    "ctaLabel": "Submit brand details",
-    "ctaDescription": "Submit through the recommendation form for now. After approval, we'll be in touch about managing the listing."
+    "ctaLabel": "Recommend your brand",
+    "ctaDescription": "For now, send it through the recommendation form. Once approved, we'll email you about managing the page."
   },
   "landing": {
     "metadata": {
@@ -802,7 +803,7 @@
         "description": "Read Formoria's terms of service, including content ownership, data usage, brand review process, and disclaimer."
       },
       "title": "Terms of Service",
-      "intro": "Thank you for using Formoria. By using this platform, you agree to the following terms. Please read carefully before providing brand information.",
+      "intro": "By using Formoria, you agree to the following terms. Please read them carefully before providing brand information.",
       "lastUpdated": "Last updated: August 2026",
       "contentOwnership": {
         "heading": "Content ownership",
@@ -810,7 +811,7 @@
       },
       "dataUse": {
         "heading": "Data use",
-        "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
+        "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our Privacy Policy."
       },
       "automatedAccess": {
         "heading": "Automated access and data extraction",
@@ -888,7 +889,7 @@
     "items": {
       "whatIsFormoria": {
         "question": "What is Formoria?",
-        "answer": "Formoria is a curated platform for Taiwanese goods. It starts from a searchable directory of listed brands, bringing together brand information, product highlights, and each brand's own online stores and stockists. Anything Formoria selects is labeled separately."
+        "answer": "Formoria is a curated platform for Taiwanese goods: from one thing you love, to its brand, its story, and the place you can buy it. The brand directory lists brands under published rules; a Formoria Selection is a product our editors picked and wrote a reason for. We don't sell anything. You buy through the brand's own channels."
       },
       "listingVsSelection": {
         "question": "What is the difference between a listed brand and a Formoria Selection?",
@@ -898,13 +899,9 @@
         "question": "Can I buy through Formoria?",
         "answer": "No. Formoria does not take orders or handle checkout. Price, variants, stock, shipping, and after-sales service are up to the brand or the store selling it. Our job is to help you find it, then hand you to the brand."
       },
-      "whoCanSubmit": {
-        "question": "Who can recommend a brand?",
-        "answer": "Anyone can recommend a brand. You do not need to be the brand owner."
-      },
       "taiwaneseBrandCriteria": {
         "question": "Which brands qualify for listing?",
-        "answer": "A brand qualifies if it was founded, designed, or made in Taiwan. Any one of the three is enough. For example, a company founded in Taipei qualifies under \"founded\"; a studio that designs in Taiwan and manufactures overseas qualifies under \"designed\"; a workshop making goods in Yingge qualifies under \"made\". Brand owners and fans alike can recommend one."
+        "answer": "A brand qualifies if it was founded in Taiwan, designed in Taiwan, or made in Taiwan. Any one of the three is enough. For example, a company founded in Taipei qualifies under \"founded\"; a studio that designs in Taiwan and manufactures overseas qualifies under \"designed\"; a workshop making goods in Yingge qualifies under \"made\"."
       },
       "notListedBrands": {
         "question": "What kinds of brands are not listed?",
@@ -916,11 +913,11 @@
       },
       "howToSubmit": {
         "question": "How do I recommend a brand to Formoria?",
-        "answer": "Anyone can recommend a brand. Open the recommendation form, enter the brand name and an official link, and send it; Formoria will review it. Recommending is free. The review checks that the information is complete, the brand exists, and it has a real connection to Taiwan."
+        "answer": "Anyone can, and you don't need to be the brand owner: open the recommendation form, enter the brand name and an official link, and send it. Recommending is free."
       },
       "reviewTime": {
         "question": "How long does review take?",
-        "answer": "Review usually takes about 7 business days. We check that the brand exists, the information is complete, and it meets the listing rules. Once approved, the brand appears in the directory. If information is missing, we may email the person who recommended it."
+        "answer": "Review usually takes about 7 business days. We check that the brand exists, the information is complete, the brand has a real connection to Taiwan, and it meets the listing rules. Once approved, the brand appears in the directory. If information is missing, we may email the person who recommended it."
       },
       "dataAccuracy": {
         "question": "What if brand information is wrong?",
@@ -995,7 +992,7 @@
       "heading": "Four familiar moments",
       "items": {
         "intention": {
-          "scene": "Moving into a new home, wanting one corner of the living room to feel different, and ending up in IKEA again.",
+          "scene": "Moving into a new home, wanting one corner of the living room to feel different, and ending up with the same piece from the big-box store.",
           "detail": "A search turns up mostly marketplaces and price-comparison pages. Few places lay out Taiwanese things by room, occasion, or budget."
         },
         "encounter": {
@@ -1015,7 +1012,7 @@
     "loop": {
       "heading": "Connecting the path",
       "body1": "Formoria is a curated platform for Taiwanese goods. We don't sell anything, and we aren't a magazine: we gather and sort what is known about Taiwanese brands so you can look by what you need, and the few products we pick ourselves are marked Formoria Selection.",
-      "body2": "From one thing you love, you can reach the brand that makes it, read how it came to be, and go to the place that sells it. That path used to break. We connect it.",
+      "body2": "From one thing you love, you can reach the brand that makes it, read how it came to be, and go to the place that sells it. That path often breaks off halfway. Formoria joins it back up.",
       "pullQuote": "Formoria never handles the sale. We connect what you love to the place you can buy it, then hand you over to the brand.",
       "brandHeading": "For brands",
       "brandBody": "Taiwan's good work is scattered across brands' own sites, markets, and social accounts. Formoria gathers these brands into one directory, so people looking can find them by category and go on to the brand's own site or a stockist. We take no commission and sell nothing ourselves."
@@ -1043,7 +1040,7 @@
       "heading": "How we work",
       "items": {
         "boundary": {
-          "lead": "We hand you to the brand.",
+          "lead": "We send you on to the brand.",
           "body": "Price, options, stock, checkout, shipping, and after-sales all belong to the brand. Formoria takes no orders and holds no inventory."
         },
         "noPayToWin": {
@@ -1070,7 +1067,7 @@
   "auth": {
     "emailPlaceholder": "you@example.com",
     "validation": {
-      "emailInvalid": "Please enter a valid email address",
+      "emailInvalid": "That email address doesn't look right. Check it and try again.",
       "passwordRequired": "Please enter your password",
       "passwordMinLength": "Password must be at least 8 characters",
       "passwordMismatch": "The passwords don't match"
@@ -1078,7 +1075,9 @@
     "signIn": {
       "heading": "Sign in",
       "metaTitle": "Sign in",
+      "metaDescription": "Sign in to Formoria to see your saved brands and account settings.",
       "subheading": "Sign in with your email or Google account",
+      "subheadingEmailOnly": "Sign in with your email",
       "context": {
         "favorites": "Sign in to see your saved brands",
         "settings": "Sign in to manage your account settings"
@@ -1099,6 +1098,7 @@
     },
     "forgotPassword": {
       "heading": "Reset password",
+      "metaDescription": "Enter your email and we'll send you a link to reset your password.",
       "subheading": "Enter your email and we'll send you a reset link.",
       "emailLabel": "Email",
       "submit": "Send reset link",
@@ -1109,6 +1109,7 @@
     },
     "resetPassword": {
       "heading": "Set a new password",
+      "metaDescription": "Set a new password for your Formoria account.",
       "subheading": "Enter a new password",
       "passwordLabel": "New password",
       "passwordHint": "At least 8 characters",
@@ -1122,7 +1123,8 @@
     },
     "signUp": {
       "heading": "Create an account",
-      "subheading": "Create an account to save the products and brands you like.",
+      "metaDescription": "Create a Formoria account to save the brands you like.",
+      "subheading": "Create an account to save the brands you like.",
       "emailLabel": "Email",
       "passwordLabel": "Password",
       "passwordHint": "At least 8 characters",
@@ -1146,17 +1148,19 @@
   },
   "favorites": {
     "metadata": {
-      "title": "Saved brands"
+      "title": "Saved brands",
+      "description": "The brands you've saved on Formoria."
     },
     "heading": "Saved brands",
     "count": "{count, plural, one {# brand} other {# brands}}",
     "emptyTitle": "No saved brands yet",
     "emptyDescription": "Select the heart on a brand page to save it here.",
-    "exploreBrands": "Browse brands"
+    "exploreBrands": "Browse the brand directory"
   },
   "settings": {
     "metadata": {
-      "title": "Account settings"
+      "title": "Account settings",
+      "description": "Manage your display name, language, and newsletter settings."
     },
     "heading": "Account settings",
     "subheading": "Manage profile and preferences",
@@ -1168,17 +1172,17 @@
     "marketingDescription": "The newsletter is optional, off until you turn it on, and can be turned off again at any time. Account verification, password resets, and review results are unaffected.",
     "newsletterMarketingLabel": "Formoria newsletter",
     "newsletterMarketingDescription": "New stories, newly listed brands, and Formoria Selections. You'll need to confirm your email first.",
-    "newsletterPending": "Confirmation sent; newsletter delivery starts only after you confirm your email.",
-    "unsubscribeAllMarketing": "Unsubscribe from all newsletters",
-    "marketingUnsubscribedAll": "You've been unsubscribed from all newsletters",
-    "marketingUpdateError": "Some email preferences could not be updated. Please try again.",
+    "newsletterPending": "Confirmation sent. Open the link in that email to start getting the newsletter.",
+    "unsubscribeAllMarketing": "Unsubscribe from the newsletter",
+    "marketingUnsubscribedAll": "You've unsubscribed from the newsletter",
+    "marketingUpdateError": "Your newsletter setting wasn't saved. Try again.",
     "submit": "Save settings",
     "submitting": "Saving…",
     "saved": "Settings saved",
     "unauthorized": "Please sign in to update your settings.",
     "validation": {
       "displayNameMaxLength": "Display name cannot exceed 50 characters",
-      "invalidLocale": "Please select a valid language"
+      "invalidLocale": "Choose a language from the list"
     }
   },
   "forms": {
@@ -1224,15 +1228,9 @@
       "description": "Recommend a Taiwanese brand to Formoria. Once approved, it's added to the brand directory."
     },
     "overview": {
-      "heading": "Recommend a Taiwanese brand",
-      "description": "Recommend a Taiwanese brand you like, and we’ll review it for the brand directory.",
-      "recommendEyebrow": "Community recommendation",
-      "recommendTitle": "Recommend a brand worth discovering",
-      "recommendDescription": "Regular customers, friends, and brand owners can all use this form.",
       "recommendPoint1": "No account needed",
       "recommendPoint2": "Just the brand name and a link",
       "recommendPoint3": "Approved brands join the brand directory",
-      "recommendCta": "Recommend a brand",
       "ownerNote": "Own the brand? Use this form for now. After approval, we’ll be in touch about managing the listing."
     },
     "attribution": {
@@ -1243,7 +1241,7 @@
       "work_there": "I work for this brand"
     },
     "fields": {
-      "nameDuplicateTitle": "Similar brand names found",
+      "nameDuplicateTitle": "The directory has a brand with a similar name",
       "websiteDuplicateTitle": "Another brand in the directory already uses this URL",
       "nameDuplicateConfirmLabel": "I confirm this is not a duplicate brand",
       "duplicateConfirmRequired": "Confirm this isn't a duplicate brand first",
@@ -1259,6 +1257,13 @@
         "description": "We've received the brand details and are reviewing them."
       },
       "subheading": "We’ve received your brand recommendation",
+      "neutral": {
+        "metadata": {
+          "title": "What happens after you recommend a brand",
+          "description": "Recommended brands are reviewed first. Approved ones join the brand directory."
+        },
+        "heading": "What happens after you recommend a brand"
+      },
       "timeline": {
         "review": {
           "label": "In review",
@@ -1271,20 +1276,22 @@
       },
       "cta": {
         "explore": "Back to home",
-        "submitAnother": "Recommend another brand"
+        "submitAnother": "Recommend another brand",
+        "recommend": "Recommend a brand"
       },
       "whatNext": {
         "learnMore": {
-          "answer": "Want to know how reviews, brand claims, and updates work? See the <link>FAQ</link>."
+          "answer": "How long review takes and how updates work are covered in the <link>FAQ</link>."
         }
       }
     },
     "validation": {
+      "nameRequired": "Enter the brand name",
       "nameMinLength": "Brand name needs at least 2 characters",
       "descriptionRequired": "Add a brand description",
       "heroImageRequired": "Please upload a brand hero image",
-      "emailInvalid": "Please enter a valid email address",
-      "emailRequiredForNewsletter": "Enter an email address to subscribe to the newsletter",
+      "emailInvalid": "That email address doesn't look right. Check it and try again.",
+      "emailRequiredForNewsletter": "Add your email to get the newsletter",
       "platformRequired": "Please select a platform",
       "urlInvalid": "Enter the full URL, for example https://brand.com",
       "pdpaRequired": "Check the box to agree to the Privacy Policy",
@@ -1314,7 +1321,8 @@
       "descriptionPlaceholder": "For example: The brand designs in Tainan and works with local workshops in Taiwan.",
       "sourceLabel": "How do you know this brand?",
       "sourcePlaceholder": "Choose one",
-      "requiredHint": "indicates a required field",
+      "requiredHint": "Fields marked <mark>*</mark> are required",
+      "turnstileLoading": "Verifying…",
       "submitButton": "Send recommendation",
       "submittingButton": "Sending…",
       "suggestedName": "Suggested name:",
@@ -2130,7 +2138,7 @@
     "unsaveNamedAriaLabel": "Remove {name} from saved",
     "emptyTitle": "No saved brands yet",
     "emptyDescription": "Select the heart on a brand page to save it here.",
-    "exploreBrands": "Browse brands",
+    "exploreBrands": "Browse the brand directory",
     "loginToSave": "Sign in to save brands",
     "signInPrompt": "Sign in to save this, and find it later in Saved brands.",
     "signInPromptConfirm": "Sign in",
@@ -2563,17 +2571,6 @@
     "ziguan": "Ziguan District",
     "zuoying": "Zuoying District",
     "zuozhen": "Zuozhen District"
-  },
-  "saveProduct": {
-    "save": "Save",
-    "unsave": "Remove from saved",
-    "saveAriaLabel": "Save this product",
-    "unsaveAriaLabel": "Remove this product from saved",
-    "loginToSave": "Sign in to save products",
-    "signInPrompt": "Sign in to save this product.",
-    "signInPromptConfirm": "Sign in",
-    "signInPromptDismiss": "Not now",
-    "savedToast": "Saved"
   },
   "filters": {
     "token": "{label}: {value}"

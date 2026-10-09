@@ -507,11 +507,10 @@ describe("SelectedProductTile", () => {
     expect(container.querySelectorAll("a")).toHaveLength(1);
   });
 
-  it("keeps the save button outside the shelf link", () => {
+  it("renders no product save button while no page lists saved products", () => {
     renderWallTile({ mode: "shelf" });
 
-    const save = screen.getByTestId("save-button");
-    expect(save.closest("a")).toBeNull();
+    expect(screen.queryByTestId("save-button")).toBeNull();
   });
 
   it("links a broken shelf product to the brand site with the brand-site hint", () => {

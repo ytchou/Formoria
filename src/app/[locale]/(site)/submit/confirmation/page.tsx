@@ -11,13 +11,33 @@ import { routes } from '@/lib/routes'
 
 type ConfirmationPageProps = {
   params: Promise<{ locale: string }>
+  searchParams?: Promise<{ sent?: string | string[] }>
 }
 
-export async function generateMetadata({ params }: ConfirmationPageProps): Promise<Metadata> {
+/**
+ * Only the recommend form's success redirect appends `?sent=1` (SP2-31). Opened
+ * directly — a shared link, a back button after a failed submit — the page
+ * cannot know anything was sent, so it explains the process instead of
+ * claiming a receipt. A hand-typed `?sent=1` still shows the receipt; the flag
+ * guards against a false claim by accident, not by intent. Upgrade path if that
+ * matters: a short-lived signed token or flash cookie set by the action.
+ */
+async function wasSent(searchParams: ConfirmationPageProps['searchParams']) {
+  return (await searchParams)?.sent === '1'
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: ConfirmationPageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations('submit.confirmation.metadata')
+  const t = await getTranslations(
+    (await wasSent(searchParams))
+      ? 'submit.confirmation.metadata'
+      : 'submit.confirmation.neutral.metadata',
+  )
   const title = t('title')
   const description = t('description')
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
@@ -40,10 +60,14 @@ export async function generateMetadata({ params }: ConfirmationPageProps): Promi
   }
 }
 
-export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
+export default async function ConfirmationPage({
+  params,
+  searchParams,
+}: ConfirmationPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations('submit.confirmation')
+  const sent = await wasSent(searchParams)
 
   return (
     <PageShell
@@ -58,14 +82,18 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           tone: 'background',
         })}
       >
-        {/* Success mark: ink outline on surface — accent stays for interaction. */}
-        <div className="flex justify-center">
-          <div className="flex size-16 items-center justify-center rounded-full border border-ink bg-surface">
-            <Check className="size-8 text-ink" strokeWidth={1.75} aria-hidden />
+        {sent ? (
+          /* Success mark: ink outline on surface — accent stays for interaction. */
+          <div className="mb-6 flex justify-center">
+            <div className="flex size-16 items-center justify-center rounded-full border border-ink bg-surface">
+              <Check className="size-8 text-ink" strokeWidth={1.75} aria-hidden />
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        <h1 className="mt-6 text-center type-section">{t('subheading')}</h1>
+        <h1 className="text-center type-section">
+          {sent ? t('subheading') : t('neutral.heading')}
+        </h1>
 
         {/* Timeline */}
         <div className="mt-8 rounded-surface bg-surface p-6">
@@ -74,7 +102,8 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
               {
                 label: t('timeline.review.label'),
                 description: t('timeline.review.description'),
-                active: true,
+                // Nothing is "in review" for a visitor who sent nothing.
+                active: sent,
               },
               {
                 label: t('timeline.result.label'),
@@ -128,20 +157,41 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
           so the card keeps its measure and the two axes stay off one element.
         */}
         <div className="mx-auto mt-8 content-column space-y-3">
-          <Link
-            href="/"
-            className={buttonVariants({ variant: 'primary', width: 'full' })}
-          >
-            <Home className="h-4 w-4" />
-            {t('cta.explore')}
-          </Link>
-          <Link
-            href={routes.submit.index()}
-            className={buttonVariants({ variant: 'secondary', width: 'full' })}
-          >
-            <Plus className="h-4 w-4" />
-            {t('cta.submitAnother')}
-          </Link>
+          {sent ? (
+            <>
+              <Link
+                href="/"
+                className={buttonVariants({ variant: 'primary', width: 'full' })}
+              >
+                <Home className="h-4 w-4" aria-hidden />
+                {t('cta.explore')}
+              </Link>
+              <Link
+                href={routes.submit.recommend()}
+                className={buttonVariants({ variant: 'secondary', width: 'full' })}
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                {t('cta.submitAnother')}
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href={routes.submit.recommend()}
+                className={buttonVariants({ variant: 'primary', width: 'full' })}
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                {t('cta.recommend')}
+              </Link>
+              <Link
+                href="/"
+                className={buttonVariants({ variant: 'secondary', width: 'full' })}
+              >
+                <Home className="h-4 w-4" aria-hidden />
+                {t('cta.explore')}
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </PageShell>
