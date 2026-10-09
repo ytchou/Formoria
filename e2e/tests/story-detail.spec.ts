@@ -35,7 +35,7 @@ test.describe('Story detail deep', () => {
     await expect(
       anonPage.getByRole('heading', { name: firstStory.title, level: 1 })
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    await expect(anonPage.getByText(/something went wrong|發生錯誤/i)).not.toBeVisible();
+    await expect(anonPage.getByText(/something went wrong|this page didn't load|發生錯誤|頁面沒有正常載入/i)).not.toBeVisible();
   });
 
   test('BrandCard components render (live card or not-found placeholder)', async ({ anonPage }) => {
@@ -86,20 +86,20 @@ test.describe('Story detail deep', () => {
     }).toPass(POLL.DB);
   });
 
-  test('FaqBlock renders and first accordion item expands on click', async ({ anonPage }) => {
+  test('FaqBlock renders every answer open, with no accordion', async ({ anonPage }) => {
     // `faq` is optional frontmatter, so "no story has one" is a content state, not a
     // failure — but it is now read off the frontmatter rather than inferred from
-    // whether a <details> happened to be visible on an arbitrary story.
+    // whether the block happened to render on an arbitrary story.
     test.skip(FAQ_STORY === undefined, 'no published story has faq frontmatter');
     await anonPage.goto(`/stories/${FAQ_STORY!.slug}`);
 
-    // FaqBlock renders as <details>/<summary> accordion elements. The story is known
-    // to declare one, so its absence is a rendering regression.
-    const firstDetails = anonPage.locator('main details').first();
-    await expect(firstDetails).toBeVisible({ timeout: BUDGET.RENDERED });
-
-    await firstDetails.locator('summary').click();
-    await expect(firstDetails).toHaveAttribute('open');
+    // FaqBlock is an open <dl>: each answer ships visible with no interaction
+    // (DESIGN.md §7). The story is known to declare one, so its absence is a
+    // rendering regression.
+    const faq = anonPage.getByTestId('story-faq');
+    await expect(faq.locator('dt').first()).toBeVisible({ timeout: BUDGET.RENDERED });
+    await expect(faq.locator('dd').first()).toBeVisible();
+    await expect(faq.locator('details')).toHaveCount(0);
   });
 
   test('Article JSON-LD is present on story detail page', async ({ anonPage }) => {

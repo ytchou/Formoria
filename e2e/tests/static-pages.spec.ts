@@ -197,8 +197,8 @@ test.describe("Static & compliance pages", () => {
 
   test("legal page titles are single-suffixed", async ({ anonPage }) => {
     const pages = [
-      ["/terms", "服務條款 | Formoria"],
-      ["/privacy", "隱私權政策 | Formoria"],
+      ["/terms", "服務條款｜Formoria"],
+      ["/privacy", "隱私權政策｜Formoria"],
       ["/en/terms", "Terms of Service | Formoria"],
       ["/en/privacy", "Privacy Policy | Formoria"],
     ] as const;

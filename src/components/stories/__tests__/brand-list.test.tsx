@@ -122,6 +122,22 @@ describe("BrandLine", () => {
     expect(screen.queryByText("Ignored")).toBeNull();
   });
 
+  // DS2-34: the name alone is a ~20px target. The link's overlay stretches it
+  // across a row at least 44px tall, the brand-card pattern.
+  it("stretches the brand link across a 44px row", async () => {
+    loadBrands.mockResolvedValue(
+      new Map([["molasses", makeBrand("molasses", "Molasses")]]),
+    );
+
+    renderWithIntl(await BrandLine({ slug: "molasses", loadBrands }));
+
+    const link = screen.getByRole("link", { name: "Molasses" });
+    expect(link.className).toContain("after:inset-0");
+    const row = link.parentElement;
+    expect(row?.className).toContain("relative");
+    expect(row?.className).toContain("min-h-11");
+  });
+
   it("renders a name-only row as plain text without calling the loader", async () => {
     renderWithIntl(
       await BrandLine({
@@ -175,8 +191,10 @@ describe("BrandLine", () => {
     );
 
     expect(
-      screen.getByText("This brand has no public page right now: ghost-brand"),
+      screen.getByText("This brand doesn't have a public page right now"),
     ).toBeInTheDocument();
     expect(screen.queryByText("Ghost Studio")).toBeNull();
+    // CP2-24: the notice never prints the raw slug.
+    expect(screen.queryByText(/ghost-brand/)).toBeNull();
   });
 });

@@ -152,10 +152,23 @@ export function BrandCard({
           padding: "none",
         })}
       >
+        {/* The save control sits in the card's own corner, the same overlay
+            variant /discover's product cards use — never on the brand's mark,
+            where it read as a badge on the photo. z-20 lifts it above the
+            whole-card link's overlay. */}
+        {variant === "directory" ? (
+          <SaveBrandButton
+            brandId={brand.id}
+            slug={brand.slug}
+            name={brand.name}
+            variant="overlay"
+            className="right-3 top-3 z-20"
+          />
+        ) : null}
         <div className="flex h-full flex-col gap-3 p-5">
-          {/* The save control overlays the mark's corner, as on /discover;
-              z-20 lifts it above the whole-card link's overlay. */}
-          <div className="relative w-fit shrink-0">
+          {/* A 1px inset `rule` outline holds a light photo's edge against
+              the paper ground (DESIGN.md §8: hairlines, not shadows). */}
+          <div className="relative w-fit shrink-0 rounded-full">
             <BrandAvatar
               name={brand.name}
               imageSrc={safeImageSrc(brand.heroImageUrl)}
@@ -163,15 +176,10 @@ export function BrandCard({
               showName={false}
               preload={preload}
             />
-            {variant === "directory" ? (
-              <SaveBrandButton
-                brandId={brand.id}
-                slug={brand.slug}
-                name={brand.name}
-                variant="overlay"
-                className="-right-3 -top-3 z-20"
-              />
-            ) : null}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-rule"
+            />
           </div>
           <h3 className="type-card-title line-clamp-2 text-ink">{nameLink}</h3>
           {metadata ? (

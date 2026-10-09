@@ -245,11 +245,6 @@ export function trackExternalLinkClicked(
   }
 }
 
-export function trackCategoryFilterApplied(category: string) {
-  safeGAEvent("event", "category_filter_applied", { category });
-  capturePostHogEvent(ANALYTICS_EVENTS.CATEGORY_FILTER_APPLIED, { category });
-}
-
 const SEARCH_TERM_MAX_LENGTH = 100;
 const EMAIL_LIKE = /@/;
 const LONG_DIGIT_RUN = /\d{7,}/;

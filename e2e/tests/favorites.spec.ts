@@ -161,36 +161,57 @@ test.describe("Favorites", () => {
     }
   });
 
-  test("an anonymous save asks for sign-in and returns to the brand afterwards", async ({
+  test("an anonymous save explains sign-in, then applies the save after signing in", async ({
     anonPage,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
     const page = anonPage;
 
     await page.goto(`/brands/${seeded.slug}`);
-    await waitForViewerReady(page);
     const save = page.getByRole("button", {
       name: "收藏這個品牌",
       exact: true,
     });
+    // Enabled before the viewer settles: a click is queued, never dropped.
     await expect(save).toBeEnabled({ timeout: BUDGET.INTERACTIVE });
+    await waitForViewerReady(page);
     await save.click();
 
-    await expect(page).toHaveURL(/\/auth\/sign-in/, {
+    // The click opens a prompt with the reason instead of redirecting.
+    const prompt = page.getByRole("alertdialog", {
+      name: "登入後就能收藏，之後在「收藏品牌」找得到。",
+    });
+    await expect(prompt).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await prompt.getByRole("button", { name: "先不用", exact: true }).click();
+    await expect(prompt).toBeHidden({ timeout: BUDGET.INTERACTIVE });
+    await expect(page).toHaveURL(new RegExp(`/brands/${seeded.slug}$`));
+
+    await save.click();
+    await prompt.getByRole("button", { name: "登入", exact: true }).click();
+    await expect(page).toHaveURL(/\/auth\/sign-in\?reason=save/, {
       timeout: BUDGET.NAVIGATION,
     });
     await page.getByLabel("電子郵件", { exact: true }).fill(visitor.email);
     await page.getByLabel("密碼", { exact: true }).fill(visitor.password);
     await page.getByRole("button", { name: "登入", exact: true }).click();
 
-    // The click left a return path behind; signing in lands on the brand again,
-    // with nothing saved yet (the click itself saved nothing).
+    // Signing in lands on the brand again, and the save asked for before
+    // sign-in is applied once, with a confirmation.
     await expect(page).toHaveURL(new RegExp(`/brands/${seeded.slug}$`), {
       timeout: BUDGET.NAVIGATION,
     });
     await waitForViewerReady(page);
     await expect(
-      page.getByRole("button", { name: "收藏這個品牌", exact: true }),
-    ).toBeEnabled({ timeout: BUDGET.INTERACTIVE });
+      page.getByRole("button", { name: "取消收藏這個品牌", exact: true }),
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await expect(page.getByText("已收藏", { exact: true })).toBeVisible({
+      timeout: BUDGET.INTERACTIVE,
+    });
+    await expect(async () => {
+      await page.goto("/favorites");
+      await expect(
+        page.getByRole("link", { name: seeded.brand.name }),
+      ).toBeVisible({ timeout: BUDGET.RENDERED });
+    }).toPass(POLL.UI);
   });
 });

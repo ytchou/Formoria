@@ -15,6 +15,12 @@ export type StoryCardProps = {
   locale: string;
   position: number;
   trackingSurface?: string;
+  /**
+   * The story's language when it differs from the page's (see
+   * `contentLangFor`). Marks the title and excerpt only; the eyebrow is
+   * page-locale text.
+   */
+  contentLang?: string;
 };
 
 export function StoryCard({
@@ -22,6 +28,7 @@ export function StoryCard({
   locale,
   position,
   trackingSurface,
+  contentLang,
 }: StoryCardProps) {
   const t = useTranslations("stories");
   const imageSrc = safeImageSrc(story.frontmatter.heroImage);
@@ -68,11 +75,16 @@ export function StoryCard({
             .filter(Boolean)
             .join(" · ")}
         </span>
-        <h3 className="font-ming type-card-title mt-2 line-clamp-2 [@media(hover:hover)]:group-hover:text-accent">
+        <h3
+          lang={contentLang}
+          className="font-ming type-card-title mt-2 line-clamp-2 [@media(hover:hover)]:group-hover:text-accent">
           {story.frontmatter.title}
         </h3>
         {story.frontmatter.description ? (
-          <p className="type-body-sm text-ink-soft mt-1 line-clamp-2">
+          <p
+            lang={contentLang}
+            className="type-body-sm text-ink-soft mt-1 line-clamp-2"
+          >
             {story.frontmatter.description}
           </p>
         ) : null}

@@ -70,7 +70,7 @@ export function Pagination({
   return (
     <nav
       aria-label={t("pagination.label")}
-      className="mt-10 flex flex-wrap items-center justify-center gap-1"
+      className="mt-10 flex items-center justify-center gap-1"
     >
       {/* Previous */}
       {currentPage > 1 ? (
@@ -97,7 +97,14 @@ export function Pagination({
         </span>
       )}
 
-      {/* Page numbers */}
+      {/* Below `sm` the number list would wrap to a second line, so it
+          collapses to one position line between previous and next. */}
+      <span className="inline-flex min-h-12 items-center px-2 type-nav tabular-nums text-ink-soft sm:hidden">
+        {t("pagination.status", { page: currentPage, total: totalPages })}
+      </span>
+
+      {/* Page numbers, from `sm` up */}
+      <span className="hidden flex-wrap items-center justify-center gap-1 sm:flex">
       {pages.map((page, i) => {
         if (page === "ellipsis") {
           return (
@@ -145,6 +152,7 @@ export function Pagination({
           </Link>
         );
       })}
+      </span>
 
       {/* Next */}
       {currentPage < totalPages ? (

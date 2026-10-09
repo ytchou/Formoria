@@ -59,7 +59,7 @@ export async function BrandCardMdx({
   if (!brand) {
     if (!shouldShowMissingBrandNotice()) return null
     const t = await getTranslations('stories')
-    return <MissingBrandNotice label={t('brandMissing', { slug })} />
+    return <MissingBrandNotice label={t('brandMissing')} />
   }
 
   return (
@@ -77,8 +77,8 @@ export async function BrandCardMdx({
  * Whether an unresolvable slug may render `MissingBrandNotice`: in local dev and
  * on staging (the preview environment), never in production.
  *
- * The notice is an authoring aid — it names the raw slug so an editor can see a
- * brand was renamed or hidden. Shipped to readers it is debugging text on a
+ * The notice is an authoring aid — it tells an editor a brand was renamed or
+ * hidden. It never prints the raw slug (CP2-24); the editor has it in the MDX. Shipped to readers it is debugging text on a
  * published page (DEV-1963), so production drops the brand silently instead.
  * Read at call time, not module load, so tests can stub the environment.
  */

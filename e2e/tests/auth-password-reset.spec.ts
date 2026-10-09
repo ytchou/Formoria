@@ -89,7 +89,7 @@ test.describe('Auth — reset password page guard', () => {
     await expect(
       anonPage.getByRole('heading', { name: '設定新密碼', exact: true })
     ).toBeVisible();
-    await expect(anonPage.getByText(/something went wrong|發生錯誤/i)).not.toBeVisible();
+    await expect(anonPage.getByText(/something went wrong|this page didn't load|發生錯誤|頁面沒有正常載入/i)).not.toBeVisible();
   });
 
   test('authenticated isolated user updates their password from the reset page', async ({
