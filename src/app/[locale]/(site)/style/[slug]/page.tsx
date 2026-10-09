@@ -310,14 +310,12 @@ export default async function StyleTrailPage({ params }: PageProps) {
   const slug = decodeURIComponent(rawSlug);
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const [t, tLanding, { trail, products }, trailList, storyList] =
-    await Promise.all([
-      getTranslations({ locale, namespace: "style" }),
-      getTranslations({ locale, namespace: "landing" }),
-      getTrailPageData(slug),
-      getAllTrails(safeLocale),
-      getAllStories(safeLocale),
-    ]);
+  const [t, { trail, products }, trailList, storyList] = await Promise.all([
+    getTranslations({ locale, namespace: "style" }),
+    getTrailPageData(slug),
+    getAllTrails(safeLocale),
+    getAllStories(safeLocale),
+  ]);
 
   if (!trail) notFound();
   if (products === null) await markRenderDegraded("style.trail.products");
@@ -533,9 +531,6 @@ export default async function StyleTrailPage({ params }: PageProps) {
                 safeLocale,
               )}
               {relatedTrailTiles(t("relatedTrails"), relatedTrails, {
-                eyebrow: tLanding("trails.eyebrow"),
-                // No arrow glyph in a translated label (DESIGN.md §8
-                // actionLinkStyles); `landing.trails.cta` still carries one.
                 cta: t("relatedTrailCta"),
               })}
             </div>

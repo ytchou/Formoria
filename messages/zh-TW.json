@@ -147,17 +147,18 @@
   "landing": {
     "metadata": {
       "title": "Formoria：台灣好物選物平台",
-      "description": "Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。台灣好物選物平台，從生活出發認識產品與品牌。"
+      "description": "生活可以更像自己一點。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。"
     },
     "hero": {
       "headline": "生活可以<wbr></wbr>更像自己一點",
       "searchLabel": "搜尋台灣商品",
-      "searchPlaceholder": "例：旅行必備小物、結婚禮物推薦、夏天防曬好物",
+      "searchPlaceholder": "例：旅行小物、結婚禮物、夏天防曬",
       "browseCta": "從主題選物開始",
       "eyebrow": "台灣好物選物平台",
-      "lede": "搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。",
+      "lede": "從一件喜歡的東西，找到做它的台灣品牌，和買得到它的地方。",
       "browsePrefix": "或",
-      "situationsLabel": "從一個情境開始找"
+      "situationsLabel": "從一個情境開始找",
+      "situationsLanguageNote": "這些主題選物目前只有中文版"
     },
     "selectedProducts": {
       "productCta": "在品牌官網查看",
@@ -169,13 +170,13 @@
       "line": "收錄與選物，清楚分開"
     },
     "submitBand": {
-      "headline": "發現了不該被錯過的品牌嗎？",
-      "body": "告訴我們，通過審核後就會收錄進目錄。推薦不需要和品牌有關係。",
+      "headline": "知道還沒收錄的台灣品牌嗎？",
+      "body": "告訴我們，審核通過就會收錄。不是品牌方也可以推薦。",
       "cta": "推薦品牌"
     },
     "latestStories": {
       "heading": "專題",
-      "note": "從一個生活場景出發，慢慢認識產品、品牌，以及做這些東西的人。",
+      "note": "台灣品牌的長篇報導，也整理展會和市集的逛法。",
       "linkText": "看全部專題"
     },
     "trails": {
@@ -183,11 +184,11 @@
       "note": "從一個具體情境挑出的商品",
       "linkText": "看全部主題選物",
       "eyebrow": "主題選物",
-      "cta": "看這組選物 →"
+      "cta": "看這組選物"
     },
     "selection": {
-      "headline": "這一季的選物",
-      "subtitle": "搬新家、佈置店面、想換一盞燈的時候，可以從這幾件開始看",
+      "headline": "從這些商品開始看",
+      "subtitle": "點一件，就能認識做它的品牌。",
       "cta": "看全部商品",
       "allCategories": "全部",
       "loading": "載入中…",
@@ -195,12 +196,12 @@
     },
     "missionCloser": {
       "headline": "喜歡的東西，不該只是偶然遇見",
-      "subtitle": "從一件東西出發，走到做它的品牌",
-      "cta": "去品牌目錄"
+      "subtitle": "品牌目錄依分類和縣市整理，可以慢慢逛。",
+      "cta": "看品牌目錄"
     },
     "brands": {
       "count": "{approximate, select, true {已收錄 {count} 多個台灣品牌} other {已收錄 {count} 個台灣品牌}}",
-      "browseAll": "看全部品牌",
+      "browseAll": "看品牌目錄",
       "pauseMarquee": "暫停品牌輪播",
       "playMarquee": "播放品牌輪播"
     }
@@ -218,11 +219,11 @@
       "mit-trends": "台灣品牌趨勢"
     },
     "success": "確認信已寄出，請到收件匣點開連結完成訂閱",
-    "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+    "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後需完成信箱確認，隨時都能取消訂閱。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "我同意接收 Formoria 電子報",
-    "newsletterOnlyDescription": "電子報需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+    "newsletterOnlyDescription": "電子報需完成信箱確認，隨時都能取消訂閱。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
     "breadcrumbAria": "目前位置",

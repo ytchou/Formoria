@@ -30,6 +30,8 @@ export type TrailEntry = {
   slug: string
   frontmatter: {
     title: string
+    /** English chip label for the homepage situations row on /en; the trail itself stays zh-TW. */
+    shortTitleEn?: string
     description?: string
     slug: string
     tags: string[]
@@ -146,6 +148,7 @@ const parseTrailFile = cache((slug: string): TrailDetailResult | null => {
     slug,
     frontmatter: {
       title: typeof data.title === 'string' ? data.title : '',
+      shortTitleEn: optionalString(data.shortTitleEn),
       description: optionalString(data.description),
       slug: typeof data.slug === 'string' ? data.slug : slug,
       tags: stringArray(data.tags),

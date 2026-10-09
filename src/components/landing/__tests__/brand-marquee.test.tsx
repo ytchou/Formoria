@@ -40,7 +40,13 @@ vi.mock("next-intl", () => ({
 }));
 
 vi.mock("@/components/brands/brand-avatar", () => ({
-  BrandAvatar: ({ name }: { name: string }) => <span>{name}</span>,
+  BrandAvatar: ({
+    name,
+    showName = true,
+  }: {
+    name: string;
+    showName?: boolean;
+  }) => (showName ? <span>{name}</span> : null),
 }));
 
 vi.mock("@/i18n/navigation", () => ({
@@ -77,6 +83,14 @@ describe("BrandMarquee", () => {
     vi.clearAllMocks();
     listeners.clear();
     stubReducedMotion(false);
+  });
+
+  it("renders each brand name once, clamped to two lines", async () => {
+    await renderMarquee();
+
+    const name = screen.getByText("Brand A");
+    expect(name).toHaveClass("line-clamp-2");
+    expect(name.closest("a")).toHaveAttribute("href", "/brands/a");
   });
 
   it("renders a pause button while the rail scrolls", async () => {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /**
- * The homepage trail list plus its below-`md` position counter (「1 / 5」).
+ * The homepage trail list plus its below-`lg` position counter (「1 / 5」).
  *
  * The cards arrive as server-rendered `children`; this component owns only the
  * `<ul>` element (its classes come from the caller, which documents them) and
@@ -69,7 +69,7 @@ export function TrailSnapRow({
         <p
           aria-hidden="true"
           data-trail-counter
-          className="mt-2 type-metadata text-ink-muted md:hidden"
+          className="mt-2 type-metadata text-ink-muted lg:hidden"
         >
           {`${current} / ${count}`}
         </p>

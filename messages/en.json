@@ -147,17 +147,18 @@
   "landing": {
     "metadata": {
       "title": "Formoria — A curated platform for Taiwanese goods",
-      "description": "A curated platform for Taiwanese goods: from one thing you love, to its brand, its story, and the place you can buy it. Formoria reconnects that path."
+      "description": "Life can feel a little more like you. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it."
     },
     "hero": {
       "headline": "Life can feel a little more like you",
       "searchLabel": "Search Taiwanese products",
-      "searchPlaceholder": "Try: travel essentials, wedding gifts, sunscreen",
+      "searchPlaceholder": "Try: travel gear, wedding gifts, sunscreen",
       "browseCta": "Start from a guide",
       "eyebrow": "A curated platform for Taiwanese goods",
-      "lede": "Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it.",
+      "lede": "From one thing you love to the Taiwanese brand that makes it, and the place you can buy it.",
       "browsePrefix": "or",
-      "situationsLabel": "Start from a situation"
+      "situationsLabel": "Start from a situation",
+      "situationsLanguageNote": "These guides are in Chinese"
     },
     "selectedProducts": {
       "productCta": "View on the brand's site",
@@ -169,13 +170,13 @@
       "line": "Listings and selections stay distinct"
     },
     "submitBand": {
-      "headline": "Found a brand that should not be missed?",
-      "body": "Tell us. Approved brands join the directory, and you need no connection to the brand.",
+      "headline": "Know a Taiwanese brand we haven't listed?",
+      "body": "Tell us. Once approved, it joins the directory. You don't have to work for the brand.",
       "cta": "Recommend a brand"
     },
     "latestStories": {
       "heading": "Stories",
-      "note": "Start from one scene in daily life, then get to know the products, the brands, and the people who make them.",
+      "note": "Long-form stories on Taiwanese brands, plus guides to expos and markets.",
       "linkText": "See all stories"
     },
     "trails": {
@@ -183,11 +184,11 @@
       "note": "Products picked for one specific situation",
       "linkText": "See all guides",
       "eyebrow": "Guide",
-      "cta": "See this guide →"
+      "cta": "See this guide"
     },
     "selection": {
-      "headline": "This season's selection",
-      "subtitle": "Moving in, styling a shop, changing a lamp: a few things to start with",
+      "headline": "A few products to start with",
+      "subtitle": "Pick one to meet the brand that makes it.",
       "cta": "See all products",
       "allCategories": "All",
       "loading": "Loading…",
@@ -195,12 +196,12 @@
     },
     "missionCloser": {
       "headline": "The things you love shouldn't just be chance encounters",
-      "subtitle": "Start from one thing and find the brand that makes it",
-      "cta": "Go to the brand directory"
+      "subtitle": "The directory is sorted by category and city. Take your time.",
+      "cta": "Browse the brand directory"
     },
     "brands": {
       "count": "{approximate, select, true {More than {count} Taiwanese brands listed} other {{count, plural, one {# Taiwanese brand listed} other {# Taiwanese brands listed}}}}",
-      "browseAll": "See all brands",
+      "browseAll": "Browse the brand directory",
       "pauseMarquee": "Pause brand carousel",
       "playMarquee": "Play brand carousel"
     }
@@ -217,12 +218,12 @@
       "curated-picks": "Formoria Selection",
       "mit-trends": "Taiwanese brand trends"
     },
-    "success": "Confirmation email sent — open the link in your inbox to finish subscribing",
-    "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email to activate delivery; you can unsubscribe free of charge at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
+    "success": "Confirmation email sent. Open the link in it to finish subscribing.",
+    "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email to activate delivery. You can unsubscribe at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "I agree to receive the Formoria newsletter",
-    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details."
+    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details."
   },
   "brands": {
     "breadcrumbAria": "Breadcrumb",

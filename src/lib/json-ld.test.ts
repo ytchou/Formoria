@@ -13,8 +13,13 @@ import {
   type JsonLdObject,
 } from "@/lib/json-ld";
 import type { Brand } from "@/lib/types";
+import enMessages from "../../messages/en.json";
+import zhMessages from "../../messages/zh-TW.json";
 import { getSiteUrl } from "@/lib/site-url";
 import type { Stockist } from "@/lib/types/stockist";
+
+const escapeRegExp = (text: string) =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
@@ -503,13 +508,13 @@ describe("buildOrganizationJsonLd", () => {
     expect(zh["@type"]).toBe("Organization");
     expect(zh.name).toBe("Formoria");
     expect(zh.url).toMatch(/^https?:\/\//);
-    // The description opens with the brand-voice promise and scene line,
-    // quoted verbatim, before the commerce boundary.
-    expect(zh.description).toMatch(
-      /^生活可以更像自己一點。搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。/,
+    // The description opens with the homepage meta description, verbatim,
+    // before the commerce boundary.
+    expect(String(zh.description)).toMatch(
+      new RegExp(`^${escapeRegExp(zhMessages.landing.metadata.description)}`),
     );
-    expect(en.description).toMatch(
-      /^Life can feel a little more like you\. Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters\./,
+    expect(String(en.description)).toMatch(
+      new RegExp(`^${escapeRegExp(enMessages.landing.metadata.description)}`),
     );
     expect(zh.description).toContain("Formoria 把相遇之後的路接起來");
     expect(zh.description).toContain("品牌或零售通路負責價格");

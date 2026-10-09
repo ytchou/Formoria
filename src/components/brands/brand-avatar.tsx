@@ -10,6 +10,7 @@ export function BrandAvatar({
   nameFace = "interface",
   size = "sm",
   showName = true,
+  imageFit = "cover",
   preload,
 }: {
   name: string;
@@ -18,6 +19,8 @@ export function BrandAvatar({
   size?: "sm" | "lg";
   /** Off where the caller renders the name itself (the directory card's h3). */
   showName?: boolean;
+  /** `contain` for a brand logo, which a cover crop would cut into. */
+  imageFit?: "cover" | "contain";
   /** Forwarded to the image; the directory's first card is the LCP candidate. */
   preload?: boolean;
 }) {
@@ -47,7 +50,10 @@ export function BrandAvatar({
             // exactly as `fill` did.
             width={size === "lg" ? 80 : 72}
             height={size === "lg" ? 80 : 72}
-            className="absolute inset-0 h-full w-full object-cover"
+            className={cn(
+              "absolute inset-0 h-full w-full",
+              imageFit === "contain" ? "object-contain p-2" : "object-cover",
+            )}
             onError={() => setFailedSrc(imageSrc)}
           />
         </div>

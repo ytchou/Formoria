@@ -196,6 +196,8 @@ describe("landing namespace", () => {
       "hero.browsePrefix",
       // The label over the hero's situation (trail) links.
       "hero.situationsLabel",
+      // The note over those links when their language differs from the page's.
+      "hero.situationsLanguageNote",
       // CuratedProductGrid reads its product-tile labels from this namespace.
       "selectedProducts.productCta",
       "selectedProducts.brandSiteCta",

@@ -268,10 +268,12 @@ export function buildOrganizationJsonLd(locale?: string): JsonLdObject {
         : "Formoria — A curated platform for Taiwanese goods",
     url: siteUrl,
     logo: `${siteUrl}/images/formoria-mark.png`,
+    // Opens with the homepage `landing.metadata.description` verbatim, so the
+    // Organization and the page describe Formoria in the same words.
     description:
       inLanguage === "zh-TW"
-        ? "生活可以更像自己一點。搬新家、佈置店面、在市集停下來的那一刻 — 喜歡的東西，不該只是偶然遇見。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。Formoria 不接單，也不處理結帳；品牌或零售通路負責價格、規格、庫存、出貨與售後服務。"
-        : "Life can feel a little more like you. Moving into a new home, styling a shop, the moment you stop at a market stall — the things you love shouldn't just be chance encounters. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. Formoria does not take orders or handle checkout. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfillment, and after-sales service.",
+        ? "生活可以更像自己一點。Formoria 把相遇之後的路接起來：從一件喜歡的東西，走到它的品牌、它的故事，和買得到它的地方。Formoria 不接單，也不處理結帳；品牌或零售通路負責價格、規格、庫存、出貨與售後服務。"
+        : "Life can feel a little more like you. Formoria reconnects the path after that moment: from one thing you love, to its brand, its story, and the place you can buy it. Formoria does not take orders or handle checkout. Brands or retailers remain responsible for price, variants, inventory, checkout, fulfillment, and after-sales service.",
     inLanguage,
     ...(FORMORIA_SOCIALS.length > 0 ? { sameAs: FORMORIA_SOCIALS } : {}),
   };
