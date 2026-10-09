@@ -308,10 +308,26 @@
   },
   "brandDetail": {
     "metadata": {
-      "fallbackDescription": "Explore {name}, a Taiwanese brand featured on Formoria."
+      "fallbackDescription": "{name}: brand story, products, official site, and stockists."
     },
     "tabNav": {
-      "overview": "On this page"
+      "overview": "On this page",
+      "short": {
+        "about": "Story",
+        "selectedProducts": "Products",
+        "whereToBuy": "Where to buy",
+        "featuredIn": "Featured",
+        "faq": "FAQ",
+        "social": "Social"
+      }
+    },
+    "colophon": {
+      "city": "Based in",
+      "founded": "Founded"
+    },
+    "heroJump": {
+      "selected": "{count, plural, one {# product} other {# products}} from this brand",
+      "stockists": "{count, plural, one {# stockist} other {# stockists}}"
     },
     "selectedProducts": {
       "heading": "From this brand",
@@ -332,7 +348,7 @@
       "moreActions": "More options"
     },
     "actions": {
-      "visitWebsite": "Visit Website",
+      "visitWebsite": "Visit the brand's site",
       "visitPinkoi": "Visit Pinkoi",
       "visitShopee": "Visit Shopee",
       "visitMyship": "Visit 7-ELEVEN MyShip",
@@ -465,7 +481,7 @@
     },
     "breadcrumb": {
       "ariaLabel": "Breadcrumb",
-      "directory": "Brands"
+      "directory": "Brand directory"
     },
     "sections": {
       "about": "Brand story",
@@ -533,9 +549,10 @@
       "close": "Close photo viewer",
       "previous": "Previous photo",
       "next": "Next photo",
-      "photoAltWithBrand": "{brand} product {n}",
+      "photoAltWithBrand": "{brand} photo {n}",
       "viewPhoto": "View photo {n}",
-      "brandSupplied": "Image supplied by the brand"
+      "brandSupplied": "Image supplied by the brand",
+      "viewer": "Choose a photo"
     },
     "locations": {},
     "editorialAppearances": {

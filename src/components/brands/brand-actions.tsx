@@ -52,6 +52,11 @@ const VISIT_LABEL_KEYS = {
   facebook: 'actions.visitFacebook',
 } satisfies Record<BrandVisitLinkKind, string>
 
+// Layout only (flex sizing and a width cap), shared by the live CTA and its
+// disabled twin so both wrap the same way.
+const VISIT_CTA_LAYOUT =
+  'min-w-0 flex-1 basis-full md:basis-0 md:max-w-80'
+
 interface BrandActionsProps {
   adminSlot?: ReactNode
   websiteUrl: string | null
@@ -98,28 +103,35 @@ export function BrandActions({
   return (
     <>
       {/*
-        One row at every width: the visit CTA takes the remaining space and the
-        secondary actions are 44px icon buttons. Geometry comes only from the
-        Button `size` axis (DESIGN.md §7/§8) — no height or padding overrides.
+        The secondary actions are 44px icon buttons. Below md the visit CTA
+        takes its own line and the icons sit under it: a shared row overflowed
+        at 320px (BD2-01) and, with labels such as "Visit the brand's site",
+        pushed the last icon onto a line of its own at 390px. From md the CTA
+        shares one row with the icons and fills the space left, capped at
+        320px, so the row reads as a button group rather than a bar (BD2-32);
+        a fixed floor instead would wrap the icons in the ~390px lg column at
+        1024px. Height and padding
+        come only from the Button `size` axis (DESIGN.md §7/§8) — the classes
+        below are flex layout and a width cap, never a height or padding.
       */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {websiteUrl ? (
           <a
             ref={visitCtaRef}
             href={websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className={buttonVariants({ variant: 'primary', className: 'flex-1' })}
+            className={buttonVariants({ variant: 'primary', className: VISIT_CTA_LAYOUT })}
             data-ph-no-autocapture
             onClick={handleWebsiteClick}
           >
             <ExternalLink className="size-[15px]" />
-            {visitLabel}
+            <span className="truncate">{visitLabel}</span>
           </a>
         ) : (
-          <span className={buttonVariants({ variant: 'secondary', className: 'flex-1 cursor-default opacity-50' })} aria-disabled="true">
+          <span className={buttonVariants({ variant: 'secondary', className: `${VISIT_CTA_LAYOUT} cursor-default opacity-50` })} aria-disabled="true">
             <ExternalLink className="size-[15px]" />
-            <span className="line-through">{visitLabel}</span>
+            <span className="truncate line-through">{visitLabel}</span>
           </span>
         )}
         <ShareDialog

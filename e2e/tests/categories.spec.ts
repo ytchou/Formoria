@@ -86,7 +86,9 @@ test.describe("Product catalog (formerly category landings) deep", () => {
     for (const path of ["/brands", "/brands?category=home,fashion"]) {
       await page.goto(path);
       await expect(
-        page.getByRole("navigation", { name: "麵包屑導覽" }),
+        // Both breadcrumb labels in use: the brand page's 目前位置 and the
+        // 麵包屑導覽 family (stories, brands.breadcrumbAria).
+        page.getByRole("navigation", { name: /麵包屑導覽|目前位置/ }),
       ).toHaveCount(0);
       await expect(page.getByText(/更新於 \d{4}年/)).toHaveCount(0);
     }

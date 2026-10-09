@@ -25,10 +25,16 @@ export function Breadcrumb({
       {/* Ancestors and chevrons never shrink, so a narrow viewport wraps the
           row between crumbs instead of splitting a word; only the current
           page may wrap or truncate. Prefetch is off: crumbs point at the
-          directory, whose prefetches drew 429s under concurrent crawls. */}
-      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 type-body-sm">
+          directory, whose prefetches drew 429s under concurrent crawls.
+          黑體 `type-nav`: a breadcrumb is interface, not content (DESIGN.md
+          §1). Each li is a real box, not `display: contents`, which drops
+          list semantics in WebKit/VoiceOver. */}
+      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 type-nav text-ink-muted">
         {items.map((item, index) => (
-          <li key={`${item.label}-${index}`} className="contents">
+          <li
+            key={`${item.label}-${index}`}
+            className="inline-flex min-w-0 items-center gap-1.5"
+          >
             {index > 0 ? (
               <ChevronRight aria-hidden="true" className="size-3.5 shrink-0" />
             ) : null}
@@ -43,7 +49,7 @@ export function Breadcrumb({
             ) : (
               <span
                 aria-current="page"
-                className="min-w-0 truncate font-medium text-ink"
+                className="min-w-0 truncate text-ink"
               >
                 {item.label}
               </span>
