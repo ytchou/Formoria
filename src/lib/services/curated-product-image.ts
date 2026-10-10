@@ -219,7 +219,7 @@ function curatedProductImageKey(input: {
  * AD-CREATIVE GATE (DEV-1989): the same read reports whether a person presents
  * the product and how much of the image is overlaid text, and
  * `findImageRejectionReasons` rejects a spokesperson ad, a banner or ad copy
- * (「一件可印」) the same way, failing closed the same way.
+ * (e.g. a print-on-demand slogan) the same way, failing closed the same way.
  */
 export async function prepareCuratedProductImage(
   imageSourceUrl: string,
