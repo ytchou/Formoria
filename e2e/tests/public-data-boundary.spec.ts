@@ -173,7 +173,9 @@ test.describe.serial("Public brand data boundary", () => {
     await productSearch.fill(searchToken);
     await productSearch.press("Enter");
     await expect(page).toHaveURL(url => url.pathname === "/discover" && url.searchParams.get("q") === searchToken);
-    await expect(page.getByRole("heading", { name: `符合「${searchToken}」的商品` })).toBeVisible();
+    // Search mode titles the page 搜尋結果 and echoes the query beneath it.
+    await expect(page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true })).toBeVisible();
+    await expect(page.getByRole("main").getByText(`「${searchToken}」`, { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "相關品牌" }).getByRole("link", { name: brandName })).toHaveCount(0);
     await auditCurrentDocument(page, canaries, "product discovery");
 

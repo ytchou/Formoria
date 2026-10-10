@@ -8,6 +8,7 @@ import { getServiceClient, seedBrand, SeededBrand } from "../helpers/seed";
 import { e2eBrandImageKey, e2eProxyImageUrl } from "../helpers/image-refs";
 import { BUDGET, POLL } from "../budgets";
 import { waitForViewerReady } from "../helpers/viewer-ready";
+import { colophonValue, heroMetaLine } from "../helpers/brand-hero";
 
 /**
  * The three channel corrections (purchase link, stockist, social link) share
@@ -85,11 +86,11 @@ test.describe("Brand detail deep", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-    // The seeded brand has a category and a founding year but no city, so the
-    // city part is omitted rather than printed as a placeholder.
-    await expect(
-      page.getByText("居家生活 · 2020 年創立", { exact: true }),
-    ).toBeVisible();
+    // The seeded brand has a category and a founding year but no city. The
+    // founding year is set in the hero colophon (BD2-31), so the line under the
+    // name carries the category alone and no city placeholder.
+    await expect(heroMetaLine(page)).toHaveText("居家生活");
+    await expect(colophonValue(page, "創立")).toHaveText("2020");
     await expect(page.getByText("尚無資料")).toHaveCount(0);
     await expect(page.getByRole("region", { name: "品牌資訊" })).toHaveCount(0);
 
@@ -97,9 +98,8 @@ test.describe("Brand detail deep", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-    await expect(
-      page.getByText("Home & Living · Founded 2020", { exact: true }),
-    ).toBeVisible();
+    await expect(heroMetaLine(page)).toHaveText("Home & Living");
+    await expect(colophonValue(page, "Founded")).toHaveText("2020");
     await expect(page.getByText("Not available")).toHaveCount(0);
 
     await expect(

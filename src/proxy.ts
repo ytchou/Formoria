@@ -274,6 +274,17 @@ function parseDirectoryPath(pathname: string): {
   return { locale: "zh-TW", path: pathname };
 }
 
+/**
+ * Whether a /discover query names a category the page would reject. Mirrors
+ * the page's `firstParam` read (first value, trimmed) so both agree.
+ */
+export function hasUnknownDiscoverCategory(
+  searchParams: URLSearchParams,
+): boolean {
+  const category = searchParams.get("category")?.trim();
+  return category ? !isVisibleCategory(category) : false;
+}
+
 export function isDirectoryIndexPath(pathname: string, search = ""): boolean {
   // Pathname first, deliberately. This runs in middleware for nearly every
   // request, and parsing the query for `/api/...?x=1` or a utm-tagged marketing
@@ -901,6 +912,19 @@ async function runProxy(request: NextRequest) {
     );
     return finalizeResponse(
       NextResponse.redirect(new URL(destination, request.url), 301),
+      staging,
+    );
+  }
+
+  // /discover streams behind loading.tsx, so the page's own notFound() for an
+  // unknown category lands after a 200 status line. Answer it here instead so
+  // a deferred or retired category URL stays a real 404 (DS-34).
+  if (
+    legacyCategoryPath.path === "/discover" &&
+    hasUnknownDiscoverCategory(request.nextUrl.searchParams)
+  ) {
+    return finalizeResponse(
+      rewriteToLocalizedNotFound(request, legacyCategoryPath.locale),
       staging,
     );
   }
