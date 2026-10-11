@@ -2213,8 +2213,8 @@ export async function getBrandBySlug(
   return brandToDomainWithImages(supabase, data);
 }
 
-/** Public detail boundary with an explicit projection and response mapper. */
-export async function getPublicBrandDetailBySlug(
+/** Approved public fields without the gallery's deploy-order fallback. */
+export async function getPublicBrandDetailBaseBySlug(
   slug: string,
 ): Promise<PublicBrandDetail> {
   const supabase = createServiceClient();
@@ -2226,7 +2226,16 @@ export async function getPublicBrandDetailBySlug(
     .maybeSingle();
 
   if (error || !data) throw new NotFoundError("Brand", slug, { cause: error });
-  return toPublicBrandDetail(await brandToDomainWithImages(supabase, data));
+  return toPublicBrandDetail(brandToDomain(data));
+}
+
+/** Public detail boundary with fresh gallery fields and an explicit projection. */
+export async function getPublicBrandDetailBySlug(
+  slug: string,
+): Promise<PublicBrandDetail> {
+  const detail = await getPublicBrandDetailBaseBySlug(slug);
+  const images = await getBrandImages(createServiceClient(), detail.id);
+  return images.length === 0 ? detail : { ...detail, ...toImageFields(images) };
 }
 
 /** FAQ rendering context is fetched separately so detail pages never load the

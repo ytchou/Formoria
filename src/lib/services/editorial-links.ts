@@ -8,7 +8,7 @@
  */
 import { cache } from "react";
 
-import { getPublishedCuratedProductsForTrail } from "@/lib/services/curated-products";
+import { getCachedEditorialTrailProducts } from "@/lib/services/public-brand-render-data";
 import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -195,33 +195,25 @@ export function deriveProductTrailLinks(
 const collectAllPlacements = cache(
   async (): Promise<ProductPlacement[]> => {
     const trailsResult = await getAllTrails("zh-TW");
-    if (!trailsResult.ok) {
-      console.error(
-        "[editorial-links] getAllTrails returned error — returning empty placements",
-      );
-      return [];
-    }
+    if (!trailsResult.ok) throw trailsResult.error;
 
     const trailProducts = await Promise.all(
       trailsResult.trails.map(async (trail) => {
-        try {
-          const products = await getPublishedCuratedProductsForTrail(
-            trail.slug,
-          );
-          return products.map(
-            (product): ProductPlacement => ({
-              brandSlug: product.brandSlug,
-              productKey: product.key,
-              trailSlug: trail.slug,
-              trailTitle: trail.frontmatter.title,
-              trailLocale: trail.frontmatter.locale,
-              category: product.category,
-              subcategories: product.subcategory ? [product.subcategory] : [],
-            }),
-          );
-        } catch {
-          return [];
-        }
+        const products = await getCachedEditorialTrailProducts(
+          trail.slug,
+          JSON.stringify(trail.frontmatter),
+        );
+        return products.map(
+          (product): ProductPlacement => ({
+            brandSlug: product.brandSlug,
+            productKey: product.key,
+            trailSlug: trail.slug,
+            trailTitle: trail.frontmatter.title,
+            trailLocale: trail.frontmatter.locale,
+            category: product.category,
+            subcategories: product.subcategory ? [product.subcategory] : [],
+          }),
+        );
       }),
     );
     return trailProducts.flat();
@@ -235,7 +227,7 @@ const collectAllPlacements = cache(
 const collectStoryBrands = cache(
   async (): Promise<StoryBrandsRecord[]> => {
     const result = await getAllStories("zh-TW");
-    if (!result.ok) return [];
+    if (!result.ok) throw result.error;
     return result.stories.map((story) => ({
       slug: story.slug,
       title: story.frontmatter.title,
@@ -298,10 +290,11 @@ export async function getCategoryEditorialLinks(
   ];
   if (unplacedStorySlugs.length > 0) {
     const supabase = createServiceClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("brands")
       .select("slug, category")
       .in("slug", unplacedStorySlugs);
+    if (error) throw error;
     for (const row of data ?? []) {
       if (row.category) {
         const list = brandsByCategory.get(row.category) ?? [];
@@ -324,7 +317,7 @@ export async function getStoryRelatedTrails(
   storySlug: string,
 ): Promise<TrailLink[]> {
   const result = await getAllStories("zh-TW");
-  if (!result.ok) return [];
+  if (!result.ok) throw result.error;
 
   const story = result.stories.find((s) => s.slug === storySlug);
   if (!story) return [];

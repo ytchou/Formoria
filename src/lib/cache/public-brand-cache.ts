@@ -4,6 +4,11 @@ import { routing } from '@/i18n/routing'
 import { routes } from '@/lib/routes'
 
 export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
+export const PUBLIC_DETAIL_DATA_TAG = 'public-brand-detail-data'
+export const PUBLIC_DETAIL_CACHE_OPTIONS = {
+  revalidate: 3600,
+  tags: [PUBLIC_DETAIL_DATA_TAG],
+}
 
 /**
  * `localePrefix: 'as-needed'` serves the default locale through the exact
@@ -52,6 +57,7 @@ export function revalidateTrailSurfaces(trailSlugs: readonly string[]): void {
   if (unique.length === 0) return
 
   for (const slug of unique) revalidateTrail(slug)
+  revalidateTag(PUBLIC_DETAIL_DATA_TAG, { expire: 0 })
 
   revalidateLocalizedPath(routes.home())
   revalidateLocalizedPath(routes.style())
@@ -70,6 +76,7 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
   if (unique.length === 0) return
 
   revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
+  revalidateTag(PUBLIC_DETAIL_DATA_TAG, { expire: 0 })
 
   for (const slug of unique) {
     revalidatePath(routes.brand(slug))
@@ -86,4 +93,5 @@ export function revalidatePublicBrands(slugs: readonly string[]): void {
 
 export function revalidatePublicStockists(): void {
   revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
+  revalidateTag(PUBLIC_DETAIL_DATA_TAG, { expire: 0 })
 }

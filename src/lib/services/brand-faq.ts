@@ -30,6 +30,16 @@ export async function getBrandFaq(
   client?: FaqSupabase,
 ): Promise<FaqItem[]> {
   const rows = await getBrandFaqEntries(brandId, client);
+  return renderBrandFaq(rows, brand, t, locale, cityLabel);
+}
+
+export function renderBrandFaq(
+  rows: readonly BrandFaqEntryRow[],
+  brand: PublicBrandFaqContext,
+  t: TFn,
+  locale: string = "zh-TW",
+  cityLabel: string | null = null,
+): FaqItem[] {
   const isZh = !locale.startsWith("en");
   // Peer stats are an enrichment-pipeline concern and are deliberately not
   // fetched here — a brand page must not run a category-wide aggregate on

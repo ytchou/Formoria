@@ -8,7 +8,10 @@ const { revalidatePath, revalidateTag } = vi.hoisted(() => ({
 vi.mock("next/cache", () => ({ revalidatePath, revalidateTag }));
 
 import { POST } from "./route";
-import { PUBLIC_BRAND_DATA_TAG } from "@/lib/cache/public-brand-cache";
+import {
+  PUBLIC_BRAND_DATA_TAG,
+  PUBLIC_DETAIL_DATA_TAG,
+} from "@/lib/cache/public-brand-cache";
 
 const url = "https://formoria.com/api/internal/revalidate-brands";
 const secret = "mch_2026_08_7f4c3b29a1e6d8f0c2b5a9e4";
@@ -30,15 +33,18 @@ describe("POST /api/internal/revalidate-brands", () => {
     vi.stubEnv("ORIGIN_SECRET", secret);
   });
 
-  it("bounds a 200-brand batch to one shared tag and 409 path invalidations", async () => {
+  it("bounds a 200-brand batch to two shared tags and 408 path invalidations", async () => {
     const slugs = Array.from({ length: 200 }, (_, index) => `brand-${index}`);
 
     const response = await POST(request({ slugs }));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ revalidated: 200 });
-    expect(revalidateTag).toHaveBeenCalledTimes(1);
+    expect(revalidateTag).toHaveBeenCalledTimes(2);
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_DETAIL_DATA_TAG, {
+      expire: 0,
+    });
     expect(revalidatePath).toHaveBeenCalledTimes(408);
 
     expect(revalidatePath).toHaveBeenCalledWith(
@@ -71,7 +77,7 @@ describe("POST /api/internal/revalidate-brands", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(revalidateTag).toHaveBeenCalledTimes(1);
+    expect(revalidateTag).toHaveBeenCalledTimes(2);
     expect(
       revalidatePath.mock.calls.filter(([path]) =>
         ["/brands/niizo", "/en/brands/niizo"].includes(path as string),
@@ -96,8 +102,14 @@ describe("POST /api/internal/revalidate-brands", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/en/style/a");
     expect(revalidatePath).toHaveBeenCalledWith("/");
     expect(revalidatePath).toHaveBeenCalledWith("/style");
-    // A trail-only payload must not purge every brand page.
-    expect(revalidateTag).not.toHaveBeenCalled();
+    expect(revalidateTag).toHaveBeenCalledTimes(1);
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_DETAIL_DATA_TAG, {
+      expire: 0,
+    });
+    expect(revalidateTag).not.toHaveBeenCalledWith(
+      PUBLIC_BRAND_DATA_TAG,
+      "max",
+    );
   });
 
   it("route rejects non-string trailSlugs", async () => {

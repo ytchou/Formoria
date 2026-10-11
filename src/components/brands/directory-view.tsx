@@ -188,7 +188,10 @@ export async function DirectoryView({
         ? getCategoryEditorialLinks(
             singleValidCategory,
             activeSubcategory?.slug,
-          )
+          ).catch((error) => {
+            captureReadFailure("directory.editorialLinks")(error);
+            return { trails: [], stories: [] };
+          })
         : Promise.resolve({ trails: [], stories: [] }),
     ]);
   const subcategoriesWithCounts = L2_SUBCATEGORIES.filter((subcategory) =>

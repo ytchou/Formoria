@@ -36,7 +36,7 @@ const ALLOWED_UNFILTERED = new Map([
     "by-slug hydration — the caller already chose the slugs",
   ],
   [
-    "getPublicBrandDetailBySlug",
+    "getPublicBrandDetailBaseBySlug",
     "by-slug detail read; e2e specs navigate seeded brands directly",
   ],
   [
