@@ -88,6 +88,20 @@ describe("splitLede", () => {
       "以紙雕結構承接光線與情緒，《紙。有光》專注於立體紙雕氣氛燈，將紙藝、光影設計與語感結合，讓燈飾成為表達想念、祝福、感謝與珍貴回憶的媒介。",
       "作品包含裝框式發光藝術。",
     ],
+    [
+      "TCF's Latin alias within its bilingual name",
+      "大振豐洋傘 Tcf.",
+      "en",
+      "Founded in Taichung in 1983, Tcf. grew from umbrella manufacturing into a broader range of rainwear and lifestyle accessories.",
+      "Its products include umbrellas, parasols, raincoats, sun hats, and fashion bags.",
+    ],
+    [
+      "a different model name ending in the alias",
+      "大振豐洋傘 Tcf.",
+      "en",
+      "The archive labels this model SuperTcf.",
+      "It is separate from the current collection.",
+    ],
   ] as const)(
     "keeps %s intact across the hero and story",
     (_, brandName, locale, lede, rest) => {

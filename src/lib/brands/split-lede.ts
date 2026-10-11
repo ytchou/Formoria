@@ -39,11 +39,15 @@ function firstSentenceEnd(
 ): number {
   // A translated suffix can follow the same punctuated name prefix:
   // "Chez。城市系列" and "Chez. City Series" must both keep "Chez." intact.
-  const namePrefixes = [...brandName.matchAll(/[。.!?！？]/g)].map((match) =>
-    brandName
-      .slice(0, match.index + 1)
-      .normalize("NFKC")
-      .replaceAll("。", "."),
+  const namePrefixes = [...brandName.matchAll(/[。.!?！？]/g)].flatMap(
+    (match) => {
+      const name = brandName
+        .slice(0, match.index + 1)
+        .normalize("NFKC")
+        .replaceAll("。", ".");
+      // Bilingual names may use only their Latin part in English descriptions.
+      return [name, ...(name.match(/[A-Za-z][\x20-\x7e]*$/) ?? [])];
+    },
   );
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
@@ -58,7 +62,15 @@ function firstSentenceEnd(
       .slice(0, i + 1)
       .normalize("NFKC")
       .replaceAll("。", ".");
-    if (namePrefixes.some((name) => prefix.endsWith(name))) continue;
+    if (
+      namePrefixes.some(
+        (name) =>
+          prefix.endsWith(name) &&
+          (!/^[A-Za-z]/.test(name) ||
+            !/[A-Za-z0-9_]$/.test(prefix.slice(0, -name.length))),
+      )
+    )
+      continue;
 
     let end = i + 1;
     while (end < text.length && CLOSERS.has(text[end])) end++;
