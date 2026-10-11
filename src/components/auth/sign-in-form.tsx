@@ -78,7 +78,7 @@ export function SignInForm({
         </div>
       )}
 
-      <AuthFormError message={errorMessage} />
+      <AuthFormError message={errorMessage} pending={pending} />
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />

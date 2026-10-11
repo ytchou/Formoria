@@ -1,5 +1,6 @@
 import { test, expect } from "../fixtures/auth";
 import { load } from "cheerio";
+import assert from "node:assert/strict";
 
 import { BUDGET, POLL } from "../budgets";
 function signInDocument(html: string) {
@@ -129,9 +130,7 @@ test.describe("Auth — sign-in flow", () => {
     const email = process.env.E2E_USER_EMAIL;
     const password = process.env.E2E_USER_PASSWORD;
 
-    if (!email || !password) {
-      throw new Error("E2E_USER_EMAIL and E2E_USER_PASSWORD must be set");
-    }
+    assert(email && password, "E2E_USER_EMAIL and E2E_USER_PASSWORD must be set");
 
     await anonPage.goto("/auth/sign-in");
 
@@ -160,4 +159,44 @@ test.describe("Auth — sign-in flow", () => {
       timeout: BUDGET.INTERACTIVE,
     });
   });
+});
+
+test.describe("Auth — repeated failure recovery", () => {
+  for (const { locale, prefix } of [
+    { locale: "zh-TW", prefix: "" },
+    { locale: "en", prefix: "/en" },
+  ]) {
+    test(`each invalid sign-in attempt returns focus to the error (${locale})`, async ({
+      anonPage,
+    }) => {
+      test.setTimeout(BUDGET.TEST.ADMIN);
+      const email = process.env.E2E_USER_EMAIL;
+      assert(email, "E2E_USER_EMAIL must be set");
+      await anonPage.goto(`${prefix}/auth/sign-in`);
+      await expect(anonPage.locator("html")).toHaveAttribute(
+        "data-viewer-state",
+        "ready",
+        { timeout: BUDGET.NAVIGATION },
+      );
+      const form = anonPage.locator('form:has(input[name="email"])');
+      const alert = anonPage.getByRole("main").getByRole("alert");
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await form.locator('input[name="email"]').fill(email);
+        await form
+          .locator('input[name="password"]')
+          .fill("codex-deliberately-invalid-password-20261011");
+        const responsePromise = anonPage.waitForResponse(
+          (response) =>
+            response.request().method() === "POST" &&
+            Boolean(response.request().headers()["next-action"]),
+        );
+        await form.locator('button[type="submit"]').click();
+        const response = await responsePromise;
+        expect(response.status()).toBe(200);
+        await expect(form.locator('button[type="submit"]')).toBeEnabled();
+        await expect(alert).toHaveText("Invalid login credentials");
+        await expect(alert).toBeFocused();
+      }
+    });
+  }
 });

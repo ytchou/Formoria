@@ -59,7 +59,7 @@ export function SignUpForm({ showOptionalAuthMethods }: SignUpFormProps) {
         <p className="type-body-sm">{t("signUp.subheading")}</p>
       </div>
 
-      <AuthFormError message={state.error} />
+      <AuthFormError message={state.error} pending={pending} />
 
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />

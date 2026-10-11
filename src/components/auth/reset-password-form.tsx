@@ -39,7 +39,7 @@ export function ResetPasswordForm() {
         <p className="type-body-sm">{t("resetPassword.subheading")}</p>
       </div>
 
-      <AuthFormError message={state.error} />
+      <AuthFormError message={state.error} pending={pending} />
 
       {state.message ? (
         <div className="rounded-surface bg-verified-green-bg px-4 py-3 type-body-sm text-ink-soft text-verified-green">

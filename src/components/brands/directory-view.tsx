@@ -24,7 +24,11 @@ import {
   buildWebSiteJsonLd,
   safeJsonLdStringify,
 } from "@/lib/json-ld";
-import { DEFAULT_PAGE_SIZE, type BrandSortOption } from "@/lib/pagination";
+import {
+  BRAND_SORT_CONFIG,
+  DEFAULT_PAGE_SIZE,
+  type BrandSortOption,
+} from "@/lib/pagination";
 import {
   BrandFilterDrawer,
   BrandFilterSidebar,
@@ -39,7 +43,8 @@ import {
 } from "@/components/brands/search-empty-state";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import { SearchResultsTracker } from "@/components/analytics/search-results-tracker";
-import { surfaceCardStyles } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import type { Locale } from "@/lib/seo/alternates";
 import type { DirectoryViewFilters } from "@/lib/seo/directory-filters";
@@ -509,31 +514,35 @@ export async function DirectoryView({
                 ) : undefined
               }
               sort={
-                <Suspense fallback={null}>
+                <Suspense
+                  fallback={
+                    <Label className="inline-flex items-center gap-2">
+                      <span className="sr-only type-metadata shrink-0 text-ink-soft sm:not-sr-only">
+                        {t("sortLabel")}
+                      </span>
+                      <NativeSelect
+                        value={sort}
+                        disabled
+                        className="w-auto"
+                        data-ph-no-autocapture
+                      >
+                        {(Object.keys(BRAND_SORT_CONFIG) as BrandSortOption[]).map(
+                          (key) => (
+                            <option key={key} value={key}>
+                              {t(`sort.${key}`)}
+                            </option>
+                          ),
+                        )}
+                      </NativeSelect>
+                    </Label>
+                  }
+                >
                   <SortSelect />
                 </Suspense>
               }
             />
 
             <PendingResults>
-            <Suspense
-              fallback={
-                <MasonryGrid>
-                  {Array.from({ length: 9 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className={surfaceCardStyles({ padding: "none" })}
-                    >
-                      <div className="flex flex-col gap-3 p-5">
-                        <div className="h-20 w-20 animate-pulse rounded-full bg-surface" />
-                        <div className="h-4 animate-pulse rounded-surface bg-surface" />
-                        <div className="h-3 w-2/3 animate-pulse rounded-surface bg-surface" />
-                      </div>
-                    </div>
-                  ))}
-                </MasonryGrid>
-              }
-            >
               <SavedBrandsProvider>
                 {brands.length === 0 ? (
                   <SearchEmptyState
@@ -554,7 +563,6 @@ export async function DirectoryView({
                   </MasonryGrid>
                 )}
               </SavedBrandsProvider>
-            </Suspense>
 
             <Pagination
               totalCount={totalCount}
