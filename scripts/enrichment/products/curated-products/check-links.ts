@@ -10,6 +10,7 @@
 import { auditedCall } from "@/lib/audit";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
 import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
+import { classifyLinkStatus } from "@/lib/services/link-checks/check-url";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isPrivateUrl } from "@/lib/url";
 
@@ -56,7 +57,8 @@ import {
  * facts with a freshness obligation nothing in this product can honour, which
  * is exactly why `curated_products` has no column for them.
  *
- * A BOT CHALLENGE IS NOT A DEAD LINK. 402/403/405/429 are recorded as NO
+ * AN INCONCLUSIVE PROBE IS NOT A DEAD LINK. Transport failures, 5xx and
+ * 402/403/405/429 are recorded as NO
  * verdict — the stored `link_state` is left untouched and the run summary
  * counts them — because a Cloudflare-fronted origin refuses a scripted HEAD
  * while serving a real visitor perfectly. `link_state` has no `blocked` value
@@ -103,26 +105,10 @@ export type LinkProbe = {
   status: number | null;
 };
 
-/**
- * Statuses that are NOT evidence about the link.
- *
- * A Cloudflare-fronted origin answers a scripted HEAD with 403, and a rate
- * limiter answers 429; both serve the page perfectly to a real visitor.
- * src/lib/services/link-health.ts already treats this set as `blocked` for the
- * same reason. Recording them as `broken` would drop the working call-to-action
- * from every product on that origin, on every run.
- *
- * `curated_products.link_state` has no `blocked` value and its CHECK constraint
- * is already applied to the live database, so the verdict here is "no verdict":
- * the existing `link_state` is left exactly as it was and the run summary
- * surfaces the count for a human.
- */
-const BLOCKED_STATUSES = new Set([402, 403, 405, 429]);
-
 export type LinkClassification = {
   /** `null` when the probe proves nothing — leave the stored state alone. */
   linkState: CuratedLinkState | null;
-  /** True when a bot challenge or rate limit answered instead of the origin. */
+  /** True when the probe cannot establish a link verdict. */
   blocked: boolean;
   status: number | null;
   requestedUrl: string;
@@ -158,8 +144,8 @@ function comparableTarget(url: string): string | null {
  * PURE. No fetch, no clock beyond `now`, no database — the whole rule set that
  * decides a product's `link_state`, testable without a network.
  *
- * 2xx/3xx are the resolving classes; everything else (4xx, 5xx, and a null
- * status from a connection failure) is `broken`. Within the resolving classes
+ * 2xx/3xx are the resolving classes; transport failures, 5xx and challenge or
+ * method refusals leave the stored verdict unchanged. Within resolving classes
  * the verdict is decided by WHERE the request landed, not by which status code
  * carried it there — a shell that follows redirects reports a final 200, and a
  * shell that does not reports the 301. Both must reach the same answer.
@@ -177,7 +163,11 @@ export function classify(
     checkedAt: now().toISOString(),
   };
 
-  if (status !== null && BLOCKED_STATUSES.has(status)) {
+  if (isPrivateUrl(requestedUrl)) {
+    return { ...base, linkState: "broken", redirectedTo: null };
+  }
+
+  if (classifyLinkStatus(status) === "blocked") {
     return { ...base, blocked: true, linkState: null, redirectedTo: null };
   }
 
@@ -577,7 +567,7 @@ async function main(): Promise<void> {
       products: rows.length,
       checked: checks.length,
       changed: changed.length,
-      // Surfaced, never written: a bot challenge is not evidence of a dead
+      // Surfaced, never written: an inconclusive probe is not evidence of a dead
       // link, so these rows keep whatever link_state they already had.
       blocked: blocked.length,
       trails: trailReports,
