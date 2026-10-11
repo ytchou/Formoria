@@ -2,7 +2,7 @@ import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdminAction } from "@/lib/auth/require-admin";
-import { sanitizeErrorResponse } from "@/lib/errors";
+import { sanitizeErrorResponse, ValidationError } from "@/lib/errors";
 import { processImage } from "@/lib/security/image-processor";
 import { stageAdminBrandReviewImage } from "@/lib/services/admin-brand-review";
 import {
@@ -84,6 +84,9 @@ export const POST = withAuditScope(async (
       throw error;
     }
   } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     Sentry.captureException(error);
     return NextResponse.json(sanitizeErrorResponse(error), { status: 500 });
   }

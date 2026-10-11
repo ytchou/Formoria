@@ -70,7 +70,7 @@ export function NewsletterSubscribersList({
           className: "overflow-x-auto",
         })}
       >
-        <Table>
+        <Table aria-label={t("title")}>
           <TableHeader>
             <TableRow>
               <TableHead>{t("table.subscriber")}</TableHead>

@@ -100,7 +100,7 @@ export function ReviewQueueTable<T>(props: {
       ) : null}
 
       <div className="rounded-surface border border-rule bg-surface overflow-hidden">
-        <Table>
+        <Table aria-label={t("tableLabel")}>
           <TableHeader className="bg-surface">
             <TableRow className="h-12">
               {queue.selectionEnabled ? (

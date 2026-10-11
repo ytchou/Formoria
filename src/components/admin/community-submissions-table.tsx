@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { FileInput } from "@/components/ui/file-input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -194,15 +195,14 @@ export function CommunitySubmissionsTable() {
   return (
     <div className="space-y-6">
       <SurfaceCard padding="lg">
-        <Input
+        <FileInput
           id={`${idBase}-csv`}
-          type="file"
           accept=".csv,text/csv"
           aria-label={t("upload.inputLabel")}
-          className="sr-only"
+          className="peer sr-only"
           disabled={isPending}
           onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
+            const file = Array.from(event.currentTarget.files ?? []).at(0);
             if (file) void loadCsv(file);
             event.currentTarget.value = "";
           }}
@@ -210,13 +210,13 @@ export function CommunitySubmissionsTable() {
         <Label
           htmlFor={`${idBase}-csv`}
           aria-disabled={isPending}
-          className="flex min-h-36 cursor-pointer items-center justify-between gap-6 rounded-control border border-dashed border-rule bg-ground p-6 transition-colors hover:bg-surface aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          className="flex min-h-36 cursor-pointer flex-col items-stretch gap-4 rounded-control border border-dashed border-rule bg-ground p-6 transition-colors hover:bg-surface peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent aria-disabled:pointer-events-none aria-disabled:opacity-50 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
         >
           <span className="flex items-center gap-4">
             <span className="flex size-12 shrink-0 items-center justify-center rounded-surface border border-rule bg-surface">
               <FileUp aria-hidden="true" />
             </span>
-            <span className="space-y-1">
+            <span className="min-w-0 space-y-1 break-words">
               <span className="block type-card-title">
                 {isPending ? t("upload.reading") : t("upload.choose")}
               </span>
@@ -228,7 +228,7 @@ export function CommunitySubmissionsTable() {
               ) : null}
             </span>
           </span>
-          <span className="flex shrink-0 flex-col items-end gap-2">
+          <span className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
             <Badge variant="outline">{CSV_HEADER}</Badge>
             <span className="type-metadata">
               {t("upload.maxRows", { max: MAX_COMMUNITY_SUBMISSIONS })}
@@ -295,7 +295,7 @@ export function CommunitySubmissionsTable() {
             </div>
           </div>
           <SurfaceCard padding="none" className="overflow-hidden">
-            <Table>
+            <Table aria-label={t("preview.title")}>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-14">

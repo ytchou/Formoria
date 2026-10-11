@@ -1858,14 +1858,6 @@ export type AdminCuratedProduct = {
   selections: AdminCuratedProductSelection[];
 };
 
-/**
- * Ceiling: one unpaged page of the review queue. Raise it to a `.range()` loop
- * (see `fetchAllRows` in scripts/enrichment/products/curated-products/shared.ts) when the curated
- * catalog approaches this — the queue is client-filtered, so a truncated read
- * would hide rows with no visible symptom.
- */
-const ADMIN_CURATED_PRODUCT_LIMIT = 1_000;
-
 type AdminCuratedProductRow = Omit<CuratedProductReadRow, "link_checked_at"> & {
   proposed_by: string | null;
   updated_at: string;
@@ -1898,8 +1890,11 @@ type AdminCuratedProductRow = Omit<CuratedProductReadRow, "link_checked_at"> & {
 export async function listCuratedProductsForAdmin(
   client?: CuratedProductSupabase,
 ): Promise<AdminCuratedProduct[]> {
-  const runQuery = (subcategoryColumn: "subcategory" | "subcategories") =>
-    curatedProductClient(client)
+  const runQuery = async (subcategoryColumn: "subcategory" | "subcategories") => {
+    const rows: AdminCuratedProductRow[] = [];
+    for (let page = 0; page < CURATED_PRODUCT_BATCH_MAX_PAGES; page += 1) {
+      const from = page * CURATED_PRODUCT_BATCH_PAGE_SIZE;
+      const { data, error } = await curatedProductClient(client)
       .from("curated_products")
       .select(
         `id, brand_id, key, name_zh, name_en, category, ${subcategoryColumn},
@@ -1912,7 +1907,17 @@ export async function listCuratedProductsForAdmin(
        curated_product_selections(trail_slug, section_key, position, state)`,
       )
       .order("updated_at", { ascending: false })
-      .limit(ADMIN_CURATED_PRODUCT_LIMIT);
+      .order("id", { ascending: false })
+      .range(from, from + CURATED_PRODUCT_BATCH_PAGE_SIZE - 1);
+      if (error) return { data: null, error };
+      const pageRows = (data ?? []) as unknown as AdminCuratedProductRow[];
+      rows.push(...pageRows);
+      if (pageRows.length < CURATED_PRODUCT_BATCH_PAGE_SIZE) {
+        return { data: rows, error: null };
+      }
+    }
+    throw new Error(`Admin product read did not terminate after ${CURATED_PRODUCT_BATCH_MAX_PAGES} pages`);
+  };
   let { data, error } = await runQuery("subcategory");
   if (error && isMissingSubcategoryColumn(error)) {
     ({ data, error } = await runQuery("subcategories"));

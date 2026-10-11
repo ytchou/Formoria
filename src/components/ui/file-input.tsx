@@ -7,6 +7,8 @@ type FileInputProps = {
   id?: string
   accept?: string
   multiple?: boolean
+  disabled?: boolean
+  'aria-label'?: string
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void
   className?: string
   ref?: Ref<HTMLInputElement>
@@ -18,7 +20,7 @@ type FileInputProps = {
  * control stays in the accessibility tree and remains reachable by assistive
  * technology.
  */
-function FileInput({ id, accept, multiple, onChange, className, ref }: FileInputProps) {
+function FileInput({ id, accept, multiple, disabled, 'aria-label': ariaLabel, onChange, className, ref }: FileInputProps) {
   return (
     <input
       ref={ref}
@@ -27,6 +29,8 @@ function FileInput({ id, accept, multiple, onChange, className, ref }: FileInput
       data-slot="file-input"
       accept={accept}
       multiple={multiple}
+      disabled={disabled}
+      aria-label={ariaLabel}
       onChange={onChange}
       className={cn('sr-only', className)}
     />

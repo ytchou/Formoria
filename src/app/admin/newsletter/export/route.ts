@@ -66,5 +66,9 @@ export function toNewsletterCsv(subscribers: AdminNewsletterSubscriber[]): strin
 }
 
 function csvCell(value: string): string {
+  // Spreadsheet exports use a quoted text prefix; it remains in machine imports.
+  if (/^[\s\u0000-\u001f]*[=+\-@＝＋－＠]|^[\t\r\n]/u.test(value)) {
+    return `"\t${value.replaceAll('"', '""')}"`;
+  }
   return /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
 }

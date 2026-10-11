@@ -399,7 +399,7 @@ export function JobDetailView({
               {t("detail.empty")}
             </p>
           ) : (
-            <Table>
+            <Table aria-labelledby="job-targets-heading">
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("detail.table.brand")}</TableHead>
