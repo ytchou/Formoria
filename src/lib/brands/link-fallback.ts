@@ -23,6 +23,7 @@ export type BrandVisitLinkKind =
   | 'instagram'
   | 'threads'
   | 'facebook'
+  | 'line'
 
 export interface BrandVisitLink {
   href: string
@@ -38,9 +39,13 @@ const HOST_KINDS: ReadonlyArray<readonly [BrandVisitLinkKind, readonly string[]]
   ['instagram', ['instagram.com']],
   ['threads', ['threads.net', 'threads.com']],
   ['facebook', ['facebook.com', 'fb.com']],
+  ['line', ['line.me', 'lin.ee']],
 ]
 
-function classifyHref(href: string, fallback: BrandVisitLinkKind): BrandVisitLinkKind {
+export function classifyBrandLinkKind(
+  href: string,
+  fallback: BrandVisitLinkKind,
+): BrandVisitLinkKind {
   let hostname: string
   try {
     hostname = new URL(href).hostname.toLowerCase()
@@ -68,7 +73,7 @@ export function getBrandVisitLink(brand: BrandVisitLinkFields): BrandVisitLink |
 
   for (const [kind, href] of candidates) {
     if (href) {
-      return { href, kind: classifyHref(href, kind) }
+      return { href, kind: classifyBrandLinkKind(href, kind) }
     }
   }
 

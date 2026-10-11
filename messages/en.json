@@ -366,6 +366,7 @@
       "visitInstagram": "Visit Instagram",
       "visitThreads": "Visit Threads",
       "visitFacebook": "Visit Facebook",
+      "visitLine": "Visit LINE",
       "copied": "Copied"
     },
     "share": {
@@ -389,6 +390,7 @@
       "threads": "Threads",
       "facebook": "Facebook",
       "website": "Official website",
+      "line": "LINE",
       "pinkoi": "Pinkoi",
       "shopee": "Shopee",
       "myship": "7-ELEVEN MyShip",

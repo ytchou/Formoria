@@ -11,6 +11,7 @@ import {
   AtSign,
   Globe,
   Link,
+  MessageCircle,
   Package,
   ShoppingCart,
   Store,
@@ -29,9 +30,12 @@ import {
   onlineStoreMessageKey,
   ONLINE_STORES,
   type OnlineStoreColumn,
-  type OnlineStoreKey,
 } from "@/lib/brands/online-stores";
 import { trackExternalLinkClicked } from "@/lib/analytics";
+import {
+  classifyBrandLinkKind,
+  type BrandVisitLinkKind,
+} from "@/lib/brands/link-fallback";
 import { CorrectionDialog } from "./correction-dialog";
 import { ProvideStockistInfoDialog } from "./provide-stockist-info-dialog";
 
@@ -62,13 +66,10 @@ function FacebookIcon({ className }: { className?: string }) {
   );
 }
 
-type LinkDestination =
-  OnlineStoreKey | "instagram" | "threads" | "facebook";
-
 type LinkSlot = {
   label: string;
   url: string;
-  linkType: LinkDestination | "other";
+  linkType: BrandVisitLinkKind | "other";
   icon: ReactNode;
 };
 
@@ -97,12 +98,16 @@ const destinationLinkClassName = buttonVariants({
 
 // Icons are ink (`text-current`): DESIGN.md §2 allows no palette exceptions,
 // platform brand colours included.
-const PURCHASE_PRESENTATION = {
+const DESTINATION_PRESENTATION = {
   website: { icon: <Globe className="size-4 text-current" /> },
   pinkoi: { icon: <Store className="size-4 text-current" /> },
   shopee: { icon: <ShoppingCart className="size-4 text-current" /> },
   myship: { icon: <Package className="size-4 text-current" /> },
-} satisfies Record<OnlineStoreKey, { icon: ReactNode }>;
+  instagram: { icon: <InstagramIcon className="size-4 text-current" /> },
+  threads: { icon: <AtSign className="size-4 text-current" /> },
+  facebook: { icon: <FacebookIcon className="size-4 text-current" /> },
+  line: { icon: <MessageCircle className="size-4 text-current" /> },
+} satisfies Record<BrandVisitLinkKind, { icon: ReactNode }>;
 
 function DestinationLinkButton({
   slot,
@@ -253,17 +258,23 @@ export function BrandPurchaseLinks({
   const t = useTranslations("brandDetail");
 
   const purchaseSlots = liveSlots(
-    ONLINE_STORES.map((channel) => ({
-      label: t(
-        onlineStoreMessageKey(
-          channel.messageKeys.brandDetailLink,
-          "brandDetail",
-        ),
-      ),
-      url: normalizeDirectUrl(brand[channel.camel]),
-      linkType: channel.key,
-      ...PURCHASE_PRESENTATION[channel.key],
-    })),
+    ONLINE_STORES.map((channel) => {
+      const url = normalizeDirectUrl(brand[channel.camel]);
+      const kind = url ? classifyBrandLinkKind(url, channel.key) : channel.key;
+      const labelKey =
+        kind === channel.key
+          ? onlineStoreMessageKey(
+              channel.messageKeys.brandDetailLink,
+              "brandDetail",
+            )
+          : `links.${kind}`;
+      return {
+        label: t(labelKey),
+        url,
+        linkType: kind,
+        ...DESTINATION_PRESENTATION[kind],
+      };
+    }),
   );
   // One muted line stands in for every store we hold no link for, instead of a
   // dimmed chip per store.
