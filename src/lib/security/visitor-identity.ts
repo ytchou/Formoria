@@ -103,11 +103,3 @@ export async function resolveVisitorIdentity(
   const visitorId = createVisitorId()
   return { visitorId, signedValue: await signVisitorId(visitorId), minted: true }
 }
-
-/**
- * One-way, fixed-length key for telemetry and counter buckets. Never store or
- * emit the raw visitor id alongside behavioral data.
- */
-export async function hashVisitorId(visitorId: string): Promise<string> {
-  return bytesToHex(await crypto.subtle.digest('SHA-256', encoder.encode(visitorId)))
-}

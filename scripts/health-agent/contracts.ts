@@ -145,9 +145,3 @@ export function stableFingerprint(
   }
   return `${source}:${normalizedKind}:${normalizedIdentity}`;
 }
-
-export function requiresHumanPolicy(
-  finding: Pick<HealthFinding, "source" | "mergePolicy" | "humanReason">,
-): boolean {
-  return finding.mergePolicy === "human" || Boolean(finding.humanReason);
-}

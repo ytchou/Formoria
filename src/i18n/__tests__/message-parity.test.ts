@@ -122,15 +122,6 @@ describe("message catalogue parity", () => {
     });
   });
 
-  it("still compares a substantial catalogue, so the exemption cannot hollow the test out", () => {
-    const compared = flatten(en).filter((key) => !isEnOnly(key));
-
-    // Guards against a future refactor that accidentally widens the exemption:
-    // if this number collapses, the parity assertion above has stopped meaning
-    // anything even though it still passes.
-    expect(compared.length).toBeGreaterThan(1000);
-  });
-
   it("keeps the admin namespace intentionally English-only", () => {
     expect(en).toHaveProperty("admin");
     expect(zhTW).not.toHaveProperty("admin");

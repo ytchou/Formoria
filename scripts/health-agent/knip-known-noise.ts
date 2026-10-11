@@ -1,5 +1,3 @@
-export const KNIP_VERSION = "6.23.0" as const;
-
 export const KNIP_KNOWN_NOISE = [
   {
     kind: "files",

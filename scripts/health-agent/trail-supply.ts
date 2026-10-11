@@ -390,23 +390,3 @@ export function parseTrailSupplyReport(value: unknown): TrailSupplyReport {
     ),
   };
 }
-
-/**
- * The non-throwing form of `parseTrailSupplyReport`, for the one caller that
- * has to record schema validity BEFORE it decides what to throw.
- *
- * The audit record is written from the response the collector actually
- * received, so it cannot be derived from `response.ok` alone: an intermediary
- * (a Cloudflare interstitial, a Railway edge error page, the Next.js error
- * shell) answers HTTP 200 with an HTML body, and an audit claiming
- * `schemaValid: true` for that body would be the only distinguishing signal in
- * the uploaded artifact telling a lie.
- */
-export function isTrailSupplyReport(value: unknown): boolean {
-  try {
-    parseTrailSupplyReport(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
