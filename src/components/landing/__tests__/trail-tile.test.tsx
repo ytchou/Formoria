@@ -177,11 +177,13 @@ describe("TrailTile", () => {
     ).toBeInTheDocument();
   });
 
-  it("links to the trail and is labelled by its title", () => {
+  it("links to the trail with its image description and visible text", () => {
     renderTile();
 
     expect(
-      screen.getByRole("link", { name: "A reading corner for a small flat" }),
+      screen.getByRole("link", {
+        name: /A lamp beside a low chair\s*Guide\s*A reading corner for a small flat\s*Three objects that make a corner feel finished\.\s*See this guide/,
+      }),
     ).toHaveAttribute("href", "/style/small-space-reading-corner");
   });
 

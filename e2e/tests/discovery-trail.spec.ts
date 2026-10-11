@@ -283,3 +283,31 @@ test.describe("Discovery trail deep", () => {
     ).toHaveCount(1);
   });
 });
+
+// A visible tile action must be included in the link name so it works with speech navigation.
+test("visible guide actions are part of accessible links across public entrances", async ({
+  anonPage,
+}) => {
+  test.setTimeout(BUDGET.TEST.JOURNEY);
+  for (const [prefix, cta] of [
+    ["", "看這組選物"],
+    ["/en", "See this guide"],
+  ]) {
+    for (const path of ["/", "/discover", "/style", TRAIL_URL]) {
+      await anonPage.goto(`${prefix}${path}`);
+      const links = anonPage
+        .getByRole("main")
+        .getByRole("link")
+        .filter({ has: anonPage.getByText(cta, { exact: true }) });
+      await expect(links.first()).toBeVisible();
+      for (const link of await links.all()) {
+        const visibleText = (await link.innerText())
+          .replace(/\s+/g, " ")
+          .trim();
+        await expect(link).toHaveAccessibleName(
+          new RegExp(visibleText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+        );
+      }
+    }
+  }
+});

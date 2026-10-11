@@ -1,6 +1,9 @@
-import { test, expect, type APIResponse } from '@playwright/test'
+import { test, expect } from '../fixtures/auth'
+import type { APIResponse } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { load } from 'cheerio'
+import assert from 'node:assert/strict'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
@@ -19,13 +22,13 @@ const NEWSLETTER_CONFIRM_CONTRACT: GetContract = {
 const VALID_UNSUBSCRIBE_CONTRACT: GetContract = {
   status: 200,
   assertResponse: async (response) => {
-    expect((await response.text()).toLowerCase()).toContain('unsubscribed')
+    expect(load(await response.text())('h1').text()).toBe('已取消訂閱')
   },
 }
 const MISSING_TOKEN_CONTRACT: GetContract = {
   status: 400,
   assertResponse: async (response) => {
-    expect(await response.text()).toContain('Missing')
+    expect(load(await response.text())('h1').text()).toBe('連結不完整')
   },
 }
 
@@ -38,12 +41,12 @@ const MISSING_TOKEN_CONTRACT: GetContract = {
  *
  * Actor: deep-suite request with no user authentication. On canonical staging,
  * the project-level capability cookie reaches the production route behavior.
- * Seeds: one newsletter_subscribers row + one owner_email_preferences row
- * Cleanup: afterAll deletes both rows
+ * Seeds: two owned newsletter rows + one fresh isolated user preference
+ * Cleanup: exact-owned newsletter/preference rows; isolated user fixture cleans Auth
  *
- * Note: confirm→unsubscribe order matters — confirm consumes the token first.
+ * Note: confirm precedes unsubscribe; already completed unsubscribe stays idempotent.
  * CI retry fragility: the confirm/unsubscribe tests use retries: 0 to prevent
- * token re-use issues on retry.
+ * mutating serial fixture setup during retries.
  */
 test.describe('API — health + search', () => {
   let supabase: AnySupabaseClient | undefined
@@ -153,139 +156,305 @@ test.describe('API — internal canary', () => {
 })
 
 // --- Newsletter subscribe / unsubscribe ---
-// retries: 0 — confirm consumes the token; a retry would fail on re-use.
+// Keep owned mutations serial and do not reinitialize the fixtures on retry.
 // serial — fullyParallel:true causes multiple workers to run beforeAll
-// simultaneously, each deleting and re-inserting the owner_email_preferences
-// row (UNIQUE on user_id), overwriting the other worker's token.
-test.describe.serial('API — newsletter', () => {
-  test.describe.configure({ retries: 0 })
+// simultaneously; each run instead owns a fresh user and distinct tokens.
+test.describe.serial("API — newsletter", () => {
+  test.describe.configure({ retries: 0 });
 
-  let supabase: AnySupabaseClient | undefined
-  let testUserId: string | undefined
-  let confirmToken: string
-  let newsletterUnsubToken: string
-  let ownerUnsubToken: string
+  let supabase: AnySupabaseClient | undefined;
+  let testUserId: string | undefined;
+  let confirmToken: string;
+  let newsletterUnsubToken: string;
+  let ownerUnsubToken: string;
+  let englishConfirmToken: string;
+  const ownedEmails: string[] = [];
 
-  test.beforeAll(async ({ request }, workerInfo) => {
+  test.beforeAll(async ({ request, isolatedUser }) => {
     // PREVIEW_MODE guard
-    const probe = await request.get('/brands')
-    if (probe.status() === 503) return
+    const probe = await request.get("/brands");
+    if (probe.status() === 503) return;
 
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
+    );
 
-    const wi = workerInfo.workerIndex
-    const testEmail = `e2e-api-contract-${wi}@example.test`
-    ownerUnsubToken = randomUUID()
-
-    // Resolve test user id
-    const { data: usersData } = await supabase.auth.admin.listUsers()
-    const testUser = usersData?.users?.find(
-      (u) => u.email === process.env.E2E_USER_EMAIL,
-    )
-    if (testUser) testUserId = testUser.id
-
-    // Pre-delete orphans to satisfy UNIQUE on email
-    await supabase
-      .from('newsletter_subscribers')
-      .delete()
-      .like('email', 'e2e-api-contract-%')
-
-    // Pre-delete owner_email_preferences to satisfy PK on user_id
-    if (testUserId) {
-      await supabase
-        .from('owner_email_preferences')
-        .delete()
-        .eq('user_id', testUserId)
-    }
+    const suffix = randomUUID();
+    const testEmail = `e2e-api-contract-${suffix}@example.test`;
+    const englishEmail = `e2e-api-contract-en-${suffix}@example.test`;
+    ownedEmails.push(testEmail, englishEmail);
+    ownerUnsubToken = randomUUID();
+    testUserId = isolatedUser.id;
 
     // Seed newsletter subscriber
-    confirmToken = randomUUID()
-    newsletterUnsubToken = randomUUID()
+    confirmToken = randomUUID();
+    englishConfirmToken = randomUUID();
+    newsletterUnsubToken = randomUUID();
 
     const { error: nsError } = await supabase
-      .from('newsletter_subscribers')
-      .insert({
-        email: testEmail,
-        interests: ['new-brands'],
-        locale: 'zh-TW',
-        confirmed_at: null,
-        confirm_token: confirmToken,
-        unsubscribe_token: newsletterUnsubToken,
-      })
-    if (nsError) throw new Error(`newsletter seed failed: ${nsError.message}`)
+      .from("newsletter_subscribers")
+      .insert([
+        {
+          email: testEmail,
+          interests: ["new-brands"],
+          locale: "zh-TW",
+          confirmed_at: null,
+          confirm_token: confirmToken,
+          unsubscribe_token: newsletterUnsubToken,
+        },
+        {
+          email: englishEmail,
+          interests: ["brand-stories"],
+          locale: "en",
+          confirmed_at: null,
+          confirm_token: englishConfirmToken,
+          unsubscribe_token: randomUUID(),
+        },
+      ]);
+    if (nsError) throw new Error(`newsletter seed failed: ${nsError.message}`);
 
     // Seed owner_email_preferences
     if (testUserId) {
       const { error: oepError } = await supabase
-        .from('owner_email_preferences')
-        .insert({ user_id: testUserId, unsubscribe_token: ownerUnsubToken })
-      if (oepError) throw new Error(`owner_email_preferences seed failed: ${oepError.message}`)
+        .from("owner_email_preferences")
+        .insert({
+          user_id: testUserId,
+          unsubscribe_token: ownerUnsubToken,
+          lifecycle_opted_in_at: new Date().toISOString(),
+        });
+      if (oepError)
+        throw new Error(
+          `owner_email_preferences seed failed: ${oepError.message}`,
+        );
     }
-  })
+  });
 
   test.afterAll(async () => {
-    if (!supabase) return
-    await supabase
-      .from('newsletter_subscribers')
+    if (!supabase) return;
+    const { error: newsletterError } = await supabase
+      .from("newsletter_subscribers")
       .delete()
-      .like('email', 'e2e-api-contract-%')
+      .in("email", ownedEmails);
+    if (newsletterError)
+      throw new Error(
+        `[e2e-cleanup] newsletter deletion failed: ${newsletterError.message}`,
+      );
+    const remaining = await supabase
+      .from("newsletter_subscribers")
+      .select("id")
+      .in("email", ownedEmails);
+    expect(remaining.error).toBeNull();
+    expect(remaining.data).toEqual([]);
     if (testUserId) {
-      await supabase
-        .from('owner_email_preferences')
+      const { error } = await supabase
+        .from("owner_email_preferences")
         .delete()
-        .eq('user_id', testUserId)
+        .eq("user_id", testUserId);
+      if (error)
+        throw new Error(
+          `[e2e-cleanup] owner preference deletion failed: ${error.message}`,
+        );
+      const remainingOwner = await supabase
+        .from("owner_email_preferences")
+        .select("user_id")
+        .eq("user_id", testUserId);
+      expect(remainingOwner.error).toBeNull();
+      expect(remainingOwner.data).toEqual([]);
     }
-  })
+  });
 
   // --- Order matters: confirm before unsubscribe ---
 
-  test('GET /api/newsletter/confirm redirects after a valid token', async ({ request }) => {
-    if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
+  test("GET /api/newsletter/confirm redirects after a valid token", async ({
+    request,
+  }) => {
+    if (!supabase) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
 
     const resp = await request.get(
       `/api/newsletter/confirm?token=${confirmToken}`,
       { maxRedirects: 0 },
-    )
-    expect(resp.status()).toBe(NEWSLETTER_CONFIRM_CONTRACT.status)
-    await NEWSLETTER_CONFIRM_CONTRACT.assertResponse(resp)
-  })
+    );
+    expect(resp.status()).toBe(NEWSLETTER_CONFIRM_CONTRACT.status);
+    await NEWSLETTER_CONFIRM_CONTRACT.assertResponse(resp);
+    const { data, error } = await supabase!
+      .from("newsletter_subscribers")
+      .select("confirmed_at")
+      .eq("confirm_token", confirmToken)
+      .single();
+    expect(error).toBeNull();
+    assert(data, "The owned preference must exist");
+    expect(data.confirmed_at).not.toBeNull();
+  });
 
-  test('GET /api/newsletter/unsubscribe accepts a valid token', async ({ request }) => {
-    if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
+  test("an English subscriber confirms and returns to the English homepage", async ({
+    request,
+  }) => {
+    for (const query of ["", "&locale=en"]) {
+      const response = await request.get(
+        `/api/newsletter/confirm?token=${englishConfirmToken}${query}`,
+        { maxRedirects: 0 },
+      );
+      expect(response.status()).toBe(307);
+      expect(new URL(response.headers()["location"]).pathname).toBe("/en");
+      expect(response.headers()["cache-control"]).toContain("no-store");
+      expect(response.headers()["referrer-policy"]).toBe("no-referrer");
+    }
+    const confirmed = await supabase!
+      .from("newsletter_subscribers")
+      .select("confirmed_at")
+      .eq("confirm_token", englishConfirmToken)
+      .single();
+    expect(confirmed.error).toBeNull();
+    assert(confirmed.data, "The owned English preference must exist");
+    expect(confirmed.data.confirmed_at).not.toBeNull();
+  });
+
+  test("GET /api/newsletter/unsubscribe accepts a valid token", async ({
+    request,
+  }) => {
+    if (!supabase) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
 
     const resp = await request.get(
       `/api/newsletter/unsubscribe?token=${newsletterUnsubToken}`,
-    )
-    expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status)
-    await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp)
-  })
+    );
+    expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status);
+    await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp);
+    const { data, error } = await supabase!
+      .from("newsletter_subscribers")
+      .select("unsubscribed_at")
+      .eq("unsubscribe_token", newsletterUnsubToken)
+      .single();
+    expect(error).toBeNull();
+    assert(data, "The owned preference must exist");
+    expect(data.unsubscribed_at).not.toBeNull();
+  });
 
-  test('GET /api/newsletter/unsubscribe rejects a missing token', async ({ request }) => {
-    if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
+  test("GET /api/newsletter/unsubscribe rejects a missing token", async ({
+    request,
+  }) => {
+    if (!supabase) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
 
-    const resp = await request.get('/api/newsletter/unsubscribe')
-    expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status)
-    await MISSING_TOKEN_CONTRACT.assertResponse(resp)
-  })
+    const resp = await request.get("/api/newsletter/unsubscribe");
+    expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status);
+    await MISSING_TOKEN_CONTRACT.assertResponse(resp);
+  });
 
-  test('GET /api/email/unsubscribe accepts a valid token', async ({ request }) => {
-    test.skip(!supabase || !testUserId, 'PREVIEW_MODE active or no test user')
+  test("GET /api/email/unsubscribe accepts a valid token", async ({
+    request,
+  }) => {
+    test.skip(!supabase || !testUserId, "PREVIEW_MODE active or no test user");
 
     const resp = await request.get(
       `/api/email/unsubscribe?token=${ownerUnsubToken}`,
-    )
-    expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status)
-    await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp)
-  })
+    );
+    expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status);
+    await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp);
+    const { data, error } = await supabase!
+      .from("owner_email_preferences")
+      .select("unsubscribed_at,lifecycle_opted_in_at")
+      .eq("user_id", testUserId!)
+      .single();
+    expect(error).toBeNull();
+    assert(data, "The owned preference must exist");
+    expect(data.unsubscribed_at).not.toBeNull();
+    expect(data.lifecycle_opted_in_at).toBeNull();
+  });
 
-  test('GET /api/email/unsubscribe rejects a missing token', async ({ request }) => {
-    if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
+  test("GET /api/email/unsubscribe rejects a missing token", async ({
+    request,
+  }) => {
+    if (!supabase) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
 
-    const resp = await request.get('/api/email/unsubscribe')
-    expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status)
-    await MISSING_TOKEN_CONTRACT.assertResponse(resp)
-  })
-})
+    const resp = await request.get("/api/email/unsubscribe");
+    expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status);
+    await MISSING_TOKEN_CONTRACT.assertResponse(resp);
+  });
+
+  test("missing and invalid email links explain recovery in both languages without exposing tokens", async ({
+    request,
+  }) => {
+    const token = randomUUID();
+    for (const endpoint of [
+      "/api/newsletter/confirm",
+      "/api/newsletter/unsubscribe",
+      "/api/email/unsubscribe",
+    ]) {
+      for (const locale of ["zh-TW", "en"]) {
+        for (const hasToken of [false, true]) {
+          const response = await request.get(
+            `${endpoint}?locale=${locale}${hasToken ? `&token=${token}` : ""}`,
+          );
+          expect(response.status()).toBe(
+            hasToken && !endpoint.endsWith("/confirm") ? 404 : 400,
+          );
+          const html = await response.text();
+          const $ = load(html);
+          expect($("html").attr("lang")).toBe(locale);
+          expect($("h1").text()).toBe(
+            hasToken
+              ? locale === "en"
+                ? "This link is no longer valid"
+                : "連結已失效"
+              : locale === "en"
+                ? "This link is incomplete"
+                : "連結不完整",
+          );
+          expect($("main a[href]")).toHaveLength(1);
+          expect($("main a").attr("href")).toBe(locale === "en" ? "/en" : "/");
+          expect(html).not.toContain(token);
+          expect(response.headers()["cache-control"]).toContain("no-store");
+          expect(response.headers()["referrer-policy"]).toBe("no-referrer");
+        }
+      }
+    }
+  });
+
+  test("one-click POST unsubscribes remain successful without rewriting an already completed preference", async ({
+    request,
+  }) => {
+    for (const [endpoint, table, token] of [
+      [
+        "/api/newsletter/unsubscribe",
+        "newsletter_subscribers",
+        newsletterUnsubToken,
+      ],
+      ["/api/email/unsubscribe", "owner_email_preferences", ownerUnsubToken],
+    ]) {
+      const before = await supabase!
+        .from(table)
+        .select("unsubscribed_at")
+        .eq("unsubscribe_token", token)
+        .single();
+      expect(before.error).toBeNull();
+      assert(before.data, "The owned preference must exist before retry");
+      expect(before.data.unsubscribed_at).not.toBeNull();
+      const response = await request.post(
+        `${endpoint}?token=${token}&locale=en`,
+        { form: { "List-Unsubscribe": "One-Click" } },
+      );
+      expect(response.status()).toBe(200);
+      expect(load(await response.text())("h1").text()).toBe("Unsubscribed");
+      const after = await supabase!
+        .from(table)
+        .select("unsubscribed_at")
+        .eq("unsubscribe_token", token)
+        .single();
+      expect(after.error).toBeNull();
+      assert(after.data, "The owned preference must exist after retry");
+      expect(after.data.unsubscribed_at).toBe(before.data.unsubscribed_at);
+    }
+  });
+});

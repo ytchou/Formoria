@@ -187,3 +187,36 @@ test.describe("Submit funnel", () => {
     );
   });
 });
+
+// The introduction must not promise that only two fields are needed when attribution and consent are required.
+test("recommendation guidance describes the information and consent actually required", async ({
+  anonPage,
+}) => {
+  for (const locale of ["zh-TW", "en"]) {
+    await anonPage.goto(`${locale === "en" ? "/en" : ""}/submit/recommend`);
+    await expect(
+      anonPage.getByText(
+        locale === "en"
+          ? "Add the brand name, a link and how you know the brand, then agree to the privacy policy"
+          : "填寫品牌名稱、網址、認識品牌的方式，並同意隱私權政策",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(anonPage.locator("#submit-name")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    await expect(anonPage.locator("#submit-website")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    await expect(anonPage.locator("#submit-source")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    await expect(anonPage.locator("#submit-pdpa")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+  }
+});

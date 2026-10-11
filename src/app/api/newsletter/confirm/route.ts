@@ -1,53 +1,38 @@
-import { withAuditScope } from '@/lib/audit/scope'
-import { NextRequest, NextResponse } from 'next/server'
-import { confirmSubscriber } from '@/lib/services/newsletter'
-import { createServiceClient } from '@/lib/supabase/service'
-import { getPublicOrigin } from '@/lib/url'
-import { buildConfirmRedirectUrl, extractToken } from './helpers'
-
-const htmlHeaders = {
-  'Content-Type': 'text/html; charset=utf-8',
-}
-
-function htmlResponse(message: string, status: number) {
-  return new NextResponse(
-    `<!doctype html>
-<html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Newsletter confirmation</title>
-  </head>
-  <body>
-    <main>
-      <p>${message}</p>
-    </main>
-  </body>
-</html>`,
-    {
-      status,
-      headers: htmlHeaders,
-    }
-  )
-}
+import { withAuditScope } from "@/lib/audit/scope";
+import { captureException } from "@sentry/nextjs";
+import { NextRequest, NextResponse } from "next/server";
+import { confirmSubscriber } from "@/lib/services/newsletter";
+import { createServiceClient } from "@/lib/supabase/service";
+import { getPublicOrigin } from "@/lib/url";
+import { isAppLocale } from "@/i18n/locale-preference";
+import {
+  emailActionHeaders,
+  emailActionLocale,
+  emailActionResponse,
+} from "@/lib/email/action-response";
+import { buildConfirmRedirectUrl, extractToken } from "./helpers";
 
 export const GET = withAuditScope(async (request: NextRequest) => {
-  const url = new URL(request.url)
-  const token = extractToken(url)
+  const url = new URL(request.url);
+  const locale = emailActionLocale(url);
+  const token = extractToken(url);
+  if (!token)
+    return emailActionResponse(locale, "confirmation", "missing", 400);
 
-  if (!token) {
-    return htmlResponse('Invalid link', 400)
+  try {
+    const result = await confirmSubscriber(createServiceClient(), token);
+    if (!result.success)
+      return emailActionResponse(locale, "confirmation", "invalid", 400);
+    const subscriberLocale = result.subscriber?.locale;
+    const confirmedLocale = isAppLocale(subscriberLocale)
+      ? subscriberLocale
+      : locale;
+    return NextResponse.redirect(
+      buildConfirmRedirectUrl(getPublicOrigin(request), confirmedLocale),
+      { headers: emailActionHeaders },
+    );
+  } catch (error) {
+    captureException(error);
+    return emailActionResponse(locale, "confirmation", "unavailable", 503);
   }
-
-  const supabase = createServiceClient()
-  const result = await confirmSubscriber(supabase, token)
-
-  if (!result.success) {
-    return htmlResponse(
-      'Invalid or expired confirmation link. Please re-subscribe to receive a new confirmation email.',
-      400
-    )
-  }
-
-  return NextResponse.redirect(buildConfirmRedirectUrl(getPublicOrigin(request)))
-})
+});

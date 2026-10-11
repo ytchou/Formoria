@@ -18,17 +18,18 @@ describe('NewsletterConfirmEmail', () => {
   it('renders English when locale is en', async () => {
     const html = await render(NewsletterConfirmEmail({ ...defaultProps, locale: 'en' }))
     expect(html).toContain('Confirm')
+    expect(html).toContain('locale=en')
   })
 
   it('includes confirm link with token', async () => {
     const html = await render(NewsletterConfirmEmail(defaultProps))
-    expect(html).toContain('/api/newsletter/confirm?token=abc-123-def')
+    expect(html).toContain('/api/newsletter/confirm?token=abc-123-def&amp;locale=zh-TW')
   })
 
   it('includes unsubscribe link', async () => {
     const html = await render(NewsletterConfirmEmail(defaultProps))
     expect(html).toContain(
-      '/api/newsletter/unsubscribe?token=unsubscribe-456',
+      '/api/newsletter/unsubscribe?token=unsubscribe-456&amp;locale=zh-TW',
     )
     expect(html).not.toContain(
       '/api/newsletter/unsubscribe?token=abc-123-def',
@@ -69,7 +70,7 @@ describe('NewsletterConfirmEmail', () => {
     expect(msg.subject).toBe('請確認訂閱 Formoria 電子報')
     expect(msg.html).toBeTruthy()
     expect(msg.headers?.['List-Unsubscribe']).toContain(
-      '/api/newsletter/unsubscribe?token=unsubscribe-456',
+      '/api/newsletter/unsubscribe?token=unsubscribe-456&locale=zh-TW',
     )
   })
 })

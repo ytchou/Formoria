@@ -1230,7 +1230,7 @@
     },
     "overview": {
       "recommendPoint1": "No account needed",
-      "recommendPoint2": "Just the brand name and a link",
+      "recommendPoint2": "Add the brand name, a link and how you know the brand, then agree to the privacy policy",
       "recommendPoint3": "Approved brands join the brand directory",
       "ownerNote": "Own the brand? Use this form for now. After approval, we’ll be in touch about managing the listing."
     },
@@ -2575,5 +2575,20 @@
   },
   "filters": {
     "token": "{label}: {value}"
+  },
+  "emailActions": {
+    "missingHeading": "This link is incomplete",
+    "missingBody": "Go back to the email and open the complete link.",
+    "invalidHeading": "This link is no longer valid",
+    "invalidBody": "Use the unsubscribe link in the most recent email.",
+    "confirmationInvalid": "This confirmation link is no longer valid. Subscribe again from the homepage to get a new confirmation email.",
+    "unavailableHeading": "We could not confirm the result",
+    "unavailableBody": "There is a connection problem. Open the original email link again in a little while to retry.",
+    "successHeading": "Unsubscribed",
+    "newsletterUnsubscribeSuccess": "You have been unsubscribed from the Formoria newsletter. Account verification, password resets and review results are unaffected.",
+    "ownerUnsubscribeSuccess": "You have been unsubscribed from Formoria brand-owner emails. The newsletter is managed separately, in account settings or through the unsubscribe link in a newsletter.",
+    "home": "Return home",
+    "subscribeAgain": "Return home to subscribe again",
+    "manageNewsletter": "Manage newsletter subscription"
   }
 }

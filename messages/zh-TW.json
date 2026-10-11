@@ -1230,7 +1230,7 @@
     },
     "overview": {
       "recommendPoint1": "不用登入，也不用註冊帳號",
-      "recommendPoint2": "只要品牌名稱和網址就能送出",
+      "recommendPoint2": "填寫品牌名稱、網址、認識品牌的方式，並同意隱私權政策",
       "recommendPoint3": "審核通過後收錄進品牌目錄",
       "ownerNote": "是品牌方嗎？目前也請用這份表單推薦，審核通過後我們會寫信給你，再談品牌頁怎麼管理。"
     },
@@ -1776,5 +1776,20 @@
   },
   "filters": {
     "token": "{label}：{value}"
+  },
+  "emailActions": {
+    "missingHeading": "連結不完整",
+    "missingBody": "請回到電子郵件，重新開啟完整連結。",
+    "invalidHeading": "連結已失效",
+    "invalidBody": "請從最新一封郵件開啟取消訂閱連結。",
+    "confirmationInvalid": "這個確認連結已失效。可以回首頁重新訂閱，取得新的確認信。",
+    "unavailableHeading": "暫時無法確認操作結果",
+    "unavailableBody": "目前連線有問題。請稍後重新開啟原本的郵件連結，再試一次。",
+    "successHeading": "已取消訂閱",
+    "newsletterUnsubscribeSuccess": "已取消 Formoria 電子報訂閱。帳號驗證、密碼重設和審核結果等必要通知不受影響。",
+    "ownerUnsubscribeSuccess": "已取消 Formoria 的品牌方郵件。電子報訂閱另外管理，可以到帳號設定或使用電子報裡的取消訂閱連結。",
+    "home": "返回首頁",
+    "subscribeAgain": "回首頁重新訂閱",
+    "manageNewsletter": "管理電子報訂閱"
   }
 }

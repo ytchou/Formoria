@@ -1,51 +1,38 @@
-import { withAuditScope } from '@/lib/audit/scope'
-import { NextRequest, NextResponse } from 'next/server'
-import { unsubscribeNewsletter } from '@/lib/services/newsletter'
-import { createServiceClient } from '@/lib/supabase/service'
-import { extractToken } from './helpers'
-
-const htmlHeaders = {
-  'Content-Type': 'text/html; charset=utf-8',
-}
-
-function htmlResponse(message: string, status: number) {
-  return new NextResponse(
-    `<!doctype html>
-<html lang="zh-Hant">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Newsletter unsubscribe</title>
-  </head>
-  <body>
-    <main>
-      <p>${message}</p>
-    </main>
-  </body>
-</html>`,
-    {
-      status,
-      headers: htmlHeaders,
-    }
-  )
-}
+import { withAuditScope } from "@/lib/audit/scope";
+import { captureException } from "@sentry/nextjs";
+import { NextRequest } from "next/server";
+import { unsubscribeNewsletter } from "@/lib/services/newsletter";
+import { createServiceClient } from "@/lib/supabase/service";
+import {
+  emailActionLocale,
+  emailActionResponse,
+} from "@/lib/email/action-response";
 
 async function unsubscribe(request: NextRequest) {
-  const token = extractToken(new URL(request.url))
+  const url = new URL(request.url);
+  const locale = emailActionLocale(url);
+  const token = url.searchParams.get("token");
+  if (!token)
+    return emailActionResponse(locale, "newsletterUnsubscribe", "missing", 400);
 
-  if (!token) {
-    return htmlResponse('Missing unsubscribe token.', 400)
+  try {
+    const result = await unsubscribeNewsletter(createServiceClient(), token);
+    return emailActionResponse(
+      locale,
+      "newsletterUnsubscribe",
+      result.success ? "success" : "invalid",
+      result.success ? 200 : 404,
+    );
+  } catch (error) {
+    captureException(error);
+    return emailActionResponse(
+      locale,
+      "newsletterUnsubscribe",
+      "unavailable",
+      503,
+    );
   }
-
-  const supabase = createServiceClient()
-  const result = await unsubscribeNewsletter(supabase, token)
-
-  if (!result.success) {
-    return htmlResponse('Token not found', 404)
-  }
-
-  return htmlResponse('You have been unsubscribed from Formoria newsletter.', 200)
 }
 
-export const GET = withAuditScope(unsubscribe)
-export const POST = withAuditScope(unsubscribe)
+export const GET = withAuditScope(unsubscribe);
+export const POST = withAuditScope(unsubscribe);
