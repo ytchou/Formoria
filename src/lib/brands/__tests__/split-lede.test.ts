@@ -66,6 +66,46 @@ describe("splitLede", () => {
     ).toBe("Founded by Dr. Lin and J. Chen in 2010.");
   });
 
+  it.each([
+    [
+      "the Chinese Chez name",
+      "Chez。城市系列",
+      "zh-TW",
+      "Chez。城市系列以台灣製高密度麂皮絨、台灣製單色輕磅帆布與日本印花棉布組合包款，設計重點放在城市日常所需的收納層次與配色。",
+      "品項涵蓋後背包、托特包、長夾、郵差包、復古小肩與迷你小肩等。",
+    ],
+    [
+      "Chez with a translated name suffix",
+      "Chez。城市系列",
+      "en",
+      "Chez. City Series builds everyday bags around layered storage and carefully matched color combinations.",
+      "Its range includes backpacks, totes, long wallets, messenger bags, retro mini shoulder bags, and compact shoulder styles.",
+    ],
+    [
+      "the quoted Paper With Light name",
+      "紙。有光",
+      "zh-TW",
+      "以紙雕結構承接光線與情緒，《紙。有光》專注於立體紙雕氣氛燈，將紙藝、光影設計與語感結合，讓燈飾成為表達想念、祝福、感謝與珍貴回憶的媒介。",
+      "作品包含裝框式發光藝術。",
+    ],
+  ] as const)(
+    "keeps %s intact across the hero and story",
+    (_, brandName, locale, lede, rest) => {
+      expect(
+        splitLede(`${lede}${locale === "en" ? " " : ""}${rest}`, locale, {
+          brandName,
+        }),
+      ).toEqual({ lede, rest });
+    },
+  );
+
+  it("keeps IWI's company abbreviation in its complete introductory sentence", () => {
+    const lede =
+      "Founded in Taipei in 1985, International Writing Instrument Corp. develops and manufactures fountain pens, ballpoint pens, writing instruments and gift sets in Taiwan, exporting to more than 80 countries.";
+    const rest = "Its own brand, IWI, was launched in 2015.";
+    expect(splitLede(`${lede} ${rest}`, "en")).toEqual({ lede, rest });
+  });
+
   it("uses full-width terminators on EN pages that fall back to zh text", () => {
     expect(splitLede("嘉義的木作工作室。從一張書桌開始。", "en").lede).toBe(
       "嘉義的木作工作室。",

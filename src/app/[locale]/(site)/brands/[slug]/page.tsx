@@ -384,6 +384,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 lede={
                   description
                     ? splitLede(description, safeLocale, {
+                        brandName: displayBrand.name,
                         fallbackLede:
                           safeLocale === "en" ? displayBrand.blurbEn : null,
                       }).lede

@@ -274,7 +274,7 @@ test.describe("Discovery trail deep", () => {
     await expect(nameLink).toHaveAttribute("href", /^https?:\/\//);
     await expect(nameLink).toHaveAttribute("rel", /noopener/);
     await expect(nameLink).toHaveAccessibleName(
-      /在品牌官網查看|前往品牌官方網站/,
+      /查看商品頁|前往品牌/,
     );
     // No pill: the name is the tile's only outbound link.
     await expect(tile.locator('a[target="_blank"]')).toHaveCount(1);

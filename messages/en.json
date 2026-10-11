@@ -59,8 +59,8 @@
     "selectionLabel": "Selection",
     "selectionSummary": "{count, plural, one {# item} other {# items}}",
     "languageBadge": "In Chinese",
-    "productCta": "View on the brand's site",
-    "brandSiteCta": "Visit the brand's site",
+    "productCta": "View product page",
+    "brandSiteCta": "Visit the brand",
     "madeInTaiwan": "Made in Taiwan",
     "unavailable": "The brand's product page can't be reached right now",
     "relatedStories": "Continue reading",
@@ -161,8 +161,8 @@
       "situationsLanguageNote": "These guides are in Chinese"
     },
     "selectedProducts": {
-      "productCta": "View on the brand's site",
-      "brandSiteCta": "Visit the brand's site",
+      "productCta": "View product page",
+      "brandSiteCta": "Visit the brand",
       "unavailable": "The brand's product page isn't loading right now.",
       "madeInTaiwan": "Made in Taiwan"
     },
@@ -343,9 +343,9 @@
     "selectedProducts": {
       "heading": "From this brand",
       "note": "{count, plural, one {Just one piece shown here} other {# pieces shown here}}, not the brand's full range. Prices and details are on the brand's site.",
-      "cta": "(view on the brand's site)",
+      "cta": "(view product page)",
       "unavailable": "The product page isn't loading right now.",
-      "brandSiteCta": "(visit the brand's site)",
+      "brandSiteCta": "(visit the brand)",
       "madeInTaiwan": "Made in Taiwan",
       "inGuide": "From the guide",
       "previous": "Previous products",

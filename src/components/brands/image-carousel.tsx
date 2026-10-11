@@ -401,13 +401,9 @@ export function ImageCarousel({
               // colour. Over a photograph an outline alone is illegible, so
               // the control wears a paper fill here — a call-site treatment,
               // not a new variant.
-              // Below `sm` the detail gallery keeps one cue, the counter, and
-              // navigates by swipe; arrows and thumbnails would be three.
               className={cn(
                 "absolute top-1/2 -translate-y-1/2 bg-ground/90 hover:bg-ground",
-                variant === "detail"
-                  ? "left-4 hidden sm:inline-flex"
-                  : "left-2",
+                variant === "detail" ? "left-4" : "left-2",
               )}
               onClick={() => goTo(current - 1)}
               aria-label={t("gallery.previous")}
@@ -424,9 +420,7 @@ export function ImageCarousel({
               size="icon"
               className={cn(
                 "absolute top-1/2 -translate-y-1/2 bg-ground/90 hover:bg-ground",
-                variant === "detail"
-                  ? "right-4 hidden sm:inline-flex"
-                  : "right-2",
+                variant === "detail" ? "right-4" : "right-2",
               )}
               onClick={() => goTo(current + 1)}
               aria-label={t("gallery.next")}

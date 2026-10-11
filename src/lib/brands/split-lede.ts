@@ -7,13 +7,14 @@ export type LedeSplit = {
   rest: string;
 };
 
-/** Full-width terminators are unambiguous, so they count in every locale. */
+/** Full-width sentence terminators count in every locale. */
 const CJK_TERMINATORS = new Set(["。", "！", "？"]);
 const LATIN_TERMINATORS = new Set([".", "!", "?"]);
 /** Closing quotes and brackets that belong to the sentence they end. */
 const CLOSERS = new Set(["」", "』", "）", ")", '"', "'", "”", "’"]);
 /** A "." after one of these ends an abbreviation or an initial, not a sentence. */
-const ABBREVIATION_BEFORE_DOT = /(?:^|[\s(（])(?:Mr|Mrs|Ms|Dr|St|Co|Inc|Ltd|No|vs|etc|e\.g|i\.e|[A-Z])$/;
+const ABBREVIATION_BEFORE_DOT =
+  /(?:^|[\s(（])(?:Mr|Mrs|Ms|Dr|St|Co|Corp|Inc|Ltd|No|vs|etc|e\.g|i\.e|[A-Z])$/;
 
 /**
  * Budget in Latin-width units: a CJK character counts as two. zh caps at about
@@ -31,7 +32,19 @@ function displayWidth(text: string): number {
 }
 
 /** Index just past the first sentence end, or -1 when there is no clean one. */
-function firstSentenceEnd(text: string, locale: AppLocale): number {
+function firstSentenceEnd(
+  text: string,
+  locale: AppLocale,
+  brandName = "",
+): number {
+  // A translated suffix can follow the same punctuated name prefix:
+  // "Chez。城市系列" and "Chez. City Series" must both keep "Chez." intact.
+  const namePrefixes = [...brandName.matchAll(/[。.!?！？]/g)].map((match) =>
+    brandName
+      .slice(0, match.index + 1)
+      .normalize("NFKC")
+      .replaceAll("。", "."),
+  );
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
     // A line break before any terminator means the first block is not a
@@ -41,6 +54,11 @@ function firstSentenceEnd(text: string, locale: AppLocale): number {
     const isCjk = CJK_TERMINATORS.has(char);
     const isLatin = locale === "en" && LATIN_TERMINATORS.has(char);
     if (!isCjk && !isLatin) continue;
+    const prefix = text
+      .slice(0, i + 1)
+      .normalize("NFKC")
+      .replaceAll("。", ".");
+    if (namePrefixes.some((name) => prefix.endsWith(name))) continue;
 
     let end = i + 1;
     while (end < text.length && CLOSERS.has(text[end])) end++;
@@ -49,7 +67,8 @@ function firstSentenceEnd(text: string, locale: AppLocale): number {
       // "1.5", "Mr.Casa", "golday.jewelry": a Latin terminator ends a sentence
       // only when whitespace follows it.
       if (end >= text.length || !/\s/.test(text[end])) continue;
-      if (char === "." && ABBREVIATION_BEFORE_DOT.test(text.slice(0, i))) continue;
+      if (char === "." && ABBREVIATION_BEFORE_DOT.test(text.slice(0, i)))
+        continue;
     }
     return end;
   }
@@ -57,6 +76,8 @@ function firstSentenceEnd(text: string, locale: AppLocale): number {
 }
 
 export type SplitLedeOptions = {
+  /** The displayed name supplies punctuation that belongs to the brand. */
+  brandName?: string;
   /**
    * Used as the lede when the description yields none. The story then keeps
    * the full description, so nothing is dropped.
@@ -79,7 +100,7 @@ export function splitLede(
   const text = description.trim();
   const fallback = options?.fallbackLede?.trim() || null;
   const noLede: LedeSplit = { lede: fallback, rest: text };
-  const end = firstSentenceEnd(text, locale);
+  const end = firstSentenceEnd(text, locale, options?.brandName);
   if (end === -1) return noLede;
 
   const lede = text.slice(0, end).trim();
