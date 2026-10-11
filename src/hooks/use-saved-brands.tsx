@@ -6,9 +6,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { useTranslations } from 'next-intl'
+import { toast } from 'sonner'
 
 import {
   getSavedBrandIdsAction,
@@ -29,13 +32,16 @@ type SavedBrandsProviderProps = {
 }
 
 export function SavedBrandsProvider({ children }: SavedBrandsProviderProps) {
+  const t = useTranslations('saveBrand')
   const { user, loading: userLoading } = useUser()
   const userId = user?.id
+  const activeUserId = useRef(userId)
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [fetchLoading, setFetchLoading] = useState(false)
 
   useEffect(() => {
     let isMounted = true
+    activeUserId.current = userLoading ? undefined : userId
 
     if (userLoading) {
       return () => {
@@ -73,11 +79,39 @@ export function SavedBrandsProvider({ children }: SavedBrandsProviderProps) {
 
     return () => {
       isMounted = false
+      activeUserId.current = undefined
     }
   }, [userId, userLoading])
 
   const toggle = useCallback((brandId: string) => {
-    const snapshot = new Set(savedIds)
+    if (!userId || userLoading) return
+    const wasSaved = savedIds.has(brandId)
+    const isCurrentUser = () => activeUserId.current === userId
+
+    function reconcile(saved: boolean) {
+      if (!isCurrentUser()) return
+      setSavedIds((current) => {
+        if (!isCurrentUser()) return current
+        const next = new Set(current)
+        if (saved) next.add(brandId)
+        else next.delete(brandId)
+        return next
+      })
+    }
+
+    async function recover() {
+      if (!isCurrentUser()) return
+      toast.error(t('errorToast'))
+      try {
+        // Other optimistic saves stay intact; this brand needs its persisted
+        // value because an earlier overlapping toggle may also have failed.
+        const confirmedIds = await getSavedBrandIdsAction()
+        reconcile(confirmedIds.includes(brandId))
+      } catch (error) {
+        console.error('Failed to recover saved brand state', error)
+        reconcile(wasSaved)
+      }
+    }
 
     setSavedIds((current) => {
       const next = new Set(current)
@@ -96,14 +130,16 @@ export function SavedBrandsProvider({ children }: SavedBrandsProviderProps) {
         const result = await toggleSaveAction(brandId)
 
         if ('error' in result) {
-          setSavedIds(snapshot)
+          await recover()
+        } else {
+          reconcile(result.saved)
         }
       } catch (error) {
         console.error('Failed to toggle saved brand', error)
-        setSavedIds(snapshot)
+        await recover()
       }
     })()
-  }, [savedIds])
+  }, [savedIds, t, userId, userLoading])
 
   const value = useMemo(
     () => ({

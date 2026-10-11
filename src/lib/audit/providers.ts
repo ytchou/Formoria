@@ -21,7 +21,7 @@ const PROVIDERS = {
     "add_reaction",
     "read_message_metadata",
   ],
-  posthog: ["run_query"],
+  posthog: ["run_query", "capture_event"],
   "editorial-producer": ["dispatch"],
   playwright: ["fetch_rendered", "render_preview"],
   "mit-registry": ["lookup_exact_products", "sync_registry"],

@@ -1345,7 +1345,8 @@
     "signInPrompt": "登入後就能收藏，之後在「收藏品牌」找得到。",
     "signInPromptConfirm": "登入",
     "signInPromptDismiss": "先不用",
-    "savedToast": "已收藏"
+    "savedToast": "已收藏",
+    "errorToast": "收藏狀態沒有更新，請再試一次。"
   },
   "search": {
     "emptyState": {

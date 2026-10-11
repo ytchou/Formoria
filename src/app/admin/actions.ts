@@ -53,7 +53,7 @@ import {
   type DenialReason,
 } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
-import { getPostHogClient } from '@/lib/posthog-server'
+import { captureServerEvent } from '@/lib/posthog-server'
 import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-events'
 import {
   revalidatePublicBrands,
@@ -61,36 +61,6 @@ import {
   revalidateTrail,
 } from '@/lib/cache/public-brand-cache'
 import { routes } from '@/lib/routes'
-
-// Analytics runs inside withApprovalTimeout and after the DB commit, so an unbounded
-// flush could exhaust the approval budget and report failure for an approval that
-// actually succeeded. Cap it well under APPROVAL_ITEM_TIMEOUT_MS; a dropped event is
-// always preferable to a false approval failure.
-const SUPPLY_EVENT_FLUSH_TIMEOUT_MS = 2_000
-
-/**
- * Supply-side events are captured server-side because the admin/owner action that
- * produces them never reaches the browser analytics sink. Analytics must never fail
- * the underlying action, so every capture is swallowed and time-bounded.
- */
-async function captureSupplyEvent(
-  distinctId: string,
-  event: string,
-  properties: Record<string, string | boolean>,
-): Promise<void> {
-  try {
-    const posthog = getPostHogClient()
-    posthog.capture({ distinctId, event, properties })
-    await Promise.race([
-      posthog.flush(),
-      new Promise((resolve) =>
-        setTimeout(resolve, SUPPLY_EVENT_FLUSH_TIMEOUT_MS).unref?.()
-      ),
-    ])
-  } catch (err) {
-    console.error(`[analytics:${event}] capture failed`, err)
-  }
-}
 
 /**
  * ONE validator for the admin id value class, reused rather than restated.
@@ -287,11 +257,7 @@ async function approveSubmissionForAdmin(
     is_brand_owner: isBrandOwner,
   })
   if (listingPublishedEvent) {
-    await captureSupplyEvent(
-      listingPublishedEvent.distinctId,
-      listingPublishedEvent.event,
-      listingPublishedEvent.properties,
-    )
+    captureServerEvent(listingPublishedEvent)
   }
 
   return {

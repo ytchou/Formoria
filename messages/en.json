@@ -2144,7 +2144,8 @@
     "signInPrompt": "Sign in to save this, and find it later in Saved brands.",
     "signInPromptConfirm": "Sign in",
     "signInPromptDismiss": "Not now",
-    "savedToast": "Saved"
+    "savedToast": "Saved",
+    "errorToast": "Couldn't update this brand's saved status. Try again."
   },
   "search": {
     "emptyState": {

@@ -113,6 +113,8 @@ export type CreateSubscriberInput = {
   locale?: string
   consentSource: string
   consentVersion: string
+  // Only callers that verified ownership of this email may update an active row.
+  updateActivePreferences?: boolean
 }
 
 export type CreateSubscriberResult = {
@@ -231,6 +233,7 @@ export async function createSubscriber(
     locale,
     consentSource,
     consentVersion,
+    updateActivePreferences = false,
   }: CreateSubscriberInput
 ): Promise<CreateSubscriberResult> {
   return auditedCall(
@@ -285,6 +288,14 @@ export async function createSubscriber(
     }
 
     if (existingSubscriber.confirmed_at !== null) {
+      if (!updateActivePreferences) {
+        return {
+          subscriber: existingSubscriber as NewsletterSubscriber,
+          isNew: false,
+          needsConfirmation: false,
+        }
+      }
+
       const { data, error } = await table
         .update({
           name: name ?? existingSubscriber.name,

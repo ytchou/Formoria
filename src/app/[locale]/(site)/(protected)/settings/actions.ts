@@ -103,7 +103,7 @@ export async function updateSettings(
               email: user.email,
               locale: parsed.data.localePreference,
               source: "settings",
-            }).then((status) => {
+            }, { updateActivePreferences: true }).then((status) => {
               if (status === "failed") {
                 throw new Error("Newsletter confirmation delivery failed");
               }
