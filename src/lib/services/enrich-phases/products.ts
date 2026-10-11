@@ -174,6 +174,12 @@ const productsShape = z.object({
       official_url: z.string(),
       image_source_url: z.string().nullable(),
       product_description_zh: z.string(),
+      product_description_en: z
+        .string()
+        .nullable()
+        .describe(
+          "Faithful, natural English translation of product_description_zh, preserving the same sourced facts and origin wording without additional claims or commerce facts. Null only when a faithful translation cannot be provided.",
+        ),
       sources: z.array(
         z.object({
           url: z.string(),
@@ -666,6 +672,7 @@ export function validateProductProposals(
     }
 
     const nameEn = productName(raw.name_en);
+    const productDescriptionEn = trimmedString(raw.product_description_en);
     // THE MODEL'S `image_source_url` IS NEVER USED (decision #35). The field
     // stays in the schema — removing it would make the model improvise a home
     // for the value — but the only image a proposal may carry is one this
@@ -686,6 +693,9 @@ export function validateProductProposals(
       officialUrl: officialUrl.toString(),
       ...(imageSourceUrl ? { imageSourceUrl } : {}),
       productDescriptionZh,
+      ...(productDescriptionEn && productDescriptionEn.length <= MAX_NOTE
+        ? { productDescriptionEn }
+        : {}),
       sources,
       madeInTaiwanConfirmed: false,
       materialsFromTaiwanConfirmed: false,

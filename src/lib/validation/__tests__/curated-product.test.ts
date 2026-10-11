@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { adminReviewSchema } from "@/lib/validation/admin-review";
 
 import {
   CURATED_PRODUCT_CATEGORY_VALUES,
@@ -23,6 +24,33 @@ function validCreate(overrides: Record<string, unknown> = {}) {
 }
 
 describe("curated product validation", () => {
+  it("preserves the editor's English product description when saving the review", () => {
+    const products = adminReviewSchema.shape.products.parse([
+      {
+        key: "hand-thrown-plate",
+        nameZh: "手拉坯餐盤",
+        category: "home",
+        subcategory: "tableware",
+        material: ["ceramic"],
+        officialUrl: "https://studio.example/products/hand-thrown-plate",
+        productDescriptionZh: "南投陶土手拉坯餐盤，直徑 21 公分。",
+        productDescriptionEn:
+          "A hand-thrown plate made with Nantou clay, 21 cm across.",
+        sources: [
+          {
+            url: "https://studio.example/products/hand-thrown-plate",
+            sourceType: "official",
+          },
+        ],
+      },
+    ]);
+
+    expect(products?.[0]).toHaveProperty(
+      "productDescriptionEn",
+      "A hand-thrown plate made with Nantou clay, 21 cm across.",
+    );
+  });
+
   it("rejects_non_uuid_product_id", () => {
     expect(curatedProductIdSchema.safeParse("not-a-uuid").success).toBe(false);
     expect(curatedProductIdSchema.safeParse(BRAND_ID).success).toBe(true);

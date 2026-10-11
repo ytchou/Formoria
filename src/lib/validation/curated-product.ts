@@ -220,6 +220,7 @@ export const curatedProductProposalSchema = z.object({
   imageSourceUrl: httpUrlSchema.optional(),
   productDescriptionZh: z.string().trim().min(1).max(MAX_NOTE),
   sources: z.array(curatedProductSourceSchema).max(MAX_SOURCES),
+  productDescriptionEn: noteSchema.optional(),
   madeInTaiwanConfirmed: z.boolean().default(false),
   materialsFromTaiwanConfirmed: z.boolean().default(false),
   mitRegistryId: z.number().int().positive().nullable().default(null),

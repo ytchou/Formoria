@@ -1080,6 +1080,12 @@ function ProductProposalsReadOnly({
             <p className="whitespace-pre-wrap type-body-sm text-ink-soft">
               {proposal.productDescriptionZh}
             </p>
+            {proposal.productDescriptionEn && (
+              <Definition
+                label={t("details.englishDescription")}
+                value={proposal.productDescriptionEn}
+              />
+            )}
             <ProposalSourceLinks proposal={proposal} />
           </li>
         );
@@ -1306,6 +1312,18 @@ function ProductProposalsEditor({
             <p className="type-metadata">
               {t("details.productEditor.descriptionHint")}
             </p>
+            <Field label={t("details.englishDescription")}>
+              <Textarea
+                value={proposal.productDescriptionEn ?? ""}
+                disabled={locked}
+                onChange={(event) =>
+                  patchProposal(index, {
+                    productDescriptionEn:
+                      emptyToNull(event.target.value) ?? undefined,
+                  })
+                }
+              />
+            </Field>
             <ProposalSourceLinks proposal={proposal} />
           </fieldset>
         );

@@ -52,8 +52,9 @@ export type CuratedProductProposal = {
   officialUrl: string;
   /** The page an image was taken from, kept so usage rights stay re-checkable. */
   imageSourceUrl?: string;
-  /** The one editorial text field a curated product carries (DEV-1496). */
+  /** Canonical Traditional Chinese product description. */
   productDescriptionZh: string;
+  productDescriptionEn?: string;
   sources: CuratedProductProposalSource[];
   madeInTaiwanConfirmed?: boolean;
   materialsFromTaiwanConfirmed?: boolean;

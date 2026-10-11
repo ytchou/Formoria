@@ -1041,6 +1041,29 @@ describe("runProductsPhase", () => {
 });
 
 describe("validateProductProposals", () => {
+  it("keeps a faithful English translation with the Chinese proposal", () => {
+    const { proposals } = validateProductProposals(
+      {
+        products: [
+          rawProposal({
+            product_description_en:
+              "  A hand-thrown clay plate made with Nantou clay, 21 cm across.  ",
+          }),
+        ],
+      },
+      { siteUrl: SITE },
+    );
+
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0]).toHaveProperty(
+      "productDescriptionEn",
+      "A hand-thrown clay plate made with Nantou clay, 21 cm across.",
+    );
+    expect(proposals[0]?.productDescriptionZh).toBe(
+      "南投陶土手拉坏，直徑 21 公分，適合日常盛裝主餐。",
+    );
+  });
+
   it("accepts only exact candidate URLs and candidate-bound CDN images", () => {
     const candidate: ProductCandidate = {
       url: `${SITE}/products/clay-plate`,
