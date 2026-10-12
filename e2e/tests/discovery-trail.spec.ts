@@ -35,6 +35,32 @@ test.describe("Discovery trail deep", () => {
     test.skip(trail === undefined, NO_PUBLISHED_TRAILS);
   });
 
+  test("catalog guides show their links without a false carousel position", async ({
+    anonPage,
+  }) => {
+    await anonPage.setViewportSize({ width: 768, height: 900 });
+    for (const [path, heading] of [
+      ["/discover", "從一個情境開始逛"],
+      ["/en/discover", "Start from a situation"],
+    ]) {
+      const response = await anonPage.goto(path);
+      expect(response?.status()).toBe(200);
+      const section = anonPage.locator("section").filter({
+        has: anonPage.getByRole("heading", { name: heading, exact: true }),
+      });
+      const guides = section.getByRole("heading", { level: 3 });
+      await expect(guides).toHaveCount(Math.min(trails.length, 3));
+      for (const title of await guides.allTextContents()) {
+        await expect(
+          section.getByRole("link").filter({ hasText: title }),
+        ).toBeVisible();
+      }
+      await expect(
+        section.getByText(/^\d+\s*\/\s*\d+$/, { exact: true }),
+      ).toHaveCount(0);
+    }
+  });
+
   test("trail entrance renders in server HTML", async ({ request }) => {
     const response = await request.get(TRAIL_URL);
     test.skip(response.status() === 503, "PREVIEW_MODE active");
