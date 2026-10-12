@@ -194,8 +194,13 @@ test.describe("Auth — repeated failure recovery", () => {
         const response = await responsePromise;
         expect(response.status()).toBe(200);
         await expect(form.locator('button[type="submit"]')).toBeEnabled();
-        await expect(alert).toHaveText("Invalid login credentials");
+        await expect(alert).toHaveText(
+          locale === "zh-TW"
+            ? "電子郵件或密碼不正確，請再檢查一次。"
+            : "Your email or password is incorrect. Check them and try again.",
+        );
         await expect(alert).toBeFocused();
+        await expect(form.locator('input[name="email"]')).toHaveValue(email);
       }
     });
   }

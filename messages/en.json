@@ -1094,7 +1094,8 @@
         "missingCode": "That sign-in link is incomplete. Enter your email below to get a new one.",
         "expiredCode": "That link has expired or has already been used. Enter your email below to get a new one.",
         "oauthFailed": "Google sign-in failed. Please try again or sign in with your email.",
-        "default": "Something went wrong signing you in. Please try again."
+        "default": "Something went wrong signing you in. Please try again.",
+        "invalidCredentials": "Your email or password is incorrect. Check them and try again."
       }
     },
     "forgotPassword": {

@@ -1094,7 +1094,8 @@
         "missingCode": "登入連結不完整，請在下方輸入電子郵件重新取得。",
         "expiredCode": "這個連結已經過期或用過了，請在下方輸入電子郵件重新取得。",
         "oauthFailed": "Google 登入失敗，請再試一次或改用電子郵件登入。",
-        "default": "登入時發生問題，請再試一次。"
+        "default": "登入時發生問題，請再試一次。",
+        "invalidCredentials": "電子郵件或密碼不正確，請再檢查一次。"
       }
     },
     "forgotPassword": {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -35,6 +35,7 @@ export function SignInForm({
     signIn,
     {},
   );
+  const [email, setEmail] = useState("");
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
@@ -93,6 +94,8 @@ export function SignInForm({
             placeholder={t("emailPlaceholder")}
             required
             autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
         </div>
 
