@@ -5,6 +5,7 @@ import {
 } from "@/components/ui/editorial-hero";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { localizePath } from "@/i18n/locale-preference";
 import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageShell } from "@/components/ui/page-shell";
@@ -37,7 +38,6 @@ import { getStoryRelatedTrails } from "@/lib/services/editorial-links";
 import { RelatedTrailLink } from "@/components/stories/related-story-link";
 import { MEASURE_PX } from "@/lib/constants/layout";
 import { contentLangFor } from "@/lib/trails/content-lang";
-import { localizePath } from "@/i18n/locale-preference";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
