@@ -209,6 +209,7 @@
   "newsletter": {
     "heading": "收到新的專題和選物",
     "subtext": "新的專題、新收錄的品牌和 Formoria 選物，寄到你的信箱。",
+    "emailLabel": "電子郵件",
     "emailPlaceholder": "your@email.com",
     "subscribe": "訂閱",
     "interestsLabel": "選擇想收到的內容",

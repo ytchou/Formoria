@@ -62,6 +62,7 @@ test.describe('Newsletter subscribe flow', () => {
     // --- Enter a unique test email ---
     const emailInput = page.locator('input[name="email"][type="email"]');
     await expect(emailInput).toBeVisible({ timeout: BUDGET.RENDERED });
+    await expect(emailInput).toHaveAccessibleName('電子郵件');
     await emailInput.fill(testEmail);
 
     // --- Submit ---

@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { subscribeToNewsletter } from "@/app/actions/newsletter";
 import { HoneypotField } from "@/components/forms/honeypot-field";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
@@ -29,6 +30,8 @@ const ERROR_MESSAGES = {
 export function EmailCaptureForm() {
   const locale = useLocale();
   const t = useTranslations("newsletter");
+  const emailId = useId();
+  const emailErrorId = useId();
   const [state, formAction, isPending] = useActionState(
     subscribeToNewsletter,
     {},
@@ -71,16 +74,25 @@ export function EmailCaptureForm() {
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="min-w-0 flex-1">
+          <Label className="sr-only" htmlFor={emailId}>
+            {t("emailLabel")}
+          </Label>
           <Input
             aria-invalid={state.error ? "true" : undefined}
+            aria-describedby={state.error ? emailErrorId : undefined}
             className="h-12 rounded-control border-rule bg-ground/50 text-ink placeholder:text-ink-muted focus-visible:border-ink focus-visible:ring-accent sm:h-11"
+            id={emailId}
             name="email"
             placeholder={t("emailPlaceholder")}
             required
             type="email"
           />
           {state.error ? (
-            <p className="mt-2 type-body-sm text-danger" role="alert">
+            <p
+              id={emailErrorId}
+              className="mt-2 type-body-sm text-danger"
+              role="alert"
+            >
               {t(ERROR_MESSAGES[state.error])}
             </p>
           ) : null}

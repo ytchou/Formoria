@@ -209,6 +209,7 @@
   "newsletter": {
     "heading": "Get new stories and selections",
     "subtext": "New stories, newly listed brands, and Formoria Selections, sent to your inbox.",
+    "emailLabel": "Email address",
     "emailPlaceholder": "your@email.com",
     "subscribe": "Subscribe",
     "interestsLabel": "Choose what to receive",
