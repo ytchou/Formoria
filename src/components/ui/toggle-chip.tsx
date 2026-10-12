@@ -87,6 +87,7 @@ const toggleChipDefaultClasses = cn(
 const toggleChipSelectedClasses = cn(
   "border-accent bg-accent text-ground",
   "hover:border-accent hover:bg-accent hover:text-ground",
+  "forced-colors:underline forced-colors:decoration-2 forced-colors:underline-offset-2",
 );
 
 function taxonomyLinkClasses({
