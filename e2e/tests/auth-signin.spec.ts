@@ -1,6 +1,8 @@
 import { test, expect } from "../fixtures/auth";
 import { load } from "cheerio";
 import assert from "node:assert/strict";
+import { isStagingEnvironment } from "../../src/lib/deployment-environment";
+import { isCanonicalStagingTarget } from "../helpers/staging-session";
 
 import { BUDGET, POLL } from "../budgets";
 function signInDocument(html: string) {
@@ -78,6 +80,28 @@ test.describe("Auth — Google OAuth offline guard", () => {
    * navigation to *.supabase.co/auth/v1/authorize, abort it, and assert
    * provider=google is present in the URL — no live Google navigation occurs.
    */
+  const baseURL =
+    process.env.BASE_URL ??
+    process.env.PLAYWRIGHT_BASE_URL ??
+    process.env.STAGING_BASE_URL;
+  if (
+    isStagingEnvironment() &&
+    (!baseURL || !isCanonicalStagingTarget(baseURL))
+  ) {
+    test("@smoke local staging keeps credential sign-in without Google", async ({
+      anonPage,
+    }) => {
+      await anonPage.goto("/auth/sign-in");
+      await expect(
+        anonPage.getByRole("button", { name: "使用 Google 登入", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        anonPage.getByLabel("電子郵件", { exact: true }),
+      ).toBeVisible();
+      await expect(anonPage.getByLabel("密碼", { exact: true })).toBeVisible();
+    });
+    return;
+  }
   test("@smoke sign-in page renders the heading and Google entry point", async ({
     anonPage,
   }) => {

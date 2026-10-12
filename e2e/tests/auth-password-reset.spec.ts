@@ -1,32 +1,50 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
+import { isStagingEnvironment } from '../../src/lib/deployment-environment';
+import { isCanonicalStagingTarget } from '../helpers/staging-session';
 
 import { BUDGET } from '../budgets';
 // zh-TW copy from messages/zh-TW.json (auth.forgotPassword.* / auth.resetPassword.*)
 const SESSION_EXPIRED = '重設連結已過期，請重新寄一次。';
 
 test.describe('Auth — forgot password request', () => {
-  test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
-    // Auth pages can cold-compile slowly in dev.
-    test.setTimeout(BUDGET.TEST.ADMIN);
-    await anonPage.goto('/auth/sign-in');
+  const baseURL =
+    process.env.BASE_URL ??
+    process.env.PLAYWRIGHT_BASE_URL ??
+    process.env.STAGING_BASE_URL;
+  const localStaging =
+    isStagingEnvironment() &&
+    (!baseURL || !isCanonicalStagingTarget(baseURL));
+  if (localStaging) {
+    test('local staging keeps credential sign-in without password recovery', async ({ anonPage }) => {
+      await anonPage.goto('/auth/sign-in');
+      await expect(anonPage.getByRole('link', { name: '忘記密碼？', exact: true })).toHaveCount(0);
+      await expect(anonPage.getByLabel('電子郵件', { exact: true })).toBeVisible();
+      await expect(anonPage.getByLabel('密碼', { exact: true })).toBeVisible();
+    });
+  } else {
+    test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
+      // Auth pages can cold-compile slowly in dev.
+      test.setTimeout(BUDGET.TEST.ADMIN);
+      await anonPage.goto('/auth/sign-in');
 
-    const forgotLink = anonPage.getByRole('link', { name: '忘記密碼？', exact: true });
-    await expect(forgotLink).toBeVisible({ timeout: BUDGET.NAVIGATION });
+      const forgotLink = anonPage.getByRole('link', { name: '忘記密碼？', exact: true });
+      await expect(forgotLink).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
-    await Promise.all([
-      anonPage.waitForURL(/\/auth\/forgot-password(?:[/?#]|$)/),
-      forgotLink.click(),
-    ]);
+      await Promise.all([
+        anonPage.waitForURL(/\/auth\/forgot-password(?:[/?#]|$)/),
+        forgotLink.click(),
+      ]);
 
-    await expect(
-      anonPage.getByRole('heading', { name: '重設密碼', exact: true })
-    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
-    await expect(anonPage.getByLabel('電子郵件', { exact: true })).toBeVisible();
-    await expect(
-      anonPage.getByRole('button', { name: '傳送重設連結', exact: true })
-    ).toBeVisible();
-  });
+      await expect(
+        anonPage.getByRole('heading', { name: '重設密碼', exact: true })
+      ).toBeVisible({ timeout: BUDGET.NAVIGATION });
+      await expect(anonPage.getByLabel('電子郵件', { exact: true })).toBeVisible();
+      await expect(
+        anonPage.getByRole('button', { name: '傳送重設連結', exact: true })
+      ).toBeVisible();
+    });
+  }
 
   test('empty or malformed email is blocked by validation — no success message', async ({
     anonPage,
