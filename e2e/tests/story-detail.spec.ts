@@ -148,6 +148,10 @@ test.describe('Story detail deep', () => {
     await expect(anonPage.getByRole('link', { name: 'Stories' }).first()).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
+    await anonPage.locator('main nav')
+      .getByRole('link', { name: 'Stories', exact: true }).click();
+    await expect(anonPage).toHaveURL(/\/en\/stories$/);
+    await expect(anonPage.locator('html')).toHaveAttribute('lang', 'en');
   });
 });
 

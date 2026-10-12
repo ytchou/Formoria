@@ -37,6 +37,7 @@ import { getStoryRelatedTrails } from "@/lib/services/editorial-links";
 import { RelatedTrailLink } from "@/components/stories/related-story-link";
 import { MEASURE_PX } from "@/lib/constants/layout";
 import { contentLangFor } from "@/lib/trails/content-lang";
+import { localizePath } from "@/i18n/locale-preference";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -260,7 +261,7 @@ export default async function StoryPage({ params }: PageProps) {
     <PageShell as="main" measure="prose" className="pt-8 pb-16 md:pt-12 md:pb-24">
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
         <ol className="flex items-center gap-1.5 type-body-sm">
-          <li>
+          <li className="shrink-0">
             {/* A raw `<a>`, not next/link. DEV-1280: full-document navigation avoids a
               stalled RSC request across the locale proxy rewrite. The
               `no-html-link-for-pages` suppression that used to sit here is gone with
@@ -268,7 +269,7 @@ export default async function StoryPage({ params }: PageProps) {
               this through `@/lib/routes` left the directive unused, which
               `reportUnusedDisableDirectives: "error"` fails on. */}
             <a
-              href={routes.stories()}
+              href={localizePath(routes.stories(), safeLocale)}
               className="hover:text-ink transition-colors"
             >
               {t("breadcrumb")}
