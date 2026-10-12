@@ -13,8 +13,8 @@ import {
  * Mirrors curated-product images from their source URL into Supabase Storage
  * (DEV-1609).
  *
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/mirror-images.ts
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/mirror-images.ts --apply
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/mirror-images.ts
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/mirror-images.ts --apply
  *
  * Finds visible products that have `image_source_url` but no `image_url`,
  * downloads and stores each image via `storeCuratedProductImage`, then updates

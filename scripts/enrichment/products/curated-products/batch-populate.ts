@@ -1,8 +1,8 @@
 /**
  * Batch-populate curated products for a set of brands (DEV-1609).
  *
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/batch-populate.ts --slugs brand-a,brand-b
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/batch-populate.ts --csv brands.csv
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/batch-populate.ts --slugs brand-a,brand-b
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/batch-populate.ts --csv brands.csv
  *   …--apply    actually runs the backfill; without it the script resolves brands and stops.
  *
  * CSV format: first row is a header containing a `formoria_slug` column;
