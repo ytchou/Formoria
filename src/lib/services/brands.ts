@@ -2229,15 +2229,6 @@ export async function getPublicBrandDetailBaseBySlug(
   return toPublicBrandDetail(brandToDomain(data));
 }
 
-/** Public detail boundary with fresh gallery fields and an explicit projection. */
-export async function getPublicBrandDetailBySlug(
-  slug: string,
-): Promise<PublicBrandDetail> {
-  const detail = await getPublicBrandDetailBaseBySlug(slug);
-  const images = await getBrandImages(createServiceClient(), detail.id);
-  return images.length === 0 ? detail : { ...detail, ...toImageFields(images) };
-}
-
 /** FAQ rendering context is fetched separately so detail pages never load the
  * internal evidence/provenance row just to decide which template floors show. */
 export async function getPublicBrandFaqContextById(
