@@ -1,6 +1,26 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Public routing regressions deep", () => {
+  for (const path of [
+    "/brands/%25",
+    "/en/brands/%25",
+    "/stories/%25",
+    "/en/stories/%25",
+    "/style/%25",
+    "/en/style/%25",
+  ]) {
+    test(`an unknown detail URL containing an encoded percent returns 404: ${path}`, async ({
+      request,
+    }) => {
+      const response = await request.get(path, {
+        maxRedirects: 0,
+        headers: { "user-agent": "Googlebot" },
+      });
+      expect(response.status(), path).toBe(404);
+      expect(response.headers().location, path).toBeUndefined();
+    });
+  }
+
   test("brand owners can open the recruitment page in both locales", async ({
     page,
   }) => {
