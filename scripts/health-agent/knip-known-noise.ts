@@ -27,8 +27,6 @@ export const KNIP_KNOWN_NOISE = [
   },
 ] as const;
 
-export type KnipKnownNoiseKind = (typeof KNIP_KNOWN_NOISE)[number]["kind"];
-
 /**
  * `file` narrows an entry to one location. A bare symbol name is not unique
  * across a repository, and an unscoped suppression would silently hide a
