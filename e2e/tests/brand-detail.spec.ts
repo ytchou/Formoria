@@ -1207,3 +1207,47 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     ).toHaveCount(0);
   });
 });
+
+for (const [locale, prefix, storyLabel, socialLabel, socialHeading] of [
+  ["en", "/en", "Story", "Social", "Social platforms"],
+  ["zh-TW", "", "故事", "社群", "社群平台"],
+] as const) {
+  test(`mobile brand tabs stay intact after returning from Social (${locale})`, async ({
+    anonPage,
+  }, testInfo) => {
+    await anonPage.setViewportSize({ width: 320, height: 900 });
+    await anonPage.emulateMedia({ reducedMotion: "reduce" });
+    const response = await anonPage.goto(
+      `${prefix}/brands/tsnowstationery-design-studio`,
+    );
+    expect(response?.status()).toBe(200);
+    const nav = anonPage.locator("main nav").filter({
+      has: anonPage.getByRole("link", { name: storyLabel, exact: true }),
+    });
+    const story = nav.getByRole("link", { name: storyLabel, exact: true });
+    await nav.scrollIntoViewIfNeeded();
+    await expect(story).toHaveAttribute("aria-current", "location");
+    const initial = await nav.screenshot({ animations: "disabled" });
+
+    await nav.getByRole("link", { name: socialLabel, exact: true }).click();
+    await expect(
+      anonPage.getByRole("heading", { name: socialHeading, exact: true }),
+    ).toBeFocused();
+    await anonPage.evaluate(() => window.scrollTo(0, 0));
+    await expect(story).toHaveAttribute("aria-current", "location");
+    await nav.scrollIntoViewIfNeeded();
+    const returned = await nav.screenshot({ animations: "disabled" });
+    await testInfo.attach("brand-tabs-initial", {
+      body: initial,
+      contentType: "image/png",
+    });
+    await testInfo.attach("brand-tabs-returned", {
+      body: returned,
+      contentType: "image/png",
+    });
+    expect(
+      returned.equals(initial),
+      "Returning to Story restores the same fully readable tab strip",
+    ).toBe(true);
+  });
+}
