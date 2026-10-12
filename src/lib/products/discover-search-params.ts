@@ -271,20 +271,6 @@ export function buildDiscoverSyncQuery(
   return qs ? `?${qs}` : "";
 }
 
-// ---------------------------------------------------------------------------
-// sortOptionsFor
-// ---------------------------------------------------------------------------
-
-/**
- * The sort option keys to render, in display order.
- * `"relevance"` only makes sense when a query is active.
- */
-export function sortOptionsFor(hasQuery: boolean): DiscoverSort[] {
-  return hasQuery
-    ? ["relevance", "newest", "alphabetical"]
-    : ["newest", "alphabetical"];
-}
-
 export function parseDiscoverSource(
   params: RawSearchParams,
 ): "nav" | "hero" | "discover_page" {

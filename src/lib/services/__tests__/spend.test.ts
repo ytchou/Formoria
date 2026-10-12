@@ -9,7 +9,6 @@ vi.mock("@/lib/constants/llm-models", async (importOriginal) => ({
 import type { ServiceEntry } from "../service-registry";
 import {
   buildSpendSnapshot,
-  countBillableLlmRows,
   cycleForResetDay,
   loadAllPages,
   loadJevSpend,
@@ -46,18 +45,18 @@ function service(
 function snapshot({
   registry,
   llmRows = [],
-  billableRows = [],
+  billableCallsByModel = {},
   auditSpans = [],
 }: {
   registry: ServiceEntry[];
   llmRows?: LlmSpendRow[];
-  billableRows?: Array<{ model: string; raw_response: unknown }>;
+  billableCallsByModel?: Readonly<Record<string, number>>;
   auditSpans?: AuditSpanRow[];
 }) {
   return buildSpendSnapshot({
     registry,
     llmRows,
-    billableCallsByModel: countBillableLlmRows(billableRows),
+    billableCallsByModel,
     auditSpans,
     at: AT,
   });
@@ -109,11 +108,7 @@ describe("spend snapshot", () => {
           completion_tokens: 30,
         },
       ],
-      billableRows: [
-        { model: "gpt-5.6-luna", raw_response: { ok: true } },
-        { model: "gpt-5.6-luna", raw_response: { ok: true } },
-        { model: "gpt-5.6-luna", raw_response: { ok: true } },
-      ],
+      billableCallsByModel: { "gpt-5.6-luna": 3 },
     });
 
     expect(result.services.at(0)).toMatchObject({
@@ -143,10 +138,7 @@ describe("spend snapshot", () => {
           completion_tokens: 0,
         },
       ],
-      billableRows: [
-        { model: "gpt-5.6-luna", raw_response: { ok: true } },
-        { model: "gpt-old", raw_response: { ok: true } },
-      ],
+      billableCallsByModel: { "gpt-5.6-luna": 1, "gpt-old": 1 },
     });
 
     expect(result.services.at(0)).toMatchObject({
@@ -154,31 +146,6 @@ describe("spend snapshot", () => {
       units: 30,
       pricingCoverage: 1,
     });
-  });
-
-  it("excludes verdict rows and non-2xx calls from the billable denominator", () => {
-    const billableCallsByModel = countBillableLlmRows([
-      { model: "gpt-5.6-luna", raw_response: { ok: true } },
-      { model: "gpt-5.6-luna", raw_response: null },
-      { model: "gpt-5.6-luna", raw_response: { ok: false, status: 429 } },
-    ]);
-    const result = buildSpendSnapshot({
-      registry: [service("openai", { meter: "llm-tokens" })],
-      llmRows: [
-        {
-          model: "gpt-5.6-luna",
-          cost_usd: 0.5,
-          prompt_tokens: 10,
-          completion_tokens: 5,
-        },
-      ],
-      billableCallsByModel,
-      auditSpans: [],
-      at: AT,
-    });
-
-    expect(result.services.at(0)?.pricingCoverage).toBe(1);
-    expect(result.coverage.unpricedCalls).toBe(0);
   });
 
   it("counts in-flight spans separately from failures", () => {

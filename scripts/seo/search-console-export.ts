@@ -362,13 +362,11 @@ export const SEARCH_CONSOLE_DATA_LAG_DAYS = 3
 /**
  * WINDOW TIMEZONE BASIS: Asia/Taipei (UTC+8, no DST).
  *
- * `src/lib/date-range.ts` states analytics windows are Taipei-based, and the
- * PostHog project timezone this scorecard reconciles against is Asia/Taipei. A
+ * The PostHog project timezone this scorecard reconciles against is Asia/Taipei. A
  * UTC calendar day would put every run between 00:00 and 08:00 Taipei on the
  * PREVIOUS Taipei day, silently offsetting the GSC window from the PostHog one
- * by a day. `date-range.ts` is not reusable here — `shiftIsoDate` is
- * module-private and `dateRangeForPastDays` has no data-lag offset — so the
- * day boundary is recomputed rather than imported.
+ * by a day. The lagged window is computed here; `date-range.ts` handles
+ * timestamp conversion and inclusive UI filtering, not this window policy.
  *
  * The returned anchors are UTC-midnight Dates STANDING FOR a Taipei calendar
  * day; only their ISO date is ever emitted. (Search Console itself reports in

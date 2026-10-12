@@ -80,24 +80,6 @@ export function cycleForResetDay(at: Date, resetsOnDay: number): SpendCycle {
   };
 }
 
-export function countBillableLlmRows(
-  rows: Array<{ model: string; raw_response: unknown }>,
-): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const row of rows) {
-    if (
-      !row.raw_response ||
-      typeof row.raw_response !== "object" ||
-      Array.isArray(row.raw_response) ||
-      (row.raw_response as { ok?: unknown }).ok !== true
-    ) {
-      continue;
-    }
-    counts[row.model] = (counts[row.model] ?? 0) + 1;
-  }
-  return counts;
-}
-
 type PageResult<T> = {
   data: T[] | null;
   count: number | null;

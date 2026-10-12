@@ -1,24 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildShareCardUrl,
-  scaleCardNameFontSize,
-} from '@/lib/growth/share-assets';
-
-const SITE = 'https://formoria.com';
-
-describe('buildShareCardUrl', () => {
-  it('builds the card URL from site + slug', () => {
-    expect(buildShareCardUrl(SITE, 'yu-cha-ye')).toBe(
-      'https://formoria.com/api/share-card/yu-cha-ye',
-    );
-  });
-
-  it('appends the download flag', () => {
-    expect(buildShareCardUrl(SITE, 'yu-cha-ye', { download: true })).toBe(
-      'https://formoria.com/api/share-card/yu-cha-ye?download=1',
-    );
-  });
-});
+import { scaleCardNameFontSize } from '@/lib/growth/share-assets';
 
 describe('scaleCardNameFontSize', () => {
   it('uses the max size for short CJK names', () => {
