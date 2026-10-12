@@ -219,6 +219,12 @@
       "mit-trends": "台灣品牌趨勢"
     },
     "success": "確認信已寄出，請到收件匣點開連結完成訂閱",
+    "errors": {
+      "invalidEmail": "請輸入有效的電子郵件地址。",
+      "rateLimited": "操作次數過多，請稍候再試。",
+      "confirmationFailed": "目前無法寄出確認信，請稍後再試。",
+      "generic": "訂閱暫時無法完成，請稍後再試。"
+    },
     "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後需完成信箱確認，隨時都能取消訂閱。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "marketingEmailConsent": {

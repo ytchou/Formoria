@@ -219,6 +219,12 @@
       "mit-trends": "Taiwanese brand trends"
     },
     "success": "Confirmation email sent. Open the link in it to finish subscribing.",
+    "errors": {
+      "invalidEmail": "Enter a valid email address.",
+      "rateLimited": "Too many attempts. Please wait a moment, then try again.",
+      "confirmationFailed": "We couldn’t send the confirmation email. Please try again.",
+      "generic": "We couldn’t complete your subscription. Please try again."
+    },
     "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email to activate delivery. You can unsubscribe at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "marketingEmailConsent": {

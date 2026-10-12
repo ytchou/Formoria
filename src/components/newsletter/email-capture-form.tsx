@@ -19,6 +19,13 @@ const INTEREST_CHIPS = [
   { slug: "mit-trends", labelKey: "interests.mit-trends" },
 ] as const;
 
+const ERROR_MESSAGES = {
+  invalidEmail: "errors.invalidEmail",
+  rateLimited: "errors.rateLimited",
+  confirmationFailed: "errors.confirmationFailed",
+  generic: "errors.generic",
+} as const;
+
 export function EmailCaptureForm() {
   const locale = useLocale();
   const t = useTranslations("newsletter");
@@ -74,7 +81,7 @@ export function EmailCaptureForm() {
           />
           {state.error ? (
             <p className="mt-2 type-body-sm text-danger" role="alert">
-              {state.error}
+              {t(ERROR_MESSAGES[state.error])}
             </p>
           ) : null}
         </div>
