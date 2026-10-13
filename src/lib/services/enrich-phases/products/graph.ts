@@ -926,6 +926,7 @@ async function repairNode(
         material: proposal.material,
         official_url: proposal.officialUrl,
         product_description_zh: proposal.productDescriptionZh,
+        product_description_en: proposal.productDescriptionEn ?? null,
         sources: proposal.sources,
       },
       failures,

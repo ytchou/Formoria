@@ -568,14 +568,17 @@
         "- 「冷壓初榨苦茶油，南投國姓鄉小果種茶籽，每批經 SGS 農藥檢驗。」",
         "{{taiwan_usage_rules}}",
         "",
+        "## product_description_en",
+        "A faithful, natural English translation of product_description_zh. Preserve exactly the same sourced facts, fixed specifications, and distinctions between Taiwan manufacturing, design and origin. Do not add claims, marketing language or commerce facts. Return null only when a faithful translation cannot be provided.",
+        "",
         "## Output format (strict JSON object, no Markdown, explanatory text, or extra fields)",
         "Always return a top-level JSON object with only two fields: evaluations and products. When no products qualify, still return two empty arrays — never make the top level an array.",
         "",
-        "{\"evaluations\":[{\"candidate_url\":\"candidate product URL\",\"editorial_score\":85,\"editorial_rationale\":\"one short reason\",\"made_in_taiwan\":false,\"materials_from_taiwan\":false,\"origin_excerpt_ids\":[],\"product_model\":null}],\"products\":[{\"name_zh\":\"product Chinese name\",\"name_en\":\"English product name or null\",\"category\":\"category slug or null\",\"subcategory\":\"slug from the selected category branch or null\",\"material\":[\"material slug\"],\"official_url\":\"this product's product page URL\",\"image_source_url\":\"URL of the page containing the image or null\",\"product_description_zh\":\"60-160 char durable-fact description\",\"sources\":[{\"url\":\"page URL where you read the fact\",\"source_type\":\"official|press|retailer|other\",\"claim_zh\":\"the fact this source supports, one sentence or null\"}]}]}",
+        "{\"evaluations\":[{\"candidate_url\":\"candidate product URL\",\"editorial_score\":85,\"editorial_rationale\":\"one short reason\",\"made_in_taiwan\":false,\"materials_from_taiwan\":false,\"origin_excerpt_ids\":[],\"product_model\":null}],\"products\":[{\"name_zh\":\"product Chinese name\",\"name_en\":\"English product name or null\",\"category\":\"category slug or null\",\"subcategory\":\"slug from the selected category branch or null\",\"material\":[\"material slug\"],\"official_url\":\"this product's product page URL\",\"image_source_url\":\"URL of the page containing the image or null\",\"product_description_zh\":\"60-160 char durable-fact description\",\"sources\":[{\"url\":\"page URL where you read the fact\",\"source_type\":\"official|press|retailer|other\",\"claim_zh\":\"the fact this source supports, one sentence or null\"}],\"product_description_en\":\"Faithful English translation of the Chinese description, or null\"}]}",
         "",
         "### Worked example (one product)",
         "Given a candidate page https://example-brand.tw/products/walnut-chopsticks with origin excerpt id \"ex-001\" stating the product is manufactured in Yilan, the output for that product would be:",
-        "{\"evaluations\":[{\"candidate_url\":\"https://example-brand.tw/products/walnut-chopsticks\",\"editorial_score\":78,\"editorial_rationale\":\"single-material handcraft with clear origin and fixed spec\",\"made_in_taiwan\":true,\"materials_from_taiwan\":false,\"origin_excerpt_ids\":[\"ex-001\"],\"product_model\":null}],\"products\":[{\"name_zh\":\"胡桃木筷\",\"name_en\":\"Walnut Chopsticks\",\"category\":\"home\",\"subcategory\":\"tableware\",\"material\":[\"wood\"],\"official_url\":\"https://example-brand.tw/products/walnut-chopsticks\",\"image_source_url\":\"https://example-brand.tw/products/walnut-chopsticks\",\"product_description_zh\":\"整塊胡桃木削切的筷子，無上漆處理，長 23cm，宜蘭在地木工職人手作。\",\"sources\":[{\"url\":\"https://example-brand.tw/products/walnut-chopsticks\",\"source_type\":\"official\",\"claim_zh\":\"商品頁標示材質為胡桃木、長度 23cm、宜蘭製造\"}]}]}",
+        "{\"evaluations\":[{\"candidate_url\":\"https://example-brand.tw/products/walnut-chopsticks\",\"editorial_score\":78,\"editorial_rationale\":\"single-material handcraft with clear origin and fixed spec\",\"made_in_taiwan\":true,\"materials_from_taiwan\":false,\"origin_excerpt_ids\":[\"ex-001\"],\"product_model\":null}],\"products\":[{\"name_zh\":\"胡桃木筷\",\"name_en\":\"Walnut Chopsticks\",\"category\":\"home\",\"subcategory\":\"tableware\",\"material\":[\"wood\"],\"official_url\":\"https://example-brand.tw/products/walnut-chopsticks\",\"image_source_url\":\"https://example-brand.tw/products/walnut-chopsticks\",\"product_description_zh\":\"整塊胡桃木削切的筷子，無上漆處理，長 23cm，宜蘭在地木工職人手作。\",\"sources\":[{\"url\":\"https://example-brand.tw/products/walnut-chopsticks\",\"source_type\":\"official\",\"claim_zh\":\"商品頁標示材質為胡桃木、長度 23cm、宜蘭製造\"}],\"product_description_en\":\"Chopsticks carved from solid walnut, left unpainted, 23 cm long and handmade by local woodworkers in Yilan.\"}]}",
         "",
         "## Validation checklist (self-check before output)",
         "- [ ] Are there at most 20 products, and is each one a single product rather than a category page or product listing page?",
@@ -786,6 +789,7 @@
         "- name_zh: concise consumer-facing product name in Traditional Chinese (zh-TW). Preserve the official model/SKU verbatim at the end. Remove promotional labels.",
         "- name_en: English product name, or null when no English name appears in the evidence.",
         "- product_description_zh: factual product description in Traditional Chinese, 60-160 characters. Write what the product IS (identity), then materials, then origin: when an origin_excerpt (or the page text) states where the product is made, state it in the page's own wording; 台灣製造／台灣設計／產地台灣 are different claims, never upgrade one to another; then one distinguishing fact (technique, fixed spec). No marketing tone, no editorial recommendations, no prices/discounts/inventory. Do not mention the product category or subcategory — the reader already sees it in the category field; never write patterns like \"屬於 X 的 Y 產品\" or \"頁面將其歸於 Z 類別\". Do not include detailed dimensional specs (exact cm × cm × cm, weight) unless the dimension IS the distinguishing fact; one fixed capacity or length is fine, a full spec sheet is not. Origin statements must be blended into the sentence, never standalone.",
+        "- product_description_en: A faithful, natural English translation of product_description_zh. Preserve exactly the same sourced facts, fixed specifications, and distinctions between Taiwan manufacturing, design and origin. Do not add claims, marketing language or commerce facts. Return null only when a faithful translation cannot be provided.",
         "- category: a single slug from the provided category list, or null when undetermined.",
         "- subcategory: a single slug from the provided subcategory list under the selected category branch, or null.",
         "- material: an array of 0-3 English slugs from the provided material list. No Chinese labels, no invented values.",
@@ -825,7 +829,7 @@
         "A single fixed specification (e.g. \"capacity 200ml\") is a durable fact and may be written; a set of selectable specifications is a variant and must not appear.",
         "",
         "## Output",
-        "Return a JSON object with a top-level \"evaluations\" key and a top-level \"products\" key. Each evaluation has candidate_url, editorial_score, editorial_rationale, made_in_taiwan, materials_from_taiwan, origin_excerpt_ids and product_model. Each product has name_zh, name_en, category, subcategory, material, official_url, image_source_url, product_description_zh and sources (each with url, source_type and claim_zh)."
+        "Return a JSON object with a top-level \"evaluations\" key and a top-level \"products\" key. Each evaluation has candidate_url, editorial_score, editorial_rationale, made_in_taiwan, materials_from_taiwan, origin_excerpt_ids and product_model. Each product has name_zh, name_en, category, subcategory, material, official_url, image_source_url, product_description_zh, product_description_en and sources (each with url, source_type and claim_zh)."
       ]
     },
     "products-repair": {
@@ -856,8 +860,10 @@
         "4. If a failure cannot be repaired (e.g. no valid official_url exists for a product), remove that product from the output rather than guessing.",
         "5. Use only the classification vocabularies provided in the original prompt. Never invent slugs.",
         "",
+        "When a repair changes facts in product_description_zh, update product_description_en to a faithful translation of the repaired Chinese description. Preserve its existing sourced facts when Chinese facts are unchanged; return null rather than invent an unavailable translation.",
+        "",
         "## Output",
-        "Return a JSON object with a top-level \"products\" key only. Do not include evaluations — the repair only concerns products. Each product keeps the same fields as the input: name_zh, name_en, category, subcategory, material, official_url, image_source_url, product_description_zh and sources (each with url, source_type and claim_zh)."
+        "Return a JSON object with a top-level \"products\" key only. Do not include evaluations — the repair only concerns products. Each product keeps the same fields as the input: name_zh, name_en, category, subcategory, material, official_url, image_source_url, product_description_zh, product_description_en and sources (each with url, source_type and claim_zh)."
       ]
     },
     "editorial-repair": {

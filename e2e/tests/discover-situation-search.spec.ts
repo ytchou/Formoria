@@ -1,6 +1,24 @@
 import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 
+test.describe("Discovery — truthful sorted counts", () => {
+  for (const { locale, prefix, count } of [
+    { locale: "zh-TW", prefix: "", count: /^\d+ 件$/ },
+    { locale: "en", prefix: "/en", count: /^\d+ products?$/ },
+  ]) {
+    test(`a non-relevance product order shows an accurate count (${locale})`, async ({ page }) => {
+      test.setTimeout(BUDGET.TEST.JOURNEY);
+      for (const sort of ["alphabetical", "newest"]) {
+        await page.goto(`${prefix}/discover?q=${encodeURIComponent("包")}&category=bags-accessories&sort=${sort}`);
+        const main = page.getByRole("main");
+        await expect(main.getByRole("combobox")).toHaveValue(sort);
+        await expect(main.getByText(count)).toHaveCount(1);
+        await expect(main.getByRole("heading", { level: 3 }).first()).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+      }
+    });
+  }
+});
+
 test.describe("Discover situation search", () => {
   test("renders search results with noindex and relevance sort", async ({
     page,
@@ -90,7 +108,7 @@ test.describe("Discover situation search", () => {
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(main.getByText(`「${term}」`, { exact: true })).toBeVisible();
     // One count sentence whether or not the candidate pool was capped.
-    await expect(main.getByText(/依相關度排列 · \d+ 件/)).toHaveCount(1);
+    await expect(main.getByText(/^\d+ 件$/)).toHaveCount(1);
     await expect(main.getByText(/共 \d+ 件商品/)).toHaveCount(0);
   });
 

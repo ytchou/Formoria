@@ -176,6 +176,12 @@ async function cleanupSubmission(
   await supabase.from("brand_submissions").delete().eq("id", seeded.id);
   await supabase.from("curation_jobs").delete().eq("id", seeded.jobId);
   await supabase.storage.from("brand-submissions").remove([seeded.storagePath]);
+  const { data: remaining, error } = await supabase
+    .from("brand_submissions")
+    .select("id")
+    .eq("id", seeded.id);
+  expect(error).toBeNull();
+  expect(remaining).toEqual([]);
 }
 
 /**
@@ -204,6 +210,125 @@ test.describe("Submission publishable-core link guard", () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
+  });
+
+  test("a reviewer can save and reopen a faithful English product description", async ({
+    adminPage,
+  }) => {
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    let seeded: SeededSubmission | undefined;
+    const chineseDescription = "以台灣楓木製作，保留木紋的圓形餐盤。";
+    const englishDescription =
+      "A round plate made from Taiwanese maple, with the wood grain left visible.";
+    const reviewedDescription =
+      "A round Taiwanese maple plate with its natural wood grain visible.";
+
+    try {
+      seeded = await seedReadySubmission(supabase, "bilingual", {
+        purchase_myship: MYSHIP_URL,
+      });
+      const { data: submission, error: readError } = await supabase
+        .from("brand_submissions")
+        .select("enriched_data")
+        .eq("id", seeded.id)
+        .single();
+      expect(readError).toBeNull();
+      const { error: seedError } = await supabase
+        .from("brand_submissions")
+        .update({
+          enriched_data: {
+            ...submission!.enriched_data,
+            products: [
+              {
+                key: "e2e-maple-plate",
+                nameZh: "楓木餐盤",
+                nameEn: "Maple dining plate",
+                category: "home",
+                subcategory: "tableware",
+                material: ["wood"],
+                officialUrl: "https://example.com/maple-plate",
+                productDescriptionZh: chineseDescription,
+                productDescriptionEn: englishDescription,
+                sources: [
+                  {
+                    url: "https://example.com/maple-plate",
+                    sourceType: "official",
+                    claimZh: "以台灣楓木製作",
+                  },
+                ],
+                madeInTaiwanConfirmed: true,
+                materialsFromTaiwanConfirmed: true,
+                mitRegistryId: null,
+                originCandidateId: null,
+              },
+            ],
+          },
+        })
+        .eq("id", seeded.id);
+      expect(seedError).toBeNull();
+
+      await adminPage.goto("/admin/submissions?stage=ready");
+      const readyRow = adminPage
+        .locator("tbody tr")
+        .filter({ hasText: seeded.brandName });
+      const openReview = readyRow.getByRole("button", {
+        name: `Expand review for ${seeded.brandName}`,
+      });
+      await openReview.click();
+      const reviewDrawer = adminPage.getByRole("dialog");
+      const productsSection = reviewDrawer
+        .getByRole("heading", {
+          name: "Curated product proposals",
+          exact: true,
+        })
+        .locator("xpath=ancestor::section[1]");
+      await expect(productsSection.getByText(englishDescription)).toBeVisible();
+      await productsSection
+        .getByRole("button", { name: "Edit", exact: true })
+        .click();
+      await expect(
+        productsSection.getByRole("textbox", {
+          name: "English description",
+          exact: true,
+        }),
+      ).toHaveValue(englishDescription);
+      await productsSection
+        .getByRole("textbox", { name: "English description", exact: true })
+        .fill(reviewedDescription);
+      await productsSection
+        .getByRole("button", { name: "Save product selection and edits" })
+        .click();
+      await expect(
+        productsSection.getByRole("button", { name: "Edit", exact: true }),
+      ).toBeVisible();
+      await expect(
+        productsSection.getByText(reviewedDescription),
+      ).toBeVisible();
+
+      const { data: reviewed, error: reviewError } = await supabase
+        .from("brand_submissions")
+        .select("review_overrides, status, brand_id")
+        .eq("id", seeded.id)
+        .single();
+      expect(reviewError).toBeNull();
+      expect(reviewed?.review_overrides.products).toEqual([
+        expect.objectContaining({
+          productDescriptionZh: chineseDescription,
+          productDescriptionEn: reviewedDescription,
+        }),
+      ]);
+      expect(reviewed?.status).toBe("pending");
+      expect(reviewed?.brand_id).toBeNull();
+
+      await adminPage.reload();
+      await openReview.click();
+      await expect(
+        productsSection.getByText(reviewedDescription),
+      ).toBeVisible();
+      await expect(productsSection.getByText(chineseDescription)).toBeVisible();
+    } finally {
+      await cleanupSubmission(supabase, seeded, undefined);
+    }
   });
 
   test("a myship-only submission is approvable and publishes the channel", async ({

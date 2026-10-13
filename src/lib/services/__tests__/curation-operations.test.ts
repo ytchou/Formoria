@@ -337,6 +337,7 @@ describe("enriched_data.products[] payload contract", () => {
       officialUrl: true,
       imageSourceUrl: true,
       productDescriptionZh: true,
+      productDescriptionEn: true,
       sources: true,
       madeInTaiwanConfirmed: true,
       materialsFromTaiwanConfirmed: true,

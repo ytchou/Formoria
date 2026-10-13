@@ -748,6 +748,7 @@ export async function materializeSubmissionCuratedProducts(
           officialUrl: normalizedOfficialUrl(proposal),
           imageSourceUrl: proposal.imageSourceUrl ?? null,
           productDescriptionZh: proposal.productDescriptionZh,
+          productDescriptionEn: proposal.productDescriptionEn?.trim() || null,
           visible: false,
           // THE TICK IS THE CHECK. `source_checked_at` is half the public
           // read's four-condition proof gate, and the only other writer is the
