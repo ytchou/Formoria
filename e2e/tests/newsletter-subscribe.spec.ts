@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
 
 import { BUDGET } from '../budgets';
@@ -16,11 +16,13 @@ const TEST_EMAIL_PREFIX = 'e2e-test-newsletter';
 
 test.describe('Newsletter subscribe flow', () => {
   let testEmail: string;
+  const ownedEmails: string[] = [];
 
   test.beforeAll(() => {
     // Unique email per test run — avoids collisions when the suite re-runs.
     // Use a reserved domain: staging E2E must not deliver mail externally.
     testEmail = `${TEST_EMAIL_PREFIX}-${Date.now()}@example.test`;
+    ownedEmails.push(testEmail);
   });
 
   test.afterAll(async () => {
@@ -31,11 +33,12 @@ test.describe('Newsletter subscribe flow', () => {
     const { error } = await supabase
       .from('newsletter_subscribers')
       .delete()
-      .like('email', `${TEST_EMAIL_PREFIX}%`);
+      .in('email', ownedEmails);
     if (error) throw new Error(`[e2e-cleanup] newsletter cleanup failed: ${error.message}`);
   });
 
-  test('anonymous visitor can subscribe from the homepage', async ({ page }) => {
+  test('anonymous visitor can subscribe from the homepage', async ({ anonPage }) => {
+    const page = anonPage;
     test.setTimeout(BUDGET.TEST.JOURNEY);
     await page.goto('/');
 
@@ -92,5 +95,41 @@ test.describe('Newsletter subscribe flow', () => {
       confirmed_at: null,
       interests: expect.arrayContaining(['curated-picks', 'brand-stories']),
     });
+  });
+
+  test('an email-only repeat preserves an active subscriber’s preferences and consent', async ({ anonPage }) => {
+    const email = `${TEST_EMAIL_PREFIX}-active-${crypto.randomUUID()}@example.test`;
+    ownedEmails.push(email);
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const original = {
+      interests: ['brand-stories'],
+      locale: 'zh-TW',
+      confirmed_at: new Date().toISOString(),
+      consent_source: 'settings',
+      consent_version: '2026-07-16',
+      consent_recorded_at: new Date().toISOString(),
+    };
+    const created = await supabase.from('newsletter_subscribers')
+      .insert({ email, ...original })
+      .select('interests, locale, confirmed_at, consent_source, consent_version, consent_recorded_at')
+      .single();
+    expect(created.error).toBeNull();
+
+    await anonPage.goto('/en');
+    const emailInput = anonPage.locator('input[name="email"][type="email"]');
+    await emailInput.fill(email);
+    await anonPage.getByRole('button', { name: 'Subscribe', exact: true }).click();
+    await expect(anonPage.getByText('Confirmation email sent. Open the link in it to finish subscribing.', { exact: true }))
+      .toBeVisible({ timeout: BUDGET.GATED_UI });
+    await expect(emailInput).not.toBeVisible({ timeout: BUDGET.GATED_UI });
+    const persisted = await supabase.from('newsletter_subscribers')
+      .select('interests, locale, confirmed_at, consent_source, consent_version, consent_recorded_at')
+      .eq('email', email)
+      .single();
+    expect(persisted.error).toBeNull();
+    expect(persisted.data).toEqual(created.data);
   });
 });

@@ -1,7 +1,7 @@
 import { withAuditScope } from '@/lib/audit/scope'
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
-import { getPostHogClient } from '@/lib/posthog-server'
+import { captureServerEvent } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeErrorResponse } from '@/lib/errors'
@@ -15,18 +15,16 @@ import {
 import { imagePathToUrl } from '@/lib/images/image-url'
 import { isPublicStorageKey } from '@/lib/images/storage-keys'
 
-async function captureAssetUploaded(
+function captureAssetUploaded(
   request: Request,
   userId: string | null,
   properties: Record<string, unknown>,
-): Promise<void> {
-  const posthog = getPostHogClient()
-  posthog.capture({
+): void {
+  captureServerEvent({
     distinctId: userId ?? request.headers.get('x-posthog-distinct-id') ?? crypto.randomUUID(),
     event: ANALYTICS_EVENTS.ASSET_UPLOADED,
     properties,
   })
-  await posthog.flush()
 }
 
 const uploadRateLimiter = createInMemoryRateLimiter()
@@ -122,7 +120,7 @@ export const POST = withAuditScope(async (request: Request) => {
         contentType: 'image/webp',
       })
 
-      await captureAssetUploaded(request, userId, {
+      captureAssetUploaded(request, userId, {
         bucket,
         asset_type: 'image',
         size_bytes: buffer.length,

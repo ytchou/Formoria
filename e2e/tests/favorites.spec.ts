@@ -1,4 +1,5 @@
 import path from "node:path";
+import assert from "node:assert/strict";
 
 import type { Page } from "@playwright/test";
 
@@ -161,6 +162,108 @@ test.describe("Favorites", () => {
     }
   });
 
+  test("a failed save preserves another successful save without reloading", async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await browser.newContext({
+      baseURL,
+      storageState: storageStatePath,
+    });
+    await addDeepStagingSessionCookie(context, baseURL);
+    await applyOriginGuard(context, baseURL);
+    const page = await context.newPage();
+    let releaseFailure: () => void = () => {};
+
+    try {
+      await page.goto("/brands");
+      await waitForViewerReady(page);
+      const cards = page.locator("article").filter({
+        has: page.locator("button[data-ph-no-autocapture]"),
+      });
+      await expect.poll(() => cards.count(), POLL.UI).toBeGreaterThanOrEqual(2);
+      const hrefs = await cards.evaluateAll((elements) =>
+        elements
+          .slice(0, 2)
+          .map((element) =>
+            element.querySelector('a[href*="/brands/"]')?.getAttribute("href"),
+          ),
+      );
+      const slugs = hrefs.map((href) => {
+        if (!href) throw new Error("Directory card has no brand link");
+        return decodeURIComponent(
+          new URL(href, baseURL).pathname.split("/").at(-1) ?? "",
+        );
+      });
+      const { data, error } = await getServiceClient()
+        .from("brands")
+        .select("id, slug")
+        .in("slug", slugs);
+      expect(error).toBeNull();
+      const first = data?.find((brand) => brand.slug === slugs.at(0));
+      const second = data?.find((brand) => brand.slug === slugs.at(1));
+      assert.ok(first && second, "Directory brands not found");
+
+      let reportHeld: () => void = () => {};
+      const held = new Promise<void>((resolve) => {
+        reportHeld = resolve;
+      });
+      const release = new Promise<void>((resolve) => {
+        releaseFailure = resolve;
+      });
+      await context.route("**/*", async (route) => {
+        const request = route.request();
+        if (
+          request.headers()["next-action"] &&
+          request.postData()?.includes(first.id)
+        ) {
+          reportHeld();
+          await release;
+          await route.abort("failed");
+        } else {
+          await route.fallback();
+        }
+      });
+
+      const firstSave = cards.nth(0).getByRole("button");
+      const secondSave = cards.nth(1).getByRole("button");
+      await firstSave.click();
+      await held;
+      await secondSave.click();
+      const secondResponse = page.waitForResponse(
+        (response) =>
+          response.request().headers()["next-action"] !== undefined &&
+          Boolean(response.request().postData()?.includes(second.id)),
+        { timeout: BUDGET.INTERACTIVE },
+      );
+      releaseFailure();
+      expect((await secondResponse).status()).toBe(200);
+      const persisted = await getServiceClient()
+        .from("brand_saves")
+        .select("brand_id")
+        .eq("user_id", visitor.id)
+        .eq("brand_id", second.id)
+        .single();
+      expect(persisted.error).toBeNull();
+      expect(persisted.data?.brand_id).toBe(second.id);
+      await expect(secondSave).toHaveAttribute("aria-label", /取消收藏/);
+      await expect(firstSave).toHaveAttribute("aria-label", /^收藏/, {
+        timeout: BUDGET.INTERACTIVE,
+      });
+      await expect(
+        page.getByText("收藏狀態沒有更新，請再試一次。", { exact: true }),
+      ).toBeVisible();
+    } finally {
+      releaseFailure();
+      await context.close();
+      const { error } = await getServiceClient()
+        .from("brand_saves")
+        .delete()
+        .eq("user_id", visitor.id);
+      expect(error).toBeNull();
+    }
+  });
+
   test("an anonymous save explains sign-in, then applies the save after signing in", async ({
     anonPage,
   }) => {
@@ -193,7 +296,9 @@ test.describe("Favorites", () => {
     });
     await page.getByLabel("電子郵件", { exact: true }).fill(visitor.email);
     await page.getByLabel("密碼", { exact: true }).fill(visitor.password);
-    await page.getByRole("button", { name: "登入", exact: true }).click();
+    await clickAndAwaitToggle(page, () =>
+      page.getByRole("button", { name: "登入", exact: true }).click(),
+    );
 
     // Signing in lands on the brand again, and the save asked for before
     // sign-in is applied once, with a confirmation.

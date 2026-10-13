@@ -1,6 +1,7 @@
 import { test, expect } from "../fixtures/auth";
 
 import { BUDGET } from "../budgets";
+import { getServiceClient } from "../helpers/seed";
 /**
  * User Settings
  *
@@ -55,5 +56,57 @@ test.describe("Settings page", () => {
     await expect(
       userPage.getByRole("button", { name: "取消訂閱電子報" }),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
+  });
+
+  test("a signed-in subscriber can update newsletter language without reconfirming", async ({
+    isolatedUserPage,
+    isolatedUser,
+  }) => {
+    const supabase = getServiceClient();
+    const created = await supabase
+      .from("newsletter_subscribers")
+      .insert({
+        email: isolatedUser.email,
+        interests: ["brand-stories"],
+        locale: "zh-TW",
+        confirmed_at: new Date().toISOString(),
+        consent_source: "homepage_newsletter",
+        consent_version: "2026-07-16",
+        consent_recorded_at: new Date().toISOString(),
+      })
+      .select("confirmed_at")
+      .single();
+
+    try {
+      expect(created.error).toBeNull();
+      await isolatedUserPage.goto("/settings");
+      await isolatedUserPage.locator("#displayName").fill("陳若晴");
+      await isolatedUserPage.locator("#localePreference").selectOption("en");
+      await isolatedUserPage.locator("#newsletterMarketing").check();
+      await isolatedUserPage
+        .getByRole("button", { name: "儲存設定", exact: true })
+        .click();
+      await expect(isolatedUserPage).toHaveURL(/\/en\/settings\?saved=true$/, {
+        timeout: BUDGET.NAVIGATION,
+      });
+      const persisted = await supabase
+        .from("newsletter_subscribers")
+        .select("locale, interests, confirmed_at, consent_source")
+        .eq("email", isolatedUser.email)
+        .single();
+      expect(persisted.error).toBeNull();
+      expect(persisted.data).toEqual({
+        locale: "en",
+        interests: ["brand-stories"],
+        confirmed_at: created.data?.confirmed_at,
+        consent_source: "settings",
+      });
+    } finally {
+      const cleanup = await supabase
+        .from("newsletter_subscribers")
+        .delete()
+        .eq("email", isolatedUser.email);
+      expect(cleanup.error).toBeNull();
+    }
   });
 });

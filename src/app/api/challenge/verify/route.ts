@@ -8,7 +8,7 @@ import {
 } from '@/lib/security/challenge'
 import { getClientIp, rateLimit } from '@/lib/security/rate-limiter'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
-import { getPostHogClient } from '@/lib/posthog-server'
+import { captureServerEvent } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 
 type ChallengeVerifyBody = {
@@ -62,15 +62,13 @@ export const POST = withAuditScope(async (request: NextRequest) => {
     path: '/',
   })
 
-  const posthog = getPostHogClient()
-  posthog.capture({
+  captureServerEvent({
     distinctId: request.headers.get('x-posthog-distinct-id') ?? crypto.randomUUID(),
     event: ANALYTICS_EVENTS.CHALLENGE_VERIFIED,
     properties: {
       has_custom_return_path: redirectTo !== '/',
     },
   })
-  await posthog.flush()
 
   return response
 })

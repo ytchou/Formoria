@@ -32,7 +32,7 @@ export async function requestNewsletterSubscription(
     MarketingEnrollmentInput,
     'email' | 'locale' | 'source' | 'interests'
   >,
-  options: { suppressDelivery?: boolean } = {},
+  options: { suppressDelivery?: boolean; updateActivePreferences?: boolean } = {},
 ): Promise<'pending' | 'active' | 'failed'> {
   return auditedCall(
     { provider: 'email', operation: 'requestNewsletterSubscription', kind: 'service' },
@@ -43,6 +43,7 @@ export async function requestNewsletterSubscription(
     locale: input.locale === 'en' ? 'en' : 'zh-TW',
     consentSource: input.source,
     consentVersion: MARKETING_CONSENT_VERSION,
+    updateActivePreferences: options.updateActivePreferences,
   })
 
   if (!result.needsConfirmation) {

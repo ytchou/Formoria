@@ -8,7 +8,7 @@ import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 import { getProfileAdmin, updateProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent } from "@/lib/posthog-server";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { routing } from "@/i18n/routing";
 import {
@@ -105,19 +105,14 @@ export const GET = withAuditScope(async (request: NextRequest) => {
   }
 
   if (userId && !staging) {
-    const posthog = getPostHogClient();
-    posthog.identify({
-      distinctId: userId,
-      properties: userEmail ? { email: userEmail } : {},
-    });
-    posthog.capture({
+    captureServerEvent({
       distinctId: userId,
       event: ANALYTICS_EVENTS.USER_AUTHENTICATED,
       properties: {
         is_new_user: isNewUser,
       },
+      identifyProperties: userEmail ? { email: userEmail } : {},
     });
-    await posthog.flush();
   }
 
   // Defers to the shared post-auth rule: a `next` aimed at a route DEV-1570
