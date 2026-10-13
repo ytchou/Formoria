@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyMitRegistryHealth,
   dedupeRegistryRecords,
+  fetchMitArchive,
   isZipArchive,
   parseManifestFilenames,
   parseMitCsv,
@@ -119,5 +120,32 @@ describe("isZipArchive", () => {
   it("rejects an HTML error page and an empty body", () => {
     expect(isZipArchive(Buffer.from("<!DOCTYPE html><html></html>"))).toBe(false);
     expect(isZipArchive(Buffer.alloc(0))).toBe(false);
+  });
+});
+
+// DEV-2008: a hung or dropped download threw straight out of withRetry, so a
+// transport failure ended the run unretried and could burn the 300 s budget.
+describe("fetchMitArchive", () => {
+  it("bounds each download with an abort signal", async () => {
+    let signal: AbortSignal | null | undefined;
+    const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
+      signal = init?.signal;
+      return new Response(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+    }) as typeof fetch;
+
+    await expect(fetchMitArchive(fetchImpl)).resolves.toMatchObject({ ok: true });
+    expect(signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("turns a timeout or network error into a retryable failure", async () => {
+    const timeout = (async () => {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    }) as typeof fetch;
+
+    await expect(fetchMitArchive(timeout)).resolves.toEqual({
+      ok: false,
+      retryable: true,
+      error: expect.stringContaining("TimeoutError"),
+    });
   });
 });

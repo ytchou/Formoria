@@ -47,6 +47,9 @@ const MIT_DOWNLOAD_RETRY: RetryPolicy = {
   factor: 2,
   capMs: 60_000,
 };
+// A normal download (~3.8 MB) takes seconds. 3 x 45 s plus 90 s of backoff
+// still leaves ~75 s of the 300 s budget for parsing and upserts.
+const MIT_DOWNLOAD_TIMEOUT_MS = 45_000;
 
 type MitArchiveDownload =
   | { ok: true; body: Buffer }
@@ -56,8 +59,21 @@ export function isZipArchive(body: Uint8Array): boolean {
   return ZIP_LOCAL_FILE_SIGNATURE.every((byte, index) => body[index] === byte);
 }
 
-async function fetchMitArchive(): Promise<MitArchiveDownload> {
-  const response = await fetch(MIT_ZIP_URL);
+export async function fetchMitArchive(
+  fetchImpl: typeof fetch = fetch,
+): Promise<MitArchiveDownload> {
+  let response: Response;
+  let body: Buffer;
+  try {
+    response = await fetchImpl(MIT_ZIP_URL, {
+      signal: AbortSignal.timeout(MIT_DOWNLOAD_TIMEOUT_MS),
+    });
+    body = Buffer.from(await response.arrayBuffer());
+  } catch (error) {
+    // A timeout or dropped connection would otherwise escape withRetry unretried.
+    const reason = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    return { ok: false, retryable: true, error: `MIT registry download failed (${reason})` };
+  }
   if (!response.ok) {
     return {
       ok: false,
@@ -65,7 +81,6 @@ async function fetchMitArchive(): Promise<MitArchiveDownload> {
       error: `Failed to fetch MIT registry ZIP: ${response.status} ${response.statusText}`,
     };
   }
-  const body = Buffer.from(await response.arrayBuffer());
   if (!isZipArchive(body)) {
     return {
       ok: false,
@@ -77,7 +92,7 @@ async function fetchMitArchive(): Promise<MitArchiveDownload> {
 }
 
 async function downloadMitArchive(): Promise<Buffer> {
-  const result = await withRetry(MIT_DOWNLOAD_RETRY, fetchMitArchive, {
+  const result = await withRetry(MIT_DOWNLOAD_RETRY, () => fetchMitArchive(), {
     classify: (download) =>
       download.ok || !download.retryable
         ? { retryable: false, reason: "terminal" }
