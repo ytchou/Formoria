@@ -27,6 +27,7 @@ import {
  *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/check-links.ts --apply
  *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/check-links.ts --brand=hanchor
  *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/check-links.ts --review-only
+ *   pnpm exec tsx --env-file=.env.staging scripts/enrichment/products/curated-products/check-links.ts --apply --no-revalidate
  *
  * TWO REPORTS, ONE RUN:
  *   1. link health — does each `official_url` still resolve;
@@ -68,6 +69,12 @@ import {
  * first write and a failed revalidation exits non-zero: a cron that reports
  * success while a brand page keeps serving a live CTA to a URL just proven dead
  * is the failure this script exists to prevent.
+ *
+ * --no-revalidate is the explicit opt-out (DEV-2014): --apply writes the rows
+ * but skips the credential gate and the revalidate POST, so brand pages pick up
+ * the change on their hourly ISR refresh instead. It exists for deployed
+ * staging, whose proxy lockdown refuses the revalidate POST outright. Never the
+ * default: without the flag, --apply still fails before the first write.
  *
  * WRITE SCOPE. The updater writes `link_state` and `link_checked_at` and
  * nothing else (CURATED_LINK_WRITE_COLUMNS). Every other column on the table is
@@ -260,6 +267,8 @@ type CliOptions = {
   apply: boolean;
   brand: string | null;
   reviewOnly: boolean;
+  /** False only with an explicit --no-revalidate; see the header comment. */
+  revalidate: boolean;
 };
 
 export function parseArgs(argv: string[]): CliOptions {
@@ -267,7 +276,13 @@ export function parseArgs(argv: string[]): CliOptions {
     apply: argv.includes("--apply"),
     brand: parseBrandOption(argv),
     reviewOnly: argv.includes("--review-only"),
+    revalidate: !argv.includes("--no-revalidate"),
   };
+}
+
+/** PURE. Whether this run gates on, and sends, the brand-page revalidation. */
+export function shouldRevalidate(options: CliOptions): boolean {
+  return options.apply && options.revalidate;
 }
 
 export type ProductRow = {
@@ -547,7 +562,7 @@ async function main(): Promise<void> {
   // Preflight before the first write: a write that lands while revalidation is
   // unconfigured leaves every brand page serving a stale shell. Failing before
   // the first write is the reversible failure.
-  if (options.apply) assertRevalidationConfigured();
+  if (shouldRevalidate(options)) assertRevalidationConfigured();
 
   const rows = await loadProducts(options.brand);
 
@@ -630,6 +645,17 @@ async function main(): Promise<void> {
   if (!options.apply || changed.length === 0) return;
 
   await applyLinkStates(changed);
+
+  if (!shouldRevalidate(options)) {
+    console.log(
+      JSON.stringify({
+        revalidated: 0,
+        skipped: "--no-revalidate",
+        note: "cache refresh deferred to ISR (revalidate=3600, up to 1h)",
+      }),
+    );
+    return;
+  }
 
   // Without this, a newly-broken URL keeps serving a live call-to-action from
   // the ISR shell for up to an hour and every test still passes. Only the brands
