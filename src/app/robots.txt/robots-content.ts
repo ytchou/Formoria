@@ -16,6 +16,16 @@ import { routes } from "@/lib/routes";
 export const CONTENT_SIGNAL = "ai-train=no, search=yes, ai-input=yes";
 
 /**
+ * Multi-value `sub=` directory filters (`?sub=a,b`). Every combination is a
+ * noindex facet page, and GSC reported ~1,650 of them crawled (2026-10-13).
+ * Single-value `sub=` stays crawlable: it is the L2 landing URL the sitemap
+ * submits. Both comma spellings are listed because robots matching compares
+ * the URL as written: production links used a raw `,`, while URLSearchParams
+ * serializes it as `%2C`.
+ */
+export const MULTI_VALUE_SUB_DISALLOW = ["/*sub=*,*", "/*sub=*%2C*"] as const;
+
+/**
  * Surfaces that stay out of every crawler's index. /submit is deliberately
  * absent: the submission funnel is a public entry point and must remain
  * crawlable.
@@ -26,6 +36,7 @@ const WILDCARD_DISALLOW = [
   "/auth/",
   "/en/auth/",
   routes.challenge(),
+  ...MULTI_VALUE_SUB_DISALLOW,
 ] as const;
 
 interface RobotsRule {

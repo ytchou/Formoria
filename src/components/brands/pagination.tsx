@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import { trackDirectoryPageNavigated } from "@/lib/analytics";
 import { getPageRange } from "@/lib/pagination";
+import { parseCommaParam } from "@/lib/seo/directory-filters";
 
 interface PaginationProps {
   totalCount: number;
@@ -66,6 +67,13 @@ export function Pagination({
   if (totalPages <= 1) return null;
 
   const pages = getPageRange(currentPage, totalPages);
+  // A multi-value `sub=` page is a noindex facet, and its page links are the
+  // only internal links to further combinations (DEV-2018). robots.txt blocks
+  // them too; nofollow stops crawlers from queueing them in the first place.
+  const rel =
+    parseCommaParam(searchParams.getAll("sub")).length > 1
+      ? "nofollow"
+      : undefined;
 
   return (
     <nav
@@ -78,6 +86,7 @@ export function Pagination({
           href={buildPageUrl(pathname, searchParams, currentPage - 1)}
           className={navLinkClass}
           aria-label={t("pagination.previousAria")}
+          rel={rel}
           prefetch={false}
           scroll={false}
           onClick={() =>
@@ -136,6 +145,7 @@ export function Pagination({
             key={page}
             href={buildPageUrl(pathname, searchParams, page)}
             className={pageLinkClass}
+            rel={rel}
             prefetch={false}
             scroll={false}
             onClick={() =>
@@ -160,6 +170,7 @@ export function Pagination({
           href={buildPageUrl(pathname, searchParams, currentPage + 1)}
           className={navLinkClass}
           aria-label={t("pagination.nextAria")}
+          rel={rel}
           prefetch={false}
           scroll={false}
           onClick={() =>

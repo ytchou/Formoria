@@ -80,6 +80,41 @@ describe("GET /robots.txt", () => {
     expect(groups.get("*")?.disallow).toContain("/challenge");
   });
 
+  // DEV-2018: ~1,650 multi-value `sub=` facet URLs were crawled (GSC
+  // 2026-10-13). The rule has to block both comma spellings while leaving the
+  // single-value L2 landing URLs the sitemap submits crawlable.
+  it("blocks multi-value sub= filters but not single-value sub=", async () => {
+    const disallow = parseGroups(await getBody()).get("*")?.disallow ?? [];
+    // RFC 9309 matching: `*` is any run of characters, `$` anchors the end,
+    // and a rule otherwise matches as a prefix of path + query.
+    const blocked = (url: string) =>
+      disallow.some((rule) =>
+        new RegExp(
+          "^" + rule.replace(/[.+?^{}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*"),
+        ).test(url),
+      );
+
+    for (const url of [
+      "/brands?category=home&sub=lighting,plants",
+      "/brands?category=home&sub=clocks,tableware&page=2",
+      "/en/brands?category=kids-pets&sub=toys,pet-food",
+      "/brands?category=home&sub=lighting%2Cplants",
+      "/brands?category=home&sub=lighting%2Cplants&page=2",
+    ]) {
+      expect(blocked(url), url).toBe(true);
+    }
+
+    for (const url of [
+      "/brands?category=home",
+      "/brands?category=home&sub=lighting",
+      "/en/brands?category=beauty&sub=bath-and-shower",
+      "/brands?category=home&sub=lighting&page=2",
+      "/brands/facesun",
+    ]) {
+      expect(blocked(url), url).toBe(false);
+    }
+  });
+
   // RFC 9309 section 2.2.1: a crawler obeys only its most specific matching group
   // and never merges it with the wildcard group, so each per-agent group has to
   // repeat the wildcard disallow list verbatim.
@@ -161,4 +196,3 @@ describe("GET /robots.txt", () => {
     expect(body).not.toContain("Sitemap:");
   });
 });
-
