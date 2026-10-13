@@ -11,8 +11,8 @@ import { assertRevalidationConfigured, fetchAllRows, parseApplyOption } from "./
 /**
  * Backfills `curated_products.image_width` / `image_height` (DEV-1479).
  *
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/backfill-image-dimensions.ts
- *   pnpm exec tsx --env-file=.env.local scripts/curated-products/backfill-image-dimensions.ts --apply
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/backfill-image-dimensions.ts
+ *   pnpm exec tsx --env-file=.env.local scripts/enrichment/products/curated-products/backfill-image-dimensions.ts --apply
  *   …--apply --force    re-measure rows that ALREADY carry dimensions, for use
  *                       after storage re-processes the stored objects. Without
  *                       it a populated row is never read again.

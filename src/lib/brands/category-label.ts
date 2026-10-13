@@ -11,11 +11,6 @@ function findL1Category(value: string) {
   );
 }
 
-/** Resolves an L1 category slug or localized display value to its canonical slug. */
-export function resolveCategorySlug(value: string): string | undefined {
-  return findL1Category(value)?.slug;
-}
-
 export function getCategoryLabel(
   value: string,
   locale: "zh-TW" | "en" = "zh-TW",

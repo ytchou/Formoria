@@ -32,71 +32,6 @@ export interface HealthFinding {
   sentryIssueId?: string;
 }
 
-export type HealthSummaryStatus = "failed" | "skipped" | "success";
-
-export interface HealthDeliveryWarning {
-  category: "optional_delivery";
-  code: string;
-  operation: string;
-  reason: string;
-}
-
-export interface HealthInfrastructureFailure {
-  category: "infrastructure";
-  code: string;
-  operation: string;
-  reason: string;
-}
-
-export interface HealthSummaryCheck {
-  findingCount: number;
-  severities: Readonly<Record<HealthSeverity, number>>;
-  status: HealthSummaryStatus;
-}
-
-export interface HealthFindingLifecycle {
-  new: number;
-  ongoing: number;
-  regressed: number;
-}
-
-export interface HealthSummary {
-  checks: Readonly<Record<HealthSource, HealthSummaryCheck>>;
-  deliveryWarnings?: readonly HealthDeliveryWarning[];
-  infrastructureFailures?: readonly HealthInfrastructureFailure[];
-  overallStatus: "failed" | "healthy" | "needs_attention";
-  lifecycle?: HealthFindingLifecycle;
-  phases: Readonly<
-    Record<
-      "analyze" | "collect" | "deliver" | "publish" | "repair",
-      HealthSummaryStatus
-    >
-  >;
-  repair: {
-    batches?: Readonly<
-      Record<
-        "automatic" | "human",
-        {
-          findingCount: number;
-          prNumber?: number;
-          prUrl?: string;
-          status: string;
-        }
-      >
-    >;
-    claimed?: number;
-    fixed: number;
-    pullRequests: number;
-    queued?: number;
-    repaired?: number;
-    unresolved: number;
-  };
-  ticket?: {
-    identifier: string;
-    url: string;
-  };
-}
-
 /** The routine keys a collector artifact may carry. */
 type HealthRoutine =
   | "link-checker"
@@ -144,10 +79,4 @@ export function stableFingerprint(
     throw new Error("Fingerprint inputs must be nonempty");
   }
   return `${source}:${normalizedKind}:${normalizedIdentity}`;
-}
-
-export function requiresHumanPolicy(
-  finding: Pick<HealthFinding, "source" | "mergePolicy" | "humanReason">,
-): boolean {
-  return finding.mergePolicy === "human" || Boolean(finding.humanReason);
 }

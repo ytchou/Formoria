@@ -6,7 +6,7 @@ import type { AbstractIntlMessages } from 'next-intl'
  *
  * Why: the provider serialises every message it receives into each page's
  * inline RSC payload. Passing the whole catalogue cost ~112 KB per page
- * (DEV-1972) for namespaces such as `categories`, `districts`, `legal` and
+ * (DEV-1972) for namespaces such as `categories`, `legal` and
  * `faq` that only server components read via `getTranslations`, which reads
  * the request config, not the provider.
  *

@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Brand } from "@/lib/types";
-import {
-  getBrandCategoryLabel,
-  getCategoryLabel,
-  resolveCategorySlug,
-} from "../category-label";
+import { getBrandCategoryLabel, getCategoryLabel } from "../category-label";
 
 describe("getCategoryLabel", () => {
   it("returns zh-TW label for known slug", () => {
@@ -16,9 +12,9 @@ describe("getCategoryLabel", () => {
     expect(getCategoryLabel("fashion", "en")).toBe("Fashion & Apparel");
   });
 
-  it("resolves localized display values to the canonical slug", () => {
-    expect(resolveCategorySlug("居家生活")).toBe("home");
-    expect(resolveCategorySlug("Home & Living")).toBe("home");
+  it("translates localized category display values", () => {
+    expect(getCategoryLabel("居家生活", "en")).toBe("Home & Living");
+    expect(getCategoryLabel("Home & Living")).toBe("居家生活");
   });
 });
 

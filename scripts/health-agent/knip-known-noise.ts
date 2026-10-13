@@ -1,5 +1,3 @@
-export const KNIP_VERSION = "6.23.0" as const;
-
 export const KNIP_KNOWN_NOISE = [
   {
     kind: "files",
@@ -28,8 +26,6 @@ export const KNIP_KNOWN_NOISE = [
     signature: "resetSlackAdapterForTests",
   },
 ] as const;
-
-export type KnipKnownNoiseKind = (typeof KNIP_KNOWN_NOISE)[number]["kind"];
 
 /**
  * `file` narrows an entry to one location. A bare symbol name is not unique

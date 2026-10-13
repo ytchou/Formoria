@@ -10,7 +10,6 @@ import {
   discoverClearAllKeys,
   firstValue,
   hasInferParam,
-  sortOptionsFor,
   QUALIFYING_MATERIAL_SLUGS,
 } from "../discover-search-params";
 
@@ -298,20 +297,6 @@ describe("buildDiscoverSyncQuery", () => {
 
     expect(second).toBe(first);
     expect(`?${current.toString()}`).toBe(first);
-  });
-});
-
-describe("sortOptionsFor", () => {
-  it("lists relevance first only when hasQuery", () => {
-    const withQuery = sortOptionsFor(true);
-    expect(withQuery[0]).toBe("relevance");
-    expect(withQuery).toContain("newest");
-    expect(withQuery).toContain("alphabetical");
-
-    const noQuery = sortOptionsFor(false);
-    expect(noQuery).not.toContain("relevance");
-    expect(noQuery[0]).toBe("newest");
-    expect(noQuery).toContain("alphabetical");
   });
 });
 

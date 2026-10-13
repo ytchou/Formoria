@@ -25,11 +25,6 @@ export function snapshotPrompt(
 // Module-level set for drift warn-once semantics, keyed by prompt name.
 const driftWarned = new Set<string>();
 
-/** Resets the drift warning set. Exported for tests only. */
-export function resetDriftWarningsForTests(): void {
-  driftWarned.clear();
-}
-
 /**
  * Compiles `{{key}}` placeholders in a template string by replacing each
  * with the corresponding value from `variables`.

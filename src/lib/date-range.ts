@@ -3,24 +3,6 @@ export type IsoDateRange = {
   end: string;
 };
 
-/** Analytics windows are Taipei-based. */
-const ANALYTICS_TIME_ZONE = "Asia/Taipei";
-
-export function dateRangeForPastDays(
-  days: number,
-  now = new Date(),
-): IsoDateRange {
-  // Always resolve in Asia/Taipei: this runs in a 'use client' component, so a
-  // runtime-local calculation makes the UTC server and a UTC+8 browser render
-  // different strings (hydration mismatch) and disagree with the query window.
-  const today = isoDateInTimeZone(now.toISOString(), ANALYTICS_TIME_ZONE);
-
-  return {
-    start: shiftIsoDate(today, -days),
-    end: shiftIsoDate(today, -1),
-  };
-}
-
 export function isDateInRange(date: string, range: IsoDateRange | null) {
   return !range || (date >= range.start && date <= range.end);
 }
@@ -43,11 +25,4 @@ export function isoDateInTimeZone(value: string, timeZone: string) {
   }
 
   return `${year}-${month}-${day}`;
-}
-
-function shiftIsoDate(isoDate: string, days: number) {
-  const shifted = new Date(`${isoDate}T00:00:00Z`);
-  shifted.setUTCDate(shifted.getUTCDate() + days);
-
-  return shifted.toISOString().slice(0, 10);
 }
