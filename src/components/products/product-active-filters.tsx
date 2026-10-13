@@ -89,7 +89,7 @@ export function ProductActiveFilters({
   if (hasQuery && queryDismissHref) {
     chips.push({
       id: "query",
-      href: queryDismissHref,
+      href: localizePath(queryDismissHref, locale),
       label: t("query"),
       removeLabel: t("removeFilter", { label: t("query"), value: query! }),
       value: query!,
@@ -100,7 +100,7 @@ export function ProductActiveFilters({
     const badge = filter.inferred ? t("inferred") : undefined;
     chips.push({
       id: `${filter.type}-${filter.slug}`,
-      href: removeHref(filter),
+      href: localizePath(removeHref(filter), locale),
       label,
       removeLabel: badge
         ? t("removeFilterInferred", { label, value: filter.label, badge })

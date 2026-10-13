@@ -125,6 +125,40 @@ const hasNoFilterKeys = (url: URL) =>
   !url.searchParams.has("category") &&
   !url.searchParams.has("sub");
 
+test.describe("Discovery — localized refinement", () => {
+  for (const { locale, prefix } of [
+    { locale: "zh-TW", prefix: "" },
+    { locale: "en", prefix: "/en" },
+  ]) {
+    const choices = { q: "包", category: "bags-accessories", sub: "tote-bags", material: "textile", sort: "alphabetical" };
+    const cases = [
+      { name: locale === "en" ? /^Remove Search:/ : /^移除搜尋：/, removed: ["q"] },
+      { name: locale === "en" ? /^Remove Category:/ : /^移除分類：/, removed: ["category", "sub"] },
+      { name: locale === "en" ? /^Remove Subcategory:/ : /^移除子分類：/, removed: ["sub"] },
+      { name: locale === "en" ? /^Remove Material:/ : /^移除材質：/, removed: ["material"] },
+      { name: locale === "en" ? /^Clear all$/ : /^清除全部$/, removed: ["q", "category", "sub", "material"] },
+    ];
+    test(`dismissing discovery filters keeps the page language and remaining choices (${locale})`, async ({ page }) => {
+      test.setTimeout(BUDGET.TEST.ADMIN);
+      for (const refinement of cases) {
+        await page.goto(`${prefix}/discover?${new URLSearchParams({ ...choices, page: "1" })}`);
+        const main = page.getByRole("main");
+        await main.getByRole("link", { name: refinement.name }).click();
+        await expect(page).toHaveURL((url) =>
+          url.pathname === `${prefix}/discover` && !url.searchParams.has("page") &&
+          Object.entries(choices).every(([key, value]) => refinement.removed.includes(key)
+            ? !url.searchParams.has(key) : url.searchParams.get(key) === value),
+        );
+        await expect(page.locator("html")).toHaveAttribute("lang", locale);
+        await expect(main.getByRole("searchbox", { name: locale === "en" ? "Search products" : "搜尋商品", exact: true }))
+          .toHaveValue(refinement.removed.includes("q") ? "" : "包");
+        await expect(main.getByRole("combobox")).toHaveValue("alphabetical");
+        await expect(main.getByRole("heading", { level: 3 }).first()).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
+      }
+    });
+  }
+});
+
 test.describe("Directory filters — 子分類 under 全部", () => {
   test("/discover: a 子分類 applies its parent category and drops the material filter", async ({
     page,
