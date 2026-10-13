@@ -98,14 +98,14 @@ describe('checkUrl', () => {
     expect(fetchFn).toHaveBeenCalledTimes(2)
   })
 
-  it('returns broken when both HEAD and GET throw', async () => {
+  it('leaves the link verdict inconclusive when both HEAD and GET fail', async () => {
     const fetchFn = throwingFetch([
       new Error('HEAD failed'),
       new Error('GET failed'),
     ])
     const result = await checkUrl('https://down.example.com', fetchFn)
     expect(result).toMatchObject({
-      status: 'broken',
+      status: 'blocked',
       statusCode: null,
       resolvedUrl: null,
     })
@@ -127,10 +127,27 @@ describe('checkUrl', () => {
     expect(result.resolvedUrl).toBe('https://example.com/new-page')
   })
 
-  it('classifies 500 as broken', async () => {
-    const fetchFn = mockFetch([{ status: 500 }])
-    const result = await checkUrl('https://broken.example.com', fetchFn)
-    expect(result.status).toBe('broken')
-    expect(result.statusCode).toBe(500)
+  it.each([500, 503, 504])('does not declare a destination dead during HTTP %i', async (status) => {
+    const result = await checkUrl(
+      'https://hanchor.com/products/alpine-shell',
+      mockFetch([{ status }]),
+    )
+    expect(result).toMatchObject({ status: 'blocked', statusCode: status })
+  })
+
+  it('does not declare a destination dead when GET is refused by method', async () => {
+    const result = await checkUrl(
+      'https://hanchor.com/products/alpine-shell',
+      mockFetch([{ status: 405 }, { status: 405 }]),
+    )
+    expect(result).toMatchObject({ status: 'blocked', statusCode: 405 })
+  })
+
+  it.each([404, 410])('declares a destination missing only after GET confirms HTTP %i', async (status) => {
+    const result = await checkUrl(
+      'https://hanchor.com/products/retired-pack',
+      mockFetch([{ status }, { status }]),
+    )
+    expect(result).toMatchObject({ status: 'broken', statusCode: status })
   })
 })

@@ -11,13 +11,13 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
-function runDoctorWithMigrationOutput(output: string) {
+function runDoctorWithMigrationOutput(output: string, exitStatus = 0) {
   const directory = mkdtempSync(join(tmpdir(), "formoria-doctor-"));
   const supabase = join(directory, "supabase");
   const callLog = join(directory, "calls");
   writeFileSync(
     supabase,
-    `#!/bin/sh\necho call >> '${callLog}'\nprintf '%s\\n' '${output.replace(/'/g, "'\\''")}'\n`,
+    `#!/bin/sh\necho call >> '${callLog}'\nprintf '%s\\n' '${output.replace(/'/g, "'\\''")}'\nexit ${exitStatus}\n`,
     "utf8",
   );
   chmodSync(supabase, 0o755);
@@ -107,9 +107,46 @@ describe("doctor --health-railway mode", () => {
 });
 
 describe("environment doctor migration ledger contract", () => {
+  it.each([
+    ['{"error":"database connection timed out"}', 1],
+    [
+      '{"migrations":[{"local":"20261006100000","remote":"20261006100000"},{"local":"20261001100000","remote":"20261001100000"}]}',
+      1,
+    ],
+    ['{"unexpected":"migration output changed"}', 0],
+    ["Error: database connection timed out", 0],
+  ])(
+    "warns without a schema verdict for an inconclusive ledger read %s",
+    (output, exitStatus) => {
+      const result = runDoctorWithMigrationOutput(output, exitStatus);
+
+      expect(result.stdout).toContain(
+        "WARN: could not read the explicit migration target",
+      );
+      expect(result.stdout).not.toMatch(
+        /^(?:OK|ERROR): brand_ai_results\.(?:request|phase)\b/mu,
+      );
+      expect(result.supabaseCalls).toBe(1);
+    },
+  );
+
+  it("rejects an old phase ledger that cannot establish stockists support", () => {
+    const result = runDoctorWithMigrationOutput(
+      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":"20261001100000"}]}',
+    );
+
+    expect(result.stdout).toContain(
+      "ERROR: brand_ai_results phase CHECK migration is not applied on the explicit target",
+    );
+    expect(result.stdout).toContain(
+      "supabase/migrations/20261006100000_add_stockists_to_phase_check.sql",
+    );
+    expect(result.status).not.toBe(0);
+  });
+
   it("accepts current JSON migration output with a remote version", () => {
     const result = runDoctorWithMigrationOutput(
-      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"}]}',
+      '{"migrations":[{"local":"20261006100000","remote":"20261006100000"}]}',
     );
 
     expect(result.stdout).toContain(
@@ -119,7 +156,7 @@ describe("environment doctor migration ledger contract", () => {
 
   it("fails when JSON migration output omits the required remote version", () => {
     const result = runDoctorWithMigrationOutput(
-      '{"migrations":[{"local":"20260803033000","remote":null}]}',
+      '{"migrations":[{"local":"20261006100000","remote":null}]}',
     );
 
     expect(result.stdout).toContain(
@@ -130,7 +167,7 @@ describe("environment doctor migration ledger contract", () => {
 
   it("keeps accepting the legacy pipe-delimited migration table", () => {
     const result = runDoctorWithMigrationOutput(
-      "20260803033000 | 20260803033000 | 2026-08-03",
+      "20261006100000 | 20261006100000 | 2026-10-06",
     );
 
     expect(result.stdout).toContain(
@@ -142,7 +179,7 @@ describe("environment doctor migration ledger contract", () => {
 describe("environment doctor brand_ai_results.request column", () => {
   it("doctor reports missing brand_ai_results.request column", () => {
     const result = runDoctorWithMigrationOutput(
-      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":null}]}',
+      '{"migrations":[{"local":"20261006100000","remote":"20261006100000"},{"local":"20261001100000","remote":null}]}',
     );
 
     expect(result.stdout).toMatch(
@@ -153,7 +190,7 @@ describe("environment doctor brand_ai_results.request column", () => {
 
   it("reads the migration ledger once for both ledger checks", () => {
     const result = runDoctorWithMigrationOutput(
-      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":"20261001100000"}]}',
+      '{"migrations":[{"local":"20261006100000","remote":"20261006100000"},{"local":"20261001100000","remote":"20261001100000"}]}',
     );
 
     expect(result.stdout).toContain(
@@ -167,7 +204,7 @@ describe("environment doctor brand_ai_results.request column", () => {
 
   it("doctor passes the request column check when present", () => {
     const result = runDoctorWithMigrationOutput(
-      '{"migrations":[{"local":"20260803033000","remote":"20260803033000"},{"local":"20261001100000","remote":"20261001100000"}]}',
+      '{"migrations":[{"local":"20261006100000","remote":"20261006100000"},{"local":"20261001100000","remote":"20261001100000"}]}',
     );
 
     expect(result.stdout).toContain(

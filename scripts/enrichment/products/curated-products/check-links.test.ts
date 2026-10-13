@@ -81,6 +81,21 @@ describe("classify", () => {
     expect(result.redirectedTo).toBeNull();
   });
 
+  it.each([null, 500, 503, 504])(
+    "preserves an existing product link verdict during an inconclusive probe (%s)",
+    (status) => {
+      const result = classify({
+        requestedUrl: "https://hanchor.com/products/alpine-shell",
+        resolvedUrl:
+          status === null ? null : "https://hanchor.com/products/alpine-shell",
+        status,
+      });
+      expect(result.linkState).toBeNull();
+      expect(result.blocked).toBe(true);
+      expect(result.redirectedTo).toBeNull();
+    },
+  );
+
   it("classifies a 3xx landing on a different path as redirected, not broken", () => {
     const result = classify({
       requestedUrl: "https://hanchor.com/products/alpine-shell",
@@ -292,6 +307,7 @@ describe("probe", () => {
       resolvedUrl: null,
       status: null,
     });
+    expect(classify(result).linkState).toBe("broken");
   });
 });
 

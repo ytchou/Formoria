@@ -29,11 +29,11 @@ const TIMEOUT_MS = 10_000
 export const RETRY_ON = new Set([402, 404, 405, 410, 501])
 
 /**
- * Statuses that indicate a bot challenge or rate limit, never a dead link.
+ * Statuses that cannot establish a dead link.
  * A Cloudflare-fronted origin answers a scripted HEAD with 403, and a rate
  * limiter answers 429; both serve the page to a real visitor.
  */
-const BLOCKED_STATUSES = new Set([402, 403, 429])
+const BLOCKED_STATUSES = new Set([402, 403, 405, 429])
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -49,7 +49,9 @@ export type CheckUrlResult = {
 // Checker
 // ---------------------------------------------------------------------------
 
-function classify(statusCode: number): CheckUrlResult['status'] {
+export function classifyLinkStatus(statusCode: number | null): CheckUrlResult['status'] {
+  // No response or a server outage cannot prove the destination was removed.
+  if (statusCode === null || (statusCode >= 500 && statusCode < 600)) return 'blocked'
   if (statusCode >= 200 && statusCode < 400) return 'ok'
   if (BLOCKED_STATUSES.has(statusCode)) return 'blocked'
   return 'broken'
@@ -97,14 +99,14 @@ export async function checkUrl(
         } catch (error) {
           ctx.summary.error =
             error instanceof Error ? error.message : 'failed'
-          return { status: 'broken', statusCode: null, resolvedUrl: null }
+          return { status: 'blocked', statusCode: null, resolvedUrl: null }
         }
       }
 
       ctx.summary.status = result.status
       ctx.summary.resolvedUrl = result.url
       return {
-        status: classify(result.status),
+        status: classifyLinkStatus(result.status),
         statusCode: result.status,
         resolvedUrl: result.url,
       }
