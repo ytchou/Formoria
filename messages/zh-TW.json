@@ -105,7 +105,7 @@
       "clear": "清除搜尋",
       "heading": "搜尋結果",
       "queryEcho": "「{query}」",
-      "count": "依相關度排列 · {count} 件",
+      "count": "{count} 件",
       "empty": "找不到「{query}」相關的商品，換個關鍵字，或清除篩選條件。",
       "emptyRoutes": {
         "trailsHeading": "從這幾組主題選物逛起",

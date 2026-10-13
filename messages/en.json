@@ -105,7 +105,7 @@
       "clear": "Clear search",
       "heading": "Search results",
       "queryEcho": "\"{query}\"",
-      "count": "Sorted by relevance · {count, plural, one {# product} other {# products}}",
+      "count": "{count, plural, one {# product} other {# products}}",
       "empty": "No products match \"{query}\". Try a different keyword or clear the filters.",
       "emptyRoutes": {
         "trailsHeading": "Start from one of these guides",
