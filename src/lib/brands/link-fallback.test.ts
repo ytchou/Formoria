@@ -64,6 +64,27 @@ describe('getBrandVisitLink', () => {
     ).toEqual({ href: 'https://instagram.com/warmwood', kind: 'instagram' })
   })
 
+  it.each([
+    'https://line.me/R/ti/p/@789jtxoe',
+    'https://page.line.me/789jtxoe',
+    'https://lin.ee/789jtxoe',
+  ])('identifies a LINE destination stored as the website: %s', (href) => {
+    expect(getBrandVisitLink({ ...emptyLinks, purchaseWebsite: href })).toEqual({
+      href,
+      kind: 'line',
+    })
+  })
+
+  it.each([
+    'https://line.me.example.org/789jtxoe',
+    'https://notline.me/789jtxoe',
+  ])('does not label a lookalike hostname as LINE: %s', (href) => {
+    expect(getBrandVisitLink({ ...emptyLinks, purchaseWebsite: href })).toEqual({
+      href,
+      kind: 'website',
+    })
+  })
+
   it('returns null when every link is empty', () => {
     expect(getBrandVisitLink(emptyLinks)).toBeNull()
   })

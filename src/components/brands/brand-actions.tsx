@@ -50,6 +50,7 @@ const VISIT_LABEL_KEYS = {
   instagram: 'actions.visitInstagram',
   threads: 'actions.visitThreads',
   facebook: 'actions.visitFacebook',
+  line: 'actions.visitLine',
 } satisfies Record<BrandVisitLinkKind, string>
 
 // Layout only (flex sizing and a width cap), shared by the live CTA and its

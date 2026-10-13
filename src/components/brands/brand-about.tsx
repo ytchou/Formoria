@@ -32,7 +32,7 @@ export async function BrandAbout({ brand, locale }: BrandAboutProps) {
   const t = await getTranslations({ locale, namespace: "brandDetail" });
   // The first sentence is the hero lede (BrandHeader); the story starts after
   // it, so the sentence is never printed twice.
-  const rest = splitLede(description, locale).rest;
+  const rest = splitLede(description, locale, { brandName: brand.name }).rest;
   const paragraphs = rest.split("\n\n");
   const twoColumn = rest.length >= TWO_COLUMN_MIN_CHARS[locale];
 

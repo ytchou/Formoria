@@ -187,10 +187,11 @@ export function BrandSectionNav({
         sticky && 'sticky top-(--nav-height) z-40',
       )}
     >
+      {/* Anchor offsets must be relative to the scroller's scroll position. */}
       <div
         ref={scrollerRef}
         className={cn(
-          'scrollbar-none flex min-w-0 overflow-x-auto',
+          'relative scrollbar-none flex min-w-0 overflow-x-auto',
           hasMoreRight &&
             '[mask-image:linear-gradient(to_right,#000_85%,transparent)]',
         )}

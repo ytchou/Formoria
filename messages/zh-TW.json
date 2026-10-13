@@ -59,8 +59,8 @@
     "selectionLabel": "選物",
     "selectionSummary": "{count} 件",
     "languageBadge": "中文",
-    "productCta": "在品牌官網查看",
-    "brandSiteCta": "前往品牌官方網站",
+    "productCta": "查看商品頁",
+    "brandSiteCta": "前往品牌",
     "madeInTaiwan": "台灣製造",
     "unavailable": "品牌的商品頁暫時打不開",
     "relatedStories": "繼續閱讀",
@@ -161,8 +161,8 @@
       "situationsLanguageNote": "這些主題選物目前只有中文版"
     },
     "selectedProducts": {
-      "productCta": "在品牌官網查看",
-      "brandSiteCta": "前往品牌官方網站",
+      "productCta": "查看商品頁",
+      "brandSiteCta": "前往品牌",
       "unavailable": "品牌的商品頁暫時打不開。",
       "madeInTaiwan": "台灣製造"
     },
@@ -343,9 +343,9 @@
     "selectedProducts": {
       "heading": "這個品牌的商品",
       "note": "這裡只列出 {count} 件，不是品牌的完整商品目錄；價格和規格以品牌官網為準。",
-      "cta": "（在品牌官網查看）",
+      "cta": "（查看商品頁）",
       "unavailable": "商品頁暫時連不上。",
-      "brandSiteCta": "（前往品牌官方網站）",
+      "brandSiteCta": "（前往品牌）",
       "madeInTaiwan": "台灣製造",
       "inGuide": "出自主題選物",
       "previous": "上一組商品",
@@ -366,6 +366,7 @@
       "visitInstagram": "前往 Instagram",
       "visitThreads": "前往 Threads",
       "visitFacebook": "前往 Facebook",
+      "visitLine": "前往 LINE",
       "copied": "已複製"
     },
     "share": {
@@ -389,6 +390,7 @@
       "threads": "Threads",
       "facebook": "Facebook",
       "website": "品牌官網",
+      "line": "LINE",
       "pinkoi": "Pinkoi",
       "shopee": "蝦皮購物",
       "myship": "7-ELEVEN 賣貨便",

@@ -375,8 +375,10 @@ test.describe("Brand detail — product shelf focus", () => {
   let seeded: SeededBrand | undefined;
   const productKey = "perch-wireless-table-lamp";
   const productName = "Perch 棲木無線桌燈";
-  const productUrl =
-    "https://sammm-studio.com/products/perch-wireless-table-lamp";
+  const productUrl = "https://www.pinkoi.com/product/9sFbdhL2";
+  const fallbackKey = "perch-replacement-lampshade";
+  const fallbackName = "Perch 棲木替換燈罩";
+  const socialUrl = "https://www.instagram.com/sammm.studio/";
   let imageKey: string | undefined;
 
   test.beforeAll(async ({}, workerInfo) => {
@@ -387,6 +389,11 @@ test.describe("Brand detail — product shelf focus", () => {
     });
 
     const supabase = getServiceClient();
+    const { error: socialError } = await supabase
+      .from("brands")
+      .update({ social_instagram: socialUrl })
+      .eq("id", seeded.brand.id);
+    if (socialError) throw socialError;
     // A shelf tile whose image fails to load is dropped (DEV-1994), so the
     // seed needs a real photograph behind its key, not a dangling path.
     imageKey = `curated-products/${seeded.brand.id}/${productKey}/e2e.webp`;
@@ -402,35 +409,53 @@ test.describe("Brand detail — product shelf focus", () => {
     }
     const { data: product, error: productError } = await supabase
       .from("curated_products")
-      .insert({
-        brand_id: seeded.brand.id,
-        key: productKey,
-        name_zh: productName,
-        category: "home",
-        subcategory: "lighting",
-        official_url: productUrl,
-        source_checked_at: new Date().toISOString(),
-        product_description_zh:
-          "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
-        // The shelf skips photo-less products (DEV-1950) and public reads drop
-        // a product with no renderable image (DEV-1962).
-        image_url: e2eProxyImageUrl(imageKey),
-        visible: true,
-      })
-      .select("id")
-      .single();
+      .insert([
+        {
+          brand_id: seeded.brand.id,
+          key: productKey,
+          name_zh: productName,
+          category: "home",
+          subcategory: "lighting",
+          official_url: productUrl,
+          link_state: "ok",
+          source_checked_at: new Date().toISOString(),
+          product_description_zh:
+            "PETG 懸臂結構搭配 Type-C 充電、觸控調光與 3000K 暖白光。",
+          // The shelf skips photo-less products (DEV-1950) and public reads drop
+          // a product with no renderable image (DEV-1962).
+          image_url: e2eProxyImageUrl(imageKey),
+          visible: true,
+        },
+        {
+          brand_id: seeded.brand.id,
+          key: fallbackKey,
+          name_zh: fallbackName,
+          category: "home",
+          subcategory: "lighting",
+          official_url:
+            "https://sammm-studio.com/products/perch-replacement-lampshade",
+          link_state: "broken",
+          source_checked_at: new Date().toISOString(),
+          product_description_zh: "霧面燈罩，搭配 Perch 棲木桌燈使用。",
+          image_url: e2eProxyImageUrl(imageKey),
+          visible: true,
+        },
+      ])
+      .select("id, official_url");
     if (productError || !product) {
       throw new Error(`curated product seed failed: ${productError?.message}`);
     }
 
     const { error: sourceError } = await supabase
       .from("curated_product_sources")
-      .insert({
-        product_id: product.id,
-        url: "https://sammm-studio.com/products/perch-wireless-table-lamp",
-        checked_at: new Date().toISOString(),
-        state: "active",
-      });
+      .insert(
+        product.map((row) => ({
+          product_id: row.id,
+          url: row.official_url,
+          checked_at: new Date().toISOString(),
+          state: "active",
+        })),
+      );
     if (sourceError) {
       throw new Error(
         `curated product source seed failed: ${sourceError.message}`,
@@ -468,7 +493,7 @@ test.describe("Brand detail — product shelf focus", () => {
     // DEV-1994: image and name are ONE outbound link to the product page —
     // never a `#product-` anchor back to the same page, never a second pill.
     const productLink = tile.getByRole("link", {
-      name: new RegExp(`${productName}.*在品牌官網查看`),
+      name: new RegExp(`${productName}.*查看商品頁`),
     });
     await expect(productLink).toHaveAttribute("href", productUrl);
     await expect(productLink).toHaveAttribute("target", "_blank");
@@ -476,9 +501,32 @@ test.describe("Brand detail — product shelf focus", () => {
     await expect(tile.locator('[tabindex="0"]:not(button)')).toHaveCount(0);
     await expect(productLink.locator("button")).toHaveCount(0);
   });
+
+  for (const locale of ["zh-TW", "en"]) {
+    test(`marketplace and social recovery links have truthful names in ${locale}`, async ({
+      page,
+    }) => {
+      await page.goto(`${locale === "en" ? "/en" : ""}/brands/${seeded!.slug}`);
+      const productLink = page
+        .locator(`#product-${productKey}`)
+        .getByRole("link");
+      await expect(productLink).toHaveAttribute("href", productUrl);
+      await expect(productLink).toHaveAccessibleName(
+        locale === "en" ? /view product page/i : /查看商品頁/,
+      );
+      const fallbackLink = page
+        .locator(`#product-${fallbackKey}`)
+        .getByRole("link");
+      await expect(fallbackLink).toHaveAttribute("href", socialUrl);
+      await expect(fallbackLink).toHaveAccessibleName(
+        locale === "en" ? /visit the brand/i : /前往品牌/,
+      );
+      await expect(fallbackLink).toHaveAttribute("target", "_blank");
+    });
+  }
 });
 
-test.describe("Brand detail — hero gallery at desktop widths", () => {
+test.describe("Brand detail — hero gallery", () => {
   // DEV-1948: from xl (1280px) up, the hero frame is a grid item beside the
   // vertical thumbnail rail. With `mx-auto` and no definite width it shrank to
   // its only content, an absolutely positioned image, and measured 0×0.
@@ -561,6 +609,64 @@ test.describe("Brand detail — hero gallery at desktop widths", () => {
             firstImage.evaluate((img: HTMLImageElement) =>
               img.complete ? img.naturalWidth : 0,
             ),
+          POLL.UI,
+        )
+        .toBeGreaterThan(0);
+    });
+  }
+
+  for (const locale of ["zh-TW", "en"]) {
+    test(`mobile gallery supports pointer, keyboard and failed photos in ${locale}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(`${locale === "en" ? "/en" : ""}/brands/${seeded.slug}`);
+      await waitForViewerReady(page);
+      const hero = page.locator("[data-brand-hero]");
+      const previous = hero.getByRole("button", {
+        name: locale === "en" ? "Previous photo" : "上一張",
+        exact: true,
+      });
+      const next = hero.getByRole("button", {
+        name: locale === "en" ? "Next photo" : "下一張",
+        exact: true,
+      });
+      await expect(previous).toBeVisible();
+      await expect(next).toBeVisible();
+      await expect(hero.getByText("1 / 2", { exact: true })).toBeVisible();
+      await previous.click();
+      await expect(hero.getByText("2 / 2", { exact: true })).toBeVisible();
+      await next.click();
+      await expect(hero.getByText("1 / 2", { exact: true })).toBeVisible();
+      await next.click();
+      await expect(hero.getByText("2 / 2", { exact: true })).toBeVisible();
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await next.focus();
+      await next.press("Enter");
+      await expect(hero.getByText("1 / 2", { exact: true })).toBeVisible();
+      await expect(next).toBeFocused();
+      await next.press("Space");
+      await expect(hero.getByText("2 / 2", { exact: true })).toBeVisible();
+
+      await page.route("**/_next/image?**", async (route) => {
+        const source = new URL(route.request().url()).searchParams.get("url");
+        if (source?.endsWith("/detail.webp")) await route.abort();
+        else await route.continue();
+      });
+      await page.reload();
+      await waitForViewerReady(page);
+      await next.click();
+      await expect(next).toHaveCount(0);
+      await expect(previous).toHaveCount(0);
+      await expect(hero.getByRole("img")).toHaveCount(1);
+      await expect
+        .poll(
+          () =>
+            hero
+              .getByRole("img")
+              .evaluate((img: HTMLImageElement) =>
+                img.complete ? img.naturalWidth : 0,
+              ),
           POLL.UI,
         )
         .toBeGreaterThan(0);
@@ -1101,3 +1207,47 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     ).toHaveCount(0);
   });
 });
+
+for (const [locale, prefix, storyLabel, socialLabel, socialHeading] of [
+  ["en", "/en", "Story", "Social", "Social platforms"],
+  ["zh-TW", "", "故事", "社群", "社群平台"],
+] as const) {
+  test(`mobile brand tabs stay intact after returning from Social (${locale})`, async ({
+    anonPage,
+  }, testInfo) => {
+    await anonPage.setViewportSize({ width: 320, height: 900 });
+    await anonPage.emulateMedia({ reducedMotion: "reduce" });
+    const response = await anonPage.goto(
+      `${prefix}/brands/tsnowstationery-design-studio`,
+    );
+    expect(response?.status()).toBe(200);
+    const nav = anonPage.locator("main nav").filter({
+      has: anonPage.getByRole("link", { name: storyLabel, exact: true }),
+    });
+    const story = nav.getByRole("link", { name: storyLabel, exact: true });
+    await nav.scrollIntoViewIfNeeded();
+    await expect(story).toHaveAttribute("aria-current", "location");
+    const initial = await nav.screenshot({ animations: "disabled" });
+
+    await nav.getByRole("link", { name: socialLabel, exact: true }).click();
+    await expect(
+      anonPage.getByRole("heading", { name: socialHeading, exact: true }),
+    ).toBeFocused();
+    await anonPage.evaluate(() => window.scrollTo(0, 0));
+    await expect(story).toHaveAttribute("aria-current", "location");
+    await nav.scrollIntoViewIfNeeded();
+    const returned = await nav.screenshot({ animations: "disabled" });
+    await testInfo.attach("brand-tabs-initial", {
+      body: initial,
+      contentType: "image/png",
+    });
+    await testInfo.attach("brand-tabs-returned", {
+      body: returned,
+      contentType: "image/png",
+    });
+    expect(
+      returned.equals(initial),
+      "Returning to Story restores the same fully readable tab strip",
+    ).toBe(true);
+  });
+}
