@@ -95,3 +95,50 @@ test.describe('Newsletter subscribe flow', () => {
     });
   });
 });
+
+test.describe('Newsletter — interrupted request recovery', () => {
+  for (const { locale, prefix, message } of [
+    { locale: 'zh-TW', prefix: '', message: '訂閱暫時無法完成，請稍後再試。' },
+    { locale: 'en', prefix: '/en', message: 'We couldn’t complete your subscription. Please try again.' },
+  ]) {
+    test(`a dropped newsletter request preserves email and interests and permits retry (${locale})`, async ({ page }) => {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let attempts = 0;
+      await page.route('**/*', async (route) => {
+        if (route.request().method() !== 'POST') return route.continue();
+        if (route.request().headers()['next-action']) attempts++;
+        await held;
+        await route.abort('failed');
+      });
+      try {
+        await page.goto(prefix || '/');
+        const form = page.locator('form:has(input[name="email"])');
+        const email = form.locator('input[name="email"]');
+        const submit = form.locator('button[type="submit"]');
+        const stories = form.getByRole('button', { name: locale === 'en' ? 'Stories' : '專題', exact: true });
+        await stories.click();
+        await expect(stories).toHaveAttribute('aria-pressed', 'true');
+        await email.fill('m.garcia+transport@company.invalid');
+        await submit.click();
+        await expect(submit).toBeDisabled();
+        await expect.poll(() => attempts).toBe(1);
+        await email.press('Enter');
+        expect(attempts).toBe(1);
+        release();
+        await expect(form.getByRole('alert')).toHaveText(message);
+        await expect(submit).toBeEnabled();
+        await expect(email).toHaveValue('m.garcia+transport@company.invalid');
+        await expect(stories).toHaveAttribute('aria-pressed', 'true');
+        await submit.click();
+        await expect.poll(() => attempts).toBe(2);
+        await expect(submit).toBeEnabled();
+        await expect(form.getByRole('alert')).toHaveText(message);
+        await expect(email).toHaveValue('m.garcia+transport@company.invalid');
+        await expect(stories).toHaveAttribute('aria-pressed', 'true');
+      } finally {
+        release();
+      }
+    });
+  }
+});

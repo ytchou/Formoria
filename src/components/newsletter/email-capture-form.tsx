@@ -1,9 +1,17 @@
 "use client";
 
-import { useActionState, useEffect, useId, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useId,
+  useState,
+  useTransition,
+} from "react";
+import type { FormEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { subscribeToNewsletter } from "@/app/actions/newsletter";
+import type { SubscribeNewsletterState } from "@/app/actions/newsletter";
 import { HoneypotField } from "@/components/forms/honeypot-field";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -32,10 +40,15 @@ export function EmailCaptureForm() {
   const t = useTranslations("newsletter");
   const emailId = useId();
   const emailErrorId = useId();
-  const [state, formAction, isPending] = useActionState(
+  const [nativeState, formAction, nativePending] = useActionState(
     subscribeToNewsletter,
     {},
   );
+  const [clientState, setClientState] = useState<SubscribeNewsletterState>();
+  const [clientPending, startTransition] = useTransition();
+  const [email, setEmail] = useState("");
+  const state = clientState ?? nativeState;
+  const isPending = nativePending || clientPending;
   const [selectedChips, setSelectedChips] = useState<string[]>([
     "curated-picks",
   ]);
@@ -55,6 +68,20 @@ export function EmailCaptureForm() {
     );
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isPending) return;
+    const data = new FormData(event.currentTarget);
+    startTransition(async () => {
+      try {
+        setClientState(await subscribeToNewsletter(state, data));
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+        setClientState({ error: "generic" });
+      }
+    });
+  }
+
   if (state.success) {
     return (
       <div className="rounded-surface bg-verified-green-bg px-4 py-3 type-body-sm font-medium text-ink text-verified-green">
@@ -64,7 +91,11 @@ export function EmailCaptureForm() {
   }
 
   return (
-    <form action={formAction} className="space-y-4 text-ink">
+    <form
+      action={formAction}
+      onSubmit={handleSubmit}
+      className="space-y-4 text-ink"
+    >
       {/* Anti-spam honeypot: invisible to humans, filled in by naive bots, and
           rejected server-side by isHoneypotFilled(). It cannot be an <Input> —
           the primitive's visible styling and focus behaviour are exactly what a
@@ -86,6 +117,8 @@ export function EmailCaptureForm() {
             placeholder={t("emailPlaceholder")}
             required
             type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
           {state.error ? (
             <p
