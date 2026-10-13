@@ -12,10 +12,10 @@ test.describe("Public routing regressions deep", () => {
     test(`an unknown detail URL containing an encoded percent returns 404: ${path}`, async ({
       request,
     }) => {
-      const response = await request.get(path, {
-        maxRedirects: 0,
-        headers: { "user-agent": "Googlebot" },
-      });
+      // No crawler UA: Cloudflare challenges a spoofed Googlebot from a
+      // non-Google IP with its own 403 before the request reaches the proxy,
+      // and the 404 below does not depend on the user agent.
+      const response = await request.get(path, { maxRedirects: 0 });
       expect(response.status(), path).toBe(404);
       expect(response.headers().location, path).toBeUndefined();
     });
