@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyMitRegistryHealth,
   dedupeRegistryRecords,
+  isZipArchive,
   parseManifestFilenames,
   parseMitCsv,
   shouldSweepStaleRecords,
@@ -107,5 +108,16 @@ describe("MIT registry archive", () => {
         new Date("2026-08-26T00:00:00.000Z"),
       ).status,
     ).toBe("degraded");
+  });
+});
+
+describe("isZipArchive", () => {
+  it("accepts a body that starts with the ZIP local file header", () => {
+    expect(isZipArchive(Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]))).toBe(true);
+  });
+
+  it("rejects an HTML error page and an empty body", () => {
+    expect(isZipArchive(Buffer.from("<!DOCTYPE html><html></html>"))).toBe(false);
+    expect(isZipArchive(Buffer.alloc(0))).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import AdmZip from "adm-zip";
 import { auditedCall } from "@/lib/audit";
+import { withRetry, type RetryPolicy } from "@/lib/retry";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   classifyRegistryRecord,
@@ -36,6 +37,56 @@ const MIT_ZIP_URL = "https://keid.nat.gov.tw/mittw/Files/Download/productlist.zi
 const MANIFEST_FILENAME = "manifest.csv";
 const BATCH_SIZE = 1_000;
 const MIN_SWEEP_COVERAGE_RATIO = 0.8;
+const ZIP_LOCAL_FILE_SIGNATURE = [0x50, 0x4b, 0x03, 0x04];
+// The registry host intermittently answers 200 with a non-ZIP body (2026-09-06
+// and 2026-10-11, both within ~400 ms). Waiting 30-60 s between attempts keeps
+// the worst case (~2 min plus downloads) inside the cron route's 300 s budget.
+const MIT_DOWNLOAD_RETRY: RetryPolicy = {
+  attempts: 3,
+  baseMs: 30_000,
+  factor: 2,
+  capMs: 60_000,
+};
+
+type MitArchiveDownload =
+  | { ok: true; body: Buffer }
+  | { ok: false; retryable: boolean; error: string };
+
+export function isZipArchive(body: Uint8Array): boolean {
+  return ZIP_LOCAL_FILE_SIGNATURE.every((byte, index) => body[index] === byte);
+}
+
+async function fetchMitArchive(): Promise<MitArchiveDownload> {
+  const response = await fetch(MIT_ZIP_URL);
+  if (!response.ok) {
+    return {
+      ok: false,
+      retryable: response.status === 429 || response.status >= 500,
+      error: `Failed to fetch MIT registry ZIP: ${response.status} ${response.statusText}`,
+    };
+  }
+  const body = Buffer.from(await response.arrayBuffer());
+  if (!isZipArchive(body)) {
+    return {
+      ok: false,
+      retryable: true,
+      error: `MIT registry download is not a ZIP archive (content-type: ${response.headers.get("content-type") ?? "none"}, ${body.length} bytes)`,
+    };
+  }
+  return { ok: true, body };
+}
+
+async function downloadMitArchive(): Promise<Buffer> {
+  const result = await withRetry(MIT_DOWNLOAD_RETRY, fetchMitArchive, {
+    classify: (download) =>
+      download.ok || !download.retryable
+        ? { retryable: false, reason: "terminal" }
+        : { retryable: true, reason: "server" },
+    service: "mit-registry",
+  });
+  if (!result.ok) throw new Error(result.error);
+  return result.body;
+}
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -300,13 +351,7 @@ export async function syncMitRegistry(): Promise<{
   const archive = await auditedCall(
     { provider: "mit-registry", operation: "sync_registry", kind: "external" },
     async () => {
-      const response = await fetch(MIT_ZIP_URL);
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch MIT registry ZIP: ${response.status} ${response.statusText}`,
-        );
-      }
-      const zip = new AdmZip(Buffer.from(await response.arrayBuffer()));
+      const zip = new AdmZip(await downloadMitArchive());
       const manifest = zip.getEntry(MANIFEST_FILENAME);
       if (!manifest) throw new Error(`"${MANIFEST_FILENAME}" not found in ZIP archive`);
 
