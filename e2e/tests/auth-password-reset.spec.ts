@@ -7,6 +7,59 @@ import { BUDGET } from '../budgets';
 // zh-TW copy from messages/zh-TW.json (auth.forgotPassword.* / auth.resetPassword.*)
 const SESSION_EXPIRED = '重設連結已過期，請重新寄一次。';
 
+test.describe('Auth — password recovery interrupted request', () => {
+  for (const { locale, prefix, message } of [
+    { locale: 'zh-TW', prefix: '', message: '暫時無法完成，請再試一次。' },
+    { locale: 'en', prefix: '/en', message: 'Unable to complete the request. Please try again.' },
+  ]) {
+    for (const kind of ['forgot-password', 'reset-password']) {
+      test(`a dropped ${kind} request preserves fields for retry (${locale})`, async ({ anonPage }) => {
+        let release = () => {};
+        const held = new Promise<void>((resolve) => { release = resolve; });
+        let attempts = 0;
+        await anonPage.route('**/*', async (route) => {
+          if (route.request().method() !== 'POST') return route.continue();
+          if (route.request().headers()['next-action']) attempts++;
+          await held;
+          await route.abort('failed');
+        });
+        try {
+          await anonPage.goto(`${prefix}/auth/${kind}`);
+          const form = anonPage.getByRole('main').locator('form');
+          const fields = form.locator('input[name="email"],input[type="password"]');
+          const inputs = await fields.all();
+          for (const field of inputs) {
+            const name = await field.getAttribute('name');
+            await field.fill(name === 'email' ? 'm.garcia+transport@company.invalid' : 'Synthetic retry input 2026');
+          }
+          const submit = form.locator('button[type="submit"]');
+          const alert = anonPage.getByRole('main').getByRole('alert');
+          await submit.click();
+          await expect(submit).toBeDisabled();
+          await expect.poll(() => attempts).toBe(1);
+          await fields.last().press('Enter');
+          expect(attempts).toBe(1);
+          release();
+          await expect(alert).toHaveText(message);
+          await expect(submit).toBeEnabled();
+          await expect(alert).toBeFocused();
+          for (const field of inputs) {
+            const name = await field.getAttribute('name');
+            await expect(field).toHaveValue(name === 'email' ? 'm.garcia+transport@company.invalid' : 'Synthetic retry input 2026');
+          }
+          await submit.click();
+          await expect.poll(() => attempts).toBe(2);
+          await expect(submit).toBeEnabled();
+          await expect(alert).toHaveText(message);
+          await expect(alert).toBeFocused();
+        } finally {
+          release();
+        }
+      });
+    }
+  }
+});
+
 test.describe('Auth — forgot password request', () => {
   const baseURL =
     process.env.BASE_URL ??

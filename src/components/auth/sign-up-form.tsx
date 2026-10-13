@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useState, useTransition } from "react";
+import type { FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -27,10 +28,14 @@ type SignUpFormProps = {
 };
 
 export function SignUpForm({ showOptionalAuthMethods }: SignUpFormProps) {
-  const [state, action, pending] = useActionState<AuthState, FormData>(
+  const [nativeState, action, nativePending] = useActionState<AuthState, FormData>(
     signUp,
     {},
   );
+  const [clientState, setClientState] = useState<AuthState>();
+  const [clientPending, startTransition] = useTransition();
+  const state = clientState ?? nativeState;
+  const pending = nativePending || clientPending;
   const [marketingEmailOptIn, setMarketingEmailOptIn] = useState(false);
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
@@ -52,6 +57,23 @@ export function SignUpForm({ showOptionalAuthMethods }: SignUpFormProps) {
 
   const signInHref = routes.auth.signIn();
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    startTransition(async () => {
+      try {
+        const result = await signUp(state, data);
+        form.reset();
+        setClientState(result);
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+        setClientState({ error: t("requestError") });
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
@@ -61,7 +83,7 @@ export function SignUpForm({ showOptionalAuthMethods }: SignUpFormProps) {
 
       <AuthFormError message={state.error} pending={pending} />
 
-      <form action={action} className="space-y-4">
+      <form action={action} onSubmit={handleSubmit} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
 
         <FormField

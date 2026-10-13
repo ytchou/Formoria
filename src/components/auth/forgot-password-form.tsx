@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import type { FormEvent } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { resetPassword } from "@/app/auth/actions";
@@ -12,11 +13,32 @@ import { Label } from "@/components/ui/label";
 import { routes } from "@/lib/routes";
 
 export function ForgotPasswordForm() {
-  const [state, action, pending] = useActionState<AuthState, FormData>(
+  const [nativeState, action, nativePending] = useActionState<AuthState, FormData>(
     resetPassword,
     {},
   );
+  const [clientState, setClientState] = useState<AuthState>();
+  const [clientPending, startTransition] = useTransition();
+  const state = clientState ?? nativeState;
+  const pending = nativePending || clientPending;
   const t = useTranslations("auth");
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    startTransition(async () => {
+      try {
+        const result = await resetPassword(state, data);
+        form.reset();
+        setClientState(result);
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+        setClientState({ error: t("requestError") });
+      }
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -36,7 +58,7 @@ export function ForgotPasswordForm() {
           {state.message}
         </div>
       ) : (
-        <form action={action} className="space-y-4">
+        <form action={action} onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">{t("forgotPassword.emailLabel")}</Label>
             <Input

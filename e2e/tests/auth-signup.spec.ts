@@ -4,6 +4,60 @@ import { BUDGET, POLL } from '../budgets';
 
 const PASSWORD_MISMATCH = '兩次輸入的密碼不一致';
 
+test.describe('Auth — sign-up interrupted request', () => {
+  for (const { locale, prefix, message } of [
+    { locale: 'zh-TW', prefix: '', message: '暫時無法完成，請再試一次。' },
+    { locale: 'en', prefix: '/en', message: 'Unable to complete the request. Please try again.' },
+  ]) {
+    test(`a dropped sign-up request preserves fields and consent for retry (${locale})`, async ({ anonPage }) => {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let attempts = 0;
+      await anonPage.route('**/*', async (route) => {
+        if (route.request().method() !== 'POST') return route.continue();
+        if (route.request().headers()['next-action']) attempts++;
+        await held;
+        await route.abort('failed');
+      });
+      try {
+        await anonPage.goto(`${prefix}/auth/sign-up?email=${encodeURIComponent('m.garcia+invited@company.invalid')}`);
+        const form = anonPage.getByRole('main').locator('form');
+        const email = form.locator('input[name="email"]');
+        const password = form.locator('input[name="password"]');
+        const confirm = form.locator('input[name="confirmPassword"]');
+        const consent = form.getByRole('checkbox');
+        const submit = form.locator('button[type="submit"]');
+        const alert = anonPage.getByRole('main').getByRole('alert');
+        await expect(email).toHaveValue('m.garcia+invited@company.invalid');
+        await email.fill('m.garcia+transport@company.invalid');
+        await password.fill('Synthetic retry input 2026');
+        await confirm.fill('Synthetic retry input 2026');
+        await consent.check();
+        await submit.click();
+        await expect(submit).toBeDisabled();
+        await expect.poll(() => attempts).toBe(1);
+        await confirm.press('Enter');
+        expect(attempts).toBe(1);
+        release();
+        await expect(alert).toHaveText(message);
+        await expect(submit).toBeEnabled();
+        await expect(alert).toBeFocused();
+        await expect(email).toHaveValue('m.garcia+transport@company.invalid');
+        await expect(password).toHaveValue('Synthetic retry input 2026');
+        await expect(confirm).toHaveValue('Synthetic retry input 2026');
+        await expect(consent).toBeChecked();
+        await submit.click();
+        await expect.poll(() => attempts).toBe(2);
+        await expect(submit).toBeEnabled();
+        await expect(alert).toHaveText(message);
+        await expect(alert).toBeFocused();
+      } finally {
+        release();
+      }
+    });
+  }
+});
+
 test.describe('Auth — sign-up flow', () => {
   test('renders the sign-up form', async ({ anonPage }) => {
     await anonPage.goto('/auth/sign-up');

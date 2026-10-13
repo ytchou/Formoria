@@ -1066,6 +1066,7 @@
     }
   },
   "auth": {
+    "requestError": "暫時無法完成，請再試一次。",
     "emailPlaceholder": "you@example.com",
     "validation": {
       "emailInvalid": "電子郵件格式不對，請再檢查一次",
