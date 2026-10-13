@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   createOwnerSubmissionSchema,
   createRecommendationSubmissionSchema,
-  fullSubmissionSchema,
   getLinksSchema,
   normalizeWebsiteUrl,
 } from '../submission'
@@ -32,7 +31,7 @@ describe('simplified submission schema', () => {
       turnstileToken: 'test-token',
       honeypot: '',
     }
-    const result = fullSubmissionSchema.safeParse(data)
+    const result = createRecommendationSubmissionSchema().safeParse(data)
     expect(result.success).toBe(true)
   })
 
@@ -45,17 +44,26 @@ describe('simplified submission schema', () => {
       turnstileToken: 'test-token',
       honeypot: '',
     }
-    const result = fullSubmissionSchema.safeParse(data)
+    const result = createRecommendationSubmissionSchema().safeParse(data)
     expect(result.success).toBe(true)
-    expect(fullSubmissionSchema.shape).not.toHaveProperty('unifiedBusinessNumber')
+    if (result.success) {
+      expect(result.data).not.toHaveProperty('unifiedBusinessNumber')
+    }
   })
 
   it('keeps description and hero image optional', () => {
-    const shape = Object.keys(fullSubmissionSchema.shape)
-    expect(shape).not.toContain('categorySlug')
-    expect(shape).not.toContain('productPhotos')
-    expect(shape).toContain('description')
-    expect(shape).toContain('heroImageUrl')
+    const result = createRecommendationSubmissionSchema().parse({
+      name: '森陶日常',
+      website: 'https://www.sentao.com.tw',
+      sourceAttribution,
+      pdpaConsent: true,
+      turnstileToken: 'test-token',
+      honeypot: '',
+    })
+    expect(result).not.toHaveProperty('categorySlug')
+    expect(result).not.toHaveProperty('productPhotos')
+    expect(result.description).toBe('')
+    expect(result.heroImageUrl).toBeUndefined()
   })
 
   it('accepts optional social links as strings', () => {
@@ -83,7 +91,7 @@ describe('simplified submission schema', () => {
       turnstileToken: 'test-token',
       honeypot: '',
     }
-    const result = fullSubmissionSchema.safeParse(data)
+    const result = createRecommendationSubmissionSchema().safeParse(data)
     expect(result.success).toBe(false)
   })
 

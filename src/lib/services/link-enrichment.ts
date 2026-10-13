@@ -95,16 +95,6 @@ type LinkEnrichScraped =
   | Partial<Pick<ScrapedBrandData, LinkField>>
   | Partial<BrandFlatLinkColumns>
 
-type TextEnrichBrand = {
-  description?: string | null
-}
-
-type TextEnrichScraped = Partial<Pick<ScrapedBrandData, 'description' | 'story'>>
-
-type TextEnrichPatch = {
-  description?: string
-}
-
 export function hasLinkValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== ''
 }
@@ -742,18 +732,6 @@ export function buildLinkEnrichPatch(
       patch[column] = scrapedValue
     }
   }
-
-  return patch
-}
-
-export function buildTextEnrichPatch(
-  brand: TextEnrichBrand,
-  scraped: TextEnrichScraped
-): TextEnrichPatch {
-  void brand
-  void scraped
-
-  const patch: TextEnrichPatch = {}
 
   return patch
 }
