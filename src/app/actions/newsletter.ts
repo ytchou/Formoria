@@ -17,7 +17,7 @@ const RATE_LIMIT_MAX_REQUESTS = 5
 
 export type SubscribeNewsletterState = {
   success?: true
-  error?: string
+  error?: 'invalidEmail' | 'rateLimited' | 'confirmationFailed' | 'generic'
 }
 
 function getRequestIp(headerList: Awaited<ReturnType<typeof headers>>): string {
@@ -50,11 +50,11 @@ export async function subscribeToNewsletter(
         })
 
     if (!limit.allowed) {
-      return { error: 'Too many requests' }
+      return { error: 'rateLimited' }
     }
 
     if (!validateEmail(normalizedEmail)) {
-      return { error: 'Invalid email' }
+      return { error: 'invalidEmail' }
     }
 
     try {
@@ -71,13 +71,13 @@ export async function subscribeToNewsletter(
       )
 
       if (status === 'failed') {
-        return { error: 'Unable to send confirmation email' }
+        return { error: 'confirmationFailed' }
       }
 
       return { success: true }
     } catch (err) {
       console.error('[newsletter:subscribe]', err)
-      return { error: err instanceof Error ? err.message : 'Unable to subscribe' }
+      return { error: 'generic' }
     }
   });
 }

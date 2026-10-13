@@ -110,7 +110,11 @@ export async function unsubscribeByToken(
     .eq('unsubscribe_token', token)
     .single()
 
-  if (error?.code === 'PGRST116' || data === null) {
+  if (error?.code === 'PGRST116') {
+    return { success: false, error: 'Token not found' }
+  }
+  if (error) throw new Error(error.message ?? 'Unable to look up unsubscribe token')
+  if (data === null) {
     return { success: false, error: 'Token not found' }
   }
 
@@ -129,7 +133,7 @@ export async function unsubscribeByToken(
     .eq('unsubscribe_token', token)
 
   if (updateError) {
-    return { success: false, error: updateError.message ?? 'Unable to unsubscribe' }
+    throw new Error(updateError.message ?? 'Unable to unsubscribe')
   }
 
   return { success: true }

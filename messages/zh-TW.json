@@ -209,6 +209,7 @@
   "newsletter": {
     "heading": "收到新的專題和選物",
     "subtext": "新的專題、新收錄的品牌和 Formoria 選物，寄到你的信箱。",
+    "emailLabel": "電子郵件",
     "emailPlaceholder": "your@email.com",
     "subscribe": "訂閱",
     "interestsLabel": "選擇想收到的內容",
@@ -219,6 +220,12 @@
       "mit-trends": "台灣品牌趨勢"
     },
     "success": "確認信已寄出，請到收件匣點開連結完成訂閱",
+    "errors": {
+      "invalidEmail": "請輸入有效的電子郵件地址。",
+      "rateLimited": "操作次數過多，請稍候再試。",
+      "confirmationFailed": "目前無法寄出確認信，請稍後再試。",
+      "generic": "訂閱暫時無法完成，請稍後再試。"
+    },
     "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後需完成信箱確認，隨時都能取消訂閱。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "marketingEmailConsent": {
@@ -1232,7 +1239,7 @@
     },
     "overview": {
       "recommendPoint1": "不用登入，也不用註冊帳號",
-      "recommendPoint2": "只要品牌名稱和網址就能送出",
+      "recommendPoint2": "填寫品牌名稱、網址、認識品牌的方式，並同意隱私權政策",
       "recommendPoint3": "審核通過後收錄進品牌目錄",
       "ownerNote": "是品牌方嗎？目前也請用這份表單推薦，審核通過後我們會寫信給你，再談品牌頁怎麼管理。"
     },
@@ -1779,5 +1786,20 @@
   },
   "filters": {
     "token": "{label}：{value}"
+  },
+  "emailActions": {
+    "missingHeading": "連結不完整",
+    "missingBody": "請回到電子郵件，重新開啟完整連結。",
+    "invalidHeading": "連結已失效",
+    "invalidBody": "請從最新一封郵件開啟取消訂閱連結。",
+    "confirmationInvalid": "這個確認連結已失效。可以回首頁重新訂閱，取得新的確認信。",
+    "unavailableHeading": "暫時無法確認操作結果",
+    "unavailableBody": "目前連線有問題。請稍後重新開啟原本的郵件連結，再試一次。",
+    "successHeading": "已取消訂閱",
+    "newsletterUnsubscribeSuccess": "已取消 Formoria 電子報訂閱。帳號驗證、密碼重設和審核結果等必要通知不受影響。",
+    "ownerUnsubscribeSuccess": "已取消 Formoria 的品牌方郵件。電子報訂閱另外管理，可以到帳號設定或使用電子報裡的取消訂閱連結。",
+    "home": "返回首頁",
+    "subscribeAgain": "回首頁重新訂閱",
+    "manageNewsletter": "管理電子報訂閱"
   }
 }

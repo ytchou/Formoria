@@ -380,7 +380,8 @@ export async function confirmSubscriber(
     .eq('confirm_token', confirmToken)
     .maybeSingle()
 
-  if (lookupError || existingSubscriber === null) {
+  assertNoError(lookupError)
+  if (existingSubscriber === null) {
     return { success: false, error: 'Token not found' }
   }
 
@@ -400,8 +401,9 @@ export async function confirmSubscriber(
     .select()
     .single()
 
-  if (error || data === null) {
-    return { success: false, error: error?.message ?? 'Unable to confirm subscriber' }
+  assertNoError(error)
+  if (data === null) {
+    throw new Error('Unable to confirm subscriber')
   }
 
   return { success: true, subscriber: data }
@@ -422,8 +424,13 @@ export async function unsubscribeNewsletter(
     .eq('unsubscribe_token', unsubscribeToken)
     .maybeSingle()
 
-  if (lookupError || existingSubscriber === null) {
+  assertNoError(lookupError)
+  if (existingSubscriber === null) {
     return { success: false, error: 'Token not found' }
+  }
+
+  if (existingSubscriber.unsubscribed_at) {
+    return { success: true, subscriber: existingSubscriber as NewsletterSubscriber }
   }
 
   const { data, error } = await table
@@ -432,8 +439,9 @@ export async function unsubscribeNewsletter(
     .select()
     .single()
 
-  if (error || data === null) {
-    return { success: false, error: error?.message ?? 'Unable to unsubscribe subscriber' }
+  assertNoError(error)
+  if (data === null) {
+    throw new Error('Unable to unsubscribe subscriber')
   }
 
   return { success: true, subscriber: data }

@@ -187,3 +187,101 @@ test.describe("Submit funnel", () => {
     );
   });
 });
+
+// The introduction must not promise that only two fields are needed when attribution and consent are required.
+test("recommendation guidance describes the information and consent actually required", async ({
+  anonPage,
+}) => {
+  for (const locale of ["zh-TW", "en"]) {
+    await anonPage.goto(`${locale === "en" ? "/en" : ""}/submit/recommend`);
+    await expect(
+      anonPage.getByText(
+        locale === "en"
+          ? "Add the brand name, a link and how you know the brand, then agree to the privacy policy"
+          : "填寫品牌名稱、網址、認識品牌的方式，並同意隱私權政策",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(anonPage.locator("#submit-name")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    await expect(anonPage.locator("#submit-website")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    await expect(anonPage.locator("#submit-source")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    await expect(anonPage.locator("#submit-pdpa")).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+  }
+});
+
+test.describe("Recommendation interrupted request", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  for (const { locale, prefix, message } of [
+    { locale: "zh-TW", prefix: "", message: "沒有送出成功，請再試一次。" },
+    { locale: "en", prefix: "/en", message: "Your recommendation didn't go through. Try again." },
+  ]) {
+    test(`a dropped recommendation request keeps the completed form available for retry (${locale})`, async ({ anonPage }) => {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let attempts = 0;
+      await anonPage.route("**/*", async (route) => {
+        const request = route.request();
+        if (new URL(request.url()).origin !== new URL(anonPage.url()).origin || request.method() !== "POST") {
+          return route.continue();
+        }
+        if (request.headers()["next-action"] && request.postData()?.includes('"pdpaConsent":true')) {
+          attempts++;
+          await held;
+        }
+        await route.abort("failed");
+      });
+      try {
+        await anonPage.goto(`${prefix}/submit/recommend`);
+        // The real Cloudflare widget must supply a token before this can exercise transport.
+        await expect(anonPage.locator('input[name="cf-turnstile-response"]')).not.toHaveValue("", {
+          timeout: BUDGET.SERVER_RENDER,
+        });
+        const values = [
+          ["#submit-name", "暮木工房"],
+          ["#submit-website", "https://mugong.example.invalid"],
+          ["#submit-guest-email", "m.garcia+review@company.invalid"],
+          ["#submit-description", "在台南製作木器，期待你們參考。"],
+        ] as const;
+        for (const [selector, value] of values) await anonPage.locator(selector).fill(value);
+        await anonPage.locator("#submit-source").selectOption("found_online");
+        await anonPage.locator("#submit-marketing-email").check();
+        await anonPage.locator("#submit-pdpa").check();
+        const main = anonPage.getByRole("main");
+        const submit = main.locator('button[type="submit"]');
+        const alert = main.getByRole("alert");
+        await submit.click();
+        await expect(submit).toBeDisabled();
+        await expect.poll(() => attempts).toBe(1);
+        await anonPage.locator("#submit-guest-email").press("Enter");
+        expect(attempts).toBe(1);
+        release();
+        await expect(alert).toHaveText(message);
+        await expect(submit).toBeEnabled();
+        for (const [selector, value] of values) await expect(anonPage.locator(selector)).toHaveValue(value);
+        await expect(anonPage.locator("#submit-source")).toHaveValue("found_online");
+        await expect(anonPage.locator("#submit-marketing-email")).toBeChecked();
+        await expect(anonPage.locator("#submit-pdpa")).toBeChecked();
+        await expect(anonPage).toHaveURL(new RegExp(`${prefix}/submit/recommend$`));
+        await submit.click();
+        await expect.poll(() => attempts).toBe(2);
+        await expect(alert).toHaveText(message);
+        await expect(submit).toBeEnabled();
+      } finally {
+        release();
+      }
+    });
+  }
+});

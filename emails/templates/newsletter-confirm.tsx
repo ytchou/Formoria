@@ -73,12 +73,12 @@ const COPY = {
   },
 } as const;
 
-function confirmUrl(token: string) {
-  return `${SITE_URL}/api/newsletter/confirm?token=${encodeURIComponent(token)}`;
+function confirmUrl(token: string, locale: string) {
+  return `${SITE_URL}/api/newsletter/confirm?token=${encodeURIComponent(token)}&locale=${locale === "en" ? "en" : "zh-TW"}`;
 }
 
-function unsubscribeUrl(token: string) {
-  return `${SITE_URL}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;
+function unsubscribeUrl(token: string, locale: string) {
+  return `${SITE_URL}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}&locale=${locale === "en" ? "en" : "zh-TW"}`;
 }
 
 export function NewsletterConfirmEmail({
@@ -90,8 +90,8 @@ export function NewsletterConfirmEmail({
   const lang = locale === "en" ? "en" : "zh-TW";
   const copy = COPY[lang];
   const labels = INTEREST_LABELS[lang];
-  const confirmationUrl = confirmUrl(confirmToken);
-  const unsubscribeLink = unsubscribeUrl(unsubscribeToken);
+  const confirmationUrl = confirmUrl(confirmToken, lang);
+  const unsubscribeLink = unsubscribeUrl(unsubscribeToken, lang);
   const selectedInterests = interests.map(
     (interest) => labels[interest] ?? interest,
   );
@@ -140,7 +140,9 @@ export async function buildNewsletterConfirmEmail(
     subject: COPY[lang].subject,
     html,
     replyTo: "ops@formoria.com",
-    headers: listUnsubscribeHeaders(unsubscribeUrl(params.unsubscribeToken)),
+    headers: listUnsubscribeHeaders(
+      unsubscribeUrl(params.unsubscribeToken, lang),
+    ),
   };
 }
 

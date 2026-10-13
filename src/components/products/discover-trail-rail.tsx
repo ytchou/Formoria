@@ -1,13 +1,14 @@
 import { ArrowRight } from "lucide-react";
 
-import { TrailSnapRow } from "@/components/landing/trail-snap-row";
-import { TrailTile, type TrailTileLabels } from "@/components/landing/trail-tile";
+import {
+  TrailTile,
+  type TrailTileLabels,
+} from "@/components/landing/trail-tile";
 import { actionLinkStyles } from "@/components/ui/action-link";
 import { gridStyles } from "@/components/ui/grid";
 import { Link } from "@/i18n/navigation";
 import { routes } from "@/lib/routes";
 import type { TrailCard } from "@/lib/trails/trail-card";
-import { cn } from "@/lib/utils";
 
 type DiscoverTrailRailProps = {
   /** Already trimmed by the caller (the page passes at most three). */
@@ -23,10 +24,9 @@ type DiscoverTrailRailProps = {
  * situation rather than on a bare grid.
  *
  * TrailTile has no compact variant, so this renders the existing card in the
- * homepage's row geometry: a native snap-scroll row below `md` (with its
- * 「1 / n」 counter), three-up from `md`. The row's padding inside a matching
- * negative margin keeps the cards' focus ring inside the scroll clip. No peek
- * strip: the page makes no extra read for it.
+ * shared three-column grid from `md`. Phones omit this section so it does
+ * not push the first products away. No peek strip: the page makes no extra
+ * read for it.
  */
 export function DiscoverTrailRail({
   trails,
@@ -55,13 +55,7 @@ export function DiscoverTrailRail({
           <ArrowRight aria-hidden="true" />
         </Link>
       </div>
-      <TrailSnapRow
-        count={trails.length}
-        className={cn(
-          gridStyles({ cols: "triptych" }),
-          "-mx-1.5 flex snap-x snap-mandatory overflow-x-auto p-1.5 md:mx-0 md:grid md:snap-none md:overflow-visible md:p-0",
-        )}
-      >
+      <ul className={gridStyles({ cols: "triptych" })}>
         {trails.map((trail, index) => (
           <TrailTile
             key={trail.slug}
@@ -70,10 +64,10 @@ export function DiscoverTrailRail({
             trailSurface="discover_trail_rail"
             headingLevel="h3"
             labels={tileLabels}
-            className="min-w-0 shrink-0 basis-[82%] snap-start scroll-mx-1.5 md:basis-auto"
+            className="min-w-0"
           />
         ))}
-      </TrailSnapRow>
+      </ul>
     </section>
   );
 }

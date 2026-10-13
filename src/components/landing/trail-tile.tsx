@@ -104,12 +104,10 @@ export function TrailTile({
    */
   const imageSrc = safeImageSrc(trail.frontmatter.heroImage);
   /*
-   * Empty, never the title. The link is already `aria-labelledby` the title
-   * beside it, so repeating the title as image text announces the same words
-   * twice.
+   * Empty, never the title. The link's visible text already includes the
+   * title, so repeating it as image text announces the same words twice.
    */
   const imageAlt = trail.frontmatter.heroImageAlt ?? "";
-  const titleId = `trail-${trail.slug}-title`;
 
   return (
     <li
@@ -121,7 +119,6 @@ export function TrailTile({
       <Link
         href={routes.trail(trail.slug)}
         prefetch={false}
-        aria-labelledby={titleId}
         data-ph-no-autocapture
         onClick={() =>
           trackTrailCardClicked(trail.slug, position, trailSurface)
@@ -175,7 +172,6 @@ export function TrailTile({
             labels in the page's own language.
           */}
             <Heading
-              id={titleId}
               lang={contentLang}
               className={cn(
                 "text-ground",

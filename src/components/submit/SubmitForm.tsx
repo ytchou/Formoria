@@ -370,10 +370,14 @@ export default function SubmitForm({
         );
       } catch (error) {
         unlock();
+        if (error instanceof TypeError) {
+          setSubmitError(t("errors.unexpected"));
+          return;
+        }
         throw error;
       }
     },
-    [complete],
+    [complete, t],
   );
 
   const onSubmit = useCallback(

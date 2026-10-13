@@ -1,5 +1,22 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
+import { subscribeToNewsletter } from '../newsletter'
 import { parseSubscribeForm, isHoneypotFilled } from '../newsletter-helpers'
+import {
+  createInMemoryRateLimiter,
+  setRateLimitStoreForTests,
+} from '@/lib/security/rate-limiter'
+
+vi.mock('next/headers', () => ({
+  headers: async () => new Headers(),
+}))
+
+beforeEach(() => {
+  setRateLimitStoreForTests(createInMemoryRateLimiter())
+})
+
+afterEach(() => {
+  setRateLimitStoreForTests(null)
+})
 
 describe('newsletter server action — pure helpers', () => {
   describe('parseSubscribeForm', () => {
@@ -39,6 +56,32 @@ describe('newsletter server action — pure helpers', () => {
     it('returns false when honeypot field missing', () => {
       const fd = new FormData()
       expect(isHoneypotFilled(fd)).toBe(false)
+    })
+  })
+})
+
+describe('newsletter server action', () => {
+  it('returns a stable error code for an invalid email', async () => {
+    const formData = new FormData()
+    formData.set('email', 'not an email')
+
+    await expect(subscribeToNewsletter({}, formData)).resolves.toEqual({
+      error: 'invalidEmail',
+    })
+  })
+
+  it('returns a stable retry code after the per-IP limit is reached', async () => {
+    const formData = new FormData()
+    formData.set('email', 'not an email')
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await expect(subscribeToNewsletter({}, formData)).resolves.toEqual({
+        error: 'invalidEmail',
+      })
+    }
+
+    await expect(subscribeToNewsletter({}, formData)).resolves.toEqual({
+      error: 'rateLimited',
     })
   })
 })

@@ -35,6 +35,32 @@ test.describe("Discovery trail deep", () => {
     test.skip(trail === undefined, NO_PUBLISHED_TRAILS);
   });
 
+  test("catalog guides show their links without a false carousel position", async ({
+    anonPage,
+  }) => {
+    await anonPage.setViewportSize({ width: 768, height: 900 });
+    for (const [path, heading] of [
+      ["/discover", "從一個情境開始逛"],
+      ["/en/discover", "Start from a situation"],
+    ]) {
+      const response = await anonPage.goto(path);
+      expect(response?.status()).toBe(200);
+      const section = anonPage.locator("section").filter({
+        has: anonPage.getByRole("heading", { name: heading, exact: true }),
+      });
+      const guides = section.getByRole("heading", { level: 3 });
+      await expect(guides).toHaveCount(Math.min(trails.length, 3));
+      for (const title of await guides.allTextContents()) {
+        await expect(
+          section.getByRole("link").filter({ hasText: title }),
+        ).toBeVisible();
+      }
+      await expect(
+        section.getByText(/^\d+\s*\/\s*\d+$/, { exact: true }),
+      ).toHaveCount(0);
+    }
+  });
+
   test("trail entrance renders in server HTML", async ({ request }) => {
     const response = await request.get(TRAIL_URL);
     test.skip(response.status() === 503, "PREVIEW_MODE active");
@@ -282,4 +308,32 @@ test.describe("Discovery trail deep", () => {
       tile.locator('a[href*="/brands/"][href*="#product-"]'),
     ).toHaveCount(1);
   });
+});
+
+// A visible tile action must be included in the link name so it works with speech navigation.
+test("visible guide actions are part of accessible links across public entrances", async ({
+  anonPage,
+}) => {
+  test.setTimeout(BUDGET.TEST.JOURNEY);
+  for (const [prefix, cta] of [
+    ["", "看這組選物"],
+    ["/en", "See this guide"],
+  ]) {
+    for (const path of ["/", "/discover", "/style", TRAIL_URL]) {
+      await anonPage.goto(`${prefix}${path}`);
+      const links = anonPage
+        .getByRole("main")
+        .getByRole("link")
+        .filter({ has: anonPage.getByText(cta, { exact: true }) });
+      await expect(links.first()).toBeVisible();
+      for (const link of await links.all()) {
+        const visibleText = (await link.innerText())
+          .replace(/\s+/g, " ")
+          .trim();
+        await expect(link).toHaveAccessibleName(
+          new RegExp(visibleText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+        );
+      }
+    }
+  }
 });

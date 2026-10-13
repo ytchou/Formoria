@@ -114,7 +114,7 @@ export default async function FaqPage({ params }: PageProps) {
         <div
           role="region"
           aria-labelledby="faq-heading"
-          className="space-y-10"
+          className="prose-measure space-y-10"
         >
           {sections.map(({ key, itemKeys }) => (
             <section key={key} id={key} className="scroll-mt-24">

@@ -217,6 +217,14 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      ...[
+        "/api/newsletter/confirm",
+        "/api/newsletter/unsubscribe",
+        "/api/email/unsubscribe",
+      ].map((source) => ({
+        source,
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      })),
     ];
   },
   async redirects() {

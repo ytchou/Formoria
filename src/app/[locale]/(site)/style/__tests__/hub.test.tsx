@@ -136,7 +136,7 @@ describe("style trail hub", () => {
       selectHubView({ result: { ok: true, trails: [] }, activeTag: null }),
     ).toEqual({ kind: "comingSoon" });
 
-    // One card link per trail, each named by its level-2 title.
+    // One card link per trail, named by its visible text.
     render(
       <HubTrailGrid
         trails={trails}
@@ -152,7 +152,13 @@ describe("style trail hub", () => {
         level: 2,
         name: item.frontmatter.title,
       });
-      const link = screen.getByRole("link", { name: item.frontmatter.title });
+      const link = screen.getByRole("link", {
+        name: (name) =>
+          name.includes(labels.eyebrow) &&
+          name.includes(item.frontmatter.title) &&
+          name.includes(item.frontmatter.description ?? "") &&
+          name.includes(labels.cta),
+      });
       expect(link).toContainElement(heading);
       expect(link).toHaveAttribute("href", `/style/${item.slug}`);
     }
