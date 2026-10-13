@@ -41,14 +41,10 @@ import { downloadAndStoreImages } from "./image-download";
 import { excludeTestBrands } from "./public-brand-filter";
 import { PUBLIC_BRAND_DATA_TAG } from "@/lib/cache/public-brand-cache";
 import {
-  ONLINE_STORE_CAMEL_FIELDS,
   ONLINE_STORES,
   ONLINE_STORE_COLUMNS,
-  onlineStoreByKey,
-  onlineStoreByPlatformSlug,
   type OnlineStoreCamelField,
   type OnlineStoreColumn,
-  type OnlineStorePlatformSlug,
 } from "@/lib/brands/online-stores";
 import {
   mergeBrandFieldStates,
@@ -150,40 +146,6 @@ type BrandFlatLinkColumns = {
 } & {
   [Column in OnlineStoreColumn]?: string | null;
 };
-
-export type CuratedSubmissionInput = {
-  name: string;
-  slug: string;
-  description: string;
-  categorySlug: string;
-  heroImageUrl?: string | null;
-  productPhotos: string[];
-  purchaseLinks: Array<{ platform: string; url: string }>;
-  socialLinks: {
-    instagram: string;
-    threads: string;
-    facebook: string;
-    website: string;
-  };
-  region?: string | null;
-};
-
-type CuratedBrand = Partial<Brand> &
-  Pick<
-    Brand,
-    | "socialInstagram"
-    | "socialThreads"
-    | "socialFacebook"
-    | "otherUrls"
-    | "status"
-    | "heroImageUrl"
-    | "contactEmail"
-    | "foundingYear"
-  > &
-  Pick<Brand, OnlineStoreCamelField> & {
-    categorySlug: string;
-    categoryLabel: string;
-  };
 
 export type BrandWriteInput = Partial<Brand> & { categorySlug?: string | null };
 type BrandWriteResult = Brand & { skipped: SkippedBrandField[] };
@@ -323,205 +285,9 @@ export function isReservedSlug(slug: string): boolean {
   return RESERVED_ROUTES.has(slug);
 }
 
-function getString(value: unknown): string {
-  if (typeof value === "string") {
-    return value.trim();
-  }
-
-  if (value == null) {
-    return "";
-  }
-
-  return String(value).trim();
-}
-
-function parseJsonString(value: string, fieldName: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch (error) {
-    throw new Error(
-      `Invalid JSON in ${fieldName}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-}
-
-function parseMaybeJson(value: unknown, fieldName: string): unknown {
-  if (typeof value !== "string") {
-    return value;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return value;
-  }
-
-  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
-    return value;
-  }
-
-  return parseJsonString(trimmed, fieldName);
-}
-
-function parseStringArray(value: unknown, fieldName: string): string[] {
-  const parsedValue = parseMaybeJson(value, fieldName);
-
-  if (Array.isArray(parsedValue)) {
-    return parsedValue.map((item) => getString(item)).filter(Boolean);
-  }
-
-  const raw = getString(parsedValue);
-  if (!raw) {
-    return [];
-  }
-
-  return raw
-    .split("|")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-export function parseBrandCSV(
-  csvText: string,
-): Record<string, string | string[]>[] {
-  const rows: string[][] = [];
-  let currentCell = "";
-  let currentRow: string[] = [];
-  let inQuotes = false;
-
-  for (let index = 0; index < csvText.length; index += 1) {
-    const char = csvText[index];
-    const nextChar = csvText[index + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        currentCell += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === "," && !inQuotes) {
-      currentRow.push(currentCell);
-      currentCell = "";
-      continue;
-    }
-
-    if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (char === "\r" && nextChar === "\n") {
-        index += 1;
-      }
-      currentRow.push(currentCell);
-      if (currentRow.some((cell) => cell.length > 0)) {
-        rows.push(currentRow);
-      }
-      currentCell = "";
-      currentRow = [];
-      continue;
-    }
-
-    currentCell += char;
-  }
-
-  currentRow.push(currentCell);
-  if (currentRow.some((cell) => cell.length > 0)) {
-    rows.push(currentRow);
-  }
-
-  if (rows.length === 0) {
-    return [];
-  }
-
-  const [headerRow, ...dataRows] = rows;
-  const headers = headerRow.map((header) => header.trim());
-
-  return dataRows.map((cells) => {
-    const row: Record<string, string | string[]> = {};
-    headers.forEach((header, index) => {
-      const value = cells[index] ?? "";
-      row[header] = value.includes("|")
-        ? parseStringArray(value, header)
-        : value;
-    });
-    return row;
-  });
-}
-
-export function curatedSubmissionToBrand(
-  input: CuratedSubmissionInput,
-): CuratedBrand {
-  const purchaseValues: Partial<Record<OnlineStoreCamelField, string>> = {};
-  const otherUrls: OtherUrl[] = [];
-  for (const link of input.purchaseLinks) {
-    const platform = link.platform.toLowerCase();
-    const platformSlug =
-      platform === "official"
-        ? onlineStoreByKey.website.platformSlug
-        : platform;
-    const channel = Object.hasOwn(onlineStoreByPlatformSlug, platformSlug)
-      ? onlineStoreByPlatformSlug[platformSlug as OnlineStorePlatformSlug]
-      : undefined;
-
-    if (!channel) {
-      otherUrls.push({ label: link.platform, url: link.url });
-      continue;
-    }
-
-    if (!(channel.camel in purchaseValues)) {
-      purchaseValues[channel.camel] = link.url;
-    }
-  }
-
-  const purchaseFields = Object.fromEntries(
-    ONLINE_STORES.map((channel) => [
-      channel.camel,
-      channel === onlineStoreByKey.website
-        ? input.socialLinks.website || purchaseValues[channel.camel] || null
-        : (purchaseValues[channel.camel] ?? null),
-    ]),
-  ) as Pick<Brand, OnlineStoreCamelField>;
-
-  return {
-    name: input.name,
-    slug: input.slug,
-    description: input.description,
-    heroImageUrl: input.heroImageUrl || null,
-    status: "approved",
-    categorySlug: input.categorySlug,
-    categoryLabel:
-      deriveCategoryLabel(input.categorySlug) ?? input.categorySlug,
-    foundingYear: null,
-    socialInstagram: input.socialLinks.instagram || null,
-    socialThreads: input.socialLinks.threads || null,
-    socialFacebook: input.socialLinks.facebook || null,
-    ...purchaseFields,
-    otherUrls,
-    productPhotos: input.productPhotos,
-    contactEmail: null,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
-
-const BRAND_DRAFT_EDITABLE_KEYS = [
-  "name",
-  "romanizedName",
-  "description",
-  "categorySlug",
-  "foundingYear",
-  "socialInstagram",
-  "socialThreads",
-  "socialFacebook",
-  "heroImageUrl",
-  "productPhotos",
-  "subcategories",
-  ...ONLINE_STORE_CAMEL_FIELDS,
-  "otherUrls",
-  "reputationSummary",
-] as const satisfies readonly (keyof Brand)[];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -541,124 +307,6 @@ function normalizeReputationSummary(value: unknown): ReputationSummary | null {
       ? value.text_en.trim()
       : null;
   return { text: value.text, textEn, sources };
-}
-
-const BRAND_DRAFT_PROGRESS_KEY = "__wizardCompletedSteps";
-
-export function brandToDraftSnapshot(
-  data: Partial<Brand>,
-): Record<string, unknown> {
-  const snapshot: Record<string, unknown> = {};
-  for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
-    if (key in data && data[key] !== undefined) {
-      snapshot[key] = data[key];
-    }
-  }
-  const progress = (data as Record<string, unknown>)[BRAND_DRAFT_PROGRESS_KEY];
-  if (Array.isArray(progress)) {
-    const normalized = progress.filter(
-      (step): step is number => Number.isInteger(step) && step >= 0,
-    );
-    if (normalized.length > 0) {
-      snapshot[BRAND_DRAFT_PROGRESS_KEY] = Array.from(new Set(normalized)).sort(
-        (left, right) => left - right,
-      );
-    }
-  }
-  return snapshot;
-}
-
-export function draftSnapshotToDomain(
-  snapshot: Record<string, unknown>,
-  _base?: Brand,
-): Partial<Brand> {
-  void _base;
-  const partial: Partial<Brand> = {};
-
-  for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
-    if (!(key in snapshot)) continue;
-
-    if (ONLINE_STORE_CAMEL_FIELDS.includes(key as OnlineStoreCamelField)) {
-      const purchaseField = key as OnlineStoreCamelField;
-      (partial as Partial<Pick<Brand, OnlineStoreCamelField>>)[purchaseField] =
-        snapshot[purchaseField] as Pick<
-          Brand,
-          OnlineStoreCamelField
-        >[typeof purchaseField];
-      continue;
-    }
-
-    switch (key) {
-      case "name":
-        partial.name = snapshot.name as Brand["name"];
-        break;
-      case "romanizedName":
-        partial.romanizedName =
-          snapshot.romanizedName as Brand["romanizedName"];
-        break;
-      case "description":
-        partial.description = snapshot.description as Brand["description"];
-        break;
-      case "categorySlug": {
-        const categorySlug = snapshot.categorySlug as Brand["categorySlug"];
-        partial.categorySlug = categorySlug;
-        partial.categoryLabel = categorySlug
-          ? (deriveCategoryLabel(categorySlug) ?? categorySlug)
-          : null;
-        break;
-      }
-      case "foundingYear":
-        partial.foundingYear = snapshot.foundingYear as Brand["foundingYear"];
-        break;
-      case "socialInstagram":
-        partial.socialInstagram =
-          snapshot.socialInstagram as Brand["socialInstagram"];
-        break;
-      case "socialThreads":
-        partial.socialThreads =
-          snapshot.socialThreads as Brand["socialThreads"];
-        break;
-      case "socialFacebook":
-        partial.socialFacebook =
-          snapshot.socialFacebook as Brand["socialFacebook"];
-        break;
-      case "heroImageUrl":
-        partial.heroImageUrl = snapshot.heroImageUrl as Brand["heroImageUrl"];
-        break;
-      case "productPhotos":
-        partial.productPhotos =
-          (snapshot.productPhotos as Brand["productPhotos"]) ?? [];
-        break;
-      case "subcategories":
-        partial.subcategories =
-          (snapshot.subcategories as Brand["subcategories"]) ?? [];
-        break;
-      case "otherUrls":
-        partial.otherUrls = (snapshot.otherUrls as Brand["otherUrls"]) ?? [];
-        break;
-      case "reputationSummary":
-        partial.reputationSummary =
-          snapshot.reputationSummary as Brand["reputationSummary"];
-        break;
-    }
-  }
-
-  return partial;
-}
-
-export function mergeDraftOverBrand(
-  brand: Brand,
-  snapshot: Record<string, unknown> | null,
-): Brand {
-  return snapshot ? { ...brand, ...draftSnapshotToDomain(snapshot) } : brand;
-}
-
-export function diffRemovedImageUrls(
-  previous: string[],
-  next: string[],
-): string[] {
-  const nextUrls = new Set(next.filter(Boolean));
-  return previous.filter((url) => Boolean(url) && !nextUrls.has(url));
 }
 
 export function brandToDomain(row: BrandRowWithJoins): Brand {
@@ -2213,8 +1861,8 @@ export async function getBrandBySlug(
   return brandToDomainWithImages(supabase, data);
 }
 
-/** Public detail boundary with an explicit projection and response mapper. */
-export async function getPublicBrandDetailBySlug(
+/** Approved public fields without the gallery's deploy-order fallback. */
+export async function getPublicBrandDetailBaseBySlug(
   slug: string,
 ): Promise<PublicBrandDetail> {
   const supabase = createServiceClient();
@@ -2226,7 +1874,7 @@ export async function getPublicBrandDetailBySlug(
     .maybeSingle();
 
   if (error || !data) throw new NotFoundError("Brand", slug, { cause: error });
-  return toPublicBrandDetail(await brandToDomainWithImages(supabase, data));
+  return toPublicBrandDetail(brandToDomain(data));
 }
 
 /** FAQ rendering context is fetched separately so detail pages never load the
@@ -2599,30 +2247,6 @@ export type ImageRef = {
   field: "hero" | "photo";
   index?: number;
 };
-
-export function buildSyncedImagePatch(
-  refs: ImageRef[],
-  storedUrls: (string | null)[],
-  productPhotos: string[],
-): Partial<{ heroImageUrl: string; productPhotos: string[] }> {
-  const patch: Partial<{ heroImageUrl: string; productPhotos: string[] }> = {};
-  const updatedPhotos = [...productPhotos];
-
-  for (let i = 0; i < refs.length; i++) {
-    const stored = storedUrls[i];
-    if (stored == null) {
-      continue;
-    }
-
-    const ref = refs[i];
-    if (ref.field === "hero") patch.heroImageUrl = stored;
-    else if (ref.field === "photo" && ref.index !== undefined)
-      updatedPhotos[ref.index] = stored;
-  }
-
-  patch.productPhotos = updatedPhotos;
-  return patch;
-}
 
 export async function syncBrandImages(
   brandId: string,

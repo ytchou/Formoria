@@ -4,6 +4,7 @@ import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import { groupProductsIntoRails } from "@/lib/curated-products/brand-rails";
 import { getBrandProductTrailLinks } from "@/lib/services/editorial-links";
+import { captureReadFailure } from "@/lib/degraded-render";
 import type { SelectedProductTileLabels } from "./selected-product-tile";
 import { ProductShelf } from "./product-shelf";
 
@@ -29,7 +30,10 @@ export async function BrandSelectedProducts({
     getTranslations({ locale, namespace: "brandDetail.selectedProducts" }),
     // The guide links are an enhancement: a failed read shows the tiles
     // without them (and so without a 選物 label), never an error.
-    getBrandProductTrailLinks(brand.slug).catch(() => ({})),
+    getBrandProductTrailLinks(brand.slug).catch((error) => {
+      captureReadFailure("brand.productTrailLinks")(error);
+      return {};
+    }),
   ]);
   const labels: SelectedProductTileLabels = {
     cta: t("cta"),

@@ -76,7 +76,11 @@ export async function signIn(
     });
 
     if (error) {
-      return { error: error.message };
+      const message =
+        error.code === "invalid_credentials"
+          ? tAuth("signIn.errors.invalidCredentials")
+          : error.message;
+      return { error: message, email: parsed.data.email };
     }
 
     const requestedLocale = localeFromForm(formData, await getLocale());

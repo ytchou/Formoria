@@ -4,10 +4,9 @@ import { cache } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
-  getPublicBrandDetailBySlug,
-  getPublicBrandFaqContextById,
-} from "@/lib/services/brands";
-import { getRelatedBrandsByCentroid } from "@/lib/services/brand-embeddings";
+  getCachedPublicBrandDetailBySlug,
+  getCachedPublicBrandFacts,
+} from "@/lib/services/public-brand-render-data";
 import {
   buildBrandJsonLd,
   buildBreadcrumbJsonLd,
@@ -16,10 +15,7 @@ import {
 import type { BreadcrumbItem } from "@/lib/json-ld";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
-import {
-  toPublicBrandCard,
-  type PublicBrandDetail,
-} from "@/lib/brands/contracts";
+import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import { BrandViewTracker } from "@/components/brands/brand-view-tracker";
 import { BrandEngagementTracker } from "@/components/brands/brand-engagement-tracker";
 import { BrandBreadcrumb } from "@/components/brands/brand-breadcrumb";
@@ -52,8 +48,7 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { getBrandVisitLink } from "@/lib/brands/link-fallback";
-import { getBrandFaq } from "@/lib/services/brand-faq";
-import { getStockistsForBrand } from "@/lib/services/stockists";
+import { renderBrandFaq } from "@/lib/services/brand-faq";
 import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
 import { L1_CATEGORIES, isVisibleCategory } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
@@ -63,6 +58,7 @@ import { truncateForMeta } from "@/lib/text/truncate-for-meta";
 import { getBrandIndexability } from "@/lib/seo/brand-indexability";
 import { getBrandGalleryImages } from "@/lib/services/brand-images";
 import { routes } from "@/lib/routes";
+import { captureReadFailure } from "@/lib/degraded-render";
 
 // Scroll offset for every section-nav target: clears the sticky main nav (100px)
 // plus the mobile section-nav strip (48px). From md up there is no strip.
@@ -80,16 +76,8 @@ const utilitySectionClassName = cn(
   "mt-stack border-t border-rule pt-stack",
 );
 
-// 1h ISR: ownership/verified-state changes propagate within ~an hour; paths
-// omitted from generateStaticParams are rendered on demand and cached between
-// regenerations after their first request.
-export const revalidate = 3600;
-
-// Empty params keep all brand details on-demand ISR; never query the full brand
-// corpus during `next build` just to populate this list.
-export function generateStaticParams() {
-  return [];
-}
+// Optional editorial failures must recover on the next request, including cold loads.
+export const revalidate = 0;
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -103,7 +91,7 @@ type BrandFaqTranslateFn = (
 const loadApprovedBrand = cache(
   async (slug: string): Promise<PublicBrandDetail> => {
     try {
-      return await getPublicBrandDetailBySlug(slug);
+      return await getCachedPublicBrandDetailBySlug(slug);
     } catch (error) {
       if (!(error instanceof NotFoundError) || error.cause) {
         // Rethrown NotFoundErrors reach Sentry via onRequestError with only the
@@ -206,32 +194,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
-  const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
-  const [faqItems, stockists, curatedProducts, editorialAppearances] =
-    await Promise.all([
-      getBrandFaq(
-        displayBrand.id,
-        faqContext,
-        tBrandFaq,
-        safeLocale,
-        cityLabel,
-      ),
-      getStockistsForBrand(displayBrand.id),
-      getPublishedCuratedProductsForBrand(displayBrand.id),
-      getBrandEditorialAppearances(displayBrand.slug).catch(() => ({
-        trails: [],
-        stories: [],
-      })),
-    ]);
-  const stockistCount = stockists.confirmed.length + stockists.possible.length;
-  // Same builder generateMetadata uses for <link rel="canonical">, so the
-  // structured data can never name a different URL than the page's own tag.
-  const { canonical: canonicalUrl } = buildAlternates(
-    routes.brand(displayBrand.slug),
-    safeLocale,
-  );
-  const galleryImages = getBrandGalleryImages(displayBrand);
-
   const categorySlugSlug = displayBrand.categorySlug;
   const categorySlugCategory = L1_CATEGORIES.find(
     (category) => category.slug === categorySlugSlug,
@@ -245,11 +207,30 @@ export default async function BrandDetailPage({ params }: PageProps) {
         }
       : null;
 
-  const relatedResult = categoryTag
-    ? await getRelatedBrandsByCentroid(displayBrand.id, categoryTag.slug, displayBrand.slug, 4)
-    : { brands: [], totalCount: 0 };
-  const relatedBrands = relatedResult.brands.map(toPublicBrandCard);
-  const categoryCount = relatedResult.totalCount;
+  const [facts, curatedProducts, editorialAppearances] = await Promise.all([
+    getCachedPublicBrandFacts(displayBrand.id, categoryTag?.slug ?? null, displayBrand.slug),
+    getPublishedCuratedProductsForBrand(displayBrand.id),
+    getBrandEditorialAppearances(displayBrand.slug).catch((error) => {
+      captureReadFailure("brand.editorialAppearances")(error);
+      return { trails: [], stories: [] };
+    }),
+  ]);
+  const { stockists, relatedBrands, categoryCount } = facts;
+  const faqItems = renderBrandFaq(
+    facts.faqEntries,
+    facts.faqContext,
+    tBrandFaq,
+    safeLocale,
+    cityLabel,
+  );
+  const stockistCount = stockists.confirmed.length + stockists.possible.length;
+  // Same builder generateMetadata uses for <link rel="canonical">, so the
+  // structured data can never name a different URL than the page's own tag.
+  const { canonical: canonicalUrl } = buildAlternates(
+    routes.brand(displayBrand.slug),
+    safeLocale,
+  );
+  const galleryImages = getBrandGalleryImages(displayBrand);
 
   const visitLink = getBrandVisitLink(displayBrand);
   const description =

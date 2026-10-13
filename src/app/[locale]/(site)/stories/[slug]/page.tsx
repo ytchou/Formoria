@@ -10,7 +10,6 @@ import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageShell } from "@/components/ui/page-shell";
 import {
-  getAllStories,
   getPublishedStoryBySlug,
   getStorySeries,
   type StoryLocale,
@@ -38,12 +37,13 @@ import { getStoryRelatedTrails } from "@/lib/services/editorial-links";
 import { RelatedTrailLink } from "@/components/stories/related-story-link";
 import { MEASURE_PX } from "@/lib/constants/layout";
 import { contentLangFor } from "@/lib/trails/content-lang";
+import { captureReadFailure } from "@/lib/degraded-render";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
 };
 
-export const revalidate = 3600;
+export const revalidate = 0;
 
 /**
  * The document title. On a page whose locale differs from the story's (every
@@ -59,28 +59,6 @@ export function storyDocumentTitle(
 }
 
 const STORY_HERO_SIZES = `(max-width: ${MEASURE_PX.prose}px) calc(100vw - 3rem), calc(${MEASURE_PX.prose}px - 5rem)`;
-
-// Prebuild every published story so the first production visit is served from the
-// ISR cache instead of paying on-demand generation. Locale comes from the parent
-// `[locale]` layout's own `generateStaticParams`, so both locales are covered.
-// `getAllStories()` is the same published set the index and sitemap use; anything
-// outside it (drafts, future non-zh-TW stories) still renders on demand.
-// Deliberately no `dynamic = 'force-static'`: it strips request-scoped state, so
-// next-intl's `getRequestLocale()` returns undefined and `src/i18n/request.ts`
-// silently falls back to zh-TW on on-demand/ISR renders while `params.locale`
-// still says `en`. `revalidate` + `generateStaticParams` gives SSG+ISR without it.
-export async function generateStaticParams() {
-  // Story shortcodes can read the DB while rendering; defer them in E2E builds
-  // so an unrelated prerender cannot prevent the selected journey from starting.
-  if (process.env.PLAYWRIGHT_TEST === "true") return [];
-
-  const result = await getAllStories();
-  if (!result.ok) return [];
-  // `story.slug` is the filename stem, which is what the route param resolves against
-  // (`getPublishedStoryBySlug` reads `content/stories/<param>.mdx`); `frontmatter.slug`
-  // is only used for canonical URLs and may diverge.
-  return result.stories.map((story) => ({ slug: story.slug }));
-}
 
 export async function generateMetadata({
   params,
@@ -250,7 +228,10 @@ export default async function StoryPage({ params }: PageProps) {
   // convert. Zero brands means no list at all — an empty `view_item_list` is
   // noise in GA4, not a datapoint.
   const brandCount = extractLinkedBrandSlugs(story.content).length;
-  const relatedTrails = await getStoryRelatedTrails(slug);
+  const relatedTrails =
+    (await getStoryRelatedTrails(slug).catch(
+      captureReadFailure("story.relatedTrails"),
+    )) ?? [];
   return (
     // One container owns every story detail surface: breadcrumb, hero,
     // metadata, body, figures, cards, FAQ, and series nav. It runs on

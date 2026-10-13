@@ -5,14 +5,7 @@ import BrandDetailPage, {
 
 const DEFAULT_LOCALE = "zh-TW";
 
-// Keep the prefixless default-locale entry point on the same on-demand ISR
-// contract as the localized route. The empty list prevents corpus-wide build
-// work while the proxy supplies zh-TW for this exact route without re-entry.
-export const revalidate = 3600;
-
-export function generateStaticParams() {
-  return [];
-}
+export const revalidate = 0;
 
 type PageProps = {
   params: Promise<{ slug: string }>;

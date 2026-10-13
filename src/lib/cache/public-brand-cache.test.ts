@@ -9,6 +9,7 @@ vi.mock("next/cache", () => ({ revalidatePath, revalidateTag }));
 
 import {
   PUBLIC_BRAND_DATA_TAG,
+  PUBLIC_DETAIL_DATA_TAG,
   revalidatePublicBrands,
   revalidatePublicStockists,
   revalidateTrailSurfaces,
@@ -24,7 +25,8 @@ describe("revalidatePublicBrands", () => {
     // default-locale cache, not only the localized route that next-intl rewrites.
     revalidatePublicBrands(["niizo", "kiln"]);
 
-    expect(revalidateTag).toHaveBeenCalledTimes(1);
+    expect(revalidateTag).toHaveBeenCalledTimes(2);
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_DETAIL_DATA_TAG, { expire: 0 });
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
     expect(revalidatedPaths()).toEqual(
       expect.arrayContaining([
@@ -84,7 +86,8 @@ describe("revalidatePublicStockists", () => {
   it("invalidates the brand data cache tag", () => {
     revalidatePublicStockists();
     expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, "max");
-    expect(revalidateTag).toHaveBeenCalledTimes(1);
+    expect(revalidateTag).toHaveBeenCalledTimes(2);
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_DETAIL_DATA_TAG, { expire: 0 });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
@@ -108,7 +111,7 @@ describe("revalidateTrailSurfaces", () => {
       ["/en/style"],
     ]);
     expect(revalidatedPaths()).not.toContainEqual(["/zh-TW/style/x"]);
-    expect(revalidateTag).not.toHaveBeenCalled();
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_DETAIL_DATA_TAG, { expire: 0 });
   });
 
   it("deduplicates trail slugs and does nothing for an empty batch", () => {

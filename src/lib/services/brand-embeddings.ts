@@ -405,7 +405,10 @@ export async function getRelatedBrandsByCentroid(
 
   // 4. Hydrate slugs
   const slugs = filtered.map((r) => r.slug);
-  const brandMap = await getBrandsBySlugs(slugs);
+  const [brandMap, totalCount] = await Promise.all([
+    getBrandsBySlugs(slugs),
+    readCount(categorySlug),
+  ]);
 
   // 5. L2 diversity ranking (distance order preserved within each pass)
   const brands = rankByL2Diversity(filtered, brandMap, limit)
@@ -430,9 +433,6 @@ export async function getRelatedBrandsByCentroid(
       brands.push(brand);
     }
   }
-
-  // 7. Count
-  const totalCount = await readCount(categorySlug);
 
   return { brands, totalCount };
 }

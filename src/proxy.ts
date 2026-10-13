@@ -3,6 +3,7 @@ import createMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { routing } from "@/i18n/routing";
 import { routes, RESERVED_ROUTES } from "@/lib/routes";
+import { safeDecodeSlug } from "@/lib/url";
 import { isAppLocale, localizePath } from "@/i18n/locale-preference";
 import {
   verifyChallengeToken,
@@ -1010,6 +1011,21 @@ async function runProxy(request: NextRequest) {
       const locale = isAppLocale(segments[0]) ? segments[0] : "zh-TW";
       url.pathname = localizePath(routes.brand(redirectSlug), locale);
       return finalizeResponse(NextResponse.redirect(url, 308), staging);
+    }
+  }
+
+  const publicDetailOffset = isAppLocale(segments.at(0)) ? 1 : 0;
+  const publicDetailSection = segments.at(publicDetailOffset);
+  const publicDetailSlug = segments.at(publicDetailOffset + 1);
+  if (
+    publicDetailSlug &&
+    segments.length === publicDetailOffset + 2 &&
+    ["brands", "stories", "style"].includes(publicDetailSection ?? "")
+  ) {
+    const decodedSlug = safeDecodeSlug(publicDetailSlug);
+    // Locale rewriting decodes %25 to a bare percent that Next cannot decode.
+    if (decodedSlug === null || decodedSlug.includes("%")) {
+      return finalizeResponse(new NextResponse(null, { status: 404 }), staging);
     }
   }
 
