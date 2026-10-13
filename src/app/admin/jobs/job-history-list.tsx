@@ -72,7 +72,7 @@ export function JobHistoryList({
       ) : null}
 
       <div className="overflow-x-auto rounded-surface border border-rule bg-surface">
-        <Table>
+        <Table aria-label={t("title")}>
           <TableHeader>
             <TableRow>
               <TableHead>{t("history.table.created")}</TableHead>

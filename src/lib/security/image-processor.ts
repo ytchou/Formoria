@@ -1,4 +1,5 @@
 import sharp from 'sharp'
+import { ValidationError } from '@/lib/errors'
 
 export interface ProcessedImage {
   buffer: Buffer
@@ -41,20 +42,29 @@ export async function processImage(
 
   // 1. Check file size
   if (buffer.length > cfg.maxFileSizeBytes) {
-    throw new Error(
+    throw new ValidationError(
       `File size ${buffer.length} exceeds maximum allowed size of ${cfg.maxFileSizeBytes} bytes`
     )
   }
 
-  // 2. Enforce the input format allowlist. metadata() itself throws
-  // "unsupported image format" on non-image bytes, so this only has to reject
-  // formats sharp is willing to decode but we do not want (gif, svg, tiff, …).
-  const meta = await sharp(buffer).metadata()
+  // 2. Classify known decode failures and reject non-static raster formats.
+  const meta = await sharp(buffer).metadata().catch((error: unknown) => {
+    if (
+      error instanceof Error &&
+      /^Input buffer (contains unsupported image format|has corrupt header)/i.test(error.message)
+    ) {
+      throw new ValidationError(
+        'Unsupported image format. Please upload a valid JPEG, PNG or WebP image.',
+        { cause: error },
+      )
+    }
+    throw error
+  })
   if (
     !meta.format ||
     !(ALLOWED_INPUT_FORMATS as readonly string[]).includes(meta.format)
   ) {
-    throw new Error(
+    throw new ValidationError(
       `Unsupported image format "${meta.format ?? 'unknown'}"; allowed formats: ${ALLOWED_INPUT_FORMATS.join(', ')}`
     )
   }
@@ -63,7 +73,7 @@ export async function processImage(
   const srcWidth = meta.width ?? 0
   const srcHeight = meta.height ?? 0
   if (srcWidth < cfg.minWidth || srcHeight < cfg.minHeight) {
-    throw new Error(
+    throw new ValidationError(
       `Image dimensions ${srcWidth}×${srcHeight} are below the minimum ${cfg.minWidth}×${cfg.minHeight}`
     )
   }

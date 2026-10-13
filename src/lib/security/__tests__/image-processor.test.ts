@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { processImage, DEFAULT_CONFIG } from '../image-processor'
 import sharp from 'sharp'
+import { ValidationError } from '@/lib/errors'
 
 async function createTestImage(
   format: 'jpeg' | 'png' | 'webp',
@@ -41,7 +42,9 @@ describe('processImage', () => {
 
   it('rejects files exceeding max size', async () => {
     const oversized = Buffer.alloc(6 * 1024 * 1024, 0xff)
-    await expect(processImage(oversized)).rejects.toThrow(/size/i)
+    const error = await processImage(oversized).catch(error => error)
+    expect(error).toBeInstanceOf(ValidationError)
+    expect(error.message).toMatch(/size/i)
   })
 
   it('rejects input above the configured maxFileSizeBytes', async () => {
@@ -53,7 +56,9 @@ describe('processImage', () => {
 
   it('rejects non-image files with wrong magic bytes', async () => {
     const textFile = Buffer.from('This is not an image file at all')
-    await expect(processImage(textFile)).rejects.toThrow(/format/i)
+    const error = await processImage(textFile).catch(error => error)
+    expect(error).toBeInstanceOf(ValidationError)
+    expect(error.message).toMatch(/format/i)
   })
 
   it('resizes images exceeding max dimensions', async () => {
@@ -95,7 +100,9 @@ describe('processImage', () => {
 
   it('rejects images below the minimum dimensions', async () => {
     const tiny = await createTestImage('jpeg', 50, 50)
-    await expect(processImage(tiny)).rejects.toThrow(/below the minimum/)
+    const error = await processImage(tiny).catch(error => error)
+    expect(error).toBeInstanceOf(ValidationError)
+    expect(error.message).toMatch(/below the minimum/)
   })
 
   it('rejects images where only one axis is below minimum', async () => {

@@ -354,6 +354,7 @@ export function BrandList({
           className="w-56"
         />
         <NativeSelect
+          aria-label={t("table.category")}
           value={categoryFilter}
           onChange={(e) => {
             setCategoryFilter(e.target.value);
@@ -421,7 +422,7 @@ export function BrandList({
           padding: "none",
         })}
       >
-        <Table>
+        <Table aria-label={t("title")}>
           <TableHeader>
             <TableRow>
               <TableHead className="w-14">

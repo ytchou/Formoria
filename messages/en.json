@@ -1360,6 +1360,7 @@
       }
     },
     "queue": {
+      "tableLabel": "Review queue",
       "selectAll": "Select all visible rows",
       "search": "Search this queue",
       "searchPlaceholder": "Search by brand, field, or value",

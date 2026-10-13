@@ -2206,6 +2206,10 @@ export async function stageSubmissionReviewImage(
         throw new NotFoundError("BrandSubmission", input.submissionId);
       }
 
+      // Signing must succeed before insertion: the route deletes the upload on error.
+      const signedPreview = await defaultSubmissionImageSigner([
+        input.storagePath,
+      ]);
       const { data, error } = await supabase
         .from("submission_images")
         .insert({
@@ -2226,9 +2230,10 @@ export async function stageSubmissionReviewImage(
       // A no-op unless the object landed under `submissions/` — see
       // `attachSignedSubmissionImageUrls`. Applied here so a freshly staged image
       // is displayable by the same rule as the rest of the queue.
-      const [staged] = await attachSignedSubmissionImageUrls([
-        submissionImageToReviewImage(data),
-      ]);
+      const [staged] = await attachSignedSubmissionImageUrls(
+        [submissionImageToReviewImage(data)],
+        async () => signedPreview,
+      );
       return staged;
     },
   );
