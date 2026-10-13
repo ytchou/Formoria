@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import type { FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -31,10 +32,14 @@ export function SignInForm({
   errorCode,
   showOptionalAuthMethods,
 }: SignInFormProps) {
-  const [state, action, pending] = useActionState<AuthState, FormData>(
-    signIn,
-    {},
-  );
+  const [nativeState, action, nativePending] = useActionState<
+    AuthState,
+    FormData
+  >(signIn, {});
+  const [clientState, setClientState] = useState<AuthState>();
+  const [clientPending, startTransition] = useTransition();
+  const state = clientState ?? nativeState;
+  const pending = nativePending || clientPending;
   const [email, setEmail] = useState("");
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
@@ -60,6 +65,23 @@ export function SignInForm({
 
   const signUpHref = routes.auth.signUp();
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    startTransition(async () => {
+      try {
+        const result = await signIn(state, data);
+        form.reset();
+        setClientState(result);
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+        setClientState({ error: t("signIn.errors.default") });
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-2 text-center">
@@ -81,7 +103,7 @@ export function SignInForm({
 
       <AuthFormError message={errorMessage} pending={pending} />
 
-      <form action={action} className="space-y-4">
+      <form action={action} onSubmit={handleSubmit} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
         {next && <input type="hidden" name="next" value={next} />}
 
@@ -121,12 +143,7 @@ export function SignInForm({
           </div>
         ) : null}
 
-        <Button
-          type="submit"
-          width="full"
-          size="large"
-          disabled={pending}
-        >
+        <Button type="submit" width="full" size="large" disabled={pending}>
           {pending ? t("signIn.submitting") : t("signIn.submit")}
         </Button>
       </form>

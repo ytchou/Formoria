@@ -229,3 +229,70 @@ test.describe("Auth — repeated failure recovery", () => {
     });
   }
 });
+
+test.describe("Auth — interrupted request recovery", () => {
+  for (const { locale, prefix, message } of [
+    { locale: "zh-TW", prefix: "", message: "登入時發生問題，請再試一次。" },
+    { locale: "en", prefix: "/en", message: "Something went wrong signing you in. Please try again." },
+  ]) {
+    test(`a dropped sign-in request preserves credentials and permits retry (${locale})`, async ({ anonPage }) => {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let attempts = 0;
+      await anonPage.route("**/*", async (route) => {
+        if (route.request().method() !== "POST") return route.continue();
+        if (route.request().headers()["next-action"]) attempts++;
+        await held;
+        await route.abort("failed");
+      });
+      try {
+        await anonPage.goto(`${prefix}/auth/sign-in`);
+        const form = anonPage.locator('form:has(input[name="email"])');
+        const email = form.locator('input[name="email"]');
+        const password = form.locator('input[name="password"]');
+        const submit = form.locator('button[type="submit"]');
+        const alert = anonPage.getByRole("main").getByRole("alert");
+        await email.fill("m.garcia+transport@company.invalid");
+        await password.fill("Synthetic retry input 2026");
+        await submit.click();
+        await expect(submit).toBeDisabled();
+        await expect.poll(() => attempts).toBe(1);
+        await password.press("Enter");
+        expect(attempts).toBe(1);
+        release();
+        await expect(alert).toHaveText(message);
+        await expect(submit).toBeEnabled();
+        await expect(alert).toBeFocused();
+        await expect(email).toHaveValue("m.garcia+transport@company.invalid");
+        await expect(password).toHaveValue("Synthetic retry input 2026");
+        await submit.click();
+        await expect.poll(() => attempts).toBe(2);
+        await expect(submit).toBeEnabled();
+        await expect(alert).toHaveText(message);
+        await expect(alert).toBeFocused();
+        await expect(email).toHaveValue("m.garcia+transport@company.invalid");
+      } finally {
+        release();
+      }
+    });
+  }
+});
+
+test.describe("Auth — native sign-in", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("native credential sign-in works without JavaScript", async ({ page }) => {
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    const email = process.env.E2E_USER_EMAIL;
+    const password = process.env.E2E_USER_PASSWORD;
+    assert(email && password, "E2E_USER_EMAIL and E2E_USER_PASSWORD must be set");
+    await page.goto("/auth/sign-in?next=%2Fsettings");
+    await page.getByLabel("電子郵件", { exact: true }).fill(email);
+    await page.getByLabel("密碼", { exact: true }).fill(password);
+    await page.getByRole("button", { name: "登入", exact: true }).click();
+    await expect(page).toHaveURL((url) => url.pathname === "/settings");
+    const settings = await page.request.get("/settings", { maxRedirects: 0 });
+    expect(settings.status()).toBe(200);
+    expect(await settings.text()).toContain(email);
+  });
+});
