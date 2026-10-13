@@ -68,6 +68,9 @@ export function AccountMenu() {
     return (
       <NextLink
         href={signInHref(pathname, locale)}
+        // `next=` makes this a distinct URL on every page; crawlers that run
+        // JS queued one per page into robots-blocked /auth/ (DEV-2018).
+        rel="nofollow"
         className={buttonVariants({ variant: 'ghost', size: 'compact' })}
       >
         {t('nav.signIn')}
