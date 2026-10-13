@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod/v3'
-import { createSubmissionSchema } from '../submission'
+import { createOwnerSubmissionSchema } from '../submission'
 
 const t = (key: string) => key
 
@@ -16,7 +16,7 @@ describe('submission schema city validation', () => {
   }
 
   it('accepts undefined city (optional field)', () => {
-    const schema = createSubmissionSchema(true, t)
+    const schema = createOwnerSubmissionSchema(t)
     const result = schema.safeParse({
       ...baseSubmission,
       city: undefined,
@@ -29,7 +29,7 @@ describe('submission schema city validation', () => {
   })
 
   it('accepts a valid city slug', () => {
-    const schema = createSubmissionSchema(true, t)
+    const schema = createOwnerSubmissionSchema(t)
     const result = schema.safeParse({
       ...baseSubmission,
       city: 'taipei',
@@ -43,7 +43,7 @@ describe('submission schema city validation', () => {
   })
 
   it('rejects an invalid city slug', () => {
-    const schema = createSubmissionSchema(true, t)
+    const schema = createOwnerSubmissionSchema(t)
     const result = schema.safeParse({
       ...baseSubmission,
       city: 'new_york',

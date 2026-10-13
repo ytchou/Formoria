@@ -250,22 +250,6 @@ export function createOwnerSubmissionSchema(t: Translator = zhT) {
     )
 }
 
-/**
- * Schema factory for brand submission validation.
- * Compatibility wrapper used by older tests/callers.
- *
- * Accepts an optional translator so Zod error messages can be localised.
- * Falls back to zh-TW strings when no translator is provided (server actions
- * that call getTranslations should pass the result here).
- */
-export function createSubmissionSchema(isOwner: boolean, t: Translator = zhT) {
-  return isOwner
-    ? createOwnerSubmissionSchema(t)
-    : createRecommendationSubmissionSchema(t)
-}
-
-export const fullSubmissionSchema = recommendationSubmissionObject(zhT)
-
 export type SubmissionFormData = {
   name: string
   website: string

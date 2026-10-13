@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   buildImageEnrichPatch,
   buildLinkEnrichPatch,
-  buildTextEnrichPatch,
   canonicalizeThreadsUrl,
   classifySubmittedUrl,
   extractLinksFromUrls,
@@ -691,47 +690,6 @@ describe('buildLinkEnrichPatch — column-keyed scraped input', () => {
       scraped === undefined ? {} : { social_instagram: scraped },
     )
     expect(patch.social_instagram).toBe(expected)
-  })
-})
-
-describe('buildTextEnrichPatch (unified)', () => {
-  it('does not fill description when brand has none', () => {
-    const patch = buildTextEnrichPatch(
-      { description: null },
-      { description: 'A premium handcrafted leather goods brand from Taiwan' }
-    )
-    expect(patch.description).toBeUndefined()
-  })
-
-  it('does not fill description when existing is too short (<20 chars)', () => {
-    const patch = buildTextEnrichPatch(
-      { description: 'Short desc' },
-      { description: 'A premium handcrafted leather goods brand from Taiwan' }
-    )
-    expect(patch.description).toBeUndefined()
-  })
-
-  it('does not overwrite valid existing description', () => {
-    const patch = buildTextEnrichPatch(
-      { description: 'An existing description that is longer than 20 characters' },
-      { description: 'A different scraped description from the website' }
-    )
-    expect(patch.description).toBeUndefined()
-  })
-
-  it('rejects scraped description shorter than 20 chars', () => {
-    const patch = buildTextEnrichPatch(
-      { description: null },
-      { description: 'Too short' }
-    )
-    expect(patch.description).toBeUndefined()
-  })
-
-  it('never writes scraped meta text directly into the description patch', () => {
-    const brand = { description: null }
-    const scraped = { description: '一段超過二十個字元的網頁 meta 描述，品質未知不可直接入庫' }
-    const patch = buildTextEnrichPatch(brand, scraped)
-    expect(patch.description).toBeUndefined()
   })
 })
 
