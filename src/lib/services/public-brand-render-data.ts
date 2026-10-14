@@ -18,9 +18,20 @@ const getCachedPublicBrandDetailBaseBySlug = unstable_cache(
   PUBLIC_DETAIL_CACHE_OPTIONS,
 );
 
+// Same options, so the same tag: every write that purges the base
+// (`revalidatePublicBrands`) purges the gallery with it, and the gallery is
+// never staler than the brand row it renders beside.
+const getCachedBrandImages = unstable_cache(
+  async (brandId: string) => getBrandImages(createServiceClient(), brandId),
+  ["public-brand-images-v1"],
+  PUBLIC_DETAIL_CACHE_OPTIONS,
+);
+
 export async function getCachedPublicBrandDetailBySlug(slug: string) {
   const detail = await getCachedPublicBrandDetailBaseBySlug(slug);
-  const images = await getBrandImages(createServiceClient(), detail.id);
+  // Keyed by id, which only the base knows, so the two reads stay sequential;
+  // both are cache hits on a warm page.
+  const images = await getCachedBrandImages(detail.id);
   return images.length === 0 ? detail : { ...detail, ...toImageFields(images) };
 }
 

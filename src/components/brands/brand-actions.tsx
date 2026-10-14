@@ -91,10 +91,12 @@ export function BrandActions({
   // menu closing; a menu item only flips the dialog open.
   const [reportOpen, setReportOpen] = useState(false)
   const [correctionOpen, setCorrectionOpen] = useState(false)
-  const handleWebsiteClick = () => {
+  // The link type is the channel the CTA routes to (BD-03): a Shopee or Pinkoi
+  // route-out logged as `website` hid which channel readers actually took.
+  const handleVisitClick = () => {
     trackExternalLinkClicked(
       brandSlug,
-      'website',
+      visitKind,
       typeof window !== 'undefined' ? window.location.pathname : '',
       'detail_page',
       brandId,
@@ -124,7 +126,7 @@ export function BrandActions({
             rel="noopener noreferrer"
             className={buttonVariants({ variant: 'primary', className: VISIT_CTA_LAYOUT })}
             data-ph-no-autocapture
-            onClick={handleWebsiteClick}
+            onClick={handleVisitClick}
           >
             <ExternalLink className="size-[15px]" />
             <span className="truncate">{visitLabel}</span>
@@ -203,7 +205,7 @@ export function BrandActions({
           brandName={brandName}
           brandId={brandId}
           brandSlug={brandSlug}
-          onVisitClick={handleWebsiteClick}
+          onVisitClick={handleVisitClick}
         />
       )}
     </>

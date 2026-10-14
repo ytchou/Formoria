@@ -25,7 +25,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Typography } from "@/components/ui/typography";
-import type { PublicBrandDetail } from "@/lib/brands/contracts";
+import type {
+  BrandChannelCorrectionFields,
+  BrandOtherLink,
+  BrandPurchaseLinkFields,
+  BrandSocialLinkFields,
+} from "@/lib/services/brand-detail-view";
 import {
   onlineStoreMessageKey,
   ONLINE_STORES,
@@ -39,14 +44,8 @@ import {
 import { CorrectionDialog } from "./correction-dialog";
 import { ProvideStockistInfoDialog } from "./provide-stockist-info-dialog";
 
-interface BrandLinksProps {
-  brand: PublicBrandDetail;
-  sectionIds?: {
-    social?: string;
-    purchase?: string;
-  };
-  sectionClassName?: string;
-}
+/** What the click tracking needs to know about the brand. */
+type TrackedBrand = Pick<BrandSocialLinkFields, "id" | "slug">;
 
 function normalizeDirectUrl(value: string | undefined | null): string | null {
   return sanitizeHref(value);
@@ -76,16 +75,12 @@ type LinkSlot = {
 /** A destination before we know whether we hold a URL for it. */
 type LinkCandidate = Omit<LinkSlot, "url"> & { url: string | null };
 
-type LinkSectionProps = {
-  id?: string;
-  label: string;
-  /** h2 for a standalone section; h3 when it sits under where-to-buy's h2. */
-  headingLevel?: "h2" | "h3";
+type LinkListProps = {
   /** Only known destinations: a slot without a URL never reaches here. */
   slots: LinkSlot[];
-  brand: PublicBrandDetail;
+  brand: TrackedBrand;
   className?: string;
-  /** One muted line below the links; a section with a note always renders. */
+  /** One muted line below the links; a list with a note always renders. */
   note?: string | null;
 };
 
@@ -129,39 +124,15 @@ function DestinationLinkButton({
   );
 }
 
-function SectionLabel({
-  as,
-  children,
-}: {
-  as: "h2" | "h3";
-  children: ReactNode;
-}) {
-  return (
-    <Typography
-      as={as}
-      variant={as === "h2" ? "sectionTitleLarge" : "cardTitle"}
-    >
-      {children}
-    </Typography>
-  );
-}
-
-function LinkSection({
-  id,
-  label,
-  headingLevel = "h2",
-  slots,
-  brand,
-  className,
-  note,
-}: LinkSectionProps) {
+/**
+ * The links and their muted note: a section body. The `<section>`, its id and
+ * its h2 belong to `BrandSection`, which the page wraps around this.
+ */
+function LinkList({ slots, brand, className, note }: LinkListProps) {
   if (slots.length === 0 && !note) return null;
 
   return (
-    <section id={id} className={className}>
-      <div className="mb-4">
-        <SectionLabel as={headingLevel}>{label}</SectionLabel>
-      </div>
+    <div className={className}>
       {slots.length > 0 ? (
         <div className="flex flex-wrap gap-3">
           {slots.map((slot, index) => {
@@ -200,7 +171,7 @@ function LinkSection({
           {note}
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -209,11 +180,8 @@ function liveSlots(candidates: LinkCandidate[]): LinkSlot[] {
   return candidates.filter((slot): slot is LinkSlot => slot.url !== null);
 }
 
-export function BrandSocialLinks({
-  brand,
-  sectionIds,
-  sectionClassName,
-}: BrandLinksProps) {
+/** The social section's body; the page sets it in `BrandSection` (#social). */
+export function BrandSocialLinks({ brand }: { brand: BrandSocialLinkFields }) {
   const t = useTranslations("brandDetail");
 
   const socialSlots = liveSlots([
@@ -239,22 +207,21 @@ export function BrandSocialLinks({
 
   // The section nav always lists #social, so the section renders even empty.
   return (
-    <LinkSection
-      id={sectionIds?.social}
-      label={t("links.socialPlatforms")}
+    <LinkList
       slots={socialSlots}
       brand={brand}
-      className={sectionClassName}
+      className="mt-4"
       note={socialSlots.length === 0 ? t("links.noSocialLinks") : null}
     />
   );
 }
 
+/** The online-store block under where-to-buy's h2, with its own h3. */
 export function BrandPurchaseLinks({
   brand,
-  sectionIds,
-  sectionClassName,
-}: BrandLinksProps) {
+}: {
+  brand: BrandPurchaseLinkFields;
+}) {
   const t = useTranslations("brandDetail");
 
   const purchaseSlots = liveSlots(
@@ -286,45 +253,44 @@ export function BrandPurchaseLinks({
         ? t("links.missingChannels")
         : null;
 
+  if (purchaseSlots.length === 0 && !note) return null;
+
+  // A block, not a nested <section>: it sits inside the where-to-buy section.
   return (
-    <LinkSection
-      id={sectionIds?.purchase}
-      label={t("links.onlineStores")}
-      headingLevel="h3"
-      slots={purchaseSlots}
-      brand={brand}
-      className={sectionClassName}
-      note={note}
-    />
+    <div>
+      <Typography as="h3" variant="cardTitle">
+        {t("links.onlineStores")}
+      </Typography>
+      <LinkList
+        slots={purchaseSlots}
+        brand={brand}
+        className="mt-4"
+        note={note}
+      />
+    </div>
   );
 }
 
-export function BrandOtherLinks({ brand, sectionClassName }: BrandLinksProps) {
-  const t = useTranslations("brandDetail");
+/**
+ * The other-links section's body. `links` are already filtered to a label and
+ * a safe URL (`buildBrandDetailView`), so the page renders the section only
+ * when there is one.
+ */
+export function BrandOtherLinks({
+  brand,
+  links,
+}: {
+  brand: TrackedBrand;
+  links: BrandOtherLink[];
+}) {
+  const otherSlots: LinkSlot[] = links.map(({ label, url }) => ({
+    label,
+    url,
+    linkType: "other",
+    icon: <Link className="size-4 text-current" />,
+  }));
 
-  const otherSlots: LinkSlot[] = brand.otherUrls.flatMap((otherUrl) => {
-    const label = otherUrl.label?.trim() ?? "";
-    const url = normalizeDirectUrl(otherUrl.url);
-    if (!label || !url) return [];
-
-    return [
-      {
-        label,
-        url,
-        linkType: "other",
-        icon: <Link className="size-4 text-current" />,
-      },
-    ];
-  });
-
-  return (
-    <LinkSection
-      label={t("links.otherLinks")}
-      slots={otherSlots}
-      brand={brand}
-      className={sectionClassName}
-    />
-  );
+  return <LinkList slots={otherSlots} brand={brand} className="mt-4" />;
 }
 
 type ChannelCorrectionDialog = "purchase" | "stockist" | "social";
@@ -339,7 +305,7 @@ type ChannelCorrectionDialog = "purchase" | "stockist" | "social";
 export function BrandChannelCorrections({
   brand,
 }: {
-  brand: PublicBrandDetail;
+  brand: BrandChannelCorrectionFields;
 }) {
   const t = useTranslations("brandDetail");
   const [openDialog, setOpenDialog] = useState<ChannelCorrectionDialog | null>(

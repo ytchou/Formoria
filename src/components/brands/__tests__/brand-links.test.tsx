@@ -34,6 +34,7 @@ import {
   BrandPurchaseLinks,
   BrandSocialLinks,
 } from "../brand-links";
+import { BrandSection } from "../brand-section";
 
 const LINKS = zh.brandDetail.links;
 
@@ -99,11 +100,15 @@ describe("BrandPurchaseLinks", () => {
   });
 
   it("is a sub-heading of the where-to-buy section", () => {
-    renderZh(<BrandPurchaseLinks brand={buildBrand()} />);
+    const { container } = renderZh(
+      <BrandPurchaseLinks brand={buildBrand()} />,
+    );
 
     expect(
       screen.getByRole("heading", { level: 3, name: LINKS.onlineStores }),
     ).toBeInTheDocument();
+    // A block inside where-to-buy, never a nested section.
+    expect(container.querySelector("section")).toBeNull();
   });
 
   it("names the missing channels in one muted line when some are live", () => {
@@ -174,18 +179,26 @@ describe("link icons", () => {
 
 describe("BrandSocialLinks", () => {
   // The section nav always lists #social, so the section keeps rendering.
+  // The page owns the shell (BrandSection); the body still renders its line.
   it("keeps its heading and a muted line when no social link is known", () => {
     const { container } = renderZh(
-      <BrandSocialLinks
-        brand={buildBrand()}
-        sectionIds={{ social: "social" }}
-      />,
+      <BrandSection
+        id="social"
+        rhythm="utility"
+        heading={LINKS.socialPlatforms}
+      >
+        <BrandSocialLinks brand={buildBrand()} />
+      </BrandSection>,
     );
 
     expect(container.querySelector("#social")).not.toBeNull();
     expect(
       screen.getByRole("heading", { level: 2, name: LINKS.socialPlatforms }),
     ).toBeInTheDocument();
+    expect(container.querySelector("#social")).toHaveAttribute(
+      "aria-labelledby",
+      "social-heading",
+    );
     expect(screen.getByText(LINKS.noSocialLinks)).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
     expect(container.querySelector("[aria-disabled]")).toBeNull();
@@ -194,9 +207,25 @@ describe("BrandSocialLinks", () => {
 
 describe("BrandOtherLinks", () => {
   it("renders nothing without links", () => {
-    const { container } = renderZh(<BrandOtherLinks brand={buildBrand()} />);
+    const { container } = renderZh(
+      <BrandOtherLinks brand={buildBrand()} links={[]} />,
+    );
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders each prepared link as a tracked external link", () => {
+    renderZh(
+      <BrandOtherLinks
+        brand={buildBrand()}
+        links={[{ label: "Studio blog", url: "https://blog.harbor.example" }]}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Studio blog" })).toHaveAttribute(
+      "href",
+      "https://blog.harbor.example",
+    );
   });
 });
 
