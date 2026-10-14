@@ -50,8 +50,8 @@ export function BrandHeader({
             piece of copy the whole page is about, and it is the brand's own
             name, not interface chrome. */}
         <div className="flex animate-reveal-up items-start justify-between gap-4">
-          <Typography as="h1" balance variant="hero">
-            {brand.name}
+          <Typography as="h1" balance variant="hero" className="break-keep">
+            {phraseBreaks(brand.name)}
           </Typography>
           {adminSlot}
         </div>
