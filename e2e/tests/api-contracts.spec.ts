@@ -386,6 +386,11 @@ test.describe.serial("API — newsletter", () => {
   test("missing and invalid email links explain recovery in both languages without exposing tokens", async ({
     request,
   }) => {
+    // 12 GETs in a burst exceed the Cloudflare /api/* rate limit (10 requests
+    // per 10 s per IP, 10 s block). Request 11 and the next tests' /api calls
+    // then get Cloudflare's 429. One request per 2 s leaves half of the
+    // budget to the surrounding tests. Change the spacing if that rule changes.
+    test.setTimeout(60_000);
     const token = randomUUID();
     for (const endpoint of [
       "/api/newsletter/confirm",
@@ -417,6 +422,7 @@ test.describe.serial("API — newsletter", () => {
           expect(html).not.toContain(token);
           expect(response.headers()["cache-control"]).toContain("no-store");
           expect(response.headers()["referrer-policy"]).toBe("no-referrer");
+          await new Promise((resolve) => setTimeout(resolve, 2_000));
         }
       }
     }
