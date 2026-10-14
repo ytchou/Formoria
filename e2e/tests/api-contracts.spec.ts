@@ -3,6 +3,7 @@ import type { APIResponse } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { load } from 'cheerio'
+import { BUDGET, POLL } from '../budgets'
 import assert from 'node:assert/strict'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -387,10 +388,10 @@ test.describe.serial("API — newsletter", () => {
     request,
   }) => {
     // 12 GETs in a burst exceed the Cloudflare /api/* rate limit (10 requests
-    // per 10 s per IP, 10 s block). Request 11 and the next tests' /api calls
-    // then get Cloudflare's 429. One request per 2 s leaves half of the
-    // budget to the surrounding tests. Change the spacing if that rule changes.
-    test.setTimeout(60_000);
+    // per 10 s per IP, 10 s block). Each request retries while Cloudflare
+    // answers 429, so the block has lifted before this test ends and the next
+    // tests' /api calls start in a fresh window. Revisit if that rule changes.
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const token = randomUUID();
     for (const endpoint of [
       "/api/newsletter/confirm",
@@ -399,9 +400,13 @@ test.describe.serial("API — newsletter", () => {
     ]) {
       for (const locale of ["zh-TW", "en"]) {
         for (const hasToken of [false, true]) {
-          const response = await request.get(
-            `${endpoint}?locale=${locale}${hasToken ? `&token=${token}` : ""}`,
-          );
+          let response!: APIResponse;
+          await expect(async () => {
+            response = await request.get(
+              `${endpoint}?locale=${locale}${hasToken ? `&token=${token}` : ""}`,
+            );
+            expect(response.status()).not.toBe(429);
+          }).toPass(POLL.EDGE_RATE_LIMIT);
           expect(response.status()).toBe(
             hasToken && !endpoint.endsWith("/confirm") ? 404 : 400,
           );
@@ -422,7 +427,6 @@ test.describe.serial("API — newsletter", () => {
           expect(html).not.toContain(token);
           expect(response.headers()["cache-control"]).toContain("no-store");
           expect(response.headers()["referrer-policy"]).toBe("no-referrer");
-          await new Promise((resolve) => setTimeout(resolve, 2_000));
         }
       }
     }

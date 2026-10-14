@@ -96,6 +96,9 @@ export const POLL = {
   BOARD: { timeout: 60_000, intervals: [1_000, 2_000, 3_000, 5_000] },
   /** A staging Auth hook row becoming visible through the service-role API. */
   AUTH_CAPTURE: { timeout: 30_000, intervals: [250, 500, 1_000] },
+  /** The Cloudflare zone rule on /api/* (10 requests per 10 s per IP, then a
+   *  10 s block) lifting after a burst. The ladder must outlast the block. */
+  EDGE_RATE_LIMIT: { timeout: 30_000, intervals: [2_000, 5_000, 10_000] },
   // `satisfies`, not `as const`: Playwright's `intervals` option is a mutable
   // `number[]`, and a readonly tuple is not assignable to it.
 } satisfies Record<string, { timeout: number; intervals: number[] }>
