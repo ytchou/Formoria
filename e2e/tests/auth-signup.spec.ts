@@ -21,7 +21,11 @@ test.describe('Auth — sign-up interrupted request', () => {
       });
       try {
         await anonPage.goto(`${prefix}/auth/sign-up?email=${encodeURIComponent('m.garcia+invited@company.invalid')}`);
-        const form = anonPage.getByRole('main').locator('form');
+        // The Google button renders its own form in <main>; scope to the email form.
+        const form = anonPage
+          .getByRole('main')
+          .locator('form')
+          .filter({ has: anonPage.locator('input[name="email"]') });
         const email = form.locator('input[name="email"]');
         const password = form.locator('input[name="password"]');
         const confirm = form.locator('input[name="confirmPassword"]');
