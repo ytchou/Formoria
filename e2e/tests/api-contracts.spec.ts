@@ -3,6 +3,7 @@ import type { APIResponse } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { load } from 'cheerio'
+import { BUDGET, POLL } from '../budgets'
 import assert from 'node:assert/strict'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -386,6 +387,11 @@ test.describe.serial("API — newsletter", () => {
   test("missing and invalid email links explain recovery in both languages without exposing tokens", async ({
     request,
   }) => {
+    // 12 GETs in a burst exceed the Cloudflare /api/* rate limit (10 requests
+    // per 10 s per IP, 10 s block). Each request retries while Cloudflare
+    // answers 429, so the block has lifted before this test ends and the next
+    // tests' /api calls start in a fresh window. Revisit if that rule changes.
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const token = randomUUID();
     for (const endpoint of [
       "/api/newsletter/confirm",
@@ -394,9 +400,13 @@ test.describe.serial("API — newsletter", () => {
     ]) {
       for (const locale of ["zh-TW", "en"]) {
         for (const hasToken of [false, true]) {
-          const response = await request.get(
-            `${endpoint}?locale=${locale}${hasToken ? `&token=${token}` : ""}`,
-          );
+          let response!: APIResponse;
+          await expect(async () => {
+            response = await request.get(
+              `${endpoint}?locale=${locale}${hasToken ? `&token=${token}` : ""}`,
+            );
+            expect(response.status()).not.toBe(429);
+          }).toPass(POLL.EDGE_RATE_LIMIT);
           expect(response.status()).toBe(
             hasToken && !endpoint.endsWith("/confirm") ? 404 : 400,
           );
