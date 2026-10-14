@@ -14,18 +14,18 @@
     "searchAria": "Search products",
     "faq": "FAQ",
     "submitBrand": "Recommend a brand",
-    "searchPlaceholder": "Search products, brands, or a situation…",
+    "searchPlaceholder": "Search products, brands, or situations…",
     "openMenu": "Open menu",
     "navigation": "Main menu",
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "languageTraditionalChinese": "Traditional Chinese",
     "languageEnglish": "English",
-    "about": "About Formoria",
+    "about": "About",
     "stories": "Stories",
     "products": "Products",
     "style": "Guides",
-    "brands": "Listed brands"
+    "brands": "Brands"
   },
   "footer": {
     "about": "About Formoria",
@@ -100,7 +100,7 @@
     },
     "search": {
       "label": "Search products",
-      "placeholder": "Search products, brands, or a situation…",
+      "placeholder": "Search products, brands, or situations…",
       "submit": "Search",
       "clear": "Clear search",
       "heading": "Search results",
@@ -289,7 +289,7 @@
     "subheading": "Find listed Taiwanese brands by category or keyword"
   },
   "challenge": {
-    "title": "Quick verification",
+    "title": "Security check",
     "description": "Complete the check to keep browsing.",
     "verifying": "Verifying…",
     "error": "The check didn't go through. Try again."
@@ -1202,7 +1202,7 @@
       "uploading": "Uploading…",
       "invalidType": "Choose an image file",
       "fileTooLarge": "Choose a file under 5 MB",
-      "genericUploadFailed": "Upload failed. Please try again.",
+      "genericUploadFailed": "Upload failed. Try again.",
       "clickOrDrag": "Choose a file or drag it here",
       "clickToReplace": "Choose a new image or drag it here",
       "replace": "Replace image",
@@ -2221,15 +2221,15 @@
   },
   "emailActions": {
     "missingHeading": "This link is incomplete",
-    "missingBody": "Go back to the email and open the complete link.",
+    "missingBody": "Go back to the original email and click the link again.",
     "invalidHeading": "This link is no longer valid",
     "invalidBody": "Use the unsubscribe link in the most recent email.",
     "confirmationInvalid": "This confirmation link is no longer valid. Subscribe again from the homepage to get a new confirmation email.",
-    "unavailableHeading": "We could not confirm the result",
+    "unavailableHeading": "We couldn't confirm the result",
     "unavailableBody": "There is a connection problem. Open the original email link again in a little while to retry.",
     "successHeading": "Unsubscribed",
-    "newsletterUnsubscribeSuccess": "You have been unsubscribed from the Formoria newsletter. Account verification, password resets and review results are unaffected.",
-    "ownerUnsubscribeSuccess": "You have been unsubscribed from Formoria brand-owner emails. The newsletter is managed separately, in account settings or through the unsubscribe link in a newsletter.",
+    "newsletterUnsubscribeSuccess": "You've unsubscribed from the Formoria newsletter. Emails for account verification, password resets and review results will still reach you.",
+    "ownerUnsubscribeSuccess": "Formoria will no longer send you brand-owner emails. The newsletter is separate: unsubscribe in account settings or with the link in any newsletter.",
     "home": "Return home",
     "subscribeAgain": "Return home to subscribe again",
     "manageNewsletter": "Manage newsletter subscription"

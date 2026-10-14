@@ -9,17 +9,22 @@ import { cn } from "@/lib/utils";
  * these live. The 3px radius is the surface radius, not the control one: this
  * stands in for a block of text, never for a button.
  *
+ * Static, never pulsing (EL-13): a pulse is motion decorating a state that is
+ * not changing (DESIGN.md §7b). `animate-skeleton-in` holds the plate at
+ * opacity 0 for 300ms and then fades it in over 160ms, so a load that finishes
+ * fast never flashes a placeholder at all.
+ *
  * No local `motion-reduce:` branch, deliberately. `globals.css` already caps
- * every animation at 0.01ms with `animation-iteration-count: 1` under
- * `prefers-reduced-motion: reduce`, which is the house rule (0.01ms, never
- * `none`, so anything listening for `animationend` still hears it). A second
- * branch here would be a private copy of a global decision.
+ * every animation at 0.01ms under `prefers-reduced-motion: reduce`, which is
+ * the house rule; the 300ms delay survives it, and that is intended — waiting
+ * is not motion. A second branch here would be a private copy of a global
+ * decision.
  */
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="skeleton"
-      className={cn("animate-pulse rounded-surface bg-surface-deep", className)}
+      className={cn("animate-skeleton-in rounded-surface bg-surface-deep", className)}
       {...props}
     />
   );

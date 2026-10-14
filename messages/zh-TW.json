@@ -14,7 +14,7 @@
     "searchAria": "搜尋商品",
     "faq": "常見問題",
     "submitBrand": "推薦品牌",
-    "searchPlaceholder": "搜尋商品、品牌，或一個情境…",
+    "searchPlaceholder": "搜尋商品、品牌或情境…",
     "openMenu": "開啟選單",
     "navigation": "主選單",
     "signIn": "登入",
@@ -100,7 +100,7 @@
     },
     "search": {
       "label": "搜尋商品",
-      "placeholder": "搜尋商品、品牌，或一個情境…",
+      "placeholder": "搜尋商品、品牌或情境…",
       "submit": "搜尋",
       "clear": "清除搜尋",
       "heading": "搜尋結果",
@@ -289,7 +289,7 @@
     "subheading": "依分類或關鍵字，找收錄的台灣品牌"
   },
   "challenge": {
-    "title": "快速驗證",
+    "title": "安全驗證",
     "description": "完成驗證後就能繼續瀏覽。",
     "verifying": "驗證中…",
     "error": "驗證沒有通過，請再試一次。"
@@ -1201,7 +1201,7 @@
     "uploader": {
       "uploading": "上傳中…",
       "invalidType": "只能上傳圖片檔",
-      "fileTooLarge": "檔案請小於 5 MB",
+      "fileTooLarge": "檔案不能超過 5 MB",
       "genericUploadFailed": "上傳失敗，請再試一次。",
       "clickOrDrag": "選擇檔案，或拖曳到這裡",
       "clickToReplace": "選擇新圖片，或拖曳到這裡更換",
@@ -1421,15 +1421,15 @@
   },
   "emailActions": {
     "missingHeading": "連結不完整",
-    "missingBody": "請回到電子郵件，重新開啟完整連結。",
+    "missingBody": "請回到原本那封信，重新點一次連結。",
     "invalidHeading": "連結已失效",
     "invalidBody": "請從最新一封郵件開啟取消訂閱連結。",
     "confirmationInvalid": "這個確認連結已失效。可以回首頁重新訂閱，取得新的確認信。",
-    "unavailableHeading": "暫時無法確認操作結果",
+    "unavailableHeading": "暫時確認不了結果",
     "unavailableBody": "目前連線有問題。請稍後重新開啟原本的郵件連結，再試一次。",
     "successHeading": "已取消訂閱",
-    "newsletterUnsubscribeSuccess": "已取消 Formoria 電子報訂閱。帳號驗證、密碼重設和審核結果等必要通知不受影響。",
-    "ownerUnsubscribeSuccess": "已取消 Formoria 的品牌方郵件。電子報訂閱另外管理，可以到帳號設定或使用電子報裡的取消訂閱連結。",
+    "newsletterUnsubscribeSuccess": "已取消 Formoria 電子報訂閱。帳號驗證、密碼重設和審核結果這些必要通知，還是會照常寄給你。",
+    "ownerUnsubscribeSuccess": "已取消 Formoria 寄給品牌方的郵件。電子報要另外取消：到帳號設定，或按電子報裡的取消訂閱連結。",
     "home": "返回首頁",
     "subscribeAgain": "回首頁重新訂閱",
     "manageNewsletter": "管理電子報訂閱"
