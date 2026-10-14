@@ -93,7 +93,7 @@ const DESTINATION_PRESENTATION = {
  * An external brand link that records the channel it routes to: the one
  * tracked anchor every brand-channel surface on the page renders.
  */
-export function TrackedChannelLink({
+function TrackedChannelLink({
   href,
   kind,
   brand,

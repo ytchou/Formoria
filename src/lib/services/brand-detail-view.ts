@@ -60,7 +60,7 @@ export function brandCategoryTag(
     : null;
 }
 
-export type BrandSectionId =
+type BrandSectionId =
   | "selected-products"
   | "where-to-buy"
   | "about"
@@ -68,7 +68,7 @@ export type BrandSectionId =
   | "faq"
   | "social";
 
-export type BrandSectionEntry = {
+type BrandSectionEntry = {
   id: BrandSectionId;
   /** `brandDetail` message key of the section's short nav label. */
   labelKey: `tabNav.short.${string}`;
@@ -204,12 +204,12 @@ export function brandMakesLabels(
   return labels;
 }
 
-export type BrandSocialLinkFields = Pick<
+type BrandSocialLinkFields = Pick<
   PublicBrandDetail,
   "id" | "slug" | "socialInstagram" | "socialThreads" | "socialFacebook"
 >;
 
-export type BrandPurchaseLinkFields = Pick<
+type BrandPurchaseLinkFields = Pick<
   PublicBrandDetail,
   | "id"
   | "slug"
