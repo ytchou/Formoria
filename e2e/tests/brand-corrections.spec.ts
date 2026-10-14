@@ -35,18 +35,18 @@ import zhTW from '../../messages/zh-TW.json';
 // constant covers both the role query and the text check.
 const MORE_ACTIONS_LABEL = '更多選項'; // brandDetail.label.moreActions
 const CORRECTION_TRIGGER_TEXT = '回報資料有誤'; // brandDetail.correction.trigger
-const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.title
+const CORRECTION_DIALOG_TITLE = '回報資料有誤'; // brandDetail.correction.title
 const FIELD_PICKER_LABEL = '修正項目'; // brandDetail.correction.fieldPickerLabel
 // The value control is two role="group" rows. Row 1 (the brand's current value)
 // is named by the 目前 heading; row 2 (the options a visitor may pick) is named
-// by the field label itself, so 品牌類別 addresses the options row, not the current one.
+// by the field label itself, so 分類 addresses the options row, not the current one.
 const CURRENT_VALUE_LABEL = '目前'; // brandDetail.correction.currentHeading
-const CATEGORY_VALUE_LABEL = '品牌類別'; // brandDetail.label.category
+const CATEGORY_VALUE_LABEL = '分類'; // brandDetail.label.category
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
 const CANCEL_LABEL = '取消'; // brandFields.cancel
-const REVIEW_PROMISE = '感謝提供建議！送出後由 Formoria 審核決定是否更新。'; // brandDetail.correction.description
-const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
-const ALREADY_SUBMITTED_TOAST = '這項修正已經送出，請等待審核。'; // ...correction.errors.already_submitted
+const REVIEW_PROMISE = '謝謝你幫忙。送出後我們會先確認，再決定要不要更新。'; // brandDetail.correction.description
+const SUCCESS_TOAST = '已經送出，謝謝你幫忙。'; // brandDetail.correction.success
+const ALREADY_SUBMITTED_TOAST = '這項修正已經送出了，我們正在確認。'; // ...correction.errors.already_submitted
 
 // seedBrand() always writes category: 'home' and no subcategories.
 const CURRENT_CATEGORY_LABEL = '居家生活';

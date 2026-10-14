@@ -85,7 +85,7 @@ describe('ProvideStockistInfoDialog', () => {
     const status = dialog.querySelector('[data-slot="dialog-status"]')
     expect(status).not.toBeNull()
     expect(
-      within(status as HTMLElement).getByText(/謝謝你提供/)
+      within(status as HTMLElement).getByText(/我們確認之後/)
     ).toBeInTheDocument()
 
     // The close action lives in the status' own footer now, not in a
@@ -145,7 +145,7 @@ describe('ProvideStockistInfoDialog', () => {
     const message = document.getElementById(describedBy as string)
     expect(message).not.toBeNull()
     // Says how to fix it, not just that something broke.
-    expect(message).toHaveTextContent('請選擇這個實體通路所在的縣市')
+    expect(message).toHaveTextContent('請選擇這個實體通路在哪個地區')
     expect(message).toHaveAttribute('role', 'alert')
 
     fireEvent.change(region, { target: { value: 'taipei' } })

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ArrowDown } from "lucide-react";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import { buildBrandMetaLineParts } from "@/lib/brands/brand-meta-line";
+import { phraseBreaks } from "@/components/ui/phrase-breaks";
 import { Typography } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
 
@@ -64,10 +65,10 @@ export function BrandHeader({
         ) : null}
         {lede ? (
           <p
-            className="type-lede animate-reveal-up"
+            className="type-lede animate-reveal-up break-keep"
             style={{ animationDelay: "200ms" }}
           >
-            {lede}
+            {phraseBreaks(lede)}
           </p>
         ) : null}
       </div>

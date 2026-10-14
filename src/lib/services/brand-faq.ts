@@ -28,10 +28,24 @@ export async function getBrandFaq(
   locale: string = "zh-TW",
   cityLabel: string | null = null,
   client?: FaqSupabase,
+  curatedSubcategories: readonly string[] = [],
 ): Promise<FaqItem[]> {
   const rows = await getBrandFaqEntries(brandId, client);
-  return renderBrandFaq(rows, brand, t, locale, cityLabel);
+  return renderBrandFaq(
+    rows,
+    brand,
+    t,
+    locale,
+    cityLabel,
+    curatedSubcategories,
+  );
 }
+
+/**
+ * `curatedSubcategories` is the subcategory slug of each published curated
+ * product, in shelf order. It is the only source of the main-products floor
+ * (BD-10), so a caller that omits it gets no such floor.
+ */
 
 export function renderBrandFaq(
   rows: readonly BrandFaqEntryRow[],
@@ -39,13 +53,19 @@ export function renderBrandFaq(
   t: TFn,
   locale: string = "zh-TW",
   cityLabel: string | null = null,
+  curatedSubcategories: readonly string[] = [],
 ): FaqItem[] {
   const isZh = !locale.startsWith("en");
   // Peer stats are an enrichment-pipeline concern and are deliberately not
   // fetched here — a brand page must not run a category-wide aggregate on
   // every request. `preset.eligible` is the *render* predicate for exactly
   // that reason; the peer-stats requirement lives on `preset.authorable`.
-  const ctx: FaqBrandContext = { brand, cityLabel, peerStats: null };
+  const ctx: FaqBrandContext = {
+    brand,
+    cityLabel,
+    peerStats: null,
+    curatedSubcategories,
+  };
 
   // Resolve each row's locale side once, up front. Rows that survive this pass
   // are renderable by construction, so the selection loop below never has to
