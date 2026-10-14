@@ -4,6 +4,7 @@ import type {
   DependabotAlertRecord,
   DependabotAlertsPort,
 } from '@/lib/services/health-agent/detectors/dependabot'
+import { isRecord } from '@/lib/utils/is-record'
 
 const PROVIDER = 'github'
 const OPERATION = 'list_dependabot_alerts'
@@ -19,10 +20,6 @@ type DependabotPage = {
   alerts: readonly DependabotAlertRecord[]
   nextUrl: string | null
   httpStatus: number
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function nestedRecord(

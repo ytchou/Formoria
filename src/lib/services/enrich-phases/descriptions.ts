@@ -41,6 +41,7 @@ import {
   type EnrichPatch,
   type EnrichPhase,
 } from "./types";
+import { isRecord } from "@/lib/utils/is-record";
 
 type DescriptionsPhaseOptions = {
   brand: EnrichBrand;
@@ -179,10 +180,6 @@ export type PersistedScrapeRow = {
   raw_response: unknown;
   call_status?: string | null;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0

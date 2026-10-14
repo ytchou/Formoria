@@ -80,6 +80,7 @@ import {
   type PublicBrandFaqContext,
   type SearchSuggestion,
 } from "@/lib/brands/contracts";
+import { isRecord } from "@/lib/utils/is-record";
 
 /**
  * Recover a readable hero reference from the legacy `hero_image_url` column.
@@ -288,10 +289,6 @@ export function isReservedSlug(slug: string): boolean {
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function normalizeReputationSummary(value: unknown): ReputationSummary | null {
   if (!isRecord(value) || typeof value.text !== "string") return null;
