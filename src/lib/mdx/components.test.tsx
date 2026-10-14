@@ -36,6 +36,16 @@ describe("story component map — v2 type roles", () => {
     expect(paragraph).not.toContain("text-ink-soft");
   });
 
+  // EL-11: the accent is interaction only (DESIGN §2). A quotation keeps its
+  // rule, but in the neutral hairline colour at 1px.
+  it("rules a markdown blockquote in the hairline colour, never the accent", () => {
+    const quote = markup(map.blockquote({ children: "Quoted." }));
+    expect(quote).toContain("border-l ");
+    expect(quote).toContain("border-rule");
+    expect(quote).not.toContain("border-accent");
+    expect(quote).not.toContain("border-l-2");
+  });
+
   it("keeps author classes rather than overwriting them", () => {
     expect(
       markup(map.h2({ children: "x", className: "text-center" })),

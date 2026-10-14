@@ -60,7 +60,7 @@ vi.mock("@/lib/analytics", () => ({
   trackBrandCardClicked: vi.fn(),
 }));
 
-import { BrandLine } from "../brand-list";
+import { BrandLine, BrandList } from "../brand-list";
 
 function makeBrand(slug: string, name: string): Brand {
   return {
@@ -196,5 +196,55 @@ describe("BrandLine", () => {
     expect(screen.queryByText("Ghost Studio")).toBeNull();
     // CP2-24: the notice never prints the raw slug.
     expect(screen.queryByText(/ghost-brand/)).toBeNull();
+  });
+});
+
+/**
+ * DS-14: booth codes stopped printing (DS2-30), but the booth column was still
+ * rendered, so every name sat 16px right of its note. The column now exists
+ * only when some row in the list has a booth. Rows cannot see their siblings
+ * and the list must not inspect its children, so the switch is CSS `:has()`
+ * keyed on `data-booth` — these assert the classes that carry it.
+ */
+describe("BrandList booth column", () => {
+  it("drops the booth track when no row has a booth", () => {
+    const { container } = render(<BrandList />);
+    const list = container.firstElementChild;
+
+    expect(list?.className).toContain(
+      "sm:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]",
+    );
+    // The three-track layout only applies under a row that carries a booth.
+    expect(list?.className).toContain(
+      "sm:has-[[data-booth]]:grid-cols-[auto_minmax(0,17rem)_minmax(0,1fr)]",
+    );
+    expect(list?.className).not.toMatch(
+      /(^|\s)sm:grid-cols-\[auto_minmax\(0,17rem\)_minmax\(0,1fr\)\]/,
+    );
+  });
+
+  it("hides a row's empty booth cell unless the list has booths", async () => {
+    const { container } = renderWithIntl(
+      await BrandLine({ name: "Corner Studio", note: "Notes.", loadBrands }),
+    );
+    const row = container.firstElementChild;
+    const emptyCell = row?.firstElementChild;
+
+    expect(emptyCell?.textContent).toBe("");
+    expect(emptyCell?.className).toContain("hidden");
+    expect(emptyCell?.className).toContain(
+      "group-has-[[data-booth]]/brand-list:block",
+    );
+    expect(container.querySelector("[data-booth]")).toBeNull();
+  });
+
+  it("marks a row that has a booth so the list keeps its column", async () => {
+    const { container } = renderWithIntl(
+      await BrandLine({ name: "Corner Studio", booth: "A-12", loadBrands }),
+    );
+    const cell = container.querySelector("[data-booth]");
+
+    expect(cell?.textContent).toContain("A-12");
+    expect(cell?.className).not.toMatch(/(^|\s)hidden(\s|$)/);
   });
 });

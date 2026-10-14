@@ -11,7 +11,7 @@ interface BrandBreadcrumbProps {
   brandName: string
 }
 
-export type BreadcrumbItem = { label: string; href?: string }
+export type BreadcrumbItem = { label: string; href?: string; lang?: string }
 
 export function Breadcrumb({
   ariaLabel,
@@ -49,6 +49,7 @@ export function Breadcrumb({
             ) : (
               <span
                 aria-current="page"
+                lang={item.lang}
                 className="min-w-0 truncate text-ink"
               >
                 {item.label}

@@ -1,4 +1,5 @@
 import {
+  Children,
   createElement,
   isValidElement,
   type ComponentPropsWithoutRef,
@@ -37,6 +38,58 @@ function visibleText(node: ReactNode): string {
   return "";
 }
 
+/** The slice of an MDX syntax-tree node `remarkTrailSections` reads. */
+type MdxTreeNode = {
+  type: string;
+  name?: string | null;
+  children?: MdxTreeNode[];
+};
+
+/**
+ * Remark plugin: routes a trail's authored `<section id="…">` through the
+ * component map as `TrailSection`.
+ *
+ * The rename is the only way in. `<section>` is explicit lowercase JSX, and MDX
+ * never turns explicit JSX into a component from the map (`recma-jsx-rewrite`:
+ * "Do not turn explicit JSX into components from `_components`"), so a
+ * `section` row there could never fire. A capitalized name DOES resolve, the
+ * same way `<TrailProducts>` does, and this runs on the syntax tree after
+ * parsing, so the section's markdown children are already parsed and nothing
+ * about the authored file changes.
+ *
+ * Applied only by the trail page (`trail-content.tsx`). A story keeps its
+ * literal `<section>`s, if it ever authors one.
+ */
+export function remarkTrailSections() {
+  return (tree: MdxTreeNode) => {
+    const visit = (node: MdxTreeNode) => {
+      if (node.type === "mdxJsxFlowElement" && node.name === "section") {
+        node.name = "TrailSection";
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
+}
+
+/**
+ * The story material marker (EL-10): 「陶｜這一窯…」 splits at the full-width bar
+ * into the marker 「陶」 and the title after it. Only a plain-string heading is
+ * split — one carrying inline markup has no safe place to cut, so it renders
+ * as an ordinary heading.
+ */
+function splitMaterialMarker(
+  children: ReactNode,
+): { marker: string; rest: string } | null {
+  if (typeof children !== "string") return null;
+  const bar = children.indexOf("｜");
+  if (bar <= 0) return null;
+  const marker = children.slice(0, bar).trim();
+  const rest = children.slice(bar + 1).trimStart();
+  if (!marker || !rest) return null;
+  return { marker, rest };
+}
+
 /**
  * Story MDX shortcodes plus element-level typography for the prose itself.
  *
@@ -68,7 +121,9 @@ export function createStoryComponentMap({
    * Matched by TITLE, not by DOM position, because the `<section id="…">`
    * wrapper in the MDX is explicit JSX and MDX never routes explicit JSX
    * through this map (`recma-jsx-rewrite`: "Do not turn explicit JSX into
-   * components from `_components`"). The `##` heading inside it IS
+   * components from `_components`"); `remarkTrailSections` renames it for
+   * the rail layout, which still says nothing about its position among the
+   * declared sections. The `##` heading inside it IS
    * markdown-generated, so it is the only element here that can carry the
    * number. A heading the frontmatter never declared stays unnumbered — a
    * degradation, not a crash.
@@ -89,6 +144,194 @@ export function createStoryComponentMap({
       .filter(([title]) => title.length > 0 && titleCounts.get(title) === 1),
   );
 
+  const TrailProductsShortcode = (props: { section: string }) =>
+    createElement(TrailProducts, props);
+
+  const h2 = (props: ComponentPropsWithoutRef<"h2">) => {
+    const label = visibleText(props.children).trim();
+    const sectionNumber = sectionNumbers.get(label);
+
+    if (!sectionNumber) {
+      const split = trailSections ? null : splitMaterialMarker(props.children);
+      if (!split) {
+        return createElement("h2", {
+          ...props,
+          className: cn(
+            "mt-10 mb-3 scroll-mt-24 type-section",
+            props.className,
+          ),
+        });
+      }
+
+      // A story's material section (EL-10). The marker hangs in the left
+      // margin from `xl`, right-aligned 2.5rem off the column so the title
+      // keeps the column edge; below `xl` there is no margin and it sits
+      // above the title. 明體 because it is content (DESIGN §1), `text-rule`
+      // because it is structure the eye registers, not something to read —
+      // and never the accent, which is interaction only (§2).
+      //
+      // `aria-hidden` on the marker plus an `sr-only` copy of 「陶｜」 keeps the
+      // accessible name the full authored text, so a screen reader still hears
+      // 陶｜這一窯… and an in-page link resolving the heading by name still
+      // matches. Stories only: a trail heading never splits.
+      return createElement(
+        "h2",
+        {
+          ...props,
+          className: cn(
+            "relative mt-10 mb-3 scroll-mt-24 type-section",
+            props.className,
+          ),
+        },
+        createElement(
+          "span",
+          {
+            "aria-hidden": "true",
+            className:
+              "mb-3 block whitespace-nowrap type-display leading-none text-rule xl:absolute xl:top-0 xl:right-[calc(100%+2.5rem)] xl:mb-0 xl:text-right",
+          },
+          split.marker,
+        ),
+        createElement("span", { className: "sr-only" }, `${split.marker}｜`),
+        split.rest,
+      );
+    }
+
+    // The trail archetype's section header: an ordinal beside the
+    // content-face title below `lg`, and from `lg` a 明體 display numeral
+    // stacked above it in the section's rail (EL-09, see `TrailSection`).
+    // The numeral is `ink-muted`, never the accent: it is structure, not
+    // interaction (DESIGN §2). `aria-hidden` on it is load-bearing — the
+    // section nav resolves this heading by its ACCESSIBLE NAME
+    // (`discovery-trail.spec.ts`), and a number joined to it would break that
+    // as well as read "zero two" aloud before every section.
+    //
+    // `lg:mt-0`: at `lg` the section is a grid, its items do not collapse
+    // margins, and the section itself carries the top spacing so the rail
+    // and the prose start on one line.
+    //
+    // Children go through `createElement`'s variadic arguments, not a
+    // `children` prop: the extra arguments win over the spread `props.children`
+    // above, and `react/no-children-prop` forbids the prop form.
+    return createElement(
+      "h2",
+      {
+        ...props,
+        className: cn(
+          "mt-16 mb-4 grid scroll-mt-24 grid-cols-[1.75rem_minmax(0,1fr)] items-baseline gap-x-4 type-section md:mt-24 md:grid-cols-[3rem_minmax(0,1fr)] lg:mt-0 lg:mb-0 lg:block",
+          props.className,
+        ),
+      },
+      createElement(
+        "span",
+        {
+          "aria-hidden": "true",
+          className:
+            "tabular-nums type-metadata lg:mb-4 lg:block lg:type-display lg:text-ink-muted",
+        },
+        sectionNumber,
+      ),
+      createElement("span", { className: "min-w-0 lg:block" }, props.children),
+    );
+  };
+
+  /*
+   * One authored trail `<section>`, renamed by `remarkTrailSections` (EL-09).
+   *
+   * Below `lg` it renders the children in authoring order, as before — the
+   * wrappers are plain blocks, and their margins collapse through them. From
+   * `lg` it is a two-track grid: a sticky rail holding the numbered heading,
+   * the prose in the second track (still capped by `prose-measure` on each
+   * block rule), and the product shelf spanning both. Without that the prose
+   * hugged the left 768px of a 1312px page while the shelves ran full width.
+   *
+   * The children are PARTITIONED, not placed by CSS: a rail that sticks while
+   * the prose scrolls needs a grid area as tall as the prose, and the only CSS
+   * way to give a lone `h2` one is a row-span over every sibling — a guessed
+   * span that creates implicit rows for nothing. Partitioning compares element TYPES against this
+   * map's own `h2` and `TrailProducts`, which are exactly what MDX passes for a
+   * `##` and a `<TrailProducts>`. Runs keep authoring order: the rail sits
+   * beside the first prose run, and a shelf followed by more prose yields a
+   * second run in the prose track below it.
+   *
+   * A section with no `##` renders unchanged — nothing to put in a rail.
+   */
+  const TrailSection = ({
+    children,
+    ...props
+  }: ComponentPropsWithoutRef<"section">) => {
+    const nodes = Children.toArray(children);
+    const headingIndex = nodes.findIndex(
+      (node) => isValidElement(node) && node.type === h2,
+    );
+    if (headingIndex < 0) return createElement("section", props, children);
+
+    const rows: ReactNode[] = [
+      createElement(
+        "div",
+        {
+          key: "rail",
+          "data-slot": "trail-rail",
+          className:
+            "lg:sticky lg:top-[calc(var(--nav-height)+2rem)] lg:self-start",
+        },
+        nodes[headingIndex],
+      ),
+    ];
+    let run: ReactNode[] = [];
+    const flushRun = () => {
+      if (run.length === 0) return;
+      rows.push(
+        createElement(
+          "div",
+          {
+            key: `prose-${rows.length}`,
+            "data-slot": "trail-prose",
+            // Grid items keep their children's margins, so the run's outer
+            // ones are zeroed at `lg`: the first so the prose starts level
+            // with the rail, the last so the shelf's own `mt-8` is the gap.
+            className:
+              "min-w-0 lg:col-start-2 lg:[&>:first-child]:mt-0 lg:[&>:last-child]:mb-0",
+          },
+          run,
+        ),
+      );
+      run = [];
+    };
+    nodes.forEach((node, index) => {
+      if (index === headingIndex) return;
+      if (isValidElement(node) && node.type === TrailProductsShortcode) {
+        flushRun();
+        rows.push(
+          createElement(
+            "div",
+            {
+              key: `shelf-${index}`,
+              "data-slot": "trail-shelf",
+              className: "lg:col-span-2",
+            },
+            node,
+          ),
+        );
+        return;
+      }
+      run.push(node);
+    });
+    flushRun();
+
+    return createElement(
+      "section",
+      {
+        ...props,
+        className: cn(
+          "lg:mt-24 lg:grid lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-x-gutter",
+          props.className,
+        ),
+      },
+      rows,
+    );
+  };
+
   return {
     BrandCard: (props: { slug: string; note?: string; eyebrow?: string }) =>
       createElement(BrandCardMdx, props),
@@ -98,8 +341,8 @@ export function createStoryComponentMap({
     // so the story stays in sync with the directory.
     BrandGallery: (props: { slug: string; caption?: string }) =>
       createElement(BrandGallery, props),
-    TrailProducts: (props: { section: string }) =>
-      createElement(TrailProducts, props),
+    TrailProducts: TrailProductsShortcode,
+    TrailSection,
     // Children, not a `slugs` array — MDX expression attributes are dropped
     // (DEV-1302), so the row's cards are authored as nested `<BrandCard>`.
     BrandRow: (props: { children?: ReactNode }) =>
@@ -156,46 +399,7 @@ export function createStoryComponentMap({
           props.className,
         ),
       }),
-    h2: (props: ComponentPropsWithoutRef<"h2">) => {
-      const label = visibleText(props.children).trim();
-      const sectionNumber = sectionNumbers.get(label);
-
-      if (!sectionNumber) {
-        return createElement("h2", {
-          ...props,
-          className: cn(
-            "mt-10 mb-3 scroll-mt-24 type-section",
-            props.className,
-          ),
-        });
-      }
-
-      // The trail archetype's section header: a small interface-face ordinal in
-      // a left gutter, the content-face title beside it. `aria-hidden` on it is
-      // load-bearing — the section nav resolves this heading by its ACCESSIBLE
-      // NAME (`discovery-trail.spec.ts`), and a number joined to it would break
-      // that as well as read "zero two" aloud before every section.
-      //
-      // Children go through `createElement`'s variadic arguments, not a
-      // `children` prop: the extra arguments win over the spread `props.children`
-      // above, and `react/no-children-prop` forbids the prop form.
-      return createElement(
-        "h2",
-        {
-          ...props,
-          className: cn(
-            "mt-16 mb-4 grid scroll-mt-24 grid-cols-[1.75rem_minmax(0,1fr)] items-baseline gap-x-4 type-section md:mt-24 md:grid-cols-[3rem_minmax(0,1fr)]",
-            props.className,
-          ),
-        },
-        createElement(
-          "span",
-          { "aria-hidden": "true", className: "tabular-nums type-metadata" },
-          sectionNumber,
-        ),
-        createElement("span", { className: "min-w-0" }, props.children),
-      );
-    },
+    h2,
     h3: (props: ComponentPropsWithoutRef<"h3">) =>
       createElement("h3", {
         ...props,
@@ -252,11 +456,14 @@ export function createStoryComponentMap({
           props.className,
         ),
       }),
+    // A 1px `border-rule` hairline, never the accent (EL-11): the accent is
+    // interaction only (DESIGN §2). The rule still marks "someone else said
+    // this", which keeps it apart from `PullQuote`'s bracketed display line.
     blockquote: (props: ComponentPropsWithoutRef<"blockquote">) =>
       createElement("blockquote", {
         ...props,
         className: cn(
-          "prose-measure my-6 border-l-2 border-accent pl-5 type-body text-ink-soft",
+          "prose-measure my-6 border-l border-rule pl-5 type-body text-ink-soft",
           props.className,
         ),
       }),

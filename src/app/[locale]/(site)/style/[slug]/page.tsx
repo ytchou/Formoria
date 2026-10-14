@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { Fragment, type ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { Breadcrumb } from "@/components/brands/brand-breadcrumb";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import type { SelectedProductTileLabels } from "@/components/brands/selected-product-tile";
 import {
@@ -14,6 +12,10 @@ import {
 import { RelatedStoryLink } from "@/components/stories/related-story-link";
 import { formatStoryDate } from "@/components/stories/story-date";
 import { editorialHeroSrc } from "@/components/ui/editorial-hero";
+import {
+  EditorialHeader,
+  type MetaItem,
+} from "@/components/ui/editorial-header";
 import { PageShell } from "@/components/ui/page-shell";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
@@ -40,8 +42,7 @@ import { routes } from "@/lib/routes";
 import { findSimilarProductsForTrail } from "@/lib/services/product-situation-search";
 import { ProductCard } from "@/components/products/product-card";
 import { Grid, gridStyles } from "@/components/ui/grid";
-import { IMAGE_SURFACE_SIZES, SurfaceImage } from "@/components/ui/image";
-import { phraseBreaks } from "@/components/ui/phrase-breaks";
+import { IMAGE_SURFACE_SIZES } from "@/components/ui/image";
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>;
@@ -201,40 +202,6 @@ function trailLabels(t: (key: string) => string): SelectedProductTileLabels {
     unavailable: t("unavailable"),
     madeInTaiwan: t("madeInTaiwan"),
   };
-}
-
-type MetaItem = {
-  label: string;
-  value: ReactNode;
-  /** The value's language when it is content, not UI (see `contentLangFor`). */
-  lang?: string;
-};
-
-/**
- * The editorial frame — who chose this, when, how much of it there is — as ONE
- * interface-face line under the header (DS2-35): editorLabel · updatedLabel · selectionLabel + selectionSummary.
- * It replaced a three-row `<dl>` table that sat beside the title and stood as
- * tall as the hero. A `<p>` of label/value spans, because a `<dl>` cannot hold
- * the separators; the `·` between items is decoration and is hidden from
- * assistive tech, which reads each label straight into its value.
- */
-function MetaLine({ items }: { items: MetaItem[] }) {
-  if (items.length === 0) return null;
-  return (
-    <p className="type-metadata flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      {items.map((item, index) => (
-        <Fragment key={item.label}>
-          {index > 0 ? <span aria-hidden="true">·</span> : null}
-          <span>
-            {item.label}{" "}
-            <span lang={item.lang} className="text-ink">
-              {item.value}
-            </span>
-          </span>
-        </Fragment>
-      ))}
-    </p>
-  );
 }
 
 /**
@@ -415,82 +382,21 @@ export default async function StyleTrailPage({ params }: PageProps) {
             itemCount={safeProducts.length}
           />
         ) : null}
-        {/*
-          THE HEADER BAND. `surface` is the second material, not a tint: the band
-          is what separates the editorial frame — who chose this, when, how much
-          of it there is — from the objects below, and it does that with tone and
-          a rule rather than with a box around the title.
-
-          With a displayable hero the scene image opens the trail as a
-          full-bleed band (DS2-35, DESIGN.md §6 scene layer): 3:4 below md,
-          21:9 from md, the title and lede on an ink scrim over its foot — the
-          scrim pattern of the /style hub's feature TrailTile, sized by the copy
-          so every line sits on ink/80 or darker. No fixed min-height: the copy
-          grows the band instead of clipping. Without one, the title and lede
-          sit directly on the surface band.
-        */}
-        <header className="border-b border-rule bg-surface">
-          <PageShell measure="page" className="space-y-6 pt-8">
-            <Breadcrumb
-              ariaLabel={t("breadcrumbAria")}
-              items={[
-                { label: t("breadcrumb"), href: routes.style() },
-                { label: frontmatter.title },
-              ]}
-            />
-            {/* UI copy in the page's language, so outside the `lang` wrapper. */}
-            {contentLang ? (
-              <p className="type-body-sm text-ink-muted">
-                {t("untranslatedNotice")}
-              </p>
-            ) : null}
-          </PageShell>
-          {heroSrc ? (
-            <div className="relative mt-6 flex aspect-[3/4] flex-col justify-end overflow-clip bg-ink md:aspect-[21/9]">
-              {/*
-                `priority` and `fetchPriority="high"`, never lazy: this is the
-                route's LCP element, so deferring it defers the metric itself.
-              */}
-              <SurfaceImage
-                src={heroSrc}
-                alt={frontmatter.heroImageAlt ?? ""}
-                fill
-                priority
-                fetchPriority="high"
-                surface="hero"
-                className="object-cover"
-              />
-              <div className="relative z-10 bg-gradient-to-t from-ink/90 to-ink/80">
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-x-0 bottom-full h-16 bg-gradient-to-t from-ink/80 to-transparent md:h-24"
-                />
-                <PageShell measure="page" className="pt-1 pb-8 md:pb-12">
-                  <div lang={contentLang} className="space-y-4">
-                    <h1 className="type-page-title break-keep text-ground">
-                      {phraseBreaks(frontmatter.title)}
-                    </h1>
-                    {lede ? (
-                      <p className="type-lede text-on-ink">{lede}</p>
-                    ) : null}
-                  </div>
-                </PageShell>
-              </div>
-            </div>
-          ) : (
-            <PageShell measure="page" className="pt-6">
-              <div lang={contentLang} className="space-y-4">
-                <h1 className="type-page-title break-keep">
-                  {phraseBreaks(frontmatter.title)}
-                </h1>
-                {lede ? <p className="type-lede">{lede}</p> : null}
-              </div>
-            </PageShell>
-          )}
-          <PageShell measure="page" className="pt-6 pb-8 md:pb-10">
-            <MetaLine items={metaItems} />
-          </PageShell>
-        </header>
+        <EditorialHeader
+          breadcrumbAriaLabel={t("breadcrumbAria")}
+          breadcrumbItems={[
+            { label: t("breadcrumb"), href: routes.style() },
+            { label: frontmatter.title },
+          ]}
+          notice={contentLang ? t("untranslatedNotice") : null}
+          hero={
+            heroSrc ? { src: heroSrc, alt: frontmatter.heroImageAlt ?? "" } : null
+          }
+          title={frontmatter.title}
+          lede={lede}
+          contentLang={contentLang}
+          metaItems={metaItems}
+        />
         <PageShell measure="page">
           <div className="pt-10">
             <TrailContent

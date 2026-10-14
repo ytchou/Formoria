@@ -5,6 +5,7 @@ import type { SelectedProductTileLabels } from "@/components/brands/selected-pro
 import type { TrailCuratedProduct } from "@/lib/services/curated-products";
 import {
   createStoryComponentMap,
+  remarkTrailSections,
   type TrailSectionRef,
 } from "@/lib/mdx/components";
 import { TrailProductsProvider } from "@/components/trails/trail-products";
@@ -44,22 +45,26 @@ export function TrailContent({
       value={{ trailSlug, locale, products, labels, notes }}
     >
       {/*
-        Every rule below reaches INTO the authored MDX, which is the only way to
-        reach it: `<section id="…">` is explicit JSX and MDX never routes
-        explicit JSX through the component map, so no `section` entry there can
-        ever fire. The selectors are scoped to this wrapper so nothing else on
-        the page inherits them.
+        `<section id="…">` is explicit JSX, and MDX never routes explicit JSX
+        through the component map. `remarkTrailSections` renames it to
+        `TrailSection` so the map's rail layout can reach it (EL-09); the
+        scroll margin below still reaches into the rendered `<section>`, scoped
+        to this wrapper so nothing else on the page inherits it.
 
         Trail prose keeps the shared reading cap: the component map puts
         `prose-measure` (48rem, about 42 zh characters a line) on `p`, `ul`,
-        `ol`, and `blockquote`, exactly as on a story page. The product grids
-        are separate elements that carry no measure, so they still span the
-        full page container.
+        `ol`, and `blockquote`, exactly as on a story page. From `lg` it sits
+        in the section's second track beside a sticky rail; the product grids
+        carry no measure and span both tracks, the full page container.
       */}
       <div lang={lang} className="[&>section]:scroll-mt-24">
         <MDXRemote
           source={source}
-          options={{ blockJS: false, blockDangerousJS: true }}
+          options={{
+            blockJS: false,
+            blockDangerousJS: true,
+            mdxOptions: { remarkPlugins: [remarkTrailSections] },
+          }}
           components={createStoryComponentMap({ trailSections: sections })}
         />
       </div>
