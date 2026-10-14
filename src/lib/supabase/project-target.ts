@@ -242,22 +242,6 @@ export function validateStagingTarget(
   };
 }
 
-export function assertStagingRevision(
-  expectedSha: string,
-  observedRevision: string | null | undefined,
-): void {
-  const expected = expectedSha.trim().toLowerCase();
-  const observed = observedRevision?.trim().toLowerCase();
-  if (!/^[0-9a-f]{40}$/.test(expected)) {
-    throw new Error("Expected staging revision must be a 40-character Git SHA");
-  }
-  if (observed !== expected) {
-    throw new Error(
-      `Staging revision mismatch: expected ${expected}, observed ${observed ?? "missing"}`,
-    );
-  }
-}
-
 export type WorkerDeploymentEnvironment = "production" | "staging";
 
 const EXPECTED_PROJECT_REFS: Record<WorkerDeploymentEnvironment, string> = {

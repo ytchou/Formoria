@@ -209,13 +209,6 @@ export function normalizeInterests(interests: string[]): NewsletterInterest[] {
   return normalized
 }
 
-export function deriveNewsletterStatus(
-  subscriber: Pick<NewsletterSubscriber, 'confirmed_at' | 'unsubscribed_at'>,
-): NewsletterSubscriberStatus {
-  if (subscriber.unsubscribed_at) return 'unsubscribed'
-  return subscriber.confirmed_at ? 'active' : 'pending'
-}
-
 export function calculateConfirmationRate({
   active,
   pending,

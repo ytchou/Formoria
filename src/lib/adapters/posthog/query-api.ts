@@ -4,21 +4,14 @@ export type PostHogErrorCode =
   | 'posthog_unconfigured'
   | 'posthog_unavailable'
   | 'invalid_provider_response'
-  | 'endpoint_missing'
-
-type PostHogQueryClientErrorCode = Exclude<PostHogErrorCode, 'endpoint_missing'>
 
 export class PostHogQueryError extends Error {
-  public readonly code: PostHogQueryClientErrorCode
-
   constructor(
-    code: PostHogErrorCode,
+    public readonly code: PostHogErrorCode,
     message: string,
     public readonly httpStatus: number | null = null,
   ) {
     super(message)
-    // Preserve legacy query-client narrowing until endpoint consumers have a dedicated error boundary.
-    this.code = code as PostHogQueryClientErrorCode
     this.name = 'PostHogQueryError'
   }
 }
@@ -209,140 +202,6 @@ export function createPostHogQueryClient({
         const providerError = new PostHogQueryError(
           'posthog_unavailable',
           'PostHog Query API is unavailable.',
-        )
-        audit({
-          provider: 'PostHog',
-          queryName: name,
-          request: { endpoint, payload },
-          response: { httpStatus: null, body: { error: providerError.code } },
-          latencyMs: Math.round(performance.now() - startedAt),
-          status: 'error',
-          outcome: providerError.code,
-        })
-        throw providerError
-      }
-    },
-  }
-}
-
-export function createPostHogEndpointClient({
-  fetchImpl = fetch,
-  audit = defaultAudit,
-  timeoutMs = 8_000,
-}: {
-  fetchImpl?: typeof fetch
-  audit?: Audit
-  timeoutMs?: number
-} = {}): {
-  runEndpoint(
-    name: string,
-    variables: Record<string, string>,
-  ): Promise<PostHogQueryResult>
-} {
-  return {
-    async runEndpoint(name, variables) {
-      const { projectId, personalApiKey, apiHost } = configuration()
-      const endpoint = `${apiHost}/api/projects/${encodeURIComponent(projectId)}/endpoints/${encodeURIComponent(name)}/run`
-      const payload = { variables }
-      const startedAt = performance.now()
-      const auditResponse: Record<string, unknown> = {}
-
-      try {
-        const auditedResponse = await auditedCall(
-          { provider: 'posthog', operation: 'run_query', kind: 'external' },
-          async () => {
-            const response = await fetchImpl(endpoint, {
-              method: 'POST',
-              headers: {
-                Accept: 'application/json',
-                Authorization: `Bearer ${personalApiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(payload),
-              signal: AbortSignal.timeout(timeoutMs),
-            })
-            const body: unknown = await response.json().catch(() => null)
-
-            auditResponse.httpStatus = response.status
-            if (!response.ok) {
-              auditResponse.status = 'provider_error'
-              return { response, body, auditStatus: 'failed' as const }
-            }
-
-            if (!validResult(body)) {
-              auditResponse.status = 'malformed'
-              return { response, body, auditStatus: 'malformed' as const }
-            }
-
-            auditResponse.status = 'success'
-            auditResponse.body = sanitizedResultForAudit(body)
-            return { response, body, auditStatus: 'succeeded' as const }
-          },
-          {
-            classify: (result) => result.auditStatus,
-            summary: { queryName: name, response: auditResponse },
-          },
-        )
-        const { response, body } = auditedResponse
-
-        if (!response.ok) {
-          const error = response.status === 404
-            ? new PostHogQueryError(
-                'endpoint_missing',
-                'PostHog endpoint does not exist.',
-                response.status,
-              )
-            : new PostHogQueryError(
-                'posthog_unavailable',
-                'PostHog Endpoint API is unavailable.',
-                response.status,
-              )
-          audit({
-            provider: 'PostHog',
-            queryName: name,
-            request: { endpoint, payload },
-            response: { httpStatus: response.status, body: { error: error.code } },
-            latencyMs: Math.round(performance.now() - startedAt),
-            status: 'error',
-            outcome: error.code,
-          })
-          throw error
-        }
-
-        if (!validResult(body)) {
-          const error = new PostHogQueryError(
-            'invalid_provider_response',
-            'PostHog returned an invalid endpoint response.',
-            response.status,
-          )
-          audit({
-            provider: 'PostHog',
-            queryName: name,
-            request: { endpoint, payload },
-            response: { httpStatus: response.status, body: { error: error.code } },
-            latencyMs: Math.round(performance.now() - startedAt),
-            status: 'error',
-            outcome: error.code,
-          })
-          throw error
-        }
-
-        audit({
-          provider: 'PostHog',
-          queryName: name,
-          request: { endpoint, payload },
-          response: { httpStatus: response.status, body: sanitizedResultForAudit(body) },
-          latencyMs: Math.round(performance.now() - startedAt),
-          status: 'success',
-          outcome: 'success',
-        })
-        return body
-      } catch (error) {
-        if (error instanceof PostHogQueryError) throw error
-
-        const providerError = new PostHogQueryError(
-          'posthog_unavailable',
-          'PostHog Endpoint API is unavailable.',
         )
         audit({
           provider: 'PostHog',

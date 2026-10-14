@@ -7,10 +7,9 @@ import {
   assertOgImage,
   assertOriginGuard,
   assertRobots,
-  assertSitemap,
   BROWSER_USER_AGENT,
   BRAND_URL_FLOOR,
-  runRepeatSafeAssertions,
+  runAllAssertions,
   type AssertionContext,
 } from "../surface-assertions";
 
@@ -94,18 +93,22 @@ const CATEGORY_PAGE_WITH_CANONICAL = `<!DOCTYPE html>
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-describe("assertSitemap", () => {
+describe("sitemap assertion", () => {
   it("sitemap assertion fails on zero brand URLs and passes above the floor", async () => {
+    const sitemapResults = (results: Awaited<ReturnType<typeof runAllAssertions>>) =>
+      results.filter((r) => r.name === "sitemap");
+
     const empty = createMockFetch([
       ["/sitemap.xml", { body: sitemap(0), status: 200 }],
     ]);
-    const failResults = await assertSitemap(ctx(empty.fetch));
+    const failResults = sitemapResults(await runAllAssertions(ctx(empty.fetch)));
     expect(failResults.some((r) => !r.ok)).toBe(true);
 
     const full = createMockFetch([
       ["/sitemap.xml", { body: sitemap(BRAND_URL_FLOOR + 1), status: 200 }],
     ]);
-    const passResults = await assertSitemap(ctx(full.fetch));
+    const passResults = sitemapResults(await runAllAssertions(ctx(full.fetch)));
+    expect(passResults.length).toBeGreaterThan(0);
     expect(passResults.every((r) => r.ok)).toBe(true);
   });
 });
@@ -384,52 +387,11 @@ describe("browser user agent", () => {
       ["/api/health", { body: HEALTHY_HEALTH_BODY, status: 200 }],
     ]);
 
-    await runRepeatSafeAssertions(ctx(mockFetchFn));
+    await runAllAssertions(ctx(mockFetchFn));
 
     expect(calls.length).toBeGreaterThan(0);
     for (const call of calls) {
       expect(call.headers.get("User-Agent")).toBe(BROWSER_USER_AGENT);
     }
-  });
-});
-
-describe("runRepeatSafeAssertions", () => {
-  it("repeatSafe subset excludes brand detail pages", async () => {
-    const { fetch: mockFetchFn, calls } = createMockFetch([
-      ["/sitemap.xml", { body: sitemap(BRAND_URL_FLOOR + 1), status: 200 }],
-      [
-        "/robots.txt",
-        { body: "User-agent: *\nAllow: /\n", status: 200 },
-      ],
-      [
-        "/en/brands",
-        {
-          body: '<html lang="en"><body>Brands</body></html>',
-          status: 200,
-        },
-      ],
-      ["/brands?category=", { body: CATEGORY_PAGE_WITH_CANONICAL, status: 200 }],
-      ["/api/health", { body: HEALTHY_HEALTH_BODY, status: 200 }],
-    ]);
-
-    const results = await runRepeatSafeAssertions(ctx(mockFetchFn));
-
-    // No brand detail pages should have been fetched
-    const brandDetailCalls = calls.filter(
-      (c) => /\/brands\/[a-z]/.test(c.url),
-    );
-    expect(brandDetailCalls).toHaveLength(0);
-
-    // Assertions should include sitemap, robots, locale, category, origin guard
-    const names = results.map((r) => r.name);
-    expect(names).not.toContain("og-image");
-    expect(names).not.toContain("brand-page");
-    // Must include the repeat-safe checks
-    expect(names).toContain("sitemap");
-    expect(names).toContain("robots");
-    expect(names).toContain("english-locale");
-    expect(names).toContain("origin-guard");
-    // Category produces results for each Accept header
-    expect(names.some((n) => n.startsWith("category"))).toBe(true);
   });
 });

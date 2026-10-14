@@ -4,13 +4,9 @@ import {
   type EnrichPhaseName,
 } from "@/lib/constants/enrich-phases";
 import {
-  latestPhaseOutputs,
-  createSupabasePhaseOutputStore,
-  type PhaseOutputStore,
   type PhaseOutputRow,
   isUsablePhaseOutput,
 } from "@/lib/services/enrich-blocks/phase-outputs";
-import type { EnrichmentTarget } from "@/lib/services/_shared/enrichment-target";
 import type { PhaseResult } from "@/lib/types/curation";
 import {
   PRODUCTS_NO_CHANNEL_SKIP_DETAIL,
@@ -26,30 +22,6 @@ import {
  * `curation_phase_outputs` rows via the phase-outputs store.
  */
 export type PhaseHistory = Map<EnrichPhaseName, Date>;
-
-/**
- * Fetches the phase-success history for a single target from
- * `curation_phase_outputs`. For each phase that ever succeeded, the map holds
- * the most recent success timestamp.
- *
- * Accepts an optional `store` for testing; defaults to the Supabase
- * implementation.
- */
-export async function fetchPhaseHistory(
-  targetType: string,
-  targetId: string,
-  store?: PhaseOutputStore,
-): Promise<PhaseHistory> {
-  const resolvedStore = store ?? createSupabasePhaseOutputStore();
-  const target: EnrichmentTarget = {
-    type: targetType as EnrichmentTarget["type"],
-    id: targetId,
-  };
-
-  const outputs = await latestPhaseOutputs(resolvedStore, target);
-
-  return phaseHistoryFromOutputs([...outputs.values()]);
-}
 
 export function phaseHistoryFromOutputs(rows: readonly PhaseOutputRow[]): PhaseHistory {
   const history: PhaseHistory = new Map();
@@ -103,36 +75,6 @@ export function checkPhaseSatisfaction(
   }
 
   return "satisfied";
-}
-
-export type PhaseSkipEntry = {
-  phase: EnrichPhaseName;
-  reason: "satisfied";
-};
-
-/**
- * Filters a list of resolved phases, removing those whose satisfaction
- * check holds. Returns the phases to execute and a list of skipped
- * phases with their skip reason (distinguishable from "not requested").
- */
-export function filterSatisfiedPhases(
-  phases: readonly EnrichPhaseName[],
-  history: PhaseHistory,
-  force?: boolean,
-): { execute: EnrichPhaseName[]; skipped: PhaseSkipEntry[] } {
-  const execute: EnrichPhaseName[] = [];
-  const skipped: PhaseSkipEntry[] = [];
-
-  for (const phase of phases) {
-    const result = checkPhaseSatisfaction(phase, history, force);
-    if (result === "satisfied") {
-      skipped.push({ phase, reason: "satisfied" });
-    } else {
-      execute.push(phase);
-    }
-  }
-
-  return { execute, skipped };
 }
 
 /**
