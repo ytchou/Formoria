@@ -124,19 +124,19 @@
     "heading": "你的品牌<wbr></wbr>怎麼出現在 Formoria",
     "heroSubtitle": "給品牌的說明",
     "heroDescription": "Formoria 整理台灣品牌的資料，讓訪客照自己的需要去找。品牌目錄依公開規則收錄；Formoria 選物由編輯獨立挑選；購買連結一律回到品牌自己的通路。",
-    "valueProp1Title": "依分類被找到",
+    "valueProp1Title": "訪客依分類找得到你",
     "valueProp1Description": "通過審核後，品牌會列在對應的分類裡，訪客可以依分類或搜尋找到。",
     "valueProp2Title": "Formoria 選物",
     "valueProp2Description": "選物由編輯獨立決定。品牌有沒有和我們聯絡、有沒有提供資料，都不會影響挑選。",
-    "valueProp3Title": "購買回到你的通路",
+    "valueProp3Title": "買東西，回到你自己的通路",
     "valueProp3Description": "購買連結一律連到品牌自己的官網或商店，Formoria 不經手任何交易。",
     "trustLabelsHeading": "Formoria 上的標示代表什麼",
     "exampleLabel": "範例：收錄品牌在目錄裡的樣子",
-    "trustLabelDirectory": "收錄品牌 — 符合收錄規則、通過審核的品牌。不代表推薦、認證或排名。",
-    "trustLabelSelection": "Formoria 選物 — 編輯為特定情境挑選的商品，每一件都寫出理由。品牌不能申請，也不能付費取得。",
-    "trustLabelProvided": "品牌提供 — 品牌給的資料或圖片，會標出來源。提供資料不代表一定刊出，也不能決定內容怎麼寫。",
-    "trustLabelSponsored": "贊助內容 — 付費或商業合作的內容，會清楚標示，和一般內容分開。",
-    "trustLabelSiteConfirmed": "站方確認 — Formoria 自己查核過的資料，多半是社群提供、經編輯確認的實體通路。",
+    "trustLabelDirectory": "收錄品牌：符合收錄規則、通過審核的品牌。不代表推薦、認證或排名。",
+    "trustLabelSelection": "Formoria 選物：編輯為特定情境挑選的商品，每一件都寫出理由。品牌不能申請，也不能付費取得。",
+    "trustLabelProvided": "品牌提供：品牌給的資料或圖片，會標出來源。提供資料不代表一定刊出，也不能決定內容怎麼寫。",
+    "trustLabelSponsored": "贊助內容：付費或商業合作的內容，會清楚標示，和一般內容分開。",
+    "trustLabelSiteConfirmed": "站方確認：Formoria 自己查核過的資料，多半是社群提供、經編輯確認的實體通路。",
     "howItWorksHeading": "收錄流程",
     "howItWorksStep1": "用推薦表單送出品牌名稱，附上品牌官網或線上商店的連結。",
     "howItWorksStep2": "Formoria 團隊審核資料，確認品牌符合收錄規則。",
@@ -889,7 +889,7 @@
       "description": "Formoria 常見問題：收錄與選物的差別、在哪裡買、怎麼推薦品牌、審核要多久。"
     },
     "title": "常見問題",
-    "intro": "這裡回答收錄規則、選物標示和去哪裡買最常被問到的問題。沒找到答案的話，請<contact>聯絡我們</contact>。",
+    "intro": "收錄規則、選物標示、要去哪裡買，這幾類問題最常有人問，答案都整理在這裡。沒找到的話，請<contact>聯絡我們</contact>。",
     "sections": {
       "navigation": "常見問題分類",
       "listing": "收錄與選物",
@@ -919,7 +919,7 @@
       },
       "madeInTaiwanBadge": {
         "question": "商品上的「台灣製造」代表什麼？",
-        "answer": "「台灣製造」只代表標出它的那件商品。商品要和經濟部「MIT 微笑標章」的最新登錄資料相符，或經檢查確認在台灣製造、主要材料也來自台灣，才會標上。收錄審核只確認品牌真實存在、符合收錄規則，不判斷商品產地。"
+        "answer": "「台灣製造」只說明標著它的那一件商品。商品要和經濟部「MIT 微笑標章」的最新登錄資料相符，或經檢查確認在台灣製造、主要材料也來自台灣，才會標上。收錄審核只確認品牌真實存在、符合收錄規則，不判斷商品產地。"
       },
       "howToSubmit": {
         "question": "怎麼推薦品牌給 Formoria？",
@@ -1037,7 +1037,7 @@
         },
         "share": {
           "value": "98%",
-          "label": "的企業是中小企業"
+          "label": "的台灣企業是中小企業"
         },
         "employment": {
           "value": "近 8 成",
@@ -1055,14 +1055,14 @@
         },
         "noPayToWin": {
           "lead": "付錢買不到位置。",
-          "body": "付費不影響品牌是否被收錄、什麼被選進來，或先後排列。付費或商業合作的內容一律清楚標示，並與一般內容分開。"
+          "body": "有沒有付費，都不影響品牌能不能收錄、哪些商品被選進來，以及排列的先後。付費或商業合作的內容一律清楚標示，並與一般內容分開。"
         },
         "incomplete": {
           "lead": "找不到，不代表不存在。",
           "body": "目錄收錄符合公開規則的品牌，還在持續增加。選物是另一回事：是我們刻意挑出來、寫下理由的少數商品。"
         },
         "judgment": {
-          "lead": "判斷是我們的，而且會說明理由。",
+          "lead": "怎麼挑是我們的判斷，理由也會寫出來。",
           "body": "Formoria 有觀點，也會把挑選的理由寫出來；我們不假裝自己是一份中立的資料庫。"
         }
       }
@@ -1241,14 +1241,14 @@
     },
     "overview": {
       "recommendPoint1": "不用登入，也不用註冊帳號",
-      "recommendPoint2": "填寫品牌名稱、網址、認識品牌的方式，並同意隱私權政策",
+      "recommendPoint2": "填品牌名稱和網址，說說你怎麼認識這個品牌，再勾選同意隱私權政策",
       "recommendPoint3": "審核通過後收錄進品牌目錄",
       "ownerNote": "是品牌方嗎？目前也請用這份表單推薦，審核通過後我們會寫信給你，再談品牌頁怎麼管理。"
     },
     "attribution": {
       "bought_product": "買過他們的東西",
       "saw_at_market": "在市集或實體通路看到",
-      "found_online": "在網路上發現",
+      "found_online": "在網路上看到",
       "friend_recommended": "朋友推薦",
       "work_there": "我在這個品牌工作"
     },
@@ -1271,15 +1271,15 @@
       "subheading": "我們已收到你的品牌推薦",
       "neutral": {
         "metadata": {
-          "title": "推薦品牌之後會怎樣",
+          "title": "推薦之後的流程",
           "description": "推薦的品牌會先經過審核，通過後收錄進品牌目錄。"
         },
-        "heading": "推薦品牌之後會怎樣"
+        "heading": "推薦之後的流程"
       },
       "timeline": {
         "review": {
           "label": "審核中",
-          "description": "審核通常約需 7 個工作天。"
+          "description": "審核通常約 7 個工作天。"
         },
         "result": {
           "label": "收錄進目錄",
@@ -1318,7 +1318,7 @@
     },
     "recommendForm": {
       "heading": "推薦品牌",
-      "subheading": "告訴我們品牌名稱和網址，我們審核後會決定是否收錄。",
+      "subheading": "告訴我們品牌名稱和網址，我們審核後再決定要不要收錄。",
       "websiteLabel": "品牌官網",
       "websiteHint": "填品牌官網；沒有官網的話，Instagram 或 Facebook 也可以。",
       "websitePlaceholder": "https://brand.example",
@@ -1329,7 +1329,7 @@
       "guestEmailHint": "想收到審核結果通知的話，請留下電子郵件。",
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "補充說明（選填）",
-      "descriptionHint": "如果知道品牌的特色、商品或背景，可以寫在這裡，幫我們審核。",
+      "descriptionHint": "如果知道品牌的特色、商品或背景，可以寫在這裡，我們審核時會參考。",
       "descriptionPlaceholder": "例：品牌在台南設計，和台灣在地工坊合作生產。",
       "sourceLabel": "你怎麼認識這個品牌？",
       "sourcePlaceholder": "請選擇",

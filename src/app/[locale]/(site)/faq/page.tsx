@@ -5,6 +5,7 @@ import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
 import { PageShell } from '@/components/ui/page-shell'
+import { PageToc } from '@/components/ui/page-toc'
 import { routes } from '@/lib/routes'
 import { visibleCategoryList } from '@/lib/taxonomy/category-list'
 
@@ -87,20 +88,14 @@ export default async function FaqPage({ params }: PageProps) {
           <h1 id="faq-heading" className="type-page-title">
             {t('title')}
           </h1>
-          <nav
-            aria-label={t('sections.navigation')}
-            className="space-y-1 border-l border-rule pl-3"
-          >
-            {sections.map(({ key }) => (
-              <a
-                key={key}
-                href={`#${key}`}
-                className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {t(`sections.${key}`)}
-              </a>
-            ))}
-          </nav>
+          <PageToc
+            variant="rail"
+            label={t('sections.navigation')}
+            items={sections.map(({ key }) => ({
+              id: key,
+              label: t(`sections.${key}`),
+            }))}
+          />
           <p className="type-body-sm">
             {t.rich('intro', {
               contact: (chunks) => (

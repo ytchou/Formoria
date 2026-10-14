@@ -11,6 +11,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { routes } from "@/lib/routes";
 import { getRandomBrands } from "@/lib/services/brands";
+import { splitTrustLabel } from "@/lib/text/split-trust-label";
 
 // Bounds the edge copy to an hour under the Cloudflare HTML cache rule
 // (DEV-1961); without it Next sends s-maxage=31536000.
@@ -157,10 +158,7 @@ export default async function BrandsJoinPage({ params }: PageProps) {
           </div>
           <dl className="space-y-6">
             {TRUST_LABEL_KEYS.map((key) => {
-              const text = t(key);
-              const dashIndex = text.indexOf(" — ");
-              const term = dashIndex >= 0 ? text.slice(0, dashIndex) : text;
-              const desc = dashIndex >= 0 ? text.slice(dashIndex + 3) : null;
+              const { term, description: desc } = splitTrustLabel(t(key));
               return (
                 <div key={key}>
                   <dt className="type-body font-semibold">{term}</dt>
