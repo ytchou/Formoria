@@ -16,28 +16,12 @@
  * never assembled from the numbers below.
  */
 
-/** §7b "Image hover": scale 1.00→1.03 over 300ms on the image only. */
-export const MEDIA_HOVER = {
-  scale: 1.03,
-  durationMs: 300,
-  easing: "var(--ease-settle)",
-} as const;
-
-/** §7b "Colour and outline on hover/focus": 150ms, `--ease-settle`. */
-export const COLOR_TRANSITION = {
-  durationMs: 150,
-  easing: "var(--ease-settle)",
-} as const;
-
-/**
- * Press on controls: scale 0.96 over 150ms ease-out. Cards never scale on
- * press. Not yet a §7b row (DEV-2022 flags the amendment).
+/*
+ * The values: image hover scale 1.00→1.03 over 300ms `--ease-settle`, image
+ * only (§7b); colour 150ms `--ease-settle` (§7b); control press scale 0.96
+ * over 150ms ease-out, cards never scale on press (not yet a §7b row —
+ * DEV-2022 flags the amendment).
  */
-export const PRESS = {
-  scale: 0.96,
-  durationMs: 150,
-  easing: "ease-out",
-} as const;
 
 /** The image inside a `group` card link. Captions never move. */
 export const mediaHoverImage =

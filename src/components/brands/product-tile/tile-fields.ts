@@ -42,7 +42,7 @@ export type SelectedProductTileLabels = {
 /** The brand-page fields a tile's outbound link falls back to. */
 export type TileBrand = BrandVisitLinkFields & { slug: string; id?: string };
 
-export type OutboundLinkType = "curated_product" | "brand_site";
+type OutboundLinkType = "curated_product" | "brand_site";
 
 export type TileFields = {
   name: string;
