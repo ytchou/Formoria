@@ -10,7 +10,7 @@ import { ProductShelf } from "./product-shelf";
 
 export type BrandSelectedProductsProps = {
   locale: AppLocale;
-  brand: BrandVisitLinkFields & { slug: string };
+  brand: BrandVisitLinkFields & { slug: string; id?: string };
   products: CuratedProduct[];
 };
 

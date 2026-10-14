@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { CuratedProduct } from "@/lib/services/curated-products";
 import enMessages from "../../../../messages/en.json";
+import { trackExternalLinkClicked } from "@/lib/analytics";
+import { mediaHoverImage, mediaHoverTitle } from "@/lib/design/media-hover";
 import { subcategoryDisplayLabel } from "@/lib/taxonomy/ontology";
 import { SelectedProductTile } from "../selected-product-tile";
 
@@ -39,6 +41,7 @@ vi.mock("@/i18n/navigation", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   trackCuratedProductClicked: vi.fn(),
+  trackExternalLinkClicked: vi.fn(),
   trackOutboundClick: vi.fn(),
 }));
 
@@ -364,15 +367,30 @@ describe("SelectedProductTile", () => {
 
   it("covers rather than contains the trail image", () => {
     // DS-26: the trail is a three-up grid, so products sit side by side and a
-    // letterboxed edge breaks the row (DESIGN.md §6). A covered image only
-    // shows its box while loading, so the trail takes the same
-    // `bg-surface-deep` plate as every other mode.
+    // letterboxed edge breaks the row (DESIGN.md §6). The trail takes the
+    // same paper frame as every other card (DS-04, EL-08).
     const { view, img, box } = renderImageBox("trail");
 
     expect(img.className).toContain("object-cover");
     expect(img.className).not.toContain("object-contain");
-    expect(box.className).toContain("bg-surface-deep");
+    expect(box.className).toContain("bg-surface");
     view.unmount();
+  });
+
+  it("frames trail and outbound tiles like every other card, without a card border", () => {
+    // DS-04: one photo + caption grammar. The surfaceCard border and padding
+    // are gone; the frame carries the hairline outline instead.
+    for (const mode of ["trail", "outbound"] as const) {
+      const { view, img, box } = renderImageBox(mode);
+      const li = view.container.querySelector("li")!;
+      expect(li.className).not.toMatch(/\bborder\b/);
+      expect(li.className).not.toMatch(/\bp-4\b/);
+      expect(box.className).toContain("rounded-surface");
+      expect(box.className).toContain("outline-ink/10");
+      expect(box.className).toContain("isolate");
+      expect(img.className).toContain("mix-blend-multiply");
+      view.unmount();
+    }
   });
 
   it("serves image hints for the trail and brand-page grids", () => {
@@ -390,25 +408,19 @@ describe("SelectedProductTile", () => {
     outbound.view.unmount();
   });
 
-  it("leaves the wall image box untouched by the per-surface branching", () => {
-    // DEV-1519 requires `wallContent` to stay byte-identical, and the new
-    // per-surface branching sits directly below it sharing the same
-    // `imageSrc`/`BrandImageFallback` shape. Without this, a refactor folding
-    // the wall into that branching would pass every other spec here while
-    // silently changing the wall's fit, its box tone or its `sizes`.
-    //
-    // This is also where the reduced-motion kill-switch is now pinned: the
-    // wall is the only surface that animates the image. `0.01ms` rather than
-    // `none` is the documented idiom — a zero-length transition still fires
-    // its events, where `none` removes them.
+  it("keeps the wall image's fit, frame and sizes on the shared grammar", () => {
+    // The wall shares the product-card frame (DS-04): cover fit, the paper
+    // frame, and the one media-hover recipe (EL-05), whose scale is behind
+    // `motion-safe:` so reduced motion removes it rather than jumping to it.
     const { container, unmount } = renderWallTile();
     const img = container.querySelector("img")!;
     const box = img.parentElement!;
 
     expect(img.className).toContain("object-cover");
-    expect(img.className).toContain("transition-transform");
-    expect(img.className).toContain("motion-reduce:duration-[0.01ms]");
-    expect(box.className).toContain("bg-surface-deep");
+    expect(img.className).toContain(mediaHoverImage);
+    expect(img.className).toContain("motion-safe:group-hover:scale-[1.03]");
+    expect(img.className).toContain("mix-blend-multiply");
+    expect(box.className).toContain("bg-surface");
     expect(img.getAttribute("sizes")).toBe(
       "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1600px) 25vw, 362px",
     );
@@ -434,6 +446,28 @@ describe("SelectedProductTile", () => {
     expect(
       box.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("orders the wall caption brand, name, then subcategory", () => {
+    // DS-04: one caption order for every card.
+    renderWallTile();
+
+    const name = screen.getByRole("heading", { name: "Pour-over kettle" });
+    const brandLine = screen.getByText("Kettle Co");
+    const subcategory = screen.getByText(
+      subcategoryDisplayLabel("tableware", "en"),
+    );
+    expect(
+      brandLine.compareDocumentPosition(name) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      name.compareDocumentPosition(subcategory) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(brandLine.className).not.toContain("text-accent");
+    expect(name.className).toContain(mediaHoverTitle);
+    expect(name.className).not.toContain("group-hover:underline");
   });
 
   it("insets the wall caption when the tile sits on a ground plate", () => {
@@ -479,7 +513,25 @@ describe("SelectedProductTile", () => {
     expect(container.querySelector('a[href*="#product-"]')).toBeNull();
     const image = container.querySelector("img")!;
     expect(image.className).toContain("object-cover");
-    expect(image.className).toContain("group-hover:scale-[1.03]");
+    expect(image.className).toContain(mediaHoverImage);
+  });
+
+  it("tracks a shelf outbound click with the brand and the product (BD-02)", () => {
+    vi.mocked(trackExternalLinkClicked).mockClear();
+    const { container } = renderWallTile({
+      mode: "shelf",
+      brand: { ...brand, id: "brand-1" },
+    });
+
+    fireEvent.click(container.querySelector("a")!);
+    expect(trackExternalLinkClicked).toHaveBeenCalledWith(
+      "kettle-co",
+      "curated_product",
+      "/brands/kettle-co",
+      "selected_product",
+      "brand-1",
+      "kettle",
+    );
   });
 
   it("clamps the shelf name to two lines with a two-line floor", () => {
@@ -724,6 +776,42 @@ describe("SelectedProductTile trail note", () => {
     view.unmount();
   });
 
+  it("tracks the trail outbound click with the product key", () => {
+    vi.mocked(trackExternalLinkClicked).mockClear();
+    const view = renderTrailTile({
+      tracking: {
+        brandSlug: "kettle-co",
+        position: 0,
+        surface: "trail:t:s",
+        referrerPage: "/style/t",
+        brandId: "brand-1",
+      },
+    });
+
+    fireEvent.click(view.getByRole("link", { name: /Pour-over kettle/ }));
+    expect(trackExternalLinkClicked).toHaveBeenCalledWith(
+      "kettle-co",
+      "curated_product",
+      "/style/t",
+      "trail:t:s",
+      "brand-1",
+      "kettle",
+    );
+    view.unmount();
+  });
+
+  it("puts the brand line above the name (DS-04)", () => {
+    const view = renderTrailTile();
+
+    const brandLine = view.getByRole("link", { name: "Kettle Co" });
+    const name = view.getByRole("heading", { name: "Pour-over kettle" });
+    expect(
+      brandLine.compareDocumentPosition(name) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    view.unmount();
+  });
+
   it("keeps the brand-page route on the name when there is no outbound link", () => {
     const view = renderTrailTile({
       product: buildProduct({ officialUrl: null }),
@@ -787,5 +875,46 @@ describe("SelectedProductTile guide link", () => {
     const classes = link.className.split(/\s+/);
     expect(classes).toContain("after:min-h-11");
     expect(classes).toContain("text-accent");
+  });
+});
+
+// BD-13: a zh name breaks only at its separators, never mid-word.
+describe("SelectedProductTile name breaks", () => {
+  function nameHeading(nameZh: string, mode: "wall" | "trail" | "shelf") {
+    const view = render(
+      <ul>
+        <SelectedProductTile
+          locale="zh-TW"
+          product={buildProduct({ nameZh })}
+          labels={labels}
+          mode={mode}
+          brand={brand}
+          brandSlug="kettle-co"
+          brandName="Kettle Co"
+        />
+      </ul>,
+    );
+    return { view, heading: view.container.querySelector("h3")! };
+  }
+
+  it("keeps words whole and breaks after a separator", () => {
+    for (const mode of ["wall", "trail", "shelf"] as const) {
+      const { view, heading } = nameHeading("木質托盤・小", mode);
+      expect(heading.querySelectorAll("wbr")).toHaveLength(1);
+      expect(heading.textContent).toBe("木質托盤・小");
+      expect(heading.className).toContain("[&:lang(zh)]:break-keep");
+      expect(heading.className).toContain("[&:lang(zh)]:wrap-break-word");
+      view.unmount();
+    }
+  });
+
+  it("leaves a name without separators on today's wrapping", () => {
+    // keep-all on an unpunctuated zh name makes it one word that
+    // overflow-wrap splits at the line edge — worse than the balanced wrap.
+    const { view, heading } = nameHeading("手沖壺", "wall");
+    expect(heading.querySelector("wbr")).toBeNull();
+    expect(heading.className).not.toContain("break-keep");
+    expect(heading.className).toContain("[&:lang(zh)]:wrap-break-word");
+    view.unmount();
   });
 });

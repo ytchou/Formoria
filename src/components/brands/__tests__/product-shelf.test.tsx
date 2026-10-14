@@ -66,6 +66,7 @@ vi.mock("@/i18n/navigation", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   trackCuratedProductClicked: vi.fn(),
+  trackExternalLinkClicked: vi.fn(),
   trackOutboundClick: vi.fn(),
 }));
 

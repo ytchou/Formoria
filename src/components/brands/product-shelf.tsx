@@ -31,7 +31,8 @@ export type ProductShelfProps = {
   allLabel: string;
   labels: SelectedProductTileLabels;
   locale: AppLocale;
-  brand: BrandVisitLinkFields & { slug: string };
+  /** `id` attributes the shelf's outbound clicks to the brand (BD-02). */
+  brand: BrandVisitLinkFields & { slug: string; id?: string };
   heading: string;
   note: string;
   ariaLabel: string;

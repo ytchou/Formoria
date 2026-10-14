@@ -224,7 +224,10 @@ export function trackExternalLinkClicked(
   referrerPage: string,
   surface: ExternalLinkSurface,
   brandId?: string,
+  productKey?: string,
 ) {
+  // Spread, never `product_key: undefined`: a brand-level link sends no key.
+  const productProps = productKey ? { product_key: productKey } : {};
   // NOT `surface`: posthog-privacy.ts's before_send unconditionally overwrites a
   // top-level `surface` property with 'public' | 'product' on every event, and
   // posthog-queries.ts filters owner analytics on surface = 'public'. Reusing the
@@ -234,6 +237,7 @@ export function trackExternalLinkClicked(
     link_type: linkType,
     referrer_page: referrerPage,
     link_surface: surface,
+    ...productProps,
   });
   if (brandId) {
     capturePostHogEvent(ANALYTICS_EVENTS.EXTERNAL_LINK_CLICKED, {
@@ -241,6 +245,7 @@ export function trackExternalLinkClicked(
       brand_slug: slug,
       link_type: linkType,
       link_surface: surface,
+      ...productProps,
     });
   }
 }
