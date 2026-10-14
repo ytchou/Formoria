@@ -83,6 +83,8 @@ const ALLOWLIST = [
   "lib/services/enrich-phases/detect.ts",
   // SERP query string uses Chinese keyword '台灣' (not UI copy).
   "lib/services/curation-operations.ts",
+  // SERP query string uses Chinese keyword '台灣' (not UI copy); moved out of curation-operations.ts.
+  "lib/services/enrich-blocks/blocks/link-expansion-gather.ts",
   // Registry field names and origin regexes are machine-readable evidence, not UI copy.
   "lib/services/mit-registry.ts",
   "lib/services/curated-products/origin-qualification.ts",
