@@ -148,7 +148,7 @@ export async function generateMetadata({
     // The 1200x630 brand card served under the page itself (BD-11); the
     // twitter-image route re-exports the same image.
     image: (canonical) => ({
-      url: `${canonical}/opengraph-image`,
+      url: canonical + "/opengraph-image",
       alt: brand.name,
       width: 1200,
       height: 630,
