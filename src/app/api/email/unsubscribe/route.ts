@@ -1,5 +1,5 @@
 import { withAuditScope } from "@/lib/audit/scope";
-import { captureException } from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { NextRequest } from "next/server";
 import { unsubscribeByToken } from "@/lib/services/email-lifecycle";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -24,7 +24,7 @@ async function unsubscribe(request: NextRequest) {
       result.success ? 200 : 404,
     );
   } catch (error) {
-    captureException(error);
+    reportError(error);
     return emailActionResponse(locale, "ownerUnsubscribe", "unavailable", 503);
   }
 }

@@ -1,4 +1,4 @@
-import { captureException } from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { isBearerAuthorized } from "@/lib/internal/personal-os-auth";
@@ -93,7 +93,7 @@ async function parseBody(
   } catch (parseError) {
     // The caller is already authenticated, so malformed JSON is an agent bug
     // worth seeing, not anonymous noise.
-    captureException(parseError, {
+    reportError(parseError, {
       level: "warning",
       tags: { scope: "internal", route: "e2e-dispatch", step: "parse" },
     });
@@ -164,7 +164,7 @@ export function createE2eDispatchHandler(
       );
       return NextResponse.json({ ok: true, updated });
     } catch (err) {
-      captureException(err, {
+      reportError(err, {
         tags: { scope: "internal", route: "e2e-dispatch", action: body.action },
       });
       console.error("[e2e-dispatch] service call failed:", err);
