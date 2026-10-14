@@ -17,9 +17,8 @@ import {
 } from "@/lib/services/curated-products";
 import { buildHomeGridSlots } from "@/lib/curated-products/home-wall";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
-import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
-import { buildOpenGraph } from "@/lib/seo/open-graph";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { getAllStories } from "@/lib/services/stories";
 import { getAllTrails } from "@/lib/services/trails";
 import { toStoryCard } from "@/lib/stories/story-card";
@@ -73,25 +72,15 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
-  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations("landing.metadata");
-  const { canonical, languages } = buildAlternates("/", safeLocale);
 
-  const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
-  const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
-
-  return {
-    title: { absolute: t("title") },
+  return buildPageMetadata({
+    locale,
+    path: "/",
+    title: t("title"),
     description: t("description"),
-    alternates: { canonical, languages },
-    ...buildOpenGraph({
-      title: t("title"),
-      description: t("description"),
-      url: canonical,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-  };
+    absoluteTitle: true,
+  });
 }
 
 export default async function LandingPage({ params }: PageProps) {

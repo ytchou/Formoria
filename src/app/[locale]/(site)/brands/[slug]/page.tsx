@@ -15,6 +15,7 @@ import {
 import type { BreadcrumbItem } from "@/lib/json-ld";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import { BrandViewTracker } from "@/components/brands/brand-view-tracker";
 import { BrandEngagementTracker } from "@/components/brands/brand-engagement-tracker";
@@ -45,7 +46,6 @@ import { getBrandEditorialAppearances } from "@/lib/services/editorial-links";
 import { PageShell } from "@/components/ui/page-shell";
 import { Typography } from "@/components/ui/typography";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { getBrandVisitLink } from "@/lib/brands/link-fallback";
 import { renderBrandFaq } from "@/lib/services/brand-faq";
@@ -126,20 +126,6 @@ export async function generateMetadata({
     ...(indexability["zh-TW"] ? (["zh-TW"] as const) : []),
     ...(indexability.en ? (["en"] as const) : []),
   ];
-  const heroImageUrl = safeImageSrc(brand.heroImageUrl);
-  const heroImageMetadata = brand.heroImageMetadata;
-  const heroImageAlt = brand.name;
-  const heroImageDimensions =
-    heroImageMetadata?.width && heroImageMetadata.height
-      ? { width: heroImageMetadata.width, height: heroImageMetadata.height }
-      : {};
-  const { canonical, languages } = buildAlternates(
-    routes.brand(brand.slug),
-    safeLocale,
-    availableLocales,
-  );
-  const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
-  const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
   const rawDescription =
     safeLocale === "en"
       ? (brand.blurbEn ??
@@ -150,34 +136,25 @@ export async function generateMetadata({
   const description = truncateForMeta(
     rawDescription || t("metadata.fallbackDescription", { name: brand.name }),
   );
-  return {
+  return buildPageMetadata({
+    locale: safeLocale,
+    path: routes.brand(brand.slug),
+    availableLocales,
     title: brand.name,
     description,
-    alternates: { canonical, languages },
     robots: indexability[safeLocale]
       ? undefined
       : { index: false, follow: true },
-    openGraph: {
-      type: "website",
-      title: brand.name,
-      description,
-      url: canonical,
-      images: heroImageUrl
-        ? [{ url: heroImageUrl, alt: heroImageAlt, ...heroImageDimensions }]
-        : undefined,
-      locale: ogLocale,
-      alternateLocale: availableLocales.includes(
-        safeLocale === "en" ? "zh-TW" : "en",
-      )
-        ? [ogAlternateLocale]
-        : undefined,
-    },
-    twitter: {
-      title: brand.name,
-      description,
-      images: heroImageUrl ?? undefined,
-    },
-  };
+    // The 1200x630 brand card served under the page itself (BD-11); the
+    // twitter-image route re-exports the same image.
+    image: (canonical) => ({
+      url: `${canonical}/opengraph-image`,
+      alt: brand.name,
+      width: 1200,
+      height: 630,
+      type: "image/png",
+    }),
+  });
 }
 
 export default async function BrandDetailPage({ params }: PageProps) {

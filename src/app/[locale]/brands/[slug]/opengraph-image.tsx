@@ -3,6 +3,7 @@ import { brand } from '@/lib/brand/colors'
 import { OgLayout } from '@/lib/brand/og-layout'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 import { getBrandBySlug } from '@/lib/services/brands'
+import { safeDecodeSlug } from '@/lib/url'
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
@@ -12,13 +13,16 @@ export default async function OgImage({
 }: {
   params: Promise<{ locale: string; slug: string }>
 }) {
-  const { locale, slug } = await params
+  const { locale, slug: rawSlug } = await params
+  // CJK slugs arrive percent-encoded; decode as the page does. A malformed
+  // escape keeps the raw slug, misses the lookup, and renders the generic card.
+  const slug = safeDecodeSlug(rawSlug) ?? rawSlug
   const [fonts, markDataUri] = await Promise.all([getOgFonts(), getOgMarkDataUri()])
 
   try {
     const brandDetail = await getBrandBySlug(slug)
     const brandLabel = locale === 'en' ? 'Taiwanese brand' : '台灣品牌'
-    const categoryName = brandDetail.categoryLabel ?? 'Taiwan brand'
+    const categoryName = brandDetail.categoryLabel ?? (locale === 'en' ? 'Taiwan brand' : '台灣品牌')
 
     return new ImageResponse(
       (

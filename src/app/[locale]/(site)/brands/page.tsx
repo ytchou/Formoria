@@ -15,7 +15,7 @@ import {
   type DirectorySearchParams,
 } from "@/lib/seo/directory-filters";
 import type { Locale } from "@/lib/seo/alternates";
-import { buildOpenGraph } from "@/lib/seo/open-graph";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { resolveDirectorySeo } from "@/lib/seo/directory-indexation";
 import { truncateForMeta } from "@/lib/text/truncate-for-meta";
 
@@ -61,8 +61,6 @@ export async function generateMetadata({
   );
   const activeSubcategory =
     subcategory.length === 1 ? subcategory[0] : undefined;
-  const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
-  const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
   const seo = resolveDirectorySeo({
     locale: safeLocale,
     surface: "brands",
@@ -117,43 +115,29 @@ export async function generateMetadata({
       : catT.has(`${landingKey}.title`)
         ? catT(`${landingKey}.title`)
         : catT("metadata.title", { displayName });
-    const canonical = seo.canonical;
-    const languages = seo.languages;
 
-    return {
-      title: { absolute: title },
+    return buildPageMetadata({
+      locale: safeLocale,
+      title,
       description,
-      alternates: { canonical, ...(languages ? { languages } : {}) },
-      ...(seo.robots ? { robots: seo.robots } : {}),
-      ...buildOpenGraph({
-        title,
-        description,
-        url: canonical,
-        locale: ogLocale,
-        alternateLocale: [ogAlternateLocale],
-      }),
-    };
+      absoluteTitle: true,
+      alternates: { canonical: seo.canonical, languages: seo.languages },
+      robots: seo.robots,
+    });
   }
 
   const brandsT = await getTranslations({
     locale: safeLocale,
     namespace: "brands",
   });
-  const canonical = seo.canonical;
-  const languages = seo.languages;
-  return {
-    title: { absolute: brandsT("metadata.title") },
+  return buildPageMetadata({
+    locale: safeLocale,
+    title: brandsT("metadata.title"),
     description: brandsT("metadata.description"),
-    alternates: { canonical, ...(languages ? { languages } : {}) },
-    ...(seo.robots ? { robots: seo.robots } : {}),
-    ...buildOpenGraph({
-      title: brandsT("metadata.title"),
-      description: brandsT("metadata.description"),
-      url: canonical,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-  };
+    absoluteTitle: true,
+    alternates: { canonical: seo.canonical, languages: seo.languages },
+    robots: seo.robots,
+  });
 }
 
 export default async function BrandsPage({

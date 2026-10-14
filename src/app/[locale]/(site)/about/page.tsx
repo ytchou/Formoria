@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { buildOrganizationJsonLd, safeJsonLdStringify } from "@/lib/json-ld";
-import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
-import { buildOpenGraph } from "@/lib/seo/open-graph";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { Link } from "@/i18n/navigation";
 import AboutHero from "@/components/about/about-hero";
 import { PullQuote } from "@/components/stories/pull-quote";
@@ -28,26 +27,14 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
-  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations("about.metadata");
-  const title = t("title");
-  const description = t("description");
-  const { canonical, languages } = buildAlternates(routes.about(), safeLocale);
-  const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
-  const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
 
-  return {
-    title,
-    description,
-    alternates: { canonical, languages },
-    ...buildOpenGraph({
-      title,
-      description,
-      url: canonical,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-  };
+  return buildPageMetadata({
+    locale,
+    path: routes.about(),
+    title: t("title"),
+    description: t("description"),
+  });
 }
 
 const SCENE_KEYS = [

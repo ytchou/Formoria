@@ -11,6 +11,7 @@ import {
   type JsonLdObject,
 } from "@/lib/json-ld";
 import type { Brand } from "@/lib/types";
+import { ONLINE_STORES } from "@/lib/brands/online-stores";
 import enMessages from "../../messages/en.json";
 import zhMessages from "../../messages/zh-TW.json";
 import { getSiteUrl } from "@/lib/site-url";
@@ -109,6 +110,63 @@ describe("buildBrandJsonLd", () => {
     expect(jsonLd.sameAs).toContain("https://facebook.com/chatzutang");
     expect(jsonLd.sameAs).toContain("https://pinkoi.com/chatzutang");
     expect(jsonLd.sameAs).toContain("https://shopee.tw/chatzutang");
+  });
+
+  // BD-12: Organization.url names the brand's own site, never a marketplace.
+  describe("Organization url", () => {
+    it("omits url when there is no own site, keeping the marketplace in sameAs", () => {
+      const jsonLd = buildBrandJsonLd(
+        makeBrand({
+          purchaseWebsite: null,
+          purchasePinkoi: null,
+          purchaseShopee: "https://s.shopee.tw/abc123",
+        }),
+      );
+
+      expect(jsonLd.url).toBeUndefined();
+      expect(jsonLd.sameAs).toContain("https://s.shopee.tw/abc123");
+    });
+
+    it("omits url when purchaseWebsite is a marketplace URL", () => {
+      const jsonLd = buildBrandJsonLd(
+        makeBrand({ purchaseWebsite: "https://shopee.tw/foo" }),
+      );
+
+      expect(jsonLd.url).toBeUndefined();
+      expect(jsonLd.sameAs).toContain("https://shopee.tw/foo");
+    });
+
+    it("uses the brand's own site as url", () => {
+      const jsonLd = buildBrandJsonLd(
+        makeBrand({ purchaseWebsite: "https://chatzutang.com" }),
+      );
+
+      expect(jsonLd.url).toBe("https://chatzutang.com");
+    });
+
+    it("never publishes any registered marketplace host as url", () => {
+      const marketplaceHosts = ONLINE_STORES.flatMap((store) => store.hosts);
+      expect(marketplaceHosts.length).toBeGreaterThan(0);
+
+      for (const host of marketplaceHosts) {
+        const marketplaceUrl = `https://${host}/chatzutang`;
+        for (const brand of [
+          makeBrand({
+            purchaseWebsite: null,
+            purchasePinkoi: marketplaceUrl,
+            purchaseShopee: marketplaceUrl,
+            purchaseMyship: marketplaceUrl,
+          }),
+          makeBrand({ purchaseWebsite: marketplaceUrl }),
+        ]) {
+          const url: unknown = buildBrandJsonLd(brand).url;
+          if (url === undefined) continue;
+          expect(typeof url).toBe("string");
+          const urlHost = new URL(url as string).hostname;
+          expect(urlHost === host || urlHost.endsWith(`.${host}`)).toBe(false);
+        }
+      }
+    });
   });
 
   describe("buildBrandJsonLd audit", () => {
