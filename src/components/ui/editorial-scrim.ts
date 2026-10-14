@@ -8,15 +8,19 @@
  * ink/92 at the foot to ink/82 ten rem from the top of the copy block, then
  * eases out to transparent over the last ten rem.
  *
- * Pair it with `editorialScrimPad` on the same element: the padding is the
- * runway the fade needs, so every text line still sits on ink/82 or darker.
- * On-ink text over ink/82 on pure white measures ≥ 5.8:1 (DESIGN.md §8
- * TrailCard: "a gradient scrim concentrated behind the copy").
+ * Render it as ONE layer, `cn(editorialScrimLayer, editorialScrim)` on an
+ * `aria-hidden` span inside the (relative) copy block, with the copy above it.
+ * The layer starts 10rem (12rem from md) above the copy, so the fade has its
+ * runway and every text line still sits on ink/82 or darker. It is absolutely
+ * positioned, not padding, so it never grows a band past its aspect box
+ * (DESIGN.md §8 TrailCard). On-ink text over ink/82 on pure white measures
+ * ≥ 5.8:1 (§8: "a gradient scrim concentrated behind the copy").
  *
  * Tailwind reads these literals at build time, so they stay whole strings.
  */
 export const editorialScrim =
   "bg-[linear-gradient(in_oklab_to_top,color-mix(in_oklab,var(--ink)_92%,transparent)_0%,color-mix(in_oklab,var(--ink)_82%,transparent)_calc(100%-10rem),color-mix(in_oklab,var(--ink)_55%,transparent)_calc(100%-6rem),color-mix(in_oklab,var(--ink)_22%,transparent)_calc(100%-3rem),transparent_100%)]";
 
-/** The fade's runway above the copy. Never remove it while using the scrim. */
-export const editorialScrimPad = "pt-40 md:pt-48";
+/** Position of the scrim layer: the copy block plus the fade's runway above it. */
+export const editorialScrimLayer =
+  "pointer-events-none absolute inset-x-0 bottom-0 -top-40 md:-top-48";
