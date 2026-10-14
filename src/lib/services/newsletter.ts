@@ -13,7 +13,7 @@ export const VALID_INTERESTS = [
 
 export type NewsletterInterest = (typeof VALID_INTERESTS)[number]
 
-export type NewsletterSubscriber = {
+type NewsletterSubscriber = {
   id: string
   email: string
   name: string | null
@@ -135,7 +135,7 @@ export type SubscriberStats = {
   confirmationRate: number
 }
 
-export type NewsletterSubscriberStatus = 'active' | 'pending' | 'unsubscribed'
+type NewsletterSubscriberStatus ='active' | 'pending' | 'unsubscribed'
 
 export type AdminNewsletterSubscriber = Pick<
   NewsletterSubscriber,
