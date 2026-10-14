@@ -999,3 +999,71 @@ describe("the soft-limit budget a verified visitor gets", () => {
     });
   });
 });
+
+describe("PROXY_PIPELINE", () => {
+  async function loadPipeline() {
+    const { PROXY_PIPELINE, createProxyContext } = await import("@/proxy");
+    const stepNamed = (name: string) => {
+      const step = PROXY_PIPELINE.find((candidate) => candidate.name === name);
+      if (!step) throw new Error(`No proxy step named ${name}`);
+      return step;
+    };
+    return { PROXY_PIPELINE, createProxyContext, stepNamed };
+  }
+
+  it("runs its steps in the documented order, because the order is load-bearing", async () => {
+    const { PROXY_PIPELINE } = await loadPipeline();
+    expect(PROXY_PIPELINE.map((step) => step.name)).toEqual([
+      "stagingSitemap404",
+      "stagingLockdown",
+      "originGuard",
+      "authCallbackPassthrough",
+      "adminContentPassthrough",
+      "pathNormalization",
+      "legacyCategoryRedirect",
+      "discoverCategory404",
+      "crawlerTelemetry",
+      "rateLimit",
+      "softRateLimit",
+      "brandSlugRedirect",
+      "malformedDetailSlug404",
+      "bareBrandSlugRedirect",
+      "outsideApp404",
+      "intl",
+    ]);
+  });
+
+  it("pathNormalization 301s a non-canonical path to its lowercase form", async () => {
+    const { createProxyContext, stepNamed } = await loadPipeline();
+    const response = await stepNamed("pathNormalization").run(
+      await createProxyContext(requestFor("/Brands/Some-Brand")),
+    );
+
+    expect(response?.status).toBe(301);
+    expect(new URL(response?.headers.get("location") ?? "").pathname).toBe(
+      "/brands/some-brand",
+    );
+  });
+
+  it("pathNormalization hands an already-canonical path to the next step", async () => {
+    const { createProxyContext, stepNamed } = await loadPipeline();
+    const response = await stepNamed("pathNormalization").run(
+      await createProxyContext(requestFor("/brands/some-brand")),
+    );
+
+    expect(response).toBeUndefined();
+  });
+
+  it("authCallbackPassthrough ends the chain only for the auth callback", async () => {
+    const { createProxyContext, stepNamed } = await loadPipeline();
+    const step = stepNamed("authCallbackPassthrough");
+
+    const callback = await step.run(
+      await createProxyContext(requestFor(routes.auth.callback())),
+    );
+    const other = await step.run(await createProxyContext(requestFor("/brands")));
+
+    expect(callback?.headers.get("x-middleware-next")).toBe("1");
+    expect(other).toBeUndefined();
+  });
+});
