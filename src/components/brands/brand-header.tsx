@@ -50,8 +50,12 @@ export function BrandHeader({
             piece of copy the whole page is about, and it is the brand's own
             name, not interface chrome. */}
         <div className="flex animate-reveal-up items-start justify-between gap-4">
+          {/* A brand name is a proper noun: `break-keep` keeps each Han run
+              whole and breaks at its spaces (「劉一刀手工鞋／LID Shoes」). No
+              phraseBreaks() here: the dictionary splits 手工／鞋. A run wider
+              than the column still wraps via the hero's overflow-wrap. */}
           <Typography as="h1" balance variant="hero" className="break-keep">
-            {phraseBreaks(brand.name)}
+            {brand.name}
           </Typography>
           {adminSlot}
         </div>
