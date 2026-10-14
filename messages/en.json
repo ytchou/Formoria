@@ -349,10 +349,10 @@
     },
     "selectedProducts": {
       "heading": "From this brand",
-      "note": "{count, plural, one {Just one piece shown here} other {# pieces shown here}}, not the brand's full range. Prices and details are on the brand's site.",
+      "note": "{count, plural, one {One product} other {# products}} shown here, not the brand's full range. Prices and details are on the brand's site.",
       "cta": "(view product page)",
       "unavailable": "The product page isn't loading right now.",
-      "brandSiteCta": "(visit the brand)",
+      "brandSiteCta": "(visit the brand's shop)",
       "madeInTaiwan": "Made in Taiwan",
       "inGuide": "From the guide",
       "previous": "Previous products",
@@ -360,8 +360,8 @@
       "allCategories": "All"
     },
     "label": {
-      "category": "Brand category",
-      "subcategories": "Product subcategory",
+      "category": "Category",
+      "subcategories": "Subcategories",
       "founded": "Founded {year}",
       "moreActions": "More options"
     },
@@ -413,11 +413,11 @@
     "report": {
       "trigger": "Report a problem",
       "title": "Report a problem",
-      "description": "Choose what's wrong. We'll review it and update or act as needed.",
-      "success": "Thank you for your report. We'll review it shortly.",
+      "description": "Choose what's wrong. We'll check it and fix what needs fixing.",
+      "success": "Got it, thank you. We'll check it soon.",
       "close": "Close",
       "cancel": "Cancel",
-      "alreadyReported": "This brand has already been reported",
+      "alreadyReported": "You've already reported this brand",
       "reasonHeading": "What's the problem?",
       "reasonIncorrectInfo": "Incorrect information",
       "reasonBrokenLink": "Broken link",
@@ -442,21 +442,21 @@
       "reportFieldSocialLinks": "Social media links",
       "reportFieldOther": "Other",
       "notesLabel": "Additional notes (optional)",
-      "notesPlaceholder": "Provide any details that will help us review this report",
+      "notesPlaceholder": "For example: which part is wrong, and where the correct information can be found",
       "submitting": "Submitting…",
       "submit": "Send report",
       "errors": {
-        "missingBrandId": "Missing brand ID",
+        "missingBrandId": "This page didn't load fully. Refresh and try again.",
         "invalidReason": "Choose a problem type",
         "notesTooLong": "Additional notes must be 1000 characters or fewer",
-        "rateLimited": "Too many reports. Please try again later.",
-        "unknown": "An unknown error occurred",
-        "notLoggedIn": "Please sign in to submit a report"
+        "rateLimited": "Too many reports. Try again later.",
+        "unknown": "Your report didn't go through. Try again.",
+        "notLoggedIn": "Sign in to send a report"
       }
     },
     "correction": {
       "trigger": "Suggest a correction",
-      "title": "Correct brand information",
+      "title": "Suggest a correction",
       "purchaseTrigger": "Provide a purchase link",
       "purchaseTitle": "Provide a purchase link",
       "purchaseFieldPickerLabel": "Online store link",
@@ -465,39 +465,39 @@
       "purchaseUrlPlaceholder": "https://example.com/shop",
       "socialTrigger": "Provide a social link",
       "socialTitle": "Provide a social link",
-      "socialFieldPickerLabel": "Social channel",
-      "socialFieldPickerPlaceholder": "Choose a social profile…",
+      "socialFieldPickerLabel": "Social platform",
+      "socialFieldPickerPlaceholder": "Choose a social platform…",
       "fieldPickerLabel": "Field to correct",
       "fieldPickerPlaceholder": "Choose a field…",
-      "description": "Thanks for the suggestion! Formoria reviews every submission and decides whether to update the listing.",
+      "description": "Thanks for helping. We check every suggestion before deciding whether to update the page.",
       "submitting": "Submitting…",
       "submit": "Submit correction",
       "selectPlaceholder": "Not set yet",
       "currentHeading": "Current",
-      "currentSubcategoriesHeading": "Current (tap to remove)",
+      "currentSubcategoriesHeading": "Current subcategories (select to remove)",
       "changeToHeading": "Change to",
-      "addSubcategoriesHeading": "Categories you can add",
-      "subcategoriesSubtitle": "Product subcategories from any category. Product-backed subcategories remain while a visible product uses them.",
-      "subcategoriesSelected": "Selected {count}",
-      "subcategoriesLimit": "Product-backed subcategories remain until the product is hidden or reassigned.",
-      "success": "Correction submitted. Thank you for helping keep this listing accurate.",
+      "addSubcategoriesHeading": "Subcategories you can add",
+      "subcategoriesSubtitle": "You can pick subcategories from any category. A subcategory stays while a public product uses it.",
+      "subcategoriesSelected": "{count} selected",
+      "subcategoriesLimit": "A public product still uses this subcategory, so it can't be removed yet.",
+      "success": "Sent. Thanks for helping.",
       "subcategorySearchLabel": "Search subcategories",
       "subcategorySearchHint": "Type to filter, then pick a chip below to add it.",
       "subcategoryRejected": "That term is not in the subcategory list. Pick the closest subcategory from the list below.",
       "subcategoryEmpty": "No subcategory matches that search. Try another word.",
       "errors": {
-        "invalid_brand": "This brand could not be found. Please refresh and try again.",
-        "invalid_value": "That correction is not valid. Please choose another value.",
-        "unchanged": "This correction does not change the current information.",
-        "already_submitted": "This correction has already been submitted. Please wait for review.",
-        "rate_limited": "Too many correction submissions. Please try again later.",
-        "unavailable": "We could not submit the correction. Please try again later."
+        "invalid_brand": "We couldn't find this brand. Refresh the page and try again.",
+        "invalid_value": "That value can't be used. Choose another one.",
+        "unchanged": "That matches what's already listed, so there's nothing to send.",
+        "already_submitted": "You've already sent this correction. We're reviewing it.",
+        "rate_limited": "Too many submissions. Try again later.",
+        "unavailable": "Your correction didn't go through. Try again later."
       }
     },
     "adminMenu": {
       "label": "Admin menu",
-      "editFields": "Edit Fields",
-      "hideBrand": "Hide Brand"
+      "editFields": "Edit fields",
+      "hideBrand": "Hide brand"
     },
     "breadcrumb": {
       "ariaLabel": "Breadcrumb",
@@ -542,27 +542,27 @@
         "namePlaceholder": "e.g. Eslite Bookstore Xinyi",
         "regionLabel": "Region",
         "regionPlaceholder": "Select region",
-        "regionRequired": "Select the city or county where this stockist is",
+        "regionRequired": "Choose the region this stockist is in",
         "addressLabel": "Address",
         "addressPlaceholder": "Full address (optional)",
         "urlLabel": "URL",
-        "urlPlaceholder": "https://...",
+        "urlPlaceholder": "https://",
         "submit": "Submit",
         "success": "Thank you. We check every submission before it appears on the brand page.",
-        "signInRequired": "Please sign in to provide a stockist"
+        "signInRequired": "Sign in to provide a stockist"
       },
       "errors": {
         "not_logged_in": "Please sign in",
-        "missing_brand_id": "Missing brand information",
-        "missing_brand_slug": "Missing brand information",
-        "invalid_name": "Please enter a valid stockist name",
+        "missing_brand_id": "This page didn't load fully. Refresh and try again.",
+        "missing_brand_slug": "This page didn't load fully. Refresh and try again.",
+        "invalid_name": "Enter the shop name, e.g. Eslite Bookstore Xinyi",
         "invalid_region": "Choose the region this stockist is in",
-        "invalid_url": "Please enter a valid URL",
-        "active_cap_reached": "Stockist limit reached for this brand",
-        "daily_cap_reached": "Today's submission limit has been reached, please try again tomorrow",
+        "invalid_url": "Enter the full URL, for example https://brand.com",
+        "active_cap_reached": "This brand has reached its stockist limit",
+        "daily_cap_reached": "You've hit today's limit. Try again tomorrow.",
         "duplicate_name": "This stockist has already been submitted",
-        "database_error": "System error, please try again later",
-        "unknown": "An error occurred, please try again later"
+        "database_error": "That didn't go through. Try again later.",
+        "unknown": "That didn't go through. Try again later."
       }
     },
     "gallery": {
@@ -577,14 +577,14 @@
     "locations": {},
     "editorialAppearances": {
       "heading": "Featured in",
-      "ariaLabel": "Stories and guides that feature this brand",
+      "ariaLabel": "Stories and guides that mention this brand",
       "trailPrefix": "Guides",
       "storyPrefix": "Stories",
       "zhOnlyNote": "In Chinese"
     },
     "relatedBrands": {
-      "heading": "More in {category}",
-      "subtext": "Other brands in {category}",
+      "heading": "Other {category} brands",
+      "subtext": "From the same category in the brand directory",
       "viewAll": "See all {count, plural, one {# {category} brand} other {# {category} brands}}"
     },
     "brandFaq": {
@@ -596,10 +596,10 @@
       },
       "mainProducts": {
         "question": "What does {brandName} make?",
-        "answer": "{brandName} mainly offers {subcategories}."
+        "answer": "{brandName}'s range includes {subcategories}."
       },
       "whereToBuy": {
-        "question": "Where can I buy {brandName} products?",
+        "question": "Where can I buy {brandName}?",
         "answer": "You can buy {brandName} products from {channels}.{stockistNote}",
         "stockistSuffix": " They're also stocked at {count, plural, one {# shop} other {# shops}}. Check with the shop before you go.",
         "answerStockistsOnly": "{brandName} products are stocked at {count, plural, one {# shop} other {# shops}}. Check with the shop before you go."
