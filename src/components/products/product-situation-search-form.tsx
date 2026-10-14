@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { routes } from "@/lib/routes";
+import { localizePath } from "@/i18n/locale-preference";
 
 type ProductSituationSearchFormProps = {
   locale: string;
@@ -45,7 +46,7 @@ export function ProductSituationSearchForm({
   return (
     <form
       method="get"
-      action={`/${locale}${routes.discover()}`}
+      action={localizePath(routes.discover(), locale)}
       className="space-y-2"
     >
       <input type="hidden" name="infer" value="1" />
@@ -97,7 +98,7 @@ export function ProductSearchBoxCompact({
   return (
     <form
       method="get"
-      action={`/${locale}${routes.discover()}`}
+      action={localizePath(routes.discover(), locale)}
       role="search"
       aria-label={label}
       className={cn("w-full max-w-md", className)}

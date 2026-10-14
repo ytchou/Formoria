@@ -38,7 +38,6 @@
   --color-mit-verified: var(--mit-verified);
   --color-mit-verified-bg: var(--mit-verified-bg);
   --color-warning: var(--warning);
-  --color-filter-active: var(--filter-active);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
   /* Radius has exactly two values. Controls are softer than surfaces on
@@ -80,7 +79,6 @@
 
   /* Semantic */
   --warning: oklch(0.5 0.179 58.3);
-  --filter-active: oklch(0.4 0.1 140);
   --info: oklch(0.48 0.12 250);
   --info-bg: oklch(0.97 0.02 250);
 

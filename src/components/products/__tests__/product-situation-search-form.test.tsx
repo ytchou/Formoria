@@ -2,9 +2,25 @@
  * @vitest-environment jsdom
  */
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { ProductSituationSearchForm } from "../product-situation-search-form";
+import {
+  ProductSearchBoxCompact,
+  ProductSituationSearchForm,
+} from "../product-situation-search-form";
+
+const compactLocale = vi.hoisted(() => ({ current: "zh-TW" }));
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+  useLocale: () => compactLocale.current,
+}));
+
+const LABELS = {
+  label: "搜尋商品",
+  placeholder: "例",
+  submit: "搜尋",
+  clear: "清除搜尋",
+};
 
 describe("ProductSituationSearchForm", () => {
   it("renders hidden infer=1 and no category/sub/material hidden inputs", () => {
@@ -56,5 +72,30 @@ describe("ProductSituationSearchForm", () => {
     fireEvent.change(input, { target: { value: "送禮" } });
     fireEvent.click(screen.getByRole("button", { name: "清除搜尋" }));
     expect(input).toHaveValue("");
+  });
+
+  // zh-TW is served unprefixed: `/zh-TW/discover` would cost a 307 per submit.
+  it.each([
+    ["zh-TW", "/discover"],
+    ["en", "/en/discover"],
+  ])("submits a %s search to %s", (locale, action) => {
+    const { container } = render(
+      <ProductSituationSearchForm locale={locale} query={null} labels={LABELS} />,
+    );
+    expect(container.querySelector("form")).toHaveAttribute("action", action);
+  });
+});
+
+describe("ProductSearchBoxCompact", () => {
+  it.each([
+    ["zh-TW", "/discover"],
+    ["en", "/en/discover"],
+  ])("submits a %s search to %s", (locale, action) => {
+    compactLocale.current = locale;
+    render(<ProductSearchBoxCompact src="nav" label="搜尋商品" placeholder="例" />);
+    expect(screen.getByRole("search", { name: "搜尋商品" })).toHaveAttribute(
+      "action",
+      action,
+    );
   });
 });

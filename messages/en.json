@@ -78,6 +78,7 @@
     "subheading": "Find Taiwanese products by category and material, then buy from the brand's site or stockists.",
     "emptyState": "No products match these filters. Remove one and try again.",
     "resultCount": "{count, plural, one {# product} other {# products}}",
+    "resultsHeading": "Product list ({count, plural, one {# product} other {# products}})",
     "filters": {
       "subcategory": "Subcategory",
       "material": "Material",
@@ -89,7 +90,7 @@
       "removeFilterInferred": "Remove {label}: {value} ({badge})",
       "sortNewest": "Newest",
       "sortAlphabetical": "Name",
-      "sortRelevance": "Relevance",
+      "sortRelevance": "Most relevant",
       "resultCount": "{count, plural, one {# product} other {# products}}",
       "sortLabel": "Sort by",
       "query": "Search",
@@ -104,9 +105,9 @@
       "submit": "Search",
       "clear": "Clear search",
       "heading": "Search results",
-      "queryEcho": "\"{query}\"",
+      "queryEcho": "“{query}”",
       "count": "{count, plural, one {# product} other {# products}}",
-      "empty": "No products match \"{query}\". Try a different keyword or clear the filters.",
+      "empty": "No products match “{query}”. Try a different keyword or clear the filters.",
       "emptyRoutes": {
         "trailsHeading": "Start from one of these guides",
         "categoriesHeading": "Browse all products by category",
@@ -240,6 +241,7 @@
     },
     "heading": "Taiwanese brand directory",
     "count": "{count, plural, one {# brand} other {# brands}}",
+    "resultsHeading": "Brand list ({count, plural, one {# brand} other {# brands}})",
     "emptyTitle": "No brands match these filters",
     "emptyDescription": "Remove a filter, or clear them all",
     "sortLabel": "Sort by",
@@ -273,9 +275,9 @@
     },
     "pagination": {
       "label": "Pagination",
-      "previous": "‹ Previous",
+      "previous": "Previous",
       "previousAria": "Previous page",
-      "next": "Next ›",
+      "next": "Next",
       "nextAria": "Next page",
       "status": "Page {page} of {total}"
     },
@@ -2177,7 +2179,7 @@
           "description": "See every brand, with no filters"
         }
       },
-      "recommendations": "Similar options",
+      "recommendations": "You might also like these brands",
       "viewAll": "View all",
       "clearAll": "Clear all"
     }

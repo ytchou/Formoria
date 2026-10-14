@@ -101,7 +101,7 @@ test("the directory typeahead opens a brand by keyboard", async ({ page }) => {
   const search = page
     .getByRole("main")
     .getByRole("search", { name: "搜尋品牌" })
-    .getByRole("searchbox", { name: "搜尋品牌" });
+    .getByRole("combobox", { name: "搜尋品牌" });
   await search.fill(BRAND);
   await expect(page.getByRole("option", { name: /HOKII/ })).toBeVisible();
   await search.press("ArrowDown");

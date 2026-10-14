@@ -140,7 +140,7 @@ test.describe("Directory deep", () => {
       });
     });
     await page.goto("/brands");
-    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("combobox", { name: "搜尋品牌" });
     await search.fill("directory");
     await expect(
       page.getByRole("option", { name: /Directory Search Result/ }),
@@ -177,7 +177,7 @@ test.describe("Directory deep", () => {
     const term = (await firstBrand.innerText()).trim();
 
     const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" });
-    await search.getByRole("searchbox", { name: "搜尋品牌" }).fill(term);
+    await search.getByRole("combobox", { name: "搜尋品牌" }).fill(term);
     // exact: the clear button (清除搜尋) also contains 搜尋 once the field has text.
     await search.getByRole("button", { name: "搜尋", exact: true }).click();
 
@@ -203,7 +203,7 @@ test.describe("Directory deep", () => {
     // to open unfocused over the toolbar and ignore Escape.
     await page.goto(`/brands?search=${encodeURIComponent(term)}`);
     const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" });
-    await expect(search.getByRole("searchbox", { name: "搜尋品牌" })).toHaveValue(term, {
+    await expect(search.getByRole("combobox", { name: "搜尋品牌" })).toHaveValue(term, {
       timeout: BUDGET.SERVER_RENDER,
     });
     await expectStaysHidden(page.getByRole("listbox"), SUGGESTION_SETTLE_MS);
@@ -214,7 +214,7 @@ test.describe("Directory deep", () => {
 
   test("empty search shows empty state not error", async ({ page }) => {
     await page.goto("/brands");
-    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("combobox", { name: "搜尋品牌" });
     await search.fill("zzzzzzzzzzzzz_nonexistent");
     await page.keyboard.press("Enter");
     await expect(page.locator("[data-empty]")).toBeVisible({
@@ -231,7 +231,7 @@ test.describe("Directory deep", () => {
 
     const emptyState = page.locator("[data-empty]");
     await expect(
-      emptyState.getByRole("heading", { name: "沒有符合這些條件的品牌" }),
+      emptyState.getByText("沒有符合這些條件的品牌", { exact: true }),
     ).toBeVisible();
 
     await expect(

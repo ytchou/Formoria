@@ -209,7 +209,7 @@ test.describe.serial('Public brand search edge cases', () => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await page.goto('/brands');
-    const directorySearch = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
+    const directorySearch = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("combobox", { name: "搜尋品牌" });
     await directorySearch.fill(exactQuery);
     await expect(page).toHaveURL((url) =>
       url.pathname === '/brands' && url.searchParams.get('search') === exactQuery,
@@ -241,7 +241,7 @@ test.describe.serial('Public brand search edge cases', () => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await page.goto('/brands?category=home&sort=name&page=2');
-    const headerSearch = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
+    const headerSearch = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("combobox", { name: "搜尋品牌" });
     await headerSearch.fill(exactQuery);
 
     await expect(page).toHaveURL(
@@ -315,7 +315,7 @@ test.describe.serial('Public brand search edge cases', () => {
     });
 
     await page.goto('/brands');
-    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
+    const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("combobox", { name: "搜尋品牌" });
     await search.fill(slowQuery);
     await slowSeen;
     await search.fill(fastQuery);
@@ -360,15 +360,15 @@ test.describe.serial('Public brand search edge cases', () => {
     // alongside the real 沒有符合這些條件的品牌 empty-state heading.
     await expect(page.getByText('找不到品牌', { exact: true })).toHaveCount(0);
     await expect(page.getByText('目前的篩選條件', { exact: true })).toHaveCount(0);
-    await expect(emptyState.getByRole('heading', { name: '沒有符合這些條件的品牌' })).toBeVisible();
+    await expect(emptyState.getByText('沒有符合這些條件的品牌', { exact: true })).toBeVisible();
     // The empty state no longer echoes the query back — the notice banner that
     // did was removed. The search box is now the only place the raw string is
     // rendered, so that is where the escaping guard has to point.
     await expect(
-      page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" }),
+      page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("combobox", { name: "搜尋品牌" }),
     ).toHaveValue(missingQuery);
     await expect(page.locator('img[src="x"]')).toHaveCount(0);
-    await expect(emptyState.getByRole('heading', { name: '類似的選擇' })).toBeVisible();
+    await expect(emptyState.getByRole('heading', { name: '也可以看看這些品牌' })).toBeVisible();
     await expect(emptyState.getByRole('link', { name: '查看全部' })).toBeVisible();
   });
 });
