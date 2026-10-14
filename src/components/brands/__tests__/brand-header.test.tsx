@@ -80,7 +80,11 @@ describe("BrandHeader", () => {
 
   it("names what the brand makes under the metadata line", () => {
     const { container } = renderZh(
-      <BrandHeader brand={buildBrand()} makesLabels={["托特包", "後背包"]} />,
+      <BrandHeader
+        brand={buildBrand()}
+        makesLabels={["托特包", "後背包"]}
+        omitProvenance
+      />,
     );
 
     const makes = screen.getByText("托特包・後背包");
