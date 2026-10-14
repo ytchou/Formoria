@@ -6,8 +6,10 @@ import {
   classify,
   groupLinkChecksByTrail,
   loadProducts,
+  parseArgs,
   probe,
   selectReviewDue,
+  shouldRevalidate,
   type LinkCheck,
   type LinkStateWriter,
   type ProductQuery,
@@ -601,5 +603,23 @@ describe("loadProducts read scope", () => {
       "link_state",
       "link_checked_at",
     ]);
+  });
+});
+
+describe("--no-revalidate", () => {
+  it("revalidates on --apply by default", () => {
+    const options = parseArgs(["--apply"]);
+    expect(options.revalidate).toBe(true);
+    expect(shouldRevalidate(options)).toBe(true);
+  });
+
+  it("skips revalidation only when --no-revalidate is passed explicitly", () => {
+    const options = parseArgs(["--apply", "--no-revalidate", "--brand=mogu"]);
+    expect(options).toMatchObject({ apply: true, revalidate: false, brand: "mogu" });
+    expect(shouldRevalidate(options)).toBe(false);
+  });
+
+  it("never revalidates a dry run", () => {
+    expect(shouldRevalidate(parseArgs([]))).toBe(false);
   });
 });
