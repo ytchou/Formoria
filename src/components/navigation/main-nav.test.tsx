@@ -203,11 +203,13 @@ describe("MainNav", () => {
     fireEvent.click(trigger);
     const dialog = await screen.findByRole("dialog");
 
+    // The open sheet hides everything outside the dialog from assistive
+    // technology, so a screen reader meets exactly one landmark: the sheet's.
     const landmarks = screen.getAllByRole("navigation", {
       name: en.nav.navigation,
     });
-    expect(landmarks).toHaveLength(2);
-    expect(landmarks.filter((nav) => dialog.contains(nav))).toHaveLength(1);
+    expect(landmarks).toHaveLength(1);
+    expect(dialog.contains(landmarks[0]!)).toBe(true);
   });
 
   it("opening the menu focuses the sheet, not its search field", async () => {
