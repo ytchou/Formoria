@@ -112,9 +112,11 @@ describe("EditorialHeader with a hero", () => {
 
     expect(container.innerHTML).not.toContain("from-ink/90");
     expect(container.innerHTML).not.toContain("from-ink/80");
-    const scrims = container.querySelectorAll(
-      '[aria-hidden="true"][class*="linear-gradient(in_oklab"]',
-    );
+    // Filter in JS: the attribute-substring selector with "(" matches nothing
+    // in jsdom's selector engine (same approach as trail-tile.test.tsx).
+    const scrims = Array.from(
+      container.querySelectorAll('[aria-hidden="true"]'),
+    ).filter((el) => (el.getAttribute("class") ?? "").includes("in_oklab"));
     expect(scrims).toHaveLength(1);
   });
 });

@@ -24,7 +24,8 @@ describe("story h2 — material marker (EL-10)", () => {
     });
     const marker = heading.querySelector('[aria-hidden="true"]');
     expect(marker?.textContent).toBe("陶");
-    expect(marker?.className).toContain("font-ming");
+    // type-display carries font-ming via its @utility (globals.css).
+    expect(marker?.className).toContain("type-display");
     expect(marker?.className).toContain("text-rule");
     expect(marker?.className).toContain("xl:absolute");
     expect(heading.className).toContain("relative");
