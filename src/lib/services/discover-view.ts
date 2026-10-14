@@ -42,7 +42,7 @@ import { toTrailCard, type TrailCard } from "@/lib/trails/trail-card";
 type RawParamValue = string | string[] | undefined;
 type RawSearchParams = Record<string, RawParamValue>;
 
-export const DISCOVER_PAGE_SIZE = 20;
+const DISCOVER_PAGE_SIZE = 20;
 
 /**
  * Trails offered as ways forward from a zero-result search, and in the
@@ -124,7 +124,7 @@ export type DiscoverSurfaces = {
   hasChips: boolean;
 };
 
-export type DiscoverViewModel = DiscoverSurfaces & {
+type DiscoverViewModel = DiscoverSurfaces & {
   outOfRange: false;
   page: number;
   pageSize: number;

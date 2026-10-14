@@ -4,7 +4,7 @@ import { ChipRow, taxonomyLinkClasses } from "@/components/ui/toggle-chip";
 import { Link } from "@/i18n/navigation";
 import { routes } from "@/lib/routes";
 
-export type DiscoverEmptyRouteTrail = {
+type DiscoverEmptyRouteTrail = {
   slug: string;
   title: string;
   /** Set when the title's language differs from the page's (zh trail on /en). */
