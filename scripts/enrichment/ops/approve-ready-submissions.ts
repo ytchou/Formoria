@@ -12,20 +12,27 @@
  * `reviewStage === 'ready'` with an empty `reviewCompleteness.missingFields` —
  * without clicking through /admin/submissions.
  *
- * Mirrors approveSubmissionForAdmin (src/app/admin/actions.ts) step for step,
- * with three deliberate differences, all forced by running outside a Next
- * request context:
+ * Calls approveSubmissionWorkflow (src/lib/services/submission-review-workflow.ts)
+ * — the same service the admin approve actions call — so curated-product
+ * materialization, the refresh unhide, trail placement reads, and the
+ * `brand_listing_published` event are one code path (DEV-2030; the earlier
+ * hand-copy here had drifted from the action on all four). The remaining
+ * differences are deliberate and all live in this file:
  *
  *  1. `revalidatePath` is replaced by requestPublicBrandRevalidation, the
- *     Next-free ISR trigger built for exactly this case (DEV-1262). It needs
+ *     Next-free ISR trigger built for exactly this case (DEV-1262), fed the
+ *     brand slugs and the trail slugs the workflow returns. It needs
  *     FORMORIA_RAILWAY_URL (or NEXT_PUBLIC_SITE_URL) plus ORIGIN_SECRET; without
  *     them the writes land but public pages serve stale HTML until the ISR
  *     window expires.
- *  2. No email is ever sent. The admin action mails a claim invite (owner
- *     submissions) or an approval notice (real submitter address); this script
- *     SKIPS any row that would trigger either and reports it, so a bulk run can
- *     never surprise a real person. Those rows must go through the admin UI.
- *  3. `--apply` is required — the dry run is the default. This path publishes
+ *  2. No email is ever sent: the workflow runs with `notify: 'skip'`. The admin
+ *     action mails an approval notice to a real submitter address; this script
+ *     SKIPS any row that would warrant one (and owner submissions) and reports
+ *     it, so a bulk run can never publish a brand its submitter is not told
+ *     about. Those rows must go through the admin UI.
+ *  3. Telemetry is captured awaited (captureServerEventNow), because `after()`
+ *     only exists inside a Next request.
+ *  4. `--apply` is required — the dry run is the default. This path publishes
  *     brands to the live directory, so the safe mode has to be what an
  *     operator gets by typing nothing.
  *
@@ -37,17 +44,11 @@
 import {
   getSubmissionsForReview,
   getSubmission,
-  approveSubmission,
-  applyBrandRefresh,
   isGeneratedGuestSubmissionEmail,
 } from "@/lib/services/submissions";
+import { approveSubmissionWorkflow } from "@/lib/services/submission-review-workflow";
 import { createServiceClient } from "@/lib/supabase/service";
-import {
-  getBrandById,
-  syncBrandImages,
-  updateBrand,
-} from "@/lib/services/brands";
-import { markFlagsReviewed } from "@/lib/services/moderation";
+import { captureServerEventNow } from "@/lib/posthog-server";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
 import { loadScriptTarget } from "../../shared/target";
 
@@ -128,8 +129,13 @@ async function main(): Promise<void> {
     APPLY && bucket.length > 0 ? await resolveReviewerId(adminEmail) : "";
 
   const approvedSlugs: string[] = [];
+  const trailSlugs: string[] = [];
   const skipped: string[] = [];
   const failures: string[] = [];
+  const workflowDeps = {
+    notify: "skip",
+    captureEvent: captureServerEventNow,
+  } as const;
 
   for (const [index, row] of bucket.entries()) {
     const label = `[${index + 1}/${bucket.length}] ${row.brandName}`;
@@ -141,17 +147,16 @@ async function main(): Promise<void> {
           console.log(`${label} — would apply refresh`);
           continue;
         }
-        const refresh = await applyBrandRefresh(row.id, reviewerId);
-        const brand = await getBrandById(refresh.brandId);
-        // Mirrors approveSubmissionForAdmin: approving a refresh publishes the
-        // brand, so a hidden one comes live.
-        const unhidden = brand.status === "hidden";
-        if (unhidden)
-          await updateBrand(refresh.brandId, { status: "approved" });
-        approvedSlugs.push(brand.slug);
+        const result = await approveSubmissionWorkflow(
+          row.id,
+          reviewerId,
+          workflowDeps,
+        );
+        approvedSlugs.push(result.brandSlug);
+        trailSlugs.push(...result.trailSlugs);
         console.log(
-          `${label} — refreshed -> /brands/${brand.slug}${unhidden ? " (unhidden)" : ""}${
-            refresh.cleanupFailed ? " (storage cleanup warning)" : ""
+          `${label} — refreshed -> /brands/${result.brandSlug}${
+            result.storageCleanupWarning ? " (storage cleanup warning)" : ""
           }`,
         );
         continue;
@@ -182,33 +187,19 @@ async function main(): Promise<void> {
         continue;
       }
 
-      const { brandId } = await approveSubmission(row.id, reviewerId);
-      const brand = await getBrandById(brandId);
-      approvedSlugs.push(brand.slug);
-
-      try {
-        await markFlagsReviewed(brandId);
-      } catch (error) {
-        console.warn(
-          `${label} — markFlagsReviewed failed: ${describeError(error)}`,
-        );
-      }
-
-      let imageNote = "";
-      if (brand.heroImageUrl) {
-        try {
-          const sync = await syncBrandImages(brandId);
-          if (sync.failed > 0)
-            imageNote = ` (image sync failed: ${sync.failed})`;
-        } catch (error) {
-          console.warn(
-            `${label} — syncBrandImages failed: ${describeError(error)}`,
-          );
-          imageNote = " (image sync threw)";
-        }
-      }
-
-      console.log(`${label} — approved -> /brands/${brand.slug}${imageNote}`);
+      const result = await approveSubmissionWorkflow(
+        row.id,
+        reviewerId,
+        workflowDeps,
+      );
+      approvedSlugs.push(result.brandSlug);
+      trailSlugs.push(...result.trailSlugs);
+      const imageNote = result.imageSyncWarning
+        ? ` (image sync failed: ${result.imageSyncWarning.failed})`
+        : "";
+      console.log(
+        `${label} — approved -> /brands/${result.brandSlug}${imageNote}`,
+      );
     } catch (error) {
       failures.push(`${row.brandName} (${row.id}) — ${describeError(error)}`);
       console.error(`${label} — FAILED: ${describeError(error)}`);
@@ -222,7 +213,9 @@ async function main(): Promise<void> {
   for (const entry of failures) console.log(`  fail: ${entry}`);
 
   if (APPLY && approvedSlugs.length > 0) {
-    const result = await requestPublicBrandRevalidation(approvedSlugs);
+    const result = await requestPublicBrandRevalidation(approvedSlugs, {
+      trailSlugs,
+    });
     console.log(
       `[approve-ready] ISR revalidation: ${result.ok ? "ok" : `FAILED (${result.reason})`}`,
     );

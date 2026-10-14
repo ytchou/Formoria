@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  curatedImageIdentity,
+  dropSharedImageProducts,
   summarizeProductPreviews,
   type CuratedProduct,
 } from "../curated-products";
@@ -40,7 +42,11 @@ function product(overrides: Partial<CuratedProduct> = {}): CuratedProduct {
 describe("summarizeProductPreviews", () => {
   it("counts every published row per brand", () => {
     const rows = Array.from({ length: 5 }, (_, index) =>
-      product({ id: `a-${index}`, key: `a-${index}` }),
+      product({
+        id: `a-${index}`,
+        key: `a-${index}`,
+        imageUrl: `/i/curated-products/a-${index}.webp`,
+      }),
     );
 
     const previews = summarizeProductPreviews(rows);
@@ -153,5 +159,92 @@ describe("summarizeProductPreviews", () => {
     expect(previews.has(BRAND_A)).toBe(true);
     expect(previews.has(BRAND_B)).toBe(false);
     expect(summarizeProductPreviews([]).size).toBe(0);
+  });
+});
+
+describe("curatedImageIdentity", () => {
+  it("is the last path segment with the query string and fragment stripped", () => {
+    expect(curatedImageIdentity("/i/curated-products/brand/d89b3656.webp")).toBe(
+      "d89b3656.webp",
+    );
+    expect(
+      curatedImageIdentity("https://cdn.example.com/x/d89b3656.webp?w=640#top"),
+    ).toBe("d89b3656.webp");
+  });
+
+  it("falls back to the full URL when there is no last segment", () => {
+    expect(curatedImageIdentity("https://cdn.example.com/x/")).toBe(
+      "https://cdn.example.com/x/",
+    );
+  });
+});
+
+describe("dropSharedImageProducts (BD-04)", () => {
+  it("keeps only the first product in brand-page order when two share a photo", () => {
+    const { kept, dropped } = dropSharedImageProducts([
+      product({ key: "pen-box", imageUrl: "/i/curated-products/d89b3656.webp" }),
+      product({ key: "chopsticks", imageUrl: "/i/curated-products/d89b3656.webp" }),
+      product({ key: "pen-box-2", imageUrl: "/i/other-dir/d89b3656.webp" }),
+    ]);
+
+    expect(kept.map((row) => row.key)).toEqual(["pen-box"]);
+    expect(dropped).toEqual([
+      {
+        brandId: BRAND_A,
+        key: "chopsticks",
+        keptKey: "pen-box",
+        imageIdentity: "d89b3656.webp",
+      },
+      {
+        brandId: BRAND_A,
+        key: "pen-box-2",
+        keptKey: "pen-box",
+        imageIdentity: "d89b3656.webp",
+      },
+    ]);
+  });
+
+  it("treats the same filename with a different query string as the same photo", () => {
+    const { kept } = dropSharedImageProducts([
+      product({ key: "first", imageUrl: "/i/curated-products/hash.webp?v=1" }),
+      product({ key: "second", imageUrl: "/i/curated-products/hash.webp?v=2" }),
+    ]);
+
+    expect(kept.map((row) => row.key)).toEqual(["first"]);
+  });
+
+  it("leaves products with distinct photos untouched", () => {
+    const rows = [
+      product({ key: "a", imageUrl: "/i/curated-products/a.webp" }),
+      product({ key: "b", imageUrl: "/i/curated-products/b.webp" }),
+    ];
+
+    const { kept, dropped } = dropSharedImageProducts(rows);
+
+    expect(kept).toEqual(rows);
+    expect(dropped).toEqual([]);
+  });
+
+  it("never dedupes across brands", () => {
+    const { kept } = dropSharedImageProducts([
+      product({ brandId: BRAND_A, key: "a", imageUrl: "/i/shared.webp" }),
+      product({ brandId: BRAND_B, key: "b", imageUrl: "/i/shared.webp" }),
+    ]);
+
+    expect(kept.map((row) => row.key)).toEqual(["a", "b"]);
+  });
+
+  it("drops the later-placed duplicate from the directory preview count", () => {
+    // Input order is not brand-page order: the placed product keeps the photo.
+    const previews = summarizeProductPreviews([
+      product({ key: "unplaced", productPosition: null, imageUrl: "/i/same.webp" }),
+      product({ key: "placed", productPosition: 1, imageUrl: "/i/same.webp" }),
+      product({ key: "other", productPosition: 2, imageUrl: "/i/other.webp" }),
+    ]);
+
+    expect(previews.get(BRAND_A)).toEqual({
+      count: 2,
+      thumbnails: ["/i/same.webp", "/i/other.webp"],
+    });
   });
 });

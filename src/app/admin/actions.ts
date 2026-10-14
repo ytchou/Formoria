@@ -3,41 +3,26 @@
 import { runWithAuditContext } from '@/lib/audit/context'
 import { revalidatePath } from 'next/cache'
 import { requireAdminAction } from '@/lib/auth/require-admin'
+import { requestBrandRefresh } from '@/lib/services/submissions'
 import {
-  getSubmission,
-  approveSubmission,
-  applyBrandRefresh,
-  rejectSubmission,
-  requestBrandRefresh,
-  isGeneratedGuestSubmissionEmail,
-  type SubmissionProductReview,
-} from '@/lib/services/submissions'
-import {
-  deleteBrand,
-  getBrandById,
-  syncBrandImages,
-  updateBrand,
-} from '@/lib/services/brands'
+  approveSubmissionWorkflow,
+  commitSubmissionRejection,
+  notifySubmissionRejected,
+  rejectSubmissionWorkflow,
+  type ApprovalResult,
+} from '@/lib/services/submission-review-workflow'
+import { withApprovalTimeout } from '@/lib/services/_shared/timeout'
+import { deleteBrand, getBrandById, updateBrand } from '@/lib/services/brands'
 import { getBrandTrailSlugs } from '@/lib/services/curated-products'
-import { materializeSubmissionCuratedProducts } from '@/lib/services/curated-products/materialize'
 import {
   requestCuratedProductBackfill,
   type CuratedProductBackfillResult,
 } from '@/lib/services/curated-products/backfill'
-import {
-  markFlagsReviewed,
-  updateModerationFlagStatus,
-} from '@/lib/services/moderation'
-import { sendEmail } from '@/lib/email/send'
-import type { EmailSendResult } from '@/lib/email/types'
+import { updateModerationFlagStatus } from '@/lib/services/moderation'
 import { validateIdBatch } from '@/lib/validation/id-batch'
 import { reviewEntityIdSchema } from '@/lib/validation/admin-review'
 import { MAX_BULK_PRODUCT_BACKFILL } from '@/lib/constants/curated-products'
 import { z } from 'zod'
-import {
-  buildApprovalEmail,
-  buildRejectionEmail,
-} from '@/lib/email/templates'
 import { updateReportStatus } from '@/lib/services/reports'
 import {
   reviewCorrections,
@@ -47,14 +32,8 @@ import {
 } from '@/lib/services/brand-corrections'
 import { reviewCommunityStockist } from '@/lib/services/stockists'
 import { logAdminAction } from '@/lib/services/admin-audit'
-import {
-  DENIAL_REASONS,
-  type BrandSubmission,
-  type DenialReason,
-} from '@/lib/types'
-import { getSiteUrl } from '@/lib/site-url'
+import { DENIAL_REASONS, type DenialReason } from '@/lib/types'
 import { captureServerEvent } from '@/lib/posthog-server'
-import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-events'
 import {
   revalidatePublicBrands,
   revalidatePublicStockists,
@@ -73,13 +52,6 @@ import { routes } from '@/lib/routes'
  */
 function isAdminEntityId(value: unknown): boolean {
   return reviewEntityIdSchema.safeParse(value).success
-}
-
-type ApprovalResult = {
-  brandSlug: string
-  refresh: boolean
-  imageSyncWarning?: { synced: number; failed: number }
-  storageCleanupWarning?: true
 }
 
 type ApprovalFailure = {
@@ -105,167 +77,15 @@ const MAX_BULK_REJECTIONS = 100
 const MAX_REJECTION_ID_LENGTH = 64
 const INVALID_REJECTION_BATCH_ERROR = 'Invalid bulk rejection selection'
 
-// The rejection row is already committed by the time the notification runs, so
-// this bounds a hung email provider instead of the decision itself.
-const REJECTION_EMAIL_TIMEOUT_MS = 10_000
-
-// Bulk approval processes every submission concurrently, and the whole
-// action only responds once every item has settled. One submission that
-// hangs on a slow DB round trip (e.g. a stale-refresh check contending with
-// other writes) otherwise keeps the client from learning about the other,
-// already-committed approvals in the same batch — bound each item so the
-// response never waits on the single slowest one.
-const APPROVAL_ITEM_TIMEOUT_MS = 20_000
-
-function withApprovalTimeout<T>(
-  promise: Promise<T>,
-  message = 'Approval is taking longer than expected — check back shortly'
-): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(message))
-    }, APPROVAL_ITEM_TIMEOUT_MS)
-    promise.then(
-      (value) => {
-        clearTimeout(timer)
-        resolve(value)
-      },
-      (err) => {
-        clearTimeout(timer)
-        reject(err)
-      }
-    )
-  })
-}
-
 /**
- * Curated-product proposals become rows only once the brand exists, so this
- * runs AFTER the approval RPC on both paths (DEV-1469). It works from the
- * effective review layer — a reviewer's edits and their tick set — which the
- * new-brand path already computed and hands over, and the refresh path leaves
- * the service to read.
- *
- * Never at the cost of an approval that already succeeded: the RPC has
- * committed by the time this runs, so a failure is reported and swallowed,
- * exactly like the stockist materialization in `approveSubmission`.
- *
- * WHAT THE RECOVERY ACTUALLY IS. Requesting another products refresh re-runs
- * the phase and re-materializes, and that re-run is a repair, not a no-op:
- * the materializer writes per proposal, so one failure costs one product, and a
- * product whose row landed while its `curated_product_sources` write did not is
- * re-attached to its evidence by the diff's repair branch rather than skipped
- * as a decision. Without that branch the half-created row was permanent — every
- * public read drops it on the `!inner` evidence join, and the re-run matched it
- * and moved on.
+ * The admin UI emails the submitter and schedules telemetry with `after()`.
+ * The operator script (`approve-ready-submissions.ts`) calls the same workflow
+ * with no email and an awaited capture, since it runs outside a request.
  */
-async function materializeProposedProducts(
-  submissionId: string,
-  brandId: string,
-  review?: SubmissionProductReview
-): Promise<void> {
-  try {
-    await materializeSubmissionCuratedProducts(submissionId, brandId, {
-      ...(review ? { review } : {}),
-    })
-  } catch (err) {
-    console.error('[admin] materializeSubmissionCuratedProducts failed:', {
-      submissionId,
-      brandId,
-      error: err,
-    })
-  }
-}
-
-async function approveSubmissionForAdmin(
-  submissionId: string,
-  reviewerId: string
-): Promise<ApprovalResult> {
-  const submission = await getSubmission(submissionId)
-  if (submission.intent === 'refresh') {
-    const refresh = await applyBrandRefresh(submissionId, reviewerId)
-    const brand = await getBrandById(refresh.brandId)
-    // Approving is what brings a brand to life: a hidden brand whose refresh we
-    // just accepted has publishable data by definition. Hiding stays a separate
-    // admin action, so this never fights a deliberate re-hide.
-    if (brand.status === 'hidden') {
-      await updateBrand(refresh.brandId, {
-        status: 'approved',
-        hiddenReason: null,
-      })
-    }
-    await materializeProposedProducts(submissionId, refresh.brandId)
-    // The third hidden -> approved path, and the exact inverse of
-    // `unhideBrandAction`: approving a refresh restores this brand's products to
-    // every trail they are selected into, and `revalidateApprovals` reaches only
-    // `revalidatePublicBrands`, which deliberately does not cover
-    // `/discover/[slug]` (`public-brand-cache.ts`). Without this the trail keeps
-    // omitting the restored tiles for up to its ISR hour.
-    //
-    // Read AFTER `materializeProposedProducts`: the placements that call just
-    // wrote are part of what changed, and a read before it would miss them.
-    // Never a reason to fail the approval — the helper swallows its own errors.
-    for (const trailSlug of await brandTrailSlugsForRevalidation(
-      refresh.brandId
-    )) {
-      revalidateTrail(trailSlug)
-    }
-    return {
-      brandSlug: brand.slug,
-      refresh: true,
-      ...(refresh.cleanupFailed ? { storageCleanupWarning: true as const } : {}),
-    }
-  }
-
-  const siteUrl = getSiteUrl()
-
-  const { brandId, submitterEmail, brandName, isBrandOwner, productReview } = await approveSubmission(submissionId, reviewerId)
-  const brand = await getBrandById(brandId)
-  let imageSyncWarning: { synced: number; failed: number } | undefined
-
-  try {
-    await markFlagsReviewed(brandId)
-  } catch (err) {
-    console.error('[admin] markFlagsReviewed failed:', err)
-  }
-
-  await materializeProposedProducts(submissionId, brandId, productReview)
-
-  if (brand.heroImageUrl) {
-    try {
-      const syncResult = await syncBrandImages(brandId)
-      if (syncResult.failed > 0) imageSyncWarning = syncResult
-    } catch (err) {
-      console.error('[admin] syncBrandImages failed:', err)
-      imageSyncWarning = { synced: 0, failed: 1 }
-    }
-  }
-
-  if (!isGeneratedGuestSubmissionEmail(submitterEmail)) {
-    await sendEmail(await buildApprovalEmail({
-      submitterEmail,
-      brandName,
-      brandSlug: brand.slug,
-      siteUrl,
-    }))
-  }
-
-  // Inventory telemetry is attributed to one machine identity, never to the
-  // submitter. Instrumenting the shared helper covers single and bulk approvals.
-  const listingPublishedEvent = buildBrandListingPublishedEvent(brand.name, {
-    brand_id: brandId,
-    brand_slug: brand.slug,
-    is_brand_owner: isBrandOwner,
-  })
-  if (listingPublishedEvent) {
-    captureServerEvent(listingPublishedEvent)
-  }
-
-  return {
-    brandSlug: brand.slug,
-    refresh: false,
-    ...(imageSyncWarning ? { imageSyncWarning } : {}),
-  }
-}
+const ADMIN_APPROVAL_DEPS = {
+  notify: 'send',
+  captureEvent: captureServerEvent,
+} as const
 
 function revalidateApprovals(results: ApprovalResult[]): void {
   revalidatePath(routes.admin.submissions())
@@ -274,6 +94,11 @@ function revalidateApprovals(results: ApprovalResult[]): void {
     revalidatePath(routes.admin.brands())
   }
   revalidatePublicBrands(results.map((result) => result.brandSlug))
+  // `revalidatePublicBrands` deliberately does not cover `/discover/[slug]`;
+  // the workflow returns the trails an approved refresh restored tiles to.
+  for (const trailSlug of new Set(results.flatMap((result) => result.trailSlugs))) {
+    revalidateTrail(trailSlug)
+  }
 }
 
 /**
@@ -310,7 +135,7 @@ export async function approveSubmissionAction(
       if ('error' in auth) return auth
 
       const result = await withApprovalTimeout(
-        approveSubmissionForAdmin(submissionId, auth.user.id)
+        approveSubmissionWorkflow(submissionId, auth.user.id, ADMIN_APPROVAL_DEPS)
       )
       revalidateApprovals([result])
 
@@ -354,7 +179,7 @@ export async function approveSubmissionsAction(
               ok: true,
               submissionId,
               result: await withApprovalTimeout(
-                approveSubmissionForAdmin(submissionId, auth.user.id)
+                approveSubmissionWorkflow(submissionId, auth.user.id, ADMIN_APPROVAL_DEPS)
               ),
             }
           } catch (err) {
@@ -526,100 +351,6 @@ export async function requestCuratedProductBackfillAction(
   });
 }
 
-/**
- * The committing half of a rejection: read the submission, then write the
- * decision. Split from the notification on purpose — this is the only part
- * whose failure means "the rejection did not happen", so it is the only part
- * a timeout may report as a failed item.
- */
-async function commitSubmissionRejection(
-  submissionId: string,
-  reviewerId: string,
-  denialReason: DenialReason,
-  notes: string
-): Promise<BrandSubmission> {
-  const submission = await getSubmission(submissionId)
-  await rejectSubmission(submissionId, reviewerId, denialReason, notes)
-  return submission
-}
-
-/**
- * The notification half. `sendEmail` NEVER throws — it catches internally and
- * returns `{ success: false, error }` — so a discarded return value silently
- * drops the submitter's notification while the caller reports success. Mirrors
- * the explicit result check used by other notification flows.
- *
- * Never throws and never reports a failure upward: the row is already
- * committed, and turning an undelivered email into a "rejection failed" row
- * makes the admin retry an id that `reject_submission` will then reject with
- * P0002 `Submission not found`.
- */
-async function notifySubmissionRejected(
-  submission: BrandSubmission,
-  denialReason: DenialReason,
-  notes: string
-): Promise<void> {
-  if (
-    submission.intent === 'refresh' ||
-    isGeneratedGuestSubmissionEmail(submission.submitterEmail)
-  ) {
-    return
-  }
-
-  try {
-    const send = async () =>
-      sendEmail(await buildRejectionEmail({
-        submitterEmail: submission.submitterEmail,
-        brandName: submission.brandName,
-        denialReason,
-        reviewerNotes: notes,
-      }))
-    // Bounded so a hung provider cannot hold the bulk response open once every
-    // row is already committed. A dropped notification beats a stuck queue.
-    const sendResult = await Promise.race([
-      send(),
-      new Promise<EmailSendResult>((resolve) =>
-        setTimeout(
-          () => resolve({ success: false, error: 'rejection email timed out' }),
-          REJECTION_EMAIL_TIMEOUT_MS
-        ).unref?.()
-      ),
-    ])
-    if (!sendResult.success) {
-      console.error('[admin:rejectSubmission] rejection email not sent:', {
-        submissionId: submission.id,
-        error: sendResult.error,
-      })
-    }
-  } catch (err) {
-    console.error('[admin:rejectSubmission] rejection email threw:', {
-      submissionId: submission.id,
-      error: err,
-    })
-  }
-}
-
-/**
- * The single item workflow behind both the per-row and the bulk rejection
- * action, so single and bulk behavior cannot drift.
- * `scripts/enrichment/ops/reject-skipped-submissions.ts` mirrors this by comment, not by
- * import — it deliberately omits the notification email.
- */
-async function rejectSubmissionForAdmin(
-  submissionId: string,
-  reviewerId: string,
-  denialReason: DenialReason,
-  notes: string
-): Promise<void> {
-  const submission = await commitSubmissionRejection(
-    submissionId,
-    reviewerId,
-    denialReason,
-    notes
-  )
-  await notifySubmissionRejected(submission, denialReason, notes)
-}
-
 function revalidateRejections(): void {
   revalidatePath(routes.admin.submissions())
   // getAdminNavCounts() drives the nav badges, so the dashboard shell has to be
@@ -645,11 +376,12 @@ export async function rejectSubmissionAction(
         return { error: 'Notes are required when using "Other" reason' }
       }
 
-      await rejectSubmissionForAdmin(
+      await rejectSubmissionWorkflow(
         submissionId,
         auth.user.id,
         denialReason,
-        notes
+        notes,
+        { notify: 'send' }
       )
 
       revalidateRejections()

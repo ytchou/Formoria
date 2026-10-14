@@ -30,34 +30,41 @@ type ServerEvent = {
   identifyProperties?: Record<string, unknown>
 }
 
+/**
+ * Captures and flushes one event, awaited. Never throws. For callers outside a
+ * Next request (operator scripts), where `after()` is unavailable; inside a
+ * request use `captureServerEvent`, which keeps the flush off the response path.
+ */
+export async function captureServerEventNow(input: ServerEvent): Promise<void> {
+  try {
+    await auditedCall(
+      { provider: 'posthog', operation: 'capture_event', kind: 'external' },
+      async (ctx) => {
+        const posthog = getPostHogClient()
+        if (input.identifyProperties) {
+          posthog.identify({
+            distinctId: input.distinctId,
+            properties: input.identifyProperties,
+          })
+        }
+        posthog.capture({
+          distinctId: input.distinctId,
+          event: input.event,
+          properties: input.properties,
+        })
+        await posthog.flush()
+        ctx.summary.response = { flushed: true }
+      },
+      { summary: { request: input } },
+    )
+  } catch (error) {
+    console.error(`[analytics:${input.event}] capture failed`, error)
+  }
+}
+
 export function captureServerEvent(input: ServerEvent): void {
   try {
-    after(async () => {
-      try {
-        await auditedCall(
-          { provider: 'posthog', operation: 'capture_event', kind: 'external' },
-          async (ctx) => {
-            const posthog = getPostHogClient()
-            if (input.identifyProperties) {
-              posthog.identify({
-                distinctId: input.distinctId,
-                properties: input.identifyProperties,
-              })
-            }
-            posthog.capture({
-              distinctId: input.distinctId,
-              event: input.event,
-              properties: input.properties,
-            })
-            await posthog.flush()
-            ctx.summary.response = { flushed: true }
-          },
-          { summary: { request: input } },
-        )
-      } catch (error) {
-        console.error(`[analytics:${input.event}] capture failed`, error)
-      }
-    })
+    after(() => captureServerEventNow(input))
   } catch (error) {
     console.error(`[analytics:${input.event}] scheduling failed`, error)
   }

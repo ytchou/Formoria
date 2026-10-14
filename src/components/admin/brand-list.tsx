@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import type { BrandStatus } from "@/lib/types";
 import type { AdminBrandListItem } from "@/lib/brands/contracts";
-import type { SubmissionReviewImage } from "@/lib/services/submissions";
+import type { SubmissionReviewImage } from "@/lib/services/submission-review-data";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
 import { BrandStatusBadge } from "./status-badge";

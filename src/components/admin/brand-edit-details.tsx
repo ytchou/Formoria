@@ -3,7 +3,7 @@
 import type { AdminBrandListItem } from "@/lib/brands/contracts";
 import { ReviewDetailsEditor } from "@/components/admin/review-details-editor";
 import { brandToReviewData } from "@/lib/brands/admin-review-data";
-import type { SubmissionReviewImage } from "@/lib/services/submissions";
+import type { SubmissionReviewImage } from "@/lib/services/submission-review-data";
 import {
   cleanupAdminBrandReviewImagesAction,
   saveAdminBrandReviewAction,

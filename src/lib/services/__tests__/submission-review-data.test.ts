@@ -7,7 +7,7 @@ import {
   normalizeSubmissionReviewImages,
   resolveSubmissionReviewImages,
   type SubmissionReviewImage,
-} from "../submissions";
+} from "../submission-review-data";
 
 const baseSubmission = {
   brandName: "Original Brand",

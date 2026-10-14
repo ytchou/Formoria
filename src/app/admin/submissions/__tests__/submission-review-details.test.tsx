@@ -4,10 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../messages/en.json";
-import type {
-  BrandSubmissionForReview,
-  SubmissionReviewImage,
-} from "@/lib/services/submissions";
+import type { BrandSubmissionForReview } from "@/lib/services/submissions";
+import type { SubmissionReviewImage } from "@/lib/services/submission-review-data";
 import type { ExistingCuratedProduct } from "@/lib/services/curated-products/proposal-diff";
 import type { CuratedProductProposal } from "@/lib/types/enriched-data";
 import type { StockistCandidate } from "@/lib/types/stockist";

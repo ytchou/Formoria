@@ -156,7 +156,7 @@ describe("parseDescriptionRewriteResult", () => {
         .repeat(3)
         .trim();
     const blurbZh =
-      "從打版到量產皆親自把關，以台灣製鞋工藝打造簡約舒適的日常帆布鞋。";
+      "從打版到量產皆親自把關，用台灣製鞋工藝做簡約舒適的日常帆布鞋。";
     const blurbEn =
       "Taiwan-made canvas sneakers shaped by close oversight from pattern making through production.";
     const response = (
@@ -274,9 +274,9 @@ describe("DESCRIPTION_SCHEMA", () => {
       response: { ok: true, status: 200 },
       data: {},
       content: JSON.stringify({
-        description_zh: "台灣品牌以手工皮革製品為核心，從選料、裁切到車縫皆由工匠親手完成，產品涵蓋長夾、零錢包與證件套，以植鞣牛皮搭配手工上色工序，打造具使用痕跡質感的皮件。",
+        description_zh: "台灣品牌以手工皮革製品為核心，從選料、裁切到車縫皆由工匠親手完成，產品涵蓋長夾、零錢包與證件套，以植鞣牛皮搭配手工上色工序，做出具使用痕跡質感的皮件。",
         description_en: "This Taiwanese brand centers on handcrafted leather goods, with artisans personally handling material selection, cutting, and stitching to produce wallets, coin purses, and card holders from vegetable-tanned cowhide finished with hand-dyed techniques.",
-        blurb_zh: "以植鞣牛皮與手工上色打造長夾、零錢包等皮件，強調使用痕跡帶來的獨特質感。",
+        blurb_zh: "以植鞣牛皮與手工上色製作長夾、零錢包等皮件，強調使用痕跡帶來的獨特質感。",
         blurb_en: "Handcrafted vegetable-tanned leather goods shaped by artisan dyeing and natural patina.",
       }),
     });
