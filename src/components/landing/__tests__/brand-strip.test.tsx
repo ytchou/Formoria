@@ -63,7 +63,7 @@ vi.mock("@/components/landing/section-band-cta-link", () => ({
     className,
   }: {
     href: string;
-    label: string;
+    label: ReactNode;
     className?: string;
   }) => (
     <a href={href} className={className}>
@@ -189,11 +189,24 @@ describe("BrandStrip", () => {
     expect(screen.getAllByRole("link")).toHaveLength(mockBrands.length + 1);
   });
 
-  it("renders browse-all link", async () => {
-    render(await BrandStrip({ brands: mockBrands, totalCount: 700 }));
+  it("links the count line as the strip's one way into the directory", async () => {
+    const { container } = render(
+      await BrandStrip({ brands: mockBrands, totalCount: 700 }),
+    );
 
-    const link = screen.getByText("browseAll");
-    expect(link).toBeInTheDocument();
-    expect(link.closest("a")).toHaveAttribute("href", "/brands");
+    const directoryLinks = container.querySelectorAll('a[href="/brands"]');
+    expect(directoryLinks).toHaveLength(1);
+    const heading = screen.getByRole("heading", { level: 2 });
+    expect(heading).toContainElement(directoryLinks[0] as HTMLElement);
+    expect(directoryLinks[0]).toHaveTextContent("count 690 true");
+    expect(screen.queryByText("browseAll")).not.toBeInTheDocument();
+  });
+
+  it("shares the page's left edge", async () => {
+    const { container } = render(
+      await BrandStrip({ brands: mockBrands, totalCount: 700 }),
+    );
+
+    expect(container.firstElementChild).not.toHaveClass("text-center");
   });
 });

@@ -128,7 +128,6 @@ vi.mock("@/components/landing/brand-strip", () => ({
     <div data-testid="brand-strip" data-total-count={totalCount}>
       <h2>brands.count</h2>
       <span>{brands.length} brands</span>
-      <a href="/brands">{en.landing.brands.browseAll}</a>
     </div>
   ),
 }));

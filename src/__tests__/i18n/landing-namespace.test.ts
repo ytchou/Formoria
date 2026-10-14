@@ -222,10 +222,9 @@ describe("landing namespace", () => {
       "missionCloser.headline",
       "missionCloser.subtitle",
       "missionCloser.cta",
-      // BrandStrip's copy — the count line, browse-all link, and the
-      // marquee's pause/play button names.
+      // BrandStrip's copy — the count line and the marquee's pause/play
+      // button names.
       "brands.count",
-      "brands.browseAll",
       "brands.pauseMarquee",
       "brands.playMarquee",
     ];
@@ -275,7 +274,6 @@ describe("landing namespace", () => {
       "landing.trails.linkText",
       "landing.selection.cta",
       "landing.missionCloser.cta",
-      "landing.brands.browseAll",
       "about.guide.cta",
     ];
 

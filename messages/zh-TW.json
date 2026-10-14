@@ -152,7 +152,7 @@
     "hero": {
       "headline": "生活可以<wbr></wbr>更像自己一點",
       "searchLabel": "搜尋台灣商品",
-      "searchPlaceholder": "例：旅行必備小物、結婚禮物推薦、夏天防曬好物",
+      "searchPlaceholder": "例：出國帶的小東西、結婚禮物",
       "browseCta": "從主題選物開始",
       "eyebrow": "台灣好物選物平台",
       "lede": "從一件喜歡的東西，找到做它的台灣品牌，和買得到它的地方。",
@@ -167,7 +167,7 @@
       "madeInTaiwan": "台灣製造"
     },
     "trustSeam": {
-      "line": "收錄與選物，清楚分開"
+      "line": "收錄的品牌和 Formoria 選物，會分開標示"
     },
     "submitBand": {
       "headline": "知道還沒收錄的台灣品牌嗎？",
@@ -181,7 +181,7 @@
     },
     "trails": {
       "heading": "主題選物",
-      "note": "從一個具體情境挑出的商品",
+      "note": "每一組都從一個生活情境出發，挑幾件適合的商品",
       "linkText": "看全部主題選物",
       "eyebrow": "主題選物",
       "cta": "看這組選物"
@@ -201,18 +201,17 @@
     },
     "brands": {
       "count": "{approximate, select, true {已收錄 {count} 多個台灣品牌} other {已收錄 {count} 個台灣品牌}}",
-      "browseAll": "看品牌目錄",
       "pauseMarquee": "暫停品牌輪播",
       "playMarquee": "播放品牌輪播"
     }
   },
   "newsletter": {
-    "heading": "收到新的專題和選物",
+    "heading": "訂閱 Formoria 電子報",
     "subtext": "新的專題、新收錄的品牌和 Formoria 選物，寄到你的信箱。",
     "emailLabel": "電子郵件",
     "emailPlaceholder": "your@email.com",
     "subscribe": "訂閱",
-    "interestsLabel": "選擇想收到的內容",
+    "interestsLabel": "想收到哪些內容？",
     "interests": {
       "brand-stories": "專題",
       "new-brands": "新收錄的品牌",
@@ -221,16 +220,16 @@
     },
     "success": "確認信已寄出，請到收件匣點開連結完成訂閱",
     "errors": {
-      "invalidEmail": "請輸入有效的電子郵件地址。",
-      "rateLimited": "操作次數過多，請稍候再試。",
+      "invalidEmail": "電子郵件格式不對，請再檢查一次。",
+      "rateLimited": "試太多次了，請等一下再試。",
       "confirmationFailed": "目前無法寄出確認信，請稍後再試。",
       "generic": "訂閱暫時無法完成，請稍後再試。"
     },
-    "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後需完成信箱確認，隨時都能取消訂閱。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+    "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後要先到信箱點確認連結，隨時都能取消訂閱。詳細說明在<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "我同意接收 Formoria 電子報",
-    "newsletterOnlyDescription": "電子報需完成信箱確認，隨時都能取消訂閱。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+    "newsletterOnlyDescription": "訂閱後要先到信箱確認，隨時都能取消。詳細說明在<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
     "breadcrumbAria": "目前位置",
@@ -1175,13 +1174,13 @@
       "description": "管理顯示名稱、語言和電子報設定。"
     },
     "heading": "帳號設定",
-    "subheading": "管理個人資料與偏好設定",
+    "subheading": "在這裡改顯示名稱、語言和電子報設定",
     "displayNameLabel": "顯示名稱",
     "displayNamePlaceholder": "輸入顯示名稱",
     "emailLabel": "電子郵件",
     "localePreferenceLabel": "語言偏好",
     "marketingHeading": "電子報",
-    "marketingDescription": "電子報預設關閉，要你自己開啟，隨時都能關掉。帳號驗證、密碼重設和審核結果這類必要通知不受影響。",
+    "marketingDescription": "電子報預設是關的，自己打開才會收到，隨時都能關掉。帳號驗證、密碼重設和審核結果這些必要通知，不管有沒有訂閱都會寄。",
     "newsletterMarketingLabel": "Formoria 電子報",
     "newsletterMarketingDescription": "新的專題、新收錄的品牌和 Formoria 選物。開啟後要先完成信箱確認。",
     "newsletterPending": "確認信已寄出。點開信裡的連結後，才會開始收到電子報。",
