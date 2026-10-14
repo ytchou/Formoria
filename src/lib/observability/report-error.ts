@@ -13,7 +13,7 @@ import * as Sentry from "@sentry/nextjs";
  * already wrap their own call.
  */
 
-export type ReportLevel = "fatal" | "error" | "warning" | "info" | "debug";
+type ReportLevel = "fatal" | "error" | "warning" | "info" | "debug";
 
 export interface ReportOptions {
   /** Shorthand for the `area` tag; merged over `tags`. */
