@@ -12,7 +12,7 @@ export type StorySourceLink = { href: string; label: string };
  * so the label never shows a path the link does not go to. A malformed escape
  * (a lone `%`) throws, and the raw text is the honest fallback.
  */
-export function sourceLinkLabel(href: string): string {
+function sourceLinkLabel(href: string): string {
   const bare = href.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
   try {
     return decodeURI(bare);

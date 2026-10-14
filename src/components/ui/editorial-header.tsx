@@ -47,7 +47,7 @@ function MetaLine({ items }: { items: MetaItem[] }) {
   );
 }
 
-export type EditorialHeaderHero = {
+type EditorialHeaderHero = {
   /** Already resolved by `editorialHeroSrc`: only an image the page can display. */
   src: string;
   /**
