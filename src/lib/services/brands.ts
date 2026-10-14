@@ -2242,7 +2242,7 @@ export function collectSyncableImageUrls(input: {
   });
 }
 
-export type ImageRef = {
+type ImageRef = {
   url: string;
   field: "hero" | "photo";
   index?: number;

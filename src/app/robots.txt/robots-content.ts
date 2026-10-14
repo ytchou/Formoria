@@ -23,7 +23,7 @@ export const CONTENT_SIGNAL = "ai-train=no, search=yes, ai-input=yes";
  * the URL as written: production links used a raw `,`, while URLSearchParams
  * serializes it as `%2C`.
  */
-export const MULTI_VALUE_SUB_DISALLOW = ["/*sub=*,*", "/*sub=*%2C*"] as const;
+const MULTI_VALUE_SUB_DISALLOW = ["/*sub=*,*", "/*sub=*%2C*"] as const;
 
 /**
  * Surfaces that stay out of every crawler's index. /submit is deliberately
