@@ -1,13 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import {
-  normalizeInstagramHref,
-  normalizeThreadsHref,
-  sanitizeHref,
-} from "@/lib/url";
 import { useState, type ReactNode } from "react";
 import {
+  ArrowUpRight,
   AtSign,
   Globe,
   Link,
@@ -27,29 +23,21 @@ import {
 import { Typography } from "@/components/ui/typography";
 import type {
   BrandChannelCorrectionFields,
+  BrandChannelSlot,
   BrandOtherLink,
-  BrandPurchaseLinkFields,
-  BrandSocialLinkFields,
 } from "@/lib/services/brand-detail-view";
 import {
-  onlineStoreMessageKey,
   ONLINE_STORES,
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
 import { trackExternalLinkClicked } from "@/lib/analytics";
-import {
-  classifyBrandLinkKind,
-  type BrandVisitLinkKind,
-} from "@/lib/brands/link-fallback";
+import type { BrandVisitLinkKind } from "@/lib/brands/link-fallback";
+import { cn } from "@/lib/utils";
 import { CorrectionDialog } from "./correction-dialog";
 import { ProvideStockistInfoDialog } from "./provide-stockist-info-dialog";
 
 /** What the click tracking needs to know about the brand. */
-type TrackedBrand = Pick<BrandSocialLinkFields, "id" | "slug">;
-
-function normalizeDirectUrl(value: string | undefined | null): string | null {
-  return sanitizeHref(value);
-}
+type TrackedBrand = { id: string; slug: string };
 
 function FacebookIcon({ className }: { className?: string }) {
   return (
@@ -71,9 +59,6 @@ type LinkSlot = {
   linkType: BrandVisitLinkKind | "other";
   icon: ReactNode;
 };
-
-/** A destination before we know whether we hold a URL for it. */
-type LinkCandidate = Omit<LinkSlot, "url"> & { url: string | null };
 
 type LinkListProps = {
   /** Only known destinations: a slot without a URL never reaches here. */
@@ -103,6 +88,97 @@ const DESTINATION_PRESENTATION = {
   facebook: { icon: <FacebookIcon className="size-4 text-current" /> },
   line: { icon: <MessageCircle className="size-4 text-current" /> },
 } satisfies Record<BrandVisitLinkKind, { icon: ReactNode }>;
+
+/**
+ * An external brand link that records the channel it routes to: the one
+ * tracked anchor every brand-channel surface on the page renders.
+ */
+export function TrackedChannelLink({
+  href,
+  kind,
+  brand,
+  className,
+  children,
+}: {
+  href: string;
+  kind: BrandVisitLinkKind | "other";
+  brand: TrackedBrand;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      data-ph-no-autocapture
+      onClick={() => {
+        trackExternalLinkClicked(
+          brand.slug,
+          kind,
+          typeof window !== "undefined" ? window.location.pathname : "",
+          "detail_page",
+          brand.id,
+        );
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+const CHANNEL_ROW_CLASS_NAME =
+  "flex min-h-11 items-center justify-between gap-3 text-ink transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
+/**
+ * Brand channels as hairline-divided rows (BD-06): the channel name, its
+ * destination host, and an out arrow. The hero route rows and the
+ * where-to-buy online list are both this list, fed from the same slots
+ * (`buildBrandChannelSlots`).
+ */
+export function BrandChannelRows({
+  brand,
+  slots,
+  ariaLabel,
+  className,
+}: {
+  brand: TrackedBrand;
+  slots: BrandChannelSlot[];
+  ariaLabel?: string;
+  className?: string;
+}) {
+  const t = useTranslations("brandDetail");
+  if (slots.length === 0) return null;
+
+  return (
+    <ul
+      aria-label={ariaLabel}
+      className={cn("divide-y divide-rule border-y border-rule", className)}
+    >
+      {slots.map((slot) => (
+        <li key={`${slot.kind}:${slot.url}`}>
+          <TrackedChannelLink
+            href={slot.url}
+            kind={slot.kind}
+            brand={brand}
+            className={CHANNEL_ROW_CLASS_NAME}
+          >
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 type-label">{t(slot.labelKey)}</span>
+              {slot.host ? (
+                <span className="min-w-0 truncate type-metadata">
+                  {slot.host}
+                </span>
+              ) : null}
+            </span>
+            <ArrowUpRight className="size-4 shrink-0" aria-hidden />
+          </TrackedChannelLink>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function DestinationLinkButton({
   slot,
@@ -135,39 +211,25 @@ function LinkList({ slots, brand, className, note }: LinkListProps) {
     <div className={className}>
       {slots.length > 0 ? (
         <div className="flex flex-wrap gap-3">
-          {slots.map((slot, index) => {
-            const slotKey = `${slot.linkType}:${slot.label}:${index}`;
-
-            return (
-              <a
-                key={slotKey}
-                href={slot.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={destinationLinkClassName}
-                data-ph-no-autocapture
-                onClick={() => {
-                  trackExternalLinkClicked(
-                    brand.slug,
-                    slot.linkType,
-                    typeof window !== "undefined"
-                      ? window.location.pathname
-                      : "",
-                    "detail_page",
-                    brand.id,
-                  );
-                }}
-              >
-                <DestinationLinkButton slot={slot}>
-                  {slot.label}
-                </DestinationLinkButton>
-              </a>
-            );
-          })}
+          {slots.map((slot, index) => (
+            <TrackedChannelLink
+              key={`${slot.linkType}:${slot.label}:${index}`}
+              href={slot.url}
+              kind={slot.linkType}
+              brand={brand}
+              className={destinationLinkClassName}
+            >
+              <DestinationLinkButton slot={slot}>
+                {slot.label}
+              </DestinationLinkButton>
+            </TrackedChannelLink>
+          ))}
         </div>
       ) : null}
       {note ? (
-        <p className={slots.length > 0 ? "mt-3 type-metadata" : "type-metadata"}>
+        <p
+          className={slots.length > 0 ? "mt-3 type-metadata" : "type-metadata"}
+        >
           {note}
         </p>
       ) : null}
@@ -175,35 +237,24 @@ function LinkList({ slots, brand, className, note }: LinkListProps) {
   );
 }
 
-/** Drops the destinations we hold no URL for — only known routes render. */
-function liveSlots(candidates: LinkCandidate[]): LinkSlot[] {
-  return candidates.filter((slot): slot is LinkSlot => slot.url !== null);
-}
-
-/** The social section's body; the page sets it in `BrandSection` (#social). */
-export function BrandSocialLinks({ brand }: { brand: BrandSocialLinkFields }) {
+/**
+ * The social section's body; the page sets it in `BrandSection` (#social).
+ * `slots` are `buildBrandChannelSlots().social`.
+ */
+export function BrandSocialLinks({
+  brand,
+  slots,
+}: {
+  brand: TrackedBrand;
+  slots: BrandChannelSlot[];
+}) {
   const t = useTranslations("brandDetail");
-
-  const socialSlots = liveSlots([
-    {
-      label: t("links.instagram"),
-      url: normalizeInstagramHref(brand.socialInstagram),
-      linkType: "instagram",
-      icon: <InstagramIcon className="size-4 text-current" />,
-    },
-    {
-      label: t("links.threads"),
-      url: normalizeThreadsHref(brand.socialThreads),
-      linkType: "threads",
-      icon: <AtSign className="size-4 text-current" />,
-    },
-    {
-      label: t("links.facebook"),
-      url: normalizeDirectUrl(brand.socialFacebook),
-      linkType: "facebook",
-      icon: <FacebookIcon className="size-4 text-current" />,
-    },
-  ]);
+  const socialSlots: LinkSlot[] = slots.map((slot) => ({
+    label: t(slot.labelKey),
+    url: slot.url,
+    linkType: slot.kind,
+    ...DESTINATION_PRESENTATION[slot.kind],
+  }));
 
   // The section nav always lists #social, so the section renders even empty.
   return (
@@ -216,44 +267,20 @@ export function BrandSocialLinks({ brand }: { brand: BrandSocialLinkFields }) {
   );
 }
 
-/** The online-store block under where-to-buy's h2, with its own h3. */
+/**
+ * The online-store block under where-to-buy's h2, with its own h3: the same
+ * rows the hero carries, from `buildBrandChannelSlots().purchase`. A store we
+ * hold no link for is left out without comment (BD-COPY-03); only a brand with
+ * no online store at all gets a muted line.
+ */
 export function BrandPurchaseLinks({
   brand,
+  slots,
 }: {
-  brand: BrandPurchaseLinkFields;
+  brand: TrackedBrand;
+  slots: BrandChannelSlot[];
 }) {
   const t = useTranslations("brandDetail");
-
-  const purchaseSlots = liveSlots(
-    ONLINE_STORES.map((channel) => {
-      const url = normalizeDirectUrl(brand[channel.camel]);
-      const kind = url ? classifyBrandLinkKind(url, channel.key) : channel.key;
-      const labelKey =
-        kind === channel.key
-          ? onlineStoreMessageKey(
-              channel.messageKeys.brandDetailLink,
-              "brandDetail",
-            )
-          : `links.${kind}`;
-      return {
-        label: t(labelKey),
-        url,
-        linkType: kind,
-        ...DESTINATION_PRESENTATION[kind],
-      };
-    }),
-  );
-  // One muted line stands in for every store we hold no link for, instead of a
-  // dimmed chip per store.
-  const hasMissingChannel = purchaseSlots.length < ONLINE_STORES.length;
-  const note =
-    purchaseSlots.length === 0
-      ? t("links.noChannels")
-      : hasMissingChannel
-        ? t("links.missingChannels")
-        : null;
-
-  if (purchaseSlots.length === 0 && !note) return null;
 
   // A block, not a nested <section>: it sits inside the where-to-buy section.
   return (
@@ -261,12 +288,11 @@ export function BrandPurchaseLinks({
       <Typography as="h3" variant="cardTitle">
         {t("links.onlineStores")}
       </Typography>
-      <LinkList
-        slots={purchaseSlots}
-        brand={brand}
-        className="mt-4"
-        note={note}
-      />
+      {slots.length > 0 ? (
+        <BrandChannelRows brand={brand} slots={slots} className="mt-4" />
+      ) : (
+        <p className="mt-4 type-metadata">{t("links.noChannels")}</p>
+      )}
     </div>
   );
 }

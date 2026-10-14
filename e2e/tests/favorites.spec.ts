@@ -107,12 +107,14 @@ test.describe("Favorites", () => {
 
     try {
       const brandName = seeded.brand.name;
+      // The hero's labelled save button is named by its visible text
+      // (BD-14); only the icon-only route-out bar keeps an aria-label.
       const save = page.getByRole("button", {
-        name: "收藏這個品牌",
+        name: "收藏",
         exact: true,
       });
       const unsave = page.getByRole("button", {
-        name: "取消收藏這個品牌",
+        name: "取消收藏",
         exact: true,
       });
 
@@ -271,8 +273,9 @@ test.describe("Favorites", () => {
     const page = anonPage;
 
     await page.goto(`/brands/${seeded.slug}`);
+    // The hero's labelled save button is named by its visible text (BD-14).
     const save = page.getByRole("button", {
-      name: "收藏這個品牌",
+      name: "收藏",
       exact: true,
     });
     // Enabled before the viewer settles: a click is queued, never dropped.
@@ -307,7 +310,7 @@ test.describe("Favorites", () => {
     });
     await waitForViewerReady(page);
     await expect(
-      page.getByRole("button", { name: "取消收藏這個品牌", exact: true }),
+      page.getByRole("button", { name: "取消收藏", exact: true }),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(page.getByText("已收藏", { exact: true })).toBeVisible({
       timeout: BUDGET.INTERACTIVE,

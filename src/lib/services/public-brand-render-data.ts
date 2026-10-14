@@ -10,7 +10,12 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getBrandFaqEntries } from "@/lib/services/brand-faq";
 import { getStockistsForBrand } from "@/lib/services/stockists";
 import { getRelatedBrandsByCentroid } from "@/lib/services/brand-embeddings";
-import { getPublishedCuratedProductsForTrail } from "@/lib/services/curated-products";
+import {
+  getPublishedCuratedProductsForTrail,
+  getPublishedProductPreviewsForBrands,
+  type BrandProductPreview,
+} from "@/lib/services/curated-products";
+import { captureReadFailure } from "@/lib/degraded-render";
 
 const getCachedPublicBrandDetailBaseBySlug = unstable_cache(
   getPublicBrandDetailBaseBySlug,
@@ -45,15 +50,28 @@ export const getCachedPublicBrandFacts = unstable_cache(
         ? getRelatedBrandsByCentroid(brandId, categorySlug, slug, 4)
         : Promise.resolve({ brands: [], totalCount: 0 }),
     ]);
+    const relatedBrands = related.brands.map(toPublicBrandCard);
+    // The related cards lead with the brands' products (BD-09). A plain
+    // object, not the service's Map: unstable_cache JSON-serializes its
+    // result. A failed read shows the cards without a product strip.
+    const previewMap =
+      (await getPublishedProductPreviewsForBrands(
+        relatedBrands.map((brand) => brand.id),
+      ).catch(captureReadFailure("brand.relatedProductPreviews"))) ??
+      new Map<string, BrandProductPreview>();
     return {
       faqContext,
       faqEntries,
       stockists,
-      relatedBrands: related.brands.map(toPublicBrandCard),
+      relatedBrands,
+      relatedPreviews: Object.fromEntries(previewMap) as Record<
+        string,
+        BrandProductPreview
+      >,
       categoryCount: related.totalCount,
     };
   },
-  ["public-brand-facts-v1"],
+  ["public-brand-facts-v2"],
   PUBLIC_DETAIL_CACHE_OPTIONS,
 );
 

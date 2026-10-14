@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -35,6 +35,8 @@ import {
   BrandSocialLinks,
 } from "../brand-links";
 import { BrandSection } from "../brand-section";
+import { trackExternalLinkClicked } from "@/lib/analytics";
+import { buildBrandChannelSlots } from "@/lib/services/brand-detail-view";
 
 const LINKS = zh.brandDetail.links;
 
@@ -79,30 +81,95 @@ function renderZh(node: ReactNode) {
   );
 }
 
+const TRACKED = {
+  id: "0f2a2f6c-7a9e-4a7f-9d64-9f2b1c5f0a11",
+  slug: "harbor-form",
+};
+
+/** The page's props for a brand: the same slots the view model builds. */
+function purchaseProps(overrides: Partial<PublicBrandDetail> = {}) {
+  return {
+    brand: TRACKED,
+    slots: buildBrandChannelSlots(buildBrand(overrides)).purchase,
+  };
+}
+
+function socialProps(overrides: Partial<PublicBrandDetail> = {}) {
+  return {
+    brand: TRACKED,
+    slots: buildBrandChannelSlots(buildBrand(overrides)).social,
+  };
+}
+
+const EVERY_STORE = {
+  purchaseWebsite: "https://harbor.example",
+  purchasePinkoi: "https://www.pinkoi.com/store/harbor",
+  purchaseShopee: "https://shopee.tw/harbor",
+  purchaseMyship: "https://myship.7-11.com.tw/general/detail/GM1",
+};
+
 describe("BrandPurchaseLinks", () => {
   it("renders only known destinations, with no inert chips", () => {
     const { container } = renderZh(
       <BrandPurchaseLinks
-        brand={buildBrand({ purchaseWebsite: "https://harbor.example" })}
+        {...purchaseProps({ purchaseWebsite: "https://harbor.example" })}
       />,
     );
 
-    expect(screen.getByRole("link", { name: LINKS.website })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /品牌官網/ })).toHaveAttribute(
       "href",
       "https://harbor.example",
     );
     for (const label of [LINKS.pinkoi, LINKS.shopee, LINKS.myship]) {
-      expect(screen.queryByRole("link", { name: label })).toBeNull();
+      expect(
+        screen.queryByRole("link", { name: new RegExp(label) }),
+      ).toBeNull();
       expect(screen.queryByRole("button", { name: label })).toBeNull();
     }
     expect(screen.queryByRole("button")).toBeNull();
     expect(container.querySelector("[aria-disabled]")).toBeNull();
   });
 
-  it("is a sub-heading of the where-to-buy section", () => {
-    const { container } = renderZh(
-      <BrandPurchaseLinks brand={buildBrand()} />,
+  // BD-01 step 3: rows, not pills — name, host, out arrow, 44px tall.
+  it("sets each store as a row with its host, in registry order", () => {
+    renderZh(<BrandPurchaseLinks {...purchaseProps(EVERY_STORE)} />);
+
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual([
+      `${LINKS.website}harbor.example`,
+      `${LINKS.pinkoi}pinkoi.com`,
+      `${LINKS.shopee}shopee.tw`,
+      `${LINKS.myship}myship.7-11.com.tw`,
+    ]);
+    for (const link of links) {
+      expect(link).toHaveClass("min-h-11");
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+    expect(screen.getByText("pinkoi.com")).toHaveClass("type-metadata");
+    expect(links[0]!.closest("ul")).toHaveClass("divide-y", "divide-rule");
+  });
+
+  it("tracks a row click as the channel it goes to", () => {
+    renderZh(
+      <BrandPurchaseLinks
+        {...purchaseProps({ purchaseWebsite: "https://shopee.tw/harbor" })}
+      />,
     );
+
+    fireEvent.click(screen.getByRole("link"));
+
+    expect(trackExternalLinkClicked).toHaveBeenCalledWith(
+      "harbor-form",
+      "shopee",
+      expect.any(String),
+      "detail_page",
+      TRACKED.id,
+    );
+  });
+
+  it("is a sub-heading of the where-to-buy section", () => {
+    const { container } = renderZh(<BrandPurchaseLinks {...purchaseProps()} />);
 
     expect(
       screen.getByRole("heading", { level: 3, name: LINKS.onlineStores }),
@@ -111,41 +178,23 @@ describe("BrandPurchaseLinks", () => {
     expect(container.querySelector("section")).toBeNull();
   });
 
-  it("names the missing channels in one muted line when some are live", () => {
-    renderZh(
+  // BD-COPY-03: a missing store is left out without an apology line.
+  it("prints no muted line when some store is live", () => {
+    const { container } = renderZh(
       <BrandPurchaseLinks
-        brand={buildBrand({ purchaseWebsite: "https://harbor.example" })}
+        {...purchaseProps({ purchaseWebsite: "https://harbor.example" })}
       />,
     );
 
-    expect(screen.getByText(LINKS.missingChannels)).toHaveClass(
-      "type-metadata",
-    );
     expect(screen.queryByText(LINKS.noChannels)).toBeNull();
+    expect(container.querySelector("p")).toBeNull();
   });
 
   it("says no store is known when none is live", () => {
-    renderZh(<BrandPurchaseLinks brand={buildBrand()} />);
+    renderZh(<BrandPurchaseLinks {...purchaseProps()} />);
 
     expect(screen.getByText(LINKS.noChannels)).toBeInTheDocument();
-    expect(screen.queryByText(LINKS.missingChannels)).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
-  });
-
-  it("prints no muted line when every channel is live", () => {
-    renderZh(
-      <BrandPurchaseLinks
-        brand={buildBrand({
-          purchaseWebsite: "https://harbor.example",
-          purchasePinkoi: "https://www.pinkoi.com/store/harbor",
-          purchaseShopee: "https://shopee.tw/harbor",
-          purchaseMyship: "https://myship.7-11.com.tw/general/detail/GM1",
-        })}
-      />,
-    );
-
-    expect(screen.queryByText(LINKS.missingChannels)).toBeNull();
-    expect(screen.queryByText(LINKS.noChannels)).toBeNull();
   });
 });
 
@@ -154,16 +203,9 @@ describe("link icons", () => {
   it("carry no raw hex colour", () => {
     const { container } = renderZh(
       <>
-        <BrandPurchaseLinks
-          brand={buildBrand({
-            purchaseWebsite: "https://harbor.example",
-            purchasePinkoi: "https://www.pinkoi.com/store/harbor",
-            purchaseShopee: "https://shopee.tw/harbor",
-            purchaseMyship: "https://myship.7-11.com.tw/general/detail/GM1",
-          })}
-        />
+        <BrandPurchaseLinks {...purchaseProps(EVERY_STORE)} />
         <BrandSocialLinks
-          brand={buildBrand({
+          {...socialProps({
             socialInstagram: "https://www.instagram.com/harbor",
             socialThreads: "https://www.threads.net/@harbor",
             socialFacebook: "https://www.facebook.com/harbor",
@@ -187,7 +229,7 @@ describe("BrandSocialLinks", () => {
         rhythm="utility"
         heading={LINKS.socialPlatforms}
       >
-        <BrandSocialLinks brand={buildBrand()} />
+        <BrandSocialLinks {...socialProps()} />
       </BrandSection>,
     );
 
@@ -202,6 +244,17 @@ describe("BrandSocialLinks", () => {
     expect(screen.getByText(LINKS.noSocialLinks)).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
     expect(container.querySelector("[aria-disabled]")).toBeNull();
+  });
+
+  it("keeps the pill links in the social section", () => {
+    renderZh(
+      <BrandSocialLinks {...socialProps({ socialInstagram: "@harbor" })} />,
+    );
+
+    expect(screen.getByRole("link", { name: LINKS.instagram })).toHaveAttribute(
+      "href",
+      "https://instagram.com/harbor",
+    );
   });
 });
 

@@ -2,7 +2,7 @@ import { useId, type ReactNode } from "react";
 import { Typography } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
 
-type BrandSectionRhythm = "content" | "utility";
+type BrandSectionRhythm = "content" | "band" | "utility";
 
 // Every section is a section-nav target: the offset clears the sticky main nav
 // (100px) plus the mobile section-nav strip (48px). From md up there is no strip.
@@ -12,6 +12,10 @@ const RHYTHM_CLASS_NAME: Record<BrandSectionRhythm, string> = {
   // Content sections (story, selected products, where-to-buy) are separated
   // by the section rhythm.
   content: "mt-section first:mt-0",
+  // A column of the where-to-buy/story surface band (BD-01): the band owns
+  // the rhythm against its neighbours and the grid owns the gap between its
+  // columns, so the section adds none of its own.
+  band: "",
   // Utility sections (featured-in, FAQ, social, other links) keep the hairline
   // rhythm, and their headings step down to the card-title size (BD-12).
   utility: "mt-stack border-t border-rule pt-stack",
@@ -52,7 +56,7 @@ export function BrandSection({
     <Typography
       as="h2"
       id={headingId}
-      variant={rhythm === "content" ? "sectionTitleLarge" : "cardTitle"}
+      variant={rhythm === "utility" ? "cardTitle" : "sectionTitleLarge"}
       balance={rhythm === "utility"}
     >
       {heading}

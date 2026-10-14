@@ -26,10 +26,7 @@ import {
 } from "@/components/brands/brand-header";
 import { BrandActions } from "@/components/brands/brand-actions";
 import { AdminBrandMenu } from "@/components/brands/admin-brand-menu";
-import {
-  BrandAbout,
-  isTwoColumnStory,
-} from "@/components/brands/brand-about";
+import { BrandAbout } from "@/components/brands/brand-about";
 import { BrandSection } from "@/components/brands/brand-section";
 import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
 import {
@@ -209,7 +206,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
-  const { stockists, relatedBrands, categoryCount } = facts;
+  const { stockists, relatedBrands, relatedPreviews, categoryCount } = facts;
   const faqItems = renderBrandFaq(
     facts.faqEntries,
     facts.faqContext,
@@ -226,6 +223,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     cityLabel,
     directoryLabel: tBrandDetail("breadcrumb.directory"),
     curatedCount: curatedProducts.length,
+    curatedSubcategories: curatedProducts.map((product) => product.subcategory),
     stockists,
     hasEditorialAppearances,
     faqItemCount: faqItems.length,
@@ -238,9 +236,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const hasSectionNav = shouldShowBrandSectionNav(sections.length);
   const hasHeroFacts = hasBrandHeroFacts(heroFacts);
   const galleryImages = getBrandGalleryImages(displayBrand);
-  const storyTwoColumn = view.storyParagraphs
-    ? isTwoColumnStory(view.storyParagraphs, safeLocale)
-    : false;
 
   return (
     // The saved-brands and engagement providers wrap the whole page: the view
@@ -302,6 +297,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 cityLabel={cityLabel}
                 omitProvenance={hasHeroColophon}
                 lede={view.lede}
+                makesLabels={view.makesLabels}
                 adminSlot={
                   <AdminBrandMenu
                     brandId={displayBrand.id}
@@ -339,12 +335,15 @@ export default async function BrandDetailPage({ params }: PageProps) {
               <div
                 className={cn(
                   "min-w-0 lg:col-span-5 lg:col-start-8 lg:row-start-2 lg:self-start",
-                  // Without a colophon only the md+ jump rows remain; an empty
-                  // cell would still add a grid gap.
+                  // Without a colophon only the md+ route rows remain; an
+                  // empty cell would still add a grid gap.
                   !hasHeroColophon && "max-md:hidden",
                 )}
               >
-                <BrandHeroFacts {...heroFacts} />
+                <BrandHeroFacts
+                  {...heroFacts}
+                  trackedBrand={view.links.tracked}
+                />
               </div>
             )}
           </div>
@@ -359,28 +358,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
             {/* Below md the first heading would otherwise sit flush against
                 the strip's bottom rule; from md up there is no strip. Every
                 section below is one BrandSection (BD-17), in the order of
-                `view.sections`. */}
+                `view.sections`: product-led (BD-01), so the shelf comes
+                first, then the route out and the story in one band. */}
             <div className={cn("min-w-0", hasSectionNav && "pt-6 md:pt-0")}>
-              {view.storyParagraphs && (
-                // A bare `prose-measure` is an inner reading cap inside the
-                // wider page shell (DESIGN.md §4 "Shell or cap"), left-aligned
-                // with the page; a long story drops it at lg.
-                <BrandSection
-                  id="about"
-                  rhythm="content"
-                  heading={tBrandDetail("sections.about")}
-                  className={cn(
-                    "prose-measure",
-                    storyTwoColumn && "lg:max-w-none",
-                  )}
-                >
-                  <BrandAbout
-                    paragraphs={view.storyParagraphs}
-                    twoColumn={storyTwoColumn}
-                  />
-                </BrandSection>
-              )}
-
               {curatedProducts.length > 0 && (
                 // No shell heading: the shelf sets its own h2 beside the
                 // carousel arrows.
@@ -391,34 +371,65 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 >
                   <BrandSelectedProducts
                     locale={safeLocale}
-                    brand={displayBrand}
+                    brand={view.links.visit}
                     products={curatedProducts}
                     guides={productGuides}
                   />
                 </BrandSection>
               )}
 
-              {/* Online and physical channels as one section, official site
-                  first (BrandPurchaseLinks' first slot is the website). */}
-              <BrandSection
-                id="where-to-buy"
-                rhythm="content"
-                heading={tBrandDetail("sections.whereToBuy")}
+              {/* One surface band: where-to-buy in the left 7 columns at lg,
+                  the story in the right 5; below lg they stack in that order.
+                  Without a story, where-to-buy takes the whole band. */}
+              <div
+                className="mt-section rounded-surface bg-surface p-6 first:mt-0 md:p-10"
+                data-brand-band
               >
-                <div className="mt-stack flex flex-col gap-stack">
-                  <BrandPurchaseLinks brand={view.links.purchase} />
-                  {view.stockistCount > 0 && (
-                    <StockistsSection
-                      locale={safeLocale}
-                      confirmed={stockists.confirmed}
-                      possible={stockists.possible}
-                      brandId={displayBrand.id}
-                      brandSlug={displayBrand.slug}
-                    />
+                <div className="grid gap-y-10 lg:grid-cols-12 lg:gap-x-gutter">
+                  {/* Online and physical channels as one section, official
+                      site first (the first purchase slot is the website). */}
+                  <BrandSection
+                    id="where-to-buy"
+                    rhythm="band"
+                    heading={tBrandDetail("sections.whereToBuy")}
+                    className={cn(
+                      "min-w-0",
+                      view.storyParagraphs ? "lg:col-span-7" : "lg:col-span-12",
+                    )}
+                  >
+                    <div className="mt-stack flex flex-col gap-stack">
+                      <BrandPurchaseLinks
+                        brand={view.links.tracked}
+                        slots={view.links.channels.purchase}
+                      />
+                      {view.stockistCount > 0 && (
+                        <StockistsSection
+                          locale={safeLocale}
+                          confirmed={stockists.confirmed}
+                          possible={stockists.possible}
+                          brandId={displayBrand.id}
+                          brandSlug={displayBrand.slug}
+                        />
+                      )}
+                      <BrandChannelCorrections brand={view.links.corrections} />
+                    </div>
+                  </BrandSection>
+
+                  {view.storyParagraphs && (
+                    // One column (BD-05). The bare `prose-measure` caps the
+                    // stacked story below lg; in the 5-column band it is
+                    // narrower than the cap anyway.
+                    <BrandSection
+                      id="about"
+                      rhythm="band"
+                      heading={tBrandDetail("sections.about")}
+                      className="prose-measure min-w-0 lg:col-span-5"
+                    >
+                      <BrandAbout paragraphs={view.storyParagraphs} />
+                    </BrandSection>
                   )}
-                  <BrandChannelCorrections brand={view.links.corrections} />
                 </div>
-              </BrandSection>
+              </div>
 
               {hasEditorialAppearances && (
                 <BrandSection
@@ -449,7 +460,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 rhythm="utility"
                 heading={tBrandDetail("links.socialPlatforms")}
               >
-                <BrandSocialLinks brand={view.links.social} />
+                <BrandSocialLinks
+                  brand={view.links.tracked}
+                  slots={view.links.channels.social}
+                />
               </BrandSection>
 
               {view.links.other.length > 0 && (
@@ -458,7 +472,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                   heading={tBrandDetail("links.otherLinks")}
                 >
                   <BrandOtherLinks
-                    brand={{ id: displayBrand.id, slug: displayBrand.slug }}
+                    brand={view.links.tracked}
                     links={view.links.other}
                   />
                 </BrandSection>
@@ -471,6 +485,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <RelatedBrands
               locale={safeLocale}
               brands={relatedBrands}
+              previews={relatedPreviews}
               category={categoryTag.slug}
               categoryName={categoryLabel || categoryTag.name}
               categoryLabel={categoryLabel || null}
