@@ -59,6 +59,8 @@ export function SearchEmptyState({
       <EmptyState
         icon={<Search />}
         title={t("title")}
+        /* h2 beside the sr-only results h2 (DEV-2023), under the page h1. */
+        headingLevel={2}
         body={t("description")}
         action={
           /*

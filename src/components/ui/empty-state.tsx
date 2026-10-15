@@ -7,8 +7,10 @@ import { cn } from '@/lib/utils'
  * surface read as one more result tile, so the block is grouped by space alone
  * — `py-section`, the named rhythm between page sections (DESIGN.md §3).
  *
- * The title is a `<p>`, not a heading. Callers sit under h1s and h2s at
- * different depths, and a fixed heading level here would skip levels on some.
+ * The title is a `<p>` by default. Callers sit under h1s and h2s at different
+ * depths, and a fixed heading level here would skip levels on some — so a
+ * caller that knows its outline opts in with `headingLevel`, which makes the
+ * title reachable by heading navigation.
  *
  * Deliberately content-free — it takes an already-localized title and body and
  * a ready-made action node, so it renders identically from a server component
@@ -18,6 +20,8 @@ type EmptyStateProps = {
   /** Lucide icon element; rendered muted at 32px. */
   icon?: ReactNode
   title: string
+  /** Render the title as `<h2>`/`<h3>`. Omit to keep it a `<p>`. */
+  headingLevel?: 2 | 3
   body?: string | null
   /** A single button or link. More than one choice belongs in the page, not here. */
   action?: ReactNode
@@ -27,10 +31,12 @@ type EmptyStateProps = {
 export function EmptyState({
   icon,
   title,
+  headingLevel,
   body = null,
   action,
   className,
 }: EmptyStateProps) {
+  const Title = headingLevel ? (`h${headingLevel}` as const) : 'p'
   return (
     <div
       className={cn(
@@ -46,7 +52,7 @@ export function EmptyState({
           {icon}
         </span>
       ) : null}
-      <p className="type-section text-ink">{title}</p>
+      <Title className="type-section text-ink">{title}</Title>
       {body ? <p className="mt-2 content-column type-body-sm">{body}</p> : null}
       {action ? <div className="mt-6">{action}</div> : null}
     </div>

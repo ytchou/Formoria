@@ -360,7 +360,7 @@ test.describe.serial('Public brand search edge cases', () => {
     // alongside the real 沒有符合這些條件的品牌 empty-state heading.
     await expect(page.getByText('找不到品牌', { exact: true })).toHaveCount(0);
     await expect(page.getByText('目前的篩選條件', { exact: true })).toHaveCount(0);
-    await expect(emptyState.getByText('沒有符合這些條件的品牌', { exact: true })).toBeVisible();
+    await expect(emptyState.getByRole('heading', { name: '沒有符合這些條件的品牌' })).toBeVisible();
     // The empty state no longer echoes the query back — the notice banner that
     // did was removed. The search box is now the only place the raw string is
     // rendered, so that is where the escaping guard has to point.
