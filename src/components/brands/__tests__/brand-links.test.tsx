@@ -32,9 +32,8 @@ import {
   BrandChannelCorrections,
   BrandOtherLinks,
   BrandPurchaseLinks,
-  BrandSocialLinks,
+  BrandSocialChannels,
 } from "../brand-links";
-import { BrandSection } from "../brand-section";
 import { trackExternalLinkClicked } from "@/lib/analytics";
 import { buildBrandChannelSlots } from "@/lib/services/brand-detail-view";
 
@@ -204,7 +203,7 @@ describe("link icons", () => {
     const { container } = renderZh(
       <>
         <BrandPurchaseLinks {...purchaseProps(EVERY_STORE)} />
-        <BrandSocialLinks
+        <BrandSocialChannels
           {...socialProps({
             socialInstagram: "https://www.instagram.com/harbor",
             socialThreads: "https://www.threads.net/@harbor",
@@ -219,41 +218,48 @@ describe("link icons", () => {
   });
 });
 
-describe("BrandSocialLinks", () => {
-  // The section nav always lists #social, so the section keeps rendering.
-  // The page owns the shell (BrandSection); the body still renders its line.
-  it("keeps its heading and a muted line when no social link is known", () => {
+describe("BrandSocialChannels", () => {
+  // BD-COPY-03: a missing channel is left out without comment, so a brand
+  // with no social profile gets no heading and no muted line.
+  it("renders nothing when no social profile is known", () => {
     const { container } = renderZh(
-      <BrandSection
-        id="social"
-        rhythm="utility"
-        heading={LINKS.socialPlatforms}
-      >
-        <BrandSocialLinks {...socialProps()} />
-      </BrandSection>,
+      <BrandSocialChannels {...socialProps()} />,
     );
 
-    expect(container.querySelector("#social")).not.toBeNull();
-    expect(
-      screen.getByRole("heading", { level: 2, name: LINKS.socialPlatforms }),
-    ).toBeInTheDocument();
-    expect(container.querySelector("#social")).toHaveAttribute(
-      "aria-labelledby",
-      "social-heading",
-    );
-    expect(screen.getByText(LINKS.noSocialLinks)).toBeInTheDocument();
-    expect(screen.queryByRole("button")).toBeNull();
-    expect(container.querySelector("[aria-disabled]")).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("keeps the pill links in the social section", () => {
-    renderZh(
-      <BrandSocialLinks {...socialProps({ socialInstagram: "@harbor" })} />,
+  it("is an h3 block of channel rows inside where-to-buy", () => {
+    const { container } = renderZh(
+      <BrandSocialChannels {...socialProps({ socialInstagram: "@harbor" })} />,
     );
 
-    expect(screen.getByRole("link", { name: LINKS.instagram })).toHaveAttribute(
-      "href",
-      "https://instagram.com/harbor",
+    expect(
+      screen.getByRole("heading", { level: 3, name: LINKS.officialSocial }),
+    ).toBeInTheDocument();
+    // A block inside where-to-buy, never a nested section.
+    expect(container.querySelector("section")).toBeNull();
+    const link = screen.getByRole("link", {
+      name: new RegExp(LINKS.instagram),
+    });
+    expect(link).toHaveAttribute("href", "https://instagram.com/harbor");
+    expect(link).toHaveClass("min-h-11");
+    expect(link.closest("ul")).toHaveClass("divide-y", "divide-rule");
+  });
+
+  it("tracks a row click as the social channel it goes to", () => {
+    renderZh(
+      <BrandSocialChannels {...socialProps({ socialInstagram: "@harbor" })} />,
+    );
+
+    fireEvent.click(screen.getByRole("link"));
+
+    expect(trackExternalLinkClicked).toHaveBeenCalledWith(
+      "harbor-form",
+      "instagram",
+      expect.any(String),
+      "detail_page",
+      TRACKED.id,
     );
   });
 });

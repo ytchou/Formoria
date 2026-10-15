@@ -33,7 +33,7 @@ import {
   BrandChannelCorrections,
   BrandOtherLinks,
   BrandPurchaseLinks,
-  BrandSocialLinks,
+  BrandSocialChannels,
 } from "@/components/brands/brand-links";
 import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { StockistsSection } from "@/components/brands/stockists-section";
@@ -386,8 +386,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 data-brand-band
               >
                 <div className="grid gap-y-10 lg:grid-cols-12 lg:gap-x-gutter">
-                  {/* Online and physical channels as one section, official
-                      site first (the first purchase slot is the website). */}
+                  {/* Online, social and physical channels as one section,
+                      official site first (the first purchase slot is the
+                      website). Social sits before the stockists so a long
+                      list never buries it. */}
                   <BrandSection
                     id="where-to-buy"
                     rhythm="band"
@@ -401,6 +403,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
                       <BrandPurchaseLinks
                         brand={view.links.tracked}
                         slots={view.links.channels.purchase}
+                      />
+                      <BrandSocialChannels
+                        brand={view.links.tracked}
+                        slots={view.links.channels.social}
                       />
                       {view.stockistCount > 0 && (
                         <StockistsSection
@@ -454,17 +460,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
                   <BrandFaqAccordion items={faqItems} />
                 </BrandSection>
               )}
-
-              <BrandSection
-                id="social"
-                rhythm="utility"
-                heading={tBrandDetail("links.socialPlatforms")}
-              >
-                <BrandSocialLinks
-                  brand={view.links.tracked}
-                  slots={view.links.channels.social}
-                />
-              </BrandSection>
 
               {view.links.other.length > 0 && (
                 <BrandSection
