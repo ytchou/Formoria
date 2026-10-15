@@ -73,6 +73,7 @@ export function TrailProductTile({
 }: TrailProductTileProps) {
   const {
     name,
+    nameBreaks,
     nameLang,
     description,
     descriptionLang,
@@ -201,6 +202,7 @@ export function TrailProductTile({
       <ProductCardCaption
         brand={brandLine}
         name={name}
+        nameBreaks={nameBreaks}
         nameLang={nameLang}
         nameClassName="min-w-0 flex-1 max-sm:line-clamp-3"
         renderName={renderName}

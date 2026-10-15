@@ -79,11 +79,8 @@ export function WallTile({
   brandName,
   tracking,
 }: WallTileProps) {
-  const { name, nameLang, imageSrc, subcategoryName } = tileFields(
-    product,
-    locale,
-    labels,
-  );
+  const { name, nameBreaks, nameLang, imageSrc, subcategoryName } =
+    tileFields(product, locale, labels);
   const href = routes.brand(brandSlug ?? brand?.slug ?? "");
   const wallRatio: WallRatio = ratio ?? DEFAULT_WALL_RATIO;
 
@@ -139,6 +136,7 @@ export function WallTile({
       <ProductCardCaption
         brand={brandName}
         name={name}
+        nameBreaks={nameBreaks}
         nameLang={nameLang}
         // Ancestor variant (`:where(.bg-ground) &`): on the homepage band's
         // ground plate the caption is inset from the plate's edge; a bare

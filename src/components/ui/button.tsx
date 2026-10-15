@@ -25,7 +25,9 @@ type ButtonVariant = (typeof BUTTON_VARIANTS)[number]
 const buttonStyles = cva(
   cn(
     "group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-hei text-sm font-medium whitespace-nowrap",
-    "transition-[background-color,border-color,color,scale] duration-150 ease-out select-none",
+    // Per-property easing, in the list's order: colours settle on
+    // `--ease-settle` (DESIGN.md §7b), the press scale stays ease-out.
+    "transition-[background-color,border-color,color,scale] duration-150 [transition-timing-function:var(--ease-settle),var(--ease-settle),var(--ease-settle),ease-out] select-none",
     FOCUS_RING,
     DISABLED_STATE,
     "aria-invalid:border-danger aria-invalid:ring-2 aria-invalid:ring-danger/30",

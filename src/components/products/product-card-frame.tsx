@@ -1,9 +1,9 @@
 import type { CSSProperties, ReactNode } from "react";
 
 import { BrandImageFallback } from "@/components/brands/brand-image-fallback";
-import { separatorBreaks } from "@/components/brands/product-tile/separator-breaks";
 import { IMAGE_SURFACE_SIZES, SurfaceImage } from "@/components/ui/image";
 import { Typography } from "@/components/ui/typography";
+import { withBreaks } from "@/components/ui/with-breaks";
 import { mediaHoverImage, mediaHoverTitle } from "@/lib/design/media-hover";
 import { brandImageFill } from "@/lib/images/fill";
 import { cn } from "@/lib/utils";
@@ -108,6 +108,11 @@ export type ProductCardCaptionProps = {
   brand?: ReactNode;
   brandClassName?: string;
   name: string;
+  /**
+   * `<wbr>` offsets into `name` — the service's `nameZhBreaks` when the name
+   * shown is the zh one (`tileFields`). Absent or empty renders the plain name.
+   */
+  nameBreaks?: readonly number[];
   nameLang?: string;
   /** Mode-specific additions to the shared name style (clamp, flex sizing). */
   nameClassName?: string;
@@ -127,20 +132,25 @@ export type ProductCardCaptionProps = {
  * (DS2-20). `wrap-break-word` under `:lang(zh)` out-ranks the card title's zh
  * `overflow-wrap: anywhere` (N-02), which let `text-wrap: balance` split
  * "Orii×DO / T" mid-word; `break-word` splits only a word wider than the whole
- * line, so nothing overflows. `break-keep` joins it only when the name has a
- * separator to break at (BD-13, see `separatorBreaks`).
+ * line, so nothing overflows. `break-keep` joins it only when the name carries
+ * break offsets (BD-13): the service computes them with `phraseBreakOffsets`
+ * — between dictionary words and after 「・」「／」「/」「×」 — and this renders
+ * them as `<wbr>` without segmenting, so server and client agree. A name with
+ * no offsets keeps the default wrap: `keep-all` on an unbroken zh name makes
+ * it one word that `overflow-wrap` splits at the line edge.
  */
 export function ProductCardCaption({
   brand,
   brandClassName,
   name,
+  nameBreaks,
   nameLang,
   nameClassName,
   renderName,
   className,
   children,
 }: ProductCardCaptionProps) {
-  const { node, hasBreaks } = separatorBreaks(name);
+  const hasBreaks = (nameBreaks?.length ?? 0) > 0;
   const heading = (
     <Typography
       as="h3"
@@ -153,7 +163,7 @@ export function ProductCardCaption({
       )}
       lang={nameLang}
     >
-      {node}
+      {withBreaks(name, nameBreaks)}
     </Typography>
   );
   return (

@@ -28,6 +28,8 @@ export function SubmitButton({
       variant={variant}
       disabled={disabled}
       width="full"
+      // Full-width form submit: no press scale (EL-06).
+      static
       className={cn('relative', className)}
       data-ph-no-autocapture={dataPhNoAutocapture}
     >

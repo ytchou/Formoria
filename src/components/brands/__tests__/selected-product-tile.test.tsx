@@ -878,14 +878,18 @@ describe("SelectedProductTile guide link", () => {
   });
 });
 
-// BD-13: a zh name breaks only at its separators, never mid-word.
+// BD-13: a zh name breaks only where the service's offsets say, never mid-word.
 describe("SelectedProductTile name breaks", () => {
-  function nameHeading(nameZh: string, mode: "wall" | "trail" | "shelf") {
+  function nameHeading(
+    product: Partial<CuratedProduct>,
+    mode: "wall" | "trail" | "shelf",
+    locale: "zh-TW" | "en" = "zh-TW",
+  ) {
     const view = render(
       <ul>
         <SelectedProductTile
-          locale="zh-TW"
-          product={buildProduct({ nameZh })}
+          locale={locale}
+          product={buildProduct(product)}
           labels={labels}
           mode={mode}
           brand={brand}
@@ -897,10 +901,13 @@ describe("SelectedProductTile name breaks", () => {
     return { view, heading: view.container.querySelector("h3")! };
   }
 
-  it("keeps words whole and breaks after a separator", () => {
+  it("renders the server's offsets as <wbr> and keeps words whole", () => {
     for (const mode of ["wall", "trail", "shelf"] as const) {
-      const { view, heading } = nameHeading("木質托盤・小", mode);
-      expect(heading.querySelectorAll("wbr")).toHaveLength(1);
+      const { view, heading } = nameHeading(
+        { nameZh: "木質托盤・小", nameZhBreaks: [2, 5] },
+        mode,
+      );
+      expect(heading.innerHTML).toBe("木質<wbr>托盤・<wbr>小");
       expect(heading.textContent).toBe("木質托盤・小");
       expect(heading.className).toContain("[&:lang(zh)]:break-keep");
       expect(heading.className).toContain("[&:lang(zh)]:wrap-break-word");
@@ -908,13 +915,28 @@ describe("SelectedProductTile name breaks", () => {
     }
   });
 
-  it("leaves a name without separators on today's wrapping", () => {
-    // keep-all on an unpunctuated zh name makes it one word that
-    // overflow-wrap splits at the line edge — worse than the balanced wrap.
-    const { view, heading } = nameHeading("手沖壺", "wall");
+  it("leaves a name without offsets on today's wrapping", () => {
+    // keep-all on an unbroken zh name makes it one word that overflow-wrap
+    // splits at the line edge — worse than the balanced wrap.
+    const { view, heading } = nameHeading(
+      { nameZh: "手沖壺", nameZhBreaks: [] },
+      "wall",
+    );
     expect(heading.querySelector("wbr")).toBeNull();
     expect(heading.className).not.toContain("break-keep");
     expect(heading.className).toContain("[&:lang(zh)]:wrap-break-word");
+    view.unmount();
+  });
+
+  it("gives an English name none of the zh name's breaks", () => {
+    const { view, heading } = nameHeading(
+      { nameZh: "木質托盤・小", nameZhBreaks: [2, 5], nameEn: "Wood tray S" },
+      "wall",
+      "en",
+    );
+    expect(heading.textContent).toBe("Wood tray S");
+    expect(heading.querySelector("wbr")).toBeNull();
+    expect(heading.className).not.toContain("break-keep");
     view.unmount();
   });
 });

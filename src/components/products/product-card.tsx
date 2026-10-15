@@ -37,6 +37,9 @@ export function ProductCard({
   const isEnglish = locale === "en";
   const nameFallsBack = isEnglish && !product.nameEn;
   const name = isEnglish && product.nameEn ? product.nameEn : product.nameZh;
+  // The server's breaks belong to the zh name; an English name gets none.
+  const nameBreaks =
+    isEnglish && product.nameEn ? [] : (product.nameZhBreaks ?? []);
   const descriptionFallsBack = isEnglish && !product.productDescriptionEn;
   const description =
     isEnglish && product.productDescriptionEn
@@ -65,6 +68,7 @@ export function ProductCard({
           brand={product.brandName}
           brandClassName="truncate"
           name={name}
+          nameBreaks={nameBreaks}
           nameLang={nameFallsBack ? ZH_FALLBACK_LANG : undefined}
         >
           <p

@@ -19,6 +19,7 @@ export type SelectedProductTileProduct = Pick<
   | "id"
   | "key"
   | "nameZh"
+  | "nameZhBreaks"
   | "nameEn"
   | "productDescriptionZh"
   | "productDescriptionEn"
@@ -46,6 +47,8 @@ type OutboundLinkType = "curated_product" | "brand_site";
 
 export type TileFields = {
   name: string;
+  /** `<wbr>` offsets into `name`: the zh name's server-computed breaks, else []. */
+  nameBreaks: readonly number[];
   /** WCAG 3.1.2: an EN page showing the zh fallback marks that part as zh. */
   nameLang: "zh-Hant-TW" | undefined;
   /** Rendered only when non-empty. */
@@ -70,6 +73,7 @@ export function tileFields(
 ): TileFields {
   const isEnglish = locale === "en";
   const name = (isEnglish ? product.nameEn : product.nameZh) ?? product.nameZh;
+  const showsZhName = !isEnglish || product.nameEn == null;
   /*
    * ONE text block per tile (DEV-1496). The three fields this replaced — a
    * selection rationale, a brand-page highlight rationale and a brand-supplied
@@ -86,6 +90,7 @@ export function tileFields(
   const visitHref = brand ? (getBrandVisitLink(brand)?.href ?? null) : null;
   return {
     name,
+    nameBreaks: showsZhName ? (product.nameZhBreaks ?? []) : [],
     nameLang: isEnglish && !product.nameEn ? ZH_FALLBACK_LANG : undefined,
     description,
     descriptionLang:

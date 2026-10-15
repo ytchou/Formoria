@@ -36,6 +36,7 @@ export const mediaHoverTitle =
 
 /**
  * Press on a control. Pair with a `transition-[…,scale]` list that already
- * names the control's colour properties.
+ * names the control's colour properties, timed per property: colours on
+ * `--ease-settle`, the scale on ease-out (see `Button`).
  */
 export const controlPress = "motion-safe:active:not-disabled:scale-[0.96]";

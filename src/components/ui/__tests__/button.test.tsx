@@ -117,6 +117,10 @@ describe("Button", () => {
     expect(pressed.className).toContain(
       "transition-[background-color,border-color,color,scale]",
     );
+    // DESIGN.md §7b: colours settle on --ease-settle; the press scale is ease-out.
+    expect(pressed.className).toContain(
+      "[transition-timing-function:var(--ease-settle),var(--ease-settle),var(--ease-settle),ease-out]",
+    );
     unmount();
 
     render(
