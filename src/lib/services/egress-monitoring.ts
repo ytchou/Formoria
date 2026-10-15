@@ -1,6 +1,7 @@
 import { auditedCall } from "@/lib/audit";
 import type { AgentNotification } from "@/lib/adapters/slack/notification";
 import { assessUsageRisk, type UsageRisk } from "./operational-usage";
+import { isRecord } from "@/lib/utils/is-record";
 
 /**
  * Image-egress anomaly detection from Cloudflare zone analytics (DEV-1744,
@@ -105,10 +106,6 @@ export type CheckEgressAnomalyOptions = {
 
 function utcDate(at: Date): string {
   return at.toISOString().slice(0, 10);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function graphqlErrorMessage(body: unknown): string | null {

@@ -22,7 +22,7 @@ const APP_ACTION_DIR = "src/app/actions";
 const API_ROOT = "src/app/api";
 
 const CATCH_RE = /\bcatch\s*(?:\([^)]*\))?\s*\{/g;
-const CAPTURE_EXCEPTION_RE = /\bcaptureException\b/;
+const CAPTURE_EXCEPTION_RE = /\b(captureException|reportError)\b/;
 
 function walk(directory, filter) {
   const files = [];
@@ -100,7 +100,7 @@ if (violations.length > 0) {
   );
   for (const v of violations) console.log(`  ${v}`);
   console.log(
-    "\nAction files and API routes need captureException.",
+    "\nAction files and API routes need reportError (or captureException).",
   );
 }
 

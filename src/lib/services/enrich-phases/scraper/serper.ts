@@ -18,6 +18,7 @@ import type {
 import { DEFAULT_QUERY, buildImageQueryVariants, isGoogleUrl, stripTrackingParams } from './search'
 import { fetchHtml } from './fetch-guards'
 import { classifyHttpResponse, IN_PROCESS, withRetry } from '@/lib/retry'
+import { isRecord } from '@/lib/utils/is-record'
 
 const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
 const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
@@ -74,10 +75,6 @@ type SerperCallResult<T> = {
   error: string | null
   response?: Response
   auditResultId?: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 // A missing key is a legitimately empty result set; a present-but-wrong-shaped

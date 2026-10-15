@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
+import { reportError } from '@/lib/observability/report-error'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { PageShell } from '@/components/ui/page-shell'
@@ -33,7 +33,7 @@ export function RouteError({
   useEffect(() => {
     // Still reported, but tagged and downgraded: deploy skew is expected and
     // unactionable, and at full severity it drowns out real regressions.
-    Sentry.captureException(error, isStale ? { level: 'warning', tags: { deployment_skew: true } } : undefined)
+    reportError(error, isStale ? { level: 'warning', tags: { deployment_skew: true } } : undefined)
   }, [error, isStale])
 
   return (

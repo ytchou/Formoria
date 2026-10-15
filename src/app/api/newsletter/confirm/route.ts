@@ -1,5 +1,5 @@
 import { withAuditScope } from "@/lib/audit/scope";
-import { captureException } from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { NextRequest, NextResponse } from "next/server";
 import { confirmSubscriber } from "@/lib/services/newsletter";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -32,7 +32,7 @@ export const GET = withAuditScope(async (request: NextRequest) => {
       { headers: emailActionHeaders },
     );
   } catch (error) {
-    captureException(error);
+    reportError(error);
     return emailActionResponse(locale, "confirmation", "unavailable", 503);
   }
 });

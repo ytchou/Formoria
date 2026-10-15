@@ -771,188 +771,293 @@ export async function proxy(request: NextRequest) {
   }
 }
 
-async function runProxy(request: NextRequest) {
+/**
+ * Everything `runProxy` computes before the first step runs, plus the values
+ * more than one step reads. Every field is fixed before the pipeline starts;
+ * no step writes to the context, so a step depends only on its own position in
+ * `PROXY_PIPELINE` and never on a variable an earlier step happened to set.
+ */
+export type ProxyContext = {
+  readonly request: NextRequest;
+  readonly pathname: string;
+  readonly staging: boolean;
+  readonly rateLimitDisabled: boolean;
+  readonly routerRequest: boolean;
+  readonly hasStagingE2ESession: boolean;
+  /** Non-empty pathname segments, e.g. `["zh-TW", "brands", "x"]`. */
+  readonly segments: string[];
+  /** The brand-detail slug in the pathname, still percent-encoded. */
+  readonly brandSlug: string | null;
+  /** The pathname split into its locale prefix and the remaining path. */
+  readonly directoryPath: { locale: string; path: string };
+};
+
+/**
+ * One link in the proxy's chain of responsibility. Returning a response ends
+ * the chain (the runner applies `finalizeResponse` to it); `undefined` hands
+ * the request to the next step.
+ */
+export type ProxyStep = {
+  readonly name: string;
+  run(
+    ctx: ProxyContext,
+  ): Promise<NextResponse | undefined> | NextResponse | undefined;
+};
+
+export async function createProxyContext(
+  request: NextRequest,
+): Promise<ProxyContext> {
   const { pathname } = request.nextUrl;
-  const staging = isStagingRequest(request.headers.get("host"));
-  // Two independent switches, not one flag. See `security/test-gates.ts`:
-  // disabling the limiter and stubbing Turnstile used to be the same env var,
-  // which is why no e2e project could exercise either gate on its own.
-  const rateLimitDisabled = isRateLimitDisabled();
-  const routerRequest = isRouterRequest(request);
-  const hasStagingE2ESession = Boolean(
-    await verifyStagingSession(
-      request.cookies.get(E2E_STAGING_SESSION_COOKIE)?.value,
-      request.headers.get("host"),
+  const segments = pathname.split("/").filter(Boolean);
+  return {
+    request,
+    pathname,
+    staging: isStagingRequest(request.headers.get("host")),
+    // Two independent switches, not one flag. See `security/test-gates.ts`:
+    // disabling the limiter and stubbing Turnstile used to be the same env var,
+    // which is why no e2e project could exercise either gate on its own.
+    rateLimitDisabled: isRateLimitDisabled(),
+    routerRequest: isRouterRequest(request),
+    hasStagingE2ESession: Boolean(
+      await verifyStagingSession(
+        request.cookies.get(E2E_STAGING_SESSION_COOKIE)?.value,
+        request.headers.get("host"),
+      ),
     ),
-  );
+    segments,
+    brandSlug: getBrandDetailSlug(segments),
+    directoryPath: parseDirectoryPath(pathname),
+  };
+}
 
-  if (staging && !hasStagingE2ESession && pathname === "/sitemap.xml") {
-    return finalizeResponse(
-      new NextResponse("Not found", { status: 404 }),
-      staging,
+const stagingSitemap404: ProxyStep = {
+  name: "stagingSitemap404",
+  run({ staging, hasStagingE2ESession, pathname }) {
+    if (staging && !hasStagingE2ESession && pathname === "/sitemap.xml") {
+      return new NextResponse("Not found", { status: 404 });
+    }
+    return undefined;
+  },
+};
+
+const stagingLockdown: ProxyStep = {
+  name: "stagingLockdown",
+  async run({ request, pathname, staging, hasStagingE2ESession }) {
+    // The mutation lockdown exists to protect the DEPLOYED staging environment.
+    // A local `next dev` server that merely points `.env.local` at staging is not
+    // that — but `isStagingRequest` only reads env vars and the staging hostname,
+    // so it cannot tell the two apart. Without this gate, aiming local dev at
+    // staging 403s every unauthenticated POST on localhost, which silently kills
+    // dev tooling (the Next.js devtools annotation panel among it) with an error
+    // that reads like a deployment problem.
+    //
+    // The exemption keys on DEPLOYMENT, not on build mode. RAILWAY_GIT_COMMIT_SHA
+    // is injected by the container that serves deployed staging and is absent on
+    // a laptop, so a deployed container stays locked down even if something sets
+    // NODE_ENV=development (a debug build, a container misconfiguration).
+    // NODE_ENV alone would be a convention, not a constraint, and getting it
+    // wrong opens every unauthenticated mutation on deployed staging.
+    //
+    // NODE_ENV still narrows the local case to `next dev`, which is the only
+    // runner that sets `development`: the lockdown therefore stays armed under
+    // `test` (where middleware-staging.test.ts asserts it) and under
+    // `production`.
+    //
+    // Deliberately narrower than relaxing `isStagingEnvironment()`, which must
+    // stay true here — lib/email/send.ts keys outbound email suppression off it,
+    // and flipping it would make a laptop pointed at staging send real mail.
+    const isDeployedRuntime = Boolean(
+      process.env.RAILWAY_GIT_COMMIT_SHA?.trim(),
     );
-  }
+    const enforceStagingLockdown =
+      staging && (isDeployedRuntime || process.env.NODE_ENV !== "development");
+    const initiallyAllowed = isAllowedStagingRequest(request.method, pathname);
+    const mayAuthenticateMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(
+      request.method,
+    );
+    const authenticated =
+      enforceStagingLockdown && !initiallyAllowed && mayAuthenticateMutation
+        ? await hasAuthenticatedUser(request)
+        : false;
+    const stagingRequestAllowed =
+      !enforceStagingLockdown ||
+      hasStagingE2ESession ||
+      initiallyAllowed ||
+      isAllowedStagingRequest(request.method, pathname, authenticated);
 
-  // The mutation lockdown exists to protect the DEPLOYED staging environment.
-  // A local `next dev` server that merely points `.env.local` at staging is not
-  // that — but `isStagingRequest` only reads env vars and the staging hostname,
-  // so it cannot tell the two apart. Without this gate, aiming local dev at
-  // staging 403s every unauthenticated POST on localhost, which silently kills
-  // dev tooling (the Next.js devtools annotation panel among it) with an error
-  // that reads like a deployment problem.
-  //
-  // The exemption keys on DEPLOYMENT, not on build mode. RAILWAY_GIT_COMMIT_SHA
-  // is injected by the container that serves deployed staging and is absent on
-  // a laptop, so a deployed container stays locked down even if something sets
-  // NODE_ENV=development (a debug build, a container misconfiguration).
-  // NODE_ENV alone would be a convention, not a constraint, and getting it
-  // wrong opens every unauthenticated mutation on deployed staging.
-  //
-  // NODE_ENV still narrows the local case to `next dev`, which is the only
-  // runner that sets `development`: the lockdown therefore stays armed under
-  // `test` (where middleware-staging.test.ts asserts it) and under
-  // `production`.
-  //
-  // Deliberately narrower than relaxing `isStagingEnvironment()`, which must
-  // stay true here — lib/email/send.ts keys outbound email suppression off it,
-  // and flipping it would make a laptop pointed at staging send real mail.
-  const isDeployedRuntime = Boolean(process.env.RAILWAY_GIT_COMMIT_SHA?.trim());
-  const enforceStagingLockdown =
-    staging && (isDeployedRuntime || process.env.NODE_ENV !== "development");
-  const initiallyAllowed = isAllowedStagingRequest(request.method, pathname);
-  const mayAuthenticateMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(
-    request.method,
-  );
-  const authenticated =
-    enforceStagingLockdown && !initiallyAllowed && mayAuthenticateMutation
-      ? await hasAuthenticatedUser(request)
-      : false;
-  const stagingRequestAllowed =
-    !enforceStagingLockdown ||
-    hasStagingE2ESession ||
-    initiallyAllowed ||
-    isAllowedStagingRequest(request.method, pathname, authenticated);
-
-  if (!stagingRequestAllowed) {
-    return finalizeResponse(
-      NextResponse.json(
+    if (!stagingRequestAllowed) {
+      return NextResponse.json(
         { error: "This flow is disabled in staging" },
         { status: 403 },
-      ),
-      staging,
-    );
-  }
-
-  // ORDER IS LOAD-BEARING. This guard sits above every branch below it, and
-  // several of those are terminal -- the auth callback and /admin/content
-  // return `next()` outright. With the guard below them, those surfaces would
-  // reach the origin with no edge credential. The guard is host-independent,
-  // and its only path-sensitivity is the explicit exempt list below, so
-  // running it first costs nothing.
-  const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
-  if (process.env.NODE_ENV === "production" && cfOriginSecret) {
-    // Two different credentials, one header each:
-    //   x-formoria-edge → CF_ORIGIN_SECRET, asserted by Cloudflare. A PATH
-    //     assertion: "this request came through our edge." That is what this
-    //     guard checks.
-    //   x-origin-verify → ORIGIN_SECRET, asserted by a machine caller. A CALLER
-    //     assertion, verified inside the handler, not here.
-    // They used to share x-origin-verify, and a zone-wide Cloudflare transform
-    // rule overwrote it on every request — clobbering the caller credential and
-    // silently breaking every pg_cron job.
-    //
-    // Exempt paths are called machine-to-machine straight at the Railway origin
-    // (the public host is Cloudflare-fronted and bot-challenges those POSTs), so
-    // they carry no edge credential and authenticate themselves inside their own
-    // handler. /api/internal/revalidate-brands follows the same contract as
-    // /api/cron/; the rest of /api/internal/ keeps this guard as a second layer
-    // and is deliberately not exempt.
-    const edgeSecret = request.headers.get("x-formoria-edge");
-    if (
-      edgeSecret !== cfOriginSecret &&
-      !isOriginGuardExempt(request.nextUrl.pathname)
-    ) {
-      return finalizeResponse(
-        new NextResponse("Forbidden", { status: 403 }),
-        staging,
       );
     }
-  }
+    return undefined;
+  },
+};
 
-  if (pathname === routes.auth.callback()) {
-    return finalizeResponse(NextResponse.next(), staging);
-  }
+/**
+ * Sits above every step after it, and several of those are terminal -- the
+ * auth callback and /admin/content return `next()` outright. With the guard
+ * below them, those surfaces would reach the origin with no edge credential.
+ * The guard is host-independent, and its only path-sensitivity is the explicit
+ * exempt list, so running it first costs nothing.
+ */
+const originGuard: ProxyStep = {
+  name: "originGuard",
+  run({ request }) {
+    const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
+    if (process.env.NODE_ENV === "production" && cfOriginSecret) {
+      // Two different credentials, one header each:
+      //   x-formoria-edge → CF_ORIGIN_SECRET, asserted by Cloudflare. A PATH
+      //     assertion: "this request came through our edge." That is what this
+      //     guard checks.
+      //   x-origin-verify → ORIGIN_SECRET, asserted by a machine caller. A CALLER
+      //     assertion, verified inside the handler, not here.
+      // They used to share x-origin-verify, and a zone-wide Cloudflare transform
+      // rule overwrote it on every request — clobbering the caller credential and
+      // silently breaking every pg_cron job.
+      //
+      // Exempt paths are called machine-to-machine straight at the Railway origin
+      // (the public host is Cloudflare-fronted and bot-challenges those POSTs), so
+      // they carry no edge credential and authenticate themselves inside their own
+      // handler. /api/internal/revalidate-brands follows the same contract as
+      // /api/cron/; the rest of /api/internal/ keeps this guard as a second layer
+      // and is deliberately not exempt.
+      const edgeSecret = request.headers.get("x-formoria-edge");
+      if (
+        edgeSecret !== cfOriginSecret &&
+        !isOriginGuardExempt(request.nextUrl.pathname)
+      ) {
+        return new NextResponse("Forbidden", { status: 403 });
+      }
+    }
+    return undefined;
+  },
+};
 
-  if (pathname.startsWith(routes.admin.content())) {
-    return finalizeResponse(NextResponse.next(), staging);
-  }
+const authCallbackPassthrough: ProxyStep = {
+  name: "authCallbackPassthrough",
+  run({ pathname }) {
+    return pathname === routes.auth.callback() ? NextResponse.next() : undefined;
+  },
+};
 
-  const normalizedPathname = normalizePathname(pathname);
-  if (normalizedPathname !== pathname) {
-    const url = request.nextUrl.clone();
-    url.pathname = normalizedPathname;
-    return finalizeResponse(NextResponse.redirect(url, 301), staging);
-  }
+const adminContentPassthrough: ProxyStep = {
+  name: "adminContentPassthrough",
+  run({ pathname }) {
+    return pathname.startsWith(routes.admin.content())
+      ? NextResponse.next()
+      : undefined;
+  },
+};
 
-  const legacyCategoryPath = parseDirectoryPath(pathname);
-  const legacyCategorySegments = legacyCategoryPath.path
-    .split("/")
-    .filter(Boolean);
-  if (
-    legacyCategorySegments.length === 2 &&
-    legacyCategorySegments[0] === "category"
-  ) {
-    const category = legacyCategorySegments[1] ?? "";
-    if (!isVisibleCategory(category)) {
-      return finalizeResponse(new NextResponse(null, { status: 410 }), staging);
+const pathNormalization: ProxyStep = {
+  name: "pathNormalization",
+  run({ request, pathname }) {
+    const normalizedPathname = normalizePathname(pathname);
+    if (normalizedPathname !== pathname) {
+      const url = request.nextUrl.clone();
+      url.pathname = normalizedPathname;
+      return NextResponse.redirect(url, 301);
+    }
+    return undefined;
+  },
+};
+
+const legacyCategoryRedirect: ProxyStep = {
+  name: "legacyCategoryRedirect",
+  run({ request, directoryPath }) {
+    const legacyCategorySegments = directoryPath.path
+      .split("/")
+      .filter(Boolean);
+    if (
+      legacyCategorySegments.length === 2 &&
+      legacyCategorySegments[0] === "category"
+    ) {
+      const category = legacyCategorySegments[1] ?? "";
+      if (!isVisibleCategory(category)) {
+        return new NextResponse(null, { status: 410 });
+      }
+
+      const destination = localizePath(
+        routes.discover({ category }),
+        directoryPath.locale,
+      );
+      return NextResponse.redirect(new URL(destination, request.url), 301);
+    }
+    return undefined;
+  },
+};
+
+/**
+ * /discover streams behind loading.tsx, so the page's own notFound() for an
+ * unknown category lands after a 200 status line. Answer it here instead so
+ * a deferred or retired category URL stays a real 404 (DS-34).
+ */
+const discoverCategory404: ProxyStep = {
+  name: "discoverCategory404",
+  run({ request, directoryPath }) {
+    if (
+      directoryPath.path === "/discover" &&
+      hasUnknownDiscoverCategory(request.nextUrl.searchParams)
+    ) {
+      return rewriteToLocalizedNotFound(request, directoryPath.locale);
+    }
+    return undefined;
+  },
+};
+
+/**
+ * Below the pathname normalization 301. A crawler that requests a
+ * non-canonical path would otherwise be
+ * counted once for the redirect and again when it follows it.
+ *
+ * `isLikelyCrawler` is one precompiled union regex; `recordCrawlerHit`
+ * re-scans the registry entry by entry. Gating on it keeps the
+ * human-traffic common case at a single test.
+ *
+ * Side effect only: this step never ends the chain.
+ */
+const crawlerTelemetry: ProxyStep = {
+  name: "crawlerTelemetry",
+  run({ request }) {
+    if (!isCrawlerTelemetrySuppressed() && isLikelyCrawler(request)) {
+      recordCrawlerHit(request);
+    }
+    return undefined;
+  },
+};
+
+/** Check rate limit before regular request processing. */
+const rateLimit: ProxyStep = {
+  name: "rateLimit",
+  async run({ request, rateLimitDisabled, hasStagingE2ESession }) {
+    if (!rateLimitDisabled && !hasStagingE2ESession) {
+      const rateLimitResponse = await checkRateLimit(request);
+      if (rateLimitResponse) return rateLimitResponse;
+    }
+    return undefined;
+  },
+};
+
+const softRateLimit: ProxyStep = {
+  name: "softRateLimit",
+  async run({
+    request,
+    pathname,
+    rateLimitDisabled,
+    hasStagingE2ESession,
+    routerRequest,
+  }) {
+    if (
+      rateLimitDisabled ||
+      hasStagingE2ESession ||
+      routerRequest ||
+      !isSoftLimitPath(pathname)
+    ) {
+      return undefined;
     }
 
-    const destination = localizePath(
-      routes.discover({ category }),
-      legacyCategoryPath.locale,
-    );
-    return finalizeResponse(
-      NextResponse.redirect(new URL(destination, request.url), 301),
-      staging,
-    );
-  }
-
-  // /discover streams behind loading.tsx, so the page's own notFound() for an
-  // unknown category lands after a 200 status line. Answer it here instead so
-  // a deferred or retired category URL stays a real 404 (DS-34).
-  if (
-    legacyCategoryPath.path === "/discover" &&
-    hasUnknownDiscoverCategory(request.nextUrl.searchParams)
-  ) {
-    return finalizeResponse(
-      rewriteToLocalizedNotFound(request, legacyCategoryPath.locale),
-      staging,
-    );
-  }
-
-  // Below the pathname normalization 301. A crawler that requests a
-  // non-canonical path would otherwise be
-  // counted once for the redirect and again when it follows it.
-  //
-  // `isLikelyCrawler` is one precompiled union regex; `recordCrawlerHit`
-  // re-scans the registry entry by entry. Gating on it keeps the
-  // human-traffic common case at a single test.
-  if (!isCrawlerTelemetrySuppressed() && isLikelyCrawler(request)) {
-    recordCrawlerHit(request);
-  }
-
-  // Check rate limit before regular request processing
-  if (!rateLimitDisabled && !hasStagingE2ESession) {
-    const rateLimitResponse = await checkRateLimit(request);
-    if (rateLimitResponse) return finalizeResponse(rateLimitResponse, staging);
-  }
-
-  if (
-    !rateLimitDisabled &&
-    !hasStagingE2ESession &&
-    !routerRequest &&
-    isSoftLimitPath(pathname)
-  ) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value;
     let isVerified = false;
     if (challengeCookie) {
@@ -981,19 +1086,23 @@ async function runProxy(request: NextRequest) {
       // window rolled, so an exhausted RAISED budget goes straight to the 429
       // rung instead. An unverified visitor still gets the gentler rung first.
       if (isVerified) {
-        return finalizeResponse(softLimitBlockedResponse(), staging);
+        return softLimitBlockedResponse();
       }
 
       const url = request.nextUrl.clone();
       url.pathname = routes.challenge();
       url.searchParams.set("returnTo", pathname + request.nextUrl.search);
-      return finalizeResponse(NextResponse.redirect(url), staging);
+      return NextResponse.redirect(url);
     }
-  }
+    return undefined;
+  },
+};
 
-  const segments = pathname.split("/").filter(Boolean);
-  const brandSlug = getBrandDetailSlug(segments);
-  if (brandSlug) {
+const brandSlugRedirect: ProxyStep = {
+  name: "brandSlugRedirect",
+  async run({ request, segments, brandSlug }) {
+    if (!brandSlug) return undefined;
+
     let decodedSlug: string;
     try {
       decodedSlug = decodeURIComponent(brandSlug);
@@ -1002,7 +1111,7 @@ async function runProxy(request: NextRequest) {
       // Not rewritten to the branded page: Next decodes the original URL even
       // after a rewrite and answers 500. Malformed percent-encoding never comes
       // from a real link, so an empty 404 is enough.
-      return finalizeResponse(new NextResponse(null, { status: 404 }), staging);
+      return new NextResponse(null, { status: 404 });
     }
 
     const redirectSlug = await resolveApprovedBrandRedirect(decodedSlug);
@@ -1010,154 +1119,209 @@ async function runProxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       const locale = isAppLocale(segments[0]) ? segments[0] : "zh-TW";
       url.pathname = localizePath(routes.brand(redirectSlug), locale);
-      return finalizeResponse(NextResponse.redirect(url, 308), staging);
+      return NextResponse.redirect(url, 308);
     }
-  }
+    return undefined;
+  },
+};
 
-  const publicDetailOffset = isAppLocale(segments.at(0)) ? 1 : 0;
-  const publicDetailSection = segments.at(publicDetailOffset);
-  const publicDetailSlug = segments.at(publicDetailOffset + 1);
-  if (
-    publicDetailSlug &&
-    segments.length === publicDetailOffset + 2 &&
-    ["brands", "stories", "style"].includes(publicDetailSection ?? "")
-  ) {
-    const decodedSlug = safeDecodeSlug(publicDetailSlug);
-    // Locale rewriting decodes %25 to a bare percent that Next cannot decode.
-    if (decodedSlug === null || decodedSlug.includes("%")) {
-      return finalizeResponse(new NextResponse(null, { status: 404 }), staging);
+const malformedDetailSlug404: ProxyStep = {
+  name: "malformedDetailSlug404",
+  run({ segments }) {
+    const publicDetailOffset = isAppLocale(segments.at(0)) ? 1 : 0;
+    const publicDetailSection = segments.at(publicDetailOffset);
+    const publicDetailSlug = segments.at(publicDetailOffset + 1);
+    if (
+      publicDetailSlug &&
+      segments.length === publicDetailOffset + 2 &&
+      ["brands", "stories", "style"].includes(publicDetailSection ?? "")
+    ) {
+      const decodedSlug = safeDecodeSlug(publicDetailSlug);
+      // Locale rewriting decodes %25 to a bare percent that Next cannot decode.
+      if (decodedSlug === null || decodedSlug.includes("%")) {
+        return new NextResponse(null, { status: 404 });
+      }
     }
-  }
+    return undefined;
+  },
+};
 
-  // Redirect top-level brand slugs: /:slug → /brands/:slug (301 for SEO continuity)
-  // Only applies to single-segment paths that match the brand slug format
-  // and are not reserved app routes or locale prefixes.
-  if (segments.length === 1) {
+/**
+ * Redirect top-level brand slugs: /:slug → /brands/:slug (301 for SEO continuity)
+ * Only applies to single-segment paths that match the brand slug format
+ * and are not reserved app routes or locale prefixes.
+ */
+const bareBrandSlugRedirect: ProxyStep = {
+  name: "bareBrandSlugRedirect",
+  async run({ request, segments }) {
+    if (segments.length !== 1) return undefined;
     const slug = segments[0];
     if (
-      !KNOWN_LOCALES.has(slug) &&
-      !RESERVED_ROUTES.has(slug) &&
-      SLUG_PATTERN.test(slug)
+      KNOWN_LOCALES.has(slug) ||
+      RESERVED_ROUTES.has(slug) ||
+      !SLUG_PATTERN.test(slug)
     ) {
-      // A failed existence check must retain the old redirect behavior so a
-      // transient Supabase outage cannot make a real brand unavailable.
-      let isApproved = true;
-      try {
-        isApproved = await hasApprovedBrandSlug(slug);
-      } catch (error) {
-        reportProxyFailure("brand-approval", error, "error");
-        isApproved = true;
-      }
+      return undefined;
+    }
 
-      const decision = decideBareBrandSlug(slug, isApproved);
-      if (decision.action === "not-found") {
-        return finalizeResponse(
-          rewriteToLocalizedNotFound(request, "zh-TW"),
-          staging,
-        );
-      }
+    // A failed existence check must retain the old redirect behavior so a
+    // transient Supabase outage cannot make a real brand unavailable.
+    let isApproved = true;
+    try {
+      isApproved = await hasApprovedBrandSlug(slug);
+    } catch (error) {
+      reportProxyFailure("brand-approval", error, "error");
+      isApproved = true;
+    }
 
-      const url = request.nextUrl.clone();
-      url.pathname = decision.pathname;
-      return finalizeResponse(
-        NextResponse.redirect(url, decision.status),
-        staging,
+    const decision = decideBareBrandSlug(slug, isApproved);
+    if (decision.action === "not-found") {
+      return rewriteToLocalizedNotFound(request, "zh-TW");
+    }
+
+    const url = request.nextUrl.clone();
+    url.pathname = decision.pathname;
+    return NextResponse.redirect(url, decision.status);
+  },
+};
+
+const outsideApp404: ProxyStep = {
+  name: "outsideApp404",
+  run({ request, pathname }) {
+    return isOutsideAppRoutes(pathname)
+      ? rewriteToLocalizedNotFound(request, "zh-TW")
+      : undefined;
+  },
+};
+
+/** Terminal step: always returns, so the chain never falls through. */
+const intl: ProxyStep = {
+  name: "intl",
+  async run({ request, pathname, segments, brandSlug, routerRequest }) {
+    const isPublicPath = isLocalizedPublicPath(pathname);
+    const explicitLocale = isAppLocale(segments.at(0)) ? segments.at(0) : null;
+    // No locale is inferred from the request. A prefixless public URL is always
+    // the default locale, which is what `src/i18n/routing.ts` already declares
+    // with `localeDetection: false`. English is reached only by an explicit
+    // choice: the locale switcher writes `NEXT_LOCALE` through a server action,
+    // and `/en/...` prefixes are honoured as written. Inferring here varied every
+    // prefixless page on `accept-language` and `cf-ipcountry` with no `Vary`
+    // header, so the edge could hand a cached zh-TW page to an English visitor --
+    // and the redirect it issued was `private, no-store`, which took the whole
+    // directory out of the edge cache for exactly the cold visitors it serves.
+
+    let response: NextResponse;
+    const isPrefixlessBrandDetail =
+      brandSlug !== null && explicitLocale === null;
+    if (isPrefixlessBrandDetail) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set(NEXT_INTL_LOCALE_HEADER, "zh-TW");
+      response = NextResponse.next({ request: { headers: requestHeaders } });
+    } else if (isPublicPath) {
+      response = intlMiddleware(request);
+    } else {
+      const requestHeaders = new Headers(request.headers);
+      if (
+        pathname === routes.admin.index() ||
+        pathname.startsWith(`${routes.admin.index()}/`)
+      ) {
+        requestHeaders.set(NEXT_INTL_LOCALE_HEADER, ADMIN_DEFAULT_LOCALE);
+      }
+      // Hand the limiter's breaker state to `/api/health`: middleware and route
+      // handlers are separate isolates, so the route cannot read the module-scoped
+      // breaker itself. Written on every pass, never conditionally --
+      // `new Headers(request.headers)` above copies any client-supplied value, so
+      // an unconditional overwrite is what makes the header unspoofable.
+      // `/api/health` is not a localized public path, so it always reaches here.
+      requestHeaders.set(
+        RATE_LIMIT_STORE_HEADER,
+        isRateLimitStoreDegraded() ? "degraded" : "ok",
       );
+      response = NextResponse.next({ request: { headers: requestHeaders } });
     }
-  }
 
-  if (isOutsideAppRoutes(pathname)) {
-    return finalizeResponse(
-      rewriteToLocalizedNotFound(request, "zh-TW"),
-      staging,
-    );
-  }
+    // No locale cookie is written on this path, on purpose. Writing one would add
+    // a Set-Cookie that makes every HTML response uncacheable at Cloudflare -- and
+    // the first cookie-less visit is exactly the request the edge most needs to
+    // serve from cache.
+    //
+    // URL prefixes control only the current request. Explicit preferences are
+    // persisted by the switcher, auth, and settings flows instead.
 
-  const isPublicPath = isLocalizedPublicPath(pathname);
-  const explicitLocale = isAppLocale(segments.at(0)) ? segments.at(0) : null;
-  // No locale is inferred from the request. A prefixless public URL is always
-  // the default locale, which is what `src/i18n/routing.ts` already declares
-  // with `localeDetection: false`. English is reached only by an explicit
-  // choice: the locale switcher writes `NEXT_LOCALE` through a server action,
-  // and `/en/...` prefixes are honoured as written. Inferring here varied every
-  // prefixless page on `accept-language` and `cf-ipcountry` with no `Vary`
-  // header, so the edge could hand a cached zh-TW page to an English visitor --
-  // and the redirect it issued was `private, no-store`, which took the whole
-  // directory out of the edge cache for exactly the cold visitors it serves.
-
-  let response: NextResponse;
-  const isPrefixlessBrandDetail = brandSlug !== null && explicitLocale === null;
-  if (isPrefixlessBrandDetail) {
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set(NEXT_INTL_LOCALE_HEADER, "zh-TW");
-    response = NextResponse.next({ request: { headers: requestHeaders } });
-  } else if (isPublicPath) {
-    response = intlMiddleware(request);
-  } else {
-    const requestHeaders = new Headers(request.headers);
     if (
-      pathname === routes.admin.index() ||
-      pathname.startsWith(`${routes.admin.index()}/`)
+      isDirectoryIndexPath(pathname, request.nextUrl.search) &&
+      !routerRequest &&
+      !response.headers.has("set-cookie")
     ) {
-      requestHeaders.set(NEXT_INTL_LOCALE_HEADER, ADMIN_DEFAULT_LOCALE);
+      response.headers.set("Cache-Control", DIRECTORY_EDGE_CACHE_CONTROL);
     }
-    // Hand the limiter's breaker state to `/api/health`: middleware and route
-    // handlers are separate isolates, so the route cannot read the module-scoped
-    // breaker itself. Written on every pass, never conditionally --
-    // `new Headers(request.headers)` above copies any client-supplied value, so
-    // an unconditional overwrite is what makes the header unspoofable.
-    // `/api/health` is not a localized public path, so it always reaches here.
-    requestHeaders.set(
-      RATE_LIMIT_STORE_HEADER,
-      isRateLimitStoreDegraded() ? "degraded" : "ok",
-    );
-    response = NextResponse.next({ request: { headers: requestHeaders } });
-  }
 
-  // No locale cookie is written on this path, on purpose. Writing one would add
-  // a Set-Cookie that makes every HTML response uncacheable at Cloudflare -- and
-  // the first cookie-less visit is exactly the request the edge most needs to
-  // serve from cache.
-  //
-  // URL prefixes control only the current request. Explicit preferences are
-  // persisted by the switcher, auth, and settings flows instead.
-
-  if (
-    isDirectoryIndexPath(pathname, request.nextUrl.search) &&
-    !routerRequest &&
-    !response.headers.has("set-cookie")
-  ) {
-    response.headers.set("Cache-Control", DIRECTORY_EDGE_CACHE_CONTROL);
-  }
-
-  // Skip Supabase auth refresh for truly public content paths to reduce egress.
-  // settings still needs auth even though
-  // isLocalizedPublicPath returns true for it (it's in PUBLIC_INTL_SEGMENTS).
-  if (isPublicPath) {
-    const segments = pathname.split("/").filter(Boolean);
-    const segment =
-      segments.length > 0 && KNOWN_LOCALES.has(segments[0])
-        ? segments[1]
-        : segments[0];
-    // 'auth' is here because the auth pages call redirectIfAuthenticated(), which
-    // needs a live Supabase session — skipping the refresh would silently strand
-    // already-signed-in users on the sign-in form.
-    const AUTH_REQUIRED_SEGMENTS = new Set([
-      "auth",
-      "settings",
-      "submit",
-      "admin",
-      "favorites",
-    ]);
-    if (!AUTH_REQUIRED_SEGMENTS.has(segment)) {
-      return finalizeResponse(response, staging);
+    // Skip Supabase auth refresh for truly public content paths to reduce egress.
+    // settings still needs auth even though
+    // isLocalizedPublicPath returns true for it (it's in PUBLIC_INTL_SEGMENTS).
+    if (isPublicPath) {
+      const segment =
+        segments.length > 0 && KNOWN_LOCALES.has(segments[0])
+          ? segments[1]
+          : segments[0];
+      // 'auth' is here because the auth pages call redirectIfAuthenticated(), which
+      // needs a live Supabase session — skipping the refresh would silently strand
+      // already-signed-in users on the sign-in form.
+      const AUTH_REQUIRED_SEGMENTS = new Set([
+        "auth",
+        "settings",
+        "submit",
+        "admin",
+        "favorites",
+      ]);
+      if (!AUTH_REQUIRED_SEGMENTS.has(segment)) {
+        return response;
+      }
     }
-  }
 
-  return finalizeResponse(
-    await refreshSupabaseSession(request, response),
-    staging,
-  );
+    return refreshSupabaseSession(request, response);
+  },
+};
+
+/**
+ * The proxy, as an ordered chain of responsibility.
+ *
+ * ORDER IS LOAD-BEARING. `originGuard` sits above every step after it, and
+ * several of those are terminal -- `authCallbackPassthrough` and
+ * `adminContentPassthrough` return `next()` outright. With the guard below
+ * them, those surfaces would reach the origin with no edge credential.
+ * `crawlerTelemetry` sits below `pathNormalization` so a redirected crawler is
+ * counted once, and `intl` is last because it always returns. The exact order
+ * is pinned by a test in `src/proxy.test.ts`; reordering a step is a behaviour
+ * change and must update that test deliberately.
+ */
+export const PROXY_PIPELINE: readonly ProxyStep[] = [
+  stagingSitemap404,
+  stagingLockdown,
+  originGuard,
+  authCallbackPassthrough,
+  adminContentPassthrough,
+  pathNormalization,
+  legacyCategoryRedirect,
+  discoverCategory404,
+  crawlerTelemetry,
+  rateLimit,
+  softRateLimit,
+  brandSlugRedirect,
+  malformedDetailSlug404,
+  bareBrandSlugRedirect,
+  outsideApp404,
+  intl,
+];
+
+async function runProxy(request: NextRequest): Promise<NextResponse> {
+  const ctx = await createProxyContext(request);
+  for (const step of PROXY_PIPELINE) {
+    const response = await step.run(ctx);
+    if (response) return finalizeResponse(response, ctx.staging);
+  }
+  // Unreachable while `intl` is last: it returns on every path.
+  throw new Error("[proxy] PROXY_PIPELINE fell through without a response");
 }
 
 export const config = {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { withAuditScope } from "@/lib/audit/scope";
 import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
 import { syncMitRegistry } from "@/lib/services/mit-registry";
@@ -14,7 +14,7 @@ export const POST = withAuditScope(async (request: Request) => {
   try {
     return NextResponse.json(await syncMitRegistry());
   } catch (error) {
-    Sentry.captureException(error, {
+    reportError(error, {
       tags: { scope: "cron", job: "sync-mit-registry" },
     });
     console.error(

@@ -9,7 +9,7 @@ import {
   type QueryEmbeddingCache,
 } from "@/lib/cache/query-embedding-cache";
 import { EMBEDDING_MODEL } from "@/lib/constants/llm-models";
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { parseQueryIntent, type IntentParseOutcome } from "./query-intent-parse";
 import {
   MATERIALS,
@@ -279,7 +279,7 @@ export function createDefaultSearchDeps(): SearchDeps {
       ).products,
     cache: getDefaultQueryEmbeddingCache(),
     report: (error) => {
-      Sentry.captureException(error);
+      reportError(error);
     },
     now: () => Date.now(),
     readProductEmbedding: async (productId: string) => {

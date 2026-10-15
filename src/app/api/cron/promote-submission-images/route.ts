@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { NextResponse } from "next/server";
 import { postSlackAlert } from "@/lib/adapters/alerting/slack";
 import type { AgentNotification } from "@/lib/adapters/slack/notification";
@@ -127,7 +127,7 @@ export const POST = withAuditScope(async (req: Request) => {
         slackSent = await postSlackAlert(notification);
       }
     } catch (notifyError) {
-      Sentry.captureException(notifyError, {
+      reportError(notifyError, {
         tags: {
           scope: "cron",
           job: "promote-submission-images",
@@ -149,7 +149,7 @@ export const POST = withAuditScope(async (req: Request) => {
       slackSent,
     });
   } catch (err) {
-    Sentry.captureException(err, {
+    reportError(err, {
       tags: { scope: "cron", job: "promote-submission-images" },
     });
     console.error(

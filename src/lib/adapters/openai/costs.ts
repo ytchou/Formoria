@@ -1,5 +1,6 @@
 import { auditedCall } from "@/lib/audit";
 import { ExternalServiceError } from "@/lib/errors";
+import { isRecord } from "@/lib/utils/is-record";
 
 const ENDPOINT = "https://api.openai.com/v1/organization/costs";
 const TIMEOUT_MS = 15_000;
@@ -32,10 +33,6 @@ type CostsPage = {
   has_more: boolean;
   next_page: string | null;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isCostBucket(value: unknown): value is CostBucket {
   return (

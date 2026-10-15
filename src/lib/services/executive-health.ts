@@ -12,6 +12,7 @@ import {
   toInventoryProjection,
   type InventoryEntry,
 } from "@/lib/services/service-registry";
+import { isRecord } from "@/lib/utils/is-record";
 
 type ExecutiveHealthStatus = "healthy" | "degraded" | "down" | "unconfigured";
 type ExecutiveHealthTier =
@@ -218,10 +219,6 @@ async function probeCloudflareOrigin(endpoint: string): Promise<CheckResult> {
         result.status === "healthy" ? "succeeded" : "failed",
     },
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function turnstileHealthResult(response: Response): Promise<CheckResult> {

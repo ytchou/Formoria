@@ -1,4 +1,4 @@
-import { captureException } from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { NextResponse } from "next/server";
 
 import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
@@ -35,7 +35,7 @@ export async function POST(req: Request): Promise<Response> {
     }
   } catch {
     // Body parse failure is non-fatal — fire the canary with the default token.
-    captureException(new Error("sentry-canary: request body unreadable"), {
+    reportError(new Error("sentry-canary: request body unreadable"), {
       fingerprint: ["health_canary"],
       tags: { health_canary: "true", health_canary_token: token },
     });
@@ -45,13 +45,13 @@ export async function POST(req: Request): Promise<Response> {
   canaryError.name = "SentryCanaryError";
 
   try {
-    captureException(canaryError, {
+    reportError(canaryError, {
       fingerprint: ["health_canary"],
       tags: { health_canary: "true", health_canary_token: token },
     });
   } catch (captureError) {
     // Sentry SDK failure must not mask the 500 — the canary still fires.
-    captureException(captureError, {
+    reportError(captureError, {
       fingerprint: ["health_canary"],
       tags: { health_canary: "true", health_canary_token: token },
     });

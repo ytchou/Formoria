@@ -34,40 +34,21 @@ import {
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
 import {
-  buildLinkEnrichPatch,
   collectKnownUrls,
   extractLinksFromUrls,
-  hasLinkValue,
   ownedUrlsFor,
   uniqueUrls,
 } from "./link-enrichment";
 import {
-  collectHubUrls,
   computeEvidence,
-  deriveThreadsUrl,
-  expandLinkHubs,
-  expandSerpDiscoveredHubs,
-  expandThreadsBio,
   hasPurchaseChannel,
-  type AdoptedLink,
   type ChannelSources,
 } from "./enrich-phases/link-expansion";
+import { loadChunkSerpCache } from "./enrich-blocks/blocks/serp-cache";
 import {
-  fetchHtml,
-  fetchHtmlWithMetadata,
-} from "./enrich-phases/scraper/fetch-guards";
-import {
-  batchSearchBrandsWithSnippets,
-} from "./enrich-phases/scraper/serper";
-import {
-  isUsableHandle,
-} from "./enrich-phases/scraper/search";
-import { extractInstagramHandle } from "./enrich-phases/scraper/parse/extractors";
-import {
-  getLatestSearchResults,
-  isFreshSearchResult,
-  type SearchResultRow,
-} from "./search-results";
+  gatherBrandLinkExpansion,
+  type GatherExpansionEntry,
+} from "./enrich-blocks/blocks/link-expansion-gather";
 import {
   type DetectResult,
 } from "./category-classifier";
@@ -84,7 +65,6 @@ import type {
   CurationTargetProgressEvent,
   OperationResult,
   PhaseResult,
-  SourceOutcome,
 } from "@/lib/types/curation";
 import {
   applyDetectResult,
@@ -93,7 +73,6 @@ import {
   type NameCandidateInput,
   buildPhaseResult,
   getDisplayBrandName,
-  loadCachedSearchResults,
   runDescriptionsPhase,
   runFaqPhase,
   runProductsPhase,
@@ -102,7 +81,6 @@ import {
   runAcquirePhase,
   runDetectPhase,
   type BrandEnrichState,
-  type SearchPhaseResult,
   hasPatchValues,
   getActiveImages,
   classifiedImageFromRow,
@@ -273,18 +251,6 @@ export { ENRICH_PHASES };
  * rather than twenty.
  */
 const LINK_EXPANSION_CONCURRENCY = 4;
-
-/** Replayed search rows stay usable for three days. */
-const SEARCH_REPLAY_MAX_AGE_MS = 3 * 86_400_000;
-
-/**
- * One brand's slot in a `batchSearchBrandsWithSnippets` map. Derived from the
- * function rather than restated: the result shape is not exported, and a local
- * copy of it could disagree with the provider adapter without anyone noticing.
- */
-type SerpResult = ReturnType<
-  Awaited<ReturnType<typeof batchSearchBrandsWithSnippets>>["get"]
->;
 
 const UNCONSULTED_SOURCES: ChannelSources = {
   hubs: "skipped",
@@ -864,16 +830,8 @@ function chunkItems<T>(items: T[], size: number): T[][] {
 // category-classifier.ts renders at most MAX_PROBE_URLS probe lines. Probing more
 // would pay for evidence no model ever reads.
 
-/**
- * Gather's SERP name query. The IG handle is included when usable so a single
- * credit covers both name and handle discovery. Exported so the detect golden
- * regenerate script re-searches with the exact production query (DEV-1894).
- */
-export function serpNameQuery(name: string, handle: string | null): string {
-  return handle && isUsableHandle(handle)
-    ? `${name} ${handle} 台灣`
-    : `${name} 台灣`;
-}
+// Re-exported: the detect golden regenerate script imports it from here (DEV-1894).
+export { serpNameQuery } from "./enrich-blocks/blocks/link-expansion-gather";
 
 /**
  * The products phase ranks images against each proposal's own page, so it needs
@@ -1616,60 +1574,17 @@ export async function runEnrich(
           };
 
           // ---- Cached SERP loading (replays stored search results) ----
-          // An enrichment run needs SERP context for detect and LLM phases,
-          // so replay the stored results. Replayed rows are marked `fromCache`
-          // so a historical provider failure is never mistaken for a live one.
-          const requestedPhases = new Set<string>(phases);
-          const needsCachedSerp = ENRICH_LLM_PHASES.some((phase) =>
-            requestedPhases.has(phase),
-          );
-
-          let searchResults = new Map<string, SearchPhaseResult>();
-          // Raw SERP rows keyed by brand ID — used by the gather block to
-          // check freshness before deciding whether to re-search.
-          let rawSearchResultsById = new Map<string, SearchResultRow>();
-          if (needsCachedSerp) {
-            rawSearchResultsById = await getLatestSearchResults(
-              chunk.map((brand) => brand.id),
-              "serp",
-              targetType,
-              "name",
-            );
-            const cached = await loadCachedSearchResults(
-              chunk.map((brand) => brand.id),
-              targetType,
-            );
-            const cachedByName = new Map<string, SearchPhaseResult>();
-            for (const brand of chunk) {
-              const row = cached.get(brand.id);
-              if (row) {
-                cachedByName.set(getDisplayBrandName(brand), row);
-              }
-            }
-            searchResults = cachedByName;
-            const cachedCount = [...searchResults.values()].filter(
-              (r) => r.snippets.length > 0,
-            ).length;
-            if (cachedCount > 0) {
-              onProgress(
-                `  [SERP-CACHE] Loaded ${cachedCount} cached snippet sets`,
-              );
-            }
-          }
+          // `searchResults` is mutated by the gather block (a same-run live search
+          // is added to it), so the returned map instance is the one detect reads.
+          const { searchResults, rawSearchResultsById } = await loadChunkSerpCache({
+            chunk,
+            phases,
+            targetType,
+            onProgress,
+          });
 
           // ---- Link expansion gather block (per brand, before detect) ----
-          // Three deterministic sources — hub pages, Threads bio, and a single
-          // SERP query — are consulted for EVERY brand. The SERP includes the
-          // IG handle in the query when available. Every step records its own
-          // outcome so the verdict finalizer knows what was consulted.
-          type GatherExpansionEntry = {
-            patch: Partial<BrandFlatLinkColumns>;
-            serp: "replayed" | "searched" | "none";
-            sources: ChannelSources;
-            /** Statuses of the search calls actually made, replay included. */
-            serpCallStatuses: Array<string | null | undefined>;
-            linkExpansion: NonNullable<PhaseResult["linkExpansion"]>;
-          };
+          // See `gatherBrandLinkExpansion` for the three sources it consults.
           const linkExpansionByBrandId = new Map<
             string,
             GatherExpansionEntry
@@ -1969,219 +1884,17 @@ export async function runEnrich(
                   chunk,
                   LINK_EXPANSION_CONCURRENCY,
                   async (brand) => {
-                    const brandName = getDisplayBrandName(brand);
-                    const hubUrls = collectHubUrls(brand);
-
-                    // Build confirmed URL set from submitted website_url and other_urls
-                    const confirmedHubUrls = new Set<string>();
-                    if (brand.website_url)
-                      confirmedHubUrls.add(brand.website_url);
-                    if (Array.isArray(brand.other_urls)) {
-                      for (const entry of brand.other_urls as Array<{
-                        url?: string;
-                      }>) {
-                        if (entry?.url && typeof entry.url === "string") {
-                          confirmedHubUrls.add(entry.url);
-                        }
-                      }
-                    }
-
-                    const expansion = await expandLinkHubs({
-                      brandName,
-                      hubUrls,
-                      confirmedHubUrls,
-                      fetchHtml,
-                    });
-
-                    // Build patch from hub-scraped links and adopt onto the brand object
-                    let patch = buildLinkEnrichPatch(
-                      brand as BrandFlatLinkColumns,
-                      expansion.scraped,
-                      brandName,
+                    linkExpansionByBrandId.set(
+                      brand.id,
+                      await gatherBrandLinkExpansion(brand, {
+                        rawSearchResultsById,
+                        searchResults,
+                        targetType,
+                        jobId: config.jobId,
+                        onProgress,
+                        errorMessage,
+                      }),
                     );
-                    Object.assign(brand, patch);
-
-                    const adoptedLinks: AdoptedLink[] = [...expansion.adopted];
-                    const gatedTags = [...(expansion.gated ?? [])];
-                    let hubsFetched = expansion.hubsFetched;
-                    const serpCallStatuses: Array<string | null | undefined> =
-                      [];
-                    const sources: ChannelSources = {
-                      hubs:
-                        hubUrls.length === 0
-                          ? "skipped"
-                          : expansion.adopted.length > 0
-                            ? "found"
-                            : (expansion.fetchFailures ?? 0) > 0
-                              ? "unknown"
-                              : "absent",
-                      threads: "skipped",
-                      serpName: "skipped",
-                    };
-                    let serp: "replayed" | "searched" | "none" = "none";
-
-                    /**
-                     * Merge an adoption into the patch that is actually PERSISTED.
-                     * Assigning onto `brand` alone only survives inside this run: the
-                     * refresh submission is written from `patch`, so a SERP-found shop
-                     * that never reached it was silently dropped (DEV-1702 proof run).
-                     * An earlier source owns its column — nothing here displaces a value
-                     * already in the patch.
-                     */
-                    const mergeIntoPatch = (
-                      extracted: Partial<BrandFlatLinkColumns>,
-                    ) => {
-                      const next: Record<string, unknown> = { ...patch };
-                      for (const [column, value] of Object.entries(extracted)) {
-                        if (typeof value !== "string") continue;
-                        if (hasLinkValue(next[column] as string | null))
-                          continue;
-                        next[column] = value;
-                      }
-                      patch = next as Partial<BrandFlatLinkColumns>;
-                    };
-
-                    /** Adopt SERP URLs onto the brand and say what that answered. */
-                    const applySerpUrls = (urls: string[]): SourceOutcome => {
-                      const extracted = extractLinksFromUrls(urls, brandName);
-                      if (Object.keys(extracted).length === 0) return "absent";
-                      Object.assign(brand, extracted);
-                      mergeIntoPatch(extracted);
-                      const channelFound = hasPurchaseChannel(brand);
-                      return channelFound ? "found" : "absent";
-                    };
-
-                    // ---- Threads bio: one fetch of the brand's own profile ----
-                    const threadsUrl =
-                      brand.social_threads ??
-                      deriveThreadsUrl(brand.social_instagram);
-                    if (threadsUrl) {
-                      const bio = await expandThreadsBio({
-                        brandName,
-                        threadsUrl,
-                        confirmedHubUrls,
-                        fetchHtmlWithMetadata,
-                        fetchHtml,
-                      });
-                      sources.threads = bio.threads;
-                      adoptedLinks.push(...bio.adopted);
-                      if (bio.gated?.length) gatedTags.push(...bio.gated);
-                      if (bio.adopted.length > 0) {
-                        const threadsPatch = buildLinkEnrichPatch(
-                          brand as BrandFlatLinkColumns,
-                          bio.scraped,
-                          brandName,
-                        );
-                        Object.assign(brand, threadsPatch);
-                        patch = { ...patch, ...threadsPatch };
-                      }
-                    }
-
-                    // ---- SERP: replay a fresh cached row, or search live ----
-                    // The query includes the IG handle when available so a single
-                    // credit covers both name and handle discovery.
-                    const handle = extractInstagramHandle(
-                      brand.social_instagram,
-                    );
-                    let serpUrls: string[] = [];
-                    const cachedRow = rawSearchResultsById.get(brand.id);
-                    if (
-                      cachedRow &&
-                      isFreshSearchResult(cachedRow, SEARCH_REPLAY_MAX_AGE_MS)
-                    ) {
-                      serp = "replayed";
-                      serpCallStatuses.push(cachedRow.callStatus);
-                      serpUrls = cachedRow.urls;
-                      sources.serpName = applySerpUrls(serpUrls);
-                    } else {
-                      serp = "searched";
-                      const queryTemplate = (name: string) =>
-                        serpNameQuery(name, handle);
-                      let nameResult: SerpResult = undefined;
-                      try {
-                        const results = await batchSearchBrandsWithSnippets(
-                          [brandName],
-                          queryTemplate,
-                          1,
-                          () => ({
-                            target: { type: targetType, id: brand.id },
-                            jobId: config.jobId,
-                            config: { phase: "acquire" as const },
-                          }),
-                        );
-                        nameResult = results.get(brandName);
-                      } catch (error) {
-                        onProgress(
-                          `  [SERP-FAIL] ${brand.slug}: ${errorMessage(error)}`,
-                        );
-                      }
-                      serpCallStatuses.push(nameResult?.callStatus);
-                      serpUrls = nameResult?.urls ?? [];
-                      const nameStatus = nameResult?.callStatus;
-                      const nameAnswered =
-                        nameResult &&
-                        (nameStatus === "succeeded" || nameStatus === "empty");
-                      sources.serpName = nameAnswered
-                        ? applySerpUrls(serpUrls)
-                        : "unknown";
-                      // Detect and the per-brand phases read `searchResults`, which
-                      // was loaded from the cache before this search ran. Without
-                      // this, a first run judged the brand with no SERP evidence
-                      // (DEV-1893). A failed search keeps any stale cached row.
-                      if (nameResult && nameAnswered) {
-                        searchResults.set(brandName, nameResult);
-                      }
-                    }
-
-                    // ---- SERP-discovered hub expansion ----
-                    const serpHubs = await expandSerpDiscoveredHubs({
-                      serpUrls,
-                      handle,
-                      brandName,
-                      confirmedHubUrls,
-                      fetchHtml,
-                    });
-                    adoptedLinks.push(...serpHubs.adopted);
-                    hubsFetched += serpHubs.hubsFetched;
-                    if (serpHubs.gated?.length) gatedTags.push(...serpHubs.gated);
-                    if (
-                      serpHubs.fetchFailures > 0 &&
-                      serpHubs.adopted.length === 0 &&
-                      sources.serpName === "absent"
-                    ) {
-                      sources.serpName = "unknown";
-                    }
-                    if (serpHubs.adopted.length > 0) {
-                      const hubPatch = buildLinkEnrichPatch(
-                        brand as BrandFlatLinkColumns,
-                        serpHubs.scraped,
-                        brandName,
-                      );
-                      Object.assign(brand, hubPatch);
-                      patch = { ...patch, ...hubPatch };
-                    }
-
-                    const adopted = adoptedLinks.map((link) => ({
-                      field: link.field,
-                      url: link.value,
-                      source: link.source,
-                    }));
-
-                    linkExpansionByBrandId.set(brand.id, {
-                      patch,
-                      serp,
-                      sources,
-                      serpCallStatuses,
-                      linkExpansion: {
-                        hubsFetched,
-                        adopted,
-                        serp,
-                        sources,
-                        ...(gatedTags.length
-                          ? { gated: gatedTags.join(", ") }
-                          : {}),
-                      },
-                    });
                   },
                 );
 

@@ -1,4 +1,4 @@
-import { captureException } from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { after, NextResponse } from "next/server";
 import { withAuditScope } from "@/lib/audit/scope";
 import { verifySlackSignature } from "@/lib/adapters/slack/signature";
@@ -272,7 +272,7 @@ export function createInteractionsHandler(
                     });
                   }
                 } catch (staleError) {
-                  captureException(staleError, {
+                  reportError(staleError, {
                     tags: { scope: "slack", route: "interactions", step: "stale-check" },
                   });
                   console.error("[slack/interactions] stale dispatch check failed:", staleError);

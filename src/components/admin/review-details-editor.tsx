@@ -59,6 +59,7 @@ import {
   type OnlineStoreCamelField,
   type OnlineStoreKey,
 } from "@/lib/brands/online-stores";
+import { isRecord } from "@/lib/utils/is-record";
 
 const EMPTY_SELECT_VALUE = "__none";
 
@@ -1795,10 +1796,6 @@ function parseReputationSummary(value: unknown): {
     textEn: nonEmptyString(value.text_en) ?? nonEmptyString(value.textEn),
     sources,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function nonEmptyString(value: unknown): string | null {

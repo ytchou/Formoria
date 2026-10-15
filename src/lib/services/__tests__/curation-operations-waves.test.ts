@@ -2010,3 +2010,363 @@ describe("link expansion, SERP search, and no-purchase-channel gate", () => {
     expect(noHandleTemplate("No Handle Brand")).toBe("No Handle Brand 台灣");
   });
 });
+
+/**
+ * Characterization of the chunk SERP-cache load and the per-brand link
+ * expansion gather (DEV-2032 CODE-11). Pins what those two blocks hand the
+ * rest of the pipeline — progress lines, the `linkExpansion` trace, the
+ * brand's adopted link columns, the URLs acquire reads, and the persisted
+ * acquire patch — so moving them out of `runEnrich` cannot change behaviour.
+ */
+describe("characterization: SERP cache and link expansion gather", () => {
+  const ORIGINAL_KEY = process.env.OPENAI_API_KEY;
+  let upserts: Array<Array<{ phase: string; output: unknown }>>;
+
+  beforeEach(() => {
+    defaultBeforeEach();
+    process.env.OPENAI_API_KEY = "test-stub";
+    upserts = [];
+    mocks.createSupabasePhaseOutputStore.mockReturnValue({
+      reader: { forTargets: async () => [], latestPerPhase: async () => [], unpersisted: async () => [] },
+      writer: {
+        upsert: async (rows: Array<{ phase: string; output: unknown }>) => {
+          upserts.push(rows);
+          return [];
+        },
+      },
+    });
+    mocks.detectBrand.mockImplementation(detectAnswers(new Map()));
+    mocks.runAcquirePhase.mockImplementation(async () => acquireOutput());
+    mocks.runNamesPhase.mockImplementation(async () => namesOutput());
+    mocks.runEditorialAgent.mockImplementation(async () => editorialOutput());
+    mocks.runProductsPhase.mockImplementation(async () => productsOutput());
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_KEY === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = ORIGINAL_KEY;
+  });
+
+  function acquireInput() {
+    expect(mocks.runAcquirePhase).toHaveBeenCalledOnce();
+    const input = mocks.runAcquirePhase.mock.calls[0][0] as {
+      brand: Record<string, unknown>;
+      discoveredUrls: string[];
+      knownUrls: string[];
+      linkExpansion: unknown;
+    };
+    const linkColumns = Object.fromEntries(
+      Object.entries(input.brand).filter(
+        ([key, value]) =>
+          (key.startsWith("purchase_") || key.startsWith("social_")) &&
+          value !== null,
+      ),
+    );
+    return {
+      linkColumns,
+      discoveredUrls: input.discoveredUrls,
+      knownUrls: input.knownUrls,
+      linkExpansion: input.linkExpansion,
+    };
+  }
+
+  function acquirePatch() {
+    const row = upserts.flat().find((entry) => entry.phase === "acquire");
+    return (row?.output as { patch?: unknown } | undefined)?.patch;
+  }
+
+  it("replays a fresh cached SERP row instead of searching live", async () => {
+    const target = submission({
+      id: "sub-cache",
+      brand_name: "Cache Brand",
+      social_instagram: "https://www.instagram.com/cachebrand",
+    });
+    mocks.getLatestSearchResults.mockResolvedValue(
+      new Map([
+        [
+          target.id,
+          {
+            brandId: target.id,
+            id: "serp-row-1",
+            searchType: "serp",
+            query: "Cache Brand cachebrand 台灣",
+            urls: [
+              "https://www.pinkoi.com/store/cachebrand",
+              "https://cachebrand.example.com/about",
+            ],
+            snippets: ["Cache Brand handmade goods"],
+            callStatus: "succeeded",
+            httpStatus: 200,
+            error: null,
+            rawResponse: null,
+            latencyMs: 12,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      ]),
+    );
+    const lines: string[] = [];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        jobId: "job-char",
+        phases: FULL_PHASES,
+        onProgress: (line) => lines.push(line),
+      },
+      fakeSupabase([target]),
+    );
+
+    expect(mocks.getLatestSearchResults.mock.calls).toEqual([
+      [[target.id], "serp", "submission", "name"],
+      [[target.id], "serp", "submission", "name", undefined],
+    ]);
+    expect(lines).toContain("  [SERP-CACHE] Loaded 1 cached snippet sets");
+    expect(mocks.batchSearchBrandsWithSnippets).not.toHaveBeenCalled();
+    expect(mocks.expandSerpDiscoveredHubs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serpUrls: [
+          "https://www.pinkoi.com/store/cachebrand",
+          "https://cachebrand.example.com/about",
+        ],
+        handle: "cachebrand",
+        brandName: "Cache Brand",
+      }),
+    );
+    expect(acquireInput()).toMatchInlineSnapshot(`
+      {
+        "discoveredUrls": [
+          "https://cachebrand.example.com/about",
+        ],
+        "knownUrls": [
+          "https://www.instagram.com/cachebrand",
+          "https://www.pinkoi.com/store/cachebrand",
+        ],
+        "linkColumns": {
+          "purchase_pinkoi": "https://www.pinkoi.com/store/cachebrand",
+          "social_instagram": "https://www.instagram.com/cachebrand",
+        },
+        "linkExpansion": {
+          "adopted": [],
+          "hubsFetched": 0,
+          "serp": "replayed",
+          "sources": {
+            "hubs": "skipped",
+            "serpName": "found",
+            "threads": "absent",
+          },
+        },
+      }
+    `);
+    expect(acquirePatch()).toMatchInlineSnapshot(`
+      {
+        "purchase_pinkoi": "https://www.pinkoi.com/store/cachebrand",
+      }
+    `);
+  });
+
+  it("reports a failed live search as unknown and keeps going", async () => {
+    const target = submission({
+      id: "sub-serp-fail",
+      brand_name: "Fail Brand",
+      social_instagram: "https://www.instagram.com/failbrand",
+      purchase_website: "https://failbrand.example.com",
+    });
+    mocks.batchSearchBrandsWithSnippets.mockRejectedValue(new Error("serper down"));
+    const lines: string[] = [];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        jobId: "job-char",
+        phases: FULL_PHASES,
+        onProgress: (line) => lines.push(line),
+      },
+      fakeSupabase([target]),
+    );
+
+    expect(lines.filter((line) => line.includes("[SERP-FAIL]"))).toMatchInlineSnapshot(`
+      [
+        "  [SERP-FAIL] submission-sub-serp-fail: serper down",
+      ]
+    `);
+    expect(acquireInput()).toMatchInlineSnapshot(`
+      {
+        "discoveredUrls": [],
+        "knownUrls": [
+          "https://www.instagram.com/failbrand",
+          "https://failbrand.example.com",
+        ],
+        "linkColumns": {
+          "purchase_website": "https://failbrand.example.com",
+          "social_instagram": "https://www.instagram.com/failbrand",
+        },
+        "linkExpansion": {
+          "adopted": [],
+          "hubsFetched": 0,
+          "serp": "searched",
+          "sources": {
+            "hubs": "skipped",
+            "serpName": "unknown",
+            "threads": "absent",
+          },
+        },
+      }
+    `);
+  });
+
+  it("merges hub, Threads and SERP-hub adoptions into one trace and patch", async () => {
+    const target = submission({
+      id: "sub-merge",
+      brand_name: "Merge Brand",
+      website_url: "https://portaly.cc/mergebrand",
+      social_instagram: "https://www.instagram.com/mergebrand",
+      other_urls: [{ url: "https://lit.link/mergebrand" }],
+    });
+    mocks.collectHubUrls.mockReturnValue(["https://portaly.cc/mergebrand"]);
+    mocks.expandLinkHubs.mockResolvedValue({
+      hubsFetched: 1,
+      fetchFailures: 0,
+      adopted: [
+        {
+          field: "purchaseMyship",
+          value: "https://myship.7-11.com.tw/general/detail/GM1",
+          source: "hub",
+          hubUrl: "https://portaly.cc/mergebrand",
+        },
+      ],
+      gated: ["hub-gate"],
+      scraped: { purchaseMyship: "https://myship.7-11.com.tw/general/detail/GM1" },
+    });
+    mocks.expandThreadsBio.mockResolvedValue({
+      threads: "found",
+      hubUrls: [],
+      adopted: [
+        {
+          field: "purchasePinkoi",
+          value: "https://www.pinkoi.com/store/mergebrand",
+          source: "threads",
+          hubUrl: "https://www.threads.net/@mergebrand",
+        },
+      ],
+      gated: ["threads-gate"],
+      scraped: { purchasePinkoi: "https://www.pinkoi.com/store/mergebrand" },
+    });
+    stubSerpCalls({
+      name: {
+        urls: ["https://shopee.tw/mergebrand", "https://linktr.ee/mergebrand"],
+        snippets: ["Merge Brand on Shopee"],
+        entries: [{ title: "Merge Brand", link: "https://shopee.tw/mergebrand" }],
+      },
+    });
+    mocks.expandSerpDiscoveredHubs.mockResolvedValue({
+      hubsFetched: 2,
+      fetchFailures: 1,
+      adopted: [
+        {
+          field: "purchaseWebsite",
+          value: "https://mergebrand.example.com",
+          source: "serp",
+          hubUrl: "https://linktr.ee/mergebrand",
+        },
+      ],
+      gated: ["serp-gate"],
+      scraped: { purchaseWebsite: "https://mergebrand.example.com" },
+    });
+    const lines: string[] = [];
+
+    await runEnrich(
+      {
+        target: "submissions",
+        submissionIds: [target.id],
+        dryRun: true,
+        jobId: "job-char",
+        phases: FULL_PHASES,
+        onProgress: (line) => lines.push(line),
+      },
+      fakeSupabase([target]),
+    );
+
+    const expandArgs = mocks.expandLinkHubs.mock.calls[0][0] as {
+      confirmedHubUrls: Set<string>;
+    };
+    expect([...expandArgs.confirmedHubUrls]).toEqual([
+      "https://portaly.cc/mergebrand",
+      "https://lit.link/mergebrand",
+    ]);
+    expect(mocks.expandThreadsBio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandName: "Merge Brand",
+        threadsUrl: expect.stringContaining("mergebrand"),
+      }),
+    );
+    const serpCall = serpCalls()[0] as unknown[];
+    expect(serpCall[0]).toEqual(["Merge Brand"]);
+    expect(serpCall[2]).toBe(1);
+    expect((serpCall[3] as () => unknown)()).toEqual({
+      target: { type: "submission", id: target.id },
+      jobId: "job-char",
+      config: { phase: "acquire" },
+    });
+    expect(acquireInput()).toMatchInlineSnapshot(`
+      {
+        "discoveredUrls": [
+          "https://linktr.ee/mergebrand",
+        ],
+        "knownUrls": [
+          "https://www.instagram.com/mergebrand",
+          "https://mergebrand.example.com",
+          "https://www.pinkoi.com/store/mergebrand",
+          "https://shopee.tw/mergebrand",
+          "https://myship.7-11.com.tw/general/detail/GM1",
+        ],
+        "linkColumns": {
+          "purchase_myship": "https://myship.7-11.com.tw/general/detail/GM1",
+          "purchase_pinkoi": "https://www.pinkoi.com/store/mergebrand",
+          "purchase_shopee": "https://shopee.tw/mergebrand",
+          "purchase_website": "https://mergebrand.example.com",
+          "social_instagram": "https://www.instagram.com/mergebrand",
+        },
+        "linkExpansion": {
+          "adopted": [
+            {
+              "field": "purchaseMyship",
+              "source": "hub",
+              "url": "https://myship.7-11.com.tw/general/detail/GM1",
+            },
+            {
+              "field": "purchasePinkoi",
+              "source": "threads",
+              "url": "https://www.pinkoi.com/store/mergebrand",
+            },
+            {
+              "field": "purchaseWebsite",
+              "source": "serp",
+              "url": "https://mergebrand.example.com",
+            },
+          ],
+          "gated": "hub-gate, threads-gate, serp-gate",
+          "hubsFetched": 3,
+          "serp": "searched",
+          "sources": {
+            "hubs": "found",
+            "serpName": "found",
+            "threads": "found",
+          },
+        },
+      }
+    `);
+    expect(acquirePatch()).toMatchInlineSnapshot(`
+      {
+        "purchase_myship": "https://myship.7-11.com.tw/general/detail/GM1",
+        "purchase_pinkoi": "https://www.pinkoi.com/store/mergebrand",
+        "purchase_shopee": "https://shopee.tw/mergebrand",
+        "purchase_website": "https://mergebrand.example.com",
+      }
+    `);
+  });
+});

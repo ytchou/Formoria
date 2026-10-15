@@ -1,6 +1,6 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { useEffect, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/ui/page-shell";
@@ -34,7 +34,7 @@ export default function GlobalError({
     locale === "en" ? globalErrorCopy.en : globalErrorCopy["zh-TW"];
 
   useEffect(() => {
-    Sentry.captureException(error);
+    reportError(error);
     // Loaded lazily: a static `posthog-js` import here put the ~230KB
     // analytics vendor chunk in the first load of all 65 routes, because the
     // global error boundary is part of every route's client entry. Fire and

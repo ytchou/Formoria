@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/nextjs'
+import { reportError } from '@/lib/observability/report-error'
 import { connection } from 'next/server'
 import { PHASE_PRODUCTION_BUILD } from 'next/constants'
 
@@ -11,7 +11,7 @@ import { PHASE_PRODUCTION_BUILD } from 'next/constants'
 export function captureReadFailure(scope: string): (error: unknown) => null {
   return (error: unknown) => {
     console.error(`[${scope}] page data read failed:`, error)
-    Sentry.captureException(error, { tags: { scope, area: 'page-data-read' } })
+    reportError(error, { tags: { scope, area: 'page-data-read' } })
     return null
   }
 }

@@ -13,6 +13,7 @@ import {
   type RunTimeline,
   type TimelineRef,
 } from "./types";
+import { isRecord } from "@/lib/utils/is-record";
 
 export type TimelineDeps = {
   postMessage: typeof postMessage;
@@ -41,10 +42,6 @@ function toMetadata(timeline: RunTimeline) {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isRunEvent(value: unknown): value is RunEvent {

@@ -107,6 +107,7 @@ import {
   type EnrichScrapedData,
   type PhaseOutputSlots,
 } from "./types";
+import { isRecord } from "@/lib/utils/is-record";
 
 /**
  * Curated-product proposals from a brand's own site (DEV-1469).
@@ -342,10 +343,6 @@ function skipped(detail: string): ProductsPhaseOutput {
     patch: {},
     proposals: [],
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function trimmedString(value: unknown): string | null {

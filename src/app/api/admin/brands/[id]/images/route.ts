@@ -1,6 +1,6 @@
 import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { requireAdminAction } from "@/lib/auth/require-admin";
 import { sanitizeErrorResponse, ValidationError } from "@/lib/errors";
 import { processImage } from "@/lib/security/image-processor";
@@ -79,7 +79,7 @@ export const POST = withAuditScope(async (
       try {
         await deleteStoredImagePaths([storagePath]);
       } catch (rollbackError) {
-        Sentry.captureException(rollbackError);
+        reportError(rollbackError);
       }
       throw error;
     }
@@ -87,7 +87,7 @@ export const POST = withAuditScope(async (
     if (error instanceof ValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    Sentry.captureException(error);
+    reportError(error);
     return NextResponse.json(sanitizeErrorResponse(error), { status: 500 });
   }
 });
