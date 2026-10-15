@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 import { getFooterFullDocumentHref } from "./footer-links";
 import { routes } from "@/lib/routes";
 import { PageShell } from "@/components/ui/page-shell";
+import { phraseBreaks } from "@/components/ui/phrase-breaks";
 
 /**
  * The footer is the page's one ink ground, so every colour here comes from the
@@ -16,6 +17,14 @@ import { PageShell } from "@/components/ui/page-shell";
  *
  * `rule-on-ink` is a non-text rule only. It does not meet a text contrast floor
  * and must never carry type.
+ *
+ * The page closes on the consumer promise (EL-12): the tagline is the top row,
+ * set `type-display` in `on-ink`, and the wordmark, links and fine print sit
+ * under a hairline below it. `text-on-ink` overrides the utility's own
+ * `text-ink` because Tailwind 4 orders utilities by their earliest CSS
+ * property: `type-display` starts at `font-family`, so it is emitted before the
+ * colour-only `text-on-ink` — the same reason `type-card-title text-on-ink` on
+ * the wordmark already reads light.
  */
 const linkClasses =
   "inline-flex min-h-11 items-center type-nav text-on-ink hover:underline underline-offset-4 rounded-control focus-visible:outline-on-ink";
@@ -36,19 +45,22 @@ export function Footer() {
           `page-measure` now, so following the page is just reading the same
           shell, and the property is gone. */}
       <PageShell measure="page">
-        <div className="flex flex-col gap-stack lg:flex-row lg:gap-16">
-          {/* The wordmark and the consumer promise. The content face
-              (`font-ming`) on both: this is the only content on the page's
-              last screen, not chrome. */}
+        {/* The closing line: the promise at display size. `footer.tagline` is
+            byte-pinned by brand-identity-copy.test.ts as the canonical promise
+            derivative — do not punctuate it here. `break-keep` plus
+            `phraseBreaks()` lets zh break only between words, and
+            `type-display` balances the two lines. */}
+        <p className="type-display text-on-ink break-keep">{phraseBreaks(t("tagline"))}</p>
+
+        <div className="mt-stack flex flex-col gap-stack border-t border-rule-on-ink pt-stack lg:flex-row lg:gap-16">
+          {/* The wordmark, in the content face (`font-ming`): this is
+              content on the page's last screen, not chrome. */}
           <div className="lg:w-1/3">
             <p className="type-card-title text-on-ink">Formoria</p>
-            {/* `footer.tagline` is byte-pinned by brand-identity-copy.test.ts
-                as the canonical promise derivative — do not punctuate it here. */}
-            <p className="mt-4 type-body-sm text-on-ink-muted">{t("tagline")}</p>
             {/* The non-seller disclosure (DESIGN.md §8): every purchase routes
                 out to the brand's own channel, and the footer says so on
                 every page. */}
-            <p className="mt-2 type-body-sm text-on-ink-muted">{t("disclosure")}</p>
+            <p className="mt-4 type-body-sm text-on-ink-muted">{t("disclosure")}</p>
           </div>
 
           <div className="grid flex-1 grid-cols-2 gap-stack">

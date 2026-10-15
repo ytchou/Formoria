@@ -129,7 +129,7 @@ describe('ChallengePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
 
-    expect(await screen.findByText('驗證沒有通過，請再試一次。')).toBeInTheDocument()
+    expect(await screen.findByText(zh.challenge.error)).toBeInTheDocument()
     expect(hrefValues).toHaveLength(0)
   })
 
@@ -143,7 +143,7 @@ describe('ChallengePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
 
-    expect(await screen.findByText('驗證沒有通過，請再試一次。')).toBeInTheDocument()
+    expect(await screen.findByText(zh.challenge.error)).toBeInTheDocument()
     expect(hrefValues).toHaveLength(0)
   })
 
@@ -156,8 +156,46 @@ describe('ChallengePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Fail verification' }))
 
-    expect(screen.getByText('驗證沒有通過，請再試一次。')).toBeInTheDocument()
+    expect(screen.getByText(zh.challenge.error)).toBeInTheDocument()
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('announces a failed verification as an alert', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({}),
+    } as Response)
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <TestChallengeWidget />
+      </NextIntlClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      zh.challenge.error,
+    )
+    // Turnstile has re-keyed for a retry, yet the alert stays up until the
+    // next attempt starts, so a screen reader gets to read it.
+    expect(screen.getByRole('button', { name: 'Complete verification' })).toBeEnabled()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+  })
+
+  it('announces the in-flight verification as a status', async () => {
+    vi.mocked(global.fetch).mockReturnValueOnce(new Promise<Response>(() => {}))
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <TestChallengeWidget />
+      </NextIntlClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      zh.challenge.verifying,
+    )
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('resets Turnstile so verification can be retried after server rejection', async () => {
@@ -174,7 +212,7 @@ describe('ChallengePage', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
-    expect(await screen.findByText('驗證沒有通過，請再試一次。')).toBeInTheDocument()
+    expect(await screen.findByText(zh.challenge.error)).toBeInTheDocument()
 
     const retry = screen.getByRole('button', { name: 'Complete verification' })
     expect(retry).toBeEnabled()
@@ -189,8 +227,8 @@ function TestChallengeWidget() {
   return (
     <ChallengeWidget
       returnTo="/brands/talkoo"
-      verifyingLabel="驗證中…"
-      errorLabel="驗證沒有通過，請再試一次。"
+      verifyingLabel={zh.challenge.verifying}
+      errorLabel={zh.challenge.error}
     />
   )
 }

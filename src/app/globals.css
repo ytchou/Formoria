@@ -395,7 +395,9 @@
    lowers min-content width so grid and flex columns stay inside 390px. */
 
 @utility type-display {
-  @apply font-ming text-[2.875rem] font-[560] tracking-[-0.02em] leading-[1.1] text-ink;
+  /* EL-02: fluid, 40px at a 390px viewport to ~76px at 1440px. `length:`
+     keeps Tailwind from reading the clamp() as a colour. */
+  @apply font-ming text-[length:clamp(2.5rem,1.55rem_+_3.1vw,4.75rem)] font-[560] tracking-[-0.025em] leading-[1.06] text-ink;
   &:lang(zh) {
     overflow-wrap: anywhere;
     line-break: strict;
@@ -404,7 +406,8 @@
 }
 
 @utility type-page-title {
-  @apply font-ming text-[2.5rem] font-[560] tracking-[-0.02em] leading-[1.15] text-ink;
+  /* EL-02: fluid, 36px on a phone to 52px on a wide desktop. */
+  @apply font-ming text-[length:clamp(2.25rem,1.85rem_+_1.5vw,3.25rem)] font-[560] tracking-[-0.02em] leading-[1.12] text-ink;
   &:lang(zh) {
     overflow-wrap: anywhere;
     line-break: strict;
@@ -544,6 +547,16 @@
   }
 }
 
+/* EL-13: the skeleton plate. Opacity only (DESIGN §7b). */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @utility animate-spring-pop {
   animation: spring-pop var(--duration-morph) var(--ease-gentle-overshoot);
 }
@@ -554,6 +567,14 @@
 
 @utility animate-reveal-up {
   animation: reveal-up var(--duration-enter) var(--ease-settle) both;
+}
+
+/* EL-13: a loading plate stays invisible for 300ms, then fades in over 160ms,
+   so a fast load never flashes it. `both` holds opacity 0 through the delay.
+   The reduced-motion block below shortens the duration but not the delay — a
+   delay is not motion, so the plate still waits rather than flashing. */
+@utility animate-skeleton-in {
+  animation: fade-in 160ms var(--ease-settle) 300ms both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -583,6 +604,17 @@
      `focus-visible:outline-none` and draws its own ring still wins. */
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-accent;
+  }
+  /* EL-15: text selection in the house palette, not the browser's blue. On
+     an ink ground (footer, trail tiles, the trail hero) the light tint would
+     vanish, so ink regions mix the accent into ink and keep the on-ink text. */
+  ::selection {
+    background-color: color-mix(in oklab, var(--accent) 22%, var(--ground));
+    color: var(--ink);
+  }
+  .bg-ink ::selection {
+    background-color: color-mix(in oklab, var(--accent) 55%, var(--ink));
+    color: var(--on-ink);
   }
   /* SP-23: CJK display headings broke mid-word on mobile. `balance` evens the
      line lengths; `auto-phrase` keeps CJK phrases whole in Chromium and is
