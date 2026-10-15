@@ -30,6 +30,7 @@ vi.mock("next-intl/server", () => ({
 }));
 
 const { EditorialAppearances } = await import("../editorial-appearances");
+const { BrandSection } = await import("../brand-section");
 
 const trails = [
   { slug: "slow-mornings", title: "慢慢醒來的早晨", locale: "zh-TW" },
@@ -44,7 +45,16 @@ describe("EditorialAppearances", () => {
   });
 
   it("marks zh-only titles and shows the note once on EN pages", async () => {
-    render(await EditorialAppearances({ locale: "en", trails, stories }));
+    // The page owns the section shell and its h2 (BrandSection).
+    render(
+      <BrandSection
+        id="featured-in"
+        rhythm="utility"
+        heading="editorialAppearances.heading"
+      >
+        {await EditorialAppearances({ locale: "en", trails, stories })}
+      </BrandSection>,
+    );
 
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
       "editorialAppearances.heading",

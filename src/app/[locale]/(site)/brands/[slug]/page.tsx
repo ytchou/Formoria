@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
-import * as Sentry from "@sentry/nextjs";
+import { setReportContext } from "@/lib/observability/report-error";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   getCachedPublicBrandDetailBySlug,
@@ -12,9 +12,8 @@ import {
   buildBreadcrumbJsonLd,
   safeJsonLdStringify,
 } from "@/lib/json-ld";
-import type { BreadcrumbItem } from "@/lib/json-ld";
-import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import { BrandViewTracker } from "@/components/brands/brand-view-tracker";
 import { BrandEngagementTracker } from "@/components/brands/brand-engagement-tracker";
@@ -28,29 +27,31 @@ import {
 import { BrandActions } from "@/components/brands/brand-actions";
 import { AdminBrandMenu } from "@/components/brands/admin-brand-menu";
 import { BrandAbout } from "@/components/brands/brand-about";
-import { splitLede } from "@/lib/brands/split-lede";
+import { BrandSection } from "@/components/brands/brand-section";
 import { BrandFaqAccordion } from "@/components/brands/brand-faq-accordion";
 import {
   BrandChannelCorrections,
   BrandOtherLinks,
   BrandPurchaseLinks,
-  BrandSocialLinks,
+  BrandSocialChannels,
 } from "@/components/brands/brand-links";
 import { BrandSectionNav } from "@/components/brands/brand-section-nav";
 import { StockistsSection } from "@/components/brands/stockists-section";
 import { BrandSelectedProducts } from "@/components/brands/brand-selected-products";
 import { RelatedBrands } from "@/components/brands/related-brands";
 import { EditorialAppearances } from "@/components/brands/editorial-appearances";
-import { getBrandEditorialAppearances } from "@/lib/services/editorial-links";
+import {
+  getBrandEditorialAppearances,
+  getBrandProductTrailLinks,
+} from "@/lib/services/editorial-links";
+import {
+  brandCategoryTag,
+  buildBrandDetailView,
+} from "@/lib/services/brand-detail-view";
 import { PageShell } from "@/components/ui/page-shell";
-import { Typography } from "@/components/ui/typography";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
-import { getBrandCategoryLabel } from "@/lib/brands/category-label";
-import { getBrandVisitLink } from "@/lib/brands/link-fallback";
 import { renderBrandFaq } from "@/lib/services/brand-faq";
 import { getPublishedCuratedProductsForBrand } from "@/lib/services/curated-products";
-import { L1_CATEGORIES, isVisibleCategory } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
 import { shouldShowBrandSectionNav } from "@/lib/brands/section-nav";
 import { NotFoundError } from "@/lib/errors";
@@ -59,22 +60,6 @@ import { getBrandIndexability } from "@/lib/seo/brand-indexability";
 import { getBrandGalleryImages } from "@/lib/services/brand-images";
 import { routes } from "@/lib/routes";
 import { captureReadFailure } from "@/lib/degraded-render";
-
-// Scroll offset for every section-nav target: clears the sticky main nav (100px)
-// plus the mobile section-nav strip (48px). From md up there is no strip.
-const sectionScrollClassName = "scroll-mt-40 md:scroll-mt-28";
-// Content sections (story, selected products, where-to-buy) are separated by
-// the section rhythm.
-const contentSectionClassName = cn(
-  sectionScrollClassName,
-  "mt-section first:mt-0",
-);
-// Utility sections (featured-in, FAQ, social, other links) keep the hairline
-// rhythm, and their headings step down to the card-title size (BD-12).
-const utilitySectionClassName = cn(
-  sectionScrollClassName,
-  "mt-stack border-t border-rule pt-stack",
-);
 
 // Optional editorial failures must recover on the next request, including cold loads.
 export const revalidate = 0;
@@ -99,7 +84,7 @@ const loadApprovedBrand = cache(
         // `cause` — surface it on the current scope so the auto-captured event
         // carries it instead of just the generic not-found text.
         if (error instanceof NotFoundError && error.cause) {
-          Sentry.setContext("brandLookup", { slug, cause: error.cause });
+          setReportContext("brandLookup", { slug, cause: error.cause });
         }
         throw error;
       }
@@ -126,20 +111,6 @@ export async function generateMetadata({
     ...(indexability["zh-TW"] ? (["zh-TW"] as const) : []),
     ...(indexability.en ? (["en"] as const) : []),
   ];
-  const heroImageUrl = safeImageSrc(brand.heroImageUrl);
-  const heroImageMetadata = brand.heroImageMetadata;
-  const heroImageAlt = brand.name;
-  const heroImageDimensions =
-    heroImageMetadata?.width && heroImageMetadata.height
-      ? { width: heroImageMetadata.width, height: heroImageMetadata.height }
-      : {};
-  const { canonical, languages } = buildAlternates(
-    routes.brand(brand.slug),
-    safeLocale,
-    availableLocales,
-  );
-  const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
-  const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
   const rawDescription =
     safeLocale === "en"
       ? (brand.blurbEn ??
@@ -150,34 +121,25 @@ export async function generateMetadata({
   const description = truncateForMeta(
     rawDescription || t("metadata.fallbackDescription", { name: brand.name }),
   );
-  return {
+  return buildPageMetadata({
+    locale: safeLocale,
+    path: routes.brand(brand.slug),
+    availableLocales,
     title: brand.name,
     description,
-    alternates: { canonical, languages },
     robots: indexability[safeLocale]
       ? undefined
       : { index: false, follow: true },
-    openGraph: {
-      type: "website",
-      title: brand.name,
-      description,
-      url: canonical,
-      images: heroImageUrl
-        ? [{ url: heroImageUrl, alt: heroImageAlt, ...heroImageDimensions }]
-        : undefined,
-      locale: ogLocale,
-      alternateLocale: availableLocales.includes(
-        safeLocale === "en" ? "zh-TW" : "en",
-      )
-        ? [ogAlternateLocale]
-        : undefined,
-    },
-    twitter: {
-      title: brand.name,
-      description,
-      images: heroImageUrl ?? undefined,
-    },
-  };
+    // The 1200x630 brand card served under the page itself (BD-11); the
+    // twitter-image route re-exports the same image.
+    image: (canonical) => ({
+      url: canonical + "/opengraph-image",
+      alt: brand.name,
+      width: 1200,
+      height: 630,
+      type: "image/png",
+    }),
+  });
 }
 
 export default async function BrandDetailPage({ params }: PageProps) {
@@ -186,122 +148,71 @@ export default async function BrandDetailPage({ params }: PageProps) {
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const displayBrand = await loadApprovedBrand(slug);
+  // Needed before the facts read: related brands are keyed by public category.
+  const categoryTag = brandCategoryTag(displayBrand.categorySlug);
 
-  const [tBrandDetail, tCities] = await Promise.all([
+  // One hop after the brand: every read below depends only on it.
+  const [
+    tBrandDetail,
+    tCities,
+    facts,
+    curatedProducts,
+    editorialAppearances,
+    productGuides,
+  ] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: "brandDetail" }),
     getTranslations({ locale: safeLocale, namespace: "cities" }),
-  ]);
-  const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
-    tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
-  const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
-  const categorySlugSlug = displayBrand.categorySlug;
-  const categorySlugCategory = L1_CATEGORIES.find(
-    (category) => category.slug === categorySlugSlug,
-  );
-  const categoryTag =
-    categorySlugCategory && isVisibleCategory(categorySlugCategory.slug)
-      ? {
-          slug: categorySlugCategory.slug,
-          name: categorySlugCategory.name,
-          nameZh: categorySlugCategory.nameZh,
-        }
-      : null;
-
-  const [facts, curatedProducts, editorialAppearances] = await Promise.all([
-    getCachedPublicBrandFacts(displayBrand.id, categoryTag?.slug ?? null, displayBrand.slug),
+    getCachedPublicBrandFacts(
+      displayBrand.id,
+      categoryTag?.slug ?? null,
+      displayBrand.slug,
+    ),
     getPublishedCuratedProductsForBrand(displayBrand.id),
     getBrandEditorialAppearances(displayBrand.slug).catch((error) => {
       captureReadFailure("brand.editorialAppearances")(error);
       return { trails: [], stories: [] };
     }),
+    // The guide links are an enhancement: a failed read shows the tiles
+    // without them (and so without a 選物 label), never an error.
+    getBrandProductTrailLinks(displayBrand.slug).catch((error) => {
+      captureReadFailure("brand.productTrailLinks")(error);
+      return {};
+    }),
   ]);
-  const { stockists, relatedBrands, categoryCount } = facts;
+  const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
+    tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
+  const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
+  const { stockists, relatedBrands, relatedPreviews, categoryCount } = facts;
   const faqItems = renderBrandFaq(
     facts.faqEntries,
     facts.faqContext,
     tBrandFaq,
     safeLocale,
     cityLabel,
+    curatedProducts.flatMap((p) => (p.subcategory ? [p.subcategory] : [])),
   );
-  const stockistCount = stockists.confirmed.length + stockists.possible.length;
-  // Same builder generateMetadata uses for <link rel="canonical">, so the
-  // structured data can never name a different URL than the page's own tag.
-  const { canonical: canonicalUrl } = buildAlternates(
-    routes.brand(displayBrand.slug),
-    safeLocale,
-  );
-  const galleryImages = getBrandGalleryImages(displayBrand);
-
-  const visitLink = getBrandVisitLink(displayBrand);
-  const description =
-    safeLocale === "en"
-      ? (displayBrand.descriptionEn ?? displayBrand.description)
-      : displayBrand.description;
   const hasEditorialAppearances =
     editorialAppearances.trails.length > 0 ||
     editorialAppearances.stories.length > 0;
-  // One short label per section (`tabNav.short.*`), in page order, so the
-  // strip fits a phone without scrolling (BD2-10); the headings keep their
-  // full wording. An entry exists only when its section renders.
-  const sections = [
-    ...(description
-      ? [{ id: "about", label: tBrandDetail("tabNav.short.about") }]
-      : []),
-    ...(curatedProducts.length > 0
-      ? [
-          {
-            id: "selected-products",
-            label: tBrandDetail("tabNav.short.selectedProducts"),
-          },
-        ]
-      : []),
-    // Where-to-buy and social render unconditionally — an empty channel set
-    // shows a muted 「還沒有…」 line rather than disappearing.
-    { id: "where-to-buy", label: tBrandDetail("tabNav.short.whereToBuy") },
-    ...(hasEditorialAppearances
-      ? [
-          {
-            id: "featured-in",
-            label: tBrandDetail("tabNav.short.featuredIn"),
-          },
-        ]
-      : []),
-    ...(faqItems.length > 0
-      ? [{ id: "faq", label: tBrandDetail("tabNav.short.faq") }]
-      : []),
-    { id: "social", label: tBrandDetail("tabNav.short.social") },
-  ];
-  const hasSectionNav = shouldShowBrandSectionNav(sections.length);
-  const heroFacts = {
+  const view = buildBrandDetailView({
+    brand: displayBrand,
+    locale: safeLocale,
     cityLabel,
-    foundingYear: displayBrand.foundingYear,
-    selectedCount: curatedProducts.length,
-    stockistCount,
-  };
+    directoryLabel: tBrandDetail("breadcrumb.directory"),
+    curatedCount: curatedProducts.length,
+    curatedSubcategories: curatedProducts.map((product) => product.subcategory),
+    stockists,
+    hasEditorialAppearances,
+    faqItemCount: faqItems.length,
+  });
+  const { categoryLabel, visitLink, heroFacts, hasHeroColophon } = view;
+  const sections = view.sections.map(({ id, labelKey }) => ({
+    id,
+    label: tBrandDetail(labelKey),
+  }));
+  const hasSectionNav = shouldShowBrandSectionNav(sections.length);
   const hasHeroFacts = hasBrandHeroFacts(heroFacts);
-  // The colophon carries city and founding year, so the metadata line drops them.
-  const hasHeroColophon =
-    Boolean(cityLabel) || displayBrand.foundingYear != null;
-
-  // Breadcrumb items for JSON-LD
-  const directoryLabel = tBrandDetail("breadcrumb.directory");
-  const categoryLabel = categorySlugCategory
-    ? safeLocale === "en"
-      ? categorySlugCategory.name
-      : categorySlugCategory.nameZh
-    : getBrandCategoryLabel(displayBrand, safeLocale === "en" ? "en" : "zh-TW");
-  const breadcrumbItems: BreadcrumbItem[] = [
-    { label: directoryLabel, href: routes.brands() },
-    ...(categoryTag
-      ? [
-          {
-            label: categoryLabel || categoryTag.name,
-            href: routes.brands({ category: categoryTag.slug }),
-          },
-        ]
-      : []),
-    { label: displayBrand.name },
-  ];
+  const galleryImages = getBrandGalleryImages(displayBrand);
 
   return (
     // The saved-brands and engagement providers wrap the whole page: the view
@@ -326,7 +237,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                     heroImageAlt: displayBrand.imageAlts[0]?.altZh ?? null,
                   },
                   safeLocale,
-                  canonicalUrl,
+                  view.canonical,
                   [...stockists.confirmed, ...stockists.possible],
                 ),
               ),
@@ -336,7 +247,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             type="application/ld+json"
             dangerouslySetInnerHTML={{
               __html: safeJsonLdStringify(
-                buildBreadcrumbJsonLd(breadcrumbItems, safeLocale),
+                buildBreadcrumbJsonLd(view.breadcrumb, safeLocale),
               ),
             }}
           />
@@ -362,15 +273,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 categoryLabel={categoryLabel || null}
                 cityLabel={cityLabel}
                 omitProvenance={hasHeroColophon}
-                lede={
-                  description
-                    ? splitLede(description, safeLocale, {
-                        brandName: displayBrand.name,
-                        fallbackLede:
-                          safeLocale === "en" ? displayBrand.blurbEn : null,
-                      }).lede
-                    : null
-                }
+                lede={view.lede}
+                makesLabels={view.makesLabels}
                 adminSlot={
                   <AdminBrandMenu
                     brandId={displayBrand.id}
@@ -399,7 +303,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 alt={displayBrand.name}
                 brandId={displayBrand.id}
                 brandSlug={displayBrand.slug}
-                category={categorySlugSlug}
+                category={displayBrand.categorySlug}
                 imageAlts={displayBrand.imageAlts}
               />
             </div>
@@ -408,12 +312,15 @@ export default async function BrandDetailPage({ params }: PageProps) {
               <div
                 className={cn(
                   "min-w-0 lg:col-span-5 lg:col-start-8 lg:row-start-2 lg:self-start",
-                  // Without a colophon only the md+ jump rows remain; an empty
-                  // cell would still add a grid gap.
+                  // Without a colophon only the md+ route rows remain; an
+                  // empty cell would still add a grid gap.
                   !hasHeroColophon && "max-md:hidden",
                 )}
               >
-                <BrandHeroFacts {...heroFacts} />
+                <BrandHeroFacts
+                  {...heroFacts}
+                  trackedBrand={view.links.tracked}
+                />
               </div>
             )}
           </div>
@@ -426,83 +333,122 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <BrandSectionNav sections={sections} sticky={!visitLink} />
 
             {/* Below md the first heading would otherwise sit flush against
-                the strip's bottom rule; from md up there is no strip. */}
+                the strip's bottom rule; from md up there is no strip. Every
+                section below is one BrandSection (BD-17), in the order of
+                `view.sections`: product-led (BD-01), so the shelf comes
+                first, then the route out and the story in one band. */}
             <div className={cn("min-w-0", hasSectionNav && "pt-6 md:pt-0")}>
-              <BrandAbout brand={displayBrand} locale={safeLocale} />
-
               {curatedProducts.length > 0 && (
-                <section
+                // No shell heading: the shelf sets its own h2 beside the
+                // carousel arrows.
+                <BrandSection
                   id="selected-products"
-                  className={contentSectionClassName}
+                  rhythm="content"
+                  data-brand-selected-products
                 >
                   <BrandSelectedProducts
                     locale={safeLocale}
-                    brand={displayBrand}
+                    brand={view.links.visit}
                     products={curatedProducts}
+                    guides={productGuides}
                   />
-                </section>
+                </BrandSection>
               )}
 
-              {/* Online and physical channels as one section, official site
-                  first (BrandPurchaseLinks' first slot is the website). */}
-              <section
-                id="where-to-buy"
-                aria-labelledby="where-to-buy-heading"
-                className={contentSectionClassName}
+              {/* One surface band: where-to-buy in the left 7 columns at lg,
+                  the story in the right 5; below lg they stack in that order.
+                  Without a story, where-to-buy takes the whole band. */}
+              <div
+                className="mt-section rounded-surface bg-surface p-6 first:mt-0 md:p-10"
+                data-brand-band
               >
-                <Typography
-                  as="h2"
-                  id="where-to-buy-heading"
-                  variant="sectionTitleLarge"
-                >
-                  {tBrandDetail("sections.whereToBuy")}
-                </Typography>
-                <div className="mt-stack flex flex-col gap-stack">
-                  <BrandPurchaseLinks brand={displayBrand} />
-                  {stockistCount > 0 && (
-                    <StockistsSection
-                      locale={safeLocale}
-                      confirmed={stockists.confirmed}
-                      possible={stockists.possible}
-                      brandId={displayBrand.id}
-                      brandSlug={displayBrand.slug}
-                    />
+                <div className="grid gap-y-10 lg:grid-cols-12 lg:gap-x-gutter">
+                  {/* Online, social and physical channels as one section,
+                      official site first (the first purchase slot is the
+                      website). Social sits before the stockists so a long
+                      list never buries it. */}
+                  <BrandSection
+                    id="where-to-buy"
+                    rhythm="band"
+                    heading={tBrandDetail("sections.whereToBuy")}
+                    className={cn(
+                      "min-w-0",
+                      view.storyParagraphs ? "lg:col-span-7" : "lg:col-span-12",
+                    )}
+                  >
+                    <div className="mt-stack flex flex-col gap-stack">
+                      <BrandPurchaseLinks
+                        brand={view.links.tracked}
+                        slots={view.links.channels.purchase}
+                      />
+                      <BrandSocialChannels
+                        brand={view.links.tracked}
+                        slots={view.links.channels.social}
+                      />
+                      {view.stockistCount > 0 && (
+                        <StockistsSection
+                          locale={safeLocale}
+                          confirmed={stockists.confirmed}
+                          possible={stockists.possible}
+                          brandId={displayBrand.id}
+                          brandSlug={displayBrand.slug}
+                        />
+                      )}
+                      <BrandChannelCorrections brand={view.links.corrections} />
+                    </div>
+                  </BrandSection>
+
+                  {view.storyParagraphs && (
+                    // One column (BD-05). The bare `prose-measure` caps the
+                    // stacked story below lg; in the 5-column band it is
+                    // narrower than the cap anyway.
+                    <BrandSection
+                      id="about"
+                      rhythm="band"
+                      heading={tBrandDetail("sections.about")}
+                      className="prose-measure min-w-0 lg:col-span-5"
+                    >
+                      <BrandAbout paragraphs={view.storyParagraphs} />
+                    </BrandSection>
                   )}
-                  <BrandChannelCorrections brand={displayBrand} />
                 </div>
-              </section>
+              </div>
 
               {hasEditorialAppearances && (
-                <div id="featured-in" className={utilitySectionClassName}>
+                <BrandSection
+                  id="featured-in"
+                  rhythm="utility"
+                  heading={tBrandDetail("editorialAppearances.heading")}
+                >
                   <EditorialAppearances
                     locale={safeLocale}
                     trails={editorialAppearances.trails}
                     stories={editorialAppearances.stories}
                   />
-                </div>
+                </BrandSection>
               )}
 
               {faqItems.length > 0 && (
-                <section id="faq" className={utilitySectionClassName}>
+                <BrandSection
+                  id="faq"
+                  rhythm="utility"
+                  heading={tBrandDetail("sections.faq")}
+                >
                   <BrandFaqAccordion items={faqItems} />
-                </section>
+                </BrandSection>
               )}
 
-              <BrandSocialLinks
-                brand={displayBrand}
-                sectionIds={{ social: "social" }}
-                sectionClassName={cn(
-                  utilitySectionClassName,
-                  "[&_h2]:type-card-title",
-                )}
-              />
-              <BrandOtherLinks
-                brand={displayBrand}
-                sectionClassName={cn(
-                  utilitySectionClassName,
-                  "[&_h2]:type-card-title",
-                )}
-              />
+              {view.links.other.length > 0 && (
+                <BrandSection
+                  rhythm="utility"
+                  heading={tBrandDetail("links.otherLinks")}
+                >
+                  <BrandOtherLinks
+                    brand={view.links.tracked}
+                    links={view.links.other}
+                  />
+                </BrandSection>
+              )}
             </div>
           </div>
 
@@ -511,6 +457,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <RelatedBrands
               locale={safeLocale}
               brands={relatedBrands}
+              previews={relatedPreviews}
               category={categoryTag.slug}
               categoryName={categoryLabel || categoryTag.name}
               categoryLabel={categoryLabel || null}

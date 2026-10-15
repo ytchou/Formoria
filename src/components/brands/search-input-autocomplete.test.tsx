@@ -130,7 +130,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
 
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('combobox')
     await user.type(input, 'tea')
 
     await waitFor(() => {
@@ -150,7 +150,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />, 'zh-TW', zhTW)
 
-    await user.type(screen.getByRole('searchbox'), 'tea')
+    await user.type(screen.getByRole('combobox'), 'tea')
 
     const option = await screen.findByRole('option', { name: /Tea House/ })
     expect(option).toHaveTextContent('食品飲料')
@@ -161,7 +161,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
 
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('combobox')
     await user.type(input, 'tea')
 
     await waitFor(() => {
@@ -177,7 +177,7 @@ describe('SearchInput autocomplete', () => {
       firstOption!.getAttribute('id'),
     )
     expect(
-      screen.getByRole('searchbox').getAttribute('aria-controls'),
+      screen.getByRole('combobox').getAttribute('aria-controls'),
     ).toBe(screen.getByRole('listbox').getAttribute('id'))
 
     await user.keyboard('{ArrowDown}')
@@ -195,7 +195,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
 
-    await user.type(screen.getByRole('searchbox'), 'tea')
+    await user.type(screen.getByRole('combobox'), 'tea')
     await screen.findByRole('listbox')
     await user.keyboard('{ArrowDown}{Enter}')
 
@@ -207,7 +207,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
 
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('combobox')
     await user.type(input, 'tea')
 
     await waitFor(() => {
@@ -218,7 +218,31 @@ describe('SearchInput autocomplete', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
-  it('shows "no results" when search returns empty', async () => {
+  // The header box (redirectTo) has no results page under it, so it says so —
+  // as plain text outside any listbox, with the combobox reported collapsed.
+  it('shows "no results" when a header search returns empty', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ results: [] }),
+    })
+
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput {...fieldProps} redirectTo="/brands" />)
+
+    const input = screen.getByRole('combobox')
+    await user.type(input, 'xyznonexistent')
+
+    await waitFor(() => {
+      expect(screen.getByText(/no matching brands/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+    expect(input).not.toHaveAttribute('aria-controls')
+  })
+
+  // DS-24: a results page already renders the full empty state below the
+  // field; a no-match note would sit over its chips.
+  it('keeps a results page dropdown closed when search returns empty', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ results: [] }),
@@ -227,19 +251,55 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
 
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('combobox')
     await user.type(input, 'xyznonexistent')
 
-    await waitFor(() => {
-      expect(screen.getByText(/no matching brands/i)).toBeInTheDocument()
-    })
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(screen.getByRole('search')).toHaveAttribute('aria-busy', 'false'),
+    )
+    expect(screen.queryByText(/no matching brands/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+
+    // ArrowDown must not reopen an empty dropdown either.
+    await user.keyboard('{ArrowDown}')
+    expect(screen.queryByText(/no matching brands/i)).not.toBeInTheDocument()
+  })
+
+  it('exposes the APG combobox contract', async () => {
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput {...fieldProps} />)
+
+    const input = screen.getByRole('combobox', { name: 'Search brands' })
+    expect(input).toHaveAttribute('type', 'search')
+    expect(input).toHaveAttribute('aria-autocomplete', 'list')
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+    expect(input).not.toHaveAttribute('aria-controls')
+    expect(input).not.toHaveAttribute('aria-activedescendant')
+
+    await user.type(input, 'tea')
+    const listbox = await screen.findByRole('listbox')
+    expect(input).toHaveAttribute('aria-expanded', 'true')
+    expect(input).toHaveAttribute('aria-controls', listbox.id)
+    expect(listbox).toHaveAccessibleName()
+
+    const options = screen.getAllByRole('option')
+    expect(new Set(options.map((option) => option.id)).size).toBe(options.length)
+    options.forEach((option) => expect(option).toHaveAttribute('aria-selected', 'false'))
+    // A listbox owns only options.
+    expect(listbox.children).toHaveLength(options.length)
+
+    await user.keyboard('{Escape}')
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+    expect(input).not.toHaveAttribute('aria-controls')
   })
 
   it('does not request autocomplete when suggestions are disabled', async () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} showAutocomplete={false} />)
 
-    await user.type(screen.getByRole('searchbox'), 'tea')
+    await user.type(screen.getByRole('combobox'), 'tea')
 
     await waitFor(() => {
       expect(mockFetch).not.toHaveBeenCalled()
@@ -255,7 +315,7 @@ describe('SearchInput autocomplete', () => {
       .mockReturnValueOnce(second.promise)
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('combobox')
 
     await user.type(input, 'tea')
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
@@ -278,7 +338,7 @@ describe('SearchInput autocomplete', () => {
     mockFetch.mockReturnValueOnce(pending.promise)
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('combobox')
 
     await user.type(input, 'tea')
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
@@ -293,7 +353,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     mockFetch.mockResolvedValueOnce(searchResponse('Prior Tea'))
     renderWithProvider(<SearchInput {...fieldProps} />)
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('combobox')
 
     await user.type(input, 'tea')
     await screen.findByRole('option', { name: /Prior Tea/ })
@@ -310,7 +370,7 @@ describe('SearchInput autocomplete', () => {
     const abortSpy = vi.spyOn(AbortController.prototype, 'abort')
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
-    const input = screen.getByRole('searchbox')
+    const input = screen.getByRole('combobox')
 
     await user.type(input, 'ab')
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
@@ -326,7 +386,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
 
-    await user.type(screen.getByRole('searchbox'), 'tea')
+    await user.type(screen.getByRole('combobox'), 'tea')
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
     await user.click(screen.getByRole('button', { name: /clear/i }))
 
@@ -341,7 +401,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
 
-    await user.type(screen.getByRole('searchbox'), 'tea')
+    await user.type(screen.getByRole('combobox'), 'tea')
     await screen.findByRole('listbox')
     await user.click(screen.getAllByRole('option')[0])
 
@@ -355,7 +415,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} redirectTo="/brands" />)
 
-    await user.type(screen.getByRole('searchbox'), 'tea')
+    await user.type(screen.getByRole('combobox'), 'tea')
     await screen.findByRole('listbox')
     await user.click(screen.getAllByRole('option')[0])
 
@@ -367,7 +427,7 @@ describe('SearchInput autocomplete', () => {
     const user = userEvent.setup()
     renderWithProvider(<SearchInput {...fieldProps} />)
 
-    await user.type(screen.getByRole('searchbox'), 'tea')
+    await user.type(screen.getByRole('combobox'), 'tea')
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
@@ -380,7 +440,7 @@ describe('SearchInput autocomplete', () => {
     )
 
     const form = screen.getByRole('search', { name: 'Search brands' })
-    const input = screen.getByRole('searchbox', { name: 'Search brands' })
+    const input = screen.getByRole('combobox', { name: 'Search brands' })
     expect(form).toContainElement(input)
     await user.type(input, 'tea')
     mockSetSearch.mockClear()
@@ -422,7 +482,7 @@ describe('SearchInput autocomplete', () => {
       const user = setupFakeTimers()
       renderWithProvider(<SearchInput {...fieldProps} />)
       const form = screen.getByRole('search')
-      const input = screen.getByRole('searchbox')
+      const input = screen.getByRole('combobox')
 
       await user.type(input, 'tea')
       expect(form).toHaveAttribute('aria-busy', 'true')
@@ -450,7 +510,7 @@ describe('SearchInput autocomplete', () => {
       const user = setupFakeTimers()
       renderWithProvider(<SearchInput {...fieldProps} />)
       const form = screen.getByRole('search')
-      const input = screen.getByRole('searchbox')
+      const input = screen.getByRole('combobox')
 
       await user.type(input, 'tea')
       await passDebounce()
@@ -473,7 +533,7 @@ describe('SearchInput autocomplete', () => {
       filterParamsMode.urlSearch = 'tea'
       const user = setupFakeTimers()
       renderWithProvider(<SearchInput {...fieldProps} />)
-      const input = screen.getByRole('searchbox')
+      const input = screen.getByRole('combobox')
       expect(input).toHaveValue('tea')
 
       await passDebounce()
@@ -491,7 +551,7 @@ describe('SearchInput autocomplete', () => {
     it('shows suggestions again once the visitor types after a submit', async () => {
       const user = setupFakeTimers()
       renderWithProvider(<SearchInput {...fieldProps} />)
-      const input = screen.getByRole('searchbox')
+      const input = screen.getByRole('combobox')
 
       await user.type(input, 'tea')
       await user.keyboard('{Enter}')

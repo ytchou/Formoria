@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react'
 import { useReportWebVitals } from 'next/web-vitals'
-import * as Sentry from '@sentry/nextjs'
+import { reportMessage } from '@/lib/observability/report-error'
 import { trackWebVital } from '@/lib/analytics'
 import { isPostHogConfigured } from '@/lib/analytics/posthog-provider'
 import { isStagingRequest } from '@/lib/deployment-environment'
@@ -33,9 +33,9 @@ export function shouldReportMissingProvider(host: string): boolean {
 function reportMissingProvider() {
   if (missingProviderReported || !shouldReportMissingProvider(window.location.host)) return
   missingProviderReported = true
-  Sentry.captureMessage(
+  reportMessage(
     'Web vitals reporting is disabled: PostHog is not configured in production',
-    'warning',
+    { level: 'warning' },
   )
 }
 

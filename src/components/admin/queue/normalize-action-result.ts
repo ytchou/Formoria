@@ -1,3 +1,5 @@
+import { isRecord } from "@/lib/utils/is-record";
+
 /**
  * A warning is orthogonal to success: a bulk approve can BOTH fail on some rows
  * and carry `storageCleanupWarning`, and the consumer honours both. So the
@@ -73,6 +75,3 @@ function extractWarning(raw: Record<string, unknown>): {
   return result;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}

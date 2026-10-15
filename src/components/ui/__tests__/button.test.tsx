@@ -7,6 +7,7 @@ import {
   Button,
   buttonVariants,
 } from "@/components/ui/button";
+import { controlPress } from "@/lib/design/media-hover";
 
 /**
  * The three interaction variants v2 keeps. `destructive` is the danger
@@ -107,6 +108,31 @@ describe("buttonVariants", () => {
 });
 
 describe("Button", () => {
+  it("gives press feedback by default and drops it when static", () => {
+    const { unmount } = render(<Button>Save</Button>);
+    const pressed = screen.getByRole("button", { name: "Save" });
+    // motion-safe: so prefers-reduced-motion never scales the control.
+    expect(pressed).toHaveClass(controlPress);
+    expect(controlPress.startsWith("motion-safe:")).toBe(true);
+    expect(pressed.className).toContain(
+      "transition-[background-color,border-color,color,scale]",
+    );
+    // DESIGN.md §7b: colours settle on --ease-settle; the press scale is ease-out.
+    expect(pressed.className).toContain(
+      "[transition-timing-function:var(--ease-settle),var(--ease-settle),var(--ease-settle),ease-out]",
+    );
+    unmount();
+
+    render(
+      <Button static width="full">
+        Submit
+      </Button>,
+    );
+    expect(screen.getByRole("button", { name: "Submit" })).not.toHaveClass(
+      controlPress,
+    );
+  });
+
   it("renders each variant as a real button at the 44px target", () => {
     for (const variant of INTERACTION_VARIANTS) {
       const { unmount } = render(<Button variant={variant}>Search</Button>);

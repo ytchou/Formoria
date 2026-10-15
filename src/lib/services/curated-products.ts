@@ -26,6 +26,7 @@ import {
   normalizeCuratedProductName,
   publicCuratedProductName,
 } from "@/lib/curated-products/product-name";
+import { phraseBreakOffsets } from "@/lib/text/phrase-break-offsets";
 import { buildCategoryWallSlots } from "@/lib/curated-products/home-wall";
 import {
   toWallTileProduct,
@@ -58,6 +59,12 @@ export type CuratedProduct = {
   brandId: string;
   key: string;
   nameZh: string;
+  /**
+   * Where `nameZh` may break under `break-keep` (BD-13): server-computed
+   * `phraseBreakOffsets`, so client-rendered cards never segment in the
+   * browser. Absent renders the plain name.
+   */
+  nameZhBreaks?: number[];
   nameEn: string | null;
   category: string;
   subcategory: string | null;
@@ -278,12 +285,14 @@ function winningSelection(
 
 function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
   const selection = winningSelection(row.curated_product_selections);
+  // Public read: the read-side name guard (DEV-1989).
+  const nameZh = publicCuratedProductName(row.name_zh);
   return {
     id: row.id,
     brandId: row.brand_id,
     key: row.key,
-    // Public read: the read-side name guard (DEV-1989).
-    nameZh: publicCuratedProductName(row.name_zh),
+    nameZh,
+    nameZhBreaks: phraseBreakOffsets(nameZh),
     nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
     category: row.category,
     subcategory: productSubcategory(row),
@@ -327,13 +336,15 @@ function toTrailProduct(
 ): TrailCuratedProduct {
   const brand = row.brands;
   if (!brand) throw new Error(`Trail product ${row.id} is missing its brand`);
+  // Public read: the read-side name guard (DEV-1989).
+  const nameZh = publicCuratedProductName(row.name_zh);
 
   return {
     id: row.id,
     brandId: row.brand_id,
     key: row.key,
-    // Public read: the read-side name guard (DEV-1989).
-    nameZh: publicCuratedProductName(row.name_zh),
+    nameZh,
+    nameZhBreaks: phraseBreakOffsets(nameZh),
     nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
     category: row.category,
     subcategory: productSubcategory(row),
@@ -452,19 +463,90 @@ export async function getPublishedCuratedProductsForBrand(
 /**
  * What the brand page renders, in the order it renders it: null-subcategory
  * and photo-less rows dropped (a curated-selection tile without a photo falls back to a
- * letter placeholder, DEV-1962), then brand-page order. Shared by the brand
- * page and the directory preview count so the two cannot diverge.
+ * letter placeholder, DEV-1962), then brand-page order, then any product whose
+ * photo an earlier product of the same brand already shows (BD-04). Shared by
+ * the brand page and the directory preview count so the two cannot diverge.
  */
 function toBrandPageOrder(
   products: readonly CuratedProduct[],
 ): CuratedProduct[] {
-  return products
+  const ordered = products
     .filter(
       (product) =>
         product.subcategory !== null &&
         hasRenderableCuratedImage(product.imageUrl),
     )
     .sort(compareBrandPageOrder);
+  const { kept, dropped } = dropSharedImageProducts(ordered);
+  // A degraded-data report, not a read failure: `captureReadFailure` is a
+  // `.catch()` handler for a thrown read, so this logs instead. The data fix is
+  // owned by scripts/enrichment/products/curated-products/find-shared-images.ts.
+  for (const duplicate of dropped) {
+    console.warn(
+      `[curatedProducts.duplicateImage] brand ${duplicate.brandId}: ` +
+        `"${duplicate.key}" shares image "${duplicate.imageIdentity}" with ` +
+        `"${duplicate.keptKey}"; dropped from the brand page`,
+    );
+  }
+  return kept;
+}
+
+/**
+ * The identity of a stored product photo: the last path segment of its URL,
+ * query string and fragment stripped. Mirrored images are named by content
+ * hash, so two products with the same identity show the same photo. Falls back
+ * to the full URL when the path has no last segment.
+ */
+export function curatedImageIdentity(imageUrl: string): string {
+  const path = imageUrl.split(/[?#]/, 1)[0] ?? imageUrl;
+  return path.slice(path.lastIndexOf("/") + 1) || imageUrl;
+}
+
+/** A product `dropSharedImageProducts` removed, and the product that kept the photo. */
+export type SharedImageDuplicate = {
+  brandId: string;
+  key: string;
+  keptKey: string;
+  imageIdentity: string;
+};
+
+/**
+ * Drops every product whose photo an EARLIER product of the same brand already
+ * uses, so a brand page never shows one photo on two different products
+ * (BD-04: a chopstick tile showing a pen box is wrong information). The input
+ * must already be in brand-page order; the first-placed product keeps the
+ * photo. Products are compared per `brandId`, never across brands, because the
+ * directory preview batch passes several brands in one list. Photo-less rows
+ * pass through untouched — dropping them is `toBrandPageOrder`'s job.
+ */
+export function dropSharedImageProducts(
+  ordered: readonly CuratedProduct[],
+): { kept: CuratedProduct[]; dropped: SharedImageDuplicate[] } {
+  const firstKeyByImage = new Map<string, string>();
+  const kept: CuratedProduct[] = [];
+  const dropped: SharedImageDuplicate[] = [];
+  for (const product of ordered) {
+    if (!product.imageUrl) {
+      kept.push(product);
+      continue;
+    }
+    const imageIdentity = curatedImageIdentity(product.imageUrl);
+    // NUL cannot occur in a uuid or a URL, so the composite key cannot collide.
+    const slot = `${product.brandId}\u0000${imageIdentity}`;
+    const keptKey = firstKeyByImage.get(slot);
+    if (keptKey === undefined) {
+      firstKeyByImage.set(slot, product.key);
+      kept.push(product);
+    } else {
+      dropped.push({
+        brandId: product.brandId,
+        key: product.key,
+        keptKey,
+        imageIdentity,
+      });
+    }
+  }
+  return { kept, dropped };
 }
 
 /** Brand-page order: placed products by position, then oldest first, then key. */

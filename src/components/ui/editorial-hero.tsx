@@ -1,18 +1,10 @@
-import { SurfaceImage } from "@/components/ui/image";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
-import { cn } from "@/lib/utils";
 
 /**
- * The opening frame of a long-form route: a 16:9 lead image above the `<h1>`,
- * exactly as a feature opens in print.
- *
- * IT IS ONE COMPONENT BECAUSE IT WAS TWO COPIES. Story detail and trail detail
- * each carried the same ~25 lines — same box, same renderer split, same
- * `priority`/`fetchPriority` — and had already drifted: the trail's placeholder
- * was `bg-surface`, which is the colour of the header band the trail hero sits
- * in, so its own empty state was invisible against its own parent. The
- * placeholder is `surface-deep` here, the token `globals.css` names as "a hole
- * in the page waiting for a photograph".
+ * Whether a long-form route's hero can be displayed at all, and the URL to
+ * display. `EditorialHeader` renders the answer; structured data and social
+ * cards publish the same answer, so the page never advertises an image it
+ * cannot load.
  *
  * ONE RENDERER, NOT TWO. Both routes used to fall back to a raw `<img>` for an
  * author-supplied absolute URL, on the reasoning that an editor must not have
@@ -42,64 +34,4 @@ export function editorialHeroSrc(
    * leading-slash branch that used to live here got the second case wrong.
    */
   return safeImageSrc(heroImage);
-}
-
-export type EditorialHeroProps = {
-  /**
-   * The frontmatter value AS AUTHORED, not a pre-resolved URL. The component
-   * owns the "can this be displayed" question so that a caller cannot render a
-   * box around an image the page will refuse to load. Callers that also publish
-   * the image (structured data, social cards) ask `editorialHeroSrc` for the
-   * same answer rather than re-deriving it.
-   */
-  src: string | null | undefined;
-  /**
-   * Empty for decorative. Both routes pass `heroImageAlt ?? ""`: the `<h1>`
-   * directly below already says what the image is, and a screen reader
-   * repeating the title as image text is noise, not description.
-   */
-  alt: string;
-  /** Route-specific measurement when the shared frame sits in a narrower shell. */
-  sizes?: string;
-  /** Route-specific Next image quality for an oversized source photograph. */
-  imageQuality?: number;
-  /** Spacing the surrounding page owns — the trail's `mb-10`, for instance. */
-  className?: string;
-};
-
-export function EditorialHero({
-  src,
-  alt,
-  sizes,
-  imageQuality,
-  className,
-}: EditorialHeroProps) {
-  const imageSrc = editorialHeroSrc(src);
-
-  if (!imageSrc) return null;
-
-  return (
-    <div
-      className={cn(
-        "relative aspect-[16/9] w-full overflow-hidden rounded-surface border border-rule bg-surface-deep",
-        className,
-      )}
-    >
-      {/*
-        `priority` and `fetchPriority="high"`, never lazy: this is the route's
-        LCP element, so deferring it defers the metric itself.
-      */}
-      <SurfaceImage
-        src={imageSrc}
-        alt={alt}
-        fill
-        priority
-        fetchPriority="high"
-        surface="banner"
-        sizes={sizes}
-        quality={imageQuality}
-        className="object-cover"
-      />
-    </div>
-  );
 }

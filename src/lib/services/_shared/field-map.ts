@@ -7,6 +7,7 @@ import {
   type OnlineStoreCamelField,
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
+import { isRecord } from "@/lib/utils/is-record";
 
 type OnlineStoreInsertFields = {
   [Column in OnlineStoreColumn]?: string | null;
@@ -41,10 +42,6 @@ function copyMappedFields<Source extends object, Target extends object>(
       target[to] = value as Target[typeof to];
     }
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**

@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react'
 import { usePathname } from 'next/navigation'
-import { captureException } from '@sentry/nextjs'
+import { reportError } from '@/lib/observability/report-error'
 
 import {
   getViewerContextAction,
@@ -63,7 +63,7 @@ const VIEWER_RETRY_DELAY_MS = 300
 function reportViewerFailure(error: unknown, status: number | undefined) {
   // Same downgrade RouteError applies to genuine skew. Everything else — a
   // staging 403, a 429, a 5xx — is a real failure and keeps its status.
-  captureException(
+  reportError(
     error,
     isDeploymentSkewError(error, status)
       ? { level: 'warning', tags: { scope: 'viewer-context', deployment_skew: true } }

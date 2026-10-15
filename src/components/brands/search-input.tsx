@@ -109,7 +109,9 @@ function SearchInput({
       if (inputVersion !== inputVersionRef.current) return
       const results = data.results ?? []
       setSuggestions(results)
-      setShowDropdown(true)
+      // A results page (no `redirectTo`) already shows the full empty state
+      // under the field, so a no-match note here would only cover it.
+      setShowDropdown(redirectTo ? true : results.length > 0)
       setSelectedIndex(-1)
       setIsFetchingSuggestions(false)
     } catch (err) {
@@ -120,7 +122,7 @@ function SearchInput({
       setSelectedIndex(-1)
       setIsFetchingSuggestions(false)
     }
-  }, [])
+  }, [redirectTo])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -244,7 +246,7 @@ function SearchInput({
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      if (!showDropdown && value.trim()) {
+      if (!showDropdown && value.trim() && (redirectTo || suggestions.length > 0)) {
         setShowDropdown(true)
         return
       }
@@ -262,6 +264,9 @@ function SearchInput({
   }
 
   const isBusy = isPending || isFetchingSuggestions
+  // The listbox exists only while there are options; the no-match note is not a
+  // listbox, so the combobox stays collapsed for it.
+  const listboxOpen = showDropdown && suggestions.length > 0
 
   return (
     <form
@@ -295,9 +300,11 @@ function SearchInput({
             inputProps={{
               id: inputId, name: 'q', type: 'search',
               'aria-label': t('search.aria'),
+              role: 'combobox',
+              'aria-expanded': listboxOpen,
               'aria-autocomplete': 'list',
-              'aria-controls': showDropdown ? suggestionsId : undefined,
-              'aria-activedescendant': showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]
+              'aria-controls': listboxOpen ? suggestionsId : undefined,
+              'aria-activedescendant': listboxOpen && selectedIndex >= 0 && suggestions[selectedIndex]
                 ? searchSuggestionOptionId(suggestionsId, suggestions[selectedIndex].id) : undefined,
               placeholder: placeholder ?? t('search.placeholder'),
               maxLength: 100, onKeyDown: handleKeyDown,

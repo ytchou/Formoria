@@ -198,7 +198,7 @@ test("recommendation guidance describes the information and consent actually req
       anonPage.getByText(
         locale === "en"
           ? "Add the brand name, a link and how you know the brand, then agree to the privacy policy"
-          : "填寫品牌名稱、網址、認識品牌的方式，並同意隱私權政策",
+          : "填品牌名稱和網址，說說你怎麼認識這個品牌，再勾選同意隱私權政策",
         { exact: true },
       ),
     ).toBeVisible();

@@ -61,6 +61,19 @@ function renderEmptyState(
  * exactly where the dead end used to be reachable in production.
  */
 describe("SearchEmptyState", () => {
+  it("draws the shared empty state, not a second bespoke design", () => {
+    // DS-10: one empty-state design site-wide. The old block hand-drew rotated
+    // paper plates and a green filter glyph on a token used nowhere else.
+    const { container } = renderEmptyState();
+
+    expect(screen.getByText("title")).toBeInTheDocument();
+    expect(screen.getByText("description")).toBeInTheDocument();
+    expect(container.querySelectorAll("svg.lucide-search")).toHaveLength(1);
+    expect(container.querySelector("svg.lucide-sliders-horizontal")).toBeNull();
+    expect(container.querySelector(".text-filter-active")).toBeNull();
+    expect(container.querySelector(".rotate-6")).toBeNull();
+  });
+
   it("always offers a route back to the whole directory", () => {
     renderEmptyState();
 

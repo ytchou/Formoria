@@ -53,10 +53,9 @@ const VISIT_LABEL_KEYS = {
   line: 'actions.visitLine',
 } satisfies Record<BrandVisitLinkKind, string>
 
-// Layout only (flex sizing and a width cap), shared by the live CTA and its
-// disabled twin so both wrap the same way.
-const VISIT_CTA_LAYOUT =
-  'min-w-0 flex-1 basis-full md:basis-0 md:max-w-80'
+// Layout only (a width cap), shared by the live CTA and its disabled twin so
+// both size the same way.
+const VISIT_CTA_LAYOUT = 'w-full min-w-0 md:max-w-80'
 
 interface BrandActionsProps {
   adminSlot?: ReactNode
@@ -91,10 +90,12 @@ export function BrandActions({
   // menu closing; a menu item only flips the dialog open.
   const [reportOpen, setReportOpen] = useState(false)
   const [correctionOpen, setCorrectionOpen] = useState(false)
-  const handleWebsiteClick = () => {
+  // The link type is the channel the CTA routes to (BD-03): a Shopee or Pinkoi
+  // route-out logged as `website` hid which channel readers actually took.
+  const handleVisitClick = () => {
     trackExternalLinkClicked(
       brandSlug,
-      'website',
+      visitKind,
       typeof window !== 'undefined' ? window.location.pathname : '',
       'detail_page',
       brandId,
@@ -104,18 +105,14 @@ export function BrandActions({
   return (
     <>
       {/*
-        The secondary actions are 44px icon buttons. Below md the visit CTA
-        takes its own line and the icons sit under it: a shared row overflowed
-        at 320px (BD2-01) and, with labels such as "Visit the brand's site",
-        pushed the last icon onto a line of its own at 390px. From md the CTA
-        shares one row with the icons and fills the space left, capped at
-        320px, so the row reads as a button group rather than a bar (BD2-32);
-        a fixed floor instead would wrap the icons in the ~390px lg column at
-        1024px. Height and padding
-        come only from the Button `size` axis (DESIGN.md §7/§8) — the classes
-        below are flex layout and a width cap, never a height or padding.
+        The visit CTA has a row of its own at every width, capped at 320px
+        from md so it reads as a button rather than a bar (BD2-32); Share and
+        Save sit under it as labelled buttons, with the overflow menu the one
+        icon-only control (BD-14). Height and padding come only from the
+        Button `size` axis (DESIGN.md §7/§8) — the classes below are flex
+        layout and a width cap, never a height or padding.
       */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col items-start gap-2">
         {websiteUrl ? (
           <a
             ref={visitCtaRef}
@@ -124,57 +121,60 @@ export function BrandActions({
             rel="noopener noreferrer"
             className={buttonVariants({ variant: 'primary', className: VISIT_CTA_LAYOUT })}
             data-ph-no-autocapture
-            onClick={handleWebsiteClick}
+            onClick={handleVisitClick}
           >
-            <ExternalLink className="size-[15px]" />
+            <ExternalLink className="size-[15px]" aria-hidden />
             <span className="truncate">{visitLabel}</span>
           </a>
         ) : (
+          // Muted and non-interactive, never struck through: the label names
+          // a route the brand has not given us, not a withdrawn one (BD-COPY-07).
           <span className={buttonVariants({ variant: 'secondary', className: `${VISIT_CTA_LAYOUT} cursor-default opacity-50` })} aria-disabled="true">
-            <ExternalLink className="size-[15px]" />
-            <span className="truncate line-through">{visitLabel}</span>
+            <ExternalLink className="size-[15px]" aria-hidden />
+            <span className="truncate">{visitLabel}</span>
           </span>
         )}
-        <ShareDialog
-          brandSlug={brandSlug}
-          brandName={brandName}
-          brandId={brandId}
-          brandImageUrl={brandImageUrl}
-          categoryLabel={categoryLabel}
-          iconOnly
-        />
-        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" iconOnly />}
-        {brandId && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={t('label.moreActions')}
-              render={<Button variant="secondary" size="icon" />}
-            >
-              <Ellipsis className="size-4" />
-            </DropdownMenuTrigger>
-            {/*
-              `w-auto`: the popup defaults to the trigger's width (44px, floored
-              at min-w-32), which wraps the EN labels onto two lines.
-            */}
-            <DropdownMenuContent align="end" className="w-auto">
-              <DropdownMenuItem
-                size="touch"
-                onClick={() => setReportOpen(true)}
+        <div className="flex flex-wrap items-center gap-2">
+          <ShareDialog
+            brandSlug={brandSlug}
+            brandName={brandName}
+            brandId={brandId}
+            brandImageUrl={brandImageUrl}
+            categoryLabel={categoryLabel}
+          />
+          {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" />}
+          {brandId && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={t('label.moreActions')}
+                render={<Button variant="secondary" size="icon" />}
               >
-                <Flag className="size-4" />
-                {t('report.trigger')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                size="touch"
-                onClick={() => setCorrectionOpen(true)}
-              >
-                <Pencil className="size-4" />
-                {t('correction.trigger')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {adminSlot}
+                <Ellipsis className="size-4" aria-hidden />
+              </DropdownMenuTrigger>
+              {/*
+                `w-auto`: the popup defaults to the trigger's width (44px, floored
+                at min-w-32), which wraps the EN labels onto two lines.
+              */}
+              <DropdownMenuContent align="end" className="w-auto">
+                <DropdownMenuItem
+                  size="touch"
+                  onClick={() => setReportOpen(true)}
+                >
+                  <Flag className="size-4" />
+                  {t('report.trigger')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  size="touch"
+                  onClick={() => setCorrectionOpen(true)}
+                >
+                  <Pencil className="size-4" />
+                  {t('correction.trigger')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {adminSlot}
+        </div>
       </div>
       {brandId && (
         <>
@@ -203,7 +203,7 @@ export function BrandActions({
           brandName={brandName}
           brandId={brandId}
           brandSlug={brandSlug}
-          onVisitClick={handleWebsiteClick}
+          onVisitClick={handleVisitClick}
         />
       )}
     </>

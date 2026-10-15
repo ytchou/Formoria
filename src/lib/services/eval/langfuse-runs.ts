@@ -13,41 +13,6 @@ export function traceName(dataset: string, arm: string, itemId: string): string 
 }
 
 // ---------------------------------------------------------------------------
-// Score writing
-// ---------------------------------------------------------------------------
-
-type ScoreEntry = { name: string; value: number }
-
-type ScoreFn = (params: {
-  traceId: string
-  name: string
-  value: number
-}) => void
-
-/**
- * Writes one Langfuse score per evaluator on the given trace.
- * `scoreFn` is injected for testability; defaults to `getLangfuse().score()`.
- */
-export async function writeItemScores({
-  traceId,
-  scores,
-  scoreFn,
-}: {
-  traceId: string
-  scores: ScoreEntry[]
-  scoreFn?: ScoreFn
-}): Promise<void> {
-  const fn = scoreFn ?? ((params) => {
-    const client = getLangfuse()
-    if (client) client.score(params)
-  })
-
-  for (const { name, value } of scores) {
-    fn({ traceId, name, value })
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Annotation queue helpers
 // ---------------------------------------------------------------------------
 

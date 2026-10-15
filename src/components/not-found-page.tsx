@@ -28,27 +28,23 @@ export function NotFoundPage() {
         <h1 className="type-page-title">{t('notFound.title')}</h1>
         <p className="mt-3 type-body-sm">{t('notFound.description')}</p>
         {/* Product-led first (SP2-18): every path starts from a product, so
-            the fill goes to /discover and the directory is a text link. */}
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <Link
-            href={routes.discover()}
-            className={buttonVariants({ variant: 'primary' })}
-          >
-            {t('notFound.browseProducts')}
+            the one fill goes to /discover. The directory and home are text
+            links on one row beneath it (EL-13) — two equal-weight buttons
+            made the page ask the visitor to choose before it had helped. */}
+        <Link
+          href={routes.discover()}
+          className={buttonVariants({ variant: 'primary', className: 'mt-6' })}
+        >
+          {t('notFound.browseProducts')}
+        </Link>
+        <div className="mt-3 flex flex-wrap justify-center gap-x-6">
+          <Link href={routes.brands()} className={actionLinkStyles()}>
+            {t('notFound.browseDirectory')}
           </Link>
-          <Link
-            href={routes.home()}
-            className={buttonVariants({ variant: 'secondary' })}
-          >
+          <Link href={routes.home()} className={actionLinkStyles()}>
             {t('notFound.cta')}
           </Link>
         </div>
-        <Link
-          href={routes.brands()}
-          className={actionLinkStyles({ className: 'mt-3' })}
-        >
-          {t('notFound.browseDirectory')}
-        </Link>
       </div>
 
       <p className="mt-section type-body-sm text-ink-muted">
@@ -68,7 +64,7 @@ export function NotFoundPage() {
                 alt=""
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
-                className="object-cover"
+                className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
               />
             </div>
             <p className="mt-2 type-card-title">

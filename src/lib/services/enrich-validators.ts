@@ -175,6 +175,13 @@ const AI_SLOP_ZH = [
   /(?:賦能|閉環)/,
   /儘管.*但.*持續/,
   /(?:榮獲.*大獎|被.*評為)/,
+  // Terminology the prompt's TAIWAN_USAGE_RULES forbids (BD-COPY-04, CP-11):
+  // the prompt alone let 打造 through ~390 times. 臺 and 產品 stay prompt-only —
+  // both occur in proper nouns (臺虎精釀, official names) and this list has no
+  // brand-name exemption, so a hard reject would null that brand's copy.
+  /(?:打造|致力於|無縫|選品|一站式|精心|可追溯至)/,
+  // Source-narrating hedges: attribute a claim once, as 「品牌標示⋯⋯」.
+  /(?:頁面(?:標示|寫到|另列)|商品頁(?:另列|標示)|網站並?標示)/,
 ]
 
 export function detectAiArtifacts(text: string, locale: LanguageLocale): string[] {
@@ -198,7 +205,8 @@ const PRODUCT_DESCRIPTION_FORBIDDEN_TERMS: readonly string[] = [
   '適合喜歡',
   '你會發現',
   '高品質',
-  '精心設計',
+  // 精心 covers 精心設計 and every other 精心 compound (BD-COPY-04).
+  '精心',
   '用心製作',
   '價格',
   '售價',
@@ -218,6 +226,23 @@ const PRODUCT_DESCRIPTION_FORBIDDEN_TERMS: readonly string[] = [
   '最好',
   '首選',
   '人氣第一',
+  // Terminology TAIWAN_USAGE_RULES forbids (BD-COPY-04). 產品 is prompt-only:
+  // a substring match would also reject it inside a proper noun.
+  '打造',
+  '致力於',
+  '無縫',
+  '選品',
+  '一站式',
+  '可追溯至',
+  // Source-narrating hedges (BD-COPY-04: 345 on 67 brands). State the fact;
+  // attribute it at most once, as 「品牌標示⋯⋯」.
+  '頁面標示',
+  '頁面寫到',
+  '頁面另列',
+  '商品頁另列',
+  '商品頁標示',
+  '網站標示',
+  '網站並標示',
 ]
 
 export const PRICING_OVERLAP_TERMS: ReadonlySet<string> = new Set(

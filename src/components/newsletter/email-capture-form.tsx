@@ -4,14 +4,17 @@ import {
   useActionState,
   useEffect,
   useId,
+  useRef,
   useState,
   useTransition,
 } from "react";
 import type { FormEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { z } from "zod";
 
 import { subscribeToNewsletter } from "@/app/actions/newsletter";
 import type { SubscribeNewsletterState } from "@/app/actions/newsletter";
+import { FormField } from "@/components/forms/form-field";
 import { HoneypotField } from "@/components/forms/honeypot-field";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -35,6 +38,11 @@ const ERROR_MESSAGES = {
   generic: "errors.generic",
 } as const;
 
+// Client-side mirror of the server's invalidEmail check, so a malformed address
+// gets the localized inline error instead of the browser's English bubble. The
+// server action still validates; this only saves the round trip.
+const emailSchema = z.email();
+
 export function EmailCaptureForm() {
   const locale = useLocale();
   const t = useTranslations("newsletter");
@@ -47,7 +55,11 @@ export function EmailCaptureForm() {
   const [clientState, setClientState] = useState<SubscribeNewsletterState>();
   const [clientPending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
+  const [invalidEmail, setInvalidEmail] = useState(false);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const state = clientState ?? nativeState;
+  const errorKey = invalidEmail ? "invalidEmail" : state.error;
+  const errorMessage = errorKey ? t(ERROR_MESSAGES[errorKey]) : undefined;
   const isPending = nativePending || clientPending;
   const [selectedChips, setSelectedChips] = useState<string[]>([
     "curated-picks",
@@ -71,6 +83,12 @@ export function EmailCaptureForm() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isPending) return;
+    if (!emailSchema.safeParse(email.trim()).success) {
+      setInvalidEmail(true);
+      emailInputRef.current?.focus();
+      return;
+    }
+    setInvalidEmail(false);
     const data = new FormData(event.currentTarget);
     startTransition(async () => {
       try {
@@ -93,6 +111,7 @@ export function EmailCaptureForm() {
   return (
     <form
       action={formAction}
+      noValidate
       onSubmit={handleSubmit}
       className="space-y-4 text-ink"
     >
@@ -103,54 +122,10 @@ export function EmailCaptureForm() {
       <HoneypotField />
       <input type="hidden" name="locale" value={locale} />
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="min-w-0 flex-1">
-          <Label className="sr-only" htmlFor={emailId}>
-            {t("emailLabel")}
-          </Label>
-          <Input
-            aria-invalid={state.error ? "true" : undefined}
-            aria-describedby={state.error ? emailErrorId : undefined}
-            className="h-12 rounded-control border-rule bg-ground/50 text-ink placeholder:text-ink-muted focus-visible:border-ink focus-visible:ring-accent sm:h-11"
-            id={emailId}
-            name="email"
-            placeholder={t("emailPlaceholder")}
-            required
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          {state.error ? (
-            <p
-              id={emailErrorId}
-              className="mt-2 type-body-sm text-danger"
-              role="alert"
-            >
-              {t(ERROR_MESSAGES[state.error])}
-            </p>
-          ) : null}
-        </div>
-
-        <Button
-          variant="primary"
-          data-ph-no-autocapture
-          disabled={isPending}
-          type="submit"
-        >
-          {isPending ? (
-            <span
-              aria-hidden="true"
-              className="size-4 animate-spin rounded-full border-2 border-current/40 border-t-current"
-            />
-          ) : null}
-          {t("subscribe")}
-        </Button>
-      </div>
-
-      <div className="space-y-2">
-        <p className="type-body-sm font-medium text-ink-soft">
+      <fieldset className="m-0 min-w-0 space-y-2 border-0 p-0">
+        <legend className="mb-2 p-0 type-body-sm font-medium text-ink-soft">
           {t("interestsLabel")}
-        </p>
+        </legend>
         {/* Wraps below `sm` so every chip stays visible on a phone (DS-42),
             and scrolls as one row from `sm` up — but always a `ChipRow`, so
             the 14px that keeps the 36px chip's touch target honest is the same
@@ -171,6 +146,50 @@ export function EmailCaptureForm() {
             );
           })}
         </ChipRow>
+      </fieldset>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="min-w-0 flex-1">
+          <Label className="sr-only" htmlFor={emailId}>
+            {t("emailLabel")}
+          </Label>
+          {/* Outside FormField so its space-y-2 never pushes the input below
+              the button's baseline; the error slot keeps the 8px gap. */}
+          <FormField
+            error={errorMessage}
+            errorId={errorMessage ? emailErrorId : undefined}
+          >
+            <Input
+              ref={emailInputRef}
+              className="h-12 rounded-control border-rule bg-ground/50 text-ink placeholder:text-ink-muted focus-visible:border-ink focus-visible:ring-accent sm:h-11"
+              id={emailId}
+              name="email"
+              placeholder={t("emailPlaceholder")}
+              required
+              type="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (invalidEmail) setInvalidEmail(false);
+              }}
+            />
+          </FormField>
+        </div>
+
+        <Button
+          variant="primary"
+          data-ph-no-autocapture
+          disabled={isPending}
+          type="submit"
+        >
+          {isPending ? (
+            <span
+              aria-hidden="true"
+              className="size-4 animate-spin rounded-full border-2 border-current/40 border-t-current"
+            />
+          ) : null}
+          {t("subscribe")}
+        </Button>
       </div>
 
       {selectedChips.map((slug) => (

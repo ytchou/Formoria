@@ -21,7 +21,7 @@ import { getServiceClient } from "../helpers/seed";
  * both honest and self-limiting.
  */
 
-const CHALLENGE_TEXT = "快速驗證";
+const CHALLENGE_TEXT = "安全驗證";
 
 /**
  * Every place a challenge could have appeared, as a list of the URLs where one

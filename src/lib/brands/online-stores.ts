@@ -15,16 +15,15 @@
  * `src/lib/brands/link-fallback.ts`.
  *
  * ORDER INVARIANT — the array order below is load-bearing, not cosmetic.
- * `website` MUST stay first. Three dependants read the order as priority:
- *   - `src/lib/json-ld.ts` — the canonical URL `??` chain falls back in exactly
- *     this order, so reordering changes which link a brand publishes as its
- *     canonical destination.
+ * `website` MUST stay first. Two dependants read the order as priority:
  *   - `src/lib/brands/link-fallback.ts` — the visit-link candidate list is
  *     evaluated in this order, so reordering changes which link the brand card
  *     and detail CTA point at.
  *   - `src/lib/services/link-enrichment.ts` — `URL_TO_LINK_COLUMN` spreads this
  *     registry in order, so reordering changes which column a submitted URL is
  *     classified into when two patterns could both match.
+ * `src/lib/json-ld.ts` no longer reads the order: Organization `url` comes from
+ * the brand's own site only (BD-12), and `sameAs` lists every store.
  * Adding a store at the end is safe; reordering the existing stores is not.
  *
  * NOTE: this file must contain zero Han characters, including in comments — the

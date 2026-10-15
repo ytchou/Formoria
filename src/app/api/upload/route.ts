@@ -1,6 +1,6 @@
 import { withAuditScope } from '@/lib/audit/scope'
 import { NextResponse } from 'next/server'
-import * as Sentry from '@sentry/nextjs'
+import { reportError } from '@/lib/observability/report-error'
 import { captureServerEvent } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { createClient } from '@/lib/supabase/server'
@@ -106,7 +106,7 @@ export const POST = withAuditScope(async (request: Request) => {
     try {
       processed = await processImage(buffer)
     } catch (err) {
-      Sentry.captureException(err)
+      reportError(err)
       return NextResponse.json(sanitizeErrorResponse(err), { status: 400 })
     }
 
@@ -137,11 +137,11 @@ export const POST = withAuditScope(async (request: Request) => {
         height: processed.height,
       })
     } catch (err) {
-      Sentry.captureException(err)
+      reportError(err)
       return NextResponse.json(sanitizeErrorResponse(err), { status: 500 })
     }
   } catch (error) {
-    Sentry.captureException(error)
+    reportError(error)
     return NextResponse.json(sanitizeErrorResponse(error), { status: 500 })
   }
 })

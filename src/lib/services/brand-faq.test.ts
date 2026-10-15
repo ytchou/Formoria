@@ -110,6 +110,7 @@ async function getFaq(
   rows: StoredRow[] = [],
   translate = t,
   locale = "zh-TW",
+  curatedSubcategories: readonly string[] = [],
 ) {
   const client = clientDouble(rows);
   const items = await getBrandFaq(
@@ -119,6 +120,7 @@ async function getFaq(
     locale,
     null,
     client as unknown as FaqSupabase,
+    curatedSubcategories,
   );
   return { items, selectCalls: client.selectCalls() };
 }
@@ -126,7 +128,11 @@ async function getFaq(
 describe("getBrandFaq", () => {
   it("renders template floor when no stored answer exists", async () => {
     const { items, selectCalls } = await getFaq(
-      makeBrand({ subcategories: ["陶瓷"] }),
+      makeBrand({ subcategories: ["tableware"] }),
+      [],
+      t,
+      "zh-TW",
+      ["tableware"],
     );
 
     expect(items.find((item) => item.id === "main-products")?.answer).toContain(
@@ -135,6 +141,7 @@ describe("getBrandFaq", () => {
     expect(selectCalls).toBe(1);
   });
 
+  // Stored rows never depend on the shelf: no curated products are passed.
   it("prefers a stored model answer over the template floor", async () => {
     const { items } = await getFaq(makeBrand({ subcategories: ["陶瓷"] }), [
       row({
@@ -237,13 +244,17 @@ describe("getBrandFaq", () => {
   it("renders every eligible preset for a typical approved brand", async () => {
     const { items } = await getFaq(
       makeBrand({
-        subcategories: ["陶瓷"],
+        subcategories: ["tableware"],
         reputationSummary: {
           text: "被設計媒體報導過的小型工作室。",
           textEn: "Covered by a named design publication.",
           sources: [{ url: "https://example.com/feature" }],
         },
       }),
+      [],
+      t,
+      "zh-TW",
+      ["tableware"],
     );
 
     // category-position is prompt-only (no template floor); main-products is
@@ -251,42 +262,48 @@ describe("getBrandFaq", () => {
     expect(items.map((item) => item.id)).toEqual(["main-products"]);
   });
 
-  // I10: the floor interpolates the locale's own tag array, so eligibility has
-  // to be judged per locale or an empty string reaches the page and the JSON-LD.
-  it("omits main-products in en when the brand has no English tags", async () => {
-    const brand = makeBrand({ subcategories: ["陶瓷"], subcategoriesEn: [] });
+  // BD-10: the subcategory-derived floor contradicted the curated shelf, so a
+  // brand with no curated products renders no main-products floor at all.
+  it("omits main-products when the brand has subcategories but no curated products", async () => {
+    const brand = makeBrand({
+      subcategories: ["tableware"],
+      subcategoriesEn: ["Tableware"],
+    });
 
-    const zh = await getFaq(brand, [], t, "zh-TW");
-    const en = await getFaq(brand, [], t, "en");
-
-    expect(zh.items.map((item) => item.id)).toContain("main-products");
-    expect(en.items.map((item) => item.id)).not.toContain("main-products");
+    for (const locale of ["zh-TW", "en"]) {
+      const { items } = await getFaq(brand, [], t, locale);
+      // No stored rows and no other eligible preset: the FAQ is empty.
+      expect(items).toEqual([]);
+    }
   });
 
-  it("renders main-products in en when English tags exist", async () => {
-    const { items } = await getFaq(
-      makeBrand({ subcategories: ["餐具"], subcategoriesEn: ["tableware"] }),
-      [],
-      t,
-      "en",
-    );
+  it("lists the shelf's subcategories, not the brand's", async () => {
+    const brand = makeBrand({
+      subcategories: ["bedding"],
+      subcategoriesEn: ["Bedding"],
+    });
 
-    expect(items.map((item) => item.id)).toContain("main-products");
-    expect(items.find((item) => item.id === "main-products")?.answer).toContain(
-      "tableware",
-    );
+    const zh = await getFaq(brand, [], t, "zh-TW", ["tableware"]);
+    const en = await getFaq(brand, [], t, "en", ["tableware"]);
+    const zhAnswer = zh.items.find((item) => item.id === "main-products");
+    const enAnswer = en.items.find((item) => item.id === "main-products");
+
+    expect(zhAnswer?.answer).toContain("餐具");
+    expect(zhAnswer?.answer).not.toContain("寢具");
+    expect(enAnswer?.answer).toContain("tableware");
+    expect(enAnswer?.answer).not.toContain("bedding");
   });
 
   describe("CJK/Latin spacing on the template floor", () => {
     const TEMPLATES: Record<string, string> = {
-      "brandFaq.mainProducts.question": "{brandName}的主要產品有哪些？",
+      "brandFaq.mainProducts.question": "{brandName}主要做哪些商品？",
       "brandFaq.mainProducts.answer":
-        "{brandName}的商品以{subcategories}為主。",
+        "{brandName}的商品包括{subcategories}等。",
     };
     const EN_TEMPLATES: Record<string, string> = {
       "brandFaq.mainProducts.question": "What does {brandName} make?",
       "brandFaq.mainProducts.answer":
-        "{brandName} mainly offers {subcategories}.",
+        "{brandName}'s range includes {subcategories}.",
     };
     const translator =
       (templates: Record<string, string>) =>
@@ -303,28 +320,35 @@ describe("getBrandFaq", () => {
 
     it("spaces a Latin-final brand name from the following Han character in zh", async () => {
       const { items } = await getFaq(
-        makeBrand({ name: "Golday Jewelry", subcategories: ["戒指"] }),
+        makeBrand({ name: "Golday Jewelry", subcategories: ["rings"] }),
         [],
         translator(TEMPLATES),
+        "zh-TW",
+        ["rings"],
       );
 
       expect(mainProducts(items)?.question).toBe(
-        "Golday Jewelry 的主要產品有哪些？",
+        "Golday Jewelry 主要做哪些商品？",
       );
       expect(mainProducts(items)?.answer).toBe(
-        "Golday Jewelry 的商品以戒指為主。",
+        "Golday Jewelry 的商品包括戒指等。",
       );
     });
 
     it("leaves a Han-final brand name unspaced in zh", async () => {
       const { items } = await getFaq(
-        makeBrand({ name: "Simply Made 簡單製造", subcategories: ["木器"] }),
+        makeBrand({
+          name: "Simply Made 簡單製造",
+          subcategories: ["tableware"],
+        }),
         [],
         translator(TEMPLATES),
+        "zh-TW",
+        ["tableware"],
       );
 
       expect(mainProducts(items)?.question).toBe(
-        "Simply Made 簡單製造的主要產品有哪些？",
+        "Simply Made 簡單製造主要做哪些商品？",
       );
     });
 
@@ -332,19 +356,20 @@ describe("getBrandFaq", () => {
       const { items } = await getFaq(
         makeBrand({
           name: "Golday Jewelry",
-          subcategories: ["戒指"],
-          subcategoriesEn: ["rings"],
+          subcategories: ["rings"],
+          subcategoriesEn: ["Rings"],
         }),
         [],
         translator(EN_TEMPLATES),
         "en",
+        ["rings"],
       );
 
       expect(mainProducts(items)?.question).toBe(
         "What does Golday Jewelry make?",
       );
       expect(mainProducts(items)?.answer).toBe(
-        "Golday Jewelry mainly offers rings.",
+        "Golday Jewelry's range includes rings.",
       );
     });
 

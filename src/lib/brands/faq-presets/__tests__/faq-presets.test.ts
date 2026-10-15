@@ -252,22 +252,43 @@ describe("FAQ preset catalog", () => {
     );
   });
 
-  it("main-products render eligibility is per locale", () => {
+  // BD-10: the floor read `brands.subcategories`, which often contradicted
+  // the curated shelf on the same page. Only the shelf decides render now.
+  it("main-products render eligibility comes from the curated shelf", () => {
     const mainProducts = presetById("main-products");
-    const zhOnly = makeContext({
-      brand: makeBrand({ subcategories: ["餐具"], subcategoriesEn: [] }),
+    const noShelf = makeContext({
+      brand: makeBrand({ subcategories: ["tableware"], subcategoriesEn: [] }),
+    });
+    const withShelf = makeContext({
+      brand: makeBrand({ subcategories: ["tableware"], subcategoriesEn: [] }),
+      curatedSubcategories: ["tableware"],
     });
 
-    expect(mainProducts.eligible(zhOnly, "zh-TW")).toBe(true);
-    // An en render would interpolate an empty tag list into the page.
-    expect(mainProducts.eligible(zhOnly, "en")).toBe(false);
-    // Authoring still runs: the model writes both sides from the zh evidence.
-    expect(mainProducts.authorable?.(zhOnly)).toBe(true);
+    for (const locale of ["zh-TW", "en"] as const) {
+      expect(mainProducts.eligible(noShelf, locale)).toBe(false);
+      expect(
+        mainProducts.eligible(
+          makeContext({ ...noShelf, curatedSubcategories: [] }),
+          locale,
+        ),
+      ).toBe(false);
+      expect(mainProducts.eligible(withShelf, locale)).toBe(true);
+    }
+    // A shelf whose slugs the ontology does not know has nothing to list.
+    expect(
+      mainProducts.eligible(
+        makeContext({ curatedSubcategories: ["not-a-real-slug"] }),
+        "zh-TW",
+      ),
+    ).toBe(false);
+    // Authoring is unchanged: the model still works from the zh evidence,
+    // with or without a shelf.
+    expect(mainProducts.authorable?.(noShelf)).toBe(true);
   });
 
-  // `brands.subcategories` stores English slugs since DEV-1510. This floor
-  // writes that value straight into a published zh-TW answer,
-  // so an unresolved slug is Latin text in public copy.
+  // Subcategories are stored as English slugs since DEV-1510. This floor
+  // writes the shelf's subcategories into a published zh-TW answer,
+  // so an unresolved slug would be Latin text in public copy.
   it("public_faq_renders_zh_labels_not_slugs", () => {
     const mainProducts = presetById("main-products");
     const slugStored = makeContext({
@@ -277,6 +298,7 @@ describe("FAQ preset catalog", () => {
         subcategories: ["backpacks", "tote-bags"],
         subcategoriesEn: ["Backpacks", "Tote Bags"],
       }),
+      curatedSubcategories: ["backpacks", "tote-bags"],
     });
 
     const zh = mainProducts.render?.templateFloor(
@@ -300,22 +322,20 @@ describe("FAQ preset catalog", () => {
     expect(en).toContain("tote bags");
     expect(en).not.toContain("tote-bags");
 
-    // A string the vocabulary has never known is still rendered verbatim. That
-    // is the novel-tag escape hatch, not a slug that failed to resolve — see
-    // docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md.
-    const novel = makeContext({
-      brand: makeBrand({
-        subcategories: ["手工燈籠"],
-        subcategoriesEn: ["Handmade Lanterns"],
-      }),
+    // A shelf value the ontology does not know is skipped, never rendered
+    // verbatim: curated products only carry ontology slugs, so anything else
+    // is a raw value that would leak Latin text into zh copy.
+    const withUnknown = makeContext({
+      curatedSubcategories: ["not-a-real-slug", "backpacks"],
     });
+    const zhWithUnknown = mainProducts.render?.templateFloor(
+      withUnknown,
+      resolveBrandDetail,
+      "zh-TW",
+    );
 
-    expect(
-      mainProducts.render?.templateFloor(novel, resolveBrandDetail, "zh-TW"),
-    ).toContain("手工燈籠");
-    expect(
-      mainProducts.render?.templateFloor(novel, brandDetailT("en"), "en"),
-    ).toContain("handmade lanterns");
+    expect(zhWithUnknown).toContain("後背包");
+    expect(zhWithUnknown).not.toContain("not-a-real-slug");
   });
 
   it("derives groundedIn from requiredEvidence for every preset that declares it", () => {
@@ -642,6 +662,7 @@ describe("FAQ template floors (DEV-1994)", () => {
   const homeCtx = makeContext({
     brand: { ...makeBrand(homeOverrides), stockistCount: 3 },
     cityLabel: "新北市",
+    curatedSubcategories: ["furniture", "mattresses", "bedding"],
   });
 
   function floor(
@@ -675,14 +696,14 @@ describe("FAQ template floors (DEV-1994)", () => {
   it("zh main-products names only the subcategories", () => {
     const zh = floor("main-products", homeCtx, "zh-TW");
 
-    expect(zh).toBe("Harbor Form的商品以家具、床墊和寢具為主。");
+    expect(zh).toBe("Harbor Form的商品包括家具、床墊和寢具等。");
     expect(zh).not.toContain("居家生活");
     expect(zh.endsWith("。")).toBe(true);
   });
 
   it("en main-products lowercases Title Case labels and lists with and", () => {
     expect(floor("main-products", homeCtx, "en")).toBe(
-      "Harbor Form mainly offers furniture, mattresses, and bedding.",
+      "Harbor Form's range includes furniture, mattresses, and bedding.",
     );
   });
 
@@ -692,11 +713,44 @@ describe("FAQ template floors (DEV-1994)", () => {
         subcategories: ["tops-and-tshirts"],
         subcategoriesEn: ["Tops & T-shirts"],
       }),
+      curatedSubcategories: ["tops-and-tshirts"],
     });
 
     expect(floor("main-products", ctx, "en")).toBe(
-      "Harbor Form mainly offers tops & T-shirts.",
+      "Harbor Form's range includes tops & T-shirts.",
     );
+  });
+
+  // BD-10: the floor lists what the shelf shows, not `brands.subcategories`.
+  it("main-products lists the shelf's subcategories, ranked by count, max 3", () => {
+    const ctx = makeContext({
+      brand: makeBrand({
+        subcategories: ["bedding", "furniture"],
+        subcategoriesEn: ["Bedding", "Furniture"],
+      }),
+      // tableware ×1, tea ware ×2, furniture ×1, lighting ×3 — in shelf order.
+      curatedSubcategories: [
+        "tableware",
+        "tea-and-coffee-ware",
+        "tea-and-coffee-ware",
+        "furniture",
+        "lighting",
+        "lighting",
+        "lighting",
+      ],
+    });
+
+    const zh = floor("main-products", ctx, "zh-TW");
+    // Ties keep shelf order: tableware appears before furniture.
+    expect(zh).toBe("Harbor Form的商品包括燈飾、茶具・咖啡器具和餐具等。");
+    expect(zh).not.toContain("寢具");
+    expect(zh).not.toContain("家具");
+
+    const en = floor("main-products", ctx, "en");
+    expect(en).toBe(
+      "Harbor Form's range includes lighting, tea & coffee ware, and tableware.",
+    );
+    expect(en).not.toContain("bedding");
   });
 
   it("where-to-buy with channels and stockists", () => {

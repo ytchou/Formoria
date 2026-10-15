@@ -28,6 +28,7 @@ export function toWallTileProduct(
     id: product.id,
     key: product.key,
     nameZh: product.nameZh,
+    nameZhBreaks: product.nameZhBreaks,
     nameEn: product.nameEn,
     productDescriptionZh: product.productDescriptionZh,
     productDescriptionEn: product.productDescriptionEn,

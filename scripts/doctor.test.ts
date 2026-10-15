@@ -32,7 +32,6 @@ function runDoctorWithMigrationOutput(output: string, exitStatus = 0) {
         SUPABASE_DB_URL:
           "postgresql://postgres:unused@db.ttkkyvgvcamfoezsetvf.supabase.co:5432/postgres",
         DATABASE_URL: "",
-        HEALTH_AGENT_READ_DATABASE_URL: "",
       },
     });
     const supabaseCalls = existsSync(callLog)
@@ -54,7 +53,6 @@ describe("doctor --health-railway mode", () => {
         // Prevent the migration check from hitting a real DB
         SUPABASE_DB_URL: "",
         DATABASE_URL: "",
-        HEALTH_AGENT_READ_DATABASE_URL: "",
         ...envOverrides,
       },
     });
@@ -235,7 +233,6 @@ function runDoctorWithRestResponse(status: number, body: string) {
         PATH: `${directory}:${process.env.PATH ?? ""}`,
         SUPABASE_DB_URL: "",
         DATABASE_URL: "",
-        HEALTH_AGENT_READ_DATABASE_URL: "",
         NEXT_PUBLIC_SUPABASE_URL: "https://ttkkyvgvcamfoezsetvf.supabase.co",
         SUPABASE_SERVICE_ROLE_KEY: "test-service-key",
       },

@@ -6,6 +6,7 @@ import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import { L2_SUBCATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 import { hasRenderableCuratedImage } from "@/lib/curated-products/image-eligibility";
 import { publicCuratedProductName } from "@/lib/curated-products/product-name";
+import { phraseBreakOffsets } from "@/lib/text/phrase-break-offsets";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,6 +17,8 @@ export type CatalogProduct = {
   id: string;
   key: string;
   nameZh: string;
+  /** `phraseBreakOffsets(nameZh)` — see `CuratedProduct.nameZhBreaks`. */
+  nameZhBreaks?: number[];
   nameEn: string | null;
   category: string;
   subcategory: string;
@@ -94,11 +97,13 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
       `Catalog product ${row.id} is missing a canonical subcategory`,
     );
   }
+  // Read-side name guard (DEV-1989): see `publicCuratedProductName`.
+  const nameZh = publicCuratedProductName(row.name_zh);
   return {
     id: row.id,
     key: row.key,
-    // Read-side name guard (DEV-1989): see `publicCuratedProductName`.
-    nameZh: publicCuratedProductName(row.name_zh),
+    nameZh,
+    nameZhBreaks: phraseBreakOffsets(nameZh),
     nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
     category: row.category,
     subcategory,

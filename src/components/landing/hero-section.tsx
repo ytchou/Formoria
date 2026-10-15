@@ -25,6 +25,18 @@ const HERO_SITUATION_LIMIT = 4;
  * Below `sm` the photograph stacks above the copy with no scrim
  * (`stackBelowSm`): a full-width scrim on a phone washed the picture out.
  *
+ * From `md` up the band holds most of the first screen — `82svh`, capped at
+ * 52rem so a tall monitor does not strand the copy in empty plaster — with the
+ * copy centred in it (EL-01: at 1440x900 the opener was a 465px strip). The
+ * photograph and scrim are absolute, so the `PageShell` is the only flex item
+ * in flow, and its own `w-full` keeps the reading edge where it was.
+ *
+ * THE PAGE'S ONE ENTRANCE (DESIGN §7b) lives here: the photograph settles
+ * (`entrance`), and the copy rises in 100ms steps — eyebrow, headline, lede,
+ * search, situations. `motion-safe:` on every step, not the global
+ * reduced-motion block alone: that block shortens the duration but not the
+ * inline delay, and a delayed `both` fill would hold a step at opacity 0.
+ *
  * `preload` and the literal image path are both load-bearing:
  * `scripts/check-photo-band-contrast.ts` reads the `image` prop from source
  * to know which pixels to measure, and a band it cannot resolve fails the lint
@@ -63,12 +75,19 @@ export default async function HeroSection({
       scrim="left"
       preload
       stackBelowSm
+      entrance
+      className="md:flex md:min-h-[min(82svh,52rem)] md:flex-col md:justify-center"
     >
       <div className="prose-measure">
         {/* Decorative eyebrow carrying the category — a `span`, not a `p`.
             DEV-1320 requires the lede to be the FIRST paragraph so Google does
             not lift a rotating brand blurb as the homepage snippet. */}
-        <span className="block type-eyebrow text-ink-soft">{t("eyebrow")}</span>
+        <span
+          className="block type-eyebrow text-ink-soft motion-safe:animate-reveal-up"
+          style={{ animationDelay: "0ms" }}
+        >
+          {t("eyebrow")}
+        </span>
 
         {/* The consumer promise, in its display form (no closing 。, per
             brand-voice.md). `type-display` from `md` up; the
@@ -76,16 +95,28 @@ export default async function HeroSection({
             390px viewport at this string's length. The zh message carries a
             `<wbr>` and `break-keep` forbids every other break, so a narrow
             screen wraps 生活可以 / 更像自己一點 and nowhere else. */}
-        <h1 className="mt-4 type-page-title md:type-display text-balance break-keep">
+        <h1
+          className="mt-4 type-page-title md:type-display text-balance break-keep motion-safe:animate-reveal-up"
+          style={{ animationDelay: "100ms" }}
+        >
           {t.rich("headline", { wbr: () => <wbr /> })}
         </h1>
 
         {/* FIRST PROSE NODE, AND IT STAYS THAT WAY (DEV-1320). Google lifted a
-            rotating brand blurb as the homepage snippet when it was not. */}
-        <p className="mt-6 type-body text-ink-soft">{t("lede")}</p>
+            rotating brand blurb as the homepage snippet when it was not.
+            `type-lede`, the one lede step under a display h1 (DESIGN §1). */}
+        <p
+          className="mt-6 type-lede motion-safe:animate-reveal-up"
+          style={{ animationDelay: "200ms" }}
+        >
+          {t("lede")}
+        </p>
 
         {/* One search control and one style-discovery alternative. */}
-        <div className="mt-8 flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-6">
+        <div
+          className="mt-8 flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-6 motion-safe:animate-reveal-up"
+          style={{ animationDelay: "300ms" }}
+        >
           <Suspense
             fallback={<div className="h-11 w-full flex-1" aria-hidden="true" />}
           >
@@ -109,9 +140,13 @@ export default async function HeroSection({
         </div>
 
         {/* Situations open zh-TW trails; on another locale a note says so,
-            and the chips sit closer under it. */}
+            and the chips sit closer under it. The note shares the chips'
+            entrance step: the two read as one block. */}
         {showLanguageNote && (
-          <p className="mt-6 type-metadata text-ink-soft">
+          <p
+            className="mt-6 type-metadata text-ink-soft motion-safe:animate-reveal-up"
+            style={{ animationDelay: "400ms" }}
+          >
             {t("situationsLanguageNote")}
           </p>
         )}
@@ -130,9 +165,10 @@ export default async function HeroSection({
             as="ul"
             aria-label={t("situationsLabel")}
             className={cn(
-              "max-sm:-mx-6 max-sm:scroll-px-6 max-sm:snap-x max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:px-6 max-sm:py-1.5",
+              "max-sm:-mx-6 max-sm:scroll-px-6 max-sm:snap-x max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:px-6 max-sm:py-1.5 motion-safe:animate-reveal-up",
               showLanguageNote ? "mt-2" : "mt-6 max-sm:mt-4.5",
             )}
+            style={{ animationDelay: "400ms" }}
           >
             {situations.map((situation) => (
               <li key={situation.trail.slug} className="shrink-0 snap-start">

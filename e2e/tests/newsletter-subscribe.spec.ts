@@ -43,7 +43,7 @@ test.describe('Newsletter subscribe flow', () => {
     await page.goto('/');
 
     // --- Newsletter section heading ---
-    const heading = page.getByRole('heading', { name: '收到新的專題和選物' });
+    const heading = page.getByRole('heading', { name: '訂閱 Formoria 電子報' });
     await heading.scrollIntoViewIfNeeded();
     await expect(heading).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
@@ -138,7 +138,7 @@ test.describe('Newsletter subscribe flow', () => {
 test.describe('Newsletter — interrupted request recovery', () => {
   for (const { locale, prefix, message } of [
     { locale: 'zh-TW', prefix: '', message: '訂閱暫時無法完成，請稍後再試。' },
-    { locale: 'en', prefix: '/en', message: 'We couldn’t complete your subscription. Please try again.' },
+    { locale: 'en', prefix: '/en', message: 'Your subscription didn’t go through. Try again in a moment.' },
   ]) {
     test(`a dropped newsletter request preserves email and interests and permits retry (${locale})`, async ({ page }) => {
       let release = () => {};
@@ -155,6 +155,9 @@ test.describe('Newsletter — interrupted request recovery', () => {
         const form = page.locator('form:has(input[name="email"])');
         const email = form.locator('input[name="email"]');
         const submit = form.locator('button[type="submit"]');
+        // FormField's error slot: a polite live region the input's
+        // aria-describedby points at (no role="alert").
+        const emailError = form.locator('p[aria-live="polite"]');
         const stories = form.getByRole('button', { name: locale === 'en' ? 'Stories' : '專題', exact: true });
         await stories.click();
         await expect(stories).toHaveAttribute('aria-pressed', 'true');
@@ -165,14 +168,14 @@ test.describe('Newsletter — interrupted request recovery', () => {
         await email.press('Enter');
         expect(attempts).toBe(1);
         release();
-        await expect(form.getByRole('alert')).toHaveText(message);
+        await expect(emailError).toHaveText(message);
         await expect(submit).toBeEnabled();
         await expect(email).toHaveValue('m.garcia+transport@company.invalid');
         await expect(stories).toHaveAttribute('aria-pressed', 'true');
         await submit.click();
         await expect.poll(() => attempts).toBe(2);
         await expect(submit).toBeEnabled();
-        await expect(form.getByRole('alert')).toHaveText(message);
+        await expect(emailError).toHaveText(message);
         await expect(email).toHaveValue('m.garcia+transport@company.invalid');
         await expect(stories).toHaveAttribute('aria-pressed', 'true');
       } finally {

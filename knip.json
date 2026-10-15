@@ -23,7 +23,6 @@
   ],
   "ignoreBinaries": ["codex", "lsof", "psql", "python3", "scripts/run-worker.sh", "uv"],
   "ignoreIssues": {
-    "src/components/ui/card.tsx": ["exports"],
     "src/app/admin/actions.ts": ["exports"],
     "src/test/server-only.ts": ["files"]
   }

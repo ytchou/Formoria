@@ -27,10 +27,8 @@ import {
   onlineStoreByKey,
   type OnlineStoreCamelField,
 } from "@/lib/brands/online-stores";
-import type {
-  SaveSubmissionReviewInput,
-  SubmissionReviewImage,
-} from "@/lib/services/submissions";
+import type { SaveSubmissionReviewInput } from "@/lib/services/submissions";
+import type { SubmissionReviewImage } from "@/lib/services/submission-review-data";
 
 type BrandImageRow = {
   id: string;

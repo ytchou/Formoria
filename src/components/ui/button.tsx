@@ -1,6 +1,7 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
+import { controlPress } from "@/lib/design/media-hover"
 import { cn } from "@/lib/utils"
 import { CONTROL_ICON, DISABLED_STATE, FOCUS_RING } from "./control-surface"
 
@@ -24,7 +25,9 @@ type ButtonVariant = (typeof BUTTON_VARIANTS)[number]
 const buttonStyles = cva(
   cn(
     "group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-hei text-sm font-medium whitespace-nowrap",
-    "transition-[background-color,border-color,color] select-none",
+    // Per-property easing, in the list's order: colours settle on
+    // `--ease-settle` (DESIGN.md §7b), the press scale stays ease-out.
+    "transition-[background-color,border-color,color,scale] duration-150 [transition-timing-function:var(--ease-settle),var(--ease-settle),var(--ease-settle),ease-out] select-none",
     FOCUS_RING,
     DISABLED_STATE,
     "aria-invalid:border-danger aria-invalid:ring-2 aria-invalid:ring-danger/30",
@@ -77,12 +80,22 @@ const buttonStyles = cva(
         auto: "",
         full: "w-full",
       },
+      /**
+       * Press feedback is ON by default (EL-06). `static` drops the 0.96 press
+       * scale for full-width form submits, where a whole-row shrink reads as
+       * the layout jumping rather than the control answering.
+       */
+      static: {
+        false: controlPress,
+        true: "",
+      },
     },
     defaultVariants: {
       variant: "primary",
       shape: "default",
       size: "default",
       width: "auto",
+      static: false,
     },
   }
 )
@@ -99,9 +112,13 @@ function buttonVariants({
   shape = "default",
   size = "default",
   width = "auto",
+  static: isStatic = false,
   className,
 }: ButtonStyleProps = {}) {
-  return cn(buttonStyles({ variant, shape, size, width }), className)
+  return cn(
+    buttonStyles({ variant, shape, size, width, static: isStatic }),
+    className
+  )
 }
 
 function Button({
@@ -110,12 +127,20 @@ function Button({
   shape = "default",
   size = "default",
   width = "auto",
+  static: isStatic = false,
   ...props
 }: ButtonPrimitive.Props & ButtonStyleProps) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={buttonVariants({ variant, shape, size, width, className })}
+      className={buttonVariants({
+        variant,
+        shape,
+        size,
+        width,
+        static: isStatic,
+        className,
+      })}
       {...props}
     />
   )

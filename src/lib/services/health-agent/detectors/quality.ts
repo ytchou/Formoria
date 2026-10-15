@@ -20,6 +20,7 @@ import {
   type JsonValue,
 } from '../contracts'
 import { isKnownKnipNoise } from '../../../../../scripts/health-agent/knip-known-noise'
+import { isRecord } from '@/lib/utils/is-record'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -42,7 +43,6 @@ const KNIP_KINDS = [
 ] as const
 
 type QualityStatus = 'failed' | 'success'
-type UnknownRecord = Record<string, unknown>
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -70,10 +70,6 @@ export interface QualityHealthResult {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function nonnegativeInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= 0

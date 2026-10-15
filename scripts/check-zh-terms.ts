@@ -208,6 +208,10 @@ export const EXCLUDED_SOURCE_FILES = new Map([
   ],
   ["lib/services/enrich-phases/detect.ts", "SEO keyword constants"],
   ["lib/services/curation-operations.ts", "SERP query string"],
+  [
+    "lib/services/enrich-blocks/blocks/link-expansion-gather.ts",
+    "SERP query string",
+  ],
   ["lib/services/brand-cleanup.ts", "cleanup keyword arrays and regexes"],
   ["lib/services/subcategories.ts", "validator blocklist regexes"],
   ["lib/services/enrich-validators.ts", "AI-slop detector regexes"],

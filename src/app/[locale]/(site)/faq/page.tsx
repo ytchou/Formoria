@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { buildAlternates } from '@/lib/seo/alternates'
-import type { Locale } from '@/lib/seo/alternates'
-import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { buildPageMetadata } from '@/lib/seo/page-metadata'
 import { Link } from '@/i18n/navigation'
 import { PageShell } from '@/components/ui/page-shell'
+import { PageToc } from '@/components/ui/page-toc'
 import { routes } from '@/lib/routes'
 import { visibleCategoryList } from '@/lib/taxonomy/category-list'
 
@@ -21,26 +20,14 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('faq.metadata')
-  const title = t('title')
-  const description = t('description')
-  const { canonical, languages } = buildAlternates(routes.faq(), safeLocale)
-  const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
-  const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
-  return {
-    title,
-    description,
-    alternates: { canonical, languages },
-    ...buildOpenGraph({
-      title,
-      description,
-      url: canonical,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-  }
+  return buildPageMetadata({
+    locale,
+    path: routes.faq(),
+    title: t('title'),
+    description: t('description'),
+  })
 }
 
 export default async function FaqPage({ params }: PageProps) {
@@ -87,20 +74,14 @@ export default async function FaqPage({ params }: PageProps) {
           <h1 id="faq-heading" className="type-page-title">
             {t('title')}
           </h1>
-          <nav
-            aria-label={t('sections.navigation')}
-            className="space-y-1 border-l border-rule pl-3"
-          >
-            {sections.map(({ key }) => (
-              <a
-                key={key}
-                href={`#${key}`}
-                className="flex min-h-12 items-center px-3 type-nav hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {t(`sections.${key}`)}
-              </a>
-            ))}
-          </nav>
+          <PageToc
+            variant="rail"
+            label={t('sections.navigation')}
+            items={sections.map(({ key }) => ({
+              id: key,
+              label: t(`sections.${key}`),
+            }))}
+          />
           <p className="type-body-sm">
             {t.rich('intro', {
               contact: (chunks) => (

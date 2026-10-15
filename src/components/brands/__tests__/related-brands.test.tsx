@@ -79,7 +79,7 @@ describe("RelatedBrands header", () => {
     expect(
       screen.getByRole("link", { name: "看全部 63 個居家生活品牌" }),
     ).toBeInTheDocument();
-    const subtext = screen.getByText("同樣收錄在居家生活的品牌");
+    const subtext = screen.getByText("品牌目錄裡同一個分類的品牌");
     expect(subtext.textContent).not.toMatch(/\d/);
   });
 });

@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { buildOrganizationJsonLd, safeJsonLdStringify } from "@/lib/json-ld";
-import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
-import { buildOpenGraph } from "@/lib/seo/open-graph";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { Link } from "@/i18n/navigation";
 import AboutHero from "@/components/about/about-hero";
 import { PullQuote } from "@/components/stories/pull-quote";
@@ -28,26 +27,14 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
-  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations("about.metadata");
-  const title = t("title");
-  const description = t("description");
-  const { canonical, languages } = buildAlternates(routes.about(), safeLocale);
-  const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
-  const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
 
-  return {
-    title,
-    description,
-    alternates: { canonical, languages },
-    ...buildOpenGraph({
-      title,
-      description,
-      url: canonical,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-  };
+  return buildPageMetadata({
+    locale,
+    path: routes.about(),
+    title: t("title"),
+    description: t("description"),
+  });
 }
 
 const SCENE_KEYS = [
@@ -95,10 +82,13 @@ export default async function AboutPage({ params }: PageProps) {
           recentBrands={recentBrands ?? undefined}
         />
 
+        {/* Every band below is read, so each takes the prose measure and
+            stacks its h2 above its block (DESIGN.md §4). A two-column grid
+            in the page measure left the right ~30% of the shell empty. */}
         {/* Scenes */}
         <section className="bg-surface py-section">
-          <PageShell measure="page">
-            <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
+          <PageShell measure="prose">
+            <div className="space-y-8">
               <h2 className="type-section text-balance break-keep">
                 {phraseBreaks(t("scenes.heading"))}
               </h2>
@@ -123,8 +113,8 @@ export default async function AboutPage({ params }: PageProps) {
 
         {/* Loop */}
         <section className="py-section">
-          <PageShell measure="page">
-            <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
+          <PageShell measure="prose">
+            <div className="space-y-8">
               <h2 className="type-section text-balance break-keep">
                 {phraseBreaks(t("loop.heading"))}
               </h2>
@@ -143,8 +133,8 @@ export default async function AboutPage({ params }: PageProps) {
 
         {/* Statistics */}
         <section className="bg-surface py-section">
-          <PageShell measure="page">
-            <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
+          <PageShell measure="prose">
+            <div className="space-y-8">
               <h2 className="type-section text-balance break-keep">
                 {phraseBreaks(t("taiwanStats.heading"))}
               </h2>
@@ -152,8 +142,8 @@ export default async function AboutPage({ params }: PageProps) {
                 <p className="type-body">{t("taiwanStats.intro")}</p>
                 {/* One figure per row at every width. A wrapping row of three
                     broke 2 + 1 at 390px and stranded the last figure; three
-                    columns do not fit the 46px figures in this column, which
-                    caps at 660px (the EN "Nearly 80%" alone is ~240px). */}
+                    columns do not fit the 46px figures in the 48rem prose
+                    column (the EN "Nearly 80%" alone is ~240px). */}
                 <div className="mt-8 divide-y divide-rule border-y border-rule">
                   {(["count", "share", "employment"] as const).map((key) => (
                     <div key={key} className="py-6">
@@ -194,8 +184,8 @@ export default async function AboutPage({ params }: PageProps) {
 
         {/* Stance */}
         <section className="py-section">
-          <PageShell measure="page">
-            <div className="grid gap-8 md:grid-cols-[minmax(0,380px)_minmax(0,660px)] md:gap-20">
+          <PageShell measure="prose">
+            <div className="space-y-8">
               <h2 className="type-section text-balance break-keep">
                 {phraseBreaks(t("stance.heading"))}
               </h2>
@@ -217,8 +207,8 @@ export default async function AboutPage({ params }: PageProps) {
 
         {/* Closing CTA */}
         <section className="border-t border-rule bg-surface py-section">
-          <PageShell measure="page">
-            <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+          <PageShell measure="prose">
+            <div className="flex flex-col gap-8">
               <div>
                 <h2 className="type-section text-balance break-keep">
                   {phraseBreaks(t("guide.heading"))}

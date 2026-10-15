@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/nextjs'
+import { isReportingEnabled, reportMessage } from '@/lib/observability/report-error'
 import { after } from 'next/server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 // Type-only: erased at build time, so the "keep imports light" rule below still
@@ -75,8 +75,8 @@ type DegradationAlarm = (event: string, properties: Record<string, unknown>) => 
 
 function sentryDegradationAlarm(event: string, properties: Record<string, unknown>): void {
   try {
-    if (!Sentry.getClient()) return
-    Sentry.captureMessage(`[rate-limiter] ${event}`, {
+    if (!isReportingEnabled()) return
+    reportMessage(`[rate-limiter] ${event}`, {
       level: 'warning',
       contexts: { 'rate-limiter': properties },
     })

@@ -18,6 +18,7 @@ import type {
 import { DEFAULT_QUERY, buildImageQueryVariants, isGoogleUrl, stripTrackingParams } from './search'
 import { fetchHtml } from './fetch-guards'
 import { classifyHttpResponse, IN_PROCESS, withRetry } from '@/lib/retry'
+import { isRecord } from '@/lib/utils/is-record'
 
 const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
 const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
@@ -65,26 +66,6 @@ type SerperImageResponse = {
   images?: SerperImageResult[]
 }
 
-/**
- * Raw image result normalized at the provider boundary. The evaluator keeps
- * these fields before any quality filter or lookaside resolution runs so a
- * golden corpus can explain both accepted and discarded candidates.
- */
-type SerperRawImageCandidate = {
-  imageUrl: string
-  title: string
-  link?: string
-  source?: string
-  domain?: string
-  position?: number
-  imageWidth?: number
-  imageHeight?: number
-  thumbnailUrl?: string
-  thumbnailWidth?: number
-  thumbnailHeight?: number
-  googleUrl?: string
-}
-
 type SerperCallResult<T> = {
   data: T | null
   fullResponse: unknown
@@ -94,10 +75,6 @@ type SerperCallResult<T> = {
   error: string | null
   response?: Response
   auditResultId?: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 // A missing key is a legitimately empty result set; a present-but-wrong-shaped
@@ -119,40 +96,6 @@ function isSerperImageResponse(value: unknown): value is SerperImageResponse {
     isRecord(value) &&
     isOptionalArrayOf(value.images, (entry) => isRecord(entry) && typeof entry.imageUrl === 'string')
   )
-}
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
-}
-
-function optionalNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
-}
-
-export function parseSerperImageCandidates(
-  rawResponse: unknown,
-): SerperRawImageCandidate[] {
-  if (!isSerperImageResponse(rawResponse)) return []
-
-  return (rawResponse.images ?? []).flatMap((entry) => {
-    const imageUrl = optionalString(entry.imageUrl)
-    if (!imageUrl) return []
-
-    return [{
-      imageUrl,
-      title: optionalString(entry.title) ?? '',
-      ...(optionalString(entry.link) ? { link: optionalString(entry.link) } : {}),
-      ...(optionalString(entry.source) ? { source: optionalString(entry.source) } : {}),
-      ...(optionalString(entry.domain) ? { domain: optionalString(entry.domain) } : {}),
-      ...(optionalNumber(entry.position) !== undefined ? { position: optionalNumber(entry.position) } : {}),
-      ...(optionalNumber(entry.imageWidth) !== undefined ? { imageWidth: optionalNumber(entry.imageWidth) } : {}),
-      ...(optionalNumber(entry.imageHeight) !== undefined ? { imageHeight: optionalNumber(entry.imageHeight) } : {}),
-      ...(optionalString(entry.thumbnailUrl) ? { thumbnailUrl: optionalString(entry.thumbnailUrl) } : {}),
-      ...(optionalNumber(entry.thumbnailWidth) !== undefined ? { thumbnailWidth: optionalNumber(entry.thumbnailWidth) } : {}),
-      ...(optionalNumber(entry.thumbnailHeight) !== undefined ? { thumbnailHeight: optionalNumber(entry.thumbnailHeight) } : {}),
-      ...(optionalString(entry.googleUrl) ? { googleUrl: optionalString(entry.googleUrl) } : {}),
-    }]
-  })
 }
 
 function errorText(error: unknown): string {

@@ -25,6 +25,7 @@ import {
   type CitySlug,
 } from '@/lib/constants/taiwan-cities'
 import { matchDistrict } from '@/lib/brands/district'
+import { isRecord } from '@/lib/utils/is-record'
 
 export const MAX_ACTIVE_STOCKISTS_PER_BRAND = 5
 
@@ -128,10 +129,6 @@ function regionSlugToLabel(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   if (!trimmed) return null
   return REGION_LABEL_MAP[trimmed] ?? trimmed
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
 }
 
 function rowToDisplayRow(row: StockistTableRow) {

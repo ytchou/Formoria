@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { PageShell } from '@/components/ui/page-shell'
 import { inkActionClassName } from '@/components/admin/ink-action'
 import { cn } from '@/lib/utils'
-import * as Sentry from '@sentry/nextjs'
+import { reportError } from '@/lib/observability/report-error'
 
 export default function AdminError({
   error,
@@ -18,7 +18,7 @@ export default function AdminError({
   const t = useTranslations('admin.common')
 
   useEffect(() => {
-    Sentry.captureException(error)
+    reportError(error)
     console.error('[AdminError]', error)
   }, [error])
 

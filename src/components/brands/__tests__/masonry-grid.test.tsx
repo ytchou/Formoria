@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { gridStyles } from "@/components/ui/grid";
-import { MASONRY_ABOVE_FOLD, MasonryGrid } from "../masonry-grid";
+import { MasonryGrid } from "../masonry-grid";
 
 function cards(count: number) {
   return Array.from({ length: count }, (_, index) => (
@@ -47,10 +47,6 @@ describe("MasonryGrid", () => {
     expect(screen.getByRole("list")).toHaveClass("lg:grid-cols-3");
   });
 
-  it("MASONRY_ABOVE_FOLD equals the widest column count", () => {
-    expect(MASONRY_ABOVE_FOLD).toBe(3);
-  });
-
   it("renders every capped card into the markup and hides the overflow", () => {
     // The cap is a CSS concern, never a slice: on the event lineup the hidden
     // cards are the crawlable substance of the page, and slicing would drop
@@ -63,16 +59,26 @@ describe("MasonryGrid", () => {
     expect(container.querySelectorAll(".hidden")).toHaveLength(3);
   });
 
-  it("renders the above-the-fold row visible on the server", () => {
-    // Gating the LCP row behind the reveal observer keeps it at opacity 0 until
-    // client JS hydrates, which is the LCP regression this constant exists for.
-    const { container } = render(
-      <MasonryGrid>{cards(MASONRY_ABOVE_FOLD + 1)}</MasonryGrid>,
-    );
+  it.each([false, true])(
+    "renders every card present, with no scroll reveal (compact: %s)",
+    (compact) => {
+      // DESIGN §7b: motion is never tied to scroll. A card waiting at opacity 0
+      // for an observer is also an LCP and no-JS regression.
+      const { container } = render(
+        <MasonryGrid compact={compact}>{cards(7)}</MasonryGrid>,
+      );
 
-    const items = container.querySelectorAll('[role="listitem"]');
-    for (const item of Array.from(items).slice(0, MASONRY_ABOVE_FOLD)) {
-      expect(item.className).toBe("");
-    }
-  });
+      const items = container.querySelectorAll(
+        compact ? "li" : '[role="listitem"]',
+      );
+      expect(items).toHaveLength(7);
+      for (const item of Array.from(items)) {
+        expect(item.className).toBe("");
+        expect(item.getAttribute("style")).toBeNull();
+      }
+      expect(container.querySelector(".opacity-0")).toBeNull();
+      expect(container.querySelector(".animate-reveal-up")).toBeNull();
+      expect(container.textContent).toContain("card 6");
+    },
+  );
 });

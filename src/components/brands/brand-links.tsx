@@ -1,22 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import {
-  normalizeInstagramHref,
-  normalizeThreadsHref,
-  sanitizeHref,
-} from "@/lib/url";
 import { useState, type ReactNode } from "react";
-import {
-  AtSign,
-  Globe,
-  Link,
-  MessageCircle,
-  Package,
-  ShoppingCart,
-  Store,
-} from "lucide-react";
-import { InstagramIcon } from "@/components/icons/instagram-icon";
+import { ArrowUpRight, Link } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -25,46 +11,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Typography } from "@/components/ui/typography";
-import type { PublicBrandDetail } from "@/lib/brands/contracts";
+import type {
+  BrandChannelCorrectionFields,
+  BrandChannelSlot,
+  BrandOtherLink,
+} from "@/lib/services/brand-detail-view";
 import {
-  onlineStoreMessageKey,
   ONLINE_STORES,
   type OnlineStoreColumn,
 } from "@/lib/brands/online-stores";
 import { trackExternalLinkClicked } from "@/lib/analytics";
-import {
-  classifyBrandLinkKind,
-  type BrandVisitLinkKind,
-} from "@/lib/brands/link-fallback";
+import type { BrandVisitLinkKind } from "@/lib/brands/link-fallback";
+import { cn } from "@/lib/utils";
 import { CorrectionDialog } from "./correction-dialog";
 import { ProvideStockistInfoDialog } from "./provide-stockist-info-dialog";
 
-interface BrandLinksProps {
-  brand: PublicBrandDetail;
-  sectionIds?: {
-    social?: string;
-    purchase?: string;
-  };
-  sectionClassName?: string;
-}
-
-function normalizeDirectUrl(value: string | undefined | null): string | null {
-  return sanitizeHref(value);
-}
-
-function FacebookIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M14 8h3V4h-3c-3.31 0-5 1.96-5 5v2H6v4h3v7h4v-7h3.24L17 11h-4V9c0-.68.32-1 1-1z" />
-    </svg>
-  );
-}
+/** What the click tracking needs to know about the brand. */
+type TrackedBrand = { id: string; slug: string };
 
 type LinkSlot = {
   label: string;
@@ -73,19 +36,12 @@ type LinkSlot = {
   icon: ReactNode;
 };
 
-/** A destination before we know whether we hold a URL for it. */
-type LinkCandidate = Omit<LinkSlot, "url"> & { url: string | null };
-
-type LinkSectionProps = {
-  id?: string;
-  label: string;
-  /** h2 for a standalone section; h3 when it sits under where-to-buy's h2. */
-  headingLevel?: "h2" | "h3";
+type LinkListProps = {
   /** Only known destinations: a slot without a URL never reaches here. */
   slots: LinkSlot[];
-  brand: PublicBrandDetail;
+  brand: TrackedBrand;
   className?: string;
-  /** One muted line below the links; a section with a note always renders. */
+  /** One muted line below the links; a list with a note always renders. */
   note?: string | null;
 };
 
@@ -96,18 +52,96 @@ const destinationLinkClassName = buttonVariants({
   className: "min-w-32 max-w-full justify-center gap-2",
 });
 
-// Icons are ink (`text-current`): DESIGN.md §2 allows no palette exceptions,
-// platform brand colours included.
-const DESTINATION_PRESENTATION = {
-  website: { icon: <Globe className="size-4 text-current" /> },
-  pinkoi: { icon: <Store className="size-4 text-current" /> },
-  shopee: { icon: <ShoppingCart className="size-4 text-current" /> },
-  myship: { icon: <Package className="size-4 text-current" /> },
-  instagram: { icon: <InstagramIcon className="size-4 text-current" /> },
-  threads: { icon: <AtSign className="size-4 text-current" /> },
-  facebook: { icon: <FacebookIcon className="size-4 text-current" /> },
-  line: { icon: <MessageCircle className="size-4 text-current" /> },
-} satisfies Record<BrandVisitLinkKind, { icon: ReactNode }>;
+/**
+ * An external brand link that records the channel it routes to: the one
+ * tracked anchor every brand-channel surface on the page renders.
+ */
+function TrackedChannelLink({
+  href,
+  kind,
+  brand,
+  className,
+  children,
+}: {
+  href: string;
+  kind: BrandVisitLinkKind | "other";
+  brand: TrackedBrand;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      data-ph-no-autocapture
+      onClick={() => {
+        trackExternalLinkClicked(
+          brand.slug,
+          kind,
+          typeof window !== "undefined" ? window.location.pathname : "",
+          "detail_page",
+          brand.id,
+        );
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+const CHANNEL_ROW_CLASS_NAME =
+  "flex min-h-11 items-center justify-between gap-3 text-ink transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
+/**
+ * Brand channels as hairline-divided rows (BD-06): the channel name, its
+ * destination host, and an out arrow. The hero route rows and where-to-buy's
+ * online and social lists are all this list, fed from the same slots
+ * (`buildBrandChannelSlots`).
+ */
+export function BrandChannelRows({
+  brand,
+  slots,
+  ariaLabel,
+  className,
+}: {
+  brand: TrackedBrand;
+  slots: BrandChannelSlot[];
+  ariaLabel?: string;
+  className?: string;
+}) {
+  const t = useTranslations("brandDetail");
+  if (slots.length === 0) return null;
+
+  return (
+    <ul
+      aria-label={ariaLabel}
+      className={cn("divide-y divide-rule border-y border-rule", className)}
+    >
+      {slots.map((slot) => (
+        <li key={`${slot.kind}:${slot.url}`}>
+          <TrackedChannelLink
+            href={slot.url}
+            kind={slot.kind}
+            brand={brand}
+            className={CHANNEL_ROW_CLASS_NAME}
+          >
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 type-label">{t(slot.labelKey)}</span>
+              {slot.host ? (
+                <span className="min-w-0 truncate type-metadata">
+                  {slot.host}
+                </span>
+              ) : null}
+            </span>
+            <ArrowUpRight className="size-4 shrink-0" aria-hidden />
+          </TrackedChannelLink>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function DestinationLinkButton({
   slot,
@@ -129,202 +163,120 @@ function DestinationLinkButton({
   );
 }
 
-function SectionLabel({
-  as,
-  children,
-}: {
-  as: "h2" | "h3";
-  children: ReactNode;
-}) {
-  return (
-    <Typography
-      as={as}
-      variant={as === "h2" ? "sectionTitleLarge" : "cardTitle"}
-    >
-      {children}
-    </Typography>
-  );
-}
-
-function LinkSection({
-  id,
-  label,
-  headingLevel = "h2",
-  slots,
-  brand,
-  className,
-  note,
-}: LinkSectionProps) {
+/**
+ * The links and their muted note: a section body. The `<section>`, its id and
+ * its h2 belong to `BrandSection`, which the page wraps around this.
+ */
+function LinkList({ slots, brand, className, note }: LinkListProps) {
   if (slots.length === 0 && !note) return null;
 
   return (
-    <section id={id} className={className}>
-      <div className="mb-4">
-        <SectionLabel as={headingLevel}>{label}</SectionLabel>
-      </div>
+    <div className={className}>
       {slots.length > 0 ? (
         <div className="flex flex-wrap gap-3">
-          {slots.map((slot, index) => {
-            const slotKey = `${slot.linkType}:${slot.label}:${index}`;
-
-            return (
-              <a
-                key={slotKey}
-                href={slot.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={destinationLinkClassName}
-                data-ph-no-autocapture
-                onClick={() => {
-                  trackExternalLinkClicked(
-                    brand.slug,
-                    slot.linkType,
-                    typeof window !== "undefined"
-                      ? window.location.pathname
-                      : "",
-                    "detail_page",
-                    brand.id,
-                  );
-                }}
-              >
-                <DestinationLinkButton slot={slot}>
-                  {slot.label}
-                </DestinationLinkButton>
-              </a>
-            );
-          })}
+          {slots.map((slot, index) => (
+            <TrackedChannelLink
+              key={`${slot.linkType}:${slot.label}:${index}`}
+              href={slot.url}
+              kind={slot.linkType}
+              brand={brand}
+              className={destinationLinkClassName}
+            >
+              <DestinationLinkButton slot={slot}>
+                {slot.label}
+              </DestinationLinkButton>
+            </TrackedChannelLink>
+          ))}
         </div>
       ) : null}
       {note ? (
-        <p className={slots.length > 0 ? "mt-3 type-metadata" : "type-metadata"}>
+        <p
+          className={slots.length > 0 ? "mt-3 type-metadata" : "type-metadata"}
+        >
           {note}
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }
 
-/** Drops the destinations we hold no URL for — only known routes render. */
-function liveSlots(candidates: LinkCandidate[]): LinkSlot[] {
-  return candidates.filter((slot): slot is LinkSlot => slot.url !== null);
-}
-
-export function BrandSocialLinks({
-  brand,
-  sectionIds,
-  sectionClassName,
-}: BrandLinksProps) {
-  const t = useTranslations("brandDetail");
-
-  const socialSlots = liveSlots([
-    {
-      label: t("links.instagram"),
-      url: normalizeInstagramHref(brand.socialInstagram),
-      linkType: "instagram",
-      icon: <InstagramIcon className="size-4 text-current" />,
-    },
-    {
-      label: t("links.threads"),
-      url: normalizeThreadsHref(brand.socialThreads),
-      linkType: "threads",
-      icon: <AtSign className="size-4 text-current" />,
-    },
-    {
-      label: t("links.facebook"),
-      url: normalizeDirectUrl(brand.socialFacebook),
-      linkType: "facebook",
-      icon: <FacebookIcon className="size-4 text-current" />,
-    },
-  ]);
-
-  // The section nav always lists #social, so the section renders even empty.
-  return (
-    <LinkSection
-      id={sectionIds?.social}
-      label={t("links.socialPlatforms")}
-      slots={socialSlots}
-      brand={brand}
-      className={sectionClassName}
-      note={socialSlots.length === 0 ? t("links.noSocialLinks") : null}
-    />
-  );
-}
-
+/**
+ * The online-store block under where-to-buy's h2, with its own h3: the same
+ * rows the hero carries, from `buildBrandChannelSlots().purchase`. A store we
+ * hold no link for is left out without comment (BD-COPY-03); only a brand with
+ * no online store at all gets a muted line.
+ */
 export function BrandPurchaseLinks({
   brand,
-  sectionIds,
-  sectionClassName,
-}: BrandLinksProps) {
+  slots,
+}: {
+  brand: TrackedBrand;
+  slots: BrandChannelSlot[];
+}) {
   const t = useTranslations("brandDetail");
 
-  const purchaseSlots = liveSlots(
-    ONLINE_STORES.map((channel) => {
-      const url = normalizeDirectUrl(brand[channel.camel]);
-      const kind = url ? classifyBrandLinkKind(url, channel.key) : channel.key;
-      const labelKey =
-        kind === channel.key
-          ? onlineStoreMessageKey(
-              channel.messageKeys.brandDetailLink,
-              "brandDetail",
-            )
-          : `links.${kind}`;
-      return {
-        label: t(labelKey),
-        url,
-        linkType: kind,
-        ...DESTINATION_PRESENTATION[kind],
-      };
-    }),
-  );
-  // One muted line stands in for every store we hold no link for, instead of a
-  // dimmed chip per store.
-  const hasMissingChannel = purchaseSlots.length < ONLINE_STORES.length;
-  const note =
-    purchaseSlots.length === 0
-      ? t("links.noChannels")
-      : hasMissingChannel
-        ? t("links.missingChannels")
-        : null;
-
+  // A block, not a nested <section>: it sits inside the where-to-buy section.
   return (
-    <LinkSection
-      id={sectionIds?.purchase}
-      label={t("links.onlineStores")}
-      headingLevel="h3"
-      slots={purchaseSlots}
-      brand={brand}
-      className={sectionClassName}
-      note={note}
-    />
+    <div>
+      <Typography as="h3" variant="cardTitle">
+        {t("links.onlineStores")}
+      </Typography>
+      {slots.length > 0 ? (
+        <BrandChannelRows brand={brand} slots={slots} className="mt-4" />
+      ) : (
+        <p className="mt-4 type-metadata">{t("links.noChannels")}</p>
+      )}
+    </div>
   );
 }
 
-export function BrandOtherLinks({ brand, sectionClassName }: BrandLinksProps) {
+/**
+ * The official-social block under where-to-buy's h2, after the online stores
+ * and before the stockist list, so a long list never buries it. Rows from
+ * `buildBrandChannelSlots().social`. A brand with no social profile renders
+ * nothing: a missing channel is left out without comment (BD-COPY-03).
+ */
+export function BrandSocialChannels({
+  brand,
+  slots,
+}: {
+  brand: TrackedBrand;
+  slots: BrandChannelSlot[];
+}) {
   const t = useTranslations("brandDetail");
+  if (slots.length === 0) return null;
 
-  const otherSlots: LinkSlot[] = brand.otherUrls.flatMap((otherUrl) => {
-    const label = otherUrl.label?.trim() ?? "";
-    const url = normalizeDirectUrl(otherUrl.url);
-    if (!label || !url) return [];
-
-    return [
-      {
-        label,
-        url,
-        linkType: "other",
-        icon: <Link className="size-4 text-current" />,
-      },
-    ];
-  });
-
+  // A block, not a nested <section>: it sits inside the where-to-buy section.
   return (
-    <LinkSection
-      label={t("links.otherLinks")}
-      slots={otherSlots}
-      brand={brand}
-      className={sectionClassName}
-    />
+    <div>
+      <Typography as="h3" variant="cardTitle">
+        {t("links.officialSocial")}
+      </Typography>
+      <BrandChannelRows brand={brand} slots={slots} className="mt-4" />
+    </div>
   );
+}
+
+/**
+ * The other-links section's body. `links` are already filtered to a label and
+ * a safe URL (`buildBrandDetailView`), so the page renders the section only
+ * when there is one.
+ */
+export function BrandOtherLinks({
+  brand,
+  links,
+}: {
+  brand: TrackedBrand;
+  links: BrandOtherLink[];
+}) {
+  const otherSlots: LinkSlot[] = links.map(({ label, url }) => ({
+    label,
+    url,
+    linkType: "other",
+    icon: <Link className="size-4 text-current" />,
+  }));
+
+  return <LinkList slots={otherSlots} brand={brand} className="mt-4" />;
 }
 
 type ChannelCorrectionDialog = "purchase" | "stockist" | "social";
@@ -339,7 +291,7 @@ type ChannelCorrectionDialog = "purchase" | "stockist" | "social";
 export function BrandChannelCorrections({
   brand,
 }: {
-  brand: PublicBrandDetail;
+  brand: BrandChannelCorrectionFields;
 }) {
   const t = useTranslations("brandDetail");
   const [openDialog, setOpenDialog] = useState<ChannelCorrectionDialog | null>(

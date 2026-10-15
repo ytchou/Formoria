@@ -71,8 +71,8 @@ function stubReducedMotion(matches: boolean) {
 }
 
 // The marquee syncs its layout on the first animation frame.
-async function renderMarquee() {
-  render(<BrandMarquee brands={brands} />);
+async function renderMarquee(heading?: ReactNode) {
+  render(<BrandMarquee brands={brands} heading={heading} />);
   await act(async () => {
     await new Promise((resolve) => requestAnimationFrame(resolve));
   });
@@ -100,6 +100,16 @@ describe("BrandMarquee", () => {
       screen.getByRole("button", { name: "pauseMarquee" }),
     ).toBeInTheDocument();
     expect(autoScroll.play).toHaveBeenCalled();
+  });
+
+  it("ends the heading row with the pause control", async () => {
+    await renderMarquee(<h2>count</h2>);
+
+    const row = screen.getByRole("heading", { level: 2 }).parentElement;
+    expect(row).toContainElement(
+      screen.getByRole("button", { name: "pauseMarquee" }),
+    );
+    expect(row).not.toContainElement(screen.getAllByRole("list")[0]!);
   });
 
   it("stops the rail and switches to the play label on pause", async () => {

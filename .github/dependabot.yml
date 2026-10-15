@@ -2,6 +2,8 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    # main accepts only staging -> main promotions (Release source check)
+    target-branch: "staging"
     schedule:
       interval: "weekly"
       day: "monday"

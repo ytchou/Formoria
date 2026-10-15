@@ -83,6 +83,8 @@ const ALLOWLIST = [
   "lib/services/enrich-phases/detect.ts",
   // SERP query string uses Chinese keyword '台灣' (not UI copy).
   "lib/services/curation-operations.ts",
+  // SERP query string uses Chinese keyword '台灣' (not UI copy); moved out of curation-operations.ts.
+  "lib/services/enrich-blocks/blocks/link-expansion-gather.ts",
   // Registry field names and origin regexes are machine-readable evidence, not UI copy.
   "lib/services/mit-registry.ts",
   "lib/services/curated-products/origin-qualification.ts",
@@ -158,11 +160,29 @@ function hanOffenders(source: string): Array<{ line: number; value: string }> {
     source,
   );
 
+  // A bare scanner reads the `}` that closes a `${…}` substitution as a plain
+  // brace, so the template's closing backtick would open a phantom template
+  // that swallows the comments after it. Track the open braces per
+  // substitution and rescan the closing `}` as a template continuation.
+  const substitutionBraces: number[] = [];
   for (
     let token = scanner.scan();
     token !== ts.SyntaxKind.EndOfFileToken;
     token = scanner.scan()
   ) {
+    const depth = substitutionBraces.length - 1;
+    if (token === ts.SyntaxKind.TemplateHead) {
+      substitutionBraces.push(0);
+    } else if (depth >= 0 && token === ts.SyntaxKind.OpenBraceToken) {
+      substitutionBraces[depth] += 1;
+    } else if (depth >= 0 && token === ts.SyntaxKind.CloseBraceToken) {
+      if (substitutionBraces[depth] > 0) {
+        substitutionBraces[depth] -= 1;
+      } else {
+        token = scanner.reScanTemplateToken(false);
+        if (token === ts.SyntaxKind.TemplateTail) substitutionBraces.pop();
+      }
+    }
     if (
       token === ts.SyntaxKind.SingleLineCommentTrivia ||
       token === ts.SyntaxKind.MultiLineCommentTrivia
@@ -278,6 +298,18 @@ describe("i18n guard — no hardcoded Chinese in source", () => {
     const source = ["// 中文說明", "const label = '中文標籤';"].join("\n");
 
     expect(hanOffenders(source)).toEqual([{ line: 2, value: "'中文標籤'" }]);
+  });
+
+  it("resumes after a template substitution instead of scanning comments as a template", () => {
+    const source = [
+      "const key = `links.${kind}` as const;",
+      "/** 「做什麼」 labels. */",
+      "const nested = `a${ { b: 1 }.b }c`;",
+      "// 中文說明",
+      "const tail = `x${y}中文`;",
+    ].join("\n");
+
+    expect(hanOffenders(source)).toEqual([{ line: 5, value: "}中文`" }]);
   });
 
   it("source outside the allowlist contains no Han characters", () => {

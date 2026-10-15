@@ -27,7 +27,10 @@ export const textStyles = cva('', {
       // page-title 2.5rem), so an 11-letter name still fits the 272px column
       // at 320 instead of splitting mid-word. Shortcut: a fluid step DESIGN.md
       // has not named yet; promote it to a `type-*` role if a second h1 needs it.
-      hero: 'type-display [overflow-wrap:anywhere] max-[400px]:type-page-title max-[400px]:text-[length:min(2.5rem,10vw)]',
+      // From `lg` the brand name shares a split column with the gallery, so it
+      // steps to the page-title role: the fluid display step reached 76px
+      // there and broke 「劉一刀手工／鞋」 mid-word (round-2 integration).
+      hero: 'type-display [overflow-wrap:anywhere] max-[400px]:type-page-title max-[400px]:text-[length:min(2.5rem,10vw)] lg:type-page-title',
       pageTitle: 'type-section',
       pageTitleLarge: 'type-page-title',
       pageSubtitle: 'type-body',

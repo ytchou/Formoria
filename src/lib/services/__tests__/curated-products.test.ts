@@ -490,20 +490,27 @@ describe("getPublishedCuratedProductsForBrand", () => {
       data: [
         productRow({
           key: "unpositioned-newer",
+          image_url: "/i/curated-products/unpositioned-newer.webp",
           product_position: null,
           created_at: "2026-08-15T00:00:00Z",
         }),
         productRow({
           key: "zeta",
+          image_url: "/i/curated-products/zeta.webp",
           product_position: null,
           created_at: "2026-08-14T00:00:00Z",
         }),
         productRow({
           key: "alpha",
+          image_url: "/i/curated-products/alpha.webp",
           product_position: null,
           created_at: "2026-08-14T00:00:00Z",
         }),
-        productRow({ key: "positioned", product_position: 1 }),
+        productRow({
+          key: "positioned",
+          image_url: "/i/curated-products/positioned.webp",
+          product_position: 1,
+        }),
       ],
     });
 
@@ -528,12 +535,14 @@ describe("getPublishedCuratedProductsForBrand", () => {
         productRow({
           id: "aaaaaaaa-0000-0000-0000-000000000000",
           key: "unplaced",
+          image_url: "/i/curated-products/unplaced.webp",
           created_at: "2026-08-15T00:00:00Z",
           curated_product_selections: [],
         }),
         productRow({
           id: "bbbbbbbb-0000-0000-0000-000000000000",
           key: "placed",
+          image_url: "/i/curated-products/placed.webp",
           created_at: "2026-08-14T00:00:00Z",
           curated_product_selections: [
             {

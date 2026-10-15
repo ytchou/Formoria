@@ -46,11 +46,11 @@ import {
   type CuratedProductProposalState,
   type ExistingCuratedProduct,
 } from "@/lib/services/curated-products/proposal-diff";
+import type { SaveSubmissionReviewInput } from "@/lib/services/submissions";
 import type {
-  SaveSubmissionReviewInput,
   SubmissionReviewData,
   SubmissionReviewImage,
-} from "@/lib/services/submissions";
+} from "@/lib/services/submission-review-data";
 import { deriveSubcategoriesEn } from "@/lib/services/subcategories";
 import { cn } from "@/lib/utils";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
@@ -59,6 +59,7 @@ import {
   type OnlineStoreCamelField,
   type OnlineStoreKey,
 } from "@/lib/brands/online-stores";
+import { isRecord } from "@/lib/utils/is-record";
 
 const EMPTY_SELECT_VALUE = "__none";
 
@@ -1795,10 +1796,6 @@ function parseReputationSummary(value: unknown): {
     textEn: nonEmptyString(value.text_en) ?? nonEmptyString(value.textEn),
     sources,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function nonEmptyString(value: unknown): string | null {

@@ -15,7 +15,6 @@ import {
   matchSubcategory,
   materialBySlug,
   normalizeSubcategoryKey,
-  resolveSubcategorySlugs,
   subcategoryBySlug,
   subcategoryLabel,
   deriveCategoryLabel,
@@ -291,31 +290,6 @@ describe('subcategoryBySlug', () => {
 
   it('returns null for unknown slugs', () => {
     expect(subcategoryBySlug('not-a-slug')).toBeNull()
-  })
-})
-
-describe('resolveSubcategorySlugs', () => {
-  it('keeps only slugs belonging to the given L1 category', () => {
-    const subs = resolveSubcategorySlugs('bags-accessories', [
-      'clasp-frame-bags',
-      'tea',
-      'bogus',
-    ])
-    expect(subs.map((s) => s.nameZh)).toEqual(['口金包'])
-  })
-
-  it('preserves input order and removes duplicate slugs', () => {
-    const subs = resolveSubcategorySlugs('bags-accessories', [
-      'tote-bags',
-      'clasp-frame-bags',
-      'tote-bags',
-    ])
-    expect(subs.map((s) => s.slug)).toEqual(['tote-bags', 'clasp-frame-bags'])
-  })
-
-  it('returns [] when category is null or slugs empty', () => {
-    expect(resolveSubcategorySlugs(null, ['clasp-frame-bags'])).toEqual([])
-    expect(resolveSubcategorySlugs('bags-accessories', [])).toEqual([])
   })
 })
 

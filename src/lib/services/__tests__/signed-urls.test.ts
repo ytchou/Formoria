@@ -15,8 +15,8 @@ import {
 import {
   attachSignedSubmissionImageUrls,
   submissionImageStorageKey,
-  type SubmissionReviewImage,
 } from "@/lib/services/submissions";
+import type { SubmissionReviewImage } from "@/lib/services/submission-review-data";
 
 function fakeSigner(): { sign: CreateSignedUrlsFn; batches: string[][] } {
   const batches: string[][] = [];

@@ -168,28 +168,6 @@ export function toAcquireCarry(result: AcquirePhaseOutput | {
 }
 
 // ---------------------------------------------------------------------------
-// Carry size assertion
-// ---------------------------------------------------------------------------
-
-const CARRY_WARN_BYTES = 65_536 // 64 KB
-
-/**
- * Warn (never truncate) when a carry exceeds 64 KB of serialized UTF-8.
- */
-export function assertCarryBounded(
-  carry: unknown,
-  logger: { warn: (msg: string) => void },
-): void {
-  const bytes = Buffer.byteLength(JSON.stringify(carry), 'utf8')
-  if (bytes > CARRY_WARN_BYTES) {
-    logger.warn(
-      `Phase carry exceeds ${CARRY_WARN_BYTES} bytes (${bytes} bytes). ` +
-      'Review the carry shape — large carries slow upserts and bloat the table.',
-    )
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Injectable store interface
 // ---------------------------------------------------------------------------
 
@@ -265,16 +243,6 @@ export async function latestPhaseOutputs(
     }
   }
   return result
-}
-
-/**
- * Non-dry-run rows that have not been persisted yet.
- */
-export async function listUnpersistedOutputs(
-  store: PhaseOutputStore,
-  target: EnrichmentTarget,
-): Promise<PhaseOutputRow[]> {
-  return store.reader.unpersisted(target)
 }
 
 // ---------------------------------------------------------------------------

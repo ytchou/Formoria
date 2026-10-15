@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { buildAlternates } from "@/lib/seo/alternates";
-import type { Locale } from "@/lib/seo/alternates";
-import { buildOpenGraph } from "@/lib/seo/open-graph";
+import { buildPageMetadata } from "@/lib/seo/page-metadata";
 import { Link } from "@/i18n/navigation";
 import { BrandCard } from "@/components/brands/brand-card";
 import { buttonVariants } from "@/components/ui/button";
@@ -11,6 +9,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { routes } from "@/lib/routes";
 import { getRandomBrands } from "@/lib/services/brands";
+import { splitTrustLabel } from "@/lib/text/split-trust-label";
 
 // Bounds the edge copy to an hour under the Cloudflare HTML cache rule
 // (DEV-1961); without it Next sends s-maxage=31536000.
@@ -25,29 +24,14 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
-  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations("brandsJoin");
-  const title = t("metaTitle");
-  const description = t("metaDescription");
-  const { canonical, languages } = buildAlternates(
-    "/brands/join",
-    safeLocale,
-  );
-  const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
-  const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
 
-  return {
-    title,
-    description,
-    alternates: { canonical, languages },
-    ...buildOpenGraph({
-      title,
-      description,
-      url: canonical,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-  };
+  return buildPageMetadata({
+    locale,
+    path: "/brands/join",
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  });
 }
 
 const VALUE_PROP_KEYS = [1, 2, 3] as const;
@@ -157,10 +141,7 @@ export default async function BrandsJoinPage({ params }: PageProps) {
           </div>
           <dl className="space-y-6">
             {TRUST_LABEL_KEYS.map((key) => {
-              const text = t(key);
-              const dashIndex = text.indexOf(" — ");
-              const term = dashIndex >= 0 ? text.slice(0, dashIndex) : text;
-              const desc = dashIndex >= 0 ? text.slice(dashIndex + 3) : null;
+              const { term, description: desc } = splitTrustLabel(t(key));
               return (
                 <div key={key}>
                   <dt className="type-body font-semibold">{term}</dt>

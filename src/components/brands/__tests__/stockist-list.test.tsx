@@ -413,9 +413,11 @@ describe("StockistList", () => {
     ).toBeNull();
     // The confirmed marker is neutral: no status colour outside the palette.
     expect(container.innerHTML).not.toContain("verified-green");
+    // surface-deep, not surface: the list sits on the where-to-buy surface
+    // band (BD-01), where a surface disc would vanish.
     expect(
       (confirmedRow as HTMLElement).querySelector('[aria-hidden="true"]'),
-    ).toHaveClass("bg-surface", "text-ink");
+    ).toHaveClass("bg-surface-deep", "text-ink");
   });
 
   it("lays entries out up to three columns", () => {

@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/lib/observability/report-error";
 import { NextResponse } from "next/server";
 import { postSlackAlert } from "@/lib/adapters/alerting/slack";
 import { withAuditScope } from "@/lib/audit/scope";
@@ -102,7 +102,7 @@ export const POST = withAuditScope(async (req: Request) => {
       // `postSlackAlert` throws on a non-2xx webhook response. The reading is
       // already in the log and in the response body, so a failed notification
       // must not turn a successful check into a 500.
-      Sentry.captureException(notifyError, {
+      reportError(notifyError, {
         tags: { scope: "cron", job: "egress-anomaly-check", step: "notify" },
       });
       console.error(
@@ -126,7 +126,7 @@ export const POST = withAuditScope(async (req: Request) => {
       slackSent,
     });
   } catch (err) {
-    Sentry.captureException(err, {
+    reportError(err, {
       tags: { scope: "cron", job: "egress-anomaly-check" },
     });
     console.error(

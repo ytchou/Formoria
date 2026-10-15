@@ -220,7 +220,7 @@ PHASE_CHECK_REMEDIATION="apply ${PHASE_CHECK_MIGRATION} with pnpm db:migrate —
 
 db_url() {
   local var
-  for var in SUPABASE_DB_URL DATABASE_URL HEALTH_AGENT_READ_DATABASE_URL; do
+  for var in SUPABASE_DB_URL DATABASE_URL; do
     if [ -n "${!var:-}" ]; then
       echo "${!var}"
       return 0

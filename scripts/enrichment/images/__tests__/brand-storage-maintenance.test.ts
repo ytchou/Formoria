@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildReferenceSet,
   categorizeObjects,
+  findRowsWithMissingObjects,
   isMissingTableError,
   parseTargetedPurgeKeys,
   planTargetedPurge,
@@ -471,5 +472,29 @@ describe('parseTargetedPurgeKeys', () => {
       'brands/brand-id/from-path.webp',
       'brands/brand-id/from-url.webp',
     ])
+  })
+})
+
+describe('findRowsWithMissingObjects (BD-20)', () => {
+  type Row = { id: string; key: string | null }
+  const keyOf = (row: Row) => row.key
+
+  it('returns only rows whose referenced object is not listed', () => {
+    const rows: Row[] = [
+      { id: 'present', key: 'brands/b1/live.webp' },
+      { id: 'missing', key: 'brands/b1/gone.webp' },
+      { id: 'private-present', key: 'submissions/s1/hero.png' },
+    ]
+    const listed = new Set(['brands/b1/live.webp', 'submissions/s1/hero.png'])
+
+    expect(
+      findRowsWithMissingObjects(rows, keyOf, listed).map((row) => row.id),
+    ).toEqual(['missing'])
+  })
+
+  it('never reports a row with no storage key', () => {
+    expect(
+      findRowsWithMissingObjects([{ id: 'external', key: null }], keyOf, new Set()),
+    ).toEqual([])
   })
 })

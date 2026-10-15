@@ -17,6 +17,26 @@ describe("admin redirects", () => {
   });
 });
 
+describe("legacy admin page stubs", () => {
+  it.each([
+    ["/admin/catalog", "/admin/brands"],
+    ["/admin/catalog/brands", "/admin/brands"],
+    ["/admin/review-queue", "/admin/submissions"],
+    ["/admin/review-queue/submissions", "/admin/submissions"],
+    ["/admin/review-queue/moderation", "/admin/moderation"],
+    ["/admin/signals", "/admin/reports"],
+    ["/admin/signals/reports", "/admin/reports"],
+  ])("hops %s to %s with a temporary redirect", async (source, destination) => {
+    const redirects = await nextConfig.redirects?.();
+    const rule = redirects?.find((redirect) => redirect.source === source);
+
+    // DEV-2029 replaced the page-level redirect stubs with config rules. They
+    // stay temporary (307) so a bookmarked hop is never cached forever.
+    expect(rule?.destination).toBe(destination);
+    expect(rule?.permanent).toBe(false);
+  });
+});
+
 describe("removed admin claim routes", () => {
   it("hops /admin/claim-requests to /admin with a temporary redirect", async () => {
     const redirects = await nextConfig.redirects?.();

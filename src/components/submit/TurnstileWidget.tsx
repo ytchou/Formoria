@@ -11,6 +11,17 @@ type TurnstileRenderOptions = {
   'expired-callback'?: () => void
   theme?: 'light' | 'dark' | 'auto'
   language?: string
+  size?: TurnstileSize
+}
+
+type TurnstileSize = 'normal' | 'compact' | 'flexible'
+
+// 'flexible' fills its container but has a 300px floor; 'compact' (150x140) is the
+// only size that fits a narrower column without forcing horizontal scroll (WCAG 1.4.10).
+const TURNSTILE_FLEXIBLE_MIN_WIDTH = 300
+
+export function turnstileSizeFor(width: number): TurnstileSize {
+  return width < TURNSTILE_FLEXIBLE_MIN_WIDTH ? 'compact' : 'flexible'
 }
 
 declare global {
@@ -35,12 +46,18 @@ type CallbackRefs = {
 }
 
 // One options literal for both render paths (the effect, and Script onLoad on first load).
+// Size is chosen once, from the container width at render time. Ceiling: a later resize
+// (e.g. device rotation) does not re-render the widget, so it keeps its first size.
+// Upgrade path: observe the container with a ResizeObserver and remove + re-render the
+// widget when its width crosses TURNSTILE_FLEXIBLE_MIN_WIDTH.
 function buildRenderOptions(
   siteKey: string,
   language: string,
+  containerWidth: number,
   refs: CallbackRefs,
 ): TurnstileRenderOptions {
   return {
+    size: turnstileSizeFor(containerWidth),
     sitekey: siteKey,
     callback: (token: string) => refs.onSuccess.current(token),
     'error-callback': () => refs.onError.current?.(),
@@ -71,7 +88,7 @@ export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidge
 
     widgetIdRef.current = window.turnstile.render(
       containerRef.current,
-      buildRenderOptions(siteKey, language, {
+      buildRenderOptions(siteKey, language, containerRef.current.clientWidth, {
         onSuccess: onSuccessRef,
         onError: onErrorRef,
         onExpire: onExpireRef,
@@ -98,7 +115,7 @@ export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidge
           if (!containerRef.current || !window.turnstile || widgetIdRef.current) return
           widgetIdRef.current = window.turnstile.render(
             containerRef.current,
-            buildRenderOptions(siteKey, language, {
+            buildRenderOptions(siteKey, language, containerRef.current.clientWidth, {
               onSuccess: onSuccessRef,
               onError: onErrorRef,
               onExpire: onExpireRef,
@@ -106,7 +123,7 @@ export function TurnstileWidget({ onSuccess, onError, onExpire }: TurnstileWidge
           )
         }}
       />
-      <div ref={containerRef} />
+      <div ref={containerRef} className="w-full" />
     </>
   )
 }
