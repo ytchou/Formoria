@@ -36,6 +36,7 @@ import {
 import { MasonryGrid } from "@/components/brands/masonry-grid";
 import { BrandCard } from "@/components/brands/brand-card";
 import { Pagination } from "@/components/brands/pagination";
+import { ResultsHeading } from "@/components/brands/results-heading";
 import { SortSelect } from "@/components/brands/sort-select";
 import {
   SearchEmptyState,
@@ -547,6 +548,9 @@ export async function DirectoryView({
 
             <PendingResults>
               <SavedBrandsProvider>
+                <ResultsHeading>
+                  {t("resultsHeading", { count: totalCount })}
+                </ResultsHeading>
                 {brands.length === 0 ? (
                   <SearchEmptyState
                     activeFilters={activeFilters}

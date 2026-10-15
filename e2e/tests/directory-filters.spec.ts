@@ -111,7 +111,7 @@ async function firstBrandName(page: Page): Promise<string> {
 function brandSearch(page: Page): { box: Locator; submit: Locator } {
   const search = page.getByRole("main").getByRole("search", { name: "搜尋品牌" });
   return {
-    box: search.getByRole("searchbox", { name: "搜尋品牌" }),
+    box: search.getByRole("combobox", { name: "搜尋品牌" }),
     // exact: the clear button (清除搜尋) also contains 搜尋 once the field has text.
     submit: search.getByRole("button", { name: "搜尋", exact: true }),
   };

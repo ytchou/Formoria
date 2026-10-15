@@ -126,7 +126,7 @@ test.describe.serial("Public brand data boundary", () => {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
-    const searchbox = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("searchbox", { name: "搜尋品牌" });
+    const searchbox = page.getByRole("main").getByRole("search", { name: "搜尋品牌" }).getByRole("combobox", { name: "搜尋品牌" });
     await searchbox.fill(searchToken);
     await searchbox.press("Enter");
     await expect(page).toHaveURL((url) => {

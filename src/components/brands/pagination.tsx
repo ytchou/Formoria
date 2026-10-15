@@ -1,12 +1,14 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { Loader2 } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import { trackDirectoryPageNavigated } from "@/lib/analytics";
 import { getPageRange } from "@/lib/pagination";
 import { parseCommaParam } from "@/lib/seo/directory-filters";
+import { RESULTS_HEADING_ID } from "./results-heading";
 
 interface PaginationProps {
   totalCount: number;
@@ -30,7 +32,7 @@ function buildPageUrl(
 }
 
 const navLinkClass =
-  "relative inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "relative inline-flex min-h-12 items-center justify-center gap-1 rounded-control px-3 type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 const pageLinkClass =
   "relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-control type-nav text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
@@ -54,6 +56,31 @@ function getPageDirection(
   return "jump";
 }
 
+/**
+ * The links keep `scroll={false}` (Next would otherwise jump to the page top),
+ * so after a pager click the reader would be left by the footer. Once the new
+ * page renders, move them to the results heading instead. Only a pager click
+ * arms this: a filter or sort change also resets `currentPage`, and those keep
+ * the results in place (DESIGN §7b). The scroll is always instant, never
+ * smooth, so `prefers-reduced-motion` needs no branch.
+ */
+function usePagerFocus(currentPage: number) {
+  const pending = useRef(false);
+
+  useEffect(() => {
+    if (!pending.current) return;
+    pending.current = false;
+    const heading = document.getElementById(RESULTS_HEADING_ID);
+    if (!heading) return;
+    heading.scrollIntoView({ block: "start" });
+    heading.focus({ preventScroll: true });
+  }, [currentPage]);
+
+  return () => {
+    pending.current = true;
+  };
+}
+
 export function Pagination({
   totalCount,
   currentPage,
@@ -63,6 +90,7 @@ export function Pagination({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const totalPages = Math.ceil(totalCount / pageSize);
+  const armPagerFocus = usePagerFocus(currentPage);
 
   if (totalPages <= 1) return null;
 
@@ -89,26 +117,33 @@ export function Pagination({
           rel={rel}
           prefetch={false}
           scroll={false}
-          onClick={() =>
-            trackDirectoryPageNavigated(currentPage - 1, "prev", totalPages)
-          }
+          onClick={() => {
+            armPagerFocus();
+            trackDirectoryPageNavigated(currentPage - 1, "prev", totalPages);
+          }}
           data-ph-no-autocapture
         >
+          <ChevronLeft aria-hidden="true" className="size-4" />
           {t("pagination.previous")}
           <PaginationLinkStatus />
         </Link>
       ) : (
         <span
           aria-disabled="true"
-          className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50"
+          className="inline-flex min-h-12 items-center justify-center gap-1 rounded-control px-3 type-nav text-ink-muted/50"
         >
+          <ChevronLeft aria-hidden="true" className="size-4" />
           {t("pagination.previous")}
         </span>
       )}
 
       {/* Below `sm` the number list would wrap to a second line, so it
           collapses to one position line between previous and next. */}
-      <span className="inline-flex min-h-12 items-center px-2 type-nav tabular-nums text-ink-soft sm:hidden">
+      <span
+        role="status"
+        aria-live="polite"
+        className="inline-flex min-h-12 items-center px-2 type-nav tabular-nums text-ink-soft sm:hidden"
+      >
         {t("pagination.status", { page: currentPage, total: totalPages })}
       </span>
 
@@ -148,13 +183,14 @@ export function Pagination({
             rel={rel}
             prefetch={false}
             scroll={false}
-            onClick={() =>
+            onClick={() => {
+              armPagerFocus();
               trackDirectoryPageNavigated(
                 page,
                 getPageDirection(page, currentPage),
                 totalPages,
-              )
-            }
+              );
+            }}
             data-ph-no-autocapture
           >
             {page}
@@ -173,20 +209,23 @@ export function Pagination({
           rel={rel}
           prefetch={false}
           scroll={false}
-          onClick={() =>
-            trackDirectoryPageNavigated(currentPage + 1, "next", totalPages)
-          }
+          onClick={() => {
+            armPagerFocus();
+            trackDirectoryPageNavigated(currentPage + 1, "next", totalPages);
+          }}
           data-ph-no-autocapture
         >
           {t("pagination.next")}
+          <ChevronRight aria-hidden="true" className="size-4" />
           <PaginationLinkStatus />
         </Link>
       ) : (
         <span
           aria-disabled="true"
-          className="inline-flex min-h-12 items-center justify-center rounded-control px-3 type-nav text-ink-muted/50"
+          className="inline-flex min-h-12 items-center justify-center gap-1 rounded-control px-3 type-nav text-ink-muted/50"
         >
           {t("pagination.next")}
+          <ChevronRight aria-hidden="true" className="size-4" />
         </span>
       )}
     </nav>
