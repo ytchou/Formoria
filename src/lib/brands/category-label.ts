@@ -2,6 +2,7 @@ import {
   L1_CATEGORIES,
   isVisibleCategory,
   subcategoryBySlug,
+  subcategoryLabel,
 } from "@/lib/taxonomy/ontology";
 
 function findL1Category(value: string) {
@@ -60,7 +61,8 @@ export function getBrandSubcategoryLabels(
   const isEnglish = locale.startsWith("en");
   return brand.subcategories.map((stored, index) => {
     const subcategory = subcategoryBySlug(stored);
-    if (subcategory) return isEnglish ? subcategory.nameEn : subcategory.nameZh;
+    if (subcategory)
+      return subcategoryLabel(subcategory, isEnglish ? "en" : "zh-TW");
     if (!isEnglish) return stored;
     return brand.subcategoriesEn?.[index]?.trim() || stored;
   });

@@ -16,6 +16,7 @@ import {
   L1_CATEGORIES,
   VISIBLE_L1_CATEGORIES,
   resolveDirectorySubcategorySlugs,
+  subcategoryLabel,
 } from "@/lib/taxonomy/ontology";
 import {
   buildBreadcrumbJsonLd,
@@ -210,7 +211,7 @@ export async function DirectoryView({
   }
   const subcategoryOptions = subcategoriesWithCounts.map((subcategory) => ({
     slug: subcategory.slug,
-    label: safeLocale === "zh-TW" ? subcategory.nameZh : subcategory.nameEn,
+    label: subcategoryLabel(subcategory, safeLocale),
     count: subcategory.count,
     // Lets the sidebar set the parent L1 when a 子分類 is picked under 全部.
     category: subcategory.category,
@@ -290,8 +291,7 @@ export async function DirectoryView({
     });
   }
   for (const subcategory of resolvedSubs) {
-    const value =
-      safeLocale === "zh-TW" ? subcategory.nameZh : subcategory.nameEn;
+    const value = subcategoryLabel(subcategory, safeLocale);
     const remainingSubs = resolvedSubs.filter(
       (item) => item.slug !== subcategory.slug,
     );
@@ -394,10 +394,7 @@ export async function DirectoryView({
         ...(activeSubcategory
           ? [
               {
-                label:
-                  safeLocale === "zh-TW"
-                    ? activeSubcategory.nameZh
-                    : activeSubcategory.nameEn,
+                label: subcategoryLabel(activeSubcategory, safeLocale),
               },
             ]
           : []),
