@@ -220,11 +220,11 @@ describe("buildBrandDetailView", () => {
         { id: "about", labelKey: "tabNav.short.about" },
         { id: "featured-in", labelKey: "tabNav.short.featuredIn" },
         { id: "faq", labelKey: "tabNav.short.faq" },
-        { id: "social", labelKey: "tabNav.short.social" },
       ]);
     });
 
-    it("keeps only where-to-buy and social for a sparse brand", () => {
+    // Social profiles render inside where-to-buy, so there is no #social entry.
+    it("keeps only where-to-buy for a sparse brand", () => {
       const view = buildBrandDetailView(
         buildInput({
           brand: buildBrand({ description: null }),
@@ -235,7 +235,6 @@ describe("buildBrandDetailView", () => {
       );
       expect(view.sections.map((section) => section.id)).toEqual([
         "where-to-buy",
-        "social",
       ]);
     });
   });
@@ -316,7 +315,7 @@ describe("buildBrandDetailView", () => {
         "shopee",
         "instagram",
       ]);
-      // Where-to-buy and social still list every channel.
+      // Where-to-buy still lists every channel, social included.
       expect(rich.links.channels.purchase).toHaveLength(3);
       expect(rich.links.channels.social).toHaveLength(2);
     });

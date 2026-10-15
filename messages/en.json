@@ -327,8 +327,7 @@
         "selectedProducts": "Products",
         "whereToBuy": "Where to buy",
         "featuredIn": "Featured",
-        "faq": "FAQ",
-        "social": "Social"
+        "faq": "FAQ"
       }
     },
     "colophon": {
@@ -384,8 +383,8 @@
       "instagramCopied": "Link copied — paste it into your story or bio"
     },
     "links": {
-      "socialPlatforms": "Social platforms",
       "onlineStores": "Online stores",
+      "officialSocial": "Official social accounts",
       "otherLinks": "Other links",
       "instagram": "Instagram",
       "threads": "Threads",
@@ -396,7 +395,6 @@
       "shopee": "Shopee",
       "myship": "7-ELEVEN MyShip",
       "noChannels": "No online store links yet.",
-      "noSocialLinks": "No social links yet.",
       "correctionPrompt": "Know another place to buy?",
       "correctionAction": "Tell us",
       "correctionPurchase": "Online store link",

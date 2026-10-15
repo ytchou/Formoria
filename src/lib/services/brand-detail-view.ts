@@ -65,8 +65,7 @@ type BrandSectionId =
   | "where-to-buy"
   | "about"
   | "featured-in"
-  | "faq"
-  | "social";
+  | "faq";
 
 type BrandSectionEntry = {
   id: BrandSectionId;
@@ -288,9 +287,8 @@ export type BrandDetailView = {
  * Most route rows the hero's facts cell holds (channels plus in-page jumps).
  * At 1440 four rows bring a sparse brand's column level with the gallery,
  * while six channels and two jumps ran ~220px past it on a rich brand. Every
- * channel still lists in where-to-buy or social, so a capped one is never
- * lost. Fixed count; derive it from the gallery height if the hero frame
- * changes (BD-08).
+ * channel still lists in where-to-buy, so a capped one is never lost. Fixed
+ * count; derive it from the gallery height if the hero frame changes (BD-08).
  */
 const HERO_ROUTE_ROWS_MAX = 4;
 
@@ -348,8 +346,8 @@ export function buildBrandDetailView(
           } as const,
         ]
       : []),
-    // Where-to-buy and social render unconditionally — an empty channel set
-    // shows a muted 「還沒有…」 line rather than disappearing.
+    // Where-to-buy renders unconditionally: with no online store it shows a
+    // muted line, and its social block drops out without comment.
     { id: "where-to-buy", labelKey: "tabNav.short.whereToBuy" },
     ...(description
       ? [{ id: "about", labelKey: "tabNav.short.about" } as const]
@@ -360,7 +358,6 @@ export function buildBrandDetailView(
     ...(input.faqItemCount > 0
       ? [{ id: "faq", labelKey: "tabNav.short.faq" } as const]
       : []),
-    { id: "social", labelKey: "tabNav.short.social" },
   ];
 
   const breadcrumb: BreadcrumbItem[] = [

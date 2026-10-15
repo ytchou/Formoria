@@ -2,17 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
-import {
-  ArrowUpRight,
-  AtSign,
-  Globe,
-  Link,
-  MessageCircle,
-  Package,
-  ShoppingCart,
-  Store,
-} from "lucide-react";
-import { InstagramIcon } from "@/components/icons/instagram-icon";
+import { ArrowUpRight, Link } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -39,20 +29,6 @@ import { ProvideStockistInfoDialog } from "./provide-stockist-info-dialog";
 /** What the click tracking needs to know about the brand. */
 type TrackedBrand = { id: string; slug: string };
 
-function FacebookIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M14 8h3V4h-3c-3.31 0-5 1.96-5 5v2H6v4h3v7h4v-7h3.24L17 11h-4V9c0-.68.32-1 1-1z" />
-    </svg>
-  );
-}
-
 type LinkSlot = {
   label: string;
   url: string;
@@ -75,19 +51,6 @@ const destinationLinkClassName = buttonVariants({
   size: "compact",
   className: "min-w-32 max-w-full justify-center gap-2",
 });
-
-// Icons are ink (`text-current`): DESIGN.md §2 allows no palette exceptions,
-// platform brand colours included.
-const DESTINATION_PRESENTATION = {
-  website: { icon: <Globe className="size-4 text-current" /> },
-  pinkoi: { icon: <Store className="size-4 text-current" /> },
-  shopee: { icon: <ShoppingCart className="size-4 text-current" /> },
-  myship: { icon: <Package className="size-4 text-current" /> },
-  instagram: { icon: <InstagramIcon className="size-4 text-current" /> },
-  threads: { icon: <AtSign className="size-4 text-current" /> },
-  facebook: { icon: <FacebookIcon className="size-4 text-current" /> },
-  line: { icon: <MessageCircle className="size-4 text-current" /> },
-} satisfies Record<BrandVisitLinkKind, { icon: ReactNode }>;
 
 /**
  * An external brand link that records the channel it routes to: the one
@@ -133,8 +96,8 @@ const CHANNEL_ROW_CLASS_NAME =
 
 /**
  * Brand channels as hairline-divided rows (BD-06): the channel name, its
- * destination host, and an out arrow. The hero route rows and the
- * where-to-buy online list are both this list, fed from the same slots
+ * destination host, and an out arrow. The hero route rows and where-to-buy's
+ * online and social lists are all this list, fed from the same slots
  * (`buildBrandChannelSlots`).
  */
 export function BrandChannelRows({
@@ -238,36 +201,6 @@ function LinkList({ slots, brand, className, note }: LinkListProps) {
 }
 
 /**
- * The social section's body; the page sets it in `BrandSection` (#social).
- * `slots` are `buildBrandChannelSlots().social`.
- */
-export function BrandSocialLinks({
-  brand,
-  slots,
-}: {
-  brand: TrackedBrand;
-  slots: BrandChannelSlot[];
-}) {
-  const t = useTranslations("brandDetail");
-  const socialSlots: LinkSlot[] = slots.map((slot) => ({
-    label: t(slot.labelKey),
-    url: slot.url,
-    linkType: slot.kind,
-    ...DESTINATION_PRESENTATION[slot.kind],
-  }));
-
-  // The section nav always lists #social, so the section renders even empty.
-  return (
-    <LinkList
-      slots={socialSlots}
-      brand={brand}
-      className="mt-4"
-      note={socialSlots.length === 0 ? t("links.noSocialLinks") : null}
-    />
-  );
-}
-
-/**
  * The online-store block under where-to-buy's h2, with its own h3: the same
  * rows the hero carries, from `buildBrandChannelSlots().purchase`. A store we
  * hold no link for is left out without comment (BD-COPY-03); only a brand with
@@ -293,6 +226,33 @@ export function BrandPurchaseLinks({
       ) : (
         <p className="mt-4 type-metadata">{t("links.noChannels")}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * The official-social block under where-to-buy's h2, after the online stores
+ * and before the stockist list, so a long list never buries it. Rows from
+ * `buildBrandChannelSlots().social`. A brand with no social profile renders
+ * nothing: a missing channel is left out without comment (BD-COPY-03).
+ */
+export function BrandSocialChannels({
+  brand,
+  slots,
+}: {
+  brand: TrackedBrand;
+  slots: BrandChannelSlot[];
+}) {
+  const t = useTranslations("brandDetail");
+  if (slots.length === 0) return null;
+
+  // A block, not a nested <section>: it sits inside the where-to-buy section.
+  return (
+    <div>
+      <Typography as="h3" variant="cardTitle">
+        {t("links.officialSocial")}
+      </Typography>
+      <BrandChannelRows brand={brand} slots={slots} className="mt-4" />
     </div>
   );
 }
