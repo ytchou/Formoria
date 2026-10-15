@@ -335,8 +335,7 @@
         "selectedProducts": "商品",
         "whereToBuy": "哪裡買",
         "featuredIn": "出現在",
-        "faq": "問答",
-        "social": "社群"
+        "faq": "問答"
       }
     },
     "colophon": {
@@ -393,8 +392,8 @@
       "instagramCopied": "已複製連結，貼到限時動態或個人簡介"
     },
     "links": {
-      "socialPlatforms": "社群平台",
       "onlineStores": "線上購買",
+      "officialSocial": "官方社群",
       "otherLinks": "其他連結",
       "instagram": "Instagram",
       "threads": "Threads",
@@ -405,7 +404,6 @@
       "shopee": "蝦皮購物",
       "myship": "7-ELEVEN 賣貨便",
       "noChannels": "還沒有線上購買的連結。",
-      "noSocialLinks": "還沒有社群連結。",
       "correctionPrompt": "知道其他通路？",
       "correctionAction": "告訴我們",
       "correctionPurchase": "線上購買連結",
