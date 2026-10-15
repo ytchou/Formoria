@@ -181,10 +181,8 @@ export default async function StyleHubPage({ params, searchParams }: PageProps) 
             <HubTrailGrid
               trails={view.trails.map(toTrailCard)}
               peeks={toTrailPeeks(peeks)}
-              labels={{
-                eyebrow: tLanding("trails.eyebrow"),
-                cta: tLanding("trails.cta"),
-              }}
+              // No eyebrow: the page h1 is already 主題選物 (DS-20).
+              labels={{ cta: tLanding("trails.cta") }}
             />
           </ChipSwapFade>
         )}
