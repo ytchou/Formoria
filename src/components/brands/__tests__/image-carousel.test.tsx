@@ -57,9 +57,10 @@ const IMAGE_ALTS: BrandImageMeta[] = [
   { isLogo: true },
 ];
 
-function renderCarousel() {
+function renderCarousel(props: { frame?: "square" | "landscape" } = {}) {
   return render(
     <ImageCarousel
+      {...props}
       images={IMAGES}
       alt="Formoria"
       brandId="brand-id"
@@ -101,6 +102,15 @@ describe("ImageCarousel", () => {
     expect(heroBox).not.toHaveClass("aspect-square");
     // No arbitrary-value ratio survives anywhere in the rendered tree.
     expect(container.innerHTML).not.toMatch(/aspect-\[/);
+  });
+
+  it("frames a landscape hero at 4:3 (BD-08)", () => {
+    const { container } = renderCarousel({ frame: "landscape" });
+    const heroBox = container.querySelector("[data-brand-hero]");
+
+    expect(heroBox).toHaveClass("aspect-media-landscape");
+    expect(heroBox).not.toHaveClass("aspect-media");
+    expect(heroBox).toHaveAttribute("data-brand-hero-frame", "landscape");
   });
 
   it("uses the brand-name fallback for alt text", () => {

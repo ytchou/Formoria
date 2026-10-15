@@ -9,7 +9,6 @@ import type {
   BrandStockistCity,
 } from "@/lib/services/brand-detail-view";
 import { Typography } from "@/components/ui/typography";
-import { cn } from "@/lib/utils";
 import { BrandChannelRows } from "./brand-links";
 
 /** Joins short interface parts: 「・」 in zh, a spaced middle dot in en. */
@@ -27,7 +26,7 @@ interface BrandHeaderProps {
   makesLabels?: string[];
   /**
    * Leave city and founding year out of the metadata line because
-   * `BrandHeroFacts` sets them as the colophon (BD2-31).
+   * `BrandColophon` sets them under the story (BD-22).
    */
   omitProvenance?: boolean;
   actionsSlot?: ReactNode;
@@ -110,8 +109,6 @@ export function BrandHeader({
 }
 
 interface BrandHeroFactsProps {
-  cityLabel: string | null;
-  foundingYear: number | null;
   selectedCount: number;
   stockistCount: number;
   /** The cities with the most stockists, most first (`topStockistCities`). */
@@ -124,15 +121,11 @@ interface BrandHeroFactsProps {
 
 /** Whether `BrandHeroFacts` renders anything for these props. */
 export function hasBrandHeroFacts({
-  cityLabel,
-  foundingYear,
   selectedCount,
   stockistCount,
   channels = [],
 }: BrandHeroFactsProps): boolean {
   return (
-    Boolean(cityLabel) ||
-    foundingYear != null ||
     selectedCount > 0 ||
     stockistCount > 0 ||
     channels.length > 0
@@ -140,15 +133,14 @@ export function hasBrandHeroFacts({
 }
 
 /**
- * The lower half of the hero's info column (BD2-04, BD2-31): a provenance
- * colophon — the page's one bold typographic moment, city and founding year
- * set large in 明體 — then the routes out: one row per live brand channel
- * (BD-06), and in-page jump rows to the sections that carry counts. Static:
- * no motion, surface, or shadow.
+ * The lower half of the hero's info column (BD2-04): the routes out, one row
+ * per live brand channel (BD-06), then in-page jump rows to the sections that
+ * carry counts. md and up only: below md the where-to-buy section, straight
+ * after the products, carries the same rows. Static: no motion, surface, or
+ * shadow. The provenance colophon that used to open it is `BrandColophon`,
+ * under the story (BD-22).
  */
 export function BrandHeroFacts({
-  cityLabel,
-  foundingYear,
   selectedCount,
   stockistCount,
   stockistCities = [],
@@ -158,7 +150,6 @@ export function BrandHeroFacts({
   const t = useTranslations("brandDetail");
   const tCities = useTranslations("cities");
   const locale = useLocale();
-  const hasColophon = Boolean(cityLabel) || foundingYear != null;
   const channelRows = trackedBrand ? channels : [];
 
   // 「台中市 5 家・台北市 5 家・看全部 24 家」: the by-city summary names
@@ -195,46 +186,19 @@ export function BrandHeroFacts({
       ? [{ href: "#where-to-buy", label: stockistLabel }]
       : []),
   ];
-  if (!hasColophon && jumps.length === 0 && channelRows.length === 0) {
-    return null;
-  }
+  if (jumps.length === 0 && channelRows.length === 0) return null;
 
   return (
-    // With no colophon only the route rows are left, and those are md-only.
-    <div
-      className={cn(
-        "flex flex-col gap-stack border-t border-rule pt-stack",
-        !hasColophon && "max-md:hidden",
-      )}
-    >
-      {hasColophon ? (
-        <dl className="flex flex-wrap gap-x-10 gap-y-4">
-          {cityLabel ? (
-            <div>
-              <dt className="type-metadata">{t("colophon.city")}</dt>
-              <dd className="type-page-title tabular-nums">{cityLabel}</dd>
-            </div>
-          ) : null}
-          {foundingYear != null ? (
-            <div>
-              <dt className="type-metadata">{t("colophon.founded")}</dt>
-              <dd className="type-page-title tabular-nums">{foundingYear}</dd>
-            </div>
-          ) : null}
-        </dl>
-      ) : null}
-      {/* Below md the where-to-buy section, straight after the products,
-          carries the same rows and the section-nav strip indexes the page. */}
+    <div className="flex flex-col gap-stack border-t border-rule pt-stack max-md:hidden">
       {trackedBrand && channelRows.length > 0 ? (
         <BrandChannelRows
           brand={trackedBrand}
           slots={channelRows}
           ariaLabel={t("heroJump.channels")}
-          className="hidden md:block"
         />
       ) : null}
       {jumps.length > 0 ? (
-        <nav aria-label={t("tabNav.overview")} className="hidden md:block">
+        <nav aria-label={t("tabNav.overview")}>
           <ul className="divide-y divide-rule border-y border-rule">
             {jumps.map((jump) => (
               <li key={jump.href}>
@@ -251,5 +215,34 @@ export function BrandHeroFacts({
         </nav>
       ) : null}
     </div>
+  );
+}
+
+interface BrandColophonProps {
+  /** The founding city: what `brands.city` records (`founding-facts.ts`). */
+  cityLabel: string | null;
+  foundingYear: number | null;
+}
+
+/**
+ * The founding fact under the story (BD-21, BD-22): one sentence,
+ * 「2018 年創立於嘉義市」, at `type-card-title`. It used to be the hero's 40px
+ * colophon, which outranked the lede and repeated its year.
+ */
+export function BrandColophon({ cityLabel, foundingYear }: BrandColophonProps) {
+  const t = useTranslations("brandDetail");
+  const fact =
+    cityLabel && foundingYear != null
+      ? t("colophon.foundedInCityYear", { city: cityLabel, year: foundingYear })
+      : cityLabel
+        ? t("colophon.foundedInCity", { city: cityLabel })
+        : foundingYear != null
+          ? t("label.founded", { year: foundingYear })
+          : null;
+  if (!fact) return null;
+  return (
+    <p className="type-card-title mt-stack tabular-nums" data-brand-colophon>
+      {fact}
+    </p>
   );
 }

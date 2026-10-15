@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { brandImageFill } from '../fill'
+import { brandHeroFrame, brandImageFill } from '../fill'
 
 describe('brandImageFill', () => {
   /*
@@ -61,5 +61,20 @@ describe('brandImageFill', () => {
     expect(brandImageFill({ isLogo: false }, { fit: 'cover' })).toBe(
       'object-cover',
     )
+  })
+})
+
+describe('brandHeroFrame', () => {
+  it('frames a landscape hero at 4:3 and everything else square (BD-08)', () => {
+    expect(brandHeroFrame({ width: 1600, height: 1000 })).toBe('landscape')
+    expect(brandHeroFrame({ width: 1200, height: 1000 })).toBe('square')
+    expect(brandHeroFrame({ width: 1000, height: 1000 })).toBe('square')
+    expect(brandHeroFrame({ width: 800, height: 1200 })).toBe('square')
+  })
+
+  it('keeps the square when the dimensions are unknown', () => {
+    expect(brandHeroFrame(null)).toBe('square')
+    expect(brandHeroFrame({ width: null, height: 900 })).toBe('square')
+    expect(brandHeroFrame({ width: 1600, height: 0 })).toBe('square')
   })
 })

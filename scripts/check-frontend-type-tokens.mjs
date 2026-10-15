@@ -158,9 +158,10 @@ export const allowedMatches = [
     // VIEWPORT CLAMP — caps the image to 70% of the viewport height so tall
     // screens do not produce an oversized square. The `svh` unit is a viewport
     // measure, not a page width; `xl:max-w-none` removes it at wide widths.
+    // The 4:3 frame (BD-08) is the same 70svh height cap stated as a width.
     file: "src/components/brands/image-carousel.tsx",
     names: ["unnamed page width"],
-    values: ["max-w-[70svh]"],
+    values: ["max-w-[70svh]", "max-w-[calc(70svh*4/3)]"],
   },
   {
     // Mobile nav drawer links: `text-base font-medium` is the deliberate

@@ -136,8 +136,8 @@ function correctionDialog(page: Page) {
   return page.getByRole('dialog', { name: CORRECTION_DIALOG_TITLE });
 }
 
-// The hero metadata line under the h1. The seeded brand has a founding year,
-// so the colophon carries it and this line is the category alone (BD2-31).
+// The hero metadata line under the h1: the category, then the founding year
+// unless a story colophon carries it (BD-22).
 // Located by position: the category text also appears in the breadcrumb and
 // the related-brands rail.
 function categoryValue(page: Page) {

@@ -8,6 +8,7 @@ import zh from "../../../../messages/zh-TW.json";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import { buildBrandChannelSlots } from "@/lib/services/brand-detail-view";
 import {
+  BrandColophon,
   BrandHeader,
   BrandHeroFacts,
   hasBrandHeroFacts,
@@ -116,43 +117,52 @@ describe("BrandHeader", () => {
   });
 });
 
+describe("BrandColophon", () => {
+  it("sets the founding city and year as one fact", () => {
+    renderZh(<BrandColophon cityLabel="嘉義市" foundingYear={2018} />);
+
+    expect(screen.getByText("2018 年創立於嘉義市")).toHaveClass(
+      "type-card-title",
+    );
+  });
+
+  it("renders only the facts that exist", () => {
+    const { rerender } = renderZh(
+      <BrandColophon cityLabel="嘉義市" foundingYear={null} />,
+    );
+    expect(screen.getByText("創立於嘉義市")).toBeInTheDocument();
+
+    rerender(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <BrandColophon cityLabel={null} foundingYear={1967} />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText("1967 年創立")).toBeInTheDocument();
+  });
+
+  it("renders nothing without a fact", () => {
+    const { container } = renderZh(
+      <BrandColophon cityLabel={null} foundingYear={null} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("reads as one fact in en", () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <BrandColophon cityLabel="Chiayi City" foundingYear={2018} />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getByText("Founded in Chiayi City in 2018"),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("BrandHeroFacts", () => {
-  it("sets city and founding year as a labelled colophon", () => {
-    renderZh(
-      <BrandHeroFacts
-        cityLabel="台北"
-        foundingYear={2015}
-        selectedCount={0}
-        stockistCount={0}
-      />,
-    );
-
-    expect(screen.getByText(T.colophon.city).tagName).toBe("DT");
-    expect(screen.getByText("台北")).toHaveClass("type-page-title");
-    expect(screen.getByText(T.colophon.founded).tagName).toBe("DT");
-    expect(screen.getByText("2015")).toHaveClass("type-page-title");
-    expect(screen.queryByRole("navigation")).toBeNull();
-  });
-
-  it("renders only the colophon facts that exist", () => {
-    renderZh(
-      <BrandHeroFacts
-        cityLabel={null}
-        foundingYear={2015}
-        selectedCount={0}
-        stockistCount={0}
-      />,
-    );
-
-    expect(screen.queryByText(T.colophon.city)).toBeNull();
-    expect(screen.getByText("2015")).toBeInTheDocument();
-  });
-
   it("links to the sections with counts, and only those", () => {
     renderZh(
       <BrandHeroFacts
-        cityLabel={null}
-        foundingYear={null}
         selectedCount={3}
         stockistCount={0}
       />,
@@ -161,7 +171,7 @@ describe("BrandHeroFacts", () => {
     const nav = screen.getByRole("navigation", { name: T.tabNav.overview });
     expect(nav).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "這個品牌的商品 · 3 件" }),
+      screen.getByRole("link", { name: "精選商品 · 3 件" }),
     ).toHaveAttribute("href", "#selected-products");
     expect(screen.queryByRole("link", { name: /實體通路/ })).toBeNull();
   });
@@ -170,8 +180,6 @@ describe("BrandHeroFacts", () => {
     render(
       <NextIntlClientProvider locale="en" messages={en}>
         <BrandHeroFacts
-          cityLabel={null}
-          foundingYear={null}
           selectedCount={1}
           stockistCount={4}
         />
@@ -179,7 +187,7 @@ describe("BrandHeroFacts", () => {
     );
 
     expect(
-      screen.getByRole("link", { name: "1 product from this brand" }),
+      screen.getByRole("link", { name: "1 featured product" }),
     ).toHaveAttribute("href", "#selected-products");
     expect(screen.getByRole("link", { name: "4 stockists" })).toHaveAttribute(
       "href",
@@ -189,8 +197,6 @@ describe("BrandHeroFacts", () => {
 
   it("renders nothing, and reports nothing, when there are no facts", () => {
     const props = {
-      cityLabel: null,
-      foundingYear: null,
       selectedCount: 0,
       stockistCount: 0,
     };
@@ -199,7 +205,6 @@ describe("BrandHeroFacts", () => {
     expect(container).toBeEmptyDOMElement();
     expect(hasBrandHeroFacts(props)).toBe(false);
     expect(hasBrandHeroFacts({ ...props, stockistCount: 1 })).toBe(true);
-    expect(hasBrandHeroFacts({ ...props, foundingYear: 1998 })).toBe(true);
   });
 
   it("renders for a brand with only channels, md-only", () => {
@@ -213,8 +218,6 @@ describe("BrandHeroFacts", () => {
       socialFacebook: null,
     }).purchase;
     const props = {
-      cityLabel: null,
-      foundingYear: null,
       selectedCount: 0,
       stockistCount: 0,
       channels,
@@ -245,8 +248,6 @@ describe("BrandHeroFacts route rows", () => {
   it("lists every live channel with its host, purchase stores first", () => {
     renderZh(
       <BrandHeroFacts
-        cityLabel="台北"
-        foundingYear={2015}
         selectedCount={0}
         stockistCount={0}
         channels={channels}
@@ -263,15 +264,11 @@ describe("BrandHeroFacts route rows", () => {
     ]);
     expect(links[2]).toHaveAttribute("href", "https://instagram.com/harbor");
     expect(links[0]).toHaveAttribute("target", "_blank");
-    // Below md the where-to-buy section carries the same rows.
-    expect(list).toHaveClass("hidden", "md:block");
   });
 
   it("summarises stockists by city, with see-all only when cities leave some out", () => {
     renderZh(
       <BrandHeroFacts
-        cityLabel={null}
-        foundingYear={null}
         selectedCount={0}
         stockistCount={24}
         stockistCities={[
@@ -291,8 +288,6 @@ describe("BrandHeroFacts route rows", () => {
   it("drops see-all when the cities shown hold every stockist", () => {
     renderZh(
       <BrandHeroFacts
-        cityLabel={null}
-        foundingYear={null}
         selectedCount={0}
         stockistCount={3}
         stockistCities={[{ citySlug: "tainan", count: 3 }]}
@@ -308,8 +303,6 @@ describe("BrandHeroFacts route rows", () => {
     render(
       <NextIntlClientProvider locale="en" messages={en}>
         <BrandHeroFacts
-          cityLabel={null}
-          foundingYear={null}
           selectedCount={0}
           stockistCount={9}
           stockistCities={[

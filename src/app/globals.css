@@ -178,9 +178,14 @@
  * number that scores crop damage during enrichment. It still reads 4/3. Moving
  * it re-ranks every brand's hero image, which is a pipeline change with its own
  * verification, so it is deliberately NOT changed here — see the comment there.
+ *
+ * `aspect-media-landscape` (4:3) is the one other frame, for a brand detail
+ * hero whose own photo is landscape (`brandHeroFrame`, BD-08). It is chosen
+ * per brand from the hero's stored dimensions, never per grid cell.
  */
 @theme {
   --aspect-media: 1 / 1;
+  --aspect-media-landscape: 4 / 3;
 }
 
 @utility scrollbar-none {

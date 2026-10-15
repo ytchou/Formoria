@@ -12,6 +12,7 @@ import {
   onlineStoreMessageKey,
 } from "@/lib/brands/online-stores";
 import { splitLede } from "@/lib/brands/split-lede";
+import { brandHeroFrame, type BrandHeroFrame } from "@/lib/images/fill";
 import { groupStockistsByRegion } from "@/lib/brands/stockist-display";
 import type { BreadcrumbItem } from "@/lib/json-ld";
 import { routes } from "@/lib/routes";
@@ -252,9 +253,9 @@ export type BrandDetailView = {
   breadcrumb: BreadcrumbItem[];
   /** Every rendered section, in page order — the section nav's source. */
   sections: BrandSectionEntry[];
+  /** The hero box's ratio, from the hero image's stored dimensions (BD-08). */
+  heroFrame: BrandHeroFrame;
   heroFacts: {
-    cityLabel: string | null;
-    foundingYear: number | null;
     selectedCount: number;
     stockistCount: number;
     /** The two cities with the most stockists, most first. */
@@ -262,8 +263,14 @@ export type BrandDetailView = {
     /** Every live channel, purchase stores first, for the hero route rows. */
     channels: BrandChannelSlot[];
   };
-  /** The colophon carries city and founding year, so the metadata line drops them. */
-  hasHeroColophon: boolean;
+  /**
+   * The founding fact set under the story (BD-21, BD-22): `brands.city` is the
+   * founding city, so it reads 「2018 年創立於嘉義市」 as one fact. Null without
+   * a story or without either fact; the metadata line then keeps both. When
+   * present the metadata line drops both. The year is null when the lede
+   * already states it.
+   */
+  colophon: { cityLabel: string | null; foundingYear: number | null } | null;
   stockistCount: number;
   visitLink: BrandVisitLink | null;
   canonical: string;
@@ -284,13 +291,39 @@ export type BrandDetailView = {
 };
 
 /**
- * Most route rows the hero's facts cell holds (channels plus in-page jumps).
- * At 1440 four rows bring a sparse brand's column level with the gallery,
- * while six channels and two jumps ran ~220px past it on a rich brand. Every
- * channel still lists in where-to-buy, so a capped one is never lost. Fixed
- * count; derive it from the gallery height if the hero frame changes (BD-08).
+ * Most route rows the hero's facts cell holds (channels plus in-page jumps),
+ * per hero frame. Re-derived for BD-08 at 1440, where the 7/12 gallery column
+ * is 672px wide: the square frame is 672px tall, the 4:3 frame 504px. With the
+ * colophon moved to the story band (BD-22), five rows end a sparse brand's
+ * column 5px above the square frame; under the 4:3 frame three rows ran 41px
+ * past it and two end level. Every channel still lists in where-to-buy, so a
+ * capped one is never lost. Re-measure if the hero frame or the info column
+ * changes.
  */
-const HERO_ROUTE_ROWS_MAX = 4;
+const HERO_ROUTE_ROWS_MAX: Record<BrandHeroFrame, number> = {
+  square: 5,
+  landscape: 2,
+};
+
+/**
+ * The story band's founding fact. A year the lede already states is dropped
+ * rather than printed twice (lid-shoes: 「可追溯至1967年」 above 「1967」).
+ */
+function buildColophon(
+  cityLabel: string | null,
+  foundingYear: number | null,
+  { hasStory, lede }: { hasStory: boolean; lede: string | null },
+): BrandDetailView["colophon"] {
+  if (!hasStory || (!cityLabel && foundingYear == null)) return null;
+  // Both fields can end up null (a year-only brand whose lede names the
+  // year): the colophon then renders nothing, and the metadata line still
+  // leaves the year out.
+  const year =
+    foundingYear != null && !lede?.includes(String(foundingYear))
+      ? foundingYear
+      : null;
+  return { cityLabel, foundingYear: year };
+}
 
 /**
  * Shapes everything the brand detail page renders from data it has already
@@ -328,6 +361,7 @@ export function buildBrandDetailView(
       )
     : null;
 
+  const heroFrame = brandHeroFrame(brand.heroImageMetadata);
   const stockistCount =
     input.stockists.confirmed.length + input.stockists.possible.length;
   const channels = buildBrandChannelSlots(brand);
@@ -408,9 +442,8 @@ export function buildBrandDetailView(
     storyParagraphs,
     breadcrumb,
     sections,
+    heroFrame,
     heroFacts: {
-      cityLabel,
-      foundingYear: brand.foundingYear,
       selectedCount: input.curatedCount,
       stockistCount,
       stockistCities: topStockistCities([
@@ -422,13 +455,16 @@ export function buildBrandDetailView(
         0,
         Math.max(
           0,
-          HERO_ROUTE_ROWS_MAX -
+          HERO_ROUTE_ROWS_MAX[heroFrame] -
             (input.curatedCount > 0 ? 1 : 0) -
             (stockistCount > 0 ? 1 : 0),
         ),
       ),
     },
-    hasHeroColophon: Boolean(cityLabel) || brand.foundingYear != null,
+    colophon: buildColophon(cityLabel, brand.foundingYear, {
+      hasStory: storyParagraphs != null,
+      lede,
+    }),
     stockistCount,
     visitLink: getBrandVisitLink(brand),
     // Same builder generateMetadata uses for <link rel="canonical">, so the

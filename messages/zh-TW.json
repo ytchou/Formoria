@@ -335,18 +335,18 @@
       }
     },
     "colophon": {
-      "city": "所在地",
-      "founded": "創立"
+      "foundedInCityYear": "{year} 年創立於{city}",
+      "foundedInCity": "創立於{city}"
     },
     "heroJump": {
-      "selected": "這個品牌的商品 · {count} 件",
+      "selected": "精選商品 · {count} 件",
       "stockists": "實體通路 · {count} 家",
       "channels": "品牌連結",
       "stockistCity": "{city} {count} 家",
       "stockistsAll": "看全部 {count} 家"
     },
     "selectedProducts": {
-      "heading": "這個品牌的商品",
+      "heading": "精選商品",
       "note": "這裡只列出 {count} 件，不是品牌的完整商品目錄；價格和規格以品牌官網為準。",
       "cta": "（查看商品頁）",
       "unavailable": "商品頁暫時連不上。",
