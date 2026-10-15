@@ -123,7 +123,7 @@ vi.mock("@/components/landing/brand-strip", () => ({
     totalCount,
   }: {
     brands: { id: string; name: string }[];
-    totalCount: number;
+    totalCount: number | null;
   }) => (
     <div data-testid="brand-strip" data-total-count={totalCount}>
       <h2>brands.count</h2>
@@ -566,9 +566,9 @@ describe("landing page zones", () => {
     ).toHaveAttribute("href", "/brands");
   });
 
-  // BrandStrip rounds the count itself (displayBrandCount), so the zones hand
-  // it the exact total; the mission closer carries no count at all.
-  it.each([291, 700, 7])(
+  // The zones hand BrandStrip the exact public count untouched; the mission
+  // closer carries no count at all.
+  it.each([329, 700, 7])(
     "passes the exact brand total %i to BrandStrip only",
     async (totalBrandCount) => {
       const { container } = await renderZones({ totalBrandCount });
@@ -586,7 +586,8 @@ describe("landing page zones", () => {
 
   it("keeps the degraded-render wiring intact", () => {
     const healthy = {
-      exploreResult: { brands: [], totalCount: 0 },
+      exploreResult: { brands: [] },
+      brandStats: { brandCount: 0, categoryCount: 0 },
       curatedProducts: [],
       stories: { ok: true as const },
       trails: { ok: true as const },
@@ -598,6 +599,9 @@ describe("landing page zones", () => {
     expect(isLandingRenderDegraded(healthy)).toBe(false);
 
     expect(isLandingRenderDegraded({ ...healthy, exploreResult: null })).toBe(
+      true,
+    );
+    expect(isLandingRenderDegraded({ ...healthy, brandStats: null })).toBe(
       true,
     );
     expect(isLandingRenderDegraded({ ...healthy, curatedProducts: null })).toBe(
@@ -629,7 +633,8 @@ describe("landing page zones", () => {
 
   it("isLandingRenderDegraded is true when the trail peek read failed", () => {
     const healthy = {
-      exploreResult: { brands: [], totalCount: 0 },
+      exploreResult: { brands: [] },
+      brandStats: { brandCount: 0, categoryCount: 0 },
       curatedProducts: [],
       stories: { ok: true as const },
       trails: { ok: true as const },

@@ -200,7 +200,7 @@
       "cta": "Browse the brand directory"
     },
     "brands": {
-      "count": "{approximate, select, true {More than {count} Taiwanese brands listed} other {{count, plural, one {# Taiwanese brand listed} other {# Taiwanese brands listed}}}}",
+      "count": "{count, plural, one {# Taiwanese brand listed} other {# Taiwanese brands listed}}",
       "pauseMarquee": "Pause brand carousel",
       "playMarquee": "Play brand carousel"
     }

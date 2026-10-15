@@ -5,22 +5,23 @@ import { SectionBandCtaLink } from "@/components/landing/section-band-cta-link";
 import { CONTROL_ICON, FOCUS_RING } from "@/components/ui/control-surface";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
-import { displayBrandCount } from "@/lib/brands/display-brand-count";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
 import { cn } from "@/lib/utils";
 
 type BrandStripProps = {
   brands: PublicBrandCard[];
-  /** Exact directory-wide brand count; rounded here for display. */
-  totalCount: number;
+  /**
+   * Exact public brand count, printed as is. Null (a failed read) or 0 drops
+   * the number and the link reads 看品牌目錄 instead.
+   */
+  totalCount: number | null;
 };
 
 export default async function BrandStrip({
   brands,
   totalCount,
 }: BrandStripProps) {
-  const t = await getTranslations("landing.brands");
-  const shown = displayBrandCount(totalCount);
+  const t = await getTranslations("landing");
 
   return (
     <div>
@@ -38,11 +39,9 @@ export default async function BrandStrip({
               href={routes.brands()}
               label={
                 <>
-                  {/* ICU `select` keys are strings; next-intl's typed values reject a boolean. */}
-                  {t("count", {
-                    count: shown,
-                    approximate: shown < totalCount ? "true" : "false",
-                  })}
+                  {totalCount
+                    ? t("brands.count", { count: totalCount })
+                    : t("missionCloser.cta")}
                   <ArrowRight aria-hidden="true" />
                 </>
               }

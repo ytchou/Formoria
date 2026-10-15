@@ -1609,7 +1609,6 @@ type ExploreRpcParams = {
  */
 type ExploreBrandPoolDeps = {
   rpcCaller?: (params: ExploreRpcParams) => Promise<ExploreBrandPoolRow[]>;
-  countReader?: (categorySlugs: string[]) => Promise<number>;
   brandLoader?: (slugs: string[]) => Promise<Map<string, Brand>>;
 };
 
@@ -1627,26 +1626,6 @@ async function defaultExploreRpcCaller(
 }
 
 /**
- * The corpus count the homepage prints, which the RPC cannot supply: it returns
- * only the ~30 selected rows. Predicates mirror the RPC's exactly, so the
- * printed number and the selectable set describe the same corpus.
- */
-async function defaultExploreCountReader(
-  categorySlugs: string[],
-): Promise<number> {
-  const supabase = createServiceClient();
-  const { count, error } = await excludeTestBrands(
-    supabase
-      .from("brands")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "approved")
-      .in("category", categorySlugs),
-  );
-  if (error) throw error;
-  return count ?? 0;
-}
-
-/**
  * The homepage explore rail: `BRANDS_PER_CATEGORY` brands for each visible L1,
  * rotated daily.
  *
@@ -1660,21 +1639,17 @@ async function defaultExploreCountReader(
  */
 async function fetchExploreBrandPool(
   deps: ExploreBrandPoolDeps = {},
-): Promise<{ brands: Brand[]; totalCount: number }> {
+): Promise<{ brands: Brand[] }> {
   const callRpc = deps.rpcCaller ?? defaultExploreRpcCaller;
-  const readCount = deps.countReader ?? defaultExploreCountReader;
   const loadBrands = deps.brandLoader ?? getBrandsBySlugs;
   const categorySlugs = VISIBLE_L1_CATEGORIES.map(({ slug }) => slug);
 
-  const [rows, totalCount] = await Promise.all([
-    // `seed text` in SQL; `getDailySeed()` returns the YYYYMMDD number.
-    callRpc({
-      categorySlugs,
-      perCategory: BRANDS_PER_CATEGORY,
-      seed: getDailySeed().toString(),
-    }),
-    readCount(categorySlugs),
-  ]);
+  // `seed text` in SQL; `getDailySeed()` returns the YYYYMMDD number.
+  const rows = await callRpc({
+    categorySlugs,
+    perCategory: BRANDS_PER_CATEGORY,
+    seed: getDailySeed().toString(),
+  });
 
   // The rail reads as one block per category, which is what the JS selection
   // this replaced produced. The RPC orders by category alphabetically, so the
@@ -1716,7 +1691,7 @@ async function fetchExploreBrandPool(
         (rankBySlug.get(right.slug) ?? Number.MAX_SAFE_INTEGER),
     );
 
-  return { brands, totalCount };
+  return { brands };
 }
 
 const getCachedExploreBrandPool = unstable_cache(
@@ -1734,7 +1709,8 @@ const getCachedExploreBrandPool = unstable_cache(
   // the full approved corpus, and the count comes from a separate query. Bump
   // again on any further change to either shape.
   // v5 (DEV-1990): cards carry `logoUrl`.
-  ["homepage-explore-brand-pool-v5"],
+  // v6 (DEV-2025): the payload drops `totalCount`; the homepage count now comes from `getBrandStats`.
+  ["homepage-explore-brand-pool-v6"],
   { revalidate: 900, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
 
@@ -1742,17 +1718,16 @@ export async function getExploreBrands(
   deps: ExploreBrandPoolDeps = {},
 ): Promise<{
   brands: Brand[];
-  totalCount: number;
 }> {
   // Injected deps bypass `unstable_cache`: a test fixture must not be able to
   // warm the entry the homepage then serves. Injection is all-or-nothing —
   // a partial fixture would silently fall back to real Supabase for the rest.
-  const required = ["rpcCaller", "countReader", "brandLoader"] as const;
+  const required = ["rpcCaller", "brandLoader"] as const;
   const missing = required.filter((key) => !deps[key]);
   if (missing.length === required.length) return getCachedExploreBrandPool();
   if (missing.length > 0) {
     throw new Error(
-      `ExploreBrandPoolDeps requires all three deps when injecting any — missing: ${missing.join(", ")}`,
+      `ExploreBrandPoolDeps requires both deps when injecting any — missing: ${missing.join(", ")}`,
     );
   }
   return fetchExploreBrandPool(deps);

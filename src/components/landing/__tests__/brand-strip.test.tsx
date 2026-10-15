@@ -43,8 +43,8 @@ vi.mock("@/i18n/navigation", () => ({
 
 vi.mock("next-intl/server", () => ({
   getTranslations: async () =>
-    (key: string, values?: { count: number; approximate: string }) =>
-      values ? `${key} ${values.count} ${values.approximate}` : key,
+    (key: string, values?: { count: number }) =>
+      values ? `${key} ${values.count}` : key,
 }));
 
 // BrandMarquee is a client component and reads its button labels here.
@@ -114,21 +114,26 @@ describe("BrandStrip", () => {
     vi.clearAllMocks();
   });
 
-  it("rounds the count down below the total and marks it approximate", async () => {
-    render(await BrandStrip({ brands: mockBrands, totalCount: 700 }));
+  it("prints the exact count, never a rounded one", async () => {
+    render(await BrandStrip({ brands: mockBrands, totalCount: 329 }));
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "count 690 true" }),
+      screen.getByRole("heading", { level: 2, name: "brands.count 329" }),
     ).toBeInTheDocument();
   });
 
-  it("shows an exact count at 10 brands and below", async () => {
-    render(await BrandStrip({ brands: mockBrands, totalCount: 7 }));
+  it.each([null, 0])(
+    "drops the number when the count is %s and still links the directory",
+    async (totalCount) => {
+      const { container } = render(
+        await BrandStrip({ brands: mockBrands, totalCount }),
+      );
 
-    expect(
-      screen.getByRole("heading", { level: 2, name: "count 7 false" }),
-    ).toBeInTheDocument();
-  });
+      const link = container.querySelector('a[href="/brands"]');
+      expect(link).toHaveTextContent("missionCloser.cta");
+      expect(link?.textContent).not.toMatch(/\d/);
+    },
+  );
 
   it("renders hero image for brands with heroImageUrl", async () => {
     render(await BrandStrip({ brands: mockBrands, totalCount: 700 }));
@@ -198,7 +203,7 @@ describe("BrandStrip", () => {
     expect(directoryLinks).toHaveLength(1);
     const heading = screen.getByRole("heading", { level: 2 });
     expect(heading).toContainElement(directoryLinks[0] as HTMLElement);
-    expect(directoryLinks[0]).toHaveTextContent("count 690 true");
+    expect(directoryLinks[0]).toHaveTextContent("brands.count 700");
     expect(screen.queryByText("browseAll")).not.toBeInTheDocument();
   });
 

@@ -200,7 +200,7 @@
       "cta": "看品牌目錄"
     },
     "brands": {
-      "count": "{approximate, select, true {已收錄 {count} 多個台灣品牌} other {已收錄 {count} 個台灣品牌}}",
+      "count": "已收錄 {count} 個台灣品牌",
       "pauseMarquee": "暫停品牌輪播",
       "playMarquee": "播放品牌輪播"
     }
