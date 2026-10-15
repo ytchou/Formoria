@@ -1,6 +1,6 @@
 import type { Json } from "@/lib/supabase/database.types";
 import type { AdminBrandListItem } from "@/lib/brands/contracts";
-import type { SubmissionReviewData } from "@/lib/services/submissions";
+import type { SubmissionReviewData } from "@/lib/services/submission-review-data";
 
 export function brandToReviewData(
   brand: AdminBrandListItem,

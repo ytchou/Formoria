@@ -6,7 +6,7 @@ import {
   buildSubmissionReviewOverrides,
   submissionReviewDataToDb,
   type SubmissionReviewData,
-} from "../submissions";
+} from "../submission-review-data";
 import type { StockistCandidate } from "@/lib/types/stockist";
 
 const baseline: SubmissionReviewData = {

@@ -1,6 +1,6 @@
 /**
  * @formoria-script
- * purpose: Audits and sweeps the brand-images bucket: untracked objects, re-encodes, orphan deletes.
+ * purpose: Audits and sweeps the brand-images bucket: untracked objects, re-encodes, orphan deletes, and (check-missing, read-only) brand_images rows whose object is absent.
  * class: operator
  * invoke: pnpm brand-storage-maintenance
  * target: staging-default
@@ -973,6 +973,105 @@ async function fixDanglingImageRows(
   return total
 }
 
+type MissingObjectCandidateRow = {
+  id: string
+  brand_id: string
+  storage_path: string | null
+  url: string | null
+  status: string
+}
+
+type BrandSlugRow = { id: string; slug: string }
+
+/**
+ * The rows whose referenced storage object is NOT in the bucket listing:
+ * "referenced but not listed" (BD-20). A row with no storage key (an external
+ * URL, or nothing at all) has nothing to check and is never returned.
+ */
+export function findRowsWithMissingObjects<T>(
+  rows: readonly T[],
+  storageKeyOf: (row: T) => string | null,
+  existingObjectPaths: ReadonlySet<string>,
+): T[] {
+  return rows.filter((row) => {
+    const key = storageKeyOf(row)
+    return key !== null && !existingObjectPaths.has(key)
+  })
+}
+
+/**
+ * READ-ONLY (BD-20): lists `brand_images` rows whose storage object does not
+ * exist, so `_next/image` 400s on them. Reuses the bucket listing instead of a
+ * HEAD per object. Never deletes or writes; `main` rejects any argument
+ * after it, `--live` and `--apply` included. The repair (re-mirror or reject the row) is a separate,
+ * owner-decided pass — `purge --live` already rejects dangling rows keyed on
+ * `storage_path` alone, while this check also resolves a public `url`.
+ */
+async function checkMissing(): Promise<void> {
+  const supabase = createServiceClient()
+  const privateBucket = await supabase.storage.getBucket(BRAND_SUBMISSIONS_BUCKET)
+  if (
+    privateBucket.error &&
+    !/not found|does not exist/i.test(privateBucket.error.message)
+  ) {
+    throw new Error(
+      `Failed to inspect ${BRAND_SUBMISSIONS_BUCKET}: ${privateBucket.error.message}`,
+    )
+  }
+  const [objects, privateObjects, rows, brands] = await Promise.all([
+    listAllObjects(supabase),
+    privateBucket.error
+      ? Promise.resolve([])
+      : listAllObjects(supabase, BRAND_SUBMISSIONS_BUCKET),
+    fetchAllRows<MissingObjectCandidateRow>('brand_images', (from, to) =>
+      supabase
+        .from('brand_images')
+        .select('id, brand_id, storage_path, url, status')
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllRows<BrandSlugRow>('brands', (from, to) =>
+      supabase
+        .from('brands')
+        .select('id, slug')
+        .order('id', { ascending: true })
+        .range(from, to),
+    ),
+  ])
+  // Bucket-relative keys; the two buckets' prefixes are disjoint, so one set
+  // is exact (the same union `purge` hands to fixDanglingImageRows).
+  const existing = new Set(
+    [...objects, ...privateObjects].map((object) => object.path),
+  )
+  const slugById = new Map(brands.map((brand) => [brand.id, brand.slug]))
+  const missing = findRowsWithMissingObjects(
+    rows,
+    (row) => storageKeyFromReference(row.storage_path, row.url),
+    existing,
+  )
+
+  for (const row of missing) {
+    console.log(
+      JSON.stringify({
+        brandSlug: slugById.get(row.brand_id) ?? null,
+        imageId: row.id,
+        status: row.status,
+        storagePath: storageKeyFromReference(row.storage_path, row.url),
+      }),
+    )
+  }
+  const active = missing.filter((row) => row.status === 'active')
+  console.log(
+    JSON.stringify({
+      scannedRows: rows.length,
+      listedObjects: existing.size,
+      missingRows: missing.length,
+      missingActiveRows: active.length,
+      brandsWithMissingActive: new Set(active.map((row) => row.brand_id)).size,
+    }),
+  )
+}
+
 async function purge(live: boolean): Promise<void> {
   const { supabase, objects, privateObjects, categorized } = await audit()
   const plan = planPurge(categorized, DEFAULT_PURGE_OPTIONS)
@@ -1379,6 +1478,12 @@ async function main(): Promise<void> {
     await audit()
     return
   }
+  // Read-only whatever follows it: extra flags (even --apply/--live) are
+  // rejected rather than ignored, so nobody mistakes this for a repair.
+  if (subcommand === 'check-missing' && args.length === 0) {
+    await checkMissing()
+    return
+  }
   if (
     (subcommand === 'purge' ||
       subcommand === 'purge-originals' ||
@@ -1408,13 +1513,14 @@ async function main(): Promise<void> {
   }
   if (
     subcommand !== 'audit' &&
+    subcommand !== 'check-missing' &&
     subcommand !== 'purge' &&
     subcommand !== 'purge-keys' &&
     subcommand !== 'purge-originals' &&
     subcommand !== 'reencode'
   ) {
     throw new Error(
-      `Unknown subcommand "${subcommand}". Available subcommands: audit, purge [--live], purge-keys --file <path> [--live], purge-originals [--live], reencode [--live]`,
+      `Unknown subcommand "${subcommand}". Available subcommands: audit, check-missing, purge [--live], purge-keys --file <path> [--live], purge-originals [--live], reencode [--live]`,
     )
   }
 
