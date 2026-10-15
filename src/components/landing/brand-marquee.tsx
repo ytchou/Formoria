@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import AutoScroll from "embla-carousel-auto-scroll";
 import useEmblaCarousel from "embla-carousel-react";
 import { Pause, Play } from "lucide-react";
@@ -20,9 +20,16 @@ type MarqueeBrand = {
 
 type BrandMarqueeProps = {
   brands: MarqueeBrand[];
+  /**
+   * The strip's heading, rendered at the start of the row that ends in the
+   * pause control. A server-rendered element passed through: the heading
+   * belongs to the caller, the row that keeps the control beside it belongs
+   * here.
+   */
+  heading?: ReactNode;
 };
 
-export default function BrandMarquee({ brands }: BrandMarqueeProps) {
+export default function BrandMarquee({ brands, heading }: BrandMarqueeProps) {
   const t = useTranslations("landing.brands");
   // WCAG 2.2.2: moving content needs a user pause that sticks. The ref is
   // what the Embla listeners read; the state drives the button label.
@@ -115,7 +122,28 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
   };
 
   return (
-    <div className="mt-8">
+    <div>
+      {/* The pause control ends the heading row rather than floating alone
+          under the rail (DS-21). `min-h-11` reserves the 44px button's height,
+          so the row does not grow when `canPause` flips on after mount. */}
+      <div className="flex min-h-11 items-center justify-between gap-4">
+        {heading}
+        {canPause && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={userPaused ? t("playMarquee") : t("pauseMarquee")}
+            onClick={togglePause}
+          >
+            {userPaused ? (
+              <Play aria-hidden="true" />
+            ) : (
+              <Pause aria-hidden="true" />
+            )}
+          </Button>
+        )}
+      </div>
+
       {/* The edge fade signals the rail continues and keeps the first avatar
           from reading as hard-clipped. The rail bleeds through the page
           gutter (`page-gutter-wide`'s three steps), so the fade runs out at
@@ -123,7 +151,7 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
           against blank paper (DS2-39). */}
       <div
         ref={emblaRef}
-        className="-mx-6 overflow-hidden md:-mx-10 xl:-mx-16 [mask-image:linear-gradient(90deg,transparent,black_48px,black_calc(100%-48px),transparent)]"
+        className="-mx-6 mt-8 overflow-hidden md:-mx-10 xl:-mx-16 [mask-image:linear-gradient(90deg,transparent,black_48px,black_calc(100%-48px),transparent)]"
       >
         {/* Slide padding, not `gap`: Embla's loop does not measure a flex gap,
             so the seam between the last and first slide lost 24px and the
@@ -152,22 +180,6 @@ export default function BrandMarquee({ brands }: BrandMarqueeProps) {
           ))}
         </ul>
       </div>
-      {canPause && (
-        <div className="mt-2 flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={userPaused ? t("playMarquee") : t("pauseMarquee")}
-            onClick={togglePause}
-          >
-            {userPaused ? (
-              <Play aria-hidden="true" />
-            ) : (
-              <Pause aria-hidden="true" />
-            )}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

@@ -563,6 +563,22 @@
   animation: error-shake 0.4s var(--ease-standard);
 }
 
+/* The homepage opener's photograph settling into its frame on load — once,
+   never on scroll (DESIGN §7b). Scale only, so it stays on the compositor;
+   the band's `overflow-hidden` clips the 4% overshoot. */
+@keyframes photo-settle {
+  from {
+    scale: 1.04;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+@utility animate-photo-settle {
+  animation: photo-settle 1200ms var(--ease-settle) both;
+}
+
 @utility animate-reveal-up {
   animation: reveal-up var(--duration-enter) var(--ease-settle) both;
 }

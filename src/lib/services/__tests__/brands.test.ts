@@ -224,7 +224,6 @@ describe("getExploreBrands", () => {
 
     await getExploreBrands({
       rpcCaller,
-      countReader: async () => 0,
       brandLoader: async () => new Map(),
     });
 
@@ -253,7 +252,6 @@ describe("getExploreBrands", () => {
         { brand_id: "id-alpha", brand_slug: "alpha", category: firstCategory },
         { brand_id: "id-beta", brand_slug: "beta", category: firstCategory },
       ],
-      countReader: async () => 795,
       brandLoader: async () => brandMap(brands),
     });
 
@@ -264,26 +262,12 @@ describe("getExploreBrands", () => {
     ]);
   });
 
-  it("reports the corpus count from the count reader, not the sampled rows", async () => {
-    const result = await getExploreBrands({
-      rpcCaller: async () => [
-        { brand_id: "id-alpha", brand_slug: "alpha", category: firstCategory },
-      ],
-      countReader: async () => 795,
-      brandLoader: async () => brandMap([makeBrand("alpha", firstCategory)]),
-    });
-
-    expect(result.brands).toHaveLength(1);
-    expect(result.totalCount).toBe(795);
-  });
-
   it("drops slugs the hydration did not return", async () => {
     const result = await getExploreBrands({
       rpcCaller: async () => [
         { brand_id: "id-alpha", brand_slug: "alpha", category: firstCategory },
         { brand_id: "id-ghost", brand_slug: "ghost", category: firstCategory },
       ],
-      countReader: async () => 2,
       brandLoader: async () => brandMap([makeBrand("alpha", firstCategory)]),
     });
 
@@ -297,7 +281,6 @@ describe("getExploreBrands", () => {
       rpcCaller: async () => [
         { brand_id: "id-alpha", brand_slug: "alpha", category: firstCategory },
       ],
-      countReader: async () => 1,
       brandLoader,
     });
 

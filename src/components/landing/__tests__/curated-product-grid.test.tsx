@@ -188,6 +188,12 @@ describe("CuratedProductGrid", () => {
     }
   });
 
+  it("puts the header and the CTA on the page's left edge", async () => {
+    const { container } = await renderGrid(productSlots(4));
+
+    expect(container.querySelector(".text-center")).toBeNull();
+  });
+
   it("renders cta button linking to discover", async () => {
     await renderGrid(productSlots(4));
 

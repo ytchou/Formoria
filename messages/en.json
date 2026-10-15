@@ -150,7 +150,7 @@
     "hero": {
       "headline": "Life can feel a little more like you",
       "searchLabel": "Search Taiwanese products",
-      "searchPlaceholder": "Try: travel essentials, wedding gifts, sunscreen",
+      "searchPlaceholder": "Try: wedding gifts",
       "browseCta": "Start from a guide",
       "eyebrow": "A curated platform for Taiwanese goods",
       "lede": "From one thing you love to the Taiwanese brand that makes it, and the place you can buy it.",
@@ -160,12 +160,12 @@
     },
     "selectedProducts": {
       "productCta": "View product page",
-      "brandSiteCta": "Visit the brand",
+      "brandSiteCta": "Visit the brand’s site",
       "unavailable": "The brand's product page isn't loading right now.",
       "madeInTaiwan": "Made in Taiwan"
     },
     "trustSeam": {
-      "line": "Listings and selections stay distinct"
+      "line": "Listed brands and Formoria Selections are labeled separately"
     },
     "submitBand": {
       "headline": "Know a Taiwanese brand we haven't listed?",
@@ -179,7 +179,7 @@
     },
     "trails": {
       "heading": "Guides",
-      "note": "Products picked for one specific situation",
+      "note": "Each guide starts from an everyday situation and picks a few products that fit",
       "linkText": "See all guides",
       "eyebrow": "Guide",
       "cta": "See this guide"
@@ -198,19 +198,18 @@
       "cta": "Browse the brand directory"
     },
     "brands": {
-      "count": "{approximate, select, true {More than {count} Taiwanese brands listed} other {{count, plural, one {# Taiwanese brand listed} other {# Taiwanese brands listed}}}}",
-      "browseAll": "Browse the brand directory",
+      "count": "{count, plural, one {# Taiwanese brand listed} other {# Taiwanese brands listed}}",
       "pauseMarquee": "Pause brand carousel",
       "playMarquee": "Play brand carousel"
     }
   },
   "newsletter": {
-    "heading": "Get new stories and selections",
+    "heading": "Subscribe to the Formoria newsletter",
     "subtext": "New stories, newly listed brands, and Formoria Selections, sent to your inbox.",
     "emailLabel": "Email address",
     "emailPlaceholder": "your@email.com",
     "subscribe": "Subscribe",
-    "interestsLabel": "Choose what to receive",
+    "interestsLabel": "What would you like to receive?",
     "interests": {
       "brand-stories": "Stories",
       "new-brands": "Newly listed brands",
@@ -219,16 +218,16 @@
     },
     "success": "Confirmation email sent. Open the link in it to finish subscribing.",
     "errors": {
-      "invalidEmail": "Enter a valid email address.",
-      "rateLimited": "Too many attempts. Please wait a moment, then try again.",
-      "confirmationFailed": "We couldn’t send the confirmation email. Please try again.",
-      "generic": "We couldn’t complete your subscription. Please try again."
+      "invalidEmail": "That email address doesn’t look right. Check it and try again.",
+      "rateLimited": "Too many tries. Wait a moment, then try again.",
+      "confirmationFailed": "We couldn’t send the confirmation email. Try again in a moment.",
+      "generic": "Your subscription didn’t go through. Try again in a moment."
     },
-    "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email to activate delivery. You can unsubscribe at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
+    "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email first; you can unsubscribe at any time. Details are in our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "I agree to receive the Formoria newsletter",
-    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details."
+    "newsletterOnlyDescription": "Confirm your email after subscribing. You can unsubscribe at any time. Details are in our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "brands": {
     "metadata": {
@@ -1170,13 +1169,13 @@
       "description": "Manage your display name, language, and newsletter settings."
     },
     "heading": "Account settings",
-    "subheading": "Manage profile and preferences",
+    "subheading": "Change your display name, language, and newsletter settings",
     "displayNameLabel": "Display name",
     "displayNamePlaceholder": "Enter a display name",
     "emailLabel": "Email",
     "localePreferenceLabel": "Language",
     "marketingHeading": "Newsletter",
-    "marketingDescription": "The newsletter is optional, off until you turn it on, and can be turned off again at any time. Account verification, password resets, and review results are unaffected.",
+    "marketingDescription": "The newsletter is off by default and only arrives once you turn it on. You can turn it off at any time. Account verification, password resets, and review results are always sent, subscribed or not.",
     "newsletterMarketingLabel": "Formoria newsletter",
     "newsletterMarketingDescription": "New stories, newly listed brands, and Formoria Selections. You'll need to confirm your email first.",
     "newsletterPending": "Confirmation sent. Open the link in that email to start getting the newsletter.",
