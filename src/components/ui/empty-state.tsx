@@ -1,17 +1,21 @@
 import type { ReactNode } from 'react'
-import { surfaceCardStyles } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 /**
- * The shared "there is nothing here" shell: a bordered surface with a centered
- * icon → title → body → optional action column.
+ * The shared "there is nothing here" shell: a centered icon → title → body →
+ * optional action column on the page ground. No card (EL-13): a bordered
+ * surface read as one more result tile, so the block is grouped by space alone
+ * — `py-section`, the named rhythm between page sections (DESIGN.md §3).
+ *
+ * The title is a `<p>`, not a heading. Callers sit under h1s and h2s at
+ * different depths, and a fixed heading level here would skip levels on some.
  *
  * Deliberately content-free — it takes an already-localized title and body and
  * a ready-made action node, so it renders identically from a server component
  * and from a client one without dragging a translator scope along.
  */
 type EmptyStateProps = {
-  /** Lucide icon element; rendered muted at 24px. */
+  /** Lucide icon element; rendered muted at 32px. */
   icon?: ReactNode
   title: string
   body?: string | null
@@ -29,23 +33,20 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={surfaceCardStyles({
-        padding: 'none',
-        className: cn(
-          'flex flex-col items-center px-6 py-12 text-center',
-          className,
-        ),
-      })}
+      className={cn(
+        'flex flex-col items-center py-section text-center',
+        className,
+      )}
     >
       {icon ? (
         <span
           aria-hidden="true"
-          className="mb-4 text-ink-muted [&_svg]:size-6"
+          className="mb-4 text-ink-muted [&_svg]:size-8"
         >
           {icon}
         </span>
       ) : null}
-      <p className="type-card-title text-ink-muted">{title}</p>
+      <p className="type-section text-ink">{title}</p>
       {body ? <p className="mt-2 content-column type-body-sm">{body}</p> : null}
       {action ? <div className="mt-6">{action}</div> : null}
     </div>

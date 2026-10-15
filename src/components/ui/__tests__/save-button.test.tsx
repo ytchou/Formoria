@@ -66,7 +66,8 @@ function Subject() {
   )
 }
 
-const SAVE_NAME = zhMessages.saveBrand.saveAriaLabel
+// The labelled inline button is named by its visible text, not an aria-label.
+const SAVE_NAME = zhMessages.saveBrand.save
 const PROMPT = zhMessages.saveBrand.signInPrompt
 
 beforeEach(() => {
@@ -230,5 +231,27 @@ describe('SaveButton, returning signed in', () => {
     rerender(<Subject />)
     expect(mocks.toggle).not.toHaveBeenCalled()
     expect(mocks.toastSuccess).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('SaveButton, accessible name', () => {
+  it('names a labelled inline button by its visible text alone', () => {
+    render(<Subject />)
+
+    expect(screen.getByRole('button', { name: SAVE_NAME })).not.toHaveAttribute(
+      'aria-label'
+    )
+  })
+
+  it('keeps the aria-label on the icon-only form', () => {
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zhMessages}>
+        <SaveButton id="brand-1" slug="mountain-goods" variant="inline" iconOnly />
+      </NextIntlClientProvider>
+    )
+
+    expect(
+      screen.getByRole('button', { name: zhMessages.saveBrand.saveAriaLabel })
+    ).toBeInTheDocument()
   })
 })

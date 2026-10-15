@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '@/lib/audit'
 import {
   PostHogQueryError,
-  createPostHogEndpointClient,
   createPostHogQueryClient,
 } from './query-api'
 
@@ -151,54 +150,6 @@ describe('PostHog Query API adapter', () => {
     await expect(client.run('core totals', 'select 1')).rejects.toBeInstanceOf(PostHogQueryError)
     await expect(client.run('core totals', 'select 1')).rejects.toMatchObject({
       code: 'posthog_unavailable',
-    })
-  })
-})
-
-describe('createPostHogEndpointClient', () => {
-  it('audits handled provider failures without triggering a console error overlay', async () => {
-    configure()
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const client = createPostHogEndpointClient({
-      fetchImpl: vi.fn().mockResolvedValue(
-        Response.json({ detail: 'Unknown variable' }, { status: 400 }),
-      ),
-    })
-
-    await expect(
-      client.runEndpoint('brand_core_totals', { brand_id: 'b-123' }),
-    ).rejects.toMatchObject({ code: 'posthog_unavailable', httpStatus: 400 })
-    expect(error).not.toHaveBeenCalled()
-    expect(warn).toHaveBeenCalledWith(
-      '[posthog-query:audit] brand_core_totals failed (posthog_unavailable)',
-      400,
-    )
-  })
-
-  it('POSTs variables to the current endpoint run URL with bearer auth', async () => {
-    configure()
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ results: [[12, 3]], columns: ['profile_sessions', 'outbound_sessions'] }), { status: 200 }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-    const client = createPostHogEndpointClient()
-    const result = await client.runEndpoint('brand_core_totals', { brand_id: 'b-123' })
-    const [url, init] = fetchMock.mock.calls[0]
-    expect(String(url)).toBe(
-      'https://us.posthog.com/api/projects/12345/endpoints/brand_core_totals/run',
-    )
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ variables: { brand_id: 'b-123' } })
-    expect((init as RequestInit).headers).toMatchObject({ Authorization: expect.stringMatching(/^Bearer /) })
-    expect(result.results).toEqual([[12, 3]])
-  })
-
-  it('maps 404 to an endpoint_missing PostHogQueryError', async () => {
-    configure()
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not found', { status: 404 })))
-    const client = createPostHogEndpointClient()
-    await expect(client.runEndpoint('brand_core_totals', { brand_id: 'x' })).rejects.toMatchObject({
-      code: 'endpoint_missing',
     })
   })
 })

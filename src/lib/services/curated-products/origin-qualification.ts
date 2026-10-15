@@ -249,23 +249,3 @@ export function selectExactRegistryMatch(
     ) ?? null
   );
 }
-
-export function rankOriginCandidates<
-  Candidate extends {
-    editorialScore: number;
-    mitQualified: boolean;
-    searchPosition?: number | null;
-  },
->(candidates: readonly Candidate[]): Candidate[] {
-  return [...candidates].sort((left, right) => {
-    const score = right.editorialScore - left.editorialScore;
-    if (score !== 0) return score;
-    if (left.mitQualified !== right.mitQualified) {
-      return left.mitQualified ? -1 : 1;
-    }
-    return (
-      (left.searchPosition ?? Number.MAX_SAFE_INTEGER) -
-      (right.searchPosition ?? Number.MAX_SAFE_INTEGER)
-    );
-  });
-}

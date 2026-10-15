@@ -12,7 +12,6 @@ export type { Stockist } from './stockist'
 export type {
   BrandSubmission,
   DenialReason,
-  SourceAttribution,
   SubmissionIntent,
 } from './submission'
 

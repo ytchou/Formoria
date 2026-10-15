@@ -1,7 +1,7 @@
 'use client'
 
 import type { FormEvent } from 'react'
-import { Globe } from 'lucide-react'
+import { Check, Globe } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { setLocalePreference } from '@/app/actions/locale-preference'
 import { Button } from '@/components/ui/button'
@@ -75,7 +75,7 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-36 min-w-36">
         {/* A radio group, so the current language is exposed as
-            `menuitemradio` + `aria-checked` rather than by weight alone, and
+            `menuitemradio` + `aria-checked` as well as by the check mark, and
             `size="touch"` holds each item at the 44px floor (SP2-19). Each item
             still submits its own form: the radio state is display-only. */}
         <DropdownMenuRadioGroup value={locale}>
@@ -90,7 +90,6 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
                 value={targetLocale}
                 size="touch"
                 closeOnClick
-                className={locale === targetLocale ? 'font-medium' : undefined}
                 render={
                   <UnstyledButton
                     type="submit"
@@ -100,6 +99,14 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
                   />
                 }
               >
+                {/* A visible mark for the current language (DS-18): weight
+                    alone did not read as "selected". The other item keeps an
+                    equal-width spacer so the two labels align. */}
+                {locale === targetLocale ? (
+                  <Check className="size-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <span className="size-4 shrink-0" aria-hidden="true" />
+                )}
                 {t(targetLocale === 'zh-TW' ? 'languageTraditionalChinese' : 'languageEnglish')}
               </DropdownMenuRadioItem>
             </form>

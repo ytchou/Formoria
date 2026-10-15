@@ -14,14 +14,16 @@ interface EditorialAppearancesProps {
   locale: AppLocale;
   trails: TrailLink[];
   stories: StoryLink[];
-  sectionClassName?: string;
 }
 
+/**
+ * The featured-in section's body. The page sets it in `BrandSection`
+ * (#featured-in), which owns the landmark and the h2.
+ */
 export async function EditorialAppearances({
   locale,
   trails,
   stories,
-  sectionClassName,
 }: EditorialAppearancesProps) {
   if (trails.length === 0 && stories.length === 0) return null;
 
@@ -34,10 +36,7 @@ export async function EditorialAppearances({
   );
 
   return (
-    <section className={sectionClassName}>
-      <Typography as="h2" variant="cardTitle" balance>
-        {t("editorialAppearances.heading")}
-      </Typography>
+    <>
       {hasZhTitle && (
         <Typography variant="metadata" className="mt-1">
           {t("editorialAppearances.zhOnlyNote")}
@@ -112,6 +111,6 @@ export async function EditorialAppearances({
           </div>
         )}
       </nav>
-    </section>
+    </>
   );
 }

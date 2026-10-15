@@ -1,6 +1,8 @@
 import { Link } from "@/i18n/navigation";
-import { SurfaceImage } from "@/components/ui/image";
-import { BrandImageFallback } from "@/components/brands/brand-image-fallback";
+import {
+  ProductCardCaption,
+  ProductCardFrame,
+} from "@/components/products/product-card-frame";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
 import { NO_SNIPPET } from "@/lib/seo/snippet";
@@ -48,39 +50,23 @@ export function ProductCard({
         href={routes.brand(product.brandSlug)}
         className="group flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-3"
       >
-        <div className="relative aspect-square w-full overflow-hidden rounded-surface bg-surface-deep">
-          {imageSrc ? (
-            <SurfaceImage
-              src={imageSrc}
-              alt={name}
-              fill
-              className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
-              surface="card"
-              sizes={imageSizes}
-              loading={imagePriority ? "eager" : undefined}
-              fetchPriority={imagePriority === "high" ? "high" : undefined}
-            />
-          ) : (
-            <BrandImageFallback
-              name={name}
-              category={product.category}
-              size="card"
-            />
-          )}
-          {/* Product saving was removed (DEV-1988 owner decision); its app-side
-              save path was deleted and must be rebuilt when requested. */}
-        </div>
-
-        <div className="mt-3 flex flex-col gap-1">
-          <p className="type-body-sm text-ink-muted truncate">
-            {product.brandName}
-          </p>
-          <h3
-            lang={nameFallsBack ? ZH_FALLBACK_LANG : undefined}
-            className="type-body font-semibold text-ink line-clamp-2 group-hover:underline"
-          >
-            {name}
-          </h3>
+        {/* Product saving was removed (DEV-1988 owner decision); its app-side
+            save path was deleted and must be rebuilt when requested. */}
+        <ProductCardFrame
+          src={imageSrc}
+          name={name}
+          category={product.category}
+          surface="card"
+          sizes={imageSizes}
+          loading={imagePriority ? "eager" : undefined}
+          fetchPriority={imagePriority === "high" ? "high" : undefined}
+        />
+        <ProductCardCaption
+          brand={product.brandName}
+          brandClassName="truncate"
+          name={name}
+          nameLang={nameFallsBack ? ZH_FALLBACK_LANG : undefined}
+        >
           <p
             {...NO_SNIPPET}
             lang={descriptionFallsBack ? ZH_FALLBACK_LANG : undefined}
@@ -90,7 +76,7 @@ export function ProductCard({
           >
             {description}
           </p>
-        </div>
+        </ProductCardCaption>
       </Link>
     </li>
   );

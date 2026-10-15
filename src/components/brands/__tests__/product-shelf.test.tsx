@@ -66,6 +66,7 @@ vi.mock("@/i18n/navigation", () => ({
 
 vi.mock("@/lib/analytics", () => ({
   trackCuratedProductClicked: vi.fn(),
+  trackExternalLinkClicked: vi.fn(),
   trackOutboundClick: vi.fn(),
 }));
 
@@ -80,8 +81,7 @@ vi.mock("@/lib/motion/chip-swap", () => ({
 }));
 
 vi.mock("@/lib/taxonomy/ontology", async (importOriginal) => {
-  const mod =
-    await importOriginal<typeof import("@/lib/taxonomy/ontology")>();
+  const mod = await importOriginal<typeof import("@/lib/taxonomy/ontology")>();
   return {
     ...mod,
     subcategoryDisplayLabel: (slug: string, _locale: string) =>
@@ -304,7 +304,11 @@ describe("ProductShelf", () => {
         {...defaultProps}
         groups={makeGroups()}
         guides={{
-          "ew-1": { slug: "reading-corner", title: "Reading corner", locale: "en" },
+          "ew-1": {
+            slug: "reading-corner",
+            title: "Reading corner",
+            locale: "en",
+          },
         }}
       />,
     );
@@ -337,6 +341,56 @@ describe("ProductShelf", () => {
     expect(list.className).toContain("gap-gutter");
   });
 
+  // BD-07: the static shelf takes the trail shelf's count-aware columns.
+  describe("static shelf columns", () => {
+    function renderCount(count: number) {
+      const products = Array.from({ length: count }, (_, index) =>
+        makeProduct({ key: `p-${index}`, nameEn: `Product ${index}` }),
+      );
+      render(
+        <ProductShelf
+          {...defaultProps}
+          groups={[{ subcategory: "eyewear", products }]}
+        />,
+      );
+      const region = screen.getByRole("region", { name: "Formoria Selected" });
+      return { region, list: region.querySelector("ul")! };
+    }
+
+    it("sets one product as a feature row beside the heading at lg", () => {
+      const { region, list } = renderCount(1);
+
+      expect(region.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(["lg:grid", "lg:grid-cols-12"]),
+      );
+      expect(
+        screen.getByRole("heading", { name: "Formoria Selected" }).parentElement
+          ?.parentElement,
+      ).toHaveClass("lg:col-span-7");
+      expect(list.parentElement?.parentElement).toHaveClass("lg:col-span-5");
+      expect(list.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(["grid-cols-2", "lg:grid-cols-1"]),
+      );
+      expect(list.className).not.toContain("lg:grid-cols-3");
+    });
+
+    it("fills one row with two products at every width", () => {
+      const { region, list } = renderCount(2);
+
+      expect(region.className).not.toContain("lg:grid-cols-12");
+      expect(list.className.split(/\s+/)).toContain("grid-cols-2");
+      expect(list.className).not.toMatch(/lg:grid-cols-/);
+    });
+
+    it("sets three products three across from lg", () => {
+      const { list } = renderCount(3);
+
+      expect(list.className.split(/\s+/)).toEqual(
+        expect.arrayContaining(["grid-cols-2", "lg:grid-cols-3"]),
+      );
+    });
+  });
+
   it("keeps the carousel past three products, arrows hidden on phones", () => {
     canScrollPrevValue = true;
     canScrollNextValue = true;
@@ -355,12 +409,7 @@ describe("ProductShelf", () => {
   });
 
   it("hides the chip row when there is only one subcategory", () => {
-    render(
-      <ProductShelf
-        {...defaultProps}
-        groups={[makeGroups()[0]!]}
-      />,
-    );
+    render(<ProductShelf {...defaultProps} groups={[makeGroups()[0]!]} />);
 
     expect(screen.queryByRole("button", { name: "All" })).toBeNull();
     expect(screen.getByText("Glasses A")).toBeInTheDocument();

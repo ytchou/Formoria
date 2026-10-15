@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   assertDatabaseTarget,
-  assertStagingRevision,
   projectRefFromSupabaseUrl,
   validateSupabaseKeyIdentity,
   validateStagingTarget,
@@ -135,15 +134,6 @@ describe("staging target guard", () => {
         "service_role",
       ),
     ).toMatchObject({ ref: STAGING_PROJECT_REF, role: "service_role" });
-  });
-
-  it("fails closed on missing or mismatched deployed revisions", () => {
-    const sha = "0123456789abcdef0123456789abcdef01234567";
-    expect(() => assertStagingRevision(sha, sha)).not.toThrow();
-    expect(() => assertStagingRevision(sha, null)).toThrow(/missing/);
-    expect(() => assertStagingRevision(sha, `${sha.slice(0, -1)}8`)).toThrow(
-      /mismatch/,
-    );
   });
 });
 

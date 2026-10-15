@@ -483,6 +483,43 @@ const nextConfig: NextConfig = {
         destination: "/admin",
         permanent: false,
       },
+      // DEV-2029: legacy admin page stubs moved here; temporary so the hop
+      // stays invalidatable.
+      {
+        source: "/admin/catalog",
+        destination: "/admin/brands",
+        permanent: false,
+      },
+      {
+        source: "/admin/catalog/brands",
+        destination: "/admin/brands",
+        permanent: false,
+      },
+      {
+        source: "/admin/review-queue",
+        destination: "/admin/submissions",
+        permanent: false,
+      },
+      {
+        source: "/admin/review-queue/submissions",
+        destination: "/admin/submissions",
+        permanent: false,
+      },
+      {
+        source: "/admin/review-queue/moderation",
+        destination: "/admin/moderation",
+        permanent: false,
+      },
+      {
+        source: "/admin/signals",
+        destination: "/admin/reports",
+        permanent: false,
+      },
+      {
+        source: "/admin/signals/reports",
+        destination: "/admin/reports",
+        permanent: false,
+      },
       {
         source: "/admin/taxonomy",
         destination: "/admin/catalog/taxonomy",

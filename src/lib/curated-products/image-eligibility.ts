@@ -19,7 +19,7 @@ export function hasRenderableCuratedImage(
 /**
  * The publish precondition: a renderable stored image, OR a source image still
  * waiting to be mirrored. The second arm exists because the generated pipeline
- * publishes before `refresh.ts` / `mirror-images.ts` mirror the image; the
+ * publishes before `refresh.ts` mirrors the image; the
  * public reads keep such a row hidden until `image_url` lands.
  */
 export function canPublishCuratedProduct(fields: {
