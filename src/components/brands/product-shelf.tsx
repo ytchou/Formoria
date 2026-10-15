@@ -5,8 +5,8 @@ import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { ChipSwapFade } from "@/components/motion/chip-swap-fade";
+import { trailGridColumns } from "@/components/trails/trail-products";
 import { Button } from "@/components/ui/button";
-import { CARD_GRID_COLUMNS } from "@/components/ui/grid";
 import { ChipRow, ToggleChip } from "@/components/ui/toggle-chip";
 import { Typography } from "@/components/ui/typography";
 import type { AppLocale } from "@/i18n/locale-preference";
@@ -77,6 +77,9 @@ export function ProductShelf({
     0,
   );
   const isCarousel = totalCount > STATIC_SHELF_MAX;
+  // One product is a feature row at lg (BD-07): the tile beside the heading,
+  // so the shelf leaves no blank row.
+  const isFeature = totalCount === 1;
   // A chip whose every photo failed is gone; its filter falls back to all.
   const activeGroup = visibleGroups.find(
     (g) => g.subcategory === activeSubcategory,
@@ -133,9 +136,12 @@ export function ProductShelf({
       // A static grid is a list, not a carousel; only the carousel says so.
       aria-roledescription={isCarousel ? "carousel" : undefined}
       aria-label={ariaLabel}
-      className="space-y-stack"
+      className={cn(
+        "space-y-stack",
+        isFeature && "lg:grid lg:grid-cols-12 lg:gap-x-gutter lg:space-y-0",
+      )}
     >
-      <div className="space-y-2">
+      <div className={cn("space-y-2", isFeature && "lg:col-span-7")}>
         <div className="flex items-center justify-between gap-4">
           {/* No section-level 選物 label: a tile carries it, with its guide,
               only where there is a reason (CP2-15). `balance` + the base h2
@@ -196,28 +202,38 @@ export function ProductShelf({
       ) : null}
 
       {totalCount === 0 ? null : (
-        <ChipSwapFade swapKey={activeKey ?? "all"} itemSelector="ul > li">
-          {isCarousel ? (
-            // The peek bleeds to the viewport edge (BD2-13): the viewport runs
-            // out through the inline-end page gutter (`page-gutter-wide`'s
-            // three steps) and pads the same amount back. Its edge lands on
-            // the shell's edge, so the page gains no horizontal scroll.
-            <div
-              ref={viewportRef}
-              className="-me-6 overflow-hidden pe-6 md:-me-10 md:pe-10 xl:-me-16 xl:pe-16"
-            >
-              <ul className="-ml-4 flex list-none p-0 [&>li]:min-w-0 [&>li]:flex-none [&>li]:basis-[80%] [&>li]:pl-4 sm:[&>li]:basis-[45%] lg:[&>li]:basis-[23%]">
+        // The wrapper only places the tiles in the feature row's grid.
+        <div className={cn(isFeature && "lg:col-span-5")}>
+          <ChipSwapFade swapKey={activeKey ?? "all"} itemSelector="ul > li">
+            {isCarousel ? (
+              // The peek bleeds to the viewport edge (BD2-13): the viewport runs
+              // out through the inline-end page gutter (`page-gutter-wide`'s
+              // three steps) and pads the same amount back. Its edge lands on
+              // the shell's edge, so the page gains no horizontal scroll.
+              <div
+                ref={viewportRef}
+                className="-me-6 overflow-hidden pe-6 md:-me-10 md:pe-10 xl:-me-16 xl:pe-16"
+              >
+                <ul className="-ml-4 flex list-none p-0 [&>li]:min-w-0 [&>li]:flex-none [&>li]:basis-[80%] [&>li]:pl-4 sm:[&>li]:basis-[45%] lg:[&>li]:basis-[23%]">
+                  {tiles}
+                </ul>
+              </div>
+            ) : (
+              // Count-aware columns, the trail shelf's (BD-07): two products
+              // fill a row instead of leaving a third of it empty. The shelf
+              // tile sets its own image `sizes`, so no hint is passed.
+              <ul
+                className={cn(
+                  "grid list-none gap-gutter p-0",
+                  trailGridColumns(filteredProducts.length),
+                  isFeature && "lg:grid-cols-1",
+                )}
+              >
                 {tiles}
               </ul>
-            </div>
-          ) : (
-            <ul
-              className={cn("grid list-none gap-gutter p-0", CARD_GRID_COLUMNS)}
-            >
-              {tiles}
-            </ul>
-          )}
-        </ChipSwapFade>
+            )}
+          </ChipSwapFade>
+        </div>
       )}
     </div>
   );

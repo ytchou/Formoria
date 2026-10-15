@@ -337,7 +337,10 @@
     },
     "heroJump": {
       "selected": "這個品牌的商品 · {count} 件",
-      "stockists": "實體通路 · {count} 家"
+      "stockists": "實體通路 · {count} 家",
+      "channels": "品牌連結",
+      "stockistCity": "{city} {count} 家",
+      "stockistsAll": "看全部 {count} 家"
     },
     "selectedProducts": {
       "heading": "這個品牌的商品",
@@ -392,7 +395,6 @@
       "pinkoi": "Pinkoi",
       "shopee": "蝦皮購物",
       "myship": "7-ELEVEN 賣貨便",
-      "missingChannels": "還沒有其他通路的連結。",
       "noChannels": "還沒有線上購買的連結。",
       "noSocialLinks": "還沒有社群連結。",
       "correctionPrompt": "知道其他通路？",

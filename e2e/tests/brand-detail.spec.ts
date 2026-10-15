@@ -778,16 +778,19 @@ test.describe("Brand detail — myship-only purchase channel", () => {
       page.getByRole("link", { name: "前往 7-ELEVEN 賣貨便" }),
     ).toBeVisible();
 
-    // The website is absent, not inert: no chip, no link, and one muted line
-    // stands in for every store with no known link.
+    // The website is absent, not inert: no row, no link, and no apology line
+    // for the stores with no known link (BD-COPY-03). MyShip is a row.
     const whereToBuy = page.locator("#where-to-buy");
+    await expect(
+      whereToBuy.getByRole("link", { name: /7-ELEVEN 賣貨便/ }),
+    ).toBeVisible();
     await expect(
       whereToBuy.getByText("品牌官網", { exact: true }),
     ).toHaveCount(0);
     await expect(whereToBuy.locator('[aria-disabled="true"]')).toHaveCount(0);
     await expect(
       whereToBuy.getByText("還沒有其他通路的連結。"),
-    ).toBeVisible();
+    ).toHaveCount(0);
   });
 });
 

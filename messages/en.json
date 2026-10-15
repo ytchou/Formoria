@@ -337,7 +337,10 @@
     },
     "heroJump": {
       "selected": "{count, plural, one {# product} other {# products}} from this brand",
-      "stockists": "{count, plural, one {# stockist} other {# stockists}}"
+      "stockists": "{count, plural, one {# stockist} other {# stockists}}",
+      "channels": "Brand links",
+      "stockistCity": "{city} {count}",
+      "stockistsAll": "See all {count, plural, one {# stockist} other {# stockists}}"
     },
     "selectedProducts": {
       "heading": "From this brand",
@@ -392,7 +395,6 @@
       "pinkoi": "Pinkoi",
       "shopee": "Shopee",
       "myship": "7-ELEVEN MyShip",
-      "missingChannels": "No links for other stores yet.",
       "noChannels": "No online store links yet.",
       "noSocialLinks": "No social links yet.",
       "correctionPrompt": "Know another place to buy?",
