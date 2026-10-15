@@ -1,6 +1,7 @@
 import NextImage, { type ImageProps as NextImageProps } from "next/image";
 
 import { MEASURE_PX } from "@/lib/constants/layout";
+import { cn } from "@/lib/utils";
 
 /**
  * `next/image`, with `sizes` derived from the surface instead of retyped.
@@ -84,6 +85,13 @@ type BaseSurfaceImageProps = Omit<NextImageProps, "sizes" | "alt"> & {
    * measures, because a measurement is a hint nothing else keeps honest.
    */
   sizes?: string;
+  /**
+   * `paper`: multiply the photo onto its frame, so a white product ground
+   * takes the frame's `surface` colour instead of punching a bright hole in
+   * the page (EL-08). The frame owns the colour, `isolate` and the outline;
+   * grid and shelf frames only, never a product shown large.
+   */
+  tone?: "paper";
 };
 
 export type SurfaceImageProps = BaseSurfaceImageProps &
@@ -110,12 +118,13 @@ export function SurfaceImage(props: SurfaceImageProps) {
   // Widened on the way in rather than destructured off the union: the body has
   // one shape, and the "one of the two" rule is the caller's contract, already
   // enforced above.
-  const { surface, sizes, ...rest }: BaseSurfaceImageProps = props;
+  const { surface, sizes, tone, ...rest }: BaseSurfaceImageProps = props;
 
   return (
     <NextImage
       sizes={sizes ?? (surface ? IMAGE_SURFACE_SIZES[surface] : undefined)}
       {...rest}
+      className={cn(rest.className, tone === "paper" && "mix-blend-multiply")}
     />
   );
 }

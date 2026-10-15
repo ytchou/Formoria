@@ -11,7 +11,7 @@ import { ProductShelf } from "./product-shelf";
 
 export type BrandSelectedProductsProps = {
   locale: AppLocale;
-  brand: BrandVisitLinkFields & { slug: string };
+  brand: BrandVisitLinkFields & { slug: string; id?: string };
   products: CuratedProduct[];
   /**
    * Product key → the guide that placed it. The page loads it alongside the

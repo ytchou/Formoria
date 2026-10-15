@@ -14,6 +14,7 @@ export function SelectedProductExternalLink({
   referrerPage,
   surface,
   brandId,
+  productKey,
   className,
   children,
 }: {
@@ -23,6 +24,8 @@ export function SelectedProductExternalLink({
   referrerPage: string;
   surface: ExternalLinkSurface;
   brandId?: string;
+  /** The curated product behind the link, so a click names the product too. */
+  productKey?: string;
   className: string;
   children: ReactNode;
 }) {
@@ -43,6 +46,7 @@ export function SelectedProductExternalLink({
           referrerPage,
           surface,
           brandId,
+          productKey,
         )
       }
     >

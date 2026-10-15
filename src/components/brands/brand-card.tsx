@@ -24,6 +24,7 @@ import { SaveBrandButton } from "./save-brand-button";
 import { BrandImageFallback } from "./brand-image-fallback";
 import { BrandAvatar } from "./brand-avatar";
 import { cn } from "@/lib/utils";
+import { mediaHoverImage, mediaHoverTitle } from "@/lib/design/media-hover";
 import { routes } from "@/lib/routes";
 
 // Shared by the directory and the cover-image articles: the whole-card link
@@ -181,7 +182,14 @@ export function BrandCard({
               className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-rule"
             />
           </div>
-          <h3 className="type-card-title line-clamp-2 text-ink">{nameLink}</h3>
+          <h3
+            className={cn(
+              "type-card-title line-clamp-2 text-ink",
+              mediaHoverTitle,
+            )}
+          >
+            {nameLink}
+          </h3>
           {metadata ? (
             <p className="type-metadata text-ink-soft">{metadata}</p>
           ) : null}
@@ -242,10 +250,7 @@ export function BrandCard({
             fill
             preload={preload}
             sizes={imageSizes}
-            className={cn(
-              "transition-transform group-hover:scale-[1.02]",
-              imageFill,
-            )}
+            className={cn(mediaHoverImage, imageFill)}
             surface="card"
             onError={() => setImgError(true)}
           />
@@ -281,7 +286,12 @@ export function BrandCard({
            * mid-word, and an unreserved clamp let a 1-line card ride up out of
            * line with its neighbours.
            */}
-          <h3 className="min-w-0 line-clamp-2 min-h-10 type-body-sm font-semibold text-ink">
+          <h3
+            className={cn(
+              "min-w-0 line-clamp-2 min-h-10 type-body-sm font-semibold text-ink",
+              mediaHoverTitle,
+            )}
+          >
             {nameLink}
           </h3>
         </div>
