@@ -178,9 +178,6 @@ check_env() {
     else
       echo "WARN: Playwright Chromium missing — run: pnpm exec playwright install chromium (JS-only pages will fail to render)"
     fi
-    if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
-      echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
-    fi
     # PRODUCTS_AGENT (optional): "off" disables the products agent
     if grep -q '^PRODUCTS_AGENT=off$' .env.local 2>/dev/null; then
       echo "WARN: PRODUCTS_AGENT=off — the products agent is disabled in the products phase"

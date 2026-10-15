@@ -28,7 +28,6 @@ const INTEREST_CHIPS = [
   { slug: "curated-picks", labelKey: "interests.curated-picks" },
   { slug: "brand-stories", labelKey: "interests.brand-stories" },
   { slug: "new-brands", labelKey: "interests.new-brands" },
-  { slug: "mit-trends", labelKey: "interests.mit-trends" },
 ] as const;
 
 const ERROR_MESSAGES = {

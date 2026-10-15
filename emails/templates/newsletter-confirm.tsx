@@ -38,13 +38,11 @@ const INTEREST_LABELS: Record<string, Record<string, string>> = {
     "brand-stories": "專題",
     "new-brands": "新收錄的品牌",
     "curated-picks": "Formoria 選物",
-    "mit-trends": "台灣品牌趨勢",
   },
   en: {
     "brand-stories": "Stories",
     "new-brands": "Newly listed brands",
     "curated-picks": "Formoria Selection",
-    "mit-trends": "Taiwanese brand trends",
   },
 };
 

@@ -48,12 +48,12 @@ describe('newsletter service — pure functions', () => {
     // persisted `text[]` on `newsletter_subscribers`, so renaming a slug in TS
     // keeps tsc green while every stored row keeps the old value and
     // `normalizeInterests` silently drops it. Only a literal catches that.
-    it('contains exactly 4 interest slugs', () => {
-      expect(VALID_INTERESTS).toHaveLength(4)
+    it('contains exactly 3 interest slugs', () => {
+      expect(VALID_INTERESTS).toHaveLength(3)
       expect(VALID_INTERESTS).toContain('brand-stories')
       expect(VALID_INTERESTS).toContain('new-brands')
       expect(VALID_INTERESTS).toContain('curated-picks')
-      expect(VALID_INTERESTS).toContain('mit-trends')
+      expect(VALID_INTERESTS).not.toContain('mit-trends')
     })
   })
 
