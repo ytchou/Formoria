@@ -50,6 +50,7 @@ async function openChannelCorrection(
 test.describe("Brand detail deep", () => {
   let brandHref: string;
   let seeded: SeededBrand;
+  let shelfImageKey: string | undefined;
 
   test.beforeAll(async ({}, workerInfo) => {
     seeded = await seedBrand({
@@ -72,11 +73,67 @@ test.describe("Brand detail deep", () => {
         `Failed to seed brand description: ${descriptionError.message}`,
       );
     }
+    // BD-10: the main-products FAQ floor lists the curated shelf's
+    // subcategories and renders only when the brand has a shelf, so the FAQ
+    // cases need one published product. A tile with no loadable photo is
+    // dropped from the shelf, so it needs a real image behind its key.
+    const supabase = getServiceClient();
+    const shelfKey = "e2e-faq-shelf-lamp";
+    shelfImageKey = `curated-products/${seeded.brand.id}/${shelfKey}/e2e.webp`;
+    const { error: uploadError } = await supabase.storage
+      .from("brand-images")
+      .upload(
+        shelfImageKey,
+        readFileSync(join(process.cwd(), "public/images/home-hero.webp")),
+        { contentType: "image/webp", upsert: true },
+      );
+    if (uploadError) {
+      throw new Error(`Failed to seed ${shelfImageKey}: ${uploadError.message}`);
+    }
+    const { data: product, error: productError } = await supabase
+      .from("curated_products")
+      .insert({
+        brand_id: seeded.brand.id,
+        key: shelfKey,
+        name_zh: "E2E 桌燈",
+        category: "home",
+        subcategory: "lighting",
+        official_url: "https://e2e-test.com/shop/lamp",
+        link_state: "ok",
+        source_checked_at: new Date().toISOString(),
+        product_description_zh: "E2E 測試用的桌燈。",
+        image_url: e2eProxyImageUrl(shelfImageKey),
+        visible: true,
+      })
+      .select("id, official_url")
+      .single();
+    if (productError || !product) {
+      throw new Error(`curated product seed failed: ${productError?.message}`);
+    }
+    const { error: sourceError } = await supabase
+      .from("curated_product_sources")
+      .insert({
+        product_id: product.id,
+        url: product.official_url,
+        checked_at: new Date().toISOString(),
+        state: "active",
+      });
+    if (sourceError) {
+      throw new Error(
+        `curated product source seed failed: ${sourceError.message}`,
+      );
+    }
     brandHref = `/brands/${seeded.slug}`;
   });
 
   test.afterAll(async () => {
     await seeded.cleanup();
+    if (shelfImageKey) {
+      const { error } = await getServiceClient()
+        .storage.from("brand-images")
+        .remove([shelfImageKey]);
+      if (error) throw new Error(`Failed to clean images: ${error.message}`);
+    }
   });
 
   test("@smoke brand hero shows one metadata line under the name in both locales", async ({
@@ -296,8 +353,8 @@ test.describe("Brand detail deep", () => {
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
-    // Seeded via `withFaqEvidence`: subcategories, not links, are what the FAQ
-    // floor gates on.
+    // Seeded via the curated shelf product: the main-products floor lists the
+    // shelf's subcategories and renders only when the brand has a shelf (BD-10).
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
@@ -352,7 +409,7 @@ test.describe("Brand detail deep", () => {
     const firstItem = page.locator('[id^="faq-"]').first();
     // The first rendered item is the main-products floor.
     await expect(firstItem).toHaveAttribute("id", "faq-main-products");
-    await expect(firstItem.locator("dd")).toContainText("為主");
+    await expect(firstItem.locator("dd")).toContainText("的商品包括");
     await expect(page.locator("#faq details")).toHaveCount(0);
 
     // The literal acceptance criterion — "verifiable by curl". Asserting on the
@@ -361,11 +418,11 @@ test.describe("Brand detail deep", () => {
     const response = await request.get(`/brands/${seeded.slug}`);
     expect(response.status()).toBe(200);
     const html = await response.text();
-    expect(html).toContain("為主");
+    expect(html).toContain("的商品包括");
     const $ = load(html);
     const serverItem = $('[id^="faq-"]').first();
     expect(serverItem.attr("id")).toBe("faq-main-products");
-    expect(serverItem.find("dd").text()).toContain("為主");
+    expect(serverItem.find("dd").text()).toContain("的商品包括");
     expect($("#faq details")).toHaveLength(0);
   });
 });
@@ -1166,7 +1223,7 @@ test.describe("Brand detail — public locations and retail stockists", () => {
     // Matched on the clause that carries the promise — the submission is
     // reviewed BEFORE it appears — rather than on the whole sentence, because
     // that clause is what the rest of this test then verifies.
-    await expect(dialog.getByText("先經過我們確認")).toBeVisible({
+    await expect(dialog.getByText("我們確認之後")).toBeVisible({
       timeout: BUDGET.GATED_UI,
     });
     await dialog.getByRole("button", { name: "關閉", exact: true }).click();

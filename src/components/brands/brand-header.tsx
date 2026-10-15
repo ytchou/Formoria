@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ArrowDown } from "lucide-react";
 import type { PublicBrandDetail } from "@/lib/brands/contracts";
 import { buildBrandMetaLineParts } from "@/lib/brands/brand-meta-line";
+import { phraseBreaks } from "@/components/ui/phrase-breaks";
 import type {
   BrandChannelSlot,
   BrandStockistCity,
@@ -63,7 +64,11 @@ export function BrandHeader({
             piece of copy the whole page is about, and it is the brand's own
             name, not interface chrome. */}
         <div className="flex animate-reveal-up items-start justify-between gap-4">
-          <Typography as="h1" balance variant="hero">
+          {/* A brand name is a proper noun: `break-keep` keeps each Han run
+              whole and breaks at its spaces (「劉一刀手工鞋／LID Shoes」). No
+              phraseBreaks() here: the dictionary splits 手工／鞋. A run wider
+              than the column still wraps via the hero's overflow-wrap. */}
+          <Typography as="h1" balance variant="hero" className="break-keep">
             {brand.name}
           </Typography>
           {adminSlot}
@@ -87,10 +92,10 @@ export function BrandHeader({
         ) : null}
         {lede ? (
           <p
-            className="type-lede animate-reveal-up"
+            className="type-lede animate-reveal-up break-keep"
             style={{ animationDelay: "200ms" }}
           >
-            {lede}
+            {phraseBreaks(lede)}
           </p>
         ) : null}
       </div>

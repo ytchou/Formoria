@@ -213,6 +213,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     tBrandFaq,
     safeLocale,
     cityLabel,
+    curatedProducts.flatMap((p) => (p.subcategory ? [p.subcategory] : [])),
   );
   const hasEditorialAppearances =
     editorialAppearances.trails.length > 0 ||
