@@ -14,6 +14,7 @@ overrides:
   jsdom>undici: 7.29.1
   smol-toml@<=1.7.0: 1.7.1
   source-map-js@<1.2.2: 1.2.2
+  '@modelcontextprotocol/sdk@>=1.12.0 <1.31.0': 1.31.0
   vite: '>=8.1.2'
   ws: '>=8.21.0'
   undici: '>=8.10.2'
@@ -3170,11 +3171,6 @@ packages:
 
   browserslist@4.28.8:
     resolution: {integrity: sha512-V2NpofLblG64mfOtSgDhOJESZEGogzDMBv/q+W6oc4LXWP/q75eOXoOaaOu1EOadB9U4Bwx/e0yzbvwKH8zalA==}
-    engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
-    hasBin: true
-
-  browserslist@4.29.1:
-    resolution: {integrity: sha512-AUdjuRyCNGUYtqpqfTmWyM4fXay8yIQhmLnvYe/THMGfT9B/34X7xQd3ifKxwyNPPpowVBjLb+64BN9Rn1mizw==}
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
 
@@ -9283,14 +9279,6 @@ snapshots:
       node-releases: 2.0.53
       update-browserslist-db: 1.3.1(browserslist@4.28.8)
 
-  browserslist@4.29.1:
-    dependencies:
-      baseline-browser-mapping: 2.11.26
-      caniuse-lite: 1.0.30001812
-      electron-to-chromium: 1.5.439
-      node-releases: 2.0.57
-      update-browserslist-db: 1.3.3(browserslist@4.29.1)
-
   browserslist@4.29.3:
     dependencies:
       baseline-browser-mapping: 2.11.26
@@ -13084,12 +13072,6 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.1
 
-  update-browserslist-db@1.3.3(browserslist@4.29.1):
-    dependencies:
-      browserslist: 4.29.1
-      escalade: 3.2.0
-      picocolors: 1.1.1
-
   update-browserslist-db@1.3.3(browserslist@4.29.3):
     dependencies:
       browserslist: 4.29.3
@@ -13207,7 +13189,7 @@ snapshots:
       '@webassemblyjs/wasm-parser': 1.14.1
       acorn: 8.18.0
       acorn-import-phases: 1.0.4(acorn@8.18.0)
-      browserslist: 4.29.1
+      browserslist: 4.29.3
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.25.1
       es-module-lexer: 2.3.2
