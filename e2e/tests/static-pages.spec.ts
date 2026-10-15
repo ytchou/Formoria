@@ -52,7 +52,7 @@ test.describe("Static & compliance pages", () => {
           "我們把你交到品牌手上。",
           "付錢買不到位置。",
           "找不到，不代表不存在。",
-          "判斷是我們的，而且會說明理由。",
+          "怎麼挑是我們的判斷，理由也會寫出來。",
         ],
         // Product-led exits: the hero and the closing band lead to products
         // and guides; the brand directory is the secondary link.

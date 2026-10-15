@@ -724,9 +724,11 @@ export default function SubmitForm({
 
           <HoneypotField {...register("honeypot")} />
 
-          {/* Reserves the widget's real height (65px) with a status line
-              behind it, so the slot never reads as an empty gap while the
-              widget paints. Both children share one grid cell. */}
+          {/* Reserves the normal/flexible widget height (65px) with a status
+              line behind it, so the slot never reads as an empty gap while
+              the widget paints; the compact widget (140px, columns under
+              300px) grows the slot. Both children share one grid cell; the
+              widget wrapper is w-full so the widget measures the column. */}
           {TURNSTILE_ENABLED ? (
             <div className="grid min-h-[65px] place-items-center">
               {!turnstileToken && !turnstileError ? (
@@ -734,7 +736,7 @@ export default function SubmitForm({
                   {tForm("turnstileLoading")}
                 </p>
               ) : null}
-              <div className="col-start-1 row-start-1">
+              <div className="col-start-1 row-start-1 w-full">
                 <TurnstileWidget
                   onSuccess={handleTurnstileSuccess}
                   onError={handleTurnstileError}
