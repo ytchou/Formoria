@@ -2,8 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Check, Home, Plus } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import type { Locale } from '@/lib/seo/alternates'
-import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { buildPageMetadata } from '@/lib/seo/page-metadata'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { PageShell } from '@/components/ui/page-shell'
@@ -32,32 +31,22 @@ export async function generateMetadata({
 }: ConfirmationPageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations(
     (await wasSent(searchParams))
       ? 'submit.confirmation.metadata'
       : 'submit.confirmation.neutral.metadata',
   )
-  const title = t('title')
-  const description = t('description')
-  const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
-  const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
-  return {
-    title,
-    description,
+  return buildPageMetadata({
+    locale,
+    title: t('title'),
+    description: t('description'),
     // A post-submit receipt: nothing to rank, but its links are real.
     robots: { index: false, follow: true },
     // Empty, not omitted: an absent key inherits the (site) layout's home
     // canonical and hreflang set, which would point this page at `/`.
     alternates: {},
-    ...buildOpenGraph({
-      title,
-      description,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-  }
+  })
 }
 
 export default async function ConfirmationPage({

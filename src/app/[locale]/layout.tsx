@@ -8,6 +8,7 @@ import { routing } from '@/i18n/routing'
 import type { Locale } from '@/lib/seo/alternates'
 import { getSiteUrl } from '@/lib/seo/site-url'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { ogLocalePair, toSafeLocale } from '@/lib/seo/page-metadata'
 import '../globals.css'
 
 export function generateStaticParams() {
@@ -21,15 +22,14 @@ type LayoutProps = {
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
+  const safeLocale = toSafeLocale(locale)
   const [t, tCommon] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: 'landing.metadata' }),
     getTranslations({ locale: safeLocale, namespace: 'common' }),
   ])
   const description = tCommon('metadataDescription')
 
-  const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
-  const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
+  const og = ogLocalePair(safeLocale)
 
   return {
     metadataBase: new URL(getSiteUrl()),
@@ -42,8 +42,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     ...buildOpenGraph({
       title: t('title'),
       description,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
+      locale: og.locale,
+      alternateLocale: [og.alternateLocale],
     }),
   }
 }

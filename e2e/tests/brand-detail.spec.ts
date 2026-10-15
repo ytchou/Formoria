@@ -349,6 +349,15 @@ test.describe("Brand detail deep", () => {
       .locator('meta[name="description"]')
       .getAttribute("content");
     expect(description?.length).toBeGreaterThan(0);
+
+    // BD-11: the share card is the 1200x630 brand card, not the hero photo.
+    const meta = (selector: string) =>
+      page.locator(`meta[${selector}]`).first().getAttribute("content");
+    expect(await meta('property="og:site_name"')).toBe("Formoria");
+    expect(await meta('property="og:image"')).toMatch(/\/opengraph-image$/);
+    expect(await meta('property="og:image:width"')).toBe("1200");
+    expect(await meta('property="og:image:height"')).toBe("630");
+    expect(await meta('name="twitter:image"')).toMatch(/\/opengraph-image$/);
   });
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {

@@ -1,9 +1,7 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { buildAlternates } from '@/lib/seo/alternates'
-import type { Locale } from '@/lib/seo/alternates'
-import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { buildPageMetadata } from '@/lib/seo/page-metadata'
 import {
   LegalDocument,
   LegalSection,
@@ -23,26 +21,14 @@ type PageProps = {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('legal.privacy.metadata')
-  const title = t('title')
-  const description = t('description')
-  const { canonical, languages } = buildAlternates(routes.privacy(), safeLocale)
-  const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
-  const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
-  return {
-    title,
-    description,
-    alternates: { canonical, languages },
-    ...buildOpenGraph({
-      title,
-      description,
-      url: canonical,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-  }
+  return buildPageMetadata({
+    locale,
+    path: routes.privacy(),
+    title: t('title'),
+    description: t('description'),
+  })
 }
 
 const sectionKeys = [

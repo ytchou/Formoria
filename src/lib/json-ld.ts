@@ -2,6 +2,8 @@ import type { Locale } from "@/lib/seo/alternates";
 import { buildAlternates } from "@/lib/seo/alternates";
 import { ONLINE_STORES } from "@/lib/brands/online-stores";
 import { absoluteImageUrl } from "@/lib/images/image-url";
+import { ownedSiteHostsFor } from "@/lib/services/link-enrichment";
+import { sanitizeHref } from "@/lib/url";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
 import type { Stockist } from "./types/stockist";
@@ -44,6 +46,25 @@ function toInLanguage(locale: JsonLdLocale = "zh-TW"): string {
 }
 
 /**
+ * True when the URL is on a registered marketplace host. `ownedSiteHostsFor`
+ * screens the scraper's deny-list, which does not carry every registry alias
+ * (`shopee.com.tw`); this closes that gap for `Organization.url`.
+ */
+function isOnlineStoreHost(url: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return ONLINE_STORES.some((store) =>
+    store.hosts.some(
+      (host) => hostname === host || hostname.endsWith(`.${host}`),
+    ),
+  );
+}
+
+/**
  * Build Organization JSON-LD structured data for a brand detail page.
  *
  * `canonicalUrl` is what separates the zh-TW and /en editions as DOCUMENTS.
@@ -56,6 +77,10 @@ function toInLanguage(locale: JsonLdLocale = "zh-TW"): string {
  * `@id` is locale-scoped and `mainEntityOfPage` names this page specifically;
  * the shared external `url` stays put, because both editions really are about
  * the same company.
+ *
+ * That external `url` is emitted only when `purchaseWebsite` is the brand's own
+ * site (`ownedSiteHostsFor`); a marketplace or social URL is never published as
+ * the organization's address, and is left to `sameAs`.
  */
 export function buildBrandJsonLd(
   brand: BrandJsonLdInput,
@@ -86,11 +111,16 @@ export function buildBrandJsonLd(
     ...(canonicalUrl ? { mainEntityOfPage: canonicalUrl } : {}),
   };
 
-  const url =
-    ONLINE_STORES.map((channel) => brand[channel.camel]).find(
-      (value): value is string => value !== null && value !== undefined,
-    ) ?? null;
-  if (url) jsonLd.url = url;
+  // `url` is the brand's own site only (BD-12). A marketplace or social host is
+  // never the organization's address; those stay in `sameAs`.
+  const ownSite = sanitizeHref(brand.purchaseWebsite);
+  if (
+    ownSite &&
+    ownedSiteHostsFor({ purchase_website: brand.purchaseWebsite }).size > 0 &&
+    !isOnlineStoreHost(ownSite)
+  ) {
+    jsonLd.url = ownSite;
+  }
   // JSON-LD is raw JSON inside a <script> tag, so `metadataBase` never touches
   // it: `heroImageUrl` is the relative `/i/<key>` proxy path since DEV-1551,
   // and Google drops `Organization.logo` when the IRI is not absolute.

@@ -23,9 +23,8 @@ import { ProductSortSelect } from "@/components/products/product-sort-select";
 import { ProductActiveFilters } from "@/components/products/product-active-filters";
 import { DiscoverUrlSync } from "@/components/products/discover-url-sync";
 import { Pagination } from "@/components/brands/pagination";
+import { buildPageMetadata, toSafeLocale } from "@/lib/seo/page-metadata";
 import { ResultsHeading } from "@/components/brands/results-heading";
-import { buildAlternates } from "@/lib/seo/alternates";
-import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { parseCommaParam } from "@/lib/seo/directory-filters";
 import {
   isIntentParseRequested,
@@ -117,31 +116,20 @@ export async function generateMetadata({
   setRequestLocale(locale);
   const rawParams = await searchParams;
   const { category, query, materials } = resolveDiscoverTaxonomy(rawParams);
-  const t = await getTranslations({ locale, namespace: "products" });
+  const t = await getTranslations({
+    locale: toSafeLocale(locale),
+    namespace: "products",
+  });
 
   const { robots, canonicalPath } = discoverMetadataFor({ query, category, materials });
-  const { canonical, languages } = buildAlternates(
-    canonicalPath,
-    locale as "zh-TW" | "en",
-  );
-  const title = t("metaTitle");
-  const description = t("metaDescription");
-  const ogLocale = locale === "en" ? "en_US" : "zh_TW";
-  const ogAlternateLocale = locale === "en" ? "zh_TW" : "en_US";
 
-  return {
-    title,
-    description,
-    alternates: { canonical, languages },
-    ...buildOpenGraph({
-      title,
-      description,
-      url: canonical,
-      locale: ogLocale,
-      alternateLocale: [ogAlternateLocale],
-    }),
-    ...(robots ? { robots } : {}),
-  };
+  return buildPageMetadata({
+    locale,
+    path: canonicalPath,
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+    robots,
+  });
 }
 
 export default async function DiscoverPage({

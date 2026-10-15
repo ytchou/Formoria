@@ -21,6 +21,14 @@ type OpenGraphType =
   | 'video.movie'
   | 'video.episode'
 
+export type OpenGraphImage = {
+  url: string
+  alt: string
+  width: number
+  height: number
+  type: string
+}
+
 export type BuildOpenGraphOptions = {
   title?: string
   description?: string
@@ -28,6 +36,8 @@ export type BuildOpenGraphOptions = {
   locale?: string
   alternateLocale?: string | readonly string[]
   type?: OpenGraphType
+  /** Replaces the default site card on both og:image and twitter:image. */
+  image?: OpenGraphImage
 }
 
 export type OpenGraphMetadata = Pick<Metadata, 'openGraph' | 'twitter'>
@@ -46,10 +56,10 @@ export function buildOpenGraph({
   locale,
   alternateLocale,
   type = 'website',
+  image: imageOverride,
 }: BuildOpenGraphOptions = {}): OpenGraphMetadata {
-  const imageUrl = `${getSiteUrl()}${DEFAULT_IMAGE_PATH}`
-  const image = {
-    url: imageUrl,
+  const image = imageOverride ?? {
+    url: `${getSiteUrl()}${DEFAULT_IMAGE_PATH}`,
     alt: DEFAULT_IMAGE_ALT,
     type: DEFAULT_IMAGE_TYPE,
     width: DEFAULT_IMAGE_WIDTH,
