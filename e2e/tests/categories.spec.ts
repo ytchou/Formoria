@@ -85,7 +85,7 @@ test.describe("Product catalog (formerly category landings) deep", () => {
       await page.goto(path);
       await expect(
         // Both breadcrumb labels in use: the brand page's 目前位置 and the
-        // 麵包屑導覽 family (stories, brands.breadcrumbAria).
+        // 麵包屑導覽 family (stories).
         page.getByRole("navigation", { name: /麵包屑導覽|目前位置/ }),
       ).toHaveCount(0);
       await expect(page.getByText(/\d{4}年\d{1,2}月\d{1,2}日 更新/)).toHaveCount(0);

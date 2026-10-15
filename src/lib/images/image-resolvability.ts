@@ -67,11 +67,6 @@ function trimmed(value: string | null | undefined): string | null {
   return candidate.length > 0 ? candidate : null
 }
 
-/** True when the central storage contract classifies the key as private. */
-export function isPrivateStorageKey(key: string): boolean {
-  return resolveImageStorageLocation(key)?.visibility === 'private'
-}
-
 /**
  * Judges each row against the keys the bucket actually holds.
  *

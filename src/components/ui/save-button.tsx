@@ -157,12 +157,16 @@ export function SaveButton({
         variant="secondary"
         size={variant === 'overlay' || iconOnly ? 'icon' : undefined}
         shape={variant === 'overlay' ? 'pill' : undefined}
+        // A labelled inline button is named by its visible text; only the
+        // icon-only forms need an aria-label.
         aria-label={
-          name
-            ? t(isSaved ? 'unsaveNamedAriaLabel' : 'saveNamedAriaLabel', {
-                name,
-              })
-            : t(isSaved ? 'unsaveAriaLabel' : 'saveAriaLabel')
+          variant === 'inline' && !iconOnly
+            ? undefined
+            : name
+              ? t(isSaved ? 'unsaveNamedAriaLabel' : 'saveNamedAriaLabel', {
+                  name,
+                })
+              : t(isSaved ? 'unsaveAriaLabel' : 'saveAriaLabel')
         }
         title={!user ? t('loginToSave') : label}
         className={cn(

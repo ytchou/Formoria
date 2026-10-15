@@ -264,7 +264,7 @@ describe("TrailTile", () => {
     expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
   });
 
-  it("puts the scrim behind the copy, not over the whole photograph", () => {
+  it("puts one scrim layer behind the copy, not over the whole photograph (EL-07)", () => {
     const { container } = renderTile();
 
     // No tile-wide overlay: the photograph above the copy stays uncovered.
@@ -272,13 +272,68 @@ describe("TrailTile", () => {
 
     const copy = container.querySelector("a > span.relative");
     expect(copy).not.toBeNull();
-    expect(copy!.className).toContain("from-ink/90");
-    expect(copy!.className).toContain("to-ink/80");
+    // The old two-part scrim (an opaque copy block plus a fade span) is gone:
+    // no Tailwind gradient stops anywhere in the tile.
+    expect(container.innerHTML).not.toContain("from-ink/90");
+    expect(container.innerHTML).not.toContain("bottom-full");
 
-    const fade = copy!.querySelector(':scope > span[aria-hidden="true"]');
-    expect(fade).not.toBeNull();
-    expect(fade!.className).toContain("bottom-full");
-    expect(fade!.className).toContain("to-transparent");
+    // Exactly one decorative layer, absolutely positioned so it never grows
+    // the band, carrying the shared eased gradient.
+    const layers = copy!.querySelectorAll(':scope > span[aria-hidden="true"]');
+    expect(layers).toHaveLength(1);
+    expect(layers[0]).toHaveClass("absolute", "pointer-events-none", "-top-40");
+    expect(layers[0]!.className).toContain("in_oklab");
+    // The copy itself sits above the layer.
+    expect(layers[0]!.nextElementSibling).toHaveClass("relative");
+  });
+
+  it("uses the shared media-hover recipe on the image and an underline cue on the title (EL-05)", () => {
+    renderTile();
+
+    const image = screen.getByRole("img");
+    expect(image).toHaveClass(
+      "transition-[scale]",
+      "duration-300",
+      "ease-(--ease-settle)",
+      "motion-safe:group-hover:scale-[1.03]",
+    );
+    expect(image).not.toHaveClass("transition-transform");
+
+    // Accent on ink is ~1.6:1, so the title's hover cue is a fading underline.
+    const title = screen.getByRole("heading", { level: 3 });
+    expect(title).toHaveClass(
+      "decoration-transparent",
+      "transition-[text-decoration-color]",
+      "duration-150",
+      "ease-(--ease-settle)",
+      "group-hover:decoration-current",
+    );
+    expect(title).not.toHaveClass("group-hover:text-accent");
+  });
+
+  it("packs every peek strip left with the same gap (DS-19)", () => {
+    const peek = Array.from({ length: 4 }, (_, index) =>
+      buildPeekProduct(index),
+    );
+
+    for (const props of [
+      { singleColumn: false },
+      { singleColumn: true },
+      { variant: "feature" as const, singleColumn: false },
+    ]) {
+      const { container, unmount } = renderTile(buildTrail(), {
+        peek,
+        ...props,
+      });
+      const list = peekList(container);
+      expect(list).toHaveClass(
+        "grid",
+        "grid-cols-[repeat(4,minmax(0,6rem))]",
+        "gap-2",
+      );
+      expect(list).not.toHaveClass("justify-between");
+      unmount();
+    }
   });
 
   describe("content language", () => {

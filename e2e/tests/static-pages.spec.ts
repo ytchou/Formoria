@@ -220,9 +220,9 @@ test.describe("Static & compliance pages", () => {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
-    expect(await resp?.text()).toMatch(/<h1[^>]*>快速驗證<\/h1>/);
+    expect(await resp?.text()).toMatch(/<h1[^>]*>安全驗證<\/h1>/);
     await expect(
-      anonPage.getByRole("heading", { name: "快速驗證" }),
+      anonPage.getByRole("heading", { name: "安全驗證" }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     // Turnstile container (div rendered by TurnstileWidget, or the "Verifying..." text)
     // The widget may redirect quickly in dev; assert the heading appeared above.

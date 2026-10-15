@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import { trackStoryCardClicked } from "@/lib/analytics";
 
 import zhMessages from "../../../../messages/zh-TW.json";
 import type { StoryEntry } from "@/lib/services/stories";
@@ -13,6 +15,8 @@ vi.mock("@/components/ui/image", () => ({
     <img
       src={props.src as string}
       alt={(props.alt as string) || ""}
+      className={props.className as string | undefined}
+      data-surface={props.surface as string | undefined}
       data-testid="story-image"
     />
   ),
@@ -176,5 +180,82 @@ describe("StoryCard", () => {
     );
 
     expect(container.querySelector("[lang]")).toBeNull();
+  });
+  // EL-05: one hover grammar across cards. The image scales on the settle
+  // curve; the title turns accent (interaction colour, DESIGN §2) over 150ms.
+  it("uses the shared media-hover recipe on the image and title", async () => {
+    const { StoryCard } = await import("../story-card");
+    renderWithIntl(
+      <StoryCard story={mockStory} locale="zh-TW" position={0} />,
+    );
+
+    const image = screen.getByTestId("story-image");
+    expect(image).toHaveClass(
+      "transition-[scale]",
+      "duration-300",
+      "ease-(--ease-settle)",
+      "motion-safe:group-hover:scale-[1.03]",
+    );
+    expect(image).not.toHaveClass("transition-transform");
+    expect(screen.getByRole("heading", { level: 3 })).toHaveClass(
+      "transition-colors",
+      "duration-150",
+      "ease-(--ease-settle)",
+      "group-hover:text-accent",
+      "group-active:text-accent",
+    );
+  });
+
+  it("renders the default card at 4:3 with a card title", async () => {
+    const { StoryCard } = await import("../story-card");
+    renderWithIntl(
+      <StoryCard story={mockStory} locale="zh-TW" position={0} />,
+    );
+
+    const frame = screen.getByTestId("story-image").parentElement;
+    expect(frame).toHaveClass("aspect-[4/3]");
+    expect(frame).not.toHaveClass("md:aspect-[21/9]");
+    expect(screen.getByTestId("story-image")).toHaveAttribute(
+      "data-surface",
+      "tile",
+    );
+    expect(screen.getByRole("heading", { level: 3 })).toHaveClass(
+      "type-card-title",
+    );
+  });
+
+  // EL-14: the /stories hub leads with one full-width story.
+  it("renders the feature variant full-width at 21:9 from md with a section title and lede", async () => {
+    const { StoryCard } = await import("../story-card");
+    renderWithIntl(
+      <StoryCard
+        story={mockStory}
+        locale="zh-TW"
+        position={0}
+        trackingSurface="stories_hub"
+        variant="feature"
+      />,
+    );
+
+    const image = screen.getByTestId("story-image");
+    expect(image.parentElement).toHaveClass("aspect-[4/3]", "md:aspect-[21/9]");
+    // A full-width image within the page measure, not a grid cell.
+    expect(image).toHaveAttribute("data-surface", "banner");
+
+    // Same heading level as the grid cards, so the hub outline stays valid.
+    const title = screen.getByRole("heading", { level: 3 });
+    expect(title).toHaveClass("type-section");
+    expect(title).not.toHaveClass("type-card-title");
+    expect(
+      screen.getByText("A short excerpt about Taiwanese craft."),
+    ).toHaveClass("type-lede");
+
+    // Tracking is unchanged by the variant.
+    fireEvent.click(screen.getByRole("link"));
+    expect(trackStoryCardClicked).toHaveBeenCalledWith(
+      "test-story",
+      0,
+      "stories_hub",
+    );
   });
 });

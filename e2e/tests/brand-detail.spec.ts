@@ -182,56 +182,55 @@ test.describe("Brand detail deep", () => {
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
   });
 
-  test("brand detail shows social and purchase links in two separate sections", async ({
+  test("where-to-buy holds the online stores and official social blocks", async ({
     page,
   }) => {
-    // The controlled brand has links data to verify two-section structure.
+    // The controlled brand has purchase and social links.
     await page.goto(`/brands/${seeded.slug}`);
 
-    // Verify the social section heading is visible
+    // Both are h3 blocks under where-to-buy's h2; there is no social section.
+    const whereToBuy = page.locator("#where-to-buy");
     await expect(
-      page.getByRole("heading", { name: "社群平台", level: 2 }),
+      whereToBuy.getByRole("heading", { name: "線上購買", level: 3 }),
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
-
-    // Verify the purchase sub-heading (under where-to-buy's h2) is visible
     await expect(
-      page.getByRole("heading", { name: "線上購買", level: 3 }),
-    ).toBeVisible({
-      timeout: BUDGET.INTERACTIVE,
-    });
+      whereToBuy.getByRole("heading", { name: "官方社群", level: 3 }),
+    ).toBeVisible();
+    await expect(page.locator("#social")).toHaveCount(0);
   });
 
   // Ordering is a separate failure from presence, so it is a separate test: a
   // merged case would hide the ordering result the moment a heading is missing
   // (see commit 4a4fc7a8). The extra `goto` is one cached load of an
   // already-seeded brand.
-  test("links sections are structurally separate (where to buy before social)", async ({
+  test("where-to-buy lists the online stores before official social", async ({
     page,
   }) => {
     await page.goto(`/brands/${seeded.slug}`);
 
-    const whereToBuyHeading = page.getByRole("heading", {
-      name: "哪裡買得到",
-      level: 2,
+    const whereToBuy = page.locator("#where-to-buy");
+    const storesHeading = whereToBuy.getByRole("heading", {
+      name: "線上購買",
+      level: 3,
     });
-    const socialHeading = page.getByRole("heading", {
-      name: "社群平台",
-      level: 2,
+    const socialHeading = whereToBuy.getByRole("heading", {
+      name: "官方社群",
+      level: 3,
     });
 
-    await expect(whereToBuyHeading).toBeVisible({
+    await expect(storesHeading).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
     await expect(socialHeading).toBeVisible();
 
     // The route to buy comes before social in document order (BD-12).
-    const whereToBuyBox = await whereToBuyHeading.boundingBox();
+    const storesBox = await storesHeading.boundingBox();
     const socialBox = await socialHeading.boundingBox();
-    expect(whereToBuyBox).not.toBeNull();
+    expect(storesBox).not.toBeNull();
     expect(socialBox).not.toBeNull();
-    expect(whereToBuyBox!.y).toBeLessThan(socialBox!.y);
+    expect(storesBox!.y).toBeLessThan(socialBox!.y);
   });
 
   test("tab nav click scrolls to correct section", async ({ page }) => {
@@ -242,14 +241,14 @@ test.describe("Brand detail deep", () => {
       timeout: BUDGET.INTERACTIVE,
     });
 
-    // The seeded brand has social links — the strip carries the short 「社群」
-    // label; the section heading keeps its full name.
+    // The strip carries the short 「哪裡買」 label; the section heading keeps
+    // its full name.
     const nav = page.getByRole("navigation", { name: "本頁導覽" });
-    await nav.getByRole("link", { name: "社群", exact: true }).click();
+    await nav.getByRole("link", { name: "哪裡買", exact: true }).click();
 
-    // After the smooth-scroll the social section heading must be visible in the viewport
+    // After the smooth-scroll the section heading must be visible in the viewport
     await expect(
-      page.getByRole("heading", { name: "社群平台", level: 2 }),
+      page.getByRole("heading", { name: "哪裡買得到", level: 2 }),
     ).toBeInViewport({
       timeout: BUDGET.RENDERED,
     });
@@ -292,7 +291,7 @@ test.describe("Brand detail deep", () => {
 
     const nav = page.getByRole("navigation", { name: "本頁導覽" });
     await expect(nav).toBeVisible({ timeout: BUDGET.INTERACTIVE });
-    // #faq, not #social: the last section can bring the footer on screen, and
+    // #faq, not the last section: that can bring the footer on screen, and
     // the bar steps aside while the footer is visible.
     await page.locator("#faq").evaluate((section) => {
       window.scrollBy(0, section.getBoundingClientRect().top - 105);
@@ -747,7 +746,7 @@ test.describe("Brand detail — brand without links", () => {
     await seeded.cleanup();
   });
 
-  test("both link sections stay and say no link is known when brand has no links", async ({
+  test("where-to-buy says no store is known and drops social when brand has no links", async ({
     page,
   }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
@@ -764,26 +763,23 @@ test.describe("Brand detail — brand without links", () => {
       );
     }).toPass(POLL.DB);
 
-    // Both link sections stay rendered when the brand has no links, and each
-    // says so in one muted line instead of a dimmed chip per destination.
+    // The online-store block stays and says so in one muted line instead of a
+    // dimmed chip per destination; the official-social block drops out without
+    // comment (BD-COPY-03).
+    const whereToBuy = page.locator("#where-to-buy");
     await expect(
-      page.getByRole("heading", { name: "社群平台", level: 2 }),
-    ).toHaveCount(1);
-    await expect(
-      page.getByRole("heading", { name: "線上購買", level: 3 }),
+      whereToBuy.getByRole("heading", { name: "線上購買", level: 3 }),
     ).toHaveCount(1);
     await expect(page.getByText("還沒有線上購買的連結。")).toBeVisible();
-    await expect(page.getByText("還沒有社群連結。")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "官方社群", level: 3 }),
+    ).toHaveCount(0);
 
     // No inert chips: an unknown destination renders nothing at all.
-    for (const sectionId of ["#where-to-buy", "#social"]) {
-      await expect(
-        page.locator(sectionId).locator('[aria-disabled="true"]'),
-      ).toHaveCount(0);
-    }
+    await expect(whereToBuy.locator('[aria-disabled="true"]')).toHaveCount(0);
     for (const label of ["Instagram", "Threads", "Facebook", "品牌官網"]) {
       await expect(
-        page.locator("#social, #where-to-buy").getByText(label, {
+        whereToBuy.getByText(label, {
           exact: true,
         }),
       ).toHaveCount(0);
@@ -835,16 +831,19 @@ test.describe("Brand detail — myship-only purchase channel", () => {
       page.getByRole("link", { name: "前往 7-ELEVEN 賣貨便" }),
     ).toBeVisible();
 
-    // The website is absent, not inert: no chip, no link, and one muted line
-    // stands in for every store with no known link.
+    // The website is absent, not inert: no row, no link, and no apology line
+    // for the stores with no known link (BD-COPY-03). MyShip is a row.
     const whereToBuy = page.locator("#where-to-buy");
+    await expect(
+      whereToBuy.getByRole("link", { name: /7-ELEVEN 賣貨便/ }),
+    ).toBeVisible();
     await expect(
       whereToBuy.getByText("品牌官網", { exact: true }),
     ).toHaveCount(0);
     await expect(whereToBuy.locator('[aria-disabled="true"]')).toHaveCount(0);
     await expect(
       whereToBuy.getByText("還沒有其他通路的連結。"),
-    ).toBeVisible();
+    ).toHaveCount(0);
   });
 });
 
@@ -1265,11 +1264,11 @@ test.describe("Brand detail — public locations and retail stockists", () => {
   });
 });
 
-for (const [locale, prefix, storyLabel, socialLabel, socialHeading] of [
-  ["en", "/en", "Story", "Social", "Social platforms"],
-  ["zh-TW", "", "故事", "社群", "社群平台"],
+for (const [locale, prefix, storyLabel, targetLabel, targetHeading] of [
+  ["en", "/en", "Story", "Where to buy", "Where to buy"],
+  ["zh-TW", "", "故事", "哪裡買", "哪裡買得到"],
 ] as const) {
-  test(`mobile brand tabs stay intact after returning from Social (${locale})`, async ({
+  test(`mobile brand tabs stay intact after returning from Where to buy (${locale})`, async ({
     anonPage,
   }, testInfo) => {
     await anonPage.setViewportSize({ width: 320, height: 900 });
@@ -1286,9 +1285,9 @@ for (const [locale, prefix, storyLabel, socialLabel, socialHeading] of [
     await expect(story).toHaveAttribute("aria-current", "location");
     const initial = await nav.screenshot({ animations: "disabled" });
 
-    await nav.getByRole("link", { name: socialLabel, exact: true }).click();
+    await nav.getByRole("link", { name: targetLabel, exact: true }).click();
     await expect(
-      anonPage.getByRole("heading", { name: socialHeading, exact: true }),
+      anonPage.getByRole("heading", { name: targetHeading, exact: true }),
     ).toBeFocused();
     await anonPage.evaluate(() => window.scrollTo(0, 0));
     await expect(story).toHaveAttribute("aria-current", "location");

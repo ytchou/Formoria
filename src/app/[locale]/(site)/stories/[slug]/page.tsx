@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
+import { editorialHeroSrc } from "@/components/ui/editorial-hero";
 import {
-  EditorialHero,
-  editorialHeroSrc,
-} from "@/components/ui/editorial-hero";
+  EditorialHeader,
+  type MetaItem,
+} from "@/components/ui/editorial-header";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { localizePath } from "@/i18n/locale-preference";
-import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageShell } from "@/components/ui/page-shell";
 import {
@@ -16,6 +15,7 @@ import {
 } from "@/lib/services/stories";
 import { FaqBlock } from "@/components/stories/faq-block";
 import { SeriesNav } from "@/components/stories/series-nav";
+import { StorySources } from "@/components/stories/story-sources";
 import {
   formatStoryDate,
   toStoryIsoDate,
@@ -35,7 +35,6 @@ import { StoryContent } from "./story-content";
 import { routes } from "@/lib/routes";
 import { getStoryRelatedTrails } from "@/lib/services/editorial-links";
 import { RelatedTrailLink } from "@/components/stories/related-story-link";
-import { MEASURE_PX } from "@/lib/constants/layout";
 import { contentLangFor } from "@/lib/trails/content-lang";
 import { captureReadFailure } from "@/lib/degraded-render";
 
@@ -57,8 +56,6 @@ export function storyDocumentTitle(
 ): string {
   return contentLang ? titleInChinese(title) : title;
 }
-
-const STORY_HERO_SIZES = `(max-width: ${MEASURE_PX.prose}px) calc(100vw - 3rem), calc(${MEASURE_PX.prose}px - 5rem)`;
 
 export async function generateMetadata({
   params,
@@ -167,7 +164,7 @@ export default async function StoryPage({ params }: PageProps) {
 
   // Resolved ONCE, and the same answer the hero renders from: an image the page
   // cannot display must not be published as the article's image either. `null`
-  // is exactly the case where `EditorialHero` renders nothing.
+  // is exactly the case where `EditorialHeader` takes its imageless path.
   const heroSrc = editorialHeroSrc(story.entry.frontmatter.heroImage);
   const articleJsonLd = buildArticleJsonLd({
     title: story.entry.frontmatter.title,
@@ -232,41 +229,52 @@ export default async function StoryPage({ params }: PageProps) {
     (await getStoryRelatedTrails(slug).catch(
       captureReadFailure("story.relatedTrails"),
     )) ?? [];
+  // The story's byline as the trail's one meta line (DS-08), replacing the
+  // five-row label table. The series is a link inside the line, to the
+  // `#series` nav at the foot of the article; tags moved to the article
+  // footer, where they label what was read rather than delaying the opening.
+  const metaItems: MetaItem[] = [
+    {
+      label: t("authorLabel"),
+      value: story.entry.frontmatter.author ?? t("byline"),
+      // An authored byline is content; the fallback is UI copy.
+      lang: story.entry.frontmatter.author ? contentLang : undefined,
+    },
+    ...(seriesId && series.length >= 2
+      ? [
+          {
+            label: t("seriesLabel"),
+            value: (
+              // Metadata navigation follows the breadcrumb treatment, not body-prose link styling.
+              <a
+                href="#series"
+                className="rounded-control hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <span lang={authoredSeriesTitle ? contentLang : undefined}>
+                  {seriesTitle}
+                </span>
+              </a>
+            ),
+          },
+        ]
+      : []),
+    ...(publishedLabel
+      ? [{ label: t("publishedLabel"), value: publishedLabel }]
+      : []),
+    ...(updatedLabel && updatedLabel !== publishedLabel
+      ? [{ label: t("lastUpdatedLabel"), value: updatedLabel }]
+      : []),
+  ];
   return (
-    // One container owns every story detail surface: breadcrumb, hero,
-    // metadata, body, figures, cards, FAQ, and series nav. It runs on
-    // `prose-measure`, the named reading width, rather than the 920px literal
-    // that used to sit here — a reading page states which of the three measures
-    // it is, and the number itself stays in `globals.css` where one edit reaches
-    // every reading surface at once.
-    <PageShell as="main" measure="prose" className="pt-8 pb-16 md:pt-12 md:pb-24">
-      <nav aria-label={t("breadcrumbAria")} className="mb-6">
-        <ol className="flex items-center gap-1.5 type-body-sm">
-          <li className="shrink-0">
-            {/* A raw `<a>`, not next/link. DEV-1280: full-document navigation avoids a
-              stalled RSC request across the locale proxy rewrite. The
-              `no-html-link-for-pages` suppression that used to sit here is gone with
-              the literal href — the rule only inspects string literals, so routing
-              this through `@/lib/routes` left the directive unused, which
-              `reportUnusedDisableDirectives: "error"` fails on. */}
-            <a
-              href={localizePath(routes.stories(), safeLocale)}
-              className="hover:text-ink transition-colors"
-            >
-              {t("breadcrumb")}
-            </a>
-          </li>
-          <li aria-hidden="true">
-            <ChevronRight className="size-3.5" />
-          </li>
-          <li>
-            <span aria-current="page" lang={contentLang} className="text-ink">
-              {story.entry.frontmatter.title}
-            </span>
-          </li>
-        </ol>
-      </nav>
-      <article className="space-y-8">
+    // The header is the shared editorial frame (DS-08): full-bleed scene,
+    // title, lede, one meta line — the same opening a trail has. The body runs
+    // on `prose-measure`, the named reading width, rather than the 920px
+    // literal that used to sit here — a reading page states which of the three
+    // measures it is, and the number itself stays in `globals.css` where one
+    // edit reaches every reading surface at once. Centered, so the margins
+    // either side of the column stay free for hanging section markers.
+    <main className="pb-16 md:pb-24">
+      <article>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -290,158 +298,110 @@ export default async function StoryPage({ params }: PageProps) {
           />
         ) : null}
         {/*
-          Lead image, above the title the way a feature opens in print. Full
-          container width and 16:9 rather than the capped 4:3 used by inline
-          `<Figure>`s: this one is not illustrating a paragraph, it is the
-          story's opening frame, and the wide crop keeps it from eating the
-          fold on a laptop.
-
-          `EditorialHero` owns the box, the LCP hints and the "can this be
-          displayed" question — trail detail opens with the same frame, and the
-          two copies had already drifted apart on the placeholder colour.
+          The shared `Breadcrumb` (DS-25): padded link targets of 24px and up
+          instead of the 17–21px raw `<a>` this page used to hand-roll, and
+          next-intl `Link` with prefetch off, as on trail and brand detail. The
+          raw `<a>` was a DEV-1280 workaround for a stalled RSC request across
+          the locale proxy rewrite; trail detail has shipped the shared `Link`
+          crumb without it.
         */}
-        <EditorialHero
-          src={story.entry.frontmatter.heroImage}
-          alt={story.entry.frontmatter.heroImageAlt ?? ""}
-          sizes={STORY_HERO_SIZES}
-          imageQuality={60}
+        <EditorialHeader
+          breadcrumbAriaLabel={t("breadcrumbAria")}
+          breadcrumbItems={[
+            { label: t("breadcrumb"), href: routes.stories() },
+            { label: story.entry.frontmatter.title, lang: contentLang },
+          ]}
+          notice={contentLang ? t("untranslatedNotice") : null}
+          hero={
+            heroSrc
+              ? {
+                  src: heroSrc,
+                  alt: story.entry.frontmatter.heroImageAlt ?? "",
+                  quality: 60,
+                }
+              : null
+          }
+          title={story.entry.frontmatter.title}
+          lede={story.entry.frontmatter.description}
+          contentLang={contentLang}
+          metaItems={metaItems}
         />
-        {/* Outside every `lang` wrapper: the notice is page-locale text. */}
-        {contentLang ? (
-          <p className="type-body-sm text-ink-muted">
-            {t("untranslatedNotice")}
-          </p>
-        ) : null}
-        <header className="space-y-4">
-          <h1 lang={contentLang} className="type-page-title">
-            {story.entry.frontmatter.title}
-          </h1>
-          <p lang={contentLang} className="type-body">
-            {story.entry.frontmatter.description}
-          </p>
-          {/* The byline sits under a hairline, the way a feature's credits do in
-              print: it is the boundary between the opening and the article, not
-              a caption on the title. */}
-          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 border-t border-rule pt-4 type-metadata">
-            <div className="contents">
-              <dt className="border-r border-rule pr-3 type-metadata">
-                {t("authorLabel")}
-              </dt>
-              <dd>{story.entry.frontmatter.author ?? t("byline")}</dd>
+        <PageShell measure="prose" className="space-y-8 pt-10">
+          {/*
+            No `prose` classes: the Tailwind typography plugin is not installed,
+            so they were inert. Story typography comes from the element map in
+            `storyComponentMap` (src/lib/mdx/components.ts), built on the
+            project's own `type-*` scale.
+          */}
+          {/*
+            Embedded `<BrandCard>`s carry a save button, which reads `useSavedBrands`.
+            The hook degrades to a no-op without a provider, so this is what makes the
+            buttons live for signed-in readers while leaving signed-out ones untouched;
+            the provider seeds itself from `getSavedBrandIdsAction` once a session exists.
+            Scoped to the MDX body — nothing else on the page saves anything.
+          */}
+          <SavedBrandsProvider>
+            <div lang={contentLang}>
+              <StoryContent source={story.content} />
             </div>
-            {seriesId && series.length >= 2 ? (
-              <div className="contents">
-                <dt className="border-r border-rule pr-3 type-metadata">
-                  {t("seriesLabel")}
-                </dt>
-                <dd>
-                  {/* Metadata navigation follows the breadcrumb treatment, not body-prose link styling. */}
-                  <a
-                    href="#series"
-                    className="rounded-control hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  >
-                    <span
-                      lang={authoredSeriesTitle ? contentLang : undefined}
+          </SavedBrandsProvider>
+          {relatedTrails.length > 0 ? (
+            <nav aria-label={t("relatedTrailsAria")} className="space-y-3">
+              <h2 className="type-card-title">{t("relatedTrails")}</h2>
+              <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
+                {relatedTrails.map((trail, position) => (
+                  <li key={trail.slug}>
+                    <RelatedTrailLink
+                      href={routes.trail(trail.slug)}
+                      trailSlug={trail.slug}
+                      position={position}
+                      trailSurface="story_related_trails"
+                      className="text-accent underline underline-offset-4 hover:text-ink"
                     >
-                      {seriesTitle}
-                    </span>
-                  </a>
-                </dd>
-              </div>
-            ) : null}
-            {publishedLabel ? (
-              <div className="contents">
-                <dt className="border-r border-rule pr-3 type-metadata">
-                  {t("publishedLabel")}
-                </dt>
-                <dd>{publishedLabel}</dd>
-              </div>
-            ) : null}
-            {updatedLabel && updatedLabel !== publishedLabel ? (
-              <div className="contents">
-                <dt className="border-r border-rule pr-3 type-metadata">
-                  {t("lastUpdatedLabel")}
-                </dt>
-                <dd>{updatedLabel}</dd>
-              </div>
-            ) : null}
-            {storyTags.length > 0 ? (
-              <div className="contents">
-                <dt className="border-r border-rule pr-3 type-metadata">
-                  {t("tagsLabel")}
-                </dt>
-                <dd className="min-w-0">
-                  <div
-                    className="flex flex-wrap items-center gap-2"
-                    aria-label={t("tagsAria")}
-                  >
-                    {storyTags.map((tag) => (
-                      <Badge key={tag.key} variant="secondary">
-                        {tag.label}
-                      </Badge>
-                    ))}
-                  </div>
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        </header>
-        {/*
-          No `prose` classes: the Tailwind typography plugin is not installed,
-          so they were inert. Story typography comes from the element map in
-          `storyComponentMap` (src/lib/mdx/components.ts), built on the
-          project's own `type-*` scale.
-        */}
-        {/*
-          Embedded `<BrandCard>`s carry a save button, which reads `useSavedBrands`.
-          The hook degrades to a no-op without a provider, so this is what makes the
-          buttons live for signed-in readers while leaving signed-out ones untouched;
-          the provider seeds itself from `getSavedBrandIdsAction` once a session exists.
-          Scoped to the MDX body — nothing else on the page saves anything.
-        */}
-        <SavedBrandsProvider>
-          <div lang={contentLang}>
-            <StoryContent
-              source={story.content}
-            />
-          </div>
-        </SavedBrandsProvider>
-        {relatedTrails.length > 0 ? (
-          <nav aria-label={t("relatedTrailsAria")} className="space-y-3">
-            <h2 className="type-card-title">{t("relatedTrails")}</h2>
-            <ul className="flex flex-wrap gap-x-4 gap-y-2 type-body-sm">
-              {relatedTrails.map((trail, position) => (
-                <li key={trail.slug}>
-                  <RelatedTrailLink
-                    href={routes.trail(trail.slug)}
-                    trailSlug={trail.slug}
-                    position={position}
-                    trailSurface="story_related_trails"
-                    className="text-accent underline underline-offset-4 hover:text-ink"
-                  >
-                    {/* Trails are zh-TW content, like the story. */}
-                    <span lang={contentLang}>{trail.title}</span>
-                  </RelatedTrailLink>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        ) : null}
-        {story.entry.frontmatter.faq &&
-          story.entry.frontmatter.faq.length > 0 && (
-            <FaqBlock
-              questions={story.entry.frontmatter.faq}
-              lang={contentLang}
-            />
-          )}
-        {seriesId ? (
-          <SeriesNav
-            series={series}
-            currentSlug={story.entry.slug}
-            locale={safeLocale}
+                      {/* Trails are zh-TW content, like the story. */}
+                      <span lang={contentLang}>{trail.title}</span>
+                    </RelatedTrailLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ) : null}
+          {story.entry.frontmatter.faq &&
+            story.entry.frontmatter.faq.length > 0 && (
+              <FaqBlock
+                questions={story.entry.frontmatter.faq}
+                lang={contentLang}
+              />
+            )}
+          <StorySources
+            heading={t("sourcesHeading")}
+            sources={story.entry.frontmatter.sources}
           />
-        ) : null}
+          {storyTags.length > 0 ? (
+            <footer className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-rule pt-6">
+              <span className="type-metadata">{t("tagsLabel")}</span>
+              <div
+                role="group"
+                aria-label={t("tagsAria")}
+                className="flex flex-wrap items-center gap-2"
+              >
+                {storyTags.map((tag) => (
+                  <Badge key={tag.key} variant="secondary">
+                    {tag.label}
+                  </Badge>
+                ))}
+              </div>
+            </footer>
+          ) : null}
+          {seriesId ? (
+            <SeriesNav
+              series={series}
+              currentSlug={story.entry.slug}
+              locale={safeLocale}
+            />
+          ) : null}
+        </PageShell>
       </article>
-    </PageShell>
+    </main>
   );
 }

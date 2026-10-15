@@ -54,9 +54,9 @@ export function ChallengeWidget({
 
   return (
     <>
-      <div
-        style={{ display: "flex", justifyContent: "center", minHeight: "65px" }}
-      >
+      {/* 65px is Turnstile's own widget height; reserving it stops the card
+          jumping when the iframe mounts. */}
+      <div className="flex min-h-[65px] justify-center">
         <TurnstileWidget
           key={widgetKey}
           onSuccess={handleSuccess}
@@ -64,12 +64,15 @@ export function ChallengeWidget({
         />
       </div>
       {state === "verifying" ? (
-        <p style={{ margin: "20px 0 0", color: "var(--ink-muted)" }}>
+        <p role="status" className="mt-4 type-body-sm text-ink-muted">
           {verifyingLabel}
         </p>
       ) : null}
+      {/* The error survives the re-key below on purpose: it clears only when
+          the next attempt starts (handleSuccess sets "verifying"), so the
+          alert is not withdrawn before it is read. */}
       {state === "error" ? (
-        <p style={{ margin: "20px 0 0", color: "var(--danger)" }}>
+        <p role="alert" className="mt-4 type-body-sm text-danger">
           {errorLabel}
         </p>
       ) : null}

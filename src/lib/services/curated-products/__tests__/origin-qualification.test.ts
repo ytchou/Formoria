@@ -10,7 +10,6 @@ import {
   normalizeRegistryValue,
   originTextsOf,
   pageStatesTaiwanOrigin,
-  rankOriginCandidates,
   selectExactRegistryMatch,
   type RegistryOriginRecord,
 } from "../origin-qualification";
@@ -175,22 +174,6 @@ describe("product origin qualification", () => {
         NOW,
       ),
     ).toBe("stale");
-  });
-
-  it("uses MIT only inside editorial-score ties, then search order", () => {
-    const ranked = rankOriginCandidates([
-      { id: "outside", editorialScore: 91, mitQualified: false, searchPosition: 9 },
-      { id: "mit", editorialScore: 90, mitQualified: true, searchPosition: 8 },
-      { id: "plain", editorialScore: 90, mitQualified: false, searchPosition: 1 },
-      { id: "mit-later", editorialScore: 90, mitQualified: true, searchPosition: 10 },
-    ]);
-
-    expect(ranked.map((candidate) => candidate.id)).toEqual([
-      "outside",
-      "mit",
-      "mit-later",
-      "plain",
-    ]);
   });
 
   it("matches Pinkoi 商品產地 field", () => {

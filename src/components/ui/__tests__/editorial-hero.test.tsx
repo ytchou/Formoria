@@ -1,35 +1,8 @@
-// @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import {
-  EditorialHero,
-  editorialHeroSrc,
-} from "@/components/ui/editorial-hero";
-
-// `next/image` becomes a plain `img`, exactly as every other image spec in this
-// repo does it. `priority` and `fetchPriority` leave no trace on a real
-// `next/image` render that a DOM assertion could reach, so the mock forwards
-// them as data attributes: the point of the assertion is that the hero asks for
-// them at all, not how Next spells them.
-vi.mock("next/image", () => ({
-  default: ({
-    fill: _fill,
-    priority,
-    fetchPriority,
-    ...props
-  }: Record<string, unknown>) => (
-    // eslint-disable-next-line @next/next/no-img-element -- this IS the mock of next/image
-    <img
-      alt=""
-      data-priority={priority ? "true" : "false"}
-      data-fetch-priority={String(fetchPriority ?? "")}
-      {...props}
-    />
-  ),
-}));
+import { editorialHeroSrc } from "@/components/ui/editorial-hero";
 
 const REPO_PATH = "/images/stories/2026-taiwan-creative-expo-craft-brands.webp";
 const ALLOWED_REMOTE =
@@ -66,97 +39,30 @@ describe("editorialHeroSrc", () => {
   });
 });
 
-describe("EditorialHero", () => {
-  it("renders the frame and never defers the LCP element", () => {
-    const { container } = render(
-      <EditorialHero src={REPO_PATH} alt="A row of six Taiwanese crafts" />,
-    );
-
-    const image = screen.getByAltText("A row of six Taiwanese crafts");
-    expect(image).toHaveAttribute("src", REPO_PATH);
-    expect(image).toHaveAttribute("data-priority", "true");
-    expect(image).toHaveAttribute("data-fetch-priority", "high");
-    expect(image).not.toHaveAttribute("loading", "lazy");
-
-    // v2 framing: a rule, never a shadow. The placeholder is `surface-deep` —
-    // the trail's copy used `bg-surface`, which is the colour of the header band
-    // it sits in, so its own empty state was invisible against its parent.
-    const frame = container.firstElementChild;
-    expect(frame?.className).toContain("border-rule");
-    expect(frame?.className).toContain("bg-surface-deep");
-    expect(frame?.className).not.toContain("shadow-");
-  });
-
-  it("renders nothing at all for an image the page cannot display", () => {
-    // The imageless degradation path, not an empty bordered box. A blank 16:9
-    // hole where the LCP element belongs is the failure this replaced.
-    const { container } = render(<EditorialHero src={BLOCKED_REMOTE} alt="" />);
-
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("renders nothing when there is no hero", () => {
-    const { container } = render(<EditorialHero src={null} alt="" />);
-
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("carries the decorative empty alt through", () => {
-    const { container } = render(
-      <EditorialHero src={REPO_PATH} alt="" />,
-    );
-
-    expect(container.querySelector("img")).toHaveAttribute("alt", "");
-  });
-
-  it("takes the spacing its page owns", () => {
-    const { container } = render(
-      <EditorialHero src={REPO_PATH} alt="" className="mb-10" />,
-    );
-
-    expect(container.firstElementChild?.className).toContain("mb-10");
-  });
-
-  it("uses a route-specific image delivery contract when provided", () => {
-    // The shared banner default describes the 100rem trail shell, while a
-    // story renders the same component inside the much narrower prose shell.
-    render(
-      <EditorialHero
-        src={REPO_PATH}
-        alt=""
-        sizes="(max-width: 768px) calc(100vw - 3rem), calc(768px - 5rem)"
-        imageQuality={60}
-      />,
-    );
-
-    const image = screen.getByRole("presentation");
-    expect(image).toHaveAttribute(
-      "sizes",
-      "(max-width: 768px) calc(100vw - 3rem), calc(768px - 5rem)",
-    );
-    expect(image).toHaveAttribute("quality", "60");
-  });
-});
-
 /**
- * The story route keeps the shared hero. Trail details use the full-bleed
- * band approved in DEV-1998, so this shared-component contract excludes them.
+ * Both long-form routes open with the shared `EditorialHeader`, which renders
+ * whatever `editorialHeroSrc` resolved. The component's own rendering is
+ * covered in `editorial-header.test.tsx`; this pins that neither route grows a
+ * second, hand-rolled hero again.
  */
 const ROUTES = {
   story: join(process.cwd(), "src/app/[locale]/(site)/stories/[slug]/page.tsx"),
+  trail: join(process.cwd(), "src/app/[locale]/(site)/style/[slug]/page.tsx"),
 } as const;
 
 describe.each(Object.entries(ROUTES))(
-  "%s detail opens with the shared hero",
+  "%s detail opens with the shared header",
   (_name, path) => {
     const source = readFileSync(path, "utf8");
 
-    it("renders EditorialHero", () => {
-      expect(source).toContain("<EditorialHero");
+    it("renders EditorialHeader from the resolved hero", () => {
+      expect(source).toContain("<EditorialHeader");
+      expect(source).toContain("editorialHeroSrc(");
     });
 
-    it("does not hand-roll a 16:9 hero box", () => {
-      expect(source).not.toContain("aspect-[16/9]");
+    it("does not hand-roll a hero box", () => {
+      expect(source).not.toContain("<SurfaceImage");
+      expect(source).not.toContain("aspect-[");
     });
 
     it("does not fall back to a raw img the CSP would blank", () => {

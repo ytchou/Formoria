@@ -82,7 +82,7 @@ test.describe("i18n English browse", () => {
     const document = renderedDocument(await response.text());
     expect(document.lang).toBe("en");
 
-    for (const text of ["About Formoria", "Recommend a brand"]) {
+    for (const text of ["About", "Recommend a brand"]) {
       expect(document.headerText).toContain(text);
     }
     // Only fixture-backed copy and ontology-stable strings belong here. The
@@ -269,7 +269,7 @@ test.describe("i18n English browse", () => {
     await page.goto(`/en/brands/${seeded.slug}`);
     // The footer repeats this link (DEV-1958), so name the header explicitly.
     await expect(
-      page.getByRole("banner").getByRole("link", { name: "About Formoria" }),
+      page.getByRole("banner").getByRole("link", { name: "About", exact: true }),
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });
@@ -286,7 +286,7 @@ test.describe("i18n English browse", () => {
   }) => {
     await page.goto("/en/stories");
     await expect(
-      page.getByRole("banner").getByRole("link", { name: "About Formoria" }),
+      page.getByRole("banner").getByRole("link", { name: "About", exact: true }),
     ).toBeVisible({
       timeout: BUDGET.INTERACTIVE,
     });

@@ -1,10 +1,7 @@
 {
   "common": {
-    "exploreBrands": "Browse the brand directory",
-    "submitBrand": "Recommend a brand",
     "all": "All",
     "skipToContent": "Skip to content",
-    "close": "Close",
     "closeDialog": "Close dialog",
     "loading": "Loading…",
     "notifications": "Notifications",
@@ -14,18 +11,18 @@
     "searchAria": "Search products",
     "faq": "FAQ",
     "submitBrand": "Recommend a brand",
-    "searchPlaceholder": "Search products, brands, or a situation…",
+    "searchPlaceholder": "Search products, brands, or situations…",
     "openMenu": "Open menu",
     "navigation": "Main menu",
     "signIn": "Sign in",
     "languageLabel": "Switch language",
     "languageTraditionalChinese": "Traditional Chinese",
     "languageEnglish": "English",
-    "about": "About Formoria",
+    "about": "About",
     "stories": "Stories",
     "products": "Products",
     "style": "Guides",
-    "brands": "Listed brands"
+    "brands": "Brands"
   },
   "footer": {
     "about": "About Formoria",
@@ -46,11 +43,11 @@
   },
   "style": {
     "metaTitle": "Guides",
-    "metaDescription": "A desk, an everyday bag, year-end gifts: start from one concrete situation and see which Taiwanese products fit.",
+    "metaDescription": "A desk, an everyday bag, year-end gifts: each guide starts from an everyday situation, picks Taiwanese products that fit, and says why we chose them.",
     "heading": "Guides",
-    "subheading": "Start from one concrete situation and see which Taiwanese products belong in it.",
+    "subheading": "Each guide starts from an everyday situation, picks a few Taiwanese products that fit, and says why we chose them.",
     "comingSoon": "The first guide is on its way.",
-    "loadError": "Guides are temporarily unavailable. Please try again later.",
+    "loadError": "Guides can't load right now. Try again later.",
     "retry": "Try again",
     "breadcrumb": "Guides",
     "breadcrumbAria": "Breadcrumb",
@@ -78,6 +75,7 @@
     "subheading": "Find Taiwanese products by category and material, then buy from the brand's site or stockists.",
     "emptyState": "No products match these filters. Remove one and try again.",
     "resultCount": "{count, plural, one {# product} other {# products}}",
+    "resultsHeading": "Product list ({count, plural, one {# product} other {# products}})",
     "filters": {
       "subcategory": "Subcategory",
       "material": "Material",
@@ -89,7 +87,7 @@
       "removeFilterInferred": "Remove {label}: {value} ({badge})",
       "sortNewest": "Newest",
       "sortAlphabetical": "Name",
-      "sortRelevance": "Relevance",
+      "sortRelevance": "Most relevant",
       "resultCount": "{count, plural, one {# product} other {# products}}",
       "sortLabel": "Sort by",
       "query": "Search",
@@ -100,13 +98,13 @@
     },
     "search": {
       "label": "Search products",
-      "placeholder": "Search products, brands, or a situation…",
+      "placeholder": "Search products, brands, or situations…",
       "submit": "Search",
       "clear": "Clear search",
       "heading": "Search results",
-      "queryEcho": "\"{query}\"",
+      "queryEcho": "“{query}”",
       "count": "{count, plural, one {# product} other {# products}}",
-      "empty": "No products match \"{query}\". Try a different keyword or clear the filters.",
+      "empty": "No products match “{query}”. Try a different keyword or clear the filters.",
       "emptyRoutes": {
         "trailsHeading": "Start from one of these guides",
         "categoriesHeading": "Browse all products by category",
@@ -152,7 +150,7 @@
     "hero": {
       "headline": "Life can feel a little more like you",
       "searchLabel": "Search Taiwanese products",
-      "searchPlaceholder": "Try: travel essentials, wedding gifts, sunscreen",
+      "searchPlaceholder": "Try: wedding gifts",
       "browseCta": "Start from a guide",
       "eyebrow": "A curated platform for Taiwanese goods",
       "lede": "From one thing you love to the Taiwanese brand that makes it, and the place you can buy it.",
@@ -162,12 +160,12 @@
     },
     "selectedProducts": {
       "productCta": "View product page",
-      "brandSiteCta": "Visit the brand",
+      "brandSiteCta": "Visit the brand’s site",
       "unavailable": "The brand's product page isn't loading right now.",
       "madeInTaiwan": "Made in Taiwan"
     },
     "trustSeam": {
-      "line": "Listings and selections stay distinct"
+      "line": "Listed brands and Formoria Selections are labeled separately"
     },
     "submitBand": {
       "headline": "Know a Taiwanese brand we haven't listed?",
@@ -181,7 +179,7 @@
     },
     "trails": {
       "heading": "Guides",
-      "note": "Products picked for one specific situation",
+      "note": "Each guide starts from an everyday situation and picks a few products that fit",
       "linkText": "See all guides",
       "eyebrow": "Guide",
       "cta": "See this guide"
@@ -200,19 +198,18 @@
       "cta": "Browse the brand directory"
     },
     "brands": {
-      "count": "{approximate, select, true {More than {count} Taiwanese brands listed} other {{count, plural, one {# Taiwanese brand listed} other {# Taiwanese brands listed}}}}",
-      "browseAll": "Browse the brand directory",
+      "count": "{count, plural, one {# Taiwanese brand listed} other {# Taiwanese brands listed}}",
       "pauseMarquee": "Pause brand carousel",
       "playMarquee": "Play brand carousel"
     }
   },
   "newsletter": {
-    "heading": "Get new stories and selections",
+    "heading": "Subscribe to the Formoria newsletter",
     "subtext": "New stories, newly listed brands, and Formoria Selections, sent to your inbox.",
     "emailLabel": "Email address",
     "emailPlaceholder": "your@email.com",
     "subscribe": "Subscribe",
-    "interestsLabel": "Choose what to receive",
+    "interestsLabel": "What would you like to receive?",
     "interests": {
       "brand-stories": "Stories",
       "new-brands": "Newly listed brands",
@@ -221,32 +218,31 @@
     },
     "success": "Confirmation email sent. Open the link in it to finish subscribing.",
     "errors": {
-      "invalidEmail": "Enter a valid email address.",
-      "rateLimited": "Too many attempts. Please wait a moment, then try again.",
-      "confirmationFailed": "We couldn’t send the confirmation email. Please try again.",
-      "generic": "We couldn’t complete your subscription. Please try again."
+      "invalidEmail": "That email address doesn’t look right. Check it and try again.",
+      "rateLimited": "Too many tries. Wait a moment, then try again.",
+      "confirmationFailed": "We couldn’t send the confirmation email. Try again in a moment.",
+      "generic": "Your subscription didn’t go through. Try again in a moment."
     },
-    "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email to activate delivery. You can unsubscribe at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
+    "consentNotice": "By selecting “Subscribe,” you agree to receive the Formoria newsletter. Confirm your email first; you can unsubscribe at any time. Details are in our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "I agree to receive the Formoria newsletter",
-    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details."
+    "newsletterOnlyDescription": "Confirm your email after subscribing. You can unsubscribe at any time. Details are in our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "brands": {
-    "breadcrumbAria": "Breadcrumb",
     "metadata": {
       "title": "Taiwanese brand directory | Brands by category and where to buy | Formoria",
       "description": "Find brands founded, designed, or made in Taiwan by category or keyword, then go from each brand page to its official site or stockists."
     },
     "heading": "Taiwanese brand directory",
     "count": "{count, plural, one {# brand} other {# brands}}",
+    "resultsHeading": "Brand list ({count, plural, one {# brand} other {# brands}})",
     "emptyTitle": "No brands match these filters",
     "emptyDescription": "Remove a filter, or clear them all",
     "sortLabel": "Sort by",
     "filters": {
       "title": "Filters",
       "trigger": "Filters",
-      "all": "All",
       "category": "Category",
       "activeSearch": "Search",
       "activeCategory": "Category",
@@ -273,9 +269,9 @@
     },
     "pagination": {
       "label": "Pagination",
-      "previous": "‹ Previous",
+      "previous": "Previous",
       "previousAria": "Previous page",
-      "next": "Next ›",
+      "next": "Next",
       "nextAria": "Next page",
       "status": "Page {page} of {total}"
     },
@@ -289,7 +285,7 @@
     "subheading": "Find listed Taiwanese brands by category or keyword"
   },
   "challenge": {
-    "title": "Quick verification",
+    "title": "Security check",
     "description": "Complete the check to keep browsing.",
     "verifying": "Verifying…",
     "error": "The check didn't go through. Try again."
@@ -335,8 +331,7 @@
         "selectedProducts": "Products",
         "whereToBuy": "Where to buy",
         "featuredIn": "Featured",
-        "faq": "FAQ",
-        "social": "Social"
+        "faq": "FAQ"
       }
     },
     "colophon": {
@@ -345,7 +340,10 @@
     },
     "heroJump": {
       "selected": "{count, plural, one {# product} other {# products}} from this brand",
-      "stockists": "{count, plural, one {# stockist} other {# stockists}}"
+      "stockists": "{count, plural, one {# stockist} other {# stockists}}",
+      "channels": "Brand links",
+      "stockistCity": "{city} {count}",
+      "stockistsAll": "See all {count, plural, one {# stockist} other {# stockists}}"
     },
     "selectedProducts": {
       "heading": "From this brand",
@@ -373,8 +371,7 @@
       "visitInstagram": "Visit Instagram",
       "visitThreads": "Visit Threads",
       "visitFacebook": "Visit Facebook",
-      "visitLine": "Visit LINE",
-      "copied": "Copied"
+      "visitLine": "Visit LINE"
     },
     "share": {
       "trigger": "Share",
@@ -390,8 +387,8 @@
       "instagramCopied": "Link copied — paste it into your story or bio"
     },
     "links": {
-      "socialPlatforms": "Social platforms",
       "onlineStores": "Online stores",
+      "officialSocial": "Official social accounts",
       "otherLinks": "Other links",
       "instagram": "Instagram",
       "threads": "Threads",
@@ -401,9 +398,7 @@
       "pinkoi": "Pinkoi",
       "shopee": "Shopee",
       "myship": "7-ELEVEN MyShip",
-      "missingChannels": "No links for other stores yet.",
       "noChannels": "No online store links yet.",
-      "noSocialLinks": "No social links yet.",
       "correctionPrompt": "Know another place to buy?",
       "correctionAction": "Tell us",
       "correctionPurchase": "Online store link",
@@ -566,7 +561,6 @@
       }
     },
     "gallery": {
-      "close": "Close photo viewer",
       "previous": "Previous photo",
       "next": "Next photo",
       "photoAltWithBrand": "{brand} photo {n}",
@@ -1175,13 +1169,13 @@
       "description": "Manage your display name, language, and newsletter settings."
     },
     "heading": "Account settings",
-    "subheading": "Manage profile and preferences",
+    "subheading": "Change your display name, language, and newsletter settings",
     "displayNameLabel": "Display name",
     "displayNamePlaceholder": "Enter a display name",
     "emailLabel": "Email",
     "localePreferenceLabel": "Language",
     "marketingHeading": "Newsletter",
-    "marketingDescription": "The newsletter is optional, off until you turn it on, and can be turned off again at any time. Account verification, password resets, and review results are unaffected.",
+    "marketingDescription": "The newsletter is off by default and only arrives once you turn it on. You can turn it off at any time. Account verification, password resets, and review results are always sent, subscribed or not.",
     "newsletterMarketingLabel": "Formoria newsletter",
     "newsletterMarketingDescription": "New stories, newly listed brands, and Formoria Selections. You'll need to confirm your email first.",
     "newsletterPending": "Confirmation sent. Open the link in that email to start getting the newsletter.",
@@ -1202,7 +1196,7 @@
       "uploading": "Uploading…",
       "invalidType": "Choose an image file",
       "fileTooLarge": "Choose a file under 5 MB",
-      "genericUploadFailed": "Upload failed. Please try again.",
+      "genericUploadFailed": "Upload failed. Try again.",
       "clickOrDrag": "Choose a file or drag it here",
       "clickToReplace": "Choose a new image or drag it here",
       "replace": "Replace image",
@@ -1767,17 +1761,14 @@
         "urlPlaceholder": "https://..."
       },
       "placeholders": {
-        "description": "Brand description",
-        "officialWebsite": "Official website URL"
+        "description": "Brand description"
       },
       "bulkRejectAriaLabel": "Bulk rejection reason",
       "errors": {
         "selectReason": "Please select a rejection reason",
-        "enterNotes": "Please enter additional notes",
         "invalidUploadResponse": "The uploaded image could not be added to this review",
         "imageLimit": "A review can contain at most seven images"
       },
-      "suggestedTags": "Suggested Tags",
       "notSet": "Not set"
     },
     "curatedProducts": {
@@ -1924,7 +1915,6 @@
         "actions": "Actions",
         "details": "Details",
         "demo": "Demo",
-        "cert": "Cert: {cert}",
         "empty": "No brands found."
       },
       "actions": {
@@ -2149,9 +2139,6 @@
     "unsaveAriaLabel": "Remove this brand from saved",
     "saveNamedAriaLabel": "Save {name}",
     "unsaveNamedAriaLabel": "Remove {name} from saved",
-    "emptyTitle": "No saved brands yet",
-    "emptyDescription": "Select the heart on a brand page to save it here.",
-    "exploreBrands": "Browse the brand directory",
     "loginToSave": "Sign in to save brands",
     "signInPrompt": "Sign in to save this, and find it later in Saved brands.",
     "signInPromptConfirm": "Sign in",
@@ -2177,7 +2164,7 @@
           "description": "See every brand, with no filters"
         }
       },
-      "recommendations": "Similar options",
+      "recommendations": "You might also like these brands",
       "viewAll": "View all",
       "clearAll": "Clear all"
     }
@@ -2189,7 +2176,7 @@
     "subheading": "Long-form stories that start from brands, places, and the people who make things, plus guides to expos and markets.",
     "comingSoon": "The first stories are on their way.",
     "languageBadge": "In Chinese",
-    "loadError": "Stories are temporarily unavailable. Please try again later.",
+    "loadError": "Stories can't load right now. Try again later.",
     "breadcrumb": "Stories",
     "breadcrumbAria": "Breadcrumb",
     "byline": "Formoria Editorial",
@@ -2211,6 +2198,7 @@
     "brandMissing": "This brand doesn't have a public page right now",
     "galleryImageAlt": "{brand} product photo",
     "boothLabel": "Booth",
+    "sourcesHeading": "Sources",
     "relatedTrails": "Related guides",
     "relatedTrailsAria": "Guides related to this story",
     "untranslatedNotice": "This story is in Traditional Chinese.",
@@ -2221,15 +2209,15 @@
   },
   "emailActions": {
     "missingHeading": "This link is incomplete",
-    "missingBody": "Go back to the email and open the complete link.",
+    "missingBody": "Go back to the original email and click the link again.",
     "invalidHeading": "This link is no longer valid",
     "invalidBody": "Use the unsubscribe link in the most recent email.",
     "confirmationInvalid": "This confirmation link is no longer valid. Subscribe again from the homepage to get a new confirmation email.",
-    "unavailableHeading": "We could not confirm the result",
+    "unavailableHeading": "We couldn't confirm the result",
     "unavailableBody": "There is a connection problem. Open the original email link again in a little while to retry.",
     "successHeading": "Unsubscribed",
-    "newsletterUnsubscribeSuccess": "You have been unsubscribed from the Formoria newsletter. Account verification, password resets and review results are unaffected.",
-    "ownerUnsubscribeSuccess": "You have been unsubscribed from Formoria brand-owner emails. The newsletter is managed separately, in account settings or through the unsubscribe link in a newsletter.",
+    "newsletterUnsubscribeSuccess": "You've unsubscribed from the Formoria newsletter. Emails for account verification, password resets and review results will still reach you.",
+    "ownerUnsubscribeSuccess": "Formoria will no longer send you brand-owner emails. The newsletter is separate: unsubscribe in account settings or with the link in any newsletter.",
     "home": "Return home",
     "subscribeAgain": "Return home to subscribe again",
     "manageNewsletter": "Manage newsletter subscription"

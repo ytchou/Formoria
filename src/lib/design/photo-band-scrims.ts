@@ -100,9 +100,10 @@ export type ScrimBreakpoint = {
    * These are deliberate over-estimates of how much of the frame survives, so
    * the gate errs toward sampling pixels the browser crops away — a false
    * failure, which is loud, rather than a false pass, which is what shipped
-   * twice. Wide: the homepage opener is roughly 1440x600 at desktop widths, so
-   * a 2.4 band is at or under the real ratio and keeps more rows in the sample
-   * than render. Narrow: at 390px the same band is roughly 390x640 (0.61), so
+   * twice. Wide: a band sized by its copy is roughly 1440x600 at desktop
+   * widths, so a 2.4 band is at or under the real ratio and keeps more rows in
+   * the sample than render. The homepage opener is no longer sized by its copy
+   * and states its own wide ratio — see the `left` variant. Narrow: at 390px the same band is roughly 390x640 (0.61), so
    * 0.75 keeps a wider horizontal slice in the sample than the browser shows.
    *
    * CEILING: they are arithmetic from the type scale and `py-section`, not
@@ -132,9 +133,11 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
    * `0.30`.
    *
    * `0.62` at x=0.72 is what that costs, and it is the BINDING NUMBER here:
-   * over the homepage photograph it leaves body copy at 4.90:1 against a
-   * 4.5:1 floor. Measured alternatives, same photograph, same gate — a ramp
-   * from 0.40 gives 4.62:1 and one from 0.35 gives 4.19:1, which fails. So
+   * over the homepage photograph it leaves body copy at 4.75:1 against a
+   * 4.5:1 floor at the wide `bandAspect` below (4.90:1 when the band was a
+   * 2.4 strip). Measured alternatives on the 2.4 strip, same photograph, same
+   * gate — a ramp from 0.40 gave 4.62:1 and one from 0.35 gave 4.19:1, which
+   * failed. So
    * this variant is close to its limit by design, and the margin belongs to
    * the photograph: a band that wants an earlier ramp needs a lighter frame,
    * not a thinner scrim.
@@ -146,6 +149,19 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
    * which flattens the photograph on phones. That is the trade, taken
    * deliberately: on a 390px screen the band is a background for the copy, and
    * the picture is what remains once the copy is legible.
+   *
+   * WIDE `bandAspect` IS THE OPENER'S OWN RATIO, and the widest one it takes.
+   * From `md` up the opener is `min(82svh, 52rem)` tall (EL-01), so its shape
+   * moves with the viewport: 1123x738 = 1.52 at the breakpoint, 1440x738 =
+   * 1.95 at 1440x900, 1920x832 = 2.31 at 1920x1080, and 2560x832 = 3.08 at
+   * 2560x1440, where the 52rem cap binds. Over this photograph (1.78) every
+   * one of those is wider than the frame, so `object-cover` keeps the full
+   * width and crops rows — fewer rows the wider the band. Swept through the
+   * gate, the ratio only falls as the band widens: ink-soft 4.90:1 at 1.5,
+   * 4.88 at 1.95, 4.82 at 2.4, 4.75 at 3.1. So the binding shape is the
+   * widest, and 3.1 sits just past 2560x1440. CEILING: a screen wider than
+   * that at the cap (an ultrawide) crops further than the gate measures;
+   * 4.1 still measured 4.70:1, so the margin holds, but it is not proved.
    */
   left: {
     breakpoints: [
@@ -165,7 +181,7 @@ export const PHOTO_BAND_SCRIMS: Record<ScrimVariant, ScrimSpec> = {
         colorToken: "--ground",
         minWidth: BREAKPOINT_PX,
         textZone: [0, 0.72],
-        bandAspect: 2.4,
+        bandAspect: 3.1,
         stops: [
           { offset: 0, alpha: 0.9 },
           { offset: 0.5, alpha: 0.85 },

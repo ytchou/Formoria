@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   isFullyResolvable,
-  isPrivateStorageKey,
   planImageResolvability,
   type ResolvabilityRow,
 } from '@/lib/images/image-resolvability'
@@ -114,14 +113,5 @@ describe('planImageResolvability', () => {
       'private-prefix': 1,
       'unsupported-prefix': 0,
     })
-  })
-})
-
-describe('isPrivateStorageKey', () => {
-  it('follows the central storage routing contract', () => {
-    expect(isPrivateStorageKey(PRIVATE_KEY)).toBe(true)
-    expect(isPrivateStorageKey(PUBLIC_KEY)).toBe(false)
-    expect(isPrivateStorageKey('curated-products/x.webp')).toBe(false)
-    expect(isPrivateStorageKey('events/x.webp')).toBe(false)
   })
 })

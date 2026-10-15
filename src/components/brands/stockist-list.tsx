@@ -118,7 +118,7 @@ function StatusMarker({ confirmed }: { confirmed: boolean }) {
     return (
       <span
         aria-hidden="true"
-        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface text-ink"
+        className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-deep text-ink"
       >
         <Check className="size-4" />
       </span>

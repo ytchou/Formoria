@@ -105,6 +105,39 @@ describe("HeroSection — the editorial opener", () => {
     expect(container.querySelector("p")).toHaveTextContent("lede");
   });
 
+  it("sets the lede in the one lede step under the display h1", async () => {
+    const { container } = render(await HeroSection({ trails: [] }));
+
+    const lede = container.querySelector("p");
+    expect(lede).toHaveClass("type-lede");
+    expect(lede).not.toHaveClass("type-body");
+  });
+
+  it("staggers the page's one entrance in 100ms steps, motion-safe only", async () => {
+    intl.locale = "en";
+    render(await HeroSection({ trails: FIVE_TRAILS.slice(0, 2) }));
+
+    const steps = [
+      screen.getByText("eyebrow"),
+      screen.getByRole("heading", { level: 1 }),
+      screen.getByText("lede"),
+      screen.getByRole("searchbox", { name: "searchLabel" }).closest(
+        ".motion-safe\\:animate-reveal-up",
+      ),
+      screen.getByText("situationsLanguageNote"),
+      screen.getByRole("list", { name: "situationsLabel" }),
+    ];
+    for (const step of steps) {
+      expect(step).toHaveClass("motion-safe:animate-reveal-up");
+      // No bare `animate-reveal-up`: under reduced motion the inline delay
+      // would hold a `both`-filled step at opacity 0.
+      expect(step).not.toHaveClass("animate-reveal-up");
+    }
+    expect(
+      steps.map((step) => (step as HTMLElement).style.animationDelay),
+    ).toEqual(["0ms", "100ms", "200ms", "300ms", "400ms", "400ms"]);
+  });
+
   it("keeps the zh headline from breaking mid-word", async () => {
     render(await HeroSection({ trails: [] }));
 

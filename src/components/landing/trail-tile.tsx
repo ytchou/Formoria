@@ -3,6 +3,10 @@
 import { ArrowRight } from "lucide-react";
 import { useLocale } from "next-intl";
 
+import {
+  editorialScrim,
+  editorialScrimLayer,
+} from "@/components/ui/editorial-scrim";
 import { SurfaceImage } from "@/components/ui/image";
 
 import { Link } from "@/i18n/navigation";
@@ -52,8 +56,10 @@ export type TrailTileLabels = {
  *
  * The optional peek sits BELOW the band, inside the same list item, and is
  * decorative: the one card link already carries the trail's name. Its four
- * thumbnails never grow past 96px; on a default tile the leftover width goes
- * between them, so the strip ends at the tile's right edge (R2-07).
+ * thumbnails never grow past 96px and pack left with an 8px gap on every
+ * variant. Spreading them across a pair card (`justify-between`, R2-07) left
+ * ~90px gaps beside the feature band's tight strip, so the same four squares
+ * read as one strip on the feature and as stray images under the pair (DS-19).
  */
 export function TrailTile({
   trail,
@@ -142,26 +148,30 @@ export function TrailTile({
                 ? "100vw"
                 : "(max-width: 1024px) 100vw, 33vw"
             }
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
+            // TODO(DEV-2022): import mediaHoverImage / mediaHoverTitle from @/lib/design/media-hover once it merges.
+            className="object-cover transition-[scale] duration-300 ease-(--ease-settle) motion-safe:group-hover:scale-[1.03]"
           />
         ) : null}
         {/*
           The scrim belongs to the copy block, not the tile. A tile-wide
           gradient fades out at a fixed height, but the copy's height varies
-          (two-line titles, three-line promises, a 224px phone tile), so text
+          (two-line titles, three-line promises, a short phone tile), so text
           that rose above the dark stop sat on bare photograph at 1.3–2.7:1.
-          Sized by the copy, ink/80 or darker sits behind every line (ground
-          8.5:1, on-ink 5.8:1 even over pure white), the fade above it is a
-          fixed band, and everything higher stays photograph. The negative
-          margins carry the block to the tile's edges through its padding.
-          The fade band is short (48/64px) so the scene shows above the copy.
+          It is ONE layer (EL-07): the old opaque copy block plus a separate
+          48/64px fade showed three horizontal seams. The shared editorial
+          scrim keeps ink/82 or darker behind every line and eases out above
+          the copy over its own runway. The layer is absolutely positioned and
+          the link clips it, so it never adds height to a band (DESIGN.md §8
+          TrailCard: the band below md is never shorter than its copy, and
+          never taller). The negative margins carry the block to the tile's
+          edges through its padding.
         */}
-        <span className="relative z-10 -mx-5 -mb-5 bg-gradient-to-t from-ink/90 to-ink/80 px-5 pt-1 pb-5 md:-mx-8 md:-mb-8 md:px-8 md:pb-8">
+        <span className="relative z-10 -mx-5 -mb-5 px-5 pt-1 pb-5 md:-mx-8 md:-mb-8 md:px-8 md:pb-8">
           <span
             aria-hidden="true"
-            className="absolute inset-x-0 bottom-full h-12 bg-gradient-to-t from-ink/80 to-transparent md:h-16"
+            className={cn(editorialScrimLayer, editorialScrim)}
           />
-          <span className="flex max-w-xl flex-col items-start gap-2">
+          <span className="relative flex max-w-xl flex-col items-start gap-2">
             {labels.eyebrow ? (
               <span className="rounded-full border border-ground/30 bg-ink px-3 py-1 type-eyebrow text-ground">
                 {labels.eyebrow}
@@ -171,10 +181,16 @@ export function TrailTile({
             `lang` on the title and promise only: the eyebrow and CTA are UI
             labels in the page's own language.
           */}
+            {/*
+              The hover cue is an underline that fades in, not the shared
+              accent title (EL-05): `--accent` on the ink scrim
+              measures ~1.6:1, far under 4.5:1. Accent stays interaction-only
+              (DESIGN.md §2) and is used where it can be read, on paper.
+            */}
             <Heading
               lang={contentLang}
               className={cn(
-                "text-ground",
+                "text-ground underline decoration-transparent underline-offset-4 transition-[text-decoration-color] duration-150 ease-(--ease-settle) group-hover:decoration-current group-active:decoration-current",
                 feature || singleColumn
                   ? "type-section"
                   : "type-card-title xl:type-section xl:text-ground",
@@ -207,10 +223,7 @@ export function TrailTile({
       {peekItems.length > 0 ? (
         <ul
           aria-hidden="true"
-          className={cn(
-            "grid grid-cols-[repeat(4,minmax(0,6rem))] gap-2",
-            alignRow && "justify-between",
-          )}
+          className="grid grid-cols-[repeat(4,minmax(0,6rem))] gap-2"
         >
           {peekItems.map((product) => {
             const peekSrc = safeImageSrc(product.imageUrl);

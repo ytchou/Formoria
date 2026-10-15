@@ -214,7 +214,14 @@ describe("CategoryFilter", () => {
     );
   });
 
-  it("renders an empty grid for an empty category", async () => {
+  it("starts the chip row at the band's left edge at every width", () => {
+    renderFilter();
+
+    const row = screen.getAllByRole("button")[0]!.parentElement;
+    expect(row).not.toHaveClass("justify-center");
+  });
+
+    it("renders an empty grid for an empty category", async () => {
     const user = userEvent.setup();
     const { container } = renderFilter();
 
