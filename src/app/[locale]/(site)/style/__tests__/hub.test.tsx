@@ -68,7 +68,8 @@ const trail = (slug: string, tags: string[]): TrailEntry => ({
   },
 });
 
-const labels = { eyebrow: "主題選物", cta: "看這組選物" };
+// The hub passes no eyebrow: its h1 is already 主題選物 (DS-20).
+const labels = { cta: "看這組選物" };
 
 function peekProduct(trailSlug: string, index: number): CuratedProduct {
   return {
@@ -154,7 +155,7 @@ describe("style trail hub", () => {
       });
       const link = screen.getByRole("link", {
         name: (name) =>
-          name.includes(labels.eyebrow) &&
+          !name.includes("主題選物") &&
           name.includes(item.frontmatter.title) &&
           name.includes(item.frontmatter.description ?? "") &&
           name.includes(labels.cta),
