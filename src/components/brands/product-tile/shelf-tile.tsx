@@ -66,6 +66,7 @@ export function ShelfTile({
 }: ShelfTileProps) {
   const {
     name,
+    nameBreaks,
     nameLang,
     description,
     descriptionLang,
@@ -95,6 +96,7 @@ export function ShelfTile({
       />
       <ProductCardCaption
         name={name}
+        nameBreaks={nameBreaks}
         nameLang={nameLang}
         // Two lines, always: a one-line name still reserves the second line so
         // the descriptions in a row start on one baseline.

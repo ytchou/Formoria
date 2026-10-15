@@ -26,6 +26,7 @@ import {
   normalizeCuratedProductName,
   publicCuratedProductName,
 } from "@/lib/curated-products/product-name";
+import { phraseBreakOffsets } from "@/lib/text/phrase-break-offsets";
 import { buildCategoryWallSlots } from "@/lib/curated-products/home-wall";
 import {
   toWallTileProduct,
@@ -58,6 +59,12 @@ export type CuratedProduct = {
   brandId: string;
   key: string;
   nameZh: string;
+  /**
+   * Where `nameZh` may break under `break-keep` (BD-13): server-computed
+   * `phraseBreakOffsets`, so client-rendered cards never segment in the
+   * browser. Absent renders the plain name.
+   */
+  nameZhBreaks?: number[];
   nameEn: string | null;
   category: string;
   subcategory: string | null;
@@ -278,12 +285,14 @@ function winningSelection(
 
 function toCuratedProduct(row: CuratedProductReadRow): CuratedProduct {
   const selection = winningSelection(row.curated_product_selections);
+  // Public read: the read-side name guard (DEV-1989).
+  const nameZh = publicCuratedProductName(row.name_zh);
   return {
     id: row.id,
     brandId: row.brand_id,
     key: row.key,
-    // Public read: the read-side name guard (DEV-1989).
-    nameZh: publicCuratedProductName(row.name_zh),
+    nameZh,
+    nameZhBreaks: phraseBreakOffsets(nameZh),
     nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
     category: row.category,
     subcategory: productSubcategory(row),
@@ -327,13 +336,15 @@ function toTrailProduct(
 ): TrailCuratedProduct {
   const brand = row.brands;
   if (!brand) throw new Error(`Trail product ${row.id} is missing its brand`);
+  // Public read: the read-side name guard (DEV-1989).
+  const nameZh = publicCuratedProductName(row.name_zh);
 
   return {
     id: row.id,
     brandId: row.brand_id,
     key: row.key,
-    // Public read: the read-side name guard (DEV-1989).
-    nameZh: publicCuratedProductName(row.name_zh),
+    nameZh,
+    nameZhBreaks: phraseBreakOffsets(nameZh),
     nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
     category: row.category,
     subcategory: productSubcategory(row),

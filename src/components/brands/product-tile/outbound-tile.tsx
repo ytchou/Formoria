@@ -31,8 +31,15 @@ export function OutboundTile({
   imageSizes,
   className,
 }: OutboundTileProps) {
-  const { name, nameLang, description, descriptionLang, imageSrc, isBroken } =
-    tileFields(product, locale, labels);
+  const {
+    name,
+    nameBreaks,
+    nameLang,
+    description,
+    descriptionLang,
+    imageSrc,
+    isBroken,
+  } = tileFields(product, locale, labels);
   return (
     <li
       id={`product-${product.key}`}
@@ -51,7 +58,11 @@ export function OutboundTile({
           />
         }
       />
-      <ProductCardCaption name={name} nameLang={nameLang}>
+      <ProductCardCaption
+        name={name}
+        nameBreaks={nameBreaks}
+        nameLang={nameLang}
+      >
         {description ? (
           <Typography as="p" variant="body" lang={descriptionLang}>
             {description}

@@ -60,6 +60,20 @@ describe("tileFields", () => {
     expect(fields.descriptionLang).toBe("zh-Hant-TW");
   });
 
+  it("carries the zh name's breaks only when the zh name is shown (BD-13)", () => {
+    const withBreaks = product({ nameZhBreaks: [1] });
+    expect(tileFields(withBreaks, "zh-TW", labels).nameBreaks).toEqual([1]);
+    // An English name gets none of the zh offsets.
+    expect(tileFields(withBreaks, "en", labels).nameBreaks).toEqual([]);
+    // The EN page's zh fallback shows the zh name, so it keeps them.
+    expect(
+      tileFields(product({ nameEn: null, nameZhBreaks: [1] }), "en", labels)
+        .nameBreaks,
+    ).toEqual([1]);
+    // No offsets from the service: the plain name.
+    expect(tileFields(product(), "zh-TW", labels).nameBreaks).toEqual([]);
+  });
+
   it("links out to the product page when the link is healthy", () => {
     const fields = tileFields(product(), "en", labels, brand);
     expect(fields.isBroken).toBe(false);

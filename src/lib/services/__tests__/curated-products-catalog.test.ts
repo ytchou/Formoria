@@ -6,6 +6,7 @@ import {
   transformCatalogRow,
   type CatalogProduct,
 } from "../curated-products-catalog";
+import { phraseBreakOffsets } from "@/lib/text/phrase-break-offsets";
 
 /** A mirrored, same-origin image: renderable whatever the env. */
 const IMAGE = "/i/curated-products/test.webp";
@@ -101,6 +102,8 @@ describe("transformCatalogRow", () => {
       id: "prod-1",
       key: "test-product",
       nameZh: "測試商品",
+      // Server-computed breaks ship with the name (BD-13).
+      nameZhBreaks: phraseBreakOffsets("測試商品"),
       nameEn: "Test Product",
       category: "home",
       subcategory: "candles",
