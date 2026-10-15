@@ -15,7 +15,6 @@ import type { Locale } from "@/lib/seo/alternates";
 import { routes } from "@/lib/routes";
 import { toStoryCard } from "@/lib/stories/story-card";
 import { contentLangFor } from "@/lib/trails/content-lang";
-import { cn } from "@/lib/utils";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -34,14 +33,31 @@ export function seriesPartOrder(story: StoryEntry, index: number): number {
 }
 
 /**
- * Ungrouped stories newest first: the head becomes the hub's full-width feature.
- * Re-sorted here because single-member series are folded in ahead of the
- * standalone set. ISO dates compare lexically; a copy, never in place.
+ * Stories newest first. Ungrouped stories are re-sorted here because
+ * single-member series are folded in ahead of the standalone set. ISO dates
+ * compare lexically; a copy, never in place.
  */
 export function orderUngrouped(stories: StoryEntry[]): StoryEntry[] {
   return [...stories].sort((a, b) =>
     b.frontmatter.publishedAt.localeCompare(a.frontmatter.publishedAt),
   );
+}
+
+/**
+ * The hub's lead (EL-14): the newest story of the whole hub, whichever series
+ * it belongs to, rendered as the full-width feature above everything else. It
+ * is taken out BEFORE grouping, so it is never shown twice; a two-part series
+ * whose newer part leads is then down to one visible member and folds into the
+ * grid like any other lone series story. Taking the lead from the ungrouped set
+ * only (as the hub once did) gave a hub whose stories all sit in one series no
+ * lead at all.
+ */
+export function splitHubLead(stories: StoryEntry[]): {
+  lead: StoryEntry | null;
+  rest: StoryEntry[];
+} {
+  const [lead, ...rest] = orderUngrouped(stories);
+  return { lead: lead ?? null, rest };
 }
 
 /** The label line above a hub card: series part, and "In Chinese" off-locale. */
@@ -89,7 +105,8 @@ export default async function StoriesHubPage({
   // Grouping and ordering live in the service (`groupStoriesBySeries`), which is
   // also what `getStorySeries` orders by — one definition of "series order", not
   // one here and one there.
-  const { series, standalone } = groupStoriesBySeries(stories, safeLocale);
+  const { lead, rest } = splitHubLead(stories);
+  const { series, standalone } = groupStoriesBySeries(rest, safeLocale);
   // A group down to a single visible entry gets no titled section, matching
   // `SeriesNav`, which renders nothing below two members. Its story still shows
   // — it just joins the ungrouped grid instead of sitting alone under a heading.
@@ -106,9 +123,11 @@ export default async function StoriesHubPage({
     story.frontmatter.locale !== locale ? [t("languageBadge")] : [];
   // One rank across the whole hub, in render order, for `story_card_clicked`.
   const cardPosition = new Map(
-    [...seriesSections.flatMap((group) => group.stories), ...ungrouped].map(
-      (story, index) => [story.slug, index],
-    ),
+    [
+      ...(lead ? [lead] : []),
+      ...seriesSections.flatMap((group) => group.stories),
+      ...ungrouped,
+    ].map((story, index) => [story.slug, index]),
   );
 
   return (
@@ -132,6 +151,25 @@ export default async function StoriesHubPage({
           </div>
         ) : (
           <div className="space-y-10">
+            {/*
+              The lead keeps the grid cards' h3: under a tag filter, or with
+              no series, the hub has no h2 for it to sit under, and a variant
+              must not change the outline.
+            */}
+            {lead ? (
+              <div>
+                <CardLabel parts={languageLabel(lead)} />
+                <StoryCard
+                  story={toStoryCard(lead)}
+                  locale={locale}
+                  position={cardPosition.get(lead.slug) ?? 0}
+                  trackingSurface="stories_hub"
+                  contentLang={contentLangFor(lead.frontmatter.locale, locale)}
+                  variant="feature"
+                />
+              </div>
+            ) : null}
+
             {seriesSections.map((group, index) => {
               const headingId = `story-series-${index}`;
               // Under a tag filter the visible members are a subset of the
@@ -199,12 +237,8 @@ export default async function StoriesHubPage({
             */}
             {ungrouped.length > 0 && (
               <section className={gridStyles({ cols: "pair" })}>
-                {ungrouped.map((story, storyIndex) => (
-                  // The newest ungrouped story leads as a full-width feature.
-                  <div
-                    key={story.slug}
-                    className={cn(storyIndex === 0 && "md:col-span-2")}
-                  >
+                {ungrouped.map((story) => (
+                  <div key={story.slug}>
                     <CardLabel parts={languageLabel(story)} />
                     <StoryCard
                       story={toStoryCard(story)}

@@ -1,10 +1,7 @@
 {
   "common": {
-    "exploreBrands": "看品牌目錄",
-    "submitBrand": "推薦品牌",
     "all": "全部",
     "skipToContent": "跳至主要內容",
-    "close": "關閉",
     "closeDialog": "關閉對話框",
     "loading": "載入中…",
     "notifications": "通知",
@@ -14,7 +11,7 @@
     "searchAria": "搜尋商品",
     "faq": "常見問題",
     "submitBrand": "推薦品牌",
-    "searchPlaceholder": "搜尋商品、品牌，或一個情境…",
+    "searchPlaceholder": "搜尋商品、品牌或情境…",
     "openMenu": "開啟選單",
     "navigation": "主選單",
     "signIn": "登入",
@@ -46,9 +43,9 @@
   },
   "style": {
     "metaTitle": "主題選物",
-    "metaDescription": "書桌、每天出門的包、年末送禮：從一個具體情境出發，看看哪些台灣商品適合放進去。",
+    "metaDescription": "書桌、每天出門的包、年末送禮：每一組主題選物從一個生活情境出發，挑出適合的台灣商品，寫下挑選的理由。",
     "heading": "主題選物",
-    "subheading": "從一個具體情境出發，看看哪些台灣商品適合放進去。",
+    "subheading": "每一組從一個生活情境出發，挑幾件適合的台灣商品，也寫下挑選的理由。",
     "comingSoon": "第一組主題選物還在準備。",
     "loadError": "主題選物暫時無法載入，請稍後再試。",
     "retry": "再試一次",
@@ -75,9 +72,10 @@
     "metaTitle": "商品",
     "metaDescription": "依分類、子分類與材質瀏覽台灣品牌的商品；購買時直接前往品牌官網或實體通路。",
     "heading": "商品",
-    "subheading": "依分類、材質找台灣商品，在品牌官網或實體通路購買",
+    "subheading": "依分類和材質找台灣商品；要買的話，到品牌官網或實體通路。",
     "emptyState": "沒有符合這些條件的商品。拿掉一個篩選條件再試試。",
     "resultCount": "共 {count} 件商品",
+    "resultsHeading": "商品列表（共 {count} 件）",
     "filters": {
       "subcategory": "子分類",
       "material": "材質",
@@ -89,7 +87,7 @@
       "removeFilterInferred": "移除{label}：{value}（{badge}）",
       "sortNewest": "最新",
       "sortAlphabetical": "名稱",
-      "sortRelevance": "相關度",
+      "sortRelevance": "最相關",
       "resultCount": "{count} 件商品",
       "sortLabel": "排序方式",
       "query": "搜尋",
@@ -100,7 +98,7 @@
     },
     "search": {
       "label": "搜尋商品",
-      "placeholder": "搜尋商品、品牌，或一個情境…",
+      "placeholder": "搜尋商品、品牌或情境…",
       "submit": "搜尋",
       "clear": "清除搜尋",
       "heading": "搜尋結果",
@@ -110,7 +108,7 @@
       "emptyRoutes": {
         "trailsHeading": "從這幾組主題選物逛起",
         "categoriesHeading": "依分類看全部商品",
-        "brandMatches": "{count} 個品牌名稱或介紹含「{query}」"
+        "brandMatches": "有 {count} 個品牌的名稱或介紹提到「{query}」"
       }
     },
     "trailRail": {
@@ -124,19 +122,19 @@
     "heading": "你的品牌<wbr></wbr>怎麼出現在 Formoria",
     "heroSubtitle": "給品牌的說明",
     "heroDescription": "Formoria 整理台灣品牌的資料，讓訪客照自己的需要去找。品牌目錄依公開規則收錄；Formoria 選物由編輯獨立挑選；購買連結一律回到品牌自己的通路。",
-    "valueProp1Title": "依分類被找到",
+    "valueProp1Title": "訪客依分類找得到你",
     "valueProp1Description": "通過審核後，品牌會列在對應的分類裡，訪客可以依分類或搜尋找到。",
     "valueProp2Title": "Formoria 選物",
     "valueProp2Description": "選物由編輯獨立決定。品牌有沒有和我們聯絡、有沒有提供資料，都不會影響挑選。",
-    "valueProp3Title": "購買回到你的通路",
+    "valueProp3Title": "買東西，回到你自己的通路",
     "valueProp3Description": "購買連結一律連到品牌自己的官網或商店，Formoria 不經手任何交易。",
     "trustLabelsHeading": "Formoria 上的標示代表什麼",
     "exampleLabel": "範例：收錄品牌在目錄裡的樣子",
-    "trustLabelDirectory": "收錄品牌 — 符合收錄規則、通過審核的品牌。不代表推薦、認證或排名。",
-    "trustLabelSelection": "Formoria 選物 — 編輯為特定情境挑選的商品，每一件都寫出理由。品牌不能申請，也不能付費取得。",
-    "trustLabelProvided": "品牌提供 — 品牌給的資料或圖片，會標出來源。提供資料不代表一定刊出，也不能決定內容怎麼寫。",
-    "trustLabelSponsored": "贊助內容 — 付費或商業合作的內容，會清楚標示，和一般內容分開。",
-    "trustLabelSiteConfirmed": "站方確認 — Formoria 自己查核過的資料，多半是社群提供、經編輯確認的實體通路。",
+    "trustLabelDirectory": "收錄品牌：符合收錄規則、通過審核的品牌。不代表推薦、認證或排名。",
+    "trustLabelSelection": "Formoria 選物：編輯為特定情境挑選的商品，每一件都寫出理由。品牌不能申請，也不能付費取得。",
+    "trustLabelProvided": "品牌提供：品牌給的資料或圖片，會標出來源。提供資料不代表一定刊出，也不能決定內容怎麼寫。",
+    "trustLabelSponsored": "贊助內容：付費或商業合作的內容，會清楚標示，和一般內容分開。",
+    "trustLabelSiteConfirmed": "站方確認：Formoria 自己查核過的資料，多半是社群提供、經編輯確認的實體通路。",
     "howItWorksHeading": "收錄流程",
     "howItWorksStep1": "用推薦表單送出品牌名稱，附上品牌官網或線上商店的連結。",
     "howItWorksStep2": "Formoria 團隊審核資料，確認品牌符合收錄規則。",
@@ -152,7 +150,7 @@
     "hero": {
       "headline": "生活可以<wbr></wbr>更像自己一點",
       "searchLabel": "搜尋台灣商品",
-      "searchPlaceholder": "例：旅行必備小物、結婚禮物推薦、夏天防曬好物",
+      "searchPlaceholder": "例：新生兒禮物、藍染布包",
       "browseCta": "從主題選物開始",
       "eyebrow": "台灣好物選物平台",
       "lede": "從一件喜歡的東西，找到做它的台灣品牌，和買得到它的地方。",
@@ -167,7 +165,7 @@
       "madeInTaiwan": "台灣製造"
     },
     "trustSeam": {
-      "line": "收錄與選物，清楚分開"
+      "line": "收錄的品牌和 Formoria 選物，會分開標示"
     },
     "submitBand": {
       "headline": "知道還沒收錄的台灣品牌嗎？",
@@ -181,7 +179,7 @@
     },
     "trails": {
       "heading": "主題選物",
-      "note": "從一個具體情境挑出的商品",
+      "note": "每一組都從一個生活情境出發，挑幾件適合的商品",
       "linkText": "看全部主題選物",
       "eyebrow": "主題選物",
       "cta": "看這組選物"
@@ -200,19 +198,18 @@
       "cta": "看品牌目錄"
     },
     "brands": {
-      "count": "{approximate, select, true {已收錄 {count} 多個台灣品牌} other {已收錄 {count} 個台灣品牌}}",
-      "browseAll": "看品牌目錄",
+      "count": "已收錄 {count} 個台灣品牌",
       "pauseMarquee": "暫停品牌輪播",
       "playMarquee": "播放品牌輪播"
     }
   },
   "newsletter": {
-    "heading": "收到新的專題和選物",
+    "heading": "訂閱 Formoria 電子報",
     "subtext": "新的專題、新收錄的品牌和 Formoria 選物，寄到你的信箱。",
     "emailLabel": "電子郵件",
     "emailPlaceholder": "your@email.com",
     "subscribe": "訂閱",
-    "interestsLabel": "選擇想收到的內容",
+    "interestsLabel": "想收到哪些內容？",
     "interests": {
       "brand-stories": "專題",
       "new-brands": "新收錄的品牌",
@@ -221,32 +218,31 @@
     },
     "success": "確認信已寄出，請到收件匣點開連結完成訂閱",
     "errors": {
-      "invalidEmail": "請輸入有效的電子郵件地址。",
-      "rateLimited": "操作次數過多，請稍候再試。",
+      "invalidEmail": "電子郵件格式不對，請再檢查一次。",
+      "rateLimited": "試太多次了，請等一下再試。",
       "confirmationFailed": "目前無法寄出確認信，請稍後再試。",
       "generic": "訂閱暫時無法完成，請稍後再試。"
     },
-    "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後需完成信箱確認，隨時都能取消訂閱。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+    "consentNotice": "按下「訂閱」即表示你同意接收 Formoria 電子報。送出後要先到信箱點確認連結，隨時都能取消訂閱。詳細說明在<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "我同意接收 Formoria 電子報",
-    "newsletterOnlyDescription": "電子報需完成信箱確認，隨時都能取消訂閱。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
+    "newsletterOnlyDescription": "訂閱後要先到信箱確認，隨時都能取消。詳細說明在<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
-    "breadcrumbAria": "目前位置",
     "metadata": {
-      "title": "台灣品牌目錄｜依分類找品牌、線上購買與實體通路｜Formoria",
+      "title": "台灣品牌目錄｜依分類找品牌，看哪裡買得到｜Formoria",
       "description": "依分類或關鍵字，找在台灣創立、設計或製造的品牌，再從品牌頁前往官網或實體通路。"
     },
     "heading": "台灣品牌目錄",
     "count": "共 {count} 個品牌",
+    "resultsHeading": "品牌列表（共 {count} 個）",
     "emptyTitle": "沒有符合這些條件的品牌",
     "emptyDescription": "拿掉一個條件，或清除全部篩選",
     "sortLabel": "排序方式",
     "filters": {
       "title": "篩選",
       "trigger": "篩選",
-      "all": "全部",
       "category": "分類",
       "activeSearch": "搜尋",
       "activeCategory": "分類",
@@ -273,9 +269,9 @@
     },
     "pagination": {
       "label": "分頁導覽",
-      "previous": "‹ 上一頁",
+      "previous": "上一頁",
       "previousAria": "上一頁",
-      "next": "下一頁 ›",
+      "next": "下一頁",
       "nextAria": "下一頁",
       "status": "第 {page} / {total} 頁"
     },
@@ -289,7 +285,7 @@
     "subheading": "依分類或關鍵字，找收錄的台灣品牌"
   },
   "challenge": {
-    "title": "快速驗證",
+    "title": "安全驗證",
     "description": "完成驗證後就能繼續瀏覽。",
     "verifying": "驗證中…",
     "error": "驗證沒有通過，請再試一次。"
@@ -326,7 +322,7 @@
   },
   "brandDetail": {
     "metadata": {
-      "fallbackDescription": "{name} 的品牌介紹、商品，以及官網與實體通路。"
+      "fallbackDescription": "{name}：品牌介紹、商品，以及官網和實體通路。"
     },
     "tabNav": {
       "overview": "本頁導覽",
@@ -334,9 +330,8 @@
         "about": "故事",
         "selectedProducts": "商品",
         "whereToBuy": "哪裡買",
-        "featuredIn": "出現在",
-        "faq": "問答",
-        "social": "社群"
+        "featuredIn": "專題與選物",
+        "faq": "問答"
       }
     },
     "colophon": {
@@ -345,14 +340,17 @@
     },
     "heroJump": {
       "selected": "這個品牌的商品 · {count} 件",
-      "stockists": "實體通路 · {count} 家"
+      "stockists": "實體通路 · {count} 家",
+      "channels": "品牌連結",
+      "stockistCity": "{city} {count} 家",
+      "stockistsAll": "看全部 {count} 家"
     },
     "selectedProducts": {
       "heading": "這個品牌的商品",
       "note": "這裡只列出 {count} 件，不是品牌的完整商品目錄；價格和規格以品牌官網為準。",
       "cta": "（查看商品頁）",
       "unavailable": "商品頁暫時連不上。",
-      "brandSiteCta": "（前往品牌）",
+      "brandSiteCta": "（前往品牌的購買頁）",
       "madeInTaiwan": "台灣製造",
       "inGuide": "出自主題選物",
       "previous": "上一組商品",
@@ -360,8 +358,8 @@
       "allCategories": "全部"
     },
     "label": {
-      "category": "品牌類別",
-      "subcategories": "商品子類別",
+      "category": "分類",
+      "subcategories": "子分類",
       "founded": "{year} 年創立",
       "moreActions": "更多選項"
     },
@@ -373,8 +371,7 @@
       "visitInstagram": "前往 Instagram",
       "visitThreads": "前往 Threads",
       "visitFacebook": "前往 Facebook",
-      "visitLine": "前往 LINE",
-      "copied": "已複製"
+      "visitLine": "前往 LINE"
     },
     "share": {
       "trigger": "分享",
@@ -382,7 +379,7 @@
       "urlLabel": "品牌頁網址",
       "copy": "複製",
       "copied": "已複製",
-      "orShareTo": "或分享至",
+      "orShareTo": "或分享到",
       "line": "LINE",
       "threads": "Threads",
       "facebook": "Facebook",
@@ -390,8 +387,8 @@
       "instagramCopied": "已複製連結，貼到限時動態或個人簡介"
     },
     "links": {
-      "socialPlatforms": "社群平台",
       "onlineStores": "線上購買",
+      "officialSocial": "官方社群",
       "otherLinks": "其他連結",
       "instagram": "Instagram",
       "threads": "Threads",
@@ -401,10 +398,8 @@
       "pinkoi": "Pinkoi",
       "shopee": "蝦皮購物",
       "myship": "7-ELEVEN 賣貨便",
-      "missingChannels": "還沒有其他通路的連結。",
       "noChannels": "還沒有線上購買的連結。",
-      "noSocialLinks": "還沒有社群連結。",
-      "correctionPrompt": "知道其他通路？",
+      "correctionPrompt": "知道其他買得到的地方嗎？",
       "correctionAction": "告訴我們",
       "correctionPurchase": "線上購買連結",
       "correctionStockist": "實體通路",
@@ -413,24 +408,24 @@
     "report": {
       "trigger": "回報問題",
       "title": "回報問題",
-      "description": "請選擇問題類型，我們會審核內容，必要時更新或處理。",
-      "success": "感謝你的回報，我們會盡快審核。",
+      "description": "選一個問題類型。我們看過之後，需要修正的地方會更新。",
+      "success": "收到了，謝謝你。我們會盡快確認。",
       "close": "關閉",
       "cancel": "取消",
-      "alreadyReported": "這個品牌已經回報過了",
+      "alreadyReported": "你已經回報過這個品牌了",
       "reasonHeading": "問題類型",
       "reasonIncorrectInfo": "資訊有誤",
       "reasonBrokenLink": "連結失效",
       "reasonInappropriate": "不當內容",
-      "mitDisputePrompt": "對品牌產地有疑問？請改用",
-      "mitDisputeLink": "產地資訊回報",
+      "mitDisputePrompt": "對商品產地有疑問嗎？",
+      "mitDisputeLink": "回報產地資訊",
       "brandRepresentativeHeading": "品牌方申訴",
       "reasonOwnershipDispute": "所有權爭議（我是品牌方）",
-      "ownershipDisputeDescription": "品牌所有權相關問題",
+      "ownershipDisputeDescription": "這個品牌頁的所有權有爭議",
       "reasonRemovalRequest": "要求移除品牌頁（我是品牌方）",
-      "removalRequestDescription": "請求移除此品牌頁面",
-      "disputeSignInPrompt": "請登入以提出所有權爭議",
-      "removalSignInPrompt": "請登入以提出品牌頁移除要求",
+      "removalRequestDescription": "請我們拿掉這個品牌頁",
+      "disputeSignInPrompt": "登入後才能提出所有權爭議",
+      "removalSignInPrompt": "登入後才能要求移除品牌頁",
       "disputeSignInCta": "登入",
       "reportFieldLabel": "相關欄位（選填）",
       "reportFieldNone": "不限特定欄位",
@@ -442,56 +437,56 @@
       "reportFieldSocialLinks": "社群連結",
       "reportFieldOther": "其他",
       "notesLabel": "補充說明（選填）",
-      "notesPlaceholder": "請提供更多資訊，以協助我們更快處理",
+      "notesPlaceholder": "例如：哪一段寫錯了、正確的資料在哪裡看得到",
       "submitting": "送出中…",
       "submit": "送出回報",
       "errors": {
-        "missingBrandId": "缺少品牌 ID",
+        "missingBrandId": "品牌資料沒有載入完整，請重新整理頁面再試一次。",
         "invalidReason": "請選擇問題類型",
-        "notesTooLong": "補充說明不得超過 1000 字",
-        "rateLimited": "回報次數太多，請稍後再試。",
-        "unknown": "發生未知錯誤",
-        "notLoggedIn": "請先登入再回報"
+        "notesTooLong": "補充說明最多 1000 字",
+        "rateLimited": "回報太多次了，請晚一點再試。",
+        "unknown": "沒有送出成功，請再試一次。",
+        "notLoggedIn": "登入後才能回報"
       }
     },
     "correction": {
       "trigger": "回報資料有誤",
-      "title": "修正品牌資訊",
+      "title": "回報資料有誤",
       "purchaseTrigger": "提供購買連結",
       "purchaseTitle": "提供購買連結",
       "purchaseFieldPickerLabel": "線上購買連結",
-      "purchaseFieldPickerPlaceholder": "請選擇線上購買連結…",
+      "purchaseFieldPickerPlaceholder": "選一個購買平台",
       "purchaseUrlLabel": "連結網址",
       "purchaseUrlPlaceholder": "https://example.com/shop",
       "socialTrigger": "提供社群連結",
       "socialTitle": "提供社群連結",
-      "socialFieldPickerLabel": "社群管道",
-      "socialFieldPickerPlaceholder": "請選擇社群管道…",
+      "socialFieldPickerLabel": "社群平台",
+      "socialFieldPickerPlaceholder": "選一個社群平台",
       "fieldPickerLabel": "修正項目",
-      "fieldPickerPlaceholder": "請選擇要修正的項目…",
-      "description": "感謝提供建議！送出後由 Formoria 審核決定是否更新。",
+      "fieldPickerPlaceholder": "選一個要修正的項目",
+      "description": "謝謝你幫忙。送出後我們會先確認，再決定要不要更新。",
       "submitting": "送出中…",
       "submit": "送出修正",
-      "selectPlaceholder": "尚未填寫",
+      "selectPlaceholder": "還沒填",
       "currentHeading": "目前",
-      "currentSubcategoriesHeading": "目前子類別（點擊移除）",
+      "currentSubcategoriesHeading": "目前的子分類（按一下移除）",
       "changeToHeading": "改成",
-      "addSubcategoriesHeading": "可加入的子類別",
-      "subcategoriesSubtitle": "可跨分類選擇產品子類別。仍有公開商品使用的子類別會保留。",
+      "addSubcategoriesHeading": "可以加入的子分類",
+      "subcategoriesSubtitle": "可以選其他分類底下的子分類。還有公開商品在用的子分類，會保留下來。",
       "subcategoriesSelected": "已選 {count}",
-      "subcategoriesLimit": "商品使用中的子類別，必須先隱藏商品或重新分類後才能移除。",
-      "success": "修正已送出，感謝你的協助。",
-      "subcategorySearchLabel": "搜尋子類別",
-      "subcategorySearchHint": "輸入關鍵字篩選，再點選下方標籤加入。",
-      "subcategoryRejected": "這個詞不在子類別清單中。請改用下方清單裡最接近的子類別。",
-      "subcategoryEmpty": "沒有符合的子類別，請換個關鍵字。",
+      "subcategoriesLimit": "這個子分類底下還有公開的商品，暫時不能移除。",
+      "success": "已經送出，謝謝你幫忙。",
+      "subcategorySearchLabel": "搜尋子分類",
+      "subcategorySearchHint": "輸入關鍵字縮小範圍，再按下方的標籤加入。",
+      "subcategoryRejected": "沒有這個子分類，請從下方清單選一個最接近的。",
+      "subcategoryEmpty": "沒有符合的子分類，換個關鍵字試試。",
       "errors": {
-        "invalid_brand": "找不到這個品牌，請重新整理後再試。",
-        "invalid_value": "這個修正內容無效，請重新選擇。",
-        "unchanged": "這項資料目前沒有變更。",
-        "already_submitted": "這項修正已經送出，請等待審核。",
-        "rate_limited": "修正送出次數過多，請稍後再試。",
-        "unavailable": "目前無法送出修正，請稍後再試。"
+        "invalid_brand": "找不到這個品牌，請重新整理頁面再試一次。",
+        "invalid_value": "這個內容沒辦法使用，請重新選一個。",
+        "unchanged": "你填的和目前的資料一樣，不用送出。",
+        "already_submitted": "這項修正已經送出了，我們正在確認。",
+        "rate_limited": "送出太多次了，請晚一點再試。",
+        "unavailable": "修正沒有送出成功，請稍後再試一次。"
       }
     },
     "adminMenu": {
@@ -542,49 +537,48 @@
         "namePlaceholder": "例如：誠品書店 信義店",
         "regionLabel": "地區",
         "regionPlaceholder": "選擇地區",
-        "regionRequired": "請選擇這個實體通路所在的縣市",
+        "regionRequired": "請選擇這個實體通路在哪個地區",
         "addressLabel": "地址",
         "addressPlaceholder": "完整地址（選填）",
         "urlLabel": "網址",
-        "urlPlaceholder": "https://...",
+        "urlPlaceholder": "https://",
         "submit": "送出",
-        "success": "謝謝你提供。這筆實體通路資料會先經過我們確認，之後才會出現在品牌頁面上。",
-        "signInRequired": "請先登入才能提供實體通路"
+        "success": "謝謝你。我們確認之後，這個實體通路才會出現在品牌頁上。",
+        "signInRequired": "登入後才能提供實體通路"
       },
       "errors": {
         "not_logged_in": "請先登入",
-        "missing_brand_id": "缺少品牌資訊",
-        "missing_brand_slug": "缺少品牌資訊",
-        "invalid_name": "請輸入有效的實體通路名稱",
-        "invalid_region": "請選擇這個實體通路所在的地區",
-        "invalid_url": "請輸入有效的網址",
-        "active_cap_reached": "此品牌的實體通路已達上限",
-        "daily_cap_reached": "今日提供的資訊已達上限，請明天再試",
+        "missing_brand_id": "品牌資料沒有載入完整，請重新整理頁面再試一次。",
+        "missing_brand_slug": "品牌資料沒有載入完整，請重新整理頁面再試一次。",
+        "invalid_name": "請填店名，例如：誠品書店 信義店",
+        "invalid_region": "請選擇這個實體通路在哪個地區",
+        "invalid_url": "請輸入完整網址，例如 https://brand.com",
+        "active_cap_reached": "這個品牌的實體通路已經到上限，暫時不能再新增。",
+        "daily_cap_reached": "今天送出的筆數已經到上限，明天再試試。",
         "duplicate_name": "這個實體通路已經有人提供過了",
-        "database_error": "系統錯誤，請稍後再試",
-        "unknown": "發生錯誤，請稍後再試"
+        "database_error": "沒有送出成功，請稍後再試一次。",
+        "unknown": "沒有送出成功，請稍後再試一次。"
       }
     },
     "gallery": {
-      "close": "關閉",
       "previous": "上一張",
       "next": "下一張",
       "photoAltWithBrand": "{brand} 的照片 {n}",
-      "viewPhoto": "檢視第 {n} 張照片",
+      "viewPhoto": "看第 {n} 張照片",
       "brandSupplied": "圖片由品牌提供",
       "viewer": "選擇照片"
     },
     "locations": {},
     "editorialAppearances": {
-      "heading": "這個品牌出現在",
-      "ariaLabel": "出現這個品牌的專題與主題選物",
+      "heading": "相關專題與主題選物",
+      "ariaLabel": "提到這個品牌的專題與主題選物",
       "trailPrefix": "主題選物",
       "storyPrefix": "專題",
       "zhOnlyNote": "中文內容"
     },
     "relatedBrands": {
-      "heading": "更多{category}",
-      "subtext": "同樣收錄在{category}的品牌",
+      "heading": "其他{category}品牌",
+      "subtext": "品牌目錄裡同一個分類的品牌",
       "viewAll": "看全部 {count} 個{category}品牌"
     },
     "brandFaq": {
@@ -595,11 +589,11 @@
         "myship": "7-ELEVEN 賣貨便"
       },
       "mainProducts": {
-        "question": "{brandName}的主要產品有哪些？",
-        "answer": "{brandName}的商品以{subcategories}為主。"
+        "question": "{brandName}主要做哪些商品？",
+        "answer": "{brandName}的商品包括{subcategories}等。"
       },
       "whereToBuy": {
-        "question": "{brandName}在哪裡可以買到？",
+        "question": "在哪裡買得到{brandName}？",
         "answer": "可以在{channels}買到{brandName}的商品。{stockistNote}",
         "stockistSuffix": "另外也有 {count} 家實體通路，出發前建議先跟店家確認。",
         "answerStockistsOnly": "可以在 {count} 家實體通路找到{brandName}的商品，出發前建議先跟店家確認。"
@@ -616,21 +610,21 @@
     },
     "subMetadata": {
       "title": "台灣{subName}品牌｜{categoryName}｜Formoria",
-      "description": "在台灣創立、設計或製造的{subName}品牌，屬於{categoryName}分類。"
+      "description": "{categoryName}分類裡，在台灣創立、設計或製造的{subName}品牌。"
     },
     "descriptions": {
-      "fashion": "衣櫃裡少一件能穿去上班、也能直接去吃飯的外套。服飾鞋履涵蓋日常基本款、通勤與外出穿著、戶外機能服、鞋款與穿搭配件；材質、尺寸與製造地以品牌自己的說明為準。Formoria 收錄在台灣創立、設計或製造的服飾鞋履品牌。",
-      "bags-accessories": "一個包要裝得下筆電、水壺和便當盒，肩帶還不能勒。包袋配件涵蓋通勤包、後背包、旅行袋、皮夾與皮件小物，也有品牌採用回收布料或植物鞣製皮革。Formoria 收錄在台灣創立、設計或製造的包袋配件品牌，並整理各品牌的官方與實體通路。",
-      "jewelry": "想找一副每天戴著、洗澡也不用拔下來的耳環。飾品珠寶涵蓋耳環、項鍊、戒指、手鍊與髮飾，材質從純銀、黃銅、不鏽鋼到天然礦石與淡水珍珠；金屬成分與保養方式由品牌自行標示。Formoria 收錄在台灣創立、設計或製造的飾品珠寶品牌。",
-      "beauty": "台灣的夏天又濕又熱，很多人挑保養品會先看質地，再看成分表。美妝保養涵蓋臉部保養、髮品、身體清潔與彩妝，不少品牌使用在地植物、礦泉或發酵原料。Formoria 收錄在台灣創立、設計或製造的美妝保養品牌；成分說明與適用膚況請以品牌與官方標示為準。",
-      "home": "搬新家、換一盞燈、想讓餐桌看起來不一樣。居家生活涵蓋家具、收納、照明、餐桌器皿與佈置小物，材質常見陶瓷、木作、竹編與金工；房間小的時候，尺寸通常比風格先要確認。Formoria 收錄在台灣創立、設計或製造的居家生活品牌。",
-      "food-drink": "想寄一份伴手禮回家，或找一包每天早上會用完的咖啡豆。食品飲料涵蓋茶葉、咖啡、水果與農產、零食、醬料與傳統點心，部分品牌直接與產地農友合作。Formoria 收錄在台灣創立、設計或製造的食品飲料品牌；保存方式、成分與配送條件請看品牌自己的頁面。",
-      "stationery": "一本攤得平、寫鋼筆不會透背的筆記本。文具設計涵蓋筆記本、紙品、筆具、紙膠帶、印章與桌面工具，不少品牌與在地紙廠、印刷廠或插畫家合作。Formoria 收錄在台灣創立、設計或製造的文具設計品牌。",
-      "tech": "桌上多一條線就亂，充電、擴充與收線通常得一起解決。3C 科技涵蓋消費電子、電腦周邊、創作者工具與智慧生活裝置。Formoria 收錄在台灣創立、設計或製造的 3C 科技品牌；規格、相容性與保固條件請以品牌官方說明為準。",
-      "outdoor": "週末要上山，睡袋、爐具和背包都得自己揹。戶外露營涵蓋登山、露營、攀岩與旅行裝備，以及相關服裝、背包與配件；在台灣的高山稜線和海岸營地，裝備常要在輕量和耐潮之間取捨。Formoria 收錄在台灣創立、設計或製造的戶外露營品牌。",
-      "fitness": "下班後在客廳鋪開一張墊子，就是今天的訓練空間。運動健身涵蓋瑜珈墊、阻力訓練器材、運動服飾與恢復工具；尺寸、重量與收納方式，往往決定它會不會被拿出來用。Formoria 收錄在台灣創立、設計或製造的運動健身品牌。",
-      "kids": "孩子會把東西放進嘴巴，也會在一季內長大半號。母嬰童涵蓋童裝、嬰幼兒服飾與寢具、木製與布製玩具、兒童餐具與育兒用品，材質與清洗方式通常是第一個要看的資訊。Formoria 收錄在台灣創立、設計或製造的母嬰童品牌；安全標示與檢驗資訊請以品牌與官方公告為準。",
-      "pets": "貓會把玩具咬開，牽繩會被拖過下過雨的柏油路。寵物涵蓋鮮食與零食、保健、服飾與配件、貓抓板與床窩，以及清潔美容用品，耐用度與清洗方式通常是第一個要看的資訊。Formoria 收錄在台灣創立、設計或製造的寵物品牌；成分與檢驗資訊請以品牌與官方公告為準。"
+      "fashion": "衣櫃裡少一件能穿去上班、也能直接去吃飯的外套。服飾鞋履涵蓋日常基本款、通勤與外出穿著、戶外機能服、鞋款與穿搭配件；材質、尺寸與製造地以品牌自己的說明為準。",
+      "bags-accessories": "一個包要裝得下筆電、水壺和便當盒，肩帶還不能勒。包袋配件涵蓋通勤包、後背包、旅行袋、皮夾與皮件小物，也有品牌採用回收布料或植物鞣製皮革。",
+      "jewelry": "想找一副每天戴著、洗澡也不用拔下來的耳環。飾品珠寶涵蓋耳環、項鍊、戒指、手鍊與髮飾，材質從純銀、黃銅、不鏽鋼到天然礦石與淡水珍珠；金屬成分與保養方式由品牌自行標示。",
+      "beauty": "台灣的夏天又濕又熱，很多人挑保養品會先看質地，再看成分表。美妝保養涵蓋臉部保養、髮品、身體清潔與彩妝，不少品牌使用在地植物、礦泉或發酵原料。成分說明與適用膚況請以品牌與官方標示為準。",
+      "home": "搬新家、換一盞燈、想讓餐桌看起來不一樣。居家生活涵蓋家具、收納、照明、餐桌器皿與佈置小物，材質常見陶瓷、木作、竹編與金工；房間小的時候，尺寸通常比風格先要確認。",
+      "food-drink": "想寄一份伴手禮回家，或找一包每天早上會用完的咖啡豆。食品飲料涵蓋茶葉、咖啡、水果與農產、零食、醬料與傳統點心，部分品牌直接與產地農友合作。保存方式、成分與配送條件請看品牌自己的頁面。",
+      "stationery": "一本攤得平、寫鋼筆不會透背的筆記本。文具設計涵蓋筆記本、紙品、筆具、紙膠帶、印章與桌面工具，不少品牌與在地紙廠、印刷廠或插畫家合作。",
+      "tech": "桌上多一條線就亂，充電、擴充與收線通常得一起解決。3C 科技涵蓋消費電子、電腦周邊、創作者工具與智慧生活裝置。規格、相容性與保固條件請以品牌官方說明為準。",
+      "outdoor": "週末要上山，睡袋、爐具和背包都得自己揹。戶外露營涵蓋登山、露營、攀岩與旅行裝備，以及相關服裝、背包與配件；在台灣的高山稜線和海岸營地，裝備常要在輕量和耐潮之間取捨。",
+      "fitness": "下班後在客廳鋪開一張墊子，就是今天的訓練空間。運動健身涵蓋瑜珈墊、阻力訓練器材、運動服飾與恢復工具；尺寸、重量與收納方式，會影響它多常被拿出來用。",
+      "kids": "孩子會把東西放進嘴巴，也會在一季內長大半號。母嬰童涵蓋童裝、嬰幼兒服飾與寢具、木製與布製玩具、兒童餐具與育兒用品，材質與清洗方式通常是第一個要看的資訊。安全標示與檢驗資訊請以品牌與官方公告為準。",
+      "pets": "貓會把玩具咬開，牽繩會被拖過下過雨的柏油路。寵物涵蓋鮮食與零食、保健、服飾與配件、貓抓板與床窩，以及清潔美容用品，耐用度與清洗方式通常是第一個要看的資訊。成分與檢驗資訊請以品牌與官方公告為準。"
     },
     "l1": {
       "home": {
@@ -677,7 +671,7 @@
       },
       "necklaces": {
         "title": "台灣項鍊品牌｜日常鍊墜與金工設計｜Formoria",
-        "description": "鍊長決定它落在鎖骨還是胸口。收錄在台灣創立、設計或製造的項鍊品牌，可依材質與佩戴方式找。"
+        "description": "鍊子長短不同，有的落在鎖骨，有的垂到胸口。收錄在台灣創立、設計或製造的項鍊品牌，可依材質與佩戴方式找。"
       },
       "earrings": {
         "title": "台灣耳環品牌｜耳針、耳夾與日常耳飾｜Formoria",
@@ -773,7 +767,7 @@
       },
       "fragrance": {
         "title": "台灣香水品牌｜淡香水、淡香精與固態香膏｜Formoria",
-        "description": "濃度決定留香時間，實際表現因體溫和環境而異。收錄淡香水、淡香精與固態香膏的台灣品牌。"
+        "description": "濃度不同，留香時間也不同；實際表現還要看體溫和環境。收錄淡香水、淡香精與固態香膏的台灣品牌。"
       },
       "dresses": {
         "title": "台灣洋裝品牌｜日常連身裙與正式場合｜Formoria",
@@ -889,7 +883,7 @@
       "description": "Formoria 常見問題：收錄與選物的差別、在哪裡買、怎麼推薦品牌、審核要多久。"
     },
     "title": "常見問題",
-    "intro": "這裡回答收錄規則、選物標示和去哪裡買最常被問到的問題。沒找到答案的話，請<contact>聯絡我們</contact>。",
+    "intro": "收錄規則、選物標示、要去哪裡買，這幾類問題最常有人問，答案都整理在這裡。沒找到的話，請<contact>聯絡我們</contact>。",
     "sections": {
       "navigation": "常見問題分類",
       "listing": "收錄與選物",
@@ -919,7 +913,7 @@
       },
       "madeInTaiwanBadge": {
         "question": "商品上的「台灣製造」代表什麼？",
-        "answer": "「台灣製造」只代表標出它的那件商品。商品要和經濟部「MIT 微笑標章」的最新登錄資料相符，或經檢查確認在台灣製造、主要材料也來自台灣，才會標上。收錄審核只確認品牌真實存在、符合收錄規則，不判斷商品產地。"
+        "answer": "「台灣製造」只說明標著它的那一件商品。商品要和經濟部「MIT 微笑標章」的最新登錄資料相符，或經檢查確認在台灣製造、主要材料也來自台灣，才會標上。收錄審核只確認品牌真實存在、符合收錄規則，不判斷商品產地。"
       },
       "howToSubmit": {
         "question": "怎麼推薦品牌給 Formoria？",
@@ -1037,7 +1031,7 @@
         },
         "share": {
           "value": "98%",
-          "label": "的企業是中小企業"
+          "label": "的台灣企業是中小企業"
         },
         "employment": {
           "value": "近 8 成",
@@ -1055,14 +1049,14 @@
         },
         "noPayToWin": {
           "lead": "付錢買不到位置。",
-          "body": "付費不影響品牌是否被收錄、什麼被選進來，或先後排列。付費或商業合作的內容一律清楚標示，並與一般內容分開。"
+          "body": "有沒有付費，都不影響品牌能不能收錄、哪些商品被選進來，以及排列的先後。付費或商業合作的內容一律清楚標示，並與一般內容分開。"
         },
         "incomplete": {
           "lead": "找不到，不代表不存在。",
           "body": "目錄收錄符合公開規則的品牌，還在持續增加。選物是另一回事：是我們刻意挑出來、寫下理由的少數商品。"
         },
         "judgment": {
-          "lead": "判斷是我們的，而且會說明理由。",
+          "lead": "怎麼挑是我們的判斷，理由也會寫出來。",
           "body": "Formoria 有觀點，也會把挑選的理由寫出來；我們不假裝自己是一份中立的資料庫。"
         }
       }
@@ -1175,13 +1169,13 @@
       "description": "管理顯示名稱、語言和電子報設定。"
     },
     "heading": "帳號設定",
-    "subheading": "管理個人資料與偏好設定",
+    "subheading": "在這裡改顯示名稱、語言和電子報設定",
     "displayNameLabel": "顯示名稱",
     "displayNamePlaceholder": "輸入顯示名稱",
     "emailLabel": "電子郵件",
     "localePreferenceLabel": "語言偏好",
     "marketingHeading": "電子報",
-    "marketingDescription": "電子報預設關閉，要你自己開啟，隨時都能關掉。帳號驗證、密碼重設和審核結果這類必要通知不受影響。",
+    "marketingDescription": "電子報預設是關的，自己打開才會收到，隨時都能關掉。帳號驗證、密碼重設和審核結果這些必要通知，不管有沒有訂閱都會寄。",
     "newsletterMarketingLabel": "Formoria 電子報",
     "newsletterMarketingDescription": "新的專題、新收錄的品牌和 Formoria 選物。開啟後要先完成信箱確認。",
     "newsletterPending": "確認信已寄出。點開信裡的連結後，才會開始收到電子報。",
@@ -1201,7 +1195,7 @@
     "uploader": {
       "uploading": "上傳中…",
       "invalidType": "只能上傳圖片檔",
-      "fileTooLarge": "檔案請小於 5 MB",
+      "fileTooLarge": "檔案不能超過 5 MB",
       "genericUploadFailed": "上傳失敗，請再試一次。",
       "clickOrDrag": "選擇檔案，或拖曳到這裡",
       "clickToReplace": "選擇新圖片，或拖曳到這裡更換",
@@ -1241,14 +1235,14 @@
     },
     "overview": {
       "recommendPoint1": "不用登入，也不用註冊帳號",
-      "recommendPoint2": "填寫品牌名稱、網址、認識品牌的方式，並同意隱私權政策",
+      "recommendPoint2": "填品牌名稱和網址，說說你怎麼認識這個品牌，再勾選同意隱私權政策",
       "recommendPoint3": "審核通過後收錄進品牌目錄",
       "ownerNote": "是品牌方嗎？目前也請用這份表單推薦，審核通過後我們會寫信給你，再談品牌頁怎麼管理。"
     },
     "attribution": {
       "bought_product": "買過他們的東西",
       "saw_at_market": "在市集或實體通路看到",
-      "found_online": "在網路上發現",
+      "found_online": "在網路上看到",
       "friend_recommended": "朋友推薦",
       "work_there": "我在這個品牌工作"
     },
@@ -1271,15 +1265,15 @@
       "subheading": "我們已收到你的品牌推薦",
       "neutral": {
         "metadata": {
-          "title": "推薦品牌之後會怎樣",
+          "title": "推薦之後的流程",
           "description": "推薦的品牌會先經過審核，通過後收錄進品牌目錄。"
         },
-        "heading": "推薦品牌之後會怎樣"
+        "heading": "推薦之後的流程"
       },
       "timeline": {
         "review": {
           "label": "審核中",
-          "description": "審核通常約需 7 個工作天。"
+          "description": "審核通常約 7 個工作天。"
         },
         "result": {
           "label": "收錄進目錄",
@@ -1318,7 +1312,7 @@
     },
     "recommendForm": {
       "heading": "推薦品牌",
-      "subheading": "告訴我們品牌名稱和網址，我們審核後會決定是否收錄。",
+      "subheading": "告訴我們品牌名稱和網址，我們審核後再決定要不要收錄。",
       "websiteLabel": "品牌官網",
       "websiteHint": "填品牌官網；沒有官網的話，Instagram 或 Facebook 也可以。",
       "websitePlaceholder": "https://brand.example",
@@ -1329,7 +1323,7 @@
       "guestEmailHint": "想收到審核結果通知的話，請留下電子郵件。",
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "補充說明（選填）",
-      "descriptionHint": "如果知道品牌的特色、商品或背景，可以寫在這裡，幫我們審核。",
+      "descriptionHint": "如果知道品牌的特色、商品或背景，可以寫在這裡，我們審核時會參考。",
       "descriptionPlaceholder": "例：品牌在台南設計，和台灣在地工坊合作生產。",
       "sourceLabel": "你怎麼認識這個品牌？",
       "sourcePlaceholder": "請選擇",
@@ -1349,9 +1343,6 @@
     "unsaveAriaLabel": "取消收藏這個品牌",
     "saveNamedAriaLabel": "收藏 {name}",
     "unsaveNamedAriaLabel": "取消收藏 {name}",
-    "emptyTitle": "還沒有收藏的品牌",
-    "emptyDescription": "在品牌頁按愛心，就會收進這裡。",
-    "exploreBrands": "看品牌目錄",
     "loginToSave": "登入後即可收藏品牌",
     "signInPrompt": "登入後就能收藏，之後在「收藏品牌」找得到。",
     "signInPromptConfirm": "登入",
@@ -1377,7 +1368,7 @@
           "description": "不加任何條件，看全部品牌"
         }
       },
-      "recommendations": "類似的選擇",
+      "recommendations": "也可以看看這些品牌",
       "viewAll": "查看全部",
       "clearAll": "清除全部"
     }
@@ -1411,6 +1402,7 @@
     "brandMissing": "這個品牌目前沒有公開頁面",
     "galleryImageAlt": "{brand} 的作品照片",
     "boothLabel": "攤位",
+    "sourcesHeading": "參考資料",
     "relatedTrails": "相關主題選物",
     "relatedTrailsAria": "與這篇專題相關的主題選物",
     "untranslatedNotice": "這篇專題以繁體中文撰寫。",
@@ -1421,15 +1413,15 @@
   },
   "emailActions": {
     "missingHeading": "連結不完整",
-    "missingBody": "請回到電子郵件，重新開啟完整連結。",
+    "missingBody": "請回到原本那封信，重新點一次連結。",
     "invalidHeading": "連結已失效",
     "invalidBody": "請從最新一封郵件開啟取消訂閱連結。",
     "confirmationInvalid": "這個確認連結已失效。可以回首頁重新訂閱，取得新的確認信。",
-    "unavailableHeading": "暫時無法確認操作結果",
+    "unavailableHeading": "暫時確認不了結果",
     "unavailableBody": "目前連線有問題。請稍後重新開啟原本的郵件連結，再試一次。",
     "successHeading": "已取消訂閱",
-    "newsletterUnsubscribeSuccess": "已取消 Formoria 電子報訂閱。帳號驗證、密碼重設和審核結果等必要通知不受影響。",
-    "ownerUnsubscribeSuccess": "已取消 Formoria 的品牌方郵件。電子報訂閱另外管理，可以到帳號設定或使用電子報裡的取消訂閱連結。",
+    "newsletterUnsubscribeSuccess": "已取消 Formoria 電子報訂閱。帳號驗證、密碼重設和審核結果這些必要通知，還是會照常寄給你。",
+    "ownerUnsubscribeSuccess": "已取消 Formoria 寄給品牌方的郵件。電子報要另外取消：到帳號設定，或按電子報裡的取消訂閱連結。",
     "home": "返回首頁",
     "subscribeAgain": "回首頁重新訂閱",
     "manageNewsletter": "管理電子報訂閱"

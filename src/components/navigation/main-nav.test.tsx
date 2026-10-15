@@ -166,7 +166,7 @@ describe("MainNav", () => {
     pathname = "/brands/some-brand";
     renderNav();
 
-    // The desktop row is the first `Main menu` landmark in the banner.
+    // The desktop row is the only `Main menu` landmark until the sheet opens.
     const desktop = screen.getAllByRole("navigation", {
       name: en.nav.navigation,
     })[0]!;
@@ -184,6 +184,32 @@ describe("MainNav", () => {
     expect(
       within(dialog).getByRole("link", { name: en.nav.style }),
     ).not.toHaveAttribute("aria-current");
+  });
+
+  it("exposes one header navigation landmark per surface, not a wrapper around the hamburger", async () => {
+    // jsdom ignores CSS, so the `hidden xl:flex` desktop row counts here. The
+    // hamburger's wrapper is a plain element: a second `nav` around a lone
+    // button announced a landmark with nothing to navigate (DS-17). The
+    // sheet's own `nav` is the mobile landmark.
+    renderNav();
+
+    expect(
+      screen.getAllByRole("navigation", { name: en.nav.navigation }),
+    ).toHaveLength(1);
+
+    const trigger = screen.getByRole("button", { name: en.nav.openMenu });
+    expect(trigger.closest("nav")).toBeNull();
+
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog");
+
+    // The open sheet hides everything outside the dialog from assistive
+    // technology, so a screen reader meets exactly one landmark: the sheet's.
+    const landmarks = screen.getAllByRole("navigation", {
+      name: en.nav.navigation,
+    });
+    expect(landmarks).toHaveLength(1);
+    expect(dialog.contains(landmarks[0]!)).toBe(true);
   });
 
   it("opening the menu focuses the sheet, not its search field", async () => {

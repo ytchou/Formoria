@@ -222,10 +222,9 @@ describe("landing namespace", () => {
       "missionCloser.headline",
       "missionCloser.subtitle",
       "missionCloser.cta",
-      // BrandStrip's copy — the count line, browse-all link, and the
-      // marquee's pause/play button names.
+      // BrandStrip's copy — the count line and the marquee's pause/play
+      // button names.
       "brands.count",
-      "brands.browseAll",
       "brands.pauseMarquee",
       "brands.playMarquee",
     ];
@@ -236,17 +235,16 @@ describe("landing namespace", () => {
     }
   });
 
-  // BrandStrip passes `approximate` as "true" / "false" (ICU select keys); only an approximate count
-  // may carry 「多」 / "More than".
+  // BrandStrip prints the exact public count (getBrandStats, the number /about
+  // shows), so the copy never rounds or hedges it with 「多」 / "More than".
   it.each([
-    ["zh-TW", zhTW, 290, "true", "已收錄 290 多個台灣品牌"],
-    ["zh-TW", zhTW, 7, "false", "已收錄 7 個台灣品牌"],
-    ["en", en, 290, "true", "More than 290 Taiwanese brands listed"],
-    ["en", en, 7, "false", "7 Taiwanese brands listed"],
-    ["en", en, 1, "false", "1 Taiwanese brand listed"],
+    ["zh-TW", zhTW, 329, "已收錄 329 個台灣品牌"],
+    ["zh-TW", zhTW, 1, "已收錄 1 個台灣品牌"],
+    ["en", en, 329, "329 Taiwanese brands listed"],
+    ["en", en, 1, "1 Taiwanese brand listed"],
   ])(
-    "%s brands.count formats %i (approximate: %s)",
-    (locale, messages, count, approximate, expected) => {
+    "%s brands.count formats %i exactly",
+    (locale, messages, count, expected) => {
       const t = createTranslator({
         locale,
         messages,
@@ -256,7 +254,6 @@ describe("landing namespace", () => {
       expect(
         (t as unknown as (key: string, values: object) => string)("count", {
           count,
-          approximate,
         }),
       ).toBe(expected);
     },
@@ -275,7 +272,6 @@ describe("landing namespace", () => {
       "landing.trails.linkText",
       "landing.selection.cta",
       "landing.missionCloser.cta",
-      "landing.brands.browseAll",
       "about.guide.cta",
     ];
 

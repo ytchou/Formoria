@@ -8,6 +8,7 @@ import { trackStoryCardClicked } from "@/lib/analytics";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { routes } from "@/lib/routes";
 import type { StoryCardEntry } from "@/lib/stories/story-card";
+import { cn } from "@/lib/utils";
 import { formatStoryDate } from "@/components/stories/story-date";
 
 export type StoryCardProps = {
@@ -21,6 +22,13 @@ export type StoryCardProps = {
    * page-locale text.
    */
   contentLang?: string;
+  /**
+   * `feature` is the /stories hub's lead (EL-14), mirroring the TrailCard
+   * feature variant (DESIGN.md §8): a full-width image at 4:3 below md and
+   * 21:9 from md, title in `type-section`, description in `type-lede`. The
+   * heading stays an h3 so the hub's outline does not change with the variant.
+   */
+  variant?: "default" | "feature";
 };
 
 export function StoryCard({
@@ -29,7 +37,9 @@ export function StoryCard({
   position,
   trackingSurface,
   contentLang,
+  variant = "default",
 }: StoryCardProps) {
+  const feature = variant === "feature";
   const t = useTranslations("stories");
   const imageSrc = safeImageSrc(story.frontmatter.heroImage);
   const publishedLabel = formatStoryDate(story.frontmatter.publishedAt, locale);
@@ -51,14 +61,22 @@ export function StoryCard({
         )
       }
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-surface bg-surface-deep">
+      <div
+        className={cn(
+          "relative w-full overflow-hidden rounded-t-surface bg-surface-deep",
+          feature ? "aspect-[4/3] md:aspect-[21/9]" : "aspect-[4/3]",
+        )}
+      >
         {imageSrc ? (
           <SurfaceImage
             src={imageSrc}
             alt={story.frontmatter.heroImageAlt ?? ""}
             fill
-            className="object-cover transition-transform duration-300 [@media(hover:hover)]:group-hover:scale-[1.03] motion-reduce:duration-[0.01ms]"
-            surface="tile"
+            // TODO(DEV-2022): import mediaHoverImage / mediaHoverTitle from @/lib/design/media-hover once it merges.
+            className="object-cover transition-[scale] duration-300 ease-(--ease-settle) motion-safe:group-hover:scale-[1.03]"
+            // The feature spans the hub's page measure, which is exactly the
+            // `banner` slot; a grid card is a three-up `tile` cell.
+            surface={feature ? "banner" : "tile"}
           />
         ) : (
           <div
@@ -75,15 +93,24 @@ export function StoryCard({
             .filter(Boolean)
             .join(" · ")}
         </span>
+        {/* `group-hover` already applies only where hover exists (Tailwind 4). */}
         <h3
           lang={contentLang}
-          className="font-ming type-card-title mt-2 line-clamp-2 [@media(hover:hover)]:group-hover:text-accent">
+          className={cn(
+            "mt-2 font-ming transition-colors duration-150 ease-(--ease-settle) group-hover:text-accent group-active:text-accent",
+            feature ? "type-section" : "type-card-title line-clamp-2",
+          )}
+        >
           {story.frontmatter.title}
         </h3>
         {story.frontmatter.description ? (
           <p
             lang={contentLang}
-            className="type-body-sm text-ink-soft mt-1 line-clamp-2"
+            className={
+              feature
+                ? "type-lede mt-2 line-clamp-3"
+                : "type-body-sm text-ink-soft mt-1 line-clamp-2"
+            }
           >
             {story.frontmatter.description}
           </p>

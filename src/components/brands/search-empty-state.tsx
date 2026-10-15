@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowRight, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Grid } from "@/components/ui/grid";
 import { actionLinkStyles } from "@/components/ui/action-link";
 import { trackCtaClicked } from "@/lib/analytics";
@@ -54,63 +55,57 @@ export function SearchEmptyState({
 
   return (
     <div data-empty className="space-y-8">
-      <section className="flex flex-col items-center py-2 text-center">
-        <div
-          className="relative flex size-28 items-center justify-center"
-          aria-hidden="true"
-        >
-          {/* Elevation is the border. The stacked plates read as depth because
-              they are offset and ruled, not because anything casts a shadow. */}
-          <div className="absolute inset-3 rotate-6 rounded-surface border border-rule bg-surface" />
-          <div className="absolute inset-5 -rotate-3 rounded-surface border border-rule bg-ground" />
-          <Search className="relative size-12 text-ink" strokeWidth={1.75} />
-          <SlidersHorizontal className="absolute bottom-1 right-0 size-6 text-filter-active" />
-        </div>
-        <h2 className="mt-3 type-section text-ink-muted">{t("title")}</h2>
-        <p className="mt-2 max-w-xl type-body-sm">{t("description")}</p>
-
-        {/*
-          A zero-result page is the one page that cannot end. Both exits are
-          links, not buttons: they navigate, so they are reachable by keyboard
-          in reading order, openable in a new tab, and announced as links.
-        */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          {hasNonSearchFilters ? (
+      {/* The shared empty state: one design site-wide (DS-10). */}
+      <EmptyState
+        icon={<Search />}
+        title={t("title")}
+        body={t("description")}
+        action={
+          /*
+           * A zero-result page is the one page that cannot end. Both exits are
+           * links, not buttons: they navigate, so they are reachable by
+           * keyboard in reading order, openable in a new tab, and announced as
+           * links. Two exits sit in the one action slot because they are one
+           * choice (widen the search, or abandon it), not two competing CTAs.
+           */
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            {hasNonSearchFilters ? (
+              <Link
+                href={clearFiltersHref}
+                data-ph-no-autocapture
+                onClick={() =>
+                  trackCtaClicked(
+                    "clear_filters",
+                    "empty_state",
+                    clearFiltersHref,
+                    routes.brands(),
+                  )
+                }
+                className={actionLinkStyles()}
+              >
+                {t("actions.clearFilters.title")}
+                <ArrowRight aria-hidden="true" />
+              </Link>
+            ) : null}
             <Link
-              href={clearFiltersHref}
+              href={routes.brands()}
               data-ph-no-autocapture
               onClick={() =>
                 trackCtaClicked(
-                  "clear_filters",
+                  "browse_all",
                   "empty_state",
-                  clearFiltersHref,
+                  routes.brands(),
                   routes.brands(),
                 )
               }
               className={actionLinkStyles()}
             >
-              {t("actions.clearFilters.title")}
+              {t("actions.browseAll.title")}
               <ArrowRight aria-hidden="true" />
             </Link>
-          ) : null}
-          <Link
-            href={routes.brands()}
-            data-ph-no-autocapture
-            onClick={() =>
-              trackCtaClicked(
-                "browse_all",
-                "empty_state",
-                routes.brands(),
-                routes.brands(),
-              )
-            }
-            className={actionLinkStyles()}
-          >
-            {t("actions.browseAll.title")}
-            <ArrowRight aria-hidden="true" />
-          </Link>
-        </div>
-      </section>
+          </div>
+        }
+      />
 
       {recommendedBrands.length > 0 ? (
         <section className="border-t border-rule pt-6">

@@ -77,6 +77,14 @@ export type PhotoBandProps = {
    * Off by default, so every other band keeps the overlay at every width.
    */
   stackBelowSm?: boolean;
+  /**
+   * The photograph settles from a 4% overshoot to rest once, on load — the
+   * page's one entrance (DESIGN §7b), so `true` only for the band that owns
+   * the first viewport, the same band that claims `preload`. Scale only, and
+   * `motion-safe:`, so reduced motion sees the photograph already at rest. It
+   * never replays on scroll: it is a CSS animation on mount, not an observer.
+   */
+  entrance?: boolean;
   /** Classes for the `<section>` — spacing, mostly. */
   className?: string;
   /** Classes for the inner `PageShell` — alignment of the copy. */
@@ -92,6 +100,7 @@ export function PhotoBand({
   preload = false,
   imageQuality,
   stackBelowSm = false,
+  entrance = false,
   className,
   contentClassName,
   children,
@@ -109,7 +118,10 @@ export function PhotoBand({
       fetchPriority={preload ? "high" : "auto"}
       quality={imageQuality}
       surface="hero"
-      className="object-cover"
+      className={cn(
+        "object-cover",
+        entrance && "motion-safe:animate-photo-settle",
+      )}
     />
   );
 
@@ -126,7 +138,10 @@ export function PhotoBand({
       {stackBelowSm ? (
         // A 4:3 block in flow below `sm`, the usual full-bleed backdrop from
         // `sm` up. `fill` sizes the image to whichever box this is.
-        <div className="relative mb-stack aspect-[4/3] w-full sm:absolute sm:inset-0 sm:mb-0 sm:aspect-auto">
+        // `overflow-hidden` because in flow the section's own clip is too far
+        // away: an `entrance` photograph at 1.04 would spill into the margin
+        // below the block.
+        <div className="relative mb-stack aspect-[4/3] w-full overflow-hidden sm:absolute sm:inset-0 sm:mb-0 sm:aspect-auto">
           {photo}
         </div>
       ) : (

@@ -54,7 +54,7 @@ export async function CuratedProductGrid({
       imageQuality={20}
       contentClassName="text-on-ink"
     >
-      <div className="text-center">
+      <div>
         <h2 className="type-section text-on-ink">
           {t("selection.headline")}
         </h2>
@@ -79,7 +79,7 @@ export async function CuratedProductGrid({
         />
       </CategoryFilter>
 
-      <div className="mt-8 text-center">
+      <div className="mt-8">
         <Link
           href={routes.discover()}
           className={buttonVariants({

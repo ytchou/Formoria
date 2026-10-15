@@ -147,6 +147,26 @@ describe('detectAiArtifacts — expanded ZH patterns', () => {
     expect(detectAiArtifacts('實現從設計到銷售的閉環', 'zh').length).toBeGreaterThan(0)
   })
 
+  it.each(['打造', '致力於', '無縫', '選品', '一站式', '精心', '可追溯至'])(
+    'flags the forbidden term %s (BD-COPY-04)',
+    (term) => {
+      expect(detectAiArtifacts(`工作室${term}陶杯與花器`, 'zh').length).toBeGreaterThan(0)
+    },
+  )
+
+  it.each(['頁面標示', '頁面寫到', '頁面另列', '商品頁另列', '商品頁標示', '網站標示', '網站並標示'])(
+    'flags the source-narrating hedge %s (BD-COPY-04)',
+    (hedge) => {
+      expect(detectAiArtifacts(`布料為萊賽爾天絲，${hedge}透氣與排濕`, 'zh').length).toBeGreaterThan(0)
+    },
+  )
+
+  it('accepts a single 品牌標示 attribution, 台, and 產品 in a proper noun', () => {
+    expect(detectAiArtifacts('布料是萊賽爾天絲，品牌標示透氣、排濕、抑菌', 'zh')).toEqual([])
+    expect(detectAiArtifacts('臺虎精釀在台北釀造啤酒', 'zh')).toEqual([])
+    expect(detectAiArtifacts('曾獲台灣產品設計獎', 'zh')).toEqual([])
+  })
+
   it('does not flag legitimate brand text without AI patterns', () => {
     expect(detectAiArtifacts('以手工鞣製植物染皮革起家，2018年於台中開設第一間工作室', 'zh')).toEqual([])
   })
@@ -172,6 +192,32 @@ describe('findForbiddenProductTerms', () => {
       expect(findForbiddenProductTerms(`手工縫製的${term}皮夾`)).toEqual([term])
     },
   )
+  it.each([
+    '打造',
+    '致力於',
+    '無縫',
+    '選品',
+    '一站式',
+    '精心',
+    '可追溯至',
+    '頁面標示',
+    '頁面寫到',
+    '頁面另列',
+    '商品頁另列',
+    '商品頁標示',
+    '網站標示',
+  ])('flags the BD-COPY-04 term or hedge %s', (term) => {
+    expect(findForbiddenProductTerms(`手工縫製的皮夾，${term}三色`)).toEqual([term])
+  })
+  it('flags 網站並標示, which 網站標示 does not match as a substring', () => {
+    expect(findForbiddenProductTerms('網站並標示可水洗')).toEqual(['網站並標示'])
+  })
+  it('keeps 精心設計 forbidden through the 精心 entry, with one hit', () => {
+    expect(findForbiddenProductTerms('精心設計的提袋')).toEqual(['精心'])
+  })
+  it('leaves 產品 and a single 品牌標示 attribution alone', () => {
+    expect(findForbiddenProductTerms('品牌標示可水洗，曾獲台灣產品設計獎')).toEqual([])
+  })
   it('flags 必買 and 療癒', () => {
     expect(findForbiddenProductTerms('必買的療癒小物')).toEqual(['必買', '療癒'])
   })

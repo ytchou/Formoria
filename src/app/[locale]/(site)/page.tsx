@@ -8,7 +8,7 @@ import {
 import HeroSection from "@/components/landing/hero-section";
 import { LandingZones } from "@/components/landing/landing-zones";
 import SectionBand from "@/components/landing/section-band";
-import { getExploreBrands } from "@/lib/services/brands";
+import { getBrandStats, getExploreBrands } from "@/lib/services/brands";
 import {
   getPublishedCuratedProductsForHomepage,
   getTrailPeekProducts,
@@ -42,12 +42,14 @@ export const revalidate = 3600;
  */
 export function isLandingRenderDegraded({
   exploreResult,
+  brandStats,
   curatedProducts,
   stories,
   trails,
   trailPeeks,
 }: {
   exploreResult: unknown;
+  brandStats: unknown;
   curatedProducts: unknown;
   stories: { ok: boolean };
   trails: { ok: boolean } | null;
@@ -55,6 +57,7 @@ export function isLandingRenderDegraded({
 }): boolean {
   return (
     exploreResult === null ||
+    brandStats === null ||
     curatedProducts === null ||
     !stories.ok ||
     trails === null ||
@@ -110,12 +113,15 @@ export default async function LandingPage({ params }: PageProps) {
 
   const [
     exploreResult,
+    brandStats,
     curatedProductsResult,
     storyResult,
     trailResult,
     trailPeeksResult,
   ] = await Promise.all([
     getExploreBrands().catch(captureReadFailure("landing.exploreBrands")),
+    // The same read /about prints, so every surface shows one brand count.
+    getBrandStats().catch(captureReadFailure("landing.brandStats")),
     getPublishedCuratedProductsForHomepage().catch(
       captureReadFailure("landing.selectedProducts"),
     ),
@@ -126,6 +132,7 @@ export default async function LandingPage({ params }: PageProps) {
 
   const degraded = isLandingRenderDegraded({
     exploreResult,
+    brandStats,
     curatedProducts: curatedProductsResult,
     stories: storyResult,
     trails: trailResult,
@@ -136,7 +143,7 @@ export default async function LandingPage({ params }: PageProps) {
   }
 
   const exploreBrands = (exploreResult?.brands ?? []).map(toPublicBrandCard);
-  const totalBrandCount = exploreResult?.totalCount ?? 0;
+  const totalBrandCount = brandStats?.brandCount ?? null;
   const latestStories = storyResult.ok
     ? storyResult.stories.slice(0, LANDING_STORY_LIMIT).map(toStoryCard)
     : [];

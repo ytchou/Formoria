@@ -67,7 +67,10 @@ export const MATERIAL_VOCAB_BLOCK = MATERIALS.map(
 
 export const TAIWAN_USAGE_RULES = `- Use Taiwanese Traditional Chinese terms: 影片 (not 視頻), 品質 (not 質量), 資訊 (not 信息), 網路 (not 網絡), 軟體 (not 軟件), 螢幕 (not 屏幕), 連結 (not 鏈接), 使用者 (not 用戶), 預設 (not 默認)
 - Use full-width punctuation: ，。：；！？「」; use ⋯⋯ for ellipsis; use 、 for parallel items. Latin letters, Arabic numerals, model numbers, and standard and certification names stay half-width exactly as in the source (MD-860S, OEKO-TEX, 3D, 2012年); never convert them to full-width letters (ＭＤ) or Chinese numerals (八六〇、二〇一二)
-- Forbidden terms: 「賦能」「閉環」「抓手」「打造」「結合」「融入」「融合」「兼顧」「呈現」「轉化為」「致力於」「從…出發」and other abstract jargon — replace with concrete descriptions (who makes what, from which material, for which use)
+- Forbidden terms: 「賦能」「閉環」「抓手」「打造」「結合」「融入」「融合」「兼顧」「呈現」「轉化為」「致力於」「從…出發」「無縫」「選品」「一站式」「精心」and other abstract jargon — replace with concrete descriptions (who makes what, from which material, for which use)
+- Never use the translationese 「可追溯至」 — say it plainly (「1967 年開業至今」「起點是雲林古坑的課後輔導」)
+- Write 商品 for things a brand sells, never 產品 — keep 產品 only inside a proper noun or an official name copied from the source
+- Do not narrate where each fact came from (「頁面標示」「商品頁另列」「網站並標示」「頁面寫到」) — state the fact directly; when a claim needs attribution, attribute it once, as 「品牌標示⋯⋯」
 - Avoid empty phrases: 「標誌著」「見證了」「體現了」「彰顯了」「在當今」「隨著⋯⋯發展」「未來充滿可能」「不只是A更是B」「值得一提的是」「總而言之」「綜上所述」
 - Avoid unsourced positive claims: 「廣受好評」「獲得多家媒體報導」require a specific source, otherwise delete
 - Every sentence must contain a concrete fact unique to this brand — delete and rewrite any sentence that still holds true after removing the brand name

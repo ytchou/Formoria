@@ -1,6 +1,7 @@
 import NextImage, { type ImageProps as NextImageProps } from "next/image";
 
 import { MEASURE_PX } from "@/lib/constants/layout";
+import { cn } from "@/lib/utils";
 
 /**
  * `next/image`, with `sizes` derived from the surface instead of retyped.
@@ -44,11 +45,8 @@ export const IMAGE_SURFACE_SIZES = {
    * measure must be written twice; `MEASURE_PX` is where the second copy is
    * anchored, and `check:design-tokens` fails if it and `globals.css` disagree.
    *
-   * `EditorialHero` opens both the trail detail route (~1472px of content at
-   * 1920px) and the story detail route (~688px inside `prose-measure`). This
-   * default serves the wider trail; the story passes its measured `sizes`
-   * through the component's explicit escape hatch instead of inventing a
-   * second surface name for the same frame.
+   * The trail and story detail heroes are full-bleed (`EditorialHeader`), so
+   * they wear `hero`, not this.
    */
   banner: `(max-width: ${MEASURE_PX.page}px) 100vw, ${MEASURE_PX.page}px`,
   /** A cell of the four-up card grid. Mirrors `CARD_GRID_COLUMNS`. */
@@ -84,6 +82,13 @@ type BaseSurfaceImageProps = Omit<NextImageProps, "sizes" | "alt"> & {
    * measures, because a measurement is a hint nothing else keeps honest.
    */
   sizes?: string;
+  /**
+   * `paper`: multiply the photo onto its frame, so a white product ground
+   * takes the frame's `surface` colour instead of punching a bright hole in
+   * the page (EL-08). The frame owns the colour, `isolate` and the outline;
+   * grid and shelf frames only, never a product shown large.
+   */
+  tone?: "paper";
 };
 
 export type SurfaceImageProps = BaseSurfaceImageProps &
@@ -110,12 +115,13 @@ export function SurfaceImage(props: SurfaceImageProps) {
   // Widened on the way in rather than destructured off the union: the body has
   // one shape, and the "one of the two" rule is the caller's contract, already
   // enforced above.
-  const { surface, sizes, ...rest }: BaseSurfaceImageProps = props;
+  const { surface, sizes, tone, ...rest }: BaseSurfaceImageProps = props;
 
   return (
     <NextImage
       sizes={sizes ?? (surface ? IMAGE_SURFACE_SIZES[surface] : undefined)}
       {...rest}
+      className={cn(rest.className, tone === "paper" && "mix-blend-multiply")}
     />
   );
 }

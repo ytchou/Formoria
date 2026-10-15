@@ -1,7 +1,4 @@
-"use client";
-
 import { Children, type ReactNode } from "react";
-import { useInView } from "@/hooks/use-in-view";
 import { Grid } from "@/components/ui/grid";
 
 interface MasonryGridProps {
@@ -21,59 +18,33 @@ interface MasonryGridProps {
   compact?: boolean;
 }
 
-/**
- * The widest column count, which is exactly the number of cards in the
- * above-the-fold row. Those cards render visible on the server: gating them
- * behind the IntersectionObserver would keep the LCP candidate at opacity 0
- * until client JS hydrates and the observer resolves.
- *
- * Exported because callers must decide which cards to `preload` using the same
- * number — a second copy of the literal drifts the moment the columns change.
- */
-export const MASONRY_ABOVE_FOLD = 3;
-
 export function MasonryGrid({
   children,
   visibleCount,
   compact = false,
 }: MasonryGridProps) {
-  const { ref: listRef, inView: listInView } = useInView<HTMLUListElement>();
-  const { ref: divRef, inView: divInView } = useInView<HTMLDivElement>();
-  const inView = compact ? listInView : divInView;
-
+  // Cards render present: no scroll reveal (DESIGN §7b, "never on scroll").
   const items = Children.map(children, (child, i) => {
-    const aboveFold = i < MASONRY_ABOVE_FOLD;
     const hidden = visibleCount !== undefined && i >= visibleCount;
-    // A hidden card is skipped by the reveal entirely — animating it would
-    // burn its one-shot entrance while it is invisible, so it would appear
-    // with no transition the moment the cap lifts.
-    const revealClass = hidden
-      ? "hidden"
-      : aboveFold
-        ? undefined
-        : inView
-          ? "animate-reveal-up"
-          : "opacity-0";
-    const style =
-      aboveFold || hidden ? undefined : { animationDelay: `${i * 60}ms` };
+    const className = hidden ? "hidden" : undefined;
 
     return compact ? (
-      <li key={i} className={revealClass} style={style}>
+      <li key={i} className={className}>
         {child}
       </li>
     ) : (
-      <div key={i} role="listitem" className={revealClass} style={style}>
+      <div key={i} role="listitem" className={className}>
         {child}
       </div>
     );
   });
 
   return compact ? (
-    <Grid as="ul" cols="thirds" ref={listRef}>
+    <Grid as="ul" cols="thirds">
       {items}
     </Grid>
   ) : (
-    <Grid ref={divRef} cols="thirds" role="list">
+    <Grid cols="thirds" role="list">
       {items}
     </Grid>
   );

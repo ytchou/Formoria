@@ -57,45 +57,53 @@ export function SearchSuggestions({
 }: SearchSuggestionsProps) {
   const t = useTranslations("brands");
   const locale = useLocale();
+  const panelClassName =
+    "absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-surface border border-rule bg-surface";
+
+  // A listbox may only own options, so the no-match note renders as plain
+  // content outside any `role="listbox"`; the input reports it as collapsed.
+  if (suggestions.length === 0) {
+    return (
+      <p className={`${panelClassName} px-4 py-3 type-body-sm`}>
+        {t("noResultsInSuggestions")}
+      </p>
+    );
+  }
+
   return (
     <ul
       id={id}
       role="listbox"
-      className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-surface border border-rule bg-surface"
+      aria-label={t("search.aria")}
+      className={panelClassName}
     >
-      {suggestions.length === 0 ? (
-        <li className="px-4 py-3 type-body-sm">
-          {t("noResultsInSuggestions")}
-        </li>
-      ) : (
-        suggestions.map((item, index) => (
-          <li
-            key={item.id}
-            id={searchSuggestionOptionId(id, item.id)}
-            role="option"
-            aria-selected={index === selectedIndex}
-            onClick={() => onSelect(item.slug, index)}
-            className={`cursor-pointer px-4 py-3 type-body-sm text-ink-soft ${
-              index === selectedIndex ? "bg-surface-deep" : "hover:bg-surface-deep"
-            }`}
-          >
-            <span className="font-medium text-ink">
-              {highlightMatch(item.name, query)}
+      {suggestions.map((item, index) => (
+        <li
+          key={item.id}
+          id={searchSuggestionOptionId(id, item.id)}
+          role="option"
+          aria-selected={index === selectedIndex}
+          onClick={() => onSelect(item.slug, index)}
+          className={`cursor-pointer px-4 py-3 type-body-sm text-ink-soft ${
+            index === selectedIndex ? "bg-surface-deep" : "hover:bg-surface-deep"
+          }`}
+        >
+          <span className="font-medium text-ink">
+            {highlightMatch(item.name, query)}
+          </span>
+          {item.categoryLabel && (
+            <span className="ml-2 type-metadata">
+              {highlightMatch(
+                getCategoryLabel(
+                  item.categoryLabel,
+                  locale === "zh-TW" ? "zh-TW" : "en",
+                ) ?? item.categoryLabel,
+                query,
+              )}
             </span>
-            {item.categoryLabel && (
-              <span className="ml-2 type-metadata">
-                {highlightMatch(
-                  getCategoryLabel(
-                    item.categoryLabel,
-                    locale === "zh-TW" ? "zh-TW" : "en",
-                  ) ?? item.categoryLabel,
-                  query,
-                )}
-              </span>
-            )}
-          </li>
-        ))
-      )}
+          )}
+        </li>
+      ))}
     </ul>
   );
 }

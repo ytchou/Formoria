@@ -1,13 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   checkPhaseSatisfaction,
-  fetchPhaseHistory,
-  filterSatisfiedPhases,
   isNoOpTarget,
+  phaseHistoryFromOutputs,
   type PhaseHistory,
 } from "../phase-satisfaction";
 import { DEFERRED_PHASES, ENRICH_PHASES, PHASE_DEPENDENCIES, type EnrichPhaseName } from "@/lib/constants/enrich-phases";
-import type { PhaseOutputStore, PhaseOutputRow } from "@/lib/services/enrich-blocks/phase-outputs";
+import type { PhaseOutputRow } from "@/lib/services/enrich-blocks/phase-outputs";
 import type { PhaseResult } from "@/lib/types/curation";
 import {
   buildPhaseResult,
@@ -35,39 +34,13 @@ function fakeRow(overrides: Partial<PhaseOutputRow> & Pick<PhaseOutputRow, "phas
   };
 }
 
-function fakeStore(rows: PhaseOutputRow[]): PhaseOutputStore {
-  return {
-    reader: {
-      forTargets: async () => rows,
-      latestPerPhase: async () => rows,
-      unpersisted: async () => [],
-    },
-    writer: {
-      upsert: async () => [],
-    },
-  };
-}
-
-function failingStore(error: Error): PhaseOutputStore {
-  return {
-    reader: {
-      forTargets: async () => { throw error; },
-      latestPerPhase: async () => { throw error; },
-      unpersisted: async () => [],
-    },
-    writer: {
-      upsert: async () => [],
-    },
-  };
-}
-
 // ---------------------------------------------------------------------------
-// fetchPhaseHistory (backed by phase-outputs store)
+// phaseHistoryFromOutputs
 // ---------------------------------------------------------------------------
 
-describe("fetchPhaseHistory (phase-outputs store)", () => {
-  it("history_comes_from_phase_outputs_latest_succeeded", async () => {
-    const store = fakeStore([
+describe("phaseHistoryFromOutputs", () => {
+  it("history_comes_from_phase_outputs_latest_succeeded", () => {
+    const history = phaseHistoryFromOutputs([
       // Two rows for detect — newest first; only the first should win
       fakeRow({ phase: "detect", created_at: "2026-09-02T00:00:00Z", id: "r1" }),
       fakeRow({ phase: "detect", created_at: "2026-09-01T00:00:00Z", id: "r2" }),
@@ -79,21 +52,11 @@ describe("fetchPhaseHistory (phase-outputs store)", () => {
       fakeRow({ phase: "nonexistent_phase", created_at: "2026-09-04T00:00:00Z", id: "r5" }),
     ]);
 
-    const history = await fetchPhaseHistory("brand", "brand-1", store);
-
     expect(history.size).toBe(2);
     expect(history.get("detect")).toEqual(new Date("2026-09-02T00:00:00Z"));
     expect(history.get("acquire")).toEqual(new Date("2026-09-03T00:00:00Z"));
     expect(history.has("descriptions")).toBe(false);
     expect(history.has("nonexistent_phase" as EnrichPhaseName)).toBe(false);
-  });
-
-  it("query_error_throws", async () => {
-    const store = failingStore(new Error("db connection failed"));
-
-    await expect(
-      fetchPhaseHistory("brand", "brand-1", store),
-    ).rejects.toThrow("db connection failed");
   });
 });
 
@@ -214,25 +177,6 @@ describe("history-based phase satisfaction", () => {
     }
   });
 
-  it("filter_returns_correct_execute_and_skipped", () => {
-    // acquire satisfied (detect dep is older), descriptions stale (dep acquire is newer)
-    const history: PhaseHistory = new Map([
-      ["detect", new Date("2026-07-31T00:00:00Z")],
-      ["acquire", new Date("2026-08-02T00:00:00Z")],
-      ["descriptions", new Date("2026-08-01T00:00:00Z")],
-    ]);
-
-    const result = filterSatisfiedPhases(
-      ["acquire", "descriptions", "clean"],
-      history,
-    );
-
-    expect(result.execute).toEqual(["descriptions", "clean"]);
-    expect(result.skipped).toEqual([
-      { phase: "acquire", reason: "satisfied" },
-    ]);
-  });
-
   it("deferred_phases_are_excluded_by_caller_not_by_satisfaction", () => {
     // Deferred phases (discover, clean, links, etc.) still exist in
     // ENRICH_PHASES for historical data. Phase satisfaction does not special-case
@@ -256,20 +200,6 @@ describe("history-based phase satisfaction", () => {
     ]);
     expect(checkPhaseSatisfaction("clean", history)).toBe("satisfied");
     expect(checkPhaseSatisfaction("discover", history)).toBe("satisfied");
-  });
-
-  it("filter_excludes_deferred_phases_when_not_in_input", () => {
-    // When the caller (phasesForTask) excludes deferred phases from the input
-    // list, filterSatisfiedPhases never returns them.
-    const history: PhaseHistory = new Map();
-    const activePhases = ENRICH_PHASES.filter(
-      (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
-    );
-    const result = filterSatisfiedPhases(activePhases, history);
-    for (const phase of DEFERRED_PHASES) {
-      expect(result.execute).not.toContain(phase);
-      expect(result.skipped.map((s) => s.phase)).not.toContain(phase);
-    }
   });
 
   it("transitive_staleness_propagates", () => {

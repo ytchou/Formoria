@@ -10,10 +10,7 @@ import {
   submissionToEnrichBrand,
 } from "../curation-operations";
 import type { CurationConfig } from "../curation-operations";
-import {
-  enrichedDataFromDb,
-  enrichedDataToDb,
-} from "@/lib/types/enriched-data";
+import { enrichedDataFromDb } from "@/lib/types/enriched-data";
 import type { CuratedProductProposal } from "@/lib/types/enriched-data";
 import { getDisplayBrandName, runCleanPhase } from "../enrich-phases";
 
@@ -277,15 +274,12 @@ describe("enriched_data.products[] payload contract", () => {
   });
 
   // Object arrays inside the blob are camelCase passthrough (the `channels`
-  // precedent), so a round trip has to be lossless in BOTH directions — a
-  // one-sided transform would drop every proposal on the next read.
-  it("products_survive_the_db_round_trip", () => {
+  // precedent), so the read has to be lossless — a transform would drop every
+  // proposal on the next read.
+  it("products_survive_the_db_read", () => {
     const input = { products: [proposal("a"), proposal("b")] };
 
-    const stored = enrichedDataToDb(input);
-    expect(stored.products).toEqual(input.products);
-
-    expect(enrichedDataFromDb(stored)).toEqual(input);
+    expect(enrichedDataFromDb({ products: input.products })).toEqual(input);
   });
 
   // deepMergeJsonObjects unions arrays through a Set, which is a no-op on
@@ -310,9 +304,6 @@ describe("enriched_data.products[] payload contract", () => {
   // "this run found nothing" and would wipe a stored proposal set, so a payload
   // that never mentions products must not grow the key.
   it("products_absent_stays_absent", () => {
-    const stored = enrichedDataToDb({ description: "品牌介紹" });
-    expect(stored).not.toHaveProperty("products");
-
     const read = enrichedDataFromDb({ description: "品牌介紹" });
     expect(read).not.toHaveProperty("products");
 
@@ -358,9 +349,9 @@ describe("enriched_data.products[] payload contract", () => {
       [],
     );
 
-    // And no runtime key survives the transforms either.
-    const stored = enrichedDataToDb({ products: [proposal("a")] });
-    const storedKeys = (stored.products as CuratedProductProposal[]).flatMap(
+    // And no runtime key survives the read transform either.
+    const read = enrichedDataFromDb({ products: [proposal("a")] });
+    const storedKeys = (read.products as CuratedProductProposal[]).flatMap(
       (product) => Object.keys(product),
     );
     expect(storedKeys.filter((field) => forbidden.test(field))).toEqual([]);

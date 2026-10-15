@@ -157,11 +157,15 @@ export function MainNav() {
           <NavSearchInput />
         </div>
 
-        {/* Right actions (desktop). A `nav` rather than a `div` so the links
-            form the header's desktop navigation landmark. */}
+        {/* Right actions (desktop, 1280px and up). A `nav` rather than a
+            `div` so the links form the header's desktop navigation landmark.
+            `xl`, not `lg`: 1024-1279 is mostly tablets in landscape (1180 is
+            an iPad Air), and there five links + locale + CTA + account left
+            the search about 150px wide. Below 1280 the header is wordmark +
+            wide search + hamburger. */}
         <nav
           aria-label={t("navigation")}
-          className="hidden items-center gap-5 lg:flex"
+          className="hidden items-center gap-5 xl:flex"
         >
           {primaryLinks.map((link) => {
             const isActive = isActiveHref(pathname, link.href);
@@ -171,7 +175,7 @@ export function MainNav() {
                 href={link.href}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "inline-flex min-h-11 items-center type-nav transition-colors hover:text-accent",
+                  "inline-flex min-h-11 items-center whitespace-nowrap type-nav transition-colors hover:text-accent",
                   isActive &&
                     "text-accent underline decoration-accent decoration-2 underline-offset-[6px]",
                 )}
@@ -201,12 +205,10 @@ export function MainNav() {
           <AccountMenu />
         </nav>
 
-        {/* Mobile hamburger. A `nav` rather than a `div`, for the same reason
-            the desktop actions are one: the actions element is `lg:flex`, so it
-            is `display: none` below 1024px and exposes no landmark there. This
-            is the first navigation landmark in the banner at 375px, which
-            mobile.spec.ts asserts by role. */}
-        <nav aria-label={t("navigation")} className="ml-auto lg:hidden">
+        {/* Hamburger, below 1280px. A plain `div`, not a `nav`: a landmark
+            around a lone button has nothing to navigate. The sheet's inner
+            `nav` is the navigation landmark on these widths (DS-17). */}
+        <div className="ml-auto xl:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               render={
@@ -306,7 +308,7 @@ export function MainNav() {
               </SheetBody>
             </SheetContent>
           </Sheet>
-        </nav>
+        </div>
       </PageShell>
     </header>
   );

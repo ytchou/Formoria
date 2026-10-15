@@ -58,7 +58,7 @@ export default async function ContactPage({ params }: PageProps) {
       <section className="border-b border-rule pb-10">
         <div className="prose-measure">
           <p className="type-eyebrow">{t('hero.eyebrow')}</p>
-          <h1 className="mt-3 type-display">{t('hero.title')}</h1>
+          <h1 className="mt-3 type-page-title">{t('hero.title')}</h1>
           <p className="mt-4 type-body">{t('hero.intro')}</p>
         </div>
       </section>

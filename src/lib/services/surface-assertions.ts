@@ -70,39 +70,6 @@ function parseSitemapBrandUrls(xml: string): string[] {
 
 // ── Individual assertions ───────────────────────────────────────────────────
 
-export async function assertSitemap(
-  ctx: AssertionContext,
-): Promise<AssertionResult[]> {
-  const response = await browserFetch(ctx, `${ctx.baseUrl}/sitemap.xml`);
-  if (!response.ok) {
-    return [
-      {
-        name: "sitemap",
-        ok: false,
-        detail: `sitemap.xml returned HTTP ${response.status}`,
-      },
-    ];
-  }
-  const xml = await response.text();
-  const brandUrls = parseSitemapBrandUrls(xml);
-  if (brandUrls.length < BRAND_URL_FLOOR) {
-    return [
-      {
-        name: "sitemap",
-        ok: false,
-        detail: `sitemap contains ${brandUrls.length} brand URLs, expected >= ${BRAND_URL_FLOOR}`,
-      },
-    ];
-  }
-  return [
-    {
-      name: "sitemap",
-      ok: true,
-      detail: `${brandUrls.length} brand URLs in sitemap`,
-    },
-  ];
-}
-
 export async function assertRobots(
   ctx: AssertionContext,
 ): Promise<AssertionResult[]> {
@@ -352,65 +319,6 @@ export async function assertOriginGuard(
 }
 
 // ── Runners ─────────────────────────────────────────────────────────────────
-
-/**
- * The repeat-safe subset: assertions that are cheap to run on every scheduled
- * probe. Excludes brand detail pages which sit behind the Turnstile soft-limit
- * and are expensive to check repeatedly.
- *
- * The sitemap is fetched ONCE and shared by all assertions that need it.
- */
-export async function runRepeatSafeAssertions(
-  ctx: AssertionContext,
-): Promise<AssertionResult[]> {
-  // Sitemap is fetched once and shared
-  const sitemapResponse = await browserFetch(ctx, `${ctx.baseUrl}/sitemap.xml`);
-  let sitemapResults: AssertionResult[];
-  if (!sitemapResponse.ok) {
-    sitemapResults = [
-      {
-        name: "sitemap",
-        ok: false,
-        detail: `sitemap.xml returned HTTP ${sitemapResponse.status}`,
-      },
-    ];
-  } else {
-    const xml = await sitemapResponse.text();
-    const brandUrls = parseSitemapBrandUrls(xml);
-    sitemapResults =
-      brandUrls.length < BRAND_URL_FLOOR
-        ? [
-            {
-              name: "sitemap",
-              ok: false,
-              detail: `sitemap contains ${brandUrls.length} brand URLs, expected >= ${BRAND_URL_FLOOR}`,
-            },
-          ]
-        : [
-            {
-              name: "sitemap",
-              ok: true,
-              detail: `${brandUrls.length} brand URLs in sitemap`,
-            },
-          ];
-  }
-
-  const [robotsResults, localeResults, categoryResults, guardResults] =
-    await Promise.all([
-      assertRobots(ctx),
-      assertEnglishLocale(ctx),
-      assertCategory(ctx),
-      assertOriginGuard(ctx),
-    ]);
-
-  return [
-    ...sitemapResults,
-    ...robotsResults,
-    ...localeResults,
-    ...categoryResults,
-    ...guardResults,
-  ];
-}
 
 /**
  * All assertions, including brand detail pages. Fetches the sitemap once, picks

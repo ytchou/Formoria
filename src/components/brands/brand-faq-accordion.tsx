@@ -1,7 +1,5 @@
 import { type ReactNode } from "react";
-import { useTranslations } from "next-intl";
 
-import { Typography } from "@/components/ui/typography";
 import { sanitizeHref } from "@/lib/url";
 
 const LINK_RE = /(\[[^\]]+\]\([^)]+\))/g;
@@ -36,21 +34,18 @@ interface BrandFaqAccordionProps {
   items: Array<{ id: string; question: string; answer: string }>;
 }
 
+/**
+ * The FAQ section's body. The page sets it in `BrandSection` (#faq), which
+ * owns the landmark, its scroll offset and the h2.
+ */
 export function BrandFaqAccordion({ items }: BrandFaqAccordionProps) {
-  const t = useTranslations("brandDetail.sections");
-
   if (items.length === 0) return null;
 
   return (
     <>
-      {/* The <section id="faq"> landmark and its scroll offset belong to the
-          brand page, which already wraps this component in one. */}
-      <Typography as="h2" className="mb-4" variant="cardTitle" balance>
-        {t("faq")}
-      </Typography>
       {/* An open definition list, never a collapsed panel: an answer to a
           question ships visible in the server HTML (DESIGN.md §7). */}
-      <dl className="space-y-stack">
+      <dl className="mt-4 space-y-stack">
         {items.map((item) => (
           <div key={item.id} id={`faq-${item.id}`} className="scroll-mt-24">
             {/* Questions step below the brandDetail.sections.faq heading (DESIGN.md §8). */}

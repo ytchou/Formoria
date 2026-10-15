@@ -52,7 +52,7 @@ test.describe("Static & compliance pages", () => {
           "我們把你交到品牌手上。",
           "付錢買不到位置。",
           "找不到，不代表不存在。",
-          "判斷是我們的，而且會說明理由。",
+          "怎麼挑是我們的判斷，理由也會寫出來。",
         ],
         // Product-led exits: the hero and the closing band lead to products
         // and guides; the brand directory is the secondary link.
@@ -220,9 +220,9 @@ test.describe("Static & compliance pages", () => {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
-    expect(await resp?.text()).toMatch(/<h1[^>]*>快速驗證<\/h1>/);
+    expect(await resp?.text()).toMatch(/<h1[^>]*>安全驗證<\/h1>/);
     await expect(
-      anonPage.getByRole("heading", { name: "快速驗證" }),
+      anonPage.getByRole("heading", { name: "安全驗證" }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     // Turnstile container (div rendered by TurnstileWidget, or the "Verifying..." text)
     // The widget may redirect quickly in dev; assert the heading appeared above.

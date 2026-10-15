@@ -46,8 +46,8 @@ export type LandingZonesProps = {
   trailPeeks: Record<string, TrailPeekProduct[]>;
   stories: StoryCardEntry[];
   brands: PublicBrandCard[];
-  /** Directory-wide brand count; BrandStrip rounds it for display. */
-  totalBrandCount: number;
+  /** Exact public brand count (`getBrandStats`); null when the read failed. */
+  totalBrandCount: number | null;
 };
 
 /**

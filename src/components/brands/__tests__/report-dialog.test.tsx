@@ -102,8 +102,8 @@ describe('ReportDialog', () => {
     expect(screen.getByRole('group', { name: '品牌方申訴' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /所有權爭議/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /要求移除品牌頁/i })).toBeInTheDocument()
-    expect(screen.getByText('品牌所有權相關問題')).toBeInTheDocument()
-    expect(screen.getByText('請求移除此品牌頁面')).toBeInTheDocument()
+    expect(screen.getByText('這個品牌頁的所有權有爭議')).toBeInTheDocument()
+    expect(screen.getByText('請我們拿掉這個品牌頁')).toBeInTheDocument()
   })
 
   it('no longer offers the not_mit reason', async () => {
@@ -176,7 +176,7 @@ describe('ReportDialog', () => {
 
     const notes = screen.getByRole('textbox', { name: /補充說明/i })
     expect(notes).toHaveAttribute('maxlength', '1000')
-    expect(notes).toHaveAttribute('placeholder', '請提供更多資訊，以協助我們更快處理')
+    expect(notes).toHaveAttribute('placeholder', '例如：哪一段寫錯了、正確的資料在哪裡看得到')
     expect(screen.getByText('0 / 1000')).toBeInTheDocument()
 
     await user.type(notes, 'abc')
@@ -244,7 +244,7 @@ describe('ReportDialog', () => {
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
 
-    expect(screen.getByText('請登入以提出品牌頁移除要求')).toBeInTheDocument()
+    expect(screen.getByText('登入後才能要求移除品牌頁')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '登入' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /送出回報/i })).not.toBeInTheDocument()
   })
@@ -261,7 +261,7 @@ describe('ReportDialog', () => {
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
 
-    expect(screen.queryByText('請登入以提出所有權爭議')).not.toBeInTheDocument()
+    expect(screen.queryByText('登入後才能提出所有權爭議')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /送出回報/i })).toBeInTheDocument()
   })
 
@@ -273,10 +273,10 @@ describe('ReportDialog', () => {
     await user.click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
-    expect(screen.queryByText('這個品牌已經回報過了')).not.toBeInTheDocument()
+    expect(screen.queryByText('你已經回報過這個品牌了')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
-    expect(await screen.findByText('這個品牌已經回報過了')).toBeInTheDocument()
+    expect(await screen.findByText('你已經回報過這個品牌了')).toBeInTheDocument()
   })
 
   it('shows success confirmation when state.success is true', async () => {
@@ -288,7 +288,7 @@ describe('ReportDialog', () => {
     // Open dialog
     await userEvent.setup().click(screen.getByRole('button', { name: TRIGGER_NAME }))
     await findLoadedDialog()
-    expect(screen.getByText(/感謝你的回報/i)).toBeInTheDocument()
+    expect(screen.getByText(/收到了，謝謝你/i)).toBeInTheDocument()
   })
 
   it('shows error banner when state.error is set', async () => {
@@ -317,7 +317,7 @@ describe('ReportDialog', () => {
 
     const status = dialog.querySelector('[data-slot="dialog-status"]')
     expect(status).not.toBeNull()
-    expect(status).toHaveTextContent(/感謝你的回報/)
+    expect(status).toHaveTextContent(/收到了，謝謝你/)
     expect(dialog.querySelector('[data-slot="dialog-body"]')).toBeNull()
 
     const actions = status!.querySelectorAll(

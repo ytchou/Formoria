@@ -1,4 +1,6 @@
 import { getTranslations } from "next-intl/server";
+import { SurfaceCard } from "@/components/ui/card";
+import { PageShell } from "@/components/ui/page-shell";
 import { ChallengeWidget } from "./challenge-widget";
 
 type ChallengePageProps = {
@@ -15,46 +17,22 @@ export default async function ChallengePage({
   const returnTo = typeof query.returnTo === "string" ? query.returnTo : "/";
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        background: "var(--ground)",
-        color: "var(--ink)",
-      }}
+    <PageShell
+      as="main"
+      measure="form"
+      className="flex flex-col items-center py-section"
     >
-      <section
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          textAlign: "center",
-          padding: "32px",
-          border: "1px solid var(--rule)",
-          borderRadius: "8px",
-          background: "var(--surface)",
-        }}
-      >
-        <h1 style={{ margin: "0 0 12px", fontSize: "24px", lineHeight: 1.25 }}>
-          {t("title")}
-        </h1>
-        <p
-          style={{
-            margin: "0 0 24px",
-            color: "var(--ink-muted)",
-            lineHeight: 1.5,
-          }}
-        >
-          {t("description")}
-        </p>
-        <ChallengeWidget
-          returnTo={returnTo}
-          verifyingLabel={t("verifying")}
-          errorLabel={t("error")}
-        />
-      </section>
-    </main>
+      <SurfaceCard padding="lg" className="w-full content-column text-center">
+        <h1 className="type-page-title">{t("title")}</h1>
+        <p className="mt-3 type-body-sm text-ink-muted">{t("description")}</p>
+        <div className="mt-6">
+          <ChallengeWidget
+            returnTo={returnTo}
+            verifyingLabel={t("verifying")}
+            errorLabel={t("error")}
+          />
+        </div>
+      </SurfaceCard>
+    </PageShell>
   );
 }

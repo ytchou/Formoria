@@ -5,6 +5,7 @@ import { actionLinkStyles } from "@/components/ui/action-link";
 import { Link } from "@/i18n/navigation";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { PublicBrandCard } from "@/lib/brands/contracts";
+import type { BrandProductPreview } from "@/lib/services/curated-products";
 import { BrandCard } from "./brand-card";
 import { RelatedBrandsTracker } from "./related-brands-tracker";
 import { routes } from "@/lib/routes";
@@ -13,6 +14,8 @@ import { Grid } from "@/components/ui/grid";
 interface RelatedBrandsProps {
   locale: AppLocale;
   brands: PublicBrandCard[];
+  /** Brand id → its product preview; a brand without one shows no strip. */
+  previews?: Record<string, BrandProductPreview>;
   category: string | null;
   categoryName: string;
   categoryLabel?: string | null;
@@ -23,6 +26,7 @@ interface RelatedBrandsProps {
 export async function RelatedBrands({
   locale,
   brands,
+  previews = {},
   category,
   categoryLabel,
   categoryName,
@@ -69,6 +73,7 @@ export async function RelatedBrands({
             <BrandCard
               key={brand.id}
               brand={brand}
+              preview={previews[brand.id]}
               variant="recommendation"
               sourceBrandSlug={currentBrandSlug}
               position={index}

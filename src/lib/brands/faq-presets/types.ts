@@ -16,6 +16,13 @@ export type FaqBrandContext = {
   brand: PublicBrandFaqContext;
   cityLabel?: string | null;
   peerStats?: CategoryPeerStats | null;
+  /**
+   * Subcategory slugs of the brand's published curated products, one per
+   * product, in brand-page (shelf) order. Only the page request path supplies
+   * it; the main-products floor reads nothing else (BD-10). Kept off
+   * `PublicBrandFaqContext` because that shape is a cached contract.
+   */
+  curatedSubcategories?: readonly string[];
 };
 
 export type FaqValidationResult = {

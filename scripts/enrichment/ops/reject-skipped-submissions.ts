@@ -18,15 +18,15 @@
  * one keeps a hidden brand row alive. This closes them out with the detector's
  * own verdict recorded as the reviewer note, so a reopen has the reason.
  *
- * Mirrors rejectSubmissionForAdmin (src/app/admin/actions.ts) — the single-item
- * workflow shared by rejectSubmissionAction and rejectSubmissionsAction — with
- * two deliberate differences, both forced by running outside a Next request
- * context:
+ * Calls rejectSubmissionWorkflow (src/lib/services/submission-review-workflow.ts)
+ * — the single-item workflow behind rejectSubmissionAction — with two
+ * deliberate differences:
  *
- *  1. No email is ever sent. The admin action mails a rejection notice for
- *     non-refresh submissions from a real submitter address; this script SKIPS
- *     any such row and reports it, so a bulk run can never surprise a real
- *     person. Those rows must go through the admin UI.
+ *  1. No email is ever sent: the workflow runs with `notify: 'skip'`. The admin
+ *     action mails a rejection notice for non-refresh submissions from a real
+ *     submitter address; this script SKIPS any such row and reports it, so a
+ *     bulk run can never reject a real person without telling them. Those rows
+ *     must go through the admin UI.
  *  2. `--apply` is required. The safe mode is the default because rejection
  *     deletes the submission's staged images from storage.
  *
@@ -41,9 +41,9 @@
  */
 import {
   getSubmission,
-  rejectSubmission,
   isGeneratedGuestSubmissionEmail,
 } from "@/lib/services/submissions";
+import { rejectSubmissionWorkflow } from "@/lib/services/submission-review-workflow";
 import { createServiceClient } from "@/lib/supabase/service";
 import { loadScriptTarget } from "../../shared/target";
 import {
@@ -153,7 +153,9 @@ async function main(): Promise<void> {
         console.log(`${label} — would reject (${row.intent}): ${reason}`);
         continue;
       }
-      await rejectSubmission(row.id, reviewerId, "other", row.verdict);
+      await rejectSubmissionWorkflow(row.id, reviewerId, "other", row.verdict, {
+        notify: "skip",
+      });
       rejected += 1;
       console.log(`${label} — rejected: ${reason}`);
     } catch (err) {

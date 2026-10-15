@@ -46,11 +46,11 @@ import {
   type CuratedProductProposalState,
   type ExistingCuratedProduct,
 } from "@/lib/services/curated-products/proposal-diff";
+import type { SaveSubmissionReviewInput } from "@/lib/services/submissions";
 import type {
-  SaveSubmissionReviewInput,
   SubmissionReviewData,
   SubmissionReviewImage,
-} from "@/lib/services/submissions";
+} from "@/lib/services/submission-review-data";
 import { deriveSubcategoriesEn } from "@/lib/services/subcategories";
 import { cn } from "@/lib/utils";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
