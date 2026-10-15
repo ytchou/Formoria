@@ -28,6 +28,16 @@ describe("EmptyState", () => {
     expect(title.className).not.toContain("text-ink-muted");
   });
 
+  it("renders the title as a heading at the requested level", () => {
+    render(<EmptyState title="Nothing yet" headingLevel={2} />);
+    const title = screen.getByRole("heading", { level: 2, name: "Nothing yet" });
+
+    // DEV-2039: a caller that knows its outline opts in, so heading
+    // navigation reaches the empty-state message. Styling is unchanged.
+    expect(title.tagName).toBe("H2");
+    expect(title.className).toContain("type-section");
+  });
+
   it("renders body and a single action when given", () => {
     render(
       <EmptyState title="Nothing yet" body="Try again later" action={<button type="button">Retry</button>} />,

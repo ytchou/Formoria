@@ -231,7 +231,7 @@ test.describe("Directory deep", () => {
 
     const emptyState = page.locator("[data-empty]");
     await expect(
-      emptyState.getByText("沒有符合這些條件的品牌", { exact: true }),
+      emptyState.getByRole("heading", { name: "沒有符合這些條件的品牌" }),
     ).toBeVisible();
 
     await expect(
