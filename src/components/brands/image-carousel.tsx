@@ -6,7 +6,7 @@ import { SurfaceImage } from "@/components/ui/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
-import { brandImageFill } from "@/lib/images/fill";
+import { brandImageFill, type BrandHeroFrame } from "@/lib/images/fill";
 import type { BrandImageMeta } from "@/lib/types/brand";
 import { trackGalleryPhotoView, trackGalleryCompleted } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ interface ImageCarouselProps {
   category?: string | null;
   imageAlts?: BrandImageMeta[];
   variant?: "detail" | "compact";
+  /** The hero box's ratio (`brandHeroFrame`); square unless the hero is landscape. */
+  frame?: BrandHeroFrame;
   trackingEnabled?: boolean;
 }
 
@@ -36,6 +38,7 @@ export function ImageCarousel({
   category,
   imageAlts,
   variant = "detail",
+  frame = "square",
   trackingEnabled = true,
 }: ImageCarouselProps) {
   const t = useTranslations("brandDetail");
@@ -321,10 +324,18 @@ export function ImageCarousel({
         // absolutely positioned `fill` image, so it collapsed to 0×0 and took
         // the thumbnail rail's row height with it (DEV-1948). `xl:w-full`
         // gives it the column's width back.
+        //
+        // A landscape hero gets the 4:3 frame instead (BD-08), so it is not
+        // letterboxed in a square. Its width cap keeps the same 70svh height
+        // cap as the square: 70svh × 4/3.
         className={cn(
-          "relative mx-auto aspect-media max-w-[70svh] overflow-hidden rounded-surface bg-surface-deep xl:max-w-none",
+          "relative mx-auto overflow-hidden rounded-surface bg-surface-deep xl:max-w-none",
+          frame === "landscape"
+            ? "aspect-media-landscape max-w-[calc(70svh*4/3)]"
+            : "aspect-media max-w-[70svh]",
           hasDetailGallery && "xl:col-start-2 xl:row-start-1 xl:mx-0 xl:w-full",
         )}
+        data-brand-hero-frame={frame}
         data-brand-hero
         onTouchStart={total > 1 ? handleTouchStart : undefined}
         onTouchEnd={total > 1 ? handleTouchEnd : undefined}

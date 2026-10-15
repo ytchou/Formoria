@@ -81,3 +81,27 @@ export function brandImageFill(
 
   return 'object-cover'
 }
+
+/**
+ * Width over height above which a brand hero counts as landscape (BD-08).
+ * At 1.2 a square frame already leaves ~8% bands top and bottom; the 78 of
+ * 270 heroes past it averaged ~110px of empty plate in the 672px frame.
+ */
+export const LANDSCAPE_HERO_MIN_RATIO = 1.2
+
+export type BrandHeroFrame = 'square' | 'landscape'
+
+/**
+ * The brand detail hero's frame, chosen once from the hero image's stored
+ * `brand_images` width and height: 4:3 for a landscape hero, 1:1 otherwise.
+ * Fixed for the whole gallery, so stepping through photos never resizes the
+ * box; later photos are contained in it. Unknown dimensions keep the square.
+ */
+export function brandHeroFrame(
+  dimensions: { width: number | null; height: number | null } | null | undefined,
+): BrandHeroFrame {
+  const width = dimensions?.width ?? 0
+  const height = dimensions?.height ?? 0
+  if (width <= 0 || height <= 0) return 'square'
+  return width / height > LANDSCAPE_HERO_MIN_RATIO ? 'landscape' : 'square'
+}

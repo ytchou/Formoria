@@ -335,18 +335,18 @@
       }
     },
     "colophon": {
-      "city": "Based in",
-      "founded": "Founded"
+      "foundedInCityYear": "Founded in {city} in {year}",
+      "foundedInCity": "Founded in {city}"
     },
     "heroJump": {
-      "selected": "{count, plural, one {# product} other {# products}} from this brand",
+      "selected": "{count, plural, one {# featured product} other {# featured products}}",
       "stockists": "{count, plural, one {# stockist} other {# stockists}}",
       "channels": "Brand links",
       "stockistCity": "{city} {count}",
       "stockistsAll": "See all {count, plural, one {# stockist} other {# stockists}}"
     },
     "selectedProducts": {
-      "heading": "From this brand",
+      "heading": "Featured products",
       "note": "{count, plural, one {One product} other {# products}} shown here, not the brand's full range. Prices and details are on the brand's site.",
       "cta": "(view product page)",
       "unavailable": "The product page isn't loading right now.",

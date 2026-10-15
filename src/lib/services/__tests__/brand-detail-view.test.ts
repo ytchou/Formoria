@@ -261,11 +261,9 @@ describe("buildBrandDetailView", () => {
   });
 
   describe("hero facts", () => {
-    it("carries city, founding year, the two counts, cities and channels", () => {
+    it("carries the two counts, cities and channels", () => {
       const view = buildBrandDetailView(buildInput());
       expect(view.heroFacts).toEqual({
-        cityLabel: "台北",
-        foundingYear: 2015,
         selectedCount: 3,
         stockistCount: 3,
         stockistCities: [
@@ -287,20 +285,21 @@ describe("buildBrandDetailView", () => {
           },
         ],
       });
-      expect(view.hasHeroColophon).toBe(true);
     });
 
-    it("caps the hero route rows at four, jump rows first", () => {
+    it("caps the hero route rows per frame, jump rows first", () => {
       const brand = buildBrand({
         purchasePinkoi: "https://www.pinkoi.com/store/harbor",
         purchaseShopee: "https://shopee.tw/harbor",
         socialFacebook: "https://www.facebook.com/harbor",
       });
       const rich = buildBrandDetailView(buildInput({ brand }));
-      // Two jump rows (products, stockists) leave room for two channels.
+      // Square frame: two jump rows (products, stockists) leave room for
+      // three channels.
       expect(rich.heroFacts.channels.map((slot) => slot.kind)).toEqual([
         "website",
         "pinkoi",
+        "shopee",
       ]);
       const sparse = buildBrandDetailView(
         buildInput({
@@ -314,15 +313,56 @@ describe("buildBrandDetailView", () => {
         "pinkoi",
         "shopee",
         "instagram",
+        "facebook",
       ]);
+      // The shorter 4:3 frame holds fewer rows.
+      const landscape = buildBrandDetailView(
+        buildInput({
+          brand: { ...brand, heroImageMetadata: { width: 1600, height: 1000 } },
+        }),
+      );
+      expect(landscape.heroFrame).toBe("landscape");
+      expect(landscape.heroFacts.channels).toEqual([]);
+      const sparseLandscape = buildBrandDetailView(
+        buildInput({
+          brand: { ...brand, heroImageMetadata: { width: 1600, height: 1000 } },
+          curatedCount: 0,
+          stockists: { confirmed: [], possible: [] },
+        }),
+      );
+      expect(
+        sparseLandscape.heroFacts.channels.map((slot) => slot.kind),
+      ).toEqual(["website", "pinkoi"]);
       // Where-to-buy still lists every channel, social included.
       expect(rich.links.channels.purchase).toHaveLength(3);
       expect(rich.links.channels.social).toHaveLength(2);
     });
 
+  });
+
+  describe("colophon", () => {
+    it("sets the founding city and year under the story", () => {
+      expect(buildBrandDetailView(buildInput()).colophon).toEqual({
+        cityLabel: "台北",
+        foundingYear: 2015,
+      });
+    });
+
     it("has a colophon with only a founding year", () => {
       const view = buildBrandDetailView(buildInput({ cityLabel: null }));
-      expect(view.hasHeroColophon).toBe(true);
+      expect(view.colophon).toEqual({ cityLabel: null, foundingYear: 2015 });
+    });
+
+    it("drops the year when the lede already states it", () => {
+      const view = buildBrandDetailView(
+        buildInput({
+          brand: buildBrand({
+            description:
+              "港形的製鞋手藝可追溯至2015年。\n\n每一雙都在工作室裡手工縫製。",
+          }),
+        }),
+      );
+      expect(view.colophon).toEqual({ cityLabel: "台北", foundingYear: null });
     });
 
     it("has no colophon without city or founding year", () => {
@@ -332,7 +372,16 @@ describe("buildBrandDetailView", () => {
           brand: buildBrand({ foundingYear: null }),
         }),
       );
-      expect(view.hasHeroColophon).toBe(false);
+      expect(view.colophon).toBeNull();
+    });
+
+    it("has no colophon without a story, so the metadata line keeps both", () => {
+      const view = buildBrandDetailView(
+        buildInput({
+          brand: buildBrand({ description: null, descriptionEn: null }),
+        }),
+      );
+      expect(view.colophon).toBeNull();
     });
   });
 

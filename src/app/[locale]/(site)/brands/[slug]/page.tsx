@@ -21,6 +21,7 @@ import { BrandBreadcrumb } from "@/components/brands/brand-breadcrumb";
 import { ImageCarousel } from "@/components/brands/image-carousel";
 import {
   BrandHeader,
+  BrandColophon,
   BrandHeroFacts,
   hasBrandHeroFacts,
 } from "@/components/brands/brand-header";
@@ -205,7 +206,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     hasEditorialAppearances,
     faqItemCount: faqItems.length,
   });
-  const { categoryLabel, visitLink, heroFacts, hasHeroColophon } = view;
+  const { categoryLabel, visitLink, heroFacts, colophon } = view;
   const sections = view.sections.map(({ id, labelKey }) => ({
     id,
     label: tBrandDetail(labelKey),
@@ -272,7 +273,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 brand={displayBrand}
                 categoryLabel={categoryLabel || null}
                 cityLabel={cityLabel}
-                omitProvenance={hasHeroColophon}
+                omitProvenance={colophon != null}
                 lede={view.lede}
                 makesLabels={view.makesLabels}
                 adminSlot={
@@ -300,6 +301,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <div className="min-w-0 lg:col-span-7 lg:col-start-1 lg:row-span-2 lg:row-start-1">
               <ImageCarousel
                 images={galleryImages}
+                frame={view.heroFrame}
                 alt={displayBrand.name}
                 brandId={displayBrand.id}
                 brandSlug={displayBrand.slug}
@@ -309,14 +311,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
             </div>
 
             {hasHeroFacts && (
-              <div
-                className={cn(
-                  "min-w-0 lg:col-span-5 lg:col-start-8 lg:row-start-2 lg:self-start",
-                  // Without a colophon only the md+ route rows remain; an
-                  // empty cell would still add a grid gap.
-                  !hasHeroColophon && "max-md:hidden",
-                )}
-              >
+              // The cell holds only the md+ route rows; below md an empty
+              // cell would still add a grid gap.
+              <div className="min-w-0 max-md:hidden lg:col-span-5 lg:col-start-8 lg:row-start-2 lg:self-start">
                 <BrandHeroFacts
                   {...heroFacts}
                   trackedBrand={view.links.tracked}
@@ -409,6 +406,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
                       className="prose-measure min-w-0 lg:col-span-5"
                     >
                       <BrandAbout paragraphs={view.storyParagraphs} />
+                      {colophon && <BrandColophon {...colophon} />}
                     </BrandSection>
                   )}
                 </div>
