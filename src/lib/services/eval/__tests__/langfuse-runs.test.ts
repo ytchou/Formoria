@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   runName,
   traceName,
-  writeItemScores,
   findQueueByName,
   enqueueTrace,
 } from '../langfuse-runs'
@@ -16,48 +15,6 @@ describe('runName and traceName follow the naming decision', () => {
   it('traceName is eval:${dataset}:${arm}:${itemId}', () => {
     expect(traceName('detect-golden', 'gpt-5.6', 'item-abc'))
       .toBe('eval:detect-golden:gpt-5.6:item-abc')
-  })
-})
-
-describe('writeItemScores', () => {
-  it('emits one score per evaluator on the trace id', async () => {
-    const scoreFn = vi.fn<(params: Record<string, unknown>) => void>()
-
-    const scores = [
-      { name: 'decisionAgreement', value: 1 },
-      { name: 'confidenceBand', value: 0.5 },
-      { name: 'writeEligible', value: 0 },
-    ]
-
-    await writeItemScores({
-      traceId: 'trace-123',
-      scores,
-      scoreFn,
-    })
-
-    expect(scoreFn).toHaveBeenCalledTimes(3)
-
-    expect(scoreFn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        traceId: 'trace-123',
-        name: 'decisionAgreement',
-        value: 1,
-      }),
-    )
-    expect(scoreFn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        traceId: 'trace-123',
-        name: 'confidenceBand',
-        value: 0.5,
-      }),
-    )
-    expect(scoreFn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        traceId: 'trace-123',
-        name: 'writeEligible',
-        value: 0,
-      }),
-    )
   })
 })
 

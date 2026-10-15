@@ -158,10 +158,8 @@ const zhT = (key: string): string => {
   const map: Record<string, string> = {
     'validation.nameRequired': '請輸入品牌名稱',
     'validation.nameMinLength': '品牌名稱至少要 2 個字',
-    'validation.descriptionRequired': '請填寫品牌介紹',
     'validation.emailInvalid': '電子郵件格式不對，請再檢查一次',
     'validation.emailRequiredForNewsletter': '要訂閱電子報的話，請填電子郵件',
-    'validation.heroImageRequired': '請上傳品牌主圖',
     'validation.platformRequired': '請選擇平台',
     'validation.urlInvalid': '請輸入完整網址，例如 https://brand.com',
     'validation.pdpaRequired': '請勾選同意隱私權政策',
@@ -217,37 +215,6 @@ export function createRecommendationSubmissionSchema(t: Translator = zhT) {
         })
       }
     })
-}
-
-export function createOwnerSubmissionSchema(t: Translator = zhT) {
-  return baseSubmissionSchema(t)
-    .merge(
-      z.object({
-        description: z
-          .string()
-          .trim()
-          .min(1, t('validation.descriptionRequired'))
-          .max(500),
-        heroImageUrl: z
-          .string()
-          .min(1, t('validation.heroImageRequired'))
-          .url(t('validation.urlInvalid')),
-      }),
-    )
-    .merge(getLinksSchema(t))
-    .merge(
-      z.object({
-        romanizedName: z
-          .string()
-          .min(2)
-          .max(100)
-          .regex(/^[a-zA-Z0-9\s\-'.]+$/)
-          .optional()
-          .or(z.literal('')),
-        city: z.enum(CITY_SLUGS).optional(),
-        mitSmileCert: z.string().optional().default(''),
-      }),
-    )
 }
 
 export type SubmissionFormData = {

@@ -14,11 +14,6 @@ import {
   DEFERRED_PHASES,
   phasesForTask,
 } from "@/lib/constants/enrich-phases";
-import {
-  filterSatisfiedPhases,
-  type PhaseHistory,
-} from "./enrich-phases/phase-satisfaction";
-import type { EnrichPhaseName } from "@/lib/constants/enrich-phases";
 import { jobTriggerLabel } from "@/app/admin/jobs/job-display";
 
 describe("explicit submission enrichment eligibility", () => {
@@ -126,36 +121,6 @@ describe("admin bulk actions", () => {
     for (const task of CURATION_TASK_ORDER) {
       expect(CURATION_TASKS).toHaveProperty(task);
     }
-  });
-});
-
-describe("satisfaction-based phase skipping", () => {
-  function makeHistory(
-    entries: Array<[EnrichPhaseName, Date]> = [],
-  ): PhaseHistory {
-    return new Map(entries);
-  }
-
-  it("satisfied_prerequisites_are_skipped", () => {
-    const resolved = phasesForTask("visual");
-    // detect and acquire have history entries (both satisfied), other deps do not
-    const history = makeHistory([
-      ["detect", new Date("2026-07-31T00:00:00Z")],
-      ["acquire", new Date("2026-08-01T00:00:00Z")],
-    ]);
-
-    const { execute, skipped } = filterSatisfiedPhases(resolved, history);
-
-    expect(skipped).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ phase: "detect", reason: "satisfied" }),
-        expect.objectContaining({ phase: "acquire", reason: "satisfied" }),
-      ]),
-    );
-    expect(execute).not.toContain("detect");
-    expect(execute).not.toContain("acquire");
-    expect(execute).toContain("products");
-    expect(execute).toContain("names");
   });
 });
 

@@ -4,7 +4,6 @@ import type {
   OtherUrl,
   SubmissionIntent,
   SubmissionStatus,
-  SourceAttribution,
 } from "@/lib/types";
 import { auditedCall } from "@/lib/audit";
 import { isLogoImageTags } from "@/lib/constants/brand-images";
@@ -298,89 +297,6 @@ function chunkValues<T>(values: T[], size: number): T[][] {
     chunks.push(values.slice(index, index + size));
   }
   return chunks;
-}
-
-// ---------------------------------------------------------------------------
-// Pure record builder (no DB calls — testable in isolation)
-// ---------------------------------------------------------------------------
-
-export type CreateSubmissionInput = {
-  brandId?: string;
-  intent?: SubmissionIntent;
-  brandName: string;
-  submitterEmail: string;
-  submitterName?: string;
-  description?: string;
-  websiteUrl?: string;
-  heroImageUrl?: string;
-  city?: string | null;
-  socialInstagram?: string | null;
-  socialThreads?: string | null;
-  socialFacebook?: string | null;
-  otherUrls?: OtherUrl[];
-  suggestedSubcategories?: string[] | { values?: string[] };
-  pdpaConsentAt?: string;
-  isOwner?: boolean;
-  sourceAttribution?: SourceAttribution | null;
-  categoryNote?: string | null;
-  ownerData?: Record<string, unknown>;
-} & Partial<Pick<BrandSubmission, OnlineStoreCamelField>>;
-
-export function buildSubmissionRecord(
-  input: CreateSubmissionInput,
-): Record<string, unknown> {
-  const mapped = toSubmissionRow({
-    brandId: input.brandId ?? null,
-    intent: input.intent ?? "recommend",
-    brandName: input.brandName,
-    submitterEmail: input.submitterEmail,
-    submitterName: input.submitterName ?? null,
-    description: input.description ?? null,
-    websiteUrl: input.websiteUrl ?? null,
-    heroImageUrl: input.heroImageUrl ?? null,
-    socialInstagram: input.socialInstagram ?? null,
-    socialThreads: input.socialThreads ?? null,
-    socialFacebook: input.socialFacebook ?? null,
-    ...Object.fromEntries(
-      ONLINE_STORES.map((channel) => [
-        channel.camel,
-        input[channel.camel] ?? null,
-      ]),
-    ),
-    otherUrls: input.otherUrls ?? [],
-    suggestedSubcategories: input.suggestedSubcategories ?? [],
-    pdpaConsentAt: input.pdpaConsentAt ?? null,
-    isBrandOwner: input.isOwner ?? false,
-    sourceAttribution: input.sourceAttribution ?? null,
-    categoryNote: input.categoryNote ?? null,
-  });
-
-  return {
-    brand_id: mapped.brand_id,
-    intent: mapped.intent,
-    brand_name: mapped.brand_name,
-    submitter_email: mapped.submitter_email,
-    submitter_name: mapped.submitter_name,
-    description: mapped.description,
-    website_url: mapped.website_url,
-    // No hero key is written from review data. `toBrandRow` stopped emitting
-    // `hero_image_url`, and a submission hero lives under a `submissions/` key
-    // the image proxy refuses to serve, so `approve_submission` is the only
-    // correct owner of the brand hero.
-    social_instagram: mapped.social_instagram,
-    social_threads: mapped.social_threads,
-    social_facebook: mapped.social_facebook,
-    ...Object.fromEntries(
-      ONLINE_STORE_COLUMNS.map((column) => [column, mapped[column]]),
-    ),
-    other_urls: mapped.other_urls,
-    suggested_tags: mapped.suggested_tags,
-    pdpa_consent_at: mapped.pdpa_consent_at,
-    is_brand_owner: mapped.is_brand_owner,
-    source_attribution: mapped.source_attribution,
-    category_note: mapped.category_note,
-    owner_data: ownerDataToDb(input.ownerData),
-  };
 }
 
 // ---------------------------------------------------------------------------

@@ -506,7 +506,7 @@ function emptyEditorialOutput() {
 
 /**
  * Override the phase-output store mock to return history rows for the given
- * phases. `fetchPhaseHistory` reads from this store (not `curation_job_targets`).
+ * phases. Phase history is read from this store (not `curation_job_targets`).
  */
 function mockSatisfiedPhases(phases: string[]) {
   mocks.createSupabasePhaseOutputStore.mockReturnValue({

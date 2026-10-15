@@ -41,19 +41,6 @@ const surfaceCardStyles = cva(
   },
 );
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card"
-      className={cn(
-        "rounded-surface border border-rule bg-surface text-ink",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
 type SurfaceCardProps = ComponentProps<"div"> &
   VariantProps<typeof surfaceCardStyles>;
 
@@ -162,68 +149,9 @@ function InfoField({
   );
 }
 
-function InfoGroup({
-  children,
-  className,
-  description,
-  label,
-}: {
-  children: ReactNode;
-  className?: string;
-  description?: ReactNode;
-  label: ReactNode;
-}) {
-  return (
-    <div className={cn("space-y-3", className)}>
-      <div className="space-y-1">
-        <h3 className={cn(textStyles({ variant: "fieldLabel" }), "font-bold")}>{label}</h3>
-        {description ? (
-          <p className={textStyles({ variant: "formHint" })}>{description}</p>
-        ) : null}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-header"
-      className={cn("flex flex-col gap-1.5 p-6", className)}
-      {...props}
-    />
-  );
-}
-
-function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
-  return (
-    <h3
-      data-slot="card-title"
-      className={cn(textStyles({ variant: "cardTitle" }), className)}
-      {...props}
-    />
-  );
-}
-
-function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-content"
-      className={cn("p-6 pt-0", className)}
-      {...props}
-    />
-  );
-}
-
 export {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
   DataCard,
   InfoField,
-  InfoGroup,
   SurfaceCard,
   surfaceCardStyles,
 };

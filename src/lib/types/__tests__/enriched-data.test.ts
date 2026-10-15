@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   enrichedDataFromDb,
-  enrichedDataToDb,
   parseSubmissionFaqPatch,
   parseSubmissionStockists,
 } from "../enriched-data";
@@ -91,7 +90,7 @@ describe("enrichedDataFromDb", () => {
     );
   });
 
-  it("round-trips a refresh name proposal under its internal JSON key", () => {
+  it("reads a refresh name proposal from its internal JSON key", () => {
     const proposal = {
       value: "劉一刀手工鞋 LID Shoes",
       confidence: "high" as const,
@@ -108,7 +107,6 @@ describe("enrichedDataFromDb", () => {
     const domain = enrichedDataFromDb({ _name_proposal: proposal });
 
     expect(domain.nameProposal).toEqual(proposal);
-    expect(enrichedDataToDb(domain)).toEqual({ _name_proposal: proposal });
   });
 
   it("keeps a medium proposal that carries no first-party evidence", () => {
@@ -125,72 +123,8 @@ describe("enrichedDataFromDb", () => {
   });
 });
 
-describe("enrichedDataToDb", () => {
-  it("maps subcategories to subcategories", () => {
-    expect(
-      enrichedDataToDb({ subcategories: ["skincare", "refillable"] }),
-    ).toEqual({
-      subcategories: ["skincare", "refillable"],
-    });
-  });
-
-  it("writes expanded enrichment fields with database keys", () => {
-    expect(
-      enrichedDataToDb({
-        descriptionEn: "English description",
-        blurb: "品牌摘要",
-        blurbEn: "Brand summary",
-        city: "台北",
-        reputationSummary: { text: "評價良好" },
-        siteContent: { title: "Official site" },
-        foundingYear: 2020,
-        subcategoriesEn: ["Handmade"],
-      }),
-    ).toEqual({
-      description_en: "English description",
-      blurb: "品牌摘要",
-      blurb_en: "Brand summary",
-      city: "台北",
-      reputation_summary: { text: "評價良好" },
-      site_content: { title: "Official site" },
-      founding_year: 2020,
-      subcategories_en: ["Handmade"],
-    });
-  });
-
-  it("writes product proposals with only the scalar L2 key", () => {
-    // Catches reintroducing the retired product array into new enrichment blobs.
-    const result = enrichedDataToDb({
-      products: [
-        {
-          key: "plate",
-          nameZh: "手拉坯餐盤",
-          category: "home",
-          subcategory: "tableware",
-          material: ["ceramic"],
-          officialUrl: "https://studio.example/products/plate",
-          productDescriptionZh: "台灣陶土手拉坯餐盤。",
-          sources: [
-            {
-              url: "https://studio.example/products/plate",
-              sourceType: "official",
-            },
-          ],
-        },
-      ],
-    });
-
-    expect(result.products).toEqual([
-      expect.objectContaining({ subcategory: "tableware" }),
-    ]);
-    expect(
-      (result.products as Record<string, unknown>[])[0],
-    ).not.toHaveProperty("subcategories");
-  });
-});
-
 describe("enriched_data.faq blob contract", () => {
-  it("faq_round_trips_through_db_adapters", () => {
+  it("faq_reads_through_db_adapter", () => {
     const faqBlob = {
       entries: [
         {
@@ -208,7 +142,6 @@ describe("enriched_data.faq blob contract", () => {
     const domain = enrichedDataFromDb({ faq: faqBlob });
 
     expect(domain.faq).toEqual(faqBlob);
-    expect(enrichedDataToDb(domain)).toEqual({ faq: faqBlob });
   });
 
   it("faq_malformed_blob_is_dropped_on_read", () => {
@@ -255,20 +188,15 @@ const stockistCandidate = (name: string): StockistCandidate => ({
 });
 
 describe("enriched_data.stockists blob contract", () => {
-  it("stockists_round_trip_through_db_adapters", () => {
+  it("stockists_read_through_db_adapter", () => {
     const input = {
       stockists: [stockistCandidate("Shop A"), stockistCandidate("Shop B")],
     };
 
-    const stored = enrichedDataToDb(input);
-    expect(stored).toEqual({ stockists: input.stockists });
-    expect(enrichedDataFromDb(stored)).toEqual(input);
+    expect(enrichedDataFromDb({ stockists: input.stockists })).toEqual(input);
   });
 
   it("stockists_absent_stays_absent", () => {
-    expect(enrichedDataToDb({ description: "x" })).not.toHaveProperty(
-      "stockists",
-    );
     expect(enrichedDataFromDb({ description: "x" })).not.toHaveProperty(
       "stockists",
     );

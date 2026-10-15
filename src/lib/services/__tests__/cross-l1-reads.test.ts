@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   resolveDirectorySubcategorySlugs,
-  resolveSubcategorySlugs,
   subcategoryBySlug,
 } from '@/lib/taxonomy/ontology'
 import { isDirectoryTargetMember } from '@/lib/seo/directory-sitemap'
@@ -176,10 +175,7 @@ describe('cross-L1 reads', () => {
   it('sub_filter_is_no_longer_a_silent_noop', () => {
     // The defect: `/brands?category=fashion&sub=backpacks` resolved to zero
     // subcategories, applied no tag filter at all, and returned EVERY fashion
-    // brand while looking filtered. The scoped resolver still does that — which
-    // is exactly why the directory stopped calling it.
-    expect(resolveSubcategorySlugs('fashion', ['backpacks'])).toEqual([])
-
+    // brand while looking filtered.
     const resolved = resolveDirectorySubcategorySlugs(['backpacks'])
     expect(resolved.map((sub) => sub.slug)).toEqual(['backpacks'])
     expect(
@@ -193,17 +189,9 @@ describe('cross-L1 reads', () => {
   })
 
   it('curated_products_still_drops_cross_l1', () => {
-    // `resolveSubcategorySlugs` keeps its conjunct because curated products are
-    // a WRITE-time normalizer with a separate contract: they hard-drop an L2
-    // outside the product's own L1 on create and update.
-    expect(
-      resolveSubcategorySlugs('bags-accessories', ['backpacks']).map(
-        (sub) => sub.slug,
-      ),
-    ).toEqual(['backpacks'])
-    expect(resolveSubcategorySlugs('fashion', ['backpacks'])).toEqual([])
-
-    // And the scalar curated-products normalizer still applies that conjunct.
+    // Curated products are a WRITE-time normalizer with a separate contract:
+    // they hard-drop an L2 outside the product's own L1 on create and update,
+    // so the scalar curated-products normalizer still applies that conjunct.
     const source = readFileSync('src/lib/services/curated-products.ts', 'utf8')
     // The conjunct, not the argument name: DEV-1510 Task 15 rewrote the
     // normalizer around slug-native `normalizeSubcategories`, and pinning a

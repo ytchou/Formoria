@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  createOwnerSubmissionSchema,
   createRecommendationSubmissionSchema,
   getLinksSchema,
   normalizeWebsiteUrl,
@@ -10,16 +9,6 @@ import {
 const t = (key: string) => key
 
 const sourceAttribution = 'found_online'
-
-const validOwnerSubmission = {
-  name: 'TestBrand',
-  website: 'https://example.com',
-  description: 'Taiwan-made home goods with practical daily designs.',
-  heroImageUrl: 'https://example.com/hero.jpg',
-  pdpaConsent: true,
-  turnstileToken: 'test-token',
-  honeypot: '',
-}
 
 describe('simplified submission schema', () => {
   it('accepts minimal recommendation with URL, name, source, PDPA, turnstile', () => {
@@ -64,22 +53,6 @@ describe('simplified submission schema', () => {
     expect(result).not.toHaveProperty('productPhotos')
     expect(result.description).toBe('')
     expect(result.heroImageUrl).toBeUndefined()
-  })
-
-  it('accepts optional social links as strings', () => {
-    const ownerSchema = createOwnerSubmissionSchema()
-    const data = {
-      name: 'TestBrand',
-      website: 'https://example.com',
-      description: 'Taiwan-made home goods with practical daily designs.',
-      heroImageUrl: 'https://example.com/hero.jpg',
-      pdpaConsent: true,
-      turnstileToken: 'test-token',
-      honeypot: '',
-      socialLinks: { instagram: 'https://instagram.com/test', threads: '', facebook: '' },
-    }
-    const result = ownerSchema.safeParse(data)
-    expect(result.success).toBe(true)
   })
 
   it('requires sourceAttribution when isOwner is false', () => {
@@ -361,52 +334,6 @@ describe('recommendation website normalization', () => {
   })
 })
 
-describe('owner submission romanizedName validation', () => {
-  const ownerSchema = createOwnerSubmissionSchema()
-
-  it('accepts submission without romanizedName', () => {
-    const result = ownerSchema.safeParse(validOwnerSubmission)
-
-    expect(result.success).toBe(true)
-  })
-
-  it('accepts valid romanizedName', () => {
-    const result = ownerSchema.safeParse({
-      ...validOwnerSubmission,
-      romanizedName: 'Din Tai Fung',
-    })
-
-    expect(result.success).toBe(true)
-  })
-
-  it('rejects romanizedName with CJK characters', () => {
-    const result = ownerSchema.safeParse({
-      ...validOwnerSubmission,
-      romanizedName: '鼎泰豐',
-    })
-
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects romanizedName shorter than 2 chars', () => {
-    const result = ownerSchema.safeParse({
-      ...validOwnerSubmission,
-      romanizedName: 'D',
-    })
-
-    expect(result.success).toBe(false)
-  })
-
-  it('still rejects a null required hero image', () => {
-    const result = ownerSchema.safeParse({
-      ...validOwnerSubmission,
-      heroImageUrl: null,
-    })
-
-    expect(result.success).toBe(false)
-  })
-})
-
 describe('linksSchema — URL schemes', () => {
   const baseLinks = {
     socialLinks: {
@@ -438,20 +365,4 @@ describe('linksSchema — URL schemes', () => {
       expect(parse(url).success).toBe(true)
     },
   )
-})
-
-describe('owner submission required fields', () => {
-  it('rejects an empty description and hero image', () => {
-    const result = createOwnerSubmissionSchema(t).safeParse({
-      name: 'Owner Brand',
-      website: 'https://owner.example',
-      description: '',
-      heroImageUrl: '',
-      pdpaConsent: true,
-      turnstileToken: 'token',
-      honeypot: '',
-    })
-
-    expect(result.success).toBe(false)
-  })
 })

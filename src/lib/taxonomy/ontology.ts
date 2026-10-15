@@ -544,35 +544,6 @@ export function subcategoryBySlug(slug: string): L2Subcategory | null {
 }
 
 /**
- * Resolve slugs that must belong to `categorySlug` — the **write-time**
- * normalizer. A slug outside the given L1 is dropped.
- *
- * This is deliberately NOT what the public directory reads with. Curated
- * products hard-drop a cross-L1 L2 on create and update
- * (`curated-products.ts:710`), and that contract is the reason the conjunct
- * survives here. Read paths use `resolveDirectorySubcategorySlugs` instead:
- * conjoining the brand's own L1 discarded 429 of 2,446 approved tag-uses
- * (DEV-1510). Do not merge the two.
- */
-export function resolveSubcategorySlugs(
-  categorySlug: string | null,
-  slugs: string[],
-): L2Subcategory[] {
-  if (!categorySlug || slugs.length === 0) return []
-
-  const seen = new Set<string>()
-  const subcategories: L2Subcategory[] = []
-  for (const slug of slugs) {
-    if (seen.has(slug)) continue
-    seen.add(slug)
-
-    const subcategory = subcategoryBySlug(slug)
-    if (subcategory?.category === categorySlug) subcategories.push(subcategory)
-  }
-  return subcategories
-}
-
-/**
  * Resolve URL `sub` slugs for a directory READ, with no parent-L1 conjunct.
  *
  * The L2 slug already encodes its parent, so testing it against the *brand's*
