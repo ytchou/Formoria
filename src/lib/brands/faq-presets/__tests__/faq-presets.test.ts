@@ -741,8 +741,9 @@ describe("FAQ template floors (DEV-1994)", () => {
     });
 
     const zh = floor("main-products", ctx, "zh-TW");
-    // Ties keep shelf order: tableware appears before furniture.
-    expect(zh).toBe("Harbor Form的商品包括燈飾、茶具・咖啡器具和餐具等。");
+    // Ties keep shelf order: tableware appears before furniture. The composite
+    // label renders with 、, never the Japanese 「・」 (DEV-2038).
+    expect(zh).toBe("Harbor Form的商品包括燈飾、茶具、咖啡器具和餐具等。");
     expect(zh).not.toContain("寢具");
     expect(zh).not.toContain("家具");
 

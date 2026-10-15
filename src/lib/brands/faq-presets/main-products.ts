@@ -1,4 +1,4 @@
-import { subcategoryBySlug } from "@/lib/taxonomy/ontology";
+import { subcategoryBySlug, subcategoryLabel } from "@/lib/taxonomy/ontology";
 import {
   formatFaqList,
   hasValue,
@@ -45,7 +45,7 @@ function shelfLabels(ctx: FaqBrandContext, locale: string): string[] {
     .flatMap(([slug]) => {
       const subcategory = subcategoryBySlug(slug);
       if (!subcategory) return [];
-      return [isEnglish ? subcategory.nameEn : subcategory.nameZh];
+      return [subcategoryLabel(subcategory, isEnglish ? "en" : "zh-TW")];
     })
     .slice(0, FLOOR_LIMIT);
 }

@@ -517,6 +517,19 @@ export function isCompositeSubcategory(subcategory: { nameZh: string }): boolean
   return subcategory.nameZh.includes('・')
 }
 
+/**
+ * The zh-TW display spelling of a composite label: 「皮夾・錢包」 renders as
+ * 「皮夾、錢包」. 「・」 is Japanese punctuation; zh-TW lists use 、 (DEV-2038).
+ *
+ * Display only. `nameZh` keeps its stored spelling because it is a match key —
+ * `normalizeSubcategoryKey` strips 「・」 but would not strip 「、」, and
+ * pre-DEV-1510 rows and jsonb payloads still carry the 「・」 strings. Renaming
+ * the constant instead needs a data migration verified per L2.
+ */
+export function subcategoryNameZhForDisplay(nameZh: string): string {
+  return nameZh.replaceAll('・', '、')
+}
+
 const _subcategoryMap = new Map<string, L2Subcategory>()
 for (const sub of L2_SUBCATEGORIES) {
   for (const key of [sub.nameZh, sub.nameEn, ...sub.aliases]) {
@@ -569,7 +582,7 @@ export function resolveDirectorySubcategorySlugs(
 }
 
 export function subcategoryLabel(sub: L2Subcategory, locale: string): string {
-  return locale === 'zh-TW' ? sub.nameZh : sub.nameEn
+  return locale === 'zh-TW' ? subcategoryNameZhForDisplay(sub.nameZh) : sub.nameEn
 }
 
 /**

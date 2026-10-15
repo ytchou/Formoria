@@ -17,6 +17,7 @@ import {
   normalizeSubcategoryKey,
   subcategoryBySlug,
   subcategoryLabel,
+  subcategoryNameZhForDisplay,
   deriveCategoryLabel,
 } from '../ontology'
 import corpusLabels from './fixtures/corpus-labels.json'
@@ -278,6 +279,30 @@ describe('subcategoryLabel', () => {
     const sub = matchSubcategory('托特包')!
     expect(subcategoryLabel(sub, 'zh-TW')).toBe('托特包')
     expect(subcategoryLabel(sub, 'en')).toBe('Tote Bags')
+  })
+
+  // DEV-2038: 「・」 is Japanese punctuation. The label renders with 、 while
+  // the stored nameZh keeps 「・」, because nameZh is a match key.
+  it('renders a composite zh label with 、 and leaves nameZh untouched', () => {
+    const wallets = subcategoryBySlug('wallets')!
+    expect(subcategoryLabel(wallets, 'zh-TW')).toBe('皮夾、錢包')
+    expect(subcategoryLabel(wallets, 'en')).toBe('Wallets')
+    expect(wallets.nameZh).toBe('皮夾・錢包')
+    expect(matchSubcategory(wallets.nameZh)?.slug).toBe('wallets')
+  })
+
+  it('never renders 「・」 for any L2 in zh-TW', () => {
+    for (const sub of L2_SUBCATEGORIES) {
+      expect(subcategoryLabel(sub, 'zh-TW'), sub.slug).not.toContain('・')
+    }
+  })
+})
+
+describe('subcategoryNameZhForDisplay', () => {
+  it('replaces every 「・」 with 、', () => {
+    expect(subcategoryNameZhForDisplay('精油・純露')).toBe('精油、純露')
+    expect(subcategoryNameZhForDisplay('陶藝・木工・插畫')).toBe('陶藝、木工、插畫')
+    expect(subcategoryNameZhForDisplay('托特包')).toBe('托特包')
   })
 })
 

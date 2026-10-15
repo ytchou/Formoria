@@ -7,6 +7,7 @@ import {
   VISIBLE_L1_CATEGORIES,
   categoryLabel,
   resolveDirectorySubcategorySlugs,
+  subcategoryLabel,
 } from "@/lib/taxonomy/ontology";
 import {
   hasDeferredCategoryFilter,
@@ -84,9 +85,7 @@ export async function generateMetadata({
     });
     const displayName = categoryLabel(category, safeLocale);
     const subName = activeSubcategory
-      ? safeLocale === "zh-TW"
-        ? activeSubcategory.nameZh
-        : activeSubcategory.nameEn
+      ? subcategoryLabel(activeSubcategory, safeLocale)
       : undefined;
     const landingKey = activeSubcategory
       ? `l2.${activeSubcategory.slug}`
