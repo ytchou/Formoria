@@ -101,6 +101,14 @@ export const BANNED_PATTERNS: readonly {
     pattern:
       /(?<![可所難得予加用足藉])以(?![上下及來前後外內便免致])[^，。、；：！？「」\s]{1,12}?(?:製作|製成|打造|縫製|手工|設計|創作|開發|推出|呈現|發想|為)/gu,
   },
+  {
+    // DEV-2037: a text or sentence that opens with 以, the lede shape the
+    // prompt bans (「以城市色彩打造托特包」). Overlaps yi-construction on purpose:
+    // this is the crawl's "ledes opening with 以" count, verb or not.
+    key: "yi-opener",
+    label: "以… opener",
+    pattern: /(?<=^|[。！？；])以(?![上下及來前後外內便免致])/gmu,
+  },
   { key: "dazao", label: "打造", pattern: /打造/gu },
   { key: "jiehe", label: "結合", pattern: /結合/gu },
   { key: "rongru", label: "融入", pattern: /融入/gu },
@@ -523,7 +531,7 @@ function sortedUnique(values: Iterable<string>): string[] {
   return [...new Set(values)].sort();
 }
 
-/** Brands whose blurb/description a refresh `editorial` run would regenerate. */
+/** Brands whose blurb/description a refresh `descriptions` run would regenerate. */
 export function editorialRefreshSlugs(report: CatalogCopyReport): string[] {
   return sortedUnique([
     ...report.bannedTerms.brands.map((brand) => brand.slug),
@@ -680,11 +688,15 @@ export function regenerationCommands(
   lines.push(
     "",
     `# 1. Brand blurb + description (CP2-36, CP2-38, BD2-16): ${editorialSlugs.length} brands, via the brand refresh job.`,
-    "#    The editorial task also reruns faq + stockists. Sample ~20 before applying:",
+    "#    The descriptions task runs detect + acquire + descriptions only (no faq/stockists).",
+    "#    --overwrite is required: without it the phase is satisfied by the existing copy and",
+    "#    writes nothing. It also lets the facts call replace subcategories, city and",
+    "#    founding_year, so review those in the diff too. Sample ~20 with --slugs first:",
     "#    --no-apply leaves the refreshes in the /admin queue to approve there (never rerun refresh.ts to apply them).",
     `#    --slugs=${editorialSlugs.join(",")}`,
-    `pnpm curation:rerun --cohort ${cohortPath(EDITORIAL_COHORT_FILE)} --task editorial${targetFlag} --dry-run`,
-    `pnpm curation:rerun --cohort ${cohortPath(EDITORIAL_COHORT_FILE)} --task editorial${targetFlag} --no-apply --confirm`,
+    `pnpm curation:rerun --cohort ${cohortPath(EDITORIAL_COHORT_FILE)} --task descriptions --overwrite${targetFlag} --dry-run`,
+    `pnpm curation:rerun --cohort ${cohortPath(EDITORIAL_COHORT_FILE)} --task descriptions --overwrite${targetFlag} --no-apply --confirm`,
+    "#    Re-measure after approval: rerun this audit with --json and compare section [a].",
     "#    First push the updated prompt: pnpm llm-eval prompt push descriptions (then promote after eval).",
   );
 

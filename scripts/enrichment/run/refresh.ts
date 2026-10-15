@@ -51,6 +51,7 @@
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --cohort batch1-never-curated --target production --confirm --via-worker
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --confirm
  *   pnpm exec tsx scripts/enrichment/run/refresh.ts --task product --no-apply --confirm
+ *   pnpm exec tsx scripts/enrichment/run/refresh.ts --cohort <file> --task descriptions --overwrite --no-apply --confirm
  *
  * Staging is the default; pass --target production to run against production.
  */
@@ -73,7 +74,7 @@ import {
 import { materializeSubmissionCuratedProducts } from "@/lib/services/curated-products/materialize";
 import { storeCuratedProductImage } from "@/lib/services/curated-product-image";
 import {
-  CURATION_TASK_ORDER,
+  CURATION_TASKS,
   phasesForTask,
   type CurationTask,
 } from "@/lib/constants/enrich-phases";
@@ -208,10 +209,13 @@ function targetTask(argv: readonly string[]): CurationTask {
   // to the default: that silently widens a 3-phase run to all 14, against
   // production, having been asked for the opposite.
   const raw = argValue(argv, "--task");
-  const task = CURATION_TASK_ORDER.find((name) => name === raw);
+  // Hidden tasks count: `descriptions` (DEV-2037) and the `product` alias the
+  // header documents are operator-only, never in the admin UI's order.
+  const known = Object.keys(CURATION_TASKS) as CurationTask[];
+  const task = known.find((name) => name === raw);
   if (!task)
     throw new Error(
-      `unknown --task ${raw} — expected one of: ${CURATION_TASK_ORDER.join(", ")}`,
+      `unknown --task ${raw} — expected one of: ${known.join(", ")}`,
     );
   return task;
 }

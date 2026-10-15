@@ -277,6 +277,15 @@ describe("phase dependencies and task vocabulary", () => {
     expect(closure).not.toContain("site_identity");
   });
 
+  it("hidden_descriptions_task_skips_faq_and_stockists", () => {
+    expect(phasesForTask("descriptions")).toEqual([
+      "detect",
+      "acquire",
+      "descriptions",
+    ]);
+    expect(CURATION_TASK_ORDER).not.toContain("descriptions");
+  });
+
   it("hidden_alias_image_resolves_full_visual_phases", () => {
     const visual = phasesForTask("visual");
     const image = phasesForTask("image");
