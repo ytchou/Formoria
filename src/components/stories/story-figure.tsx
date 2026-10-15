@@ -26,10 +26,15 @@ interface StoryFigureProps {
  * a story that is the width of the shell already, so a figure fills its reading
  * column; on a wider surface the cap is what keeps an inline photo from growing
  * past the text it illustrates. Keeps the existing 4:3 crop and spacing.
+ *
+ * From `xl` the caption leaves the column for the right margin (EL-10), bottom-
+ * aligned with the photo in a 10rem block, so a credit reads like a magazine's
+ * instead of a line of prose under a square. `relative` on the figure is its
+ * anchor. Below `xl` there is no margin to hold it and it stays underneath.
  */
 export function StoryFigure({ src, alt, caption }: StoryFigureProps) {
   return (
-    <figure className="prose-measure mx-auto mt-7 mb-6 w-full">
+    <figure className="relative prose-measure mx-auto mt-7 mb-6 w-full">
       {/* Raw `<img>`, matching the `img` rule in `storyComponentMap`: authors
           write arbitrary remote URLs and there is no intrinsic size to hand
           `next/image`'s optimizer. */}
@@ -44,7 +49,7 @@ export function StoryFigure({ src, alt, caption }: StoryFigureProps) {
       {/* Left-aligned to the image's own edge, not centred: a centred caption
           under an off-centre-width image reads as a standalone line of prose
           rather than as the image's subtext. */}
-      {caption ? <figcaption className="mt-2 type-metadata">{caption}</figcaption> : null}
+      {caption ? <figcaption className="mt-2 type-metadata xl:absolute xl:bottom-0 xl:left-[calc(100%+1.5rem)] xl:mt-0 xl:w-40">{caption}</figcaption> : null}
     </figure>
   )
 }

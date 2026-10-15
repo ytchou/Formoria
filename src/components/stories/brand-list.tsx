@@ -47,6 +47,16 @@ type BrandListProps = {
  * horizontal only — column separators would turn an editorial list into a
  * spreadsheet.
  *
+ * The booth track exists only when some row has a booth (DS-14). Booth codes
+ * stopped printing after DS2-30, yet the always-present first track still
+ * pushed every name 16px right of its own note. The list cannot know which
+ * rows carry a booth — the constraint above, and each `BrandLine` is an async
+ * server component whose output it never sees — so the switch is CSS:
+ * `has-[[data-booth]]` restores the three-track layout when any row marks its
+ * cell `data-booth`, and an empty cell hides itself unless the same holds
+ * (`group-has-*` on the `brand-list` group). The two-track default is the
+ * common case; the `has-` rules carry the event-guide case.
+ *
  * `<div>`s rather than `<ul>`/`<li>`: in dev and on staging an unresolvable
  * slug degrades to `MissingBrandNotice`, which is a `<p>`, and a `<p>` is not a
  * legal child of `<ul>`. Deliberately no card chrome — the list is part of the article, not a
@@ -54,7 +64,7 @@ type BrandListProps = {
  */
 export function BrandList({ children }: BrandListProps) {
   return (
-    <div className="my-8 grid grid-cols-[auto_minmax(0,1fr)] divide-y divide-rule border-y border-rule sm:grid-cols-[auto_minmax(0,17rem)_minmax(0,1fr)]">
+    <div className="group/brand-list my-8 grid grid-cols-[minmax(0,1fr)] divide-y divide-rule border-y border-rule has-[[data-booth]]:grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] sm:has-[[data-booth]]:grid-cols-[auto_minmax(0,17rem)_minmax(0,1fr)]">
       {children}
     </div>
   )
@@ -142,18 +152,29 @@ export async function BrandLine({
 
   return (
     // Inherits `BrandList`'s column track via `grid-cols-subgrid`, so booths,
-    // names and notes line up down the whole list. Two columns at 375px — the
-    // note drops to a full-width row of its own under the name — and three from
-    // `sm` up, where it shares the line. `relative min-h-11` is the hit area:
+    // names and notes line up down the whole list. At 375px the note drops to a
+    // full-width row of its own under the name; from `sm` up it shares the
+    // line. One fewer column throughout when the list has no booths (DS-14). `relative min-h-11` is the hit area:
     // `BrandLineLink` stretches over it with an `after:` overlay, so the whole
     // row is a 44px target (DESIGN.md §7), the brand-card pattern.
     <div className="relative col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-4 gap-y-1 py-3">
-      {/* Always rendered, empty when there is no booth: an omitted cell would
-          shift that row's remaining columns left and break the alignment the
-          subgrid exists for. `tabular-nums` so the codes form a straight column
-          instead of ragging with the glyph widths. Secondary weight — the booth
-          is wayfinding, the brand name is the thing being recommended. */}
-      <span className="shrink-0 tabular-nums type-metadata">
+      {/* Always rendered, empty when there is no booth: in a list where some
+          OTHER row has a booth, an omitted cell would shift this row's
+          remaining columns left and break the alignment the subgrid exists
+          for. When no row in the list has one, the empty cell hides and the
+          list drops the track (DS-14, see `BrandList`). `data-booth` is the
+          marker that decision keys on. `tabular-nums` so the codes form a
+          straight column instead of ragging with the glyph widths. Secondary
+          weight — the booth is wayfinding, the brand name is the thing being
+          recommended. */}
+      <span
+        data-booth={booth ? '' : undefined}
+        className={
+          booth
+            ? 'shrink-0 tabular-nums type-metadata'
+            : 'hidden shrink-0 tabular-nums type-metadata group-has-[[data-booth]]/brand-list:block'
+        }
+      >
         {booth ? (
           <>
             {/* The bare code means nothing read aloud out of context. */}
@@ -170,7 +191,10 @@ export async function BrandLine({
         <span className="type-body-sm font-semibold text-ink">{name}</span>
       )}
       {note ? (
-        <span className="col-span-2 min-w-0 type-body-sm sm:col-span-1">{note}</span>
+        // `col-span-full`, not `col-span-2`: below `sm` the list is one track
+        // without booths and two with them, and the note takes its own full
+        // row under the name either way.
+        <span className="col-span-full min-w-0 type-body-sm sm:col-span-1">{note}</span>
       ) : null}
     </div>
   )

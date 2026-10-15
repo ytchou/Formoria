@@ -45,11 +45,8 @@ export const IMAGE_SURFACE_SIZES = {
    * measure must be written twice; `MEASURE_PX` is where the second copy is
    * anchored, and `check:design-tokens` fails if it and `globals.css` disagree.
    *
-   * `EditorialHero` opens both the trail detail route (~1472px of content at
-   * 1920px) and the story detail route (~688px inside `prose-measure`). This
-   * default serves the wider trail; the story passes its measured `sizes`
-   * through the component's explicit escape hatch instead of inventing a
-   * second surface name for the same frame.
+   * The trail and story detail heroes are full-bleed (`EditorialHeader`), so
+   * they wear `hero`, not this.
    */
   banner: `(max-width: ${MEASURE_PX.page}px) 100vw, ${MEASURE_PX.page}px`,
   /** A cell of the four-up card grid. Mirrors `CARD_GRID_COLUMNS`. */
