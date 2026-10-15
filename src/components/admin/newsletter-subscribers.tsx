@@ -27,7 +27,6 @@ const INTEREST_LABELS: Record<string, string> = {
   "brand-stories": "Brand stories",
   "new-brands": "New brands",
   "curated-picks": "Curated picks",
-  "mit-trends": "MIT trends",
 };
 
 export function NewsletterSubscribersList({

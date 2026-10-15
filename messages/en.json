@@ -213,8 +213,7 @@
     "interests": {
       "brand-stories": "Stories",
       "new-brands": "Newly listed brands",
-      "curated-picks": "Formoria Selection",
-      "mit-trends": "Taiwanese brand trends"
+      "curated-picks": "Formoria Selection"
     },
     "success": "Confirmation email sent. Open the link in it to finish subscribing.",
     "errors": {

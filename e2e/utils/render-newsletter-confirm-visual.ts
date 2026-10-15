@@ -5,7 +5,7 @@ async function main() {
     to: "m.garcia+visual@company.co.uk",
     confirmToken: "visual-confirm-token",
     unsubscribeToken: "visual-unsubscribe-token",
-    interests: ["brand-stories", "curated-picks", "mit-trends"],
+    interests: ["brand-stories", "curated-picks"],
     locale: "zh-TW",
   });
 

@@ -47,7 +47,6 @@ function stubClient(): RunHealthAgentDeps['client'] {
   rpcResults.set('enqueue_health_fix', 'fix-id-1')
   rpcResults.set('reconcile_health_fix_lifecycle', [])
   rpcResults.set('release_health_fix_claims', null)
-  rpcResults.set('record_health_snapshot', null)
 
   return {
     rpc: vi.fn(async (fn: string) => ({
@@ -177,9 +176,6 @@ describe('runHealthAgent', () => {
       if (fn === 'complete_health_agent_run') {
         order.push('complete')
         return { data: true, error: null }
-      }
-      if (fn === 'record_health_snapshot') {
-        return { data: null, error: null }
       }
       if (fn === 'release_health_fix_claims') {
         return { data: null, error: null }
@@ -721,7 +717,6 @@ describe('runHealthAgent', () => {
         }
         return { data: true, error: null }
       }
-      if (fn === 'record_health_snapshot') return { data: null, error: null }
       if (fn === 'release_health_fix_claims') return { data: null, error: null }
       if (fn === 'reconcile_health_fix_lifecycle') return { data: [], error: null }
       return { data: null, error: null }

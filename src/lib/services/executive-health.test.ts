@@ -351,9 +351,7 @@ describe("executive health", () => {
       snapshot.inventory.some((entry) =>
         [
           "linear",
-          "google-maps",
           "agent-hub",
-          "indexnow",
         ].includes(entry.id),
       ),
     ).toBe(false);

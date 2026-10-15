@@ -8,7 +8,6 @@ export const VALID_INTERESTS = [
   'brand-stories',
   'new-brands',
   'curated-picks',
-  'mit-trends',
 ] as const
 
 export type NewsletterInterest = (typeof VALID_INTERESTS)[number]
