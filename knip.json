@@ -21,7 +21,7 @@
     "shadcn",
     "@react-email/ui"
   ],
-  "ignoreBinaries": ["codex", "lsof", "psql", "python3", "scripts/run-worker.sh", "uv"],
+  "ignoreBinaries": ["claude", "codex","lsof", "psql", "python3", "scripts/run-worker.sh", "uv"],
   "ignoreIssues": {
     "src/app/admin/actions.ts": ["exports"],
     "src/test/server-only.ts": ["files"]
