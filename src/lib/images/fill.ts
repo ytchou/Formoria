@@ -87,7 +87,7 @@ export function brandImageFill(
  * At 1.2 a square frame already leaves ~8% bands top and bottom; the 78 of
  * 270 heroes past it averaged ~110px of empty plate in the 672px frame.
  */
-export const LANDSCAPE_HERO_MIN_RATIO = 1.2
+const LANDSCAPE_HERO_MIN_RATIO = 1.2
 
 export type BrandHeroFrame = 'square' | 'landscape'
 
