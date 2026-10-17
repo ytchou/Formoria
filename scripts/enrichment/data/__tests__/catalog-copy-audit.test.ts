@@ -57,12 +57,23 @@ describe("findBannedTerms", () => {
   it("flags the 以 construction and skips common compounds", () => {
     const keys = (text: string) => findBannedTerms(text).map((hit) => hit.key);
 
-    expect(keys("以義大利植鞣牛皮製作包袋")).toEqual(["yi-construction"]);
-    expect(keys("以陶土為主要材料")).toEqual(["yi-construction"]);
+    expect(keys("工作室以義大利植鞣牛皮製作包袋")).toEqual(["yi-construction"]);
+    expect(keys("器物以陶土為主要材料")).toEqual(["yi-construction"]);
     // 可以 / 以及 / 以上 are not the construction.
     expect(keys("可以製作包袋")).toEqual([]);
     expect(keys("杯子以及盤子，設計簡單")).toEqual([]);
     expect(keys("三人以上製作")).toEqual([]);
+  });
+
+  it("flags a text or sentence that opens with 以, verb or not", () => {
+    const keys = (text: string) => findBannedTerms(text).map((hit) => hit.key);
+
+    expect(keys("以城市色彩打造托特包")).toEqual(["yi-construction", "yi-opener", "dazao"]);
+    expect(keys("工作室在台南。以木頭做湯匙")).toEqual(["yi-opener"]);
+    expect(keys("第一段。\n\n以手縫皮件為主")).toEqual(["yi-construction", "yi-opener"]);
+    // 以前 / 以上 openers and a mid-sentence 以 are not openers.
+    expect(keys("以前是倉庫。")).toEqual([]);
+    expect(keys("工作室以木頭做湯匙")).toEqual([]);
   });
 
   it("flags each banned word, the 從 ranges and the variant tai character", () => {
@@ -256,7 +267,10 @@ describe("regeneration output", () => {
     const lines = regenerationCommands(report, { target: "production", cohortDir: "out" });
 
     expect(lines).toContain(
-      "pnpm curation:rerun --cohort out/catalog-copy-editorial.json --task editorial --target production --dry-run",
+      "pnpm curation:rerun --cohort out/catalog-copy-editorial.json --task descriptions --overwrite --target production --dry-run",
+    );
+    expect(lines).toContain(
+      "pnpm curation:rerun --cohort out/catalog-copy-editorial.json --task descriptions --overwrite --target production --no-apply --confirm",
     );
     expect(lines).toContain(
       "pnpm exec tsx scripts/enrichment/products/curated-products/batch-populate.ts --rewrite-descriptions --ids=p-1,p-2 --target production",

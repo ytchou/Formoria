@@ -214,6 +214,9 @@ export const CURATION_TASKS = {
   image: VISUAL_PHASES,
   product: VISUAL_PHASES,
   editorial: ["descriptions", "faq", "stockists"],
+  // Hidden: blurb/description regeneration without paying for faq + stockists
+  // (DEV-2037). Operator-only via `curation:rerun --task descriptions`.
+  descriptions: ["descriptions"],
   full: ENRICH_PHASES.filter(
     (phase) => !(DEFERRED_PHASES as readonly string[]).includes(phase),
   ),
