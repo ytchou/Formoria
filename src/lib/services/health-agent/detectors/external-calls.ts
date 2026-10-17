@@ -15,6 +15,14 @@ import { pagedRead, type PageableQuery } from '../paged-read'
 const FAILURE_RATE_THRESHOLD = 0.3
 
 /**
+ * A lone failure among successes is noise, not a rate: one transient HTTP 500
+ * on a provider called twice a day reads as 50% (DEV-2041). A provider needs
+ * this many failures to fire — unless every call failed, so a low-volume
+ * provider that is fully down still reports.
+ */
+const MIN_FAILED_SPANS = 2
+
+/**
  * Terminal statuses that are not failures. `empty` means the provider answered
  * with nothing to return (no registry match, no extractable content) — an
  * expected outcome, not a provider fault (DEV-1932, DEV-1933).
@@ -51,6 +59,7 @@ export const externalCallsDetector: Detector = {
   severity: 'high',
   thresholds: {
     failureRateThreshold: FAILURE_RATE_THRESHOLD,
+    minFailedSpans: MIN_FAILED_SPANS,
     orphanStartedThresholdMs: ORPHAN_STARTED_THRESHOLD_MS,
   },
 
@@ -96,7 +105,9 @@ export const externalCallsDetector: Detector = {
     for (const [provider, stats] of providerStats) {
       if (stats.total === 0) continue
       const failureRate = stats.failed / stats.total
-      if (failureRate > FAILURE_RATE_THRESHOLD) {
+      const enoughFailures =
+        stats.failed >= MIN_FAILED_SPANS || stats.failed === stats.total
+      if (enoughFailures && failureRate > FAILURE_RATE_THRESHOLD) {
         findings.push({
           source: 'pipeline',
           fingerprint: stableFingerprint(
