@@ -84,9 +84,12 @@ test("directory and discovery own their search on desktop and in the mobile shee
     // Scoped to the banner: /discover's own form is also named 搜尋商品.
     await expect(page.getByRole("banner").getByRole("search")).toHaveCount(0);
     await expect(
-      page.getByRole("main").getByRole("searchbox", {
-        name: route === "/brands" ? "搜尋品牌" : "搜尋商品",
-      }),
+      // The directory input is a combobox since its suggestions (DEV-2023).
+      page
+        .getByRole("main")
+        .getByRole(route === "/brands" ? "combobox" : "searchbox", {
+          name: route === "/brands" ? "搜尋品牌" : "搜尋商品",
+        }),
     ).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "開啟選單" }).click();

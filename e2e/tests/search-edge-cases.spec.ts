@@ -234,7 +234,7 @@ test.describe.serial('Public brand search edge cases', () => {
       url.pathname === '/en/discover' && url.searchParams.get('q') === englishToken,
     );
     await expect(page.getByRole('heading', { level: 1, name: 'Search results', exact: true })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    await expect(page.locator('main').getByText(`"${englishToken}"`, { exact: true })).toBeVisible();
+    await expect(page.locator('main').getByText(`“${englishToken}”`, { exact: true })).toBeVisible();
   });
 
   test('directory search preserves filters, resets pagination, synchronizes the URL, and clears', async ({ page }) => {

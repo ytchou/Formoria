@@ -80,7 +80,9 @@ export function BrandHeader({
             style={{ animationDelay: "100ms" }}
           >
             {metaParts.length > 0 ? (
-              <p className="type-metadata">{metaParts.join(" · ")}</p>
+              <p className="type-metadata" data-brand-meta>
+                {metaParts.join(" · ")}
+              </p>
             ) : null}
             {makesLabels.length > 0 ? (
               <p className="type-label text-ink-soft" data-brand-makes>

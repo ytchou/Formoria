@@ -75,6 +75,8 @@ describe("BrandHeader", () => {
     );
 
     expect(screen.getByText("生活用品")).toHaveClass("type-metadata");
+    // e2e heroMetaLine() finds this line by the attribute, not by position.
+    expect(screen.getByText("生活用品")).toHaveAttribute("data-brand-meta");
     expect(screen.queryByText(/台北/)).toBeNull();
     expect(screen.queryByText(/2015/)).toBeNull();
   });

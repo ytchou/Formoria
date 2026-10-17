@@ -416,7 +416,8 @@ test.describe("Brand detail deep", () => {
       });
     }).toPass(POLL.DB);
 
-    const firstItem = page.locator('[id^="faq-"]').first();
+    // Scoped to the list: the section's own h2 is #faq-heading (BrandSection).
+    const firstItem = page.locator('#faq dl > [id^="faq-"]').first();
     // The first rendered item is the main-products floor.
     await expect(firstItem).toHaveAttribute("id", "faq-main-products");
     await expect(firstItem.locator("dd")).toContainText("的商品包括");
@@ -430,7 +431,7 @@ test.describe("Brand detail deep", () => {
     const html = await response.text();
     expect(html).toContain("的商品包括");
     const $ = load(html);
-    const serverItem = $('[id^="faq-"]').first();
+    const serverItem = $('#faq dl > [id^="faq-"]').first();
     expect(serverItem.attr("id")).toBe("faq-main-products");
     expect(serverItem.find("dd").text()).toContain("的商品包括");
     expect($("#faq details")).toHaveLength(0);
@@ -446,6 +447,7 @@ test.describe("Brand detail — product shelf focus", () => {
   const fallbackName = "Perch 棲木替換燈罩";
   const socialUrl = "https://www.instagram.com/sammm.studio/";
   let imageKey: string | undefined;
+  let fallbackImageKey: string | undefined;
 
   test.beforeAll(async ({}, workerInfo) => {
     seeded = await seedBrand({
@@ -463,15 +465,20 @@ test.describe("Brand detail — product shelf focus", () => {
     // A shelf tile whose image fails to load is dropped (DEV-1994), so the
     // seed needs a real photograph behind its key, not a dangling path.
     imageKey = `curated-products/${seeded.brand.id}/${productKey}/e2e.webp`;
-    const { error: uploadError } = await supabase.storage
-      .from("brand-images")
-      .upload(
-        imageKey,
-        readFileSync(join(process.cwd(), "public/images/home-hero.webp")),
-        { contentType: "image/webp", upsert: true },
-      );
-    if (uploadError) {
-      throw new Error(`Failed to seed ${imageKey}: ${uploadError.message}`);
+    // BD-04 drops a product whose image filename matches an earlier one, so the
+    // fallback product needs a photo with its own filename.
+    fallbackImageKey = `curated-products/${seeded.brand.id}/${fallbackKey}/e2e-fallback.webp`;
+    for (const key of [imageKey, fallbackImageKey]) {
+      const { error: uploadError } = await supabase.storage
+        .from("brand-images")
+        .upload(
+          key,
+          readFileSync(join(process.cwd(), "public/images/home-hero.webp")),
+          { contentType: "image/webp", upsert: true },
+        );
+      if (uploadError) {
+        throw new Error(`Failed to seed ${key}: ${uploadError.message}`);
+      }
     }
     const { data: product, error: productError } = await supabase
       .from("curated_products")
@@ -503,7 +510,7 @@ test.describe("Brand detail — product shelf focus", () => {
           link_state: "broken",
           source_checked_at: new Date().toISOString(),
           product_description_zh: "霧面燈罩，搭配 Perch 棲木桌燈使用。",
-          image_url: e2eProxyImageUrl(imageKey),
+          image_url: e2eProxyImageUrl(fallbackImageKey),
           visible: true,
         },
       ])
@@ -531,10 +538,13 @@ test.describe("Brand detail — product shelf focus", () => {
 
   test.afterAll(async () => {
     await seeded?.cleanup();
-    if (imageKey) {
+    const imageKeys = [imageKey, fallbackImageKey].filter(
+      (key): key is string => key !== undefined,
+    );
+    if (imageKeys.length > 0) {
       const { error } = await getServiceClient()
         .storage.from("brand-images")
-        .remove([imageKey]);
+        .remove(imageKeys);
       if (error) throw new Error(`Failed to clean images: ${error.message}`);
     }
   });
@@ -1274,11 +1284,11 @@ test.describe("Brand detail — public locations and retail stockists", () => {
   });
 });
 
-for (const [locale, prefix, storyLabel, targetLabel, targetHeading] of [
-  ["en", "/en", "Story", "Where to buy", "Where to buy"],
-  ["zh-TW", "", "故事", "哪裡買", "哪裡買得到"],
+for (const [locale, prefix, targetLabel, targetHeading] of [
+  ["en", "/en", "Where to buy", "Where to buy"],
+  ["zh-TW", "", "哪裡買", "哪裡買得到"],
 ] as const) {
-  test(`mobile brand tabs stay intact after returning from Where to buy (${locale})`, async ({
+  test(`mobile brand tabs mark the first tab again after returning from Where to buy (${locale})`, async ({
     anonPage,
   }, testInfo) => {
     await anonPage.setViewportSize({ width: 320, height: 900 });
@@ -1288,11 +1298,15 @@ for (const [locale, prefix, storyLabel, targetLabel, targetHeading] of [
     );
     expect(response?.status()).toBe(200);
     const nav = anonPage.locator("main nav").filter({
-      has: anonPage.getByRole("link", { name: storyLabel, exact: true }),
+      has: anonPage.getByRole("link", { name: targetLabel, exact: true }),
     });
-    const story = nav.getByRole("link", { name: storyLabel, exact: true });
+    // Anchored on the first tab, not a named one: section order is owned by
+    // brand-detail-view.test.ts and brand-section-nav.test.tsx (BD-01).
+    const firstTab = nav.getByRole("link").first();
+    // Otherwise the click below would not leave the first section.
+    await expect(firstTab).not.toHaveAccessibleName(targetLabel);
     await nav.scrollIntoViewIfNeeded();
-    await expect(story).toHaveAttribute("aria-current", "location");
+    await expect(firstTab).toHaveAttribute("aria-current", "location");
     const initial = await nav.screenshot({ animations: "disabled" });
 
     await nav.getByRole("link", { name: targetLabel, exact: true }).click();
@@ -1300,7 +1314,7 @@ for (const [locale, prefix, storyLabel, targetLabel, targetHeading] of [
       anonPage.getByRole("heading", { name: targetHeading, exact: true }),
     ).toBeFocused();
     await anonPage.evaluate(() => window.scrollTo(0, 0));
-    await expect(story).toHaveAttribute("aria-current", "location");
+    await expect(firstTab).toHaveAttribute("aria-current", "location");
     await nav.scrollIntoViewIfNeeded();
     const returned = await nav.screenshot({ animations: "disabled" });
     await testInfo.attach("brand-tabs-initial", {
@@ -1313,7 +1327,7 @@ for (const [locale, prefix, storyLabel, targetLabel, targetHeading] of [
     });
     expect(
       returned.equals(initial),
-      "Returning to Story restores the same fully readable tab strip",
+      "Returning to the top restores the same fully readable tab strip",
     ).toBe(true);
   });
 }

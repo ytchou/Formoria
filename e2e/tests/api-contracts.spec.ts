@@ -34,6 +34,25 @@ const MISSING_TOKEN_CONTRACT: GetContract = {
 }
 
 /**
+ * Sends a request again while the Cloudflare /api/* rule answers 429 (10
+ * requests per 10 s per IP, then a 10 s block). The app never returns these
+ * 429s: the block comes from the edge, and any /api call in this file can land
+ * in a block window left by an earlier test, because retries change the run
+ * order. Callers set BUDGET.TEST.JOURNEY, since one wait can take 30 s.
+ * Remove when the CF-Access service token skips that rule.
+ */
+async function outsideEdgeRateLimit(
+  send: () => Promise<APIResponse>,
+): Promise<APIResponse> {
+  let response!: APIResponse
+  await expect(async () => {
+    response = await send()
+    expect(response.status()).not.toBe(429)
+  }).toPass(POLL.EDGE_RATE_LIMIT)
+  return response
+}
+
+/**
  * API Contracts
  *
  * Journey: Verifies that key API routes return the expected shapes, status
@@ -98,7 +117,8 @@ test.describe('API — health + search', () => {
   test('GET /api/health returns ok', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    const resp = await request.get('/api/health')
+    test.setTimeout(BUDGET.TEST.JOURNEY)
+    const resp = await outsideEdgeRateLimit(() => request.get('/api/health'))
     expect(resp.status()).toBe(200)
     const body = await resp.json()
     expect(body).toMatchObject({ status: 'ok' })
@@ -111,7 +131,10 @@ test.describe('API — health + search', () => {
   test('GET /api/search with query returns results shape', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    const resp = await request.get(`/api/search?q=${searchProbeQuery}`)
+    test.setTimeout(BUDGET.TEST.JOURNEY)
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get(`/api/search?q=${searchProbeQuery}`),
+    )
     expect(resp.status()).toBe(200)
     const body = await resp.json()
     expect(body).toHaveProperty('results')
@@ -130,7 +153,8 @@ test.describe('API — health + search', () => {
   test('GET /api/search without query returns 400', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    const resp = await request.get('/api/search')
+    test.setTimeout(BUDGET.TEST.JOURNEY)
+    const resp = await outsideEdgeRateLimit(() => request.get('/api/search'))
     expect(resp.status()).toBe(400)
     const body = await resp.json()
     expect(body).toHaveProperty('error')
@@ -148,9 +172,12 @@ const CANARY_NO_SECRET_CONTRACT: GetContract = {
 
 test.describe('API — internal canary', () => {
   test('POST /api/internal/sentry-canary without the secret returns 401', async ({ request }) => {
-    const resp = await request.post('/api/internal/sentry-canary', {
-      data: { token: 'e2e-probe' },
-    })
+    test.setTimeout(BUDGET.TEST.JOURNEY)
+    const resp = await outsideEdgeRateLimit(() =>
+      request.post('/api/internal/sentry-canary', {
+        data: { token: 'e2e-probe' },
+      }),
+    )
     expect(resp.status()).toBe(CANARY_NO_SECRET_CONTRACT.status)
     await CANARY_NO_SECRET_CONTRACT.assertResponse(resp)
   })
@@ -275,9 +302,11 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    const resp = await request.get(
-      `/api/newsletter/confirm?token=${confirmToken}`,
-      { maxRedirects: 0 },
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get(`/api/newsletter/confirm?token=${confirmToken}`, {
+        maxRedirects: 0,
+      }),
     );
     expect(resp.status()).toBe(NEWSLETTER_CONFIRM_CONTRACT.status);
     await NEWSLETTER_CONFIRM_CONTRACT.assertResponse(resp);
@@ -294,10 +323,13 @@ test.describe.serial("API — newsletter", () => {
   test("an English subscriber confirms and returns to the English homepage", async ({
     request,
   }) => {
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     for (const query of ["", "&locale=en"]) {
-      const response = await request.get(
-        `/api/newsletter/confirm?token=${englishConfirmToken}${query}`,
-        { maxRedirects: 0 },
+      const response = await outsideEdgeRateLimit(() =>
+        request.get(
+          `/api/newsletter/confirm?token=${englishConfirmToken}${query}`,
+          { maxRedirects: 0 },
+        ),
       );
       expect(response.status()).toBe(307);
       expect(new URL(response.headers()["location"]).pathname).toBe("/en");
@@ -322,8 +354,9 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    const resp = await request.get(
-      `/api/newsletter/unsubscribe?token=${newsletterUnsubToken}`,
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get(`/api/newsletter/unsubscribe?token=${newsletterUnsubToken}`),
     );
     expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status);
     await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp);
@@ -345,7 +378,10 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    const resp = await request.get("/api/newsletter/unsubscribe");
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get("/api/newsletter/unsubscribe"),
+    );
     expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status);
     await MISSING_TOKEN_CONTRACT.assertResponse(resp);
   });
@@ -355,8 +391,9 @@ test.describe.serial("API — newsletter", () => {
   }) => {
     test.skip(!supabase || !testUserId, "PREVIEW_MODE active or no test user");
 
-    const resp = await request.get(
-      `/api/email/unsubscribe?token=${ownerUnsubToken}`,
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get(`/api/email/unsubscribe?token=${ownerUnsubToken}`),
     );
     expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status);
     await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp);
@@ -379,7 +416,10 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    const resp = await request.get("/api/email/unsubscribe");
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get("/api/email/unsubscribe"),
+    );
     expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status);
     await MISSING_TOKEN_CONTRACT.assertResponse(resp);
   });
@@ -389,8 +429,8 @@ test.describe.serial("API — newsletter", () => {
   }) => {
     // 12 GETs in a burst exceed the Cloudflare /api/* rate limit (10 requests
     // per 10 s per IP, 10 s block). Each request retries while Cloudflare
-    // answers 429, so the block has lifted before this test ends and the next
-    // tests' /api calls start in a fresh window. Revisit if that rule changes.
+    // answers 429 (outsideEdgeRateLimit). The block can outlast this test, so
+    // every other /api call in this file retries the same way.
     test.setTimeout(BUDGET.TEST.JOURNEY);
     const token = randomUUID();
     for (const endpoint of [
@@ -400,13 +440,11 @@ test.describe.serial("API — newsletter", () => {
     ]) {
       for (const locale of ["zh-TW", "en"]) {
         for (const hasToken of [false, true]) {
-          let response!: APIResponse;
-          await expect(async () => {
-            response = await request.get(
+          const response = await outsideEdgeRateLimit(() =>
+            request.get(
               `${endpoint}?locale=${locale}${hasToken ? `&token=${token}` : ""}`,
-            );
-            expect(response.status()).not.toBe(429);
-          }).toPass(POLL.EDGE_RATE_LIMIT);
+            ),
+          );
           expect(response.status()).toBe(
             hasToken && !endpoint.endsWith("/confirm") ? 404 : 400,
           );
@@ -435,6 +473,7 @@ test.describe.serial("API — newsletter", () => {
   test("one-click POST unsubscribes remain successful without rewriting an already completed preference", async ({
     request,
   }) => {
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     for (const [endpoint, table, token] of [
       [
         "/api/newsletter/unsubscribe",
@@ -451,9 +490,10 @@ test.describe.serial("API — newsletter", () => {
       expect(before.error).toBeNull();
       assert(before.data, "The owned preference must exist before retry");
       expect(before.data.unsubscribed_at).not.toBeNull();
-      const response = await request.post(
-        `${endpoint}?token=${token}&locale=en`,
-        { form: { "List-Unsubscribe": "One-Click" } },
+      const response = await outsideEdgeRateLimit(() =>
+        request.post(`${endpoint}?token=${token}&locale=en`, {
+          form: { "List-Unsubscribe": "One-Click" },
+        }),
       );
       expect(response.status()).toBe(200);
       expect(load(await response.text())("h1").text()).toBe("Unsubscribed");
