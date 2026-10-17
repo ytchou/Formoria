@@ -9,8 +9,19 @@
  * file. See `e2e/TRIAGE.md` for when changing a value is legitimate at all.
  *
  * This module is imported by `playwright.config.ts`, so it must stay free of
- * runtime dependencies — flat `as const` literals only.
+ * runtime dependencies — flat `as const` literals only, plus the module-local
+ * constants above BUDGET that derived budgets are computed from.
  */
+
+/**
+ * One wait on the Cloudflare /api/* block (POLL.EDGE_RATE_LIMIT.timeout). Named
+ * here, before BUDGET, so the whole-test budget for an /api burst can be derived
+ * from it instead of restating the number.
+ */
+const EDGE_RATE_LIMIT_WAIT = 30_000
+
+/** The most /api calls one spec test makes through outsideEdgeRateLimit. */
+const EDGE_RATE_LIMIT_MAX_CALLS = 12
 
 export const BUDGET = {
   /**
@@ -62,6 +73,12 @@ export const BUDGET = {
     ADMIN: 120_000,
     /** Claim lifecycle: upload, review, storage cleanup. */
     CLAIM: 180_000,
+    /**
+     * A test that sends EDGE_RATE_LIMIT_MAX_CALLS /api requests in a burst.
+     * Every call can wait out a full edge block, plus one wait of headroom, so
+     * the POLL.EDGE_RATE_LIMIT failure fires before the test timeout does.
+     */
+    API_BURST: (EDGE_RATE_LIMIT_MAX_CALLS + 1) * EDGE_RATE_LIMIT_WAIT,
   },
 } as const
 
@@ -98,7 +115,10 @@ export const POLL = {
   AUTH_CAPTURE: { timeout: 30_000, intervals: [250, 500, 1_000] },
   /** The Cloudflare zone rule on /api/* (10 requests per 10 s per IP, then a
    *  10 s block) lifting after a burst. The ladder must outlast the block. */
-  EDGE_RATE_LIMIT: { timeout: 30_000, intervals: [2_000, 5_000, 10_000] },
+  EDGE_RATE_LIMIT: {
+    timeout: EDGE_RATE_LIMIT_WAIT,
+    intervals: [2_000, 5_000, 10_000],
+  },
   // `satisfies`, not `as const`: Playwright's `intervals` option is a mutable
   // `number[]`, and a readonly tuple is not assignable to it.
 } satisfies Record<string, { timeout: number; intervals: number[] }>

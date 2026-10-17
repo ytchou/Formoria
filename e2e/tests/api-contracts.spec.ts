@@ -3,7 +3,8 @@ import type { APIResponse } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { load } from 'cheerio'
-import { BUDGET, POLL } from '../budgets'
+import { BUDGET } from '../budgets'
+import { outsideEdgeRateLimit } from '../helpers/edge-rate-limit'
 import assert from 'node:assert/strict'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,7 +50,11 @@ const MISSING_TOKEN_CONTRACT: GetContract = {
  * CI retry fragility: the confirm/unsubscribe tests use retries: 0 to prevent
  * mutating serial fixture setup during retries.
  */
+// Every /api call goes through outsideEdgeRateLimit, and one wait can take
+// POLL.EDGE_RATE_LIMIT.timeout, so each describe sets a budget above it.
 test.describe('API — health + search', () => {
+  test.describe.configure({ timeout: BUDGET.TEST.JOURNEY })
+
   let supabase: AnySupabaseClient | undefined
   // A brand seeded by this spec, so the search contract below is exercised
   // against a guaranteed hit instead of whatever `q=test` happens to match.
@@ -98,7 +103,7 @@ test.describe('API — health + search', () => {
   test('GET /api/health returns ok', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    const resp = await request.get('/api/health')
+    const resp = await outsideEdgeRateLimit(() => request.get('/api/health'))
     expect(resp.status()).toBe(200)
     const body = await resp.json()
     expect(body).toMatchObject({ status: 'ok' })
@@ -111,7 +116,9 @@ test.describe('API — health + search', () => {
   test('GET /api/search with query returns results shape', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    const resp = await request.get(`/api/search?q=${searchProbeQuery}`)
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get(`/api/search?q=${searchProbeQuery}`),
+    )
     expect(resp.status()).toBe(200)
     const body = await resp.json()
     expect(body).toHaveProperty('results')
@@ -130,7 +137,7 @@ test.describe('API — health + search', () => {
   test('GET /api/search without query returns 400', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    const resp = await request.get('/api/search')
+    const resp = await outsideEdgeRateLimit(() => request.get('/api/search'))
     expect(resp.status()).toBe(400)
     const body = await resp.json()
     expect(body).toHaveProperty('error')
@@ -147,10 +154,14 @@ const CANARY_NO_SECRET_CONTRACT: GetContract = {
 }
 
 test.describe('API — internal canary', () => {
+  test.describe.configure({ timeout: BUDGET.TEST.JOURNEY })
+
   test('POST /api/internal/sentry-canary without the secret returns 401', async ({ request }) => {
-    const resp = await request.post('/api/internal/sentry-canary', {
-      data: { token: 'e2e-probe' },
-    })
+    const resp = await outsideEdgeRateLimit(() =>
+      request.post('/api/internal/sentry-canary', {
+        data: { token: 'e2e-probe' },
+      }),
+    )
     expect(resp.status()).toBe(CANARY_NO_SECRET_CONTRACT.status)
     await CANARY_NO_SECRET_CONTRACT.assertResponse(resp)
   })
@@ -161,7 +172,7 @@ test.describe('API — internal canary', () => {
 // serial — fullyParallel:true causes multiple workers to run beforeAll
 // simultaneously; each run instead owns a fresh user and distinct tokens.
 test.describe.serial("API — newsletter", () => {
-  test.describe.configure({ retries: 0 });
+  test.describe.configure({ retries: 0, timeout: BUDGET.TEST.JOURNEY });
 
   let supabase: AnySupabaseClient | undefined;
   let testUserId: string | undefined;
@@ -275,9 +286,10 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    const resp = await request.get(
-      `/api/newsletter/confirm?token=${confirmToken}`,
-      { maxRedirects: 0 },
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get(`/api/newsletter/confirm?token=${confirmToken}`, {
+        maxRedirects: 0,
+      }),
     );
     expect(resp.status()).toBe(NEWSLETTER_CONFIRM_CONTRACT.status);
     await NEWSLETTER_CONFIRM_CONTRACT.assertResponse(resp);
@@ -294,10 +306,14 @@ test.describe.serial("API — newsletter", () => {
   test("an English subscriber confirms and returns to the English homepage", async ({
     request,
   }) => {
+    // Two wrapped calls: each can wait out a full edge block.
+    test.setTimeout(BUDGET.TEST.MUTATION);
     for (const query of ["", "&locale=en"]) {
-      const response = await request.get(
-        `/api/newsletter/confirm?token=${englishConfirmToken}${query}`,
-        { maxRedirects: 0 },
+      const response = await outsideEdgeRateLimit(() =>
+        request.get(
+          `/api/newsletter/confirm?token=${englishConfirmToken}${query}`,
+          { maxRedirects: 0 },
+        ),
       );
       expect(response.status()).toBe(307);
       expect(new URL(response.headers()["location"]).pathname).toBe("/en");
@@ -322,8 +338,8 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    const resp = await request.get(
-      `/api/newsletter/unsubscribe?token=${newsletterUnsubToken}`,
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get(`/api/newsletter/unsubscribe?token=${newsletterUnsubToken}`),
     );
     expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status);
     await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp);
@@ -345,7 +361,9 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    const resp = await request.get("/api/newsletter/unsubscribe");
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get("/api/newsletter/unsubscribe"),
+    );
     expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status);
     await MISSING_TOKEN_CONTRACT.assertResponse(resp);
   });
@@ -355,8 +373,8 @@ test.describe.serial("API — newsletter", () => {
   }) => {
     test.skip(!supabase || !testUserId, "PREVIEW_MODE active or no test user");
 
-    const resp = await request.get(
-      `/api/email/unsubscribe?token=${ownerUnsubToken}`,
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get(`/api/email/unsubscribe?token=${ownerUnsubToken}`),
     );
     expect(resp.status()).toBe(VALID_UNSUBSCRIBE_CONTRACT.status);
     await VALID_UNSUBSCRIBE_CONTRACT.assertResponse(resp);
@@ -379,7 +397,9 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    const resp = await request.get("/api/email/unsubscribe");
+    const resp = await outsideEdgeRateLimit(() =>
+      request.get("/api/email/unsubscribe"),
+    );
     expect(resp.status()).toBe(MISSING_TOKEN_CONTRACT.status);
     await MISSING_TOKEN_CONTRACT.assertResponse(resp);
   });
@@ -389,9 +409,11 @@ test.describe.serial("API — newsletter", () => {
   }) => {
     // 12 GETs in a burst exceed the Cloudflare /api/* rate limit (10 requests
     // per 10 s per IP, 10 s block). Each request retries while Cloudflare
-    // answers 429, so the block has lifted before this test ends and the next
-    // tests' /api calls start in a fresh window. Revisit if that rule changes.
-    test.setTimeout(BUDGET.TEST.JOURNEY);
+    // answers 429 (outsideEdgeRateLimit), and each can wait out a full block,
+    // hence BUDGET.TEST.API_BURST. The burst can leave a partly used rate window
+    // behind for the next test, so every other /api call in this file retries
+    // the same way.
+    test.setTimeout(BUDGET.TEST.API_BURST);
     const token = randomUUID();
     for (const endpoint of [
       "/api/newsletter/confirm",
@@ -400,13 +422,11 @@ test.describe.serial("API — newsletter", () => {
     ]) {
       for (const locale of ["zh-TW", "en"]) {
         for (const hasToken of [false, true]) {
-          let response!: APIResponse;
-          await expect(async () => {
-            response = await request.get(
+          const response = await outsideEdgeRateLimit(() =>
+            request.get(
               `${endpoint}?locale=${locale}${hasToken ? `&token=${token}` : ""}`,
-            );
-            expect(response.status()).not.toBe(429);
-          }).toPass(POLL.EDGE_RATE_LIMIT);
+            ),
+          );
           expect(response.status()).toBe(
             hasToken && !endpoint.endsWith("/confirm") ? 404 : 400,
           );
@@ -435,6 +455,8 @@ test.describe.serial("API — newsletter", () => {
   test("one-click POST unsubscribes remain successful without rewriting an already completed preference", async ({
     request,
   }) => {
+    // Two wrapped calls: each can wait out a full edge block.
+    test.setTimeout(BUDGET.TEST.MUTATION);
     for (const [endpoint, table, token] of [
       [
         "/api/newsletter/unsubscribe",
@@ -451,9 +473,10 @@ test.describe.serial("API — newsletter", () => {
       expect(before.error).toBeNull();
       assert(before.data, "The owned preference must exist before retry");
       expect(before.data.unsubscribed_at).not.toBeNull();
-      const response = await request.post(
-        `${endpoint}?token=${token}&locale=en`,
-        { form: { "List-Unsubscribe": "One-Click" } },
+      const response = await outsideEdgeRateLimit(() =>
+        request.post(`${endpoint}?token=${token}&locale=en`, {
+          form: { "List-Unsubscribe": "One-Click" },
+        }),
       );
       expect(response.status()).toBe(200);
       expect(load(await response.text())("h1").text()).toBe("Unsubscribed");
