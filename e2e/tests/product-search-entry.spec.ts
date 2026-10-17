@@ -78,18 +78,17 @@ test("deferred categories do not enter the related-brand row", async ({
 test("directory and discovery own their search on desktop and in the mobile sheet", async ({
   page,
 }) => {
-  for (const route of ["/brands", "/discover"]) {
+  for (const [route, role, name] of [
+    // The directory input is a combobox since its suggestions (DEV-2023).
+    ["/brands", "combobox", "搜尋品牌"],
+    ["/discover", "searchbox", "搜尋商品"],
+  ] as const) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(route);
     // Scoped to the banner: /discover's own form is also named 搜尋商品.
     await expect(page.getByRole("banner").getByRole("search")).toHaveCount(0);
     await expect(
-      // The directory input is a combobox since its suggestions (DEV-2023).
-      page
-        .getByRole("main")
-        .getByRole(route === "/brands" ? "combobox" : "searchbox", {
-          name: route === "/brands" ? "搜尋品牌" : "搜尋商品",
-        }),
+      page.getByRole("main").getByRole(role, { name }),
     ).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "開啟選單" }).click();

@@ -416,8 +416,9 @@ test.describe("Brand detail deep", () => {
       });
     }).toPass(POLL.DB);
 
-    // Scoped to the list: the section's own h2 is #faq-heading (BrandSection).
-    const firstItem = page.locator('#faq dl > [id^="faq-"]').first();
+    // Matched by the id contract, not the list structure. The section's own h2
+    // is #faq-heading (BrandSection), so it is excluded.
+    const firstItem = page.locator('[id^="faq-"]:not(#faq-heading)').first();
     // The first rendered item is the main-products floor.
     await expect(firstItem).toHaveAttribute("id", "faq-main-products");
     await expect(firstItem.locator("dd")).toContainText("的商品包括");
@@ -431,7 +432,7 @@ test.describe("Brand detail deep", () => {
     const html = await response.text();
     expect(html).toContain("的商品包括");
     const $ = load(html);
-    const serverItem = $('#faq dl > [id^="faq-"]').first();
+    const serverItem = $('[id^="faq-"]:not(#faq-heading)').first();
     expect(serverItem.attr("id")).toBe("faq-main-products");
     expect(serverItem.find("dd").text()).toContain("的商品包括");
     expect($("#faq details")).toHaveLength(0);
@@ -468,14 +469,13 @@ test.describe("Brand detail — product shelf focus", () => {
     // BD-04 drops a product whose image filename matches an earlier one, so the
     // fallback product needs a photo with its own filename.
     fallbackImageKey = `curated-products/${seeded.brand.id}/${fallbackKey}/e2e-fallback.webp`;
+    const imageBody = readFileSync(
+      join(process.cwd(), "public/images/home-hero.webp"),
+    );
     for (const key of [imageKey, fallbackImageKey]) {
       const { error: uploadError } = await supabase.storage
         .from("brand-images")
-        .upload(
-          key,
-          readFileSync(join(process.cwd(), "public/images/home-hero.webp")),
-          { contentType: "image/webp", upsert: true },
-        );
+        .upload(key, imageBody, { contentType: "image/webp", upsert: true });
       if (uploadError) {
         throw new Error(`Failed to seed ${key}: ${uploadError.message}`);
       }
@@ -537,15 +537,19 @@ test.describe("Brand detail — product shelf focus", () => {
   });
 
   test.afterAll(async () => {
-    await seeded?.cleanup();
-    const imageKeys = [imageKey, fallbackImageKey].filter(
-      (key): key is string => key !== undefined,
-    );
-    if (imageKeys.length > 0) {
-      const { error } = await getServiceClient()
-        .storage.from("brand-images")
-        .remove(imageKeys);
-      if (error) throw new Error(`Failed to clean images: ${error.message}`);
+    try {
+      await seeded?.cleanup();
+    } finally {
+      // In a finally: a failed brand cleanup must not leak the uploaded images.
+      const imageKeys = [imageKey, fallbackImageKey].filter(
+        (key): key is string => key !== undefined,
+      );
+      if (imageKeys.length > 0) {
+        const { error } = await getServiceClient()
+          .storage.from("brand-images")
+          .remove(imageKeys);
+        if (error) throw new Error(`Failed to clean images: ${error.message}`);
+      }
     }
   });
 
@@ -1309,10 +1313,21 @@ for (const [locale, prefix, targetLabel, targetHeading] of [
     await expect(firstTab).toHaveAttribute("aria-current", "location");
     const initial = await nav.screenshot({ animations: "disabled" });
 
-    await nav.getByRole("link", { name: targetLabel, exact: true }).click();
-    await expect(
-      anonPage.getByRole("heading", { name: targetHeading, exact: true }),
-    ).toBeFocused();
+    // The initial aria-current comes from SSR, so it does not prove hydration.
+    // A click before hydration follows the native #hash and skips the focus
+    // move, so gate on the app's readiness signal, then retry the idempotent
+    // click until the heading takes focus.
+    await waitForViewerReady(anonPage);
+    const targetHeadingLocator = anonPage.getByRole("heading", {
+      name: targetHeading,
+      exact: true,
+    });
+    await expect(async () => {
+      await nav.getByRole("link", { name: targetLabel, exact: true }).click();
+      await expect(targetHeadingLocator).toBeFocused({
+        timeout: BUDGET.RENDERED,
+      });
+    }).toPass(POLL.UI);
     await anonPage.evaluate(() => window.scrollTo(0, 0));
     await expect(firstTab).toHaveAttribute("aria-current", "location");
     await nav.scrollIntoViewIfNeeded();

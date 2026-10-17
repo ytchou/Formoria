@@ -138,8 +138,8 @@ function correctionDialog(page: Page) {
 
 // The hero metadata line under the h1: the category, then the founding year
 // unless a story colophon carries it (BD-22).
-// Located by position: the category text also appears in the breadcrumb and
-// the related-brands rail.
+// Located by its data-brand-meta attribute (heroMetaLine), not by the text: the
+// category text also appears in the breadcrumb and the related-brands rail.
 function categoryValue(page: Page) {
   return heroMetaLine(page);
 }

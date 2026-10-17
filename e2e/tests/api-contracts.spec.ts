@@ -3,7 +3,8 @@ import type { APIResponse } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { load } from 'cheerio'
-import { BUDGET, POLL } from '../budgets'
+import { BUDGET } from '../budgets'
+import { outsideEdgeRateLimit } from '../helpers/edge-rate-limit'
 import assert from 'node:assert/strict'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,25 +35,6 @@ const MISSING_TOKEN_CONTRACT: GetContract = {
 }
 
 /**
- * Sends a request again while the Cloudflare /api/* rule answers 429 (10
- * requests per 10 s per IP, then a 10 s block). The app never returns these
- * 429s: the block comes from the edge, and any /api call in this file can land
- * in a block window left by an earlier test, because retries change the run
- * order. Callers set BUDGET.TEST.JOURNEY, since one wait can take 30 s.
- * Remove when the CF-Access service token skips that rule.
- */
-async function outsideEdgeRateLimit(
-  send: () => Promise<APIResponse>,
-): Promise<APIResponse> {
-  let response!: APIResponse
-  await expect(async () => {
-    response = await send()
-    expect(response.status()).not.toBe(429)
-  }).toPass(POLL.EDGE_RATE_LIMIT)
-  return response
-}
-
-/**
  * API Contracts
  *
  * Journey: Verifies that key API routes return the expected shapes, status
@@ -68,7 +50,11 @@ async function outsideEdgeRateLimit(
  * CI retry fragility: the confirm/unsubscribe tests use retries: 0 to prevent
  * mutating serial fixture setup during retries.
  */
+// Every /api call goes through outsideEdgeRateLimit, and one wait can take
+// POLL.EDGE_RATE_LIMIT.timeout, so each describe sets a budget above it.
 test.describe('API — health + search', () => {
+  test.describe.configure({ timeout: BUDGET.TEST.JOURNEY })
+
   let supabase: AnySupabaseClient | undefined
   // A brand seeded by this spec, so the search contract below is exercised
   // against a guaranteed hit instead of whatever `q=test` happens to match.
@@ -117,7 +103,6 @@ test.describe('API — health + search', () => {
   test('GET /api/health returns ok', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    test.setTimeout(BUDGET.TEST.JOURNEY)
     const resp = await outsideEdgeRateLimit(() => request.get('/api/health'))
     expect(resp.status()).toBe(200)
     const body = await resp.json()
@@ -131,7 +116,6 @@ test.describe('API — health + search', () => {
   test('GET /api/search with query returns results shape', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    test.setTimeout(BUDGET.TEST.JOURNEY)
     const resp = await outsideEdgeRateLimit(() =>
       request.get(`/api/search?q=${searchProbeQuery}`),
     )
@@ -153,7 +137,6 @@ test.describe('API — health + search', () => {
   test('GET /api/search without query returns 400', async ({ request }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
 
-    test.setTimeout(BUDGET.TEST.JOURNEY)
     const resp = await outsideEdgeRateLimit(() => request.get('/api/search'))
     expect(resp.status()).toBe(400)
     const body = await resp.json()
@@ -171,8 +154,9 @@ const CANARY_NO_SECRET_CONTRACT: GetContract = {
 }
 
 test.describe('API — internal canary', () => {
+  test.describe.configure({ timeout: BUDGET.TEST.JOURNEY })
+
   test('POST /api/internal/sentry-canary without the secret returns 401', async ({ request }) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY)
     const resp = await outsideEdgeRateLimit(() =>
       request.post('/api/internal/sentry-canary', {
         data: { token: 'e2e-probe' },
@@ -188,7 +172,7 @@ test.describe('API — internal canary', () => {
 // serial — fullyParallel:true causes multiple workers to run beforeAll
 // simultaneously; each run instead owns a fresh user and distinct tokens.
 test.describe.serial("API — newsletter", () => {
-  test.describe.configure({ retries: 0 });
+  test.describe.configure({ retries: 0, timeout: BUDGET.TEST.JOURNEY });
 
   let supabase: AnySupabaseClient | undefined;
   let testUserId: string | undefined;
@@ -302,7 +286,6 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await outsideEdgeRateLimit(() =>
       request.get(`/api/newsletter/confirm?token=${confirmToken}`, {
         maxRedirects: 0,
@@ -323,7 +306,8 @@ test.describe.serial("API — newsletter", () => {
   test("an English subscriber confirms and returns to the English homepage", async ({
     request,
   }) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY);
+    // Two wrapped calls: each can wait out a full edge block.
+    test.setTimeout(BUDGET.TEST.MUTATION);
     for (const query of ["", "&locale=en"]) {
       const response = await outsideEdgeRateLimit(() =>
         request.get(
@@ -354,7 +338,6 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await outsideEdgeRateLimit(() =>
       request.get(`/api/newsletter/unsubscribe?token=${newsletterUnsubToken}`),
     );
@@ -378,7 +361,6 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await outsideEdgeRateLimit(() =>
       request.get("/api/newsletter/unsubscribe"),
     );
@@ -391,7 +373,6 @@ test.describe.serial("API — newsletter", () => {
   }) => {
     test.skip(!supabase || !testUserId, "PREVIEW_MODE active or no test user");
 
-    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await outsideEdgeRateLimit(() =>
       request.get(`/api/email/unsubscribe?token=${ownerUnsubToken}`),
     );
@@ -416,7 +397,6 @@ test.describe.serial("API — newsletter", () => {
       return;
     }
 
-    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await outsideEdgeRateLimit(() =>
       request.get("/api/email/unsubscribe"),
     );
@@ -429,9 +409,11 @@ test.describe.serial("API — newsletter", () => {
   }) => {
     // 12 GETs in a burst exceed the Cloudflare /api/* rate limit (10 requests
     // per 10 s per IP, 10 s block). Each request retries while Cloudflare
-    // answers 429 (outsideEdgeRateLimit). The block can outlast this test, so
-    // every other /api call in this file retries the same way.
-    test.setTimeout(BUDGET.TEST.JOURNEY);
+    // answers 429 (outsideEdgeRateLimit), and each can wait out a full block,
+    // hence BUDGET.TEST.API_BURST. The burst can leave a partly used rate window
+    // behind for the next test, so every other /api call in this file retries
+    // the same way.
+    test.setTimeout(BUDGET.TEST.API_BURST);
     const token = randomUUID();
     for (const endpoint of [
       "/api/newsletter/confirm",
@@ -473,7 +455,8 @@ test.describe.serial("API — newsletter", () => {
   test("one-click POST unsubscribes remain successful without rewriting an already completed preference", async ({
     request,
   }) => {
-    test.setTimeout(BUDGET.TEST.JOURNEY);
+    // Two wrapped calls: each can wait out a full edge block.
+    test.setTimeout(BUDGET.TEST.MUTATION);
     for (const [endpoint, table, token] of [
       [
         "/api/newsletter/unsubscribe",
