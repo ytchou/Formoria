@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createPublicNameResolver,
+  hasIsbn10CheckDigit,
   isShopSkuToken,
   normalizeCuratedProductName,
-  publicCuratedProductName,
   stripTrailingModelCode,
+  stripUrlListingId,
+  type PublicNameSibling,
 } from "../product-name";
 import catalog from "./fixtures/catalog-names-2026-10-08.json";
 import stagingCatalog from "./fixtures/staging-catalog-names-2026-10-08.json";
@@ -225,15 +228,27 @@ describe("normalizeCuratedProductName", () => {
   });
 });
 
-describe("publicCuratedProductName", () => {
+/** The public name of a row alone in its brand: no sibling can collide. */
+function soloPublicName(
+  name: string,
+  officialUrl: string | null = null,
+): string {
+  return createPublicNameResolver([])(
+    { id: "solo", brandId: "brand-solo", officialUrl },
+    "name_zh",
+    name,
+  );
+}
+
+describe("public name with no sibling", () => {
   it("returns the normalised name", () => {
-    expect(publicCuratedProductName("米拉諾蕾絲緞帶德訓鞋 khNTqkeV")).toBe(
+    expect(soloPublicName("米拉諾蕾絲緞帶德訓鞋 khNTqkeV")).toBe(
       "米拉諾蕾絲緞帶德訓鞋",
     );
   });
 
   it("falls back to the stored value when normalising would empty it", () => {
-    expect(publicCuratedProductName("   ")).toBe("   ");
+    expect(soloPublicName("   ")).toBe("   ");
   });
 
   // Round-2 review: these three led the first home screen.
@@ -242,11 +257,11 @@ describe("publicCuratedProductName", () => {
     ["冰淇淋球布偶 HFMIC26-0722", "冰淇淋球布偶"],
     ["精品無框磁吸廣告架 OKEMARU_31", "精品無框磁吸廣告架"],
   ])("hides the trailing model code in %s", (name, expected) => {
-    expect(publicCuratedProductName(name)).toBe(expected);
+    expect(soloPublicName(name)).toBe(expected);
   });
 
   it("hides a model code left once a shop token is stripped", () => {
-    expect(publicCuratedProductName("日檜布墊餐椅 MO-JC20-1 aBcDeF12")).toBe(
+    expect(soloPublicName("日檜布墊餐椅 MO-JC20-1 aBcDeF12")).toBe(
       "日檜布墊餐椅",
     );
   });
@@ -255,6 +270,171 @@ describe("publicCuratedProductName", () => {
     expect(
       normalizeCuratedProductName("6cm超穩跟繫帶高跟鞋 LA034-000-OBK"),
     ).toBe("6cm超穩跟繫帶高跟鞋 LA034-000-OBK");
+  });
+});
+
+const ZOODI_KIT =
+  "https://zoodi.com.tw/shop/products/item/3040094558316/zoodi%20%E8%82%8C%E8%86%9A%E6%80%A5%E6%95%91%E7%AE%B1";
+
+function sibling(
+  id: string,
+  nameZh: string,
+  overrides: Partial<PublicNameSibling> = {},
+): PublicNameSibling {
+  return {
+    id,
+    brandId: "brand-a",
+    nameZh,
+    nameEn: null,
+    officialUrl: null,
+    ...overrides,
+  };
+}
+
+/** Resolves `siblings[index]`'s Chinese name against the whole set. */
+function resolveAt(siblings: PublicNameSibling[], index: number): string {
+  const row = siblings[index]!;
+  return createPublicNameResolver(siblings)(
+    { id: row.id, brandId: row.brandId, officialUrl: row.officialUrl },
+    "name_zh",
+    row.nameZh!,
+  );
+}
+
+/**
+ * DEV-2046: a display-only token is hidden only when no other row of the same
+ * brand would then read the same. Names from the 2026-10-18 production census.
+ */
+describe("createPublicNameResolver", () => {
+  it("keeps both boingboing codes when hiding them would merge the pair", () => {
+    const siblings = [
+      sibling("b", "小紅帽與大野狼厚底休閒鞋 BO-1907B"),
+      sibling("c", "小紅帽與大野狼厚底休閒鞋 BO-1907C"),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("小紅帽與大野狼厚底休閒鞋 BO-1907B");
+    expect(resolveAt(siblings, 1)).toBe("小紅帽與大野狼厚底休閒鞋 BO-1907C");
+  });
+
+  it("keeps umu's code when a sibling's bare name equals the hidden one", () => {
+    // The sibling's code has no separator, so it renders — a display-equality
+    // check would miss this; the bare-name comparison catches it.
+    const siblings = [
+      sibling("t", "非洲柚木一枚板 T0417505A14VB-1"),
+      sibling("p", "非洲柚木一枚板 P0208302A18VB"),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("非洲柚木一枚板 T0417505A14VB-1");
+    expect(resolveAt(siblings, 1)).toBe("非洲柚木一枚板 P0208302A18VB");
+  });
+
+  it("still hides a code alone in its brand (DEV-1989)", () => {
+    const siblings = [
+      sibling("b", "小紅帽與大野狼厚底休閒鞋 BO-1907B"),
+      sibling("x", "雨天帆布托特包"),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("小紅帽與大野狼厚底休閒鞋");
+  });
+
+  it("hides a Zoodi listing number its official URL repeats", () => {
+    const siblings = [
+      sibling("k", "肌膚急救箱 3040094558316", { officialUrl: ZOODI_KIT }),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("肌膚急救箱");
+  });
+
+  it("keeps the listing number when a sibling already has the bare name", () => {
+    const siblings = [
+      sibling("k", "肌膚急救箱 3040094558316", { officialUrl: ZOODI_KIT }),
+      sibling("plain", "肌膚急救箱"),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("肌膚急救箱 3040094558316");
+  });
+
+  it("never treats the same name in another brand as a collision", () => {
+    const siblings = [
+      sibling("b", "小紅帽與大野狼厚底休閒鞋 BO-1907B"),
+      sibling("c", "小紅帽與大野狼厚底休閒鞋 BO-1907C", {
+        brandId: "brand-b",
+      }),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("小紅帽與大野狼厚底休閒鞋");
+    expect(resolveAt(siblings, 1)).toBe("小紅帽與大野狼厚底休閒鞋");
+  });
+
+  it("fails safe on a failed sibling read: normalised names, nothing hidden", () => {
+    const resolve = createPublicNameResolver(null);
+    const row = { id: "k", brandId: "brand-a", officialUrl: ZOODI_KIT };
+    expect(resolve(row, "name_zh", "肌膚急救箱 3040094558316")).toBe(
+      "肌膚急救箱 3040094558316",
+    );
+    expect(resolve(row, "name_zh", "6cm超穩跟繫帶高跟鞋 LA034-000-OBK")).toBe(
+      "6cm超穩跟繫帶高跟鞋 LA034-000-OBK",
+    );
+    expect(resolve(row, "name_zh", "米拉諾蕾絲緞帶德訓鞋 khNTqkeV")).toBe(
+      "米拉諾蕾絲緞帶德訓鞋",
+    );
+  });
+
+  it("falls back to the normalised name, not the raw one, on a guard hit", () => {
+    const siblings = [
+      sibling("a", "日檜布墊餐椅 MO-JC20-1 aBcDeF12"),
+      sibling("b", "日檜布墊餐椅"),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("日檜布墊餐椅 MO-JC20-1");
+    // A shop token is never a display-only token: it strips regardless.
+    const tokens = [
+      sibling("m", "米拉諾蕾絲緞帶德訓鞋 khNTqkeV"),
+      sibling("n", "米拉諾蕾絲緞帶德訓鞋"),
+    ];
+    expect(resolveAt(tokens, 0)).toBe("米拉諾蕾絲緞帶德訓鞋");
+  });
+
+  it("guards each column separately", () => {
+    // `c`'s English column holds the text `b`'s Chinese name would hide to.
+    const siblings = [
+      sibling("b", "厚底休閒鞋 BO-1907B"),
+      sibling("c", "帆布鞋", { nameEn: "厚底休閒鞋" }),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("厚底休閒鞋");
+  });
+});
+
+describe("stripUrlListingId", () => {
+  it("strips the listing number the official URL carries", () => {
+    expect(stripUrlListingId("肌膚急救箱 3040094558316", ZOODI_KIT)).toBe(
+      "肌膚急救箱",
+    );
+  });
+
+  it.each([
+    // A GTIN, even when the URL repeats it.
+    [
+      "tobe-craft",
+      "繪本 9784529072915",
+      "https://tobecraft.com/products/9784529072915",
+    ],
+    // `bgm72015` is one segment, not `72015`.
+    ["2bm", "黑膠唱盤 BGM 72015", "https://2bm.example/products/bgm72015"],
+    // Not in the URL at all.
+    ["sobdeall", "棉麻上衣 20101000102", "https://sobdeall.example/item/77"],
+    // Four digits: a short number, never a listing id.
+    ["four digits", "陶杯 2024", "https://shop.example/item/2024"],
+    // A quantity.
+    ["quantity", "頭皮淨化液 260mL", "https://shop.example/item/260ml"],
+    // Six digits inside a longer segment.
+    ["substring", "餐盤 123456", "https://shop.example/p123456789"],
+    // A valid ISBN-10 in the URL.
+    ["ISBN-10", "圖鑑 4834000826", "https://shop.example/book/4834000826"],
+  ])("keeps the %s suffix", (_label, name, url) => {
+    expect(stripUrlListingId(name, url)).toBe(name);
+    expect(soloPublicName(name, url)).toBe(name);
+  });
+});
+
+describe("hasIsbn10CheckDigit", () => {
+  it("accepts a valid ISBN-10 and rejects a near miss", () => {
+    expect(hasIsbn10CheckDigit("4834000826")).toBe(true);
+    expect(hasIsbn10CheckDigit("4834000827")).toBe(false);
+    expect(hasIsbn10CheckDigit("483400082")).toBe(false);
   });
 });
 
@@ -336,7 +516,7 @@ describe("staging catalog fixture (2026-10-08 review)", () => {
   it.each(stagingCatalog.cases)(
     "renders $name as $expected",
     ({ name, expected }) => {
-      expect(publicCuratedProductName(name)).toBe(expected);
+      expect(soloPublicName(name)).toBe(expected);
     },
   );
 

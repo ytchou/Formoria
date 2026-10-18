@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  censusNameSuffixes,
   classifyNameSuffix,
   hasGs1CheckDigit,
+} from "@/lib/curated-products/product-name";
+
+import {
+  censusNameSuffixes,
   summarizeCensus,
   type CensusRow,
 } from "../census-name-suffixes";
@@ -149,16 +152,31 @@ describe("censusNameSuffixes", () => {
   });
 
   it("reports whether the public read already hides the suffix", () => {
-    const [hidden, shown] = censusNameSuffixes([
+    const [hidden, listing, shown] = censusNameSuffixes([
       row({ id: "a", name_zh: "6cm超穩跟繫帶高跟鞋 LA034-000-OBK" }),
       row({
         id: "b",
         name_zh: "肌膚急救箱 3040094558316",
         official_url: ZOODI_KIT,
       }),
+      row({ id: "c", name_zh: "防水機能薄襪 DKGP730" }),
     ]);
     expect(hidden?.hiddenToday).toBe(true);
+    // DEV-2046: the listing number the official URL carries is hidden too.
+    expect(listing?.hiddenToday).toBe(true);
     expect(shown?.hiddenToday).toBe(false);
+  });
+
+  it("never reports a colliding suffix as hidden (DEV-2046)", () => {
+    const classified = censusNameSuffixes([
+      row({ id: "b", name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B" }),
+      row({ id: "c", name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C" }),
+      row({ id: "t", name_zh: "非洲柚木一枚板 T0417505A14VB-1" }),
+      row({ id: "p", name_zh: "非洲柚木一枚板 P0208302A18VB" }),
+    ]);
+    expect(
+      classified.filter((item) => item.hiddenToday && item.collides),
+    ).toEqual([]);
   });
 
   it("classifies the English column separately", () => {
@@ -192,7 +210,7 @@ describe("summarizeCensus", () => {
     expect(summary.byKind.url_listing_id).toEqual({
       total: 1,
       visible: 1,
-      hiddenToday: 0,
+      hiddenToday: 1,
       collides: 0,
     });
     expect(summary.byKind.short_number.visible).toBe(0);

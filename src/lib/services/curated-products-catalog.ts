@@ -5,7 +5,11 @@ import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import { L2_SUBCATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 import { hasRenderableCuratedImage } from "@/lib/curated-products/image-eligibility";
-import { publicCuratedProductName } from "@/lib/curated-products/product-name";
+import {
+  createPublicNameResolver,
+  type PublicNameResolver,
+} from "@/lib/curated-products/product-name";
+import { readCuratedProductSiblingNames } from "@/lib/services/curated-products";
 import { phraseBreakOffsets } from "@/lib/text/phrase-break-offsets";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +52,8 @@ type CatalogBrandRow = {
 
 export type CatalogProductRow = {
   id: string;
+  /** Read for the public name guard's sibling lookup (DEV-2046). */
+  brand_id: string;
   key: string;
   name_zh: string;
   name_en: string | null;
@@ -86,7 +92,14 @@ function isCatalogEligible(row: CatalogProductRow): boolean {
   );
 }
 
-export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
+/**
+ * `resolveName` is required, never defaulted: a transformer that could run
+ * without it would hide model codes with no sibling guard (DEV-2046).
+ */
+export function transformCatalogRow(
+  row: CatalogProductRow,
+  resolveName: PublicNameResolver,
+): CatalogProduct {
   const brand = row.brands;
   if (!brand) {
     throw new Error(`Catalog product ${row.id} is missing its brand`);
@@ -97,14 +110,20 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
       `Catalog product ${row.id} is missing a canonical subcategory`,
     );
   }
-  // Read-side name guard (DEV-1989): see `publicCuratedProductName`.
-  const nameZh = publicCuratedProductName(row.name_zh);
+  // Read-side name guard (DEV-1989, DEV-2046): see `createPublicNameResolver`.
+  const guardRow = {
+    id: row.id,
+    brandId: row.brand_id,
+    officialUrl: row.official_url ?? null,
+  };
+  const nameZh = resolveName(guardRow, "name_zh", row.name_zh);
   return {
     id: row.id,
     key: row.key,
     nameZh,
     nameZhBreaks: phraseBreakOffsets(nameZh),
-    nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
+    nameEn:
+      row.name_en == null ? null : resolveName(guardRow, "name_en", row.name_en),
     category: row.category,
     subcategory,
     material: row.material ?? [],
@@ -132,8 +151,25 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
 // Query
 // ---------------------------------------------------------------------------
 
+/**
+ * The name guard for a catalog read: one sibling read over the brands of the
+ * rows it returned. A filtered read is a subset of each brand, which is why
+ * the guard reads every row of the brand rather than the result itself.
+ */
+async function catalogNameResolver(
+  rows: readonly CatalogProductRow[],
+  supabase: Pick<SupabaseClient, "from">,
+): Promise<PublicNameResolver> {
+  return createPublicNameResolver(
+    await readCuratedProductSiblingNames(
+      rows.map((row) => row.brand_id),
+      supabase,
+    ),
+  );
+}
+
 const catalogSelect = (legacy: boolean) => `
-  id, key, name_zh, name_en, category, ${legacy ? "subcategories" : "subcategory"}, created_at,
+  id, brand_id, key, name_zh, name_en, category, ${legacy ? "subcategories" : "subcategory"}, created_at,
   image_url, official_url, material, product_description_zh, product_description_en,
   curated_product_sources!inner(id),
   brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
@@ -233,9 +269,9 @@ export async function getPublishedCuratedProducts(
       rawRows = await readByIds(true);
     }
 
-    const products = rawRows
-      .filter(isCatalogEligible)
-      .map(transformCatalogRow);
+    const eligible = rawRows.filter(isCatalogEligible);
+    const resolveName = await catalogNameResolver(eligible, supabase);
+    const products = eligible.map((row) => transformCatalogRow(row, resolveName));
 
     // Reorder to match the caller's ids order
     const orderMap = new Map(ids.map((id, i) => [id, i]));
@@ -340,9 +376,9 @@ async function readOrderedCatalog(
     rawRows = await readAll(true);
   }
 
-  const allProducts = rawRows
-    .filter(isCatalogEligible)
-    .map(transformCatalogRow);
+  const eligible = rawRows.filter(isCatalogEligible);
+  const resolveName = await catalogNameResolver(eligible, supabase);
+  const allProducts = eligible.map((row) => transformCatalogRow(row, resolveName));
   return sort === "alphabetical"
     ? allProducts
     : interleaveCatalogProducts(allProducts);

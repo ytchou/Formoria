@@ -102,8 +102,8 @@ function brandSlugOf(row: NameRow): string | null {
 
 /**
  * A normalised name, or the stored one when normalising would empty it. NOT
- * `publicCuratedProductName`: that one also hides trailing model codes, which
- * stay in the stored name as product facts.
+ * the public name resolver (`createPublicNameResolver`): that one also hides
+ * model codes and listing numbers, which stay in the stored name as facts.
  */
 function normalized(name: string): string {
   return normalizeCuratedProductName(name) || name;

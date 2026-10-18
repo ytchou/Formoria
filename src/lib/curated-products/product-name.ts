@@ -165,6 +165,8 @@ const CJK_CHAR =
  * `normalizeCuratedProductName` and the backfill never writes it. Latin-only
  * names (the EN column) are left alone: there the code is often the name.
  * Ceiling: codes without a separator (`DKGP730`, `BAL 5642`) still render.
+ * Public reads reach it only through `createPublicNameResolver` (DEV-2046),
+ * which keeps the code when it is all that tells two products apart.
  */
 export function stripTrailingModelCode(name: string): string {
   const match = TRAILING_MODEL_CODE.exec(name);
@@ -173,14 +175,266 @@ export function stripTrailingModelCode(name: string): string {
   return head && CJK_CHAR.test(head) ? head : name;
 }
 
+// ---------------------------------------------------------------------------
+// Suffix classification (DEV-2017), moved from the census script
+// ---------------------------------------------------------------------------
+
+export type SuffixKind =
+  | "url_listing_id"
+  | "gtin"
+  | "long_number"
+  | "model_code"
+  | "quantity"
+  | "short_number";
+
+export type SuffixClass = {
+  kind: SuffixKind;
+  token: string;
+  /** The name with the token (and the space before it) removed. */
+  head: string;
+  /** The token is a whole segment of the row's `official_url`. */
+  inUrl: boolean;
+};
+
+/** A Han, kana, or CJK/fullwidth punctuation character class body. */
+const CJK_CLASS =
+  "\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\u3000-\\u303f\\uff00-\\uffef";
+
+/** A whitespace-separated last token. */
+const SPACED_TAIL = /\s+(\S+)$/u;
+
+/** 5+ digits glued to CJK text with no space: 「肌膚急救箱3040094558316」. */
+const GLUED_DIGITS = new RegExp(`(?<=[${CJK_CLASS}])(\\d{5,})$`, "u");
+
+/** Only identifier-shaped tokens are suffixes; a trailing word is name. */
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+
 /**
- * The name a public read renders (DEV-1989, DS2-01): the normalised name, or
- * the stored one when normalising would empty it, with a trailing model code
- * hidden. Read projections apply it at their transformer boundary so a stored
- * token name never renders, even on rows the backfill has not reached. Admin
+ * A count or measure. Units seen in shop names; deliberately short so a model
+ * code such as `A5210009` never reads as a quantity.
+ */
+const QUANTITY =
+  /^\d+(?:\.\d+)?(?:ml|mL|ML|l|L|g|kg|mg|cm|mm|m|oz|mAh|W|V|吋|寸|入|件|組|片|包|盒|支|瓶|罐|個|顆|枚|條|雙|號|色|款|cc|CC|-[Pp]ack)$/u;
+
+/** True when `digits` carries a valid GS1 check digit (EAN-8, UPC-A, EAN-13, GTIN-14). */
+export function hasGs1CheckDigit(digits: string): boolean {
+  if (!/^\d+$/.test(digits) || ![8, 12, 13, 14].includes(digits.length)) {
+    return false;
+  }
+  const body = digits.slice(0, -1);
+  let sum = 0;
+  // Weights run 3,1,3,… from the digit nearest the check digit.
+  for (let i = 0; i < body.length; i += 1) {
+    const digit = Number(body[body.length - 1 - i]);
+    sum += digit * (i % 2 === 0 ? 3 : 1);
+  }
+  return (10 - (sum % 10)) % 10 === Number(digits.at(-1));
+}
+
+/**
+ * True when 10 digits carry a valid ISBN-10 mod-11 check (DEV-2046). GS1
+ * covers ISBN-13 only, and the display policy never hides an ISBN. A check
+ * character of `X` is not a pure number, so it already classifies as a model
+ * code and needs no case here.
+ */
+export function hasIsbn10CheckDigit(digits: string): boolean {
+  if (!/^\d{10}$/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < 10; i += 1) sum += (10 - i) * Number(digits[i]);
+  return sum % 11 === 0;
+}
+
+/**
+ * The URL's path and query split on separators, decoded and lowercased, so a
+ * listing ID is matched as a whole segment (`/item/3040094558316/…`,
+ * `?id=123456`) and never as a substring of something longer.
+ */
+function urlSegments(officialUrl: string | null): Set<string> {
+  if (!officialUrl) return new Set();
+  let url: URL;
+  try {
+    url = new URL(officialUrl);
+  } catch {
+    return new Set();
+  }
+  let text = `${url.pathname}${url.search}`;
+  try {
+    text = decodeURIComponent(text);
+  } catch {
+    // A malformed escape: match against the raw text instead.
+  }
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[\s/?&=#.,_\-+%]+/u)
+      .filter(Boolean),
+  );
+}
+
+/**
+ * Pure: the trailing identifier of a product name and what it is, or null
+ * when the name ends in a word. Never decides removal — it reports evidence.
+ *
+ *   gtin            8/12/13/14 digits with a valid GS1 check digit, or 10 with
+ *                   a valid ISBN-10 check — a barcode or ISBN, kept;
+ *   url_listing_id  5+ digits, no valid check digit, and a whole segment of
+ *                   the row's own `official_url` — the shop's listing number;
+ *   long_number     5+ digits, neither of the above — unknown, kept;
+ *   model_code      letters and digits together (`DKGP730`, `LA034-000-OBK`);
+ *   quantity        a number with a unit (`500ml`, `2入`) — the variant, kept;
+ *   short_number    1–4 digits (`2`, `2024`) — a version, size or year, kept.
+ */
+export function classifyNameSuffix(
+  name: string,
+  officialUrl: string | null,
+): SuffixClass | null {
+  const trimmed = name.trim();
+  const spaced = SPACED_TAIL.exec(trimmed);
+  const glued = spaced ? null : GLUED_DIGITS.exec(trimmed);
+  const match = spaced ?? glued;
+  if (!match) return null;
+
+  const token = match[1]!;
+  const head = trimmed.slice(0, match.index).trim();
+  if (!head) return null;
+
+  if (QUANTITY.test(token))
+    return { kind: "quantity", token, head, inUrl: false };
+  if (!IDENTIFIER.test(token)) return null;
+  // A Latin word (`Mini`, `Cream`) is name, even when the URL slug repeats it.
+  if (!/\d/.test(token)) return null;
+
+  const inUrl = urlSegments(officialUrl).has(token.toLowerCase());
+  if (!/^\d+$/.test(token)) return { kind: "model_code", token, head, inUrl };
+  // Before the URL test: a shop may use the barcode or ISBN as its handle
+  // (`tobecraft.com/products/9784529072441`), and then it is still the
+  // product's identity, not a disposable listing number.
+  if (hasGs1CheckDigit(token) || hasIsbn10CheckDigit(token)) {
+    return { kind: "gtin", token, head, inUrl };
+  }
+  if (token.length < 5) return { kind: "short_number", token, head, inUrl };
+  if (inUrl) return { kind: "url_listing_id", token, head, inUrl };
+  return { kind: "long_number", token, head, inUrl };
+}
+
+/**
+ * Display only (DEV-2046, policy checks 1–3): drops a shop listing number the
+ * product's own `official_url` already carries — 5+ digits, no GS1 or ISBN-10
+ * check digit, and a whole URL segment. 「肌膚急救箱 3040094558316」 reads
+ * 「肌膚急救箱」. Any other name is returned unchanged.
+ */
+export function stripUrlListingId(
+  name: string,
+  officialUrl: string | null,
+): string {
+  const suffix = classifyNameSuffix(name, officialUrl);
+  return suffix?.kind === "url_listing_id" ? suffix.head : name;
+}
+
+// ---------------------------------------------------------------------------
+// Public display name, with the sibling guard (DEV-2046)
+// ---------------------------------------------------------------------------
+
+/** The normalised name, or the stored one when normalising would empty it. */
+function normalizedOrStored(name: string): string {
+  return normalizeCuratedProductName(name) || name;
+}
+
+/**
+ * What a public read would render with no sibling in sight (DEV-1989,
+ * DS2-01): the normalised name with ONE display-only token hidden — a URL
+ * listing number if there is one, else a trailing model code. Private: hiding
+ * a token without the sibling guard can merge two products, so every public
+ * caller goes through `createPublicNameResolver`.
+ */
+function displayCandidate(name: string, officialUrl: string | null): string {
+  const normalized = normalizedOrStored(name);
+  const withoutListing = stripUrlListingId(normalized, officialUrl);
+  return withoutListing !== normalized
+    ? withoutListing
+    : stripTrailingModelCode(normalized);
+}
+
+/** One `curated_products` row of a brand, as the sibling guard reads it. */
+export type PublicNameSibling = {
+  id: string;
+  brandId: string;
+  nameZh: string | null;
+  nameEn: string | null;
+  officialUrl: string | null;
+};
+
+export type PublicNameColumn = "name_zh" | "name_en";
+
+/**
+ * Resolves the name a public read renders for one column of one row. Admin
  * edit reads must NOT use it — an editor has to see, and can fix, the value
  * that is actually stored.
  */
-export function publicCuratedProductName(name: string): string {
-  return stripTrailingModelCode(normalizeCuratedProductName(name) || name);
+export type PublicNameResolver = (
+  row: { id: string; brandId: string; officialUrl: string | null },
+  column: PublicNameColumn,
+  stored: string,
+) => string;
+
+/**
+ * The read-side name guard (DEV-1989, DEV-2046). Display only: stored names
+ * never change.
+ *
+ * A shop token is always stripped (`normalizeCuratedProductName`). A listing
+ * number or model code is hidden only when no OTHER row of the same brand, in
+ * the same column, would then read the same: neither its own display name nor
+ * its bare name (the name less its trailing identifier) may equal the hidden
+ * one. The bare comparison is what keeps umu's 「非洲柚木一枚板
+ * T0417505A14VB-1」 from collapsing onto seven slabs whose codes never hide.
+ * A guarded row renders its normalised name, which keeps its suffix, so it
+ * cannot collide with another hidden name and no cascade is needed.
+ *
+ * `siblings` should be every row of the row's brand, hidden and rejected ones
+ * included: a superset of every public gate, so no surface sees a different
+ * answer. `null` is the fail-safe for a failed sibling read — every row
+ * renders its normalised name, so a broken guard shows codes and never merges
+ * products.
+ */
+export function createPublicNameResolver(
+  siblings: readonly PublicNameSibling[] | null,
+): PublicNameResolver {
+  // NUL cannot occur in a uuid or a name column, so the key cannot collide.
+  const keyOf = (brandId: string, column: PublicNameColumn, name: string) =>
+    `${brandId}\u0000${column}\u0000${name}`;
+  const takenBy = new Map<string, Set<string>>();
+  const take = (key: string, id: string) => {
+    const ids = takenBy.get(key) ?? new Set<string>();
+    ids.add(id);
+    takenBy.set(key, ids);
+  };
+
+  for (const sibling of siblings ?? []) {
+    for (const column of ["name_zh", "name_en"] as const) {
+      const stored = column === "name_zh" ? sibling.nameZh : sibling.nameEn;
+      if (!stored) continue;
+      const normalized = normalizedOrStored(stored);
+      const bare =
+        classifyNameSuffix(normalized, sibling.officialUrl)?.head ?? normalized;
+      take(keyOf(sibling.brandId, column, bare), sibling.id);
+      take(
+        keyOf(
+          sibling.brandId,
+          column,
+          displayCandidate(stored, sibling.officialUrl),
+        ),
+        sibling.id,
+      );
+    }
+  }
+
+  return (row, column, stored) => {
+    const normalized = normalizedOrStored(stored);
+    if (siblings === null) return normalized;
+    const candidate = displayCandidate(stored, row.officialUrl);
+    if (candidate === normalized) return normalized;
+    const ids = takenBy.get(keyOf(row.brandId, column, candidate));
+    const collides = [...(ids ?? [])].some((id) => id !== row.id);
+    return collides ? normalized : candidate;
+  };
 }

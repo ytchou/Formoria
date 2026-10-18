@@ -29,6 +29,7 @@ function makeProductRow(
 ): CatalogProductRow {
   return {
     id,
+    brand_id: "brand-a",
     key: `key-${id}`,
     name_zh: `商品${id}`,
     name_en: `Product ${id}`,

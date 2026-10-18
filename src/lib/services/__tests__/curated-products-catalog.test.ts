@@ -7,6 +7,10 @@ import {
   type CatalogProduct,
 } from "../curated-products-catalog";
 import { phraseBreakOffsets } from "@/lib/text/phrase-break-offsets";
+import { createPublicNameResolver } from "@/lib/curated-products/product-name";
+
+/** The name guard with no sibling rows: names resolve as they always did. */
+const NO_SIBLINGS = createPublicNameResolver([]);
 
 /** A mirrored, same-origin image: renderable whatever the env. */
 const IMAGE = "/i/curated-products/test.webp";
@@ -71,6 +75,7 @@ describe("aggregateProductFacetRows", () => {
 
 const baseRow = {
   id: "prod-1",
+  brand_id: "brand-1",
   key: "test-product",
   name_zh: "測試商品",
   name_en: "Test Product",
@@ -97,7 +102,7 @@ const baseRow = {
 
 describe("transformCatalogRow", () => {
   it("maps snake_case row to camelCase CatalogProduct", () => {
-    const result = transformCatalogRow(baseRow);
+    const result = transformCatalogRow(baseRow, NO_SIBLINGS);
     expect(result).toEqual({
       id: "prod-1",
       key: "test-product",
@@ -137,7 +142,7 @@ describe("transformCatalogRow", () => {
         purchase_website: null,
       },
     };
-    const result = transformCatalogRow(row);
+    const result = transformCatalogRow(row, NO_SIBLINGS);
     expect(result.nameEn).toBeNull();
     expect(result.brand.purchaseWebsite).toBeNull();
   });
@@ -147,7 +152,7 @@ describe("transformCatalogRow", () => {
     const result = transformCatalogRow({
       ...legacyRow,
       subcategories: ["candles"],
-    });
+    }, NO_SIBLINGS);
     expect(result.subcategory).toBe("candles");
   });
 
@@ -157,13 +162,13 @@ describe("transformCatalogRow", () => {
       transformCatalogRow({
         ...legacyRow,
         subcategories: ["candles", "home-fragrance"],
-      }),
+      }, NO_SIBLINGS),
     ).toThrow("missing a canonical subcategory");
   });
 
   it("throws when brand join is missing", () => {
     const row = { ...baseRow, brands: null };
-    expect(() => transformCatalogRow(row as never)).toThrow(
+    expect(() => transformCatalogRow(row as never, NO_SIBLINGS)).toThrow(
       "Catalog product prod-1 is missing its brand",
     );
   });
@@ -173,7 +178,7 @@ describe("transformCatalogRow", () => {
       ...baseRow,
       product_description_en: "Hand-blown borosilicate glass with silicone ring",
     };
-    const result = transformCatalogRow(row);
+    const result = transformCatalogRow(row, NO_SIBLINGS);
     expect(result.productDescriptionZh).toBe("手工硼玻璃杯身搭配可拆矽膠圈");
     expect(result.productDescriptionEn).toBe(
       "Hand-blown borosilicate glass with silicone ring",
@@ -181,7 +186,7 @@ describe("transformCatalogRow", () => {
   });
 
   it("maps product_description_en as null when absent", () => {
-    const result = transformCatalogRow(baseRow);
+    const result = transformCatalogRow(baseRow, NO_SIBLINGS);
     expect(result.productDescriptionEn).toBeNull();
   });
 
@@ -192,13 +197,13 @@ describe("transformCatalogRow", () => {
       ...baseRow,
       name_zh: "米拉諾蕾絲緞帶德訓鞋 khNTqkeV",
       name_en: "T Torch T Torch",
-    });
+    }, NO_SIBLINGS);
     expect(result.nameZh).toBe("米拉諾蕾絲緞帶德訓鞋");
     expect(result.nameEn).toBe("T Torch");
   });
 
   it("keeps the stored name when normalising would empty it", () => {
-    const result = transformCatalogRow({ ...baseRow, name_zh: "  ", name_en: null });
+    const result = transformCatalogRow({ ...baseRow, name_zh: "  ", name_en: null }, NO_SIBLINGS);
     expect(result.nameZh).toBe("  ");
     expect(result.nameEn).toBeNull();
   });
@@ -363,7 +368,10 @@ describe("getPublishedCuratedProducts", () => {
     expect(ranges).toEqual([
       [0, 499],
       [500, 999],
+      // The name guard's sibling read over the rows' brands (DEV-2046).
+      [0, 499],
     ]);
+    expect(ins).toContainEqual(["brand_id", ["brand-1"]]);
     expect(ins).toContainEqual(["subcategory", ["candles"]]);
     expect(nots).toContainEqual(["image_url", "is", null]);
     // 504 rows read, the two photo-less ones dropped (DEV-1962).
@@ -480,6 +488,62 @@ describe("getPublishedCuratedProducts", () => {
     ]);
   });
 
+  it("keeps model codes that are all that tells a brand's products apart (DEV-2046)", async () => {
+    const rows = [
+      {
+        ...baseRow,
+        id: "red-hood-b",
+        key: "red-hood-b",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      },
+      {
+        ...baseRow,
+        id: "red-hood-c",
+        key: "red-hood-c",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      },
+      {
+        ...baseRow,
+        id: "heel",
+        key: "heel",
+        name_zh: "6cm超穩跟繫帶高跟鞋 LA034-000-OBK",
+      },
+    ];
+    const selects: string[] = [];
+    const chain = {
+      select(selected: string) {
+        selects.push(selected);
+        return chain;
+      },
+      eq: () => chain,
+      not: () => chain,
+      contains: () => chain,
+      overlaps: () => chain,
+      in: () => chain,
+      order: () => chain,
+      range: () => chain,
+      then<T>(resolve: (v: { data: unknown[]; error: null }) => T, reject?: (r: unknown) => T) {
+        // One short page answers both the catalog read and the sibling read:
+        // every row of the brand is a sibling.
+        return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
+      },
+    };
+    const client = { from: () => chain } as never;
+
+    const result = await getPublishedCuratedProducts(
+      { sort: "alphabetical" },
+      client,
+    );
+
+    expect(selects).toContain("id, brand_id, name_zh, name_en, official_url");
+    expect(result.products.map((p) => p.nameZh)).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      // Alone in its brand: still hidden (DEV-1989).
+      "6cm超穩跟繫帶高跟鞋",
+    ]);
+  });
+
   it("sorts by created_at desc by default (newest)", async () => {
     const { client, orders } = createMockClient();
 
@@ -492,18 +556,18 @@ describe("getPublishedCuratedProducts", () => {
 describe("transformCatalogRow — material field", () => {
   it("includes material as string array", () => {
     const row = { ...baseRow, material: ["ceramic", "wood"] };
-    const result = transformCatalogRow(row);
+    const result = transformCatalogRow(row, NO_SIBLINGS);
     expect(result.material).toEqual(["ceramic", "wood"]);
   });
 
   it("defaults material to empty array when null", () => {
     const row = { ...baseRow, material: null };
-    const result = transformCatalogRow(row);
+    const result = transformCatalogRow(row, NO_SIBLINGS);
     expect(result.material).toEqual([]);
   });
 
   it("defaults material to empty array when absent", () => {
-    const result = transformCatalogRow(baseRow);
+    const result = transformCatalogRow(baseRow, NO_SIBLINGS);
     expect(result.material).toEqual([]);
   });
 });
