@@ -124,6 +124,46 @@ describe('external-calls detector', () => {
     expect(finding!.evidence).toHaveProperty('provider', 'openai')
   })
 
+  it('ignores a lone failure among successes', async () => {
+    const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    // Mirrors the 2026-10-15 production window behind DEV-2041: one transient
+    // HTTP 500 on the daily organization_costs call beside one success.
+    const rows: SpanRow[] = ['failed', 'succeeded'].map((terminal_status, i) => ({
+      span_id: `costs-${i}`,
+      provider: 'openai',
+      operation: 'organization_costs',
+      terminal_status,
+      started_at: recent,
+      finished_at: recent,
+    }))
+
+    const findings = await externalCallsDetector.run(
+      ctx({ deps: { supabase: fakeSupabase(rows) } }),
+    )
+    expect(findings).toEqual([])
+  })
+
+  it('reports a low-volume provider whose every call failed', async () => {
+    const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const rows: SpanRow[] = [
+      {
+        span_id: 'costs-0',
+        provider: 'openai',
+        operation: 'organization_costs',
+        terminal_status: 'failed',
+        started_at: recent,
+        finished_at: recent,
+      },
+    ]
+
+    const findings = await externalCallsDetector.run(
+      ctx({ deps: { supabase: fakeSupabase(rows) } }),
+    )
+    expect(findings.map((f) => f.evidence)).toEqual([
+      { provider: 'openai', totalSpans: 1, failedSpans: 1, failureRate: 1 },
+    ])
+  })
+
   it('does not count empty spans as failures', async () => {
     const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     // Mirrors the 2026-10-04 production window behind DEV-1932/DEV-1933:
