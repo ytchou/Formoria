@@ -138,17 +138,50 @@ function row(overrides: Partial<CensusRow>): CensusRow {
 }
 
 describe("censusNameSuffixes", () => {
-  it("flags a suffix that is the only thing telling two products apart", () => {
+  it("reports no merge when the guard keeps the suffix that tells twins apart", () => {
     const classified = censusNameSuffixes([
-      row({ id: "a", name_zh: "非洲柚木一枚板 T0814601A24VB" }),
-      row({ id: "b", name_zh: "非洲柚木一枚板 T0814602A24VB" }),
-      row({ id: "c", brand_id: "brand-b", name_zh: "非洲柚木一枚板 T1" }),
+      row({ id: "a", name_zh: "厚底休閒鞋 BO-1907B" }),
+      row({ id: "b", name_zh: "厚底休閒鞋 BO-1907C" }),
+      row({ id: "c", brand_id: "brand-b", name_zh: "厚底休閒鞋 BO-1907B" }),
     ]);
-    expect(classified.map((item) => [item.id, item.collides])).toEqual([
-      ["a", true],
-      ["b", true],
-      ["c", false],
+    expect(
+      classified.map((item) => [item.id, item.hiddenToday, item.merged]),
+    ).toEqual([
+      ["a", false, false],
+      ["b", false, false],
+      // Alone in its brand: hidden, and nothing to merge with.
+      ["c", true, false],
     ]);
+  });
+
+  it("reads hiddenToday from the rendered name, not a token substring (C5)", () => {
+    // The listing number also appears mid-name, so a substring test on the
+    // rendered name would call it shown.
+    const [item] = censusNameSuffixes([
+      row({
+        name_zh: "肌膚急救箱 12345 組 12345",
+        official_url: "https://shop.example/item/12345",
+      }),
+    ]);
+    expect(item?.hiddenToday).toBe(true);
+  });
+
+  it("reports no merge for twins the guard told apart by their kept tokens (C5)", () => {
+    const rows = [
+      row({ id: "a", name_zh: "杯 LA034-000-OBK" }),
+      row({ id: "b", name_zh: "杯 7cFSL8yz" }),
+    ];
+    const classified = censusNameSuffixes(rows);
+    expect(classified.map((item) => item.merged)).toEqual([false, false]);
+    expect(summarizeCensus(rows, classified).merged).toBe(0);
+  });
+
+  it("counts two rows with the same stored name as no merge", () => {
+    const rows = [
+      row({ id: "a", name_zh: "杯 LA034-000-OBK" }),
+      row({ id: "b", name_zh: "杯 LA034-000-OBK" }),
+    ];
+    expect(summarizeCensus(rows, censusNameSuffixes(rows)).merged).toBe(0);
   });
 
   it("reports whether the public read already hides the suffix", () => {
@@ -167,16 +200,18 @@ describe("censusNameSuffixes", () => {
     expect(shown?.hiddenToday).toBe(false);
   });
 
-  it("never reports a colliding suffix as hidden (DEV-2046)", () => {
-    const classified = censusNameSuffixes([
+  it("never reports a merge on the census shapes (DEV-2046)", () => {
+    const rows = [
       row({ id: "b", name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B" }),
       row({ id: "c", name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C" }),
       row({ id: "t", name_zh: "非洲柚木一枚板 T0417505A14VB-1" }),
       row({ id: "p", name_zh: "非洲柚木一枚板 P0208302A18VB" }),
-    ]);
-    expect(
-      classified.filter((item) => item.hiddenToday && item.collides),
-    ).toEqual([]);
+      row({ id: "w1", name_zh: "多WAY皺皺掛繩 41020001" }),
+      row({ id: "w2", name_zh: "多WAY皺皺掛繩 41020002" }),
+    ];
+    const classified = censusNameSuffixes(rows);
+    expect(classified.filter((item) => item.merged)).toEqual([]);
+    expect(summarizeCensus(rows, classified).merged).toBe(0);
   });
 
   it("classifies the English column separately", () => {
@@ -211,7 +246,7 @@ describe("summarizeCensus", () => {
       total: 1,
       visible: 1,
       hiddenToday: 1,
-      collides: 0,
+      merged: 0,
     });
     expect(summary.byKind.short_number.visible).toBe(0);
   });

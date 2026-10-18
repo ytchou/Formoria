@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 
-import { normalizeCuratedProductName } from "@/lib/curated-products/product-name";
+import { normalizedOrStoredName } from "@/lib/curated-products/product-name";
 import { requestPublicBrandRevalidation } from "@/lib/cache/revalidate-client";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -101,15 +101,6 @@ function brandSlugOf(row: NameRow): string | null {
 }
 
 /**
- * A normalised name, or the stored one when normalising would empty it. NOT
- * the public name resolver (`createPublicNameResolver`): that one also hides
- * model codes and listing numbers, which stay in the stored name as facts.
- */
-function normalized(name: string): string {
-  return normalizeCuratedProductName(name) || name;
-}
-
-/**
  * Pure: which rows change under `normalizeCuratedProductName`, and which rows
  * of one brand collide once they do. Input order is kept, so a stable read
  * order gives a stable plan.
@@ -121,8 +112,12 @@ export function planNameFixes(rows: readonly NameRow[]): NamePlan {
   for (const row of rows) {
     const before: Names = { nameZh: row.name_zh, nameEn: row.name_en };
     const after: Names = {
-      nameZh: normalized(row.name_zh),
-      nameEn: row.name_en === null ? null : normalized(row.name_en),
+      // `normalizedOrStoredName`, NOT the public name resolver
+      // (`createPublicNameResolver`): that one also hides model codes and
+      // listing numbers, which stay in the stored name as facts.
+      nameZh: normalizedOrStoredName(row.name_zh),
+      nameEn:
+        row.name_en === null ? null : normalizedOrStoredName(row.name_en),
     };
     const brandSlug = brandSlugOf(row);
 

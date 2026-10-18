@@ -9,12 +9,14 @@ import {
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   getPublishedCuratedProductsForTrail,
+  getTrailPeekProducts,
   groupTrailPeek,
   retireCuratedProductSelection,
   retireCuratedProduct,
   retireCuratedProductSource,
   updateCuratedProduct,
   upsertCuratedProductSelection,
+  CURATED_PRODUCT_SIBLING_NAME_SELECT,
   type CuratedProductSupabase,
 } from "../curated-products";
 import { createPublicNameResolver } from "@/lib/curated-products/product-name";
@@ -46,9 +48,9 @@ type RecordedCalls = {
  * The public name guard's sibling read (DEV-2046) is answered from `siblings`
  * (default: none) and never consumes a canned result, so a test's result
  * order does not depend on when that read runs. Its filters are still
- * recorded.
+ * recorded, bar its page `limit`, so `calls.limit` stays the main read's.
  */
-const SIBLING_NAME_SELECT = "id, brand_id, name_zh, name_en, official_url";
+const SIBLING_NAME_SELECT = CURATED_PRODUCT_SIBLING_NAME_SELECT;
 
 function stubClient(
   result: QueryResult | QueryResult[],
@@ -87,7 +89,10 @@ function stubClient(
         return chain;
       },
       limit(value: number) {
-        calls.limit.push(value);
+        if (columns !== SIBLING_NAME_SELECT) calls.limit.push(value);
+        return chain;
+      },
+      gt() {
         return chain;
       },
       order() {
@@ -198,6 +203,32 @@ describe("getPublishedCuratedProductsForTrail", () => {
     expect(calls.eq).toContainEqual([
       "curated_product_selections.trail_slug",
       "small-space-reading-corner",
+    ]);
+  });
+
+  it("keeps model codes that are all that tells two products apart (DEV-2046)", async () => {
+    const rows = [
+      trailProductRow({
+        id: "33333333-3333-3333-3333-333333333331",
+        key: "red-hood-b",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      }),
+      trailProductRow({
+        id: "33333333-3333-3333-3333-333333333332",
+        key: "red-hood-c",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      }),
+    ];
+    const { client } = stubClient({ data: rows }, { siblings: { data: rows } });
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      client,
+    );
+
+    expect(products.map((product) => product.nameZh).sort()).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
     ]);
   });
 
@@ -691,6 +722,29 @@ function homepageRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("getPublishedCuratedProductsForHomepage", () => {
+  it("keeps model codes that are all that tells two products apart (DEV-2046)", async () => {
+    const rows = [
+      homepageRow({
+        id: "33333333-3333-3333-3333-333333333331",
+        key: "red-hood-b",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      }),
+      homepageRow({
+        id: "33333333-3333-3333-3333-333333333332",
+        key: "red-hood-c",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      }),
+    ];
+    const { client } = stubClient({ data: rows }, { siblings: { data: rows } });
+
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.nameZh)).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+    ]);
+  });
+
   it("homepage eligibility filters on visible", async () => {
     const { client } = stubClient({
       data: [
@@ -2015,6 +2069,39 @@ describe("getBrandTrailSlugs", () => {
     await expect(getBrandTrailSlugs(BRAND_ID, client)).rejects.toMatchObject({
       code: "42703",
     });
+  });
+});
+
+describe("getTrailPeekProducts", () => {
+  it("keeps model codes that are all that tells two products apart (DEV-2046)", async () => {
+    const rows = [
+      trailProductRow({
+        id: "33333333-3333-3333-3333-333333333331",
+        key: "red-hood-b",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      }),
+      trailProductRow({
+        id: "33333333-3333-3333-3333-333333333332",
+        key: "red-hood-c",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      }),
+    ];
+    const { client } = stubClient({ data: rows }, { siblings: { data: rows } });
+
+    const peek = await getTrailPeekProducts(
+      [{ slug: "small-space-reading-corner", sectionKeys: ["first"] }],
+      4,
+      client,
+    );
+
+    expect(
+      peek["small-space-reading-corner"]
+        ?.map((product) => product.nameZh)
+        .sort(),
+    ).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+    ]);
   });
 });
 

@@ -71,7 +71,8 @@ export function isShopSkuToken(token: string): boolean {
  * Chinese text directly (「多WAY皺皺掛繩 41020001」) is stripped; on the
  * 2026-10-08 staging scan every such tail was a shop item number, not a name.
  * Upgrade path, if a real one appears: the same official-URL comparison as
- * above, or an allow-list per brand.
+ * above, or an allow-list per brand. A tail with a valid GS1 check digit is a
+ * real EAN-8 barcode and is never stripped (DEV-2046): 「巧克力 47112346」.
  */
 const CJK_THEN_DIGIT_SKU =
   /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303F\uFF00-\uFFEF](\s+\d{8})$/u;
@@ -91,6 +92,11 @@ const BRACKET_THEN_TOKEN = /[）」』】〕]([A-Za-z0-9]{8})$/u;
  * stripped a token, so a name that really ends in one is never touched.
  */
 const DANGLING_SEPARATOR = /(?:\s+[-–—|/]+|\s*[・｜／]+)$/u;
+
+/** `head` less a separator a removed token left dangling; never emptied. */
+function trimDanglingSeparator(head: string): string {
+  return head.replace(DANGLING_SEPARATOR, "").trim() || head;
+}
 
 /** `X X`, `X X X`, … → `X`, where `X` may itself contain spaces (`T Torch T Torch`). */
 const DOUBLED_NAME = /^(.+?)(?:\s+\1)+$/u;
@@ -114,7 +120,9 @@ function stripShopToken(name: string): string | null {
     return name.slice(0, -glued[1]!.length);
   }
   const digits = CJK_THEN_DIGIT_SKU.exec(name);
-  if (digits) return name.slice(0, -digits[1]!.length);
+  if (digits && !hasGs1CheckDigit(digits[1]!.trim())) {
+    return name.slice(0, -digits[1]!.length);
+  }
   return null;
 }
 
@@ -129,11 +137,8 @@ export function normalizeCuratedProductName(name: string): string {
   let normalized = name.trim();
 
   const head = stripShopToken(normalized);
-  if (head !== null) {
-    const trimmed = head.replace(DANGLING_SEPARATOR, "").trim();
-    // Never empty the name: a head that is only a separator stays as it is.
-    normalized = trimmed || head;
-  }
+  // Never empty the name: a head that is only a separator stays as it is.
+  if (head !== null) normalized = trimDanglingSeparator(head);
 
   const doubled = DOUBLED_NAME.exec(normalized);
   if (doubled && !SINGLE_LATIN_WORD.test(doubled[1]!.trim())) {
@@ -141,6 +146,15 @@ export function normalizeCuratedProductName(name: string): string {
   }
 
   return normalized;
+}
+
+/**
+ * `normalizeCuratedProductName`, or the stored name when normalising would
+ * empty it (a whitespace-only name). Shared by the public name resolver and
+ * the normalize-names backfill.
+ */
+export function normalizedOrStoredName(name: string): string {
+  return normalizeCuratedProductName(name) || name;
 }
 
 /**
@@ -165,13 +179,15 @@ const CJK_CHAR =
  * `normalizeCuratedProductName` and the backfill never writes it. Latin-only
  * names (the EN column) are left alone: there the code is often the name.
  * Ceiling: codes without a separator (`DKGP730`, `BAL 5642`) still render.
- * Public reads reach it only through `createPublicNameResolver` (DEV-2046),
- * which keeps the code when it is all that tells two products apart.
+ * Private: public reads reach it only through `createPublicNameResolver`
+ * (DEV-2046), which keeps the code when it is all that tells two products
+ * apart. A separator the code leaves dangling goes with it
+ * (「鞋 ｜ LA034-000-OBK」 → 「鞋」).
  */
-export function stripTrailingModelCode(name: string): string {
+function stripTrailingModelCode(name: string): string {
   const match = TRAILING_MODEL_CODE.exec(name);
   if (!match) return name;
-  const head = name.slice(0, match.index).trim();
+  const head = trimDanglingSeparator(name.slice(0, match.index).trim());
   return head && CJK_CHAR.test(head) ? head : name;
 }
 
@@ -320,39 +336,41 @@ export function classifyNameSuffix(
 /**
  * Display only (DEV-2046, policy checks 1–3): drops a shop listing number the
  * product's own `official_url` already carries — 5+ digits, no GS1 or ISBN-10
- * check digit, and a whole URL segment. 「肌膚急救箱 3040094558316」 reads
- * 「肌膚急救箱」. Any other name is returned unchanged.
+ * check digit, and a whole URL segment — and any separator it leaves dangling.
+ * 「肌膚急救箱 3040094558316」 reads 「肌膚急救箱」. Any other name is returned
+ * unchanged. Private, like `stripTrailingModelCode`.
  */
-export function stripUrlListingId(
-  name: string,
-  officialUrl: string | null,
-): string {
+function stripUrlListingId(name: string, officialUrl: string | null): string {
   const suffix = classifyNameSuffix(name, officialUrl);
-  return suffix?.kind === "url_listing_id" ? suffix.head : name;
+  return suffix?.kind === "url_listing_id"
+    ? trimDanglingSeparator(suffix.head)
+    : name;
 }
 
 // ---------------------------------------------------------------------------
 // Public display name, with the sibling guard (DEV-2046)
 // ---------------------------------------------------------------------------
 
-/** The normalised name, or the stored one when normalising would empty it. */
-function normalizedOrStored(name: string): string {
-  return normalizeCuratedProductName(name) || name;
-}
-
 /**
- * What a public read would render with no sibling in sight (DEV-1989,
- * DS2-01): the normalised name with ONE display-only token hidden — a URL
- * listing number if there is one, else a trailing model code. Private: hiding
- * a token without the sibling guard can merge two products, so every public
- * caller goes through `createPublicNameResolver`.
+ * The names a stored name may render as on a public read, most hidden first;
+ * each is the fallback when the one before it would collide:
+ *
+ *   1. normalised, less ONE display-only token — a URL listing number if
+ *      there is one, else a trailing model code;
+ *   2. normalised (`normalizedOrStoredName`): shop token stripped, a doubled
+ *      name collapsed, model codes and listing numbers kept;
+ *   3. the stored name, trimmed — nothing hidden.
+ *
+ * Duplicates are dropped, so a name with nothing to hide has one level.
  */
-function displayCandidate(name: string, officialUrl: string | null): string {
-  const normalized = normalizedOrStored(name);
+function displayLevels(stored: string, officialUrl: string | null): string[] {
+  const normalized = normalizedOrStoredName(stored);
   const withoutListing = stripUrlListingId(normalized, officialUrl);
-  return withoutListing !== normalized
-    ? withoutListing
-    : stripTrailingModelCode(normalized);
+  const candidate =
+    withoutListing !== normalized
+      ? withoutListing
+      : stripTrailingModelCode(normalized);
+  return [...new Set([candidate, normalized, stored.trim() || stored])];
 }
 
 /** One `curated_products` row of a brand, as the sibling guard reads it. */
@@ -364,7 +382,7 @@ export type PublicNameSibling = {
   officialUrl: string | null;
 };
 
-export type PublicNameColumn = "name_zh" | "name_en";
+type PublicNameColumn = "name_zh" | "name_en";
 
 /**
  * Resolves the name a public read renders for one column of one row. Admin
@@ -377,64 +395,140 @@ export type PublicNameResolver = (
   stored: string,
 ) => string;
 
+/** One name column of one sibling, while the guard settles its level. */
+type NameEntry = {
+  id: string;
+  brandId: string;
+  stored: string;
+  levels: string[];
+  level: number;
+};
+
+/** Ids holding each name, keyed per brand. */
+class BrandNameIndex {
+  private readonly ids = new Map<string, Set<string>>();
+
+  // NUL cannot occur in a uuid or a name column, so the key cannot collide.
+  private static key(brandId: string, name: string): string {
+    return `${brandId}\u0000${name}`;
+  }
+
+  add(brandId: string, name: string, id: string): void {
+    const key = BrandNameIndex.key(brandId, name);
+    const ids = this.ids.get(key) ?? new Set<string>();
+    ids.add(id);
+    this.ids.set(key, ids);
+  }
+
+  /** Some row other than `id` holds `name` in `brandId`. */
+  heldByOther(brandId: string, name: string, id: string): boolean {
+    const ids = this.ids.get(BrandNameIndex.key(brandId, name));
+    return ids !== undefined && (ids.size > 1 || !ids.has(id));
+  }
+}
+
 /**
  * The read-side name guard (DEV-1989, DEV-2046). Display only: stored names
  * never change.
  *
- * A shop token is always stripped (`normalizeCuratedProductName`). A listing
- * number or model code is hidden only when no OTHER row of the same brand, in
- * the same column, would then read the same: neither its own display name nor
- * its bare name (the name less its trailing identifier) may equal the hidden
- * one. The bare comparison is what keeps umu's 「非洲柚木一枚板
- * T0417505A14VB-1」 from collapsing onto seven slabs whose codes never hide.
- * A guarded row renders its normalised name, which keeps its suffix, so it
- * cannot collide with another hidden name and no cascade is needed.
+ * Every hidden token — a shop token `normalizeCuratedProductName` strips, a
+ * URL listing number, a trailing model code — is hidden only while the row's
+ * name stays its own within the brand. Each name column of each sibling
+ * starts at its most hidden level (`displayLevels`) and drops one level, back
+ * towards its stored name, while its name equals a name some OTHER row of the
+ * brand holds:
+ *
+ *   - that row's current rendered name, in EITHER column — English surfaces
+ *     fall back to `name_zh`, so the two columns share one namespace;
+ *   - that row's bare name (the normalised name less its trailing
+ *     identifier) or most hidden name, whatever it settles on. The bare
+ *     comparison is what keeps umu's 「非洲柚木一枚板 T0417505A14VB-1」 from
+ *     collapsing onto seven slabs whose codes never hide.
+ *
+ * Levels only ever move towards the stored name, so this repeats until
+ * nothing moves, and it settles: at the fixed point no two rows of a brand render the
+ * same name unless both render their stored names and those are equal. It
+ * never merges two products. The result is computed once, here.
  *
  * `siblings` should be every row of the row's brand, hidden and rejected ones
  * included: a superset of every public gate, so no surface sees a different
- * answer. `null` is the fail-safe for a failed sibling read — every row
- * renders its normalised name, so a broken guard shows codes and never merges
- * products.
+ * answer. A row the set lacks (or whose stored name differs from it) is
+ * resolved alone against the settled names. `null` is the fail-safe for a
+ * failed sibling read — every row renders its stored name, trimmed, with no
+ * token hidden, so a broken guard shows codes and never merges products.
  */
 export function createPublicNameResolver(
   siblings: readonly PublicNameSibling[] | null,
 ): PublicNameResolver {
-  // NUL cannot occur in a uuid or a name column, so the key cannot collide.
-  const keyOf = (brandId: string, column: PublicNameColumn, name: string) =>
-    `${brandId}\u0000${column}\u0000${name}`;
-  const takenBy = new Map<string, Set<string>>();
-  const take = (key: string, id: string) => {
-    const ids = takenBy.get(key) ?? new Set<string>();
-    ids.add(id);
-    takenBy.set(key, ids);
-  };
+  if (siblings === null) {
+    return (_row, _column, stored) => stored.trim() || stored;
+  }
 
-  for (const sibling of siblings ?? []) {
+  const entries = new Map<string, NameEntry>();
+  const reserved = new BrandNameIndex();
+  for (const sibling of siblings) {
     for (const column of ["name_zh", "name_en"] as const) {
       const stored = column === "name_zh" ? sibling.nameZh : sibling.nameEn;
       if (!stored) continue;
-      const normalized = normalizedOrStored(stored);
-      const bare =
-        classifyNameSuffix(normalized, sibling.officialUrl)?.head ?? normalized;
-      take(keyOf(sibling.brandId, column, bare), sibling.id);
-      take(
-        keyOf(
-          sibling.brandId,
-          column,
-          displayCandidate(stored, sibling.officialUrl),
-        ),
-        sibling.id,
+      const levels = displayLevels(stored, sibling.officialUrl);
+      const normalized = normalizedOrStoredName(stored);
+      const bare = trimDanglingSeparator(
+        classifyNameSuffix(normalized, sibling.officialUrl)?.head ?? normalized,
       );
+      reserved.add(sibling.brandId, bare, sibling.id);
+      reserved.add(sibling.brandId, levels[0]!, sibling.id);
+      entries.set(`${sibling.id}\u0000${column}`, {
+        id: sibling.id,
+        brandId: sibling.brandId,
+        stored,
+        levels,
+        level: 0,
+      });
     }
   }
 
+  const nameOf = (entry: NameEntry) => entry.levels[entry.level]!;
+  const renderedIndex = () => {
+    const index = new BrandNameIndex();
+    for (const entry of entries.values()) {
+      index.add(entry.brandId, nameOf(entry), entry.id);
+    }
+    return index;
+  };
+  /** The name at `level` is taken by another row, and a fallback remains. */
+  const mustDrop = (
+    index: BrandNameIndex,
+    brandId: string,
+    id: string,
+    levels: readonly string[],
+    level: number,
+  ) =>
+    level < levels.length - 1 &&
+    (index.heldByOther(brandId, levels[level]!, id) ||
+      reserved.heldByOther(brandId, levels[level]!, id));
+
+  // Each pass drops at least one entry one level, so it ends within
+  // (total levels) passes.
+  let rendered = renderedIndex();
+  for (;;) {
+    let moved = false;
+    for (const entry of entries.values()) {
+      const { brandId, id, levels, level } = entry;
+      if (mustDrop(rendered, brandId, id, levels, level)) {
+        entry.level += 1;
+        moved = true;
+      }
+    }
+    if (!moved) break;
+    rendered = renderedIndex();
+  }
+
   return (row, column, stored) => {
-    const normalized = normalizedOrStored(stored);
-    if (siblings === null) return normalized;
-    const candidate = displayCandidate(stored, row.officialUrl);
-    if (candidate === normalized) return normalized;
-    const ids = takenBy.get(keyOf(row.brandId, column, candidate));
-    const collides = [...(ids ?? [])].some((id) => id !== row.id);
-    return collides ? normalized : candidate;
+    const entry = entries.get(`${row.id}\u0000${column}`);
+    if (entry && entry.stored === stored) return nameOf(entry);
+    const levels = displayLevels(stored, row.officialUrl);
+    let level = 0;
+    while (mustDrop(rendered, row.brandId, row.id, levels, level)) level += 1;
+    return levels[level]!;
   };
 }

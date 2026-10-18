@@ -6,6 +6,7 @@ import {
   transformCatalogRow,
   type CatalogProduct,
 } from "../curated-products-catalog";
+import { CURATED_PRODUCT_SIBLING_NAME_SELECT } from "../curated-products";
 import { phraseBreakOffsets } from "@/lib/text/phrase-break-offsets";
 import { createPublicNameResolver } from "@/lib/curated-products/product-name";
 
@@ -295,6 +296,7 @@ describe("getPublishedCuratedProducts", () => {
     const overlaps: [string, unknown][] = [];
     const ins: [string, unknown][] = [];
     const orders: [string, { ascending: boolean }][] = [];
+    const limits: number[] = [];
     const pages = [
       Array.from({ length: 500 }, (_, index) => ({
         ...baseRow,
@@ -344,6 +346,11 @@ describe("getPublishedCuratedProducts", () => {
         ranges.push([from, to]);
         return chain;
       },
+      gt: () => chain,
+      limit(value: number) {
+        limits.push(value);
+        return chain;
+      },
       then<TResult>(
         resolve: (value: { data: unknown[]; error: null }) => TResult,
         reject?: (reason: unknown) => TResult,
@@ -354,11 +361,11 @@ describe("getPublishedCuratedProducts", () => {
       },
     };
     const client = { from: () => chain } as never;
-    return { client, ranges, equals, nots, overlaps, ins, orders };
+    return { client, ranges, equals, nots, overlaps, ins, orders, limits };
   }
 
   it("reads the full corpus in bounded ranges before slicing and uses in-filter for subcategory", async () => {
-    const { client, ranges, ins, nots } = createMockClient();
+    const { client, ranges, ins, nots, limits } = createMockClient();
 
     const result = await getPublishedCuratedProducts(
       { category: "home", subcategories: ["candles"], page: 42, pageSize: 12 },
@@ -368,9 +375,10 @@ describe("getPublishedCuratedProducts", () => {
     expect(ranges).toEqual([
       [0, 499],
       [500, 999],
-      // The name guard's sibling read over the rows' brands (DEV-2046).
-      [0, 499],
     ]);
+    // The name guard's sibling read over the rows' brands, keyset-paged
+    // (DEV-2046).
+    expect(limits).toEqual([500]);
     expect(ins).toContainEqual(["brand_id", ["brand-1"]]);
     expect(ins).toContainEqual(["subcategory", ["candles"]]);
     expect(nots).toContainEqual(["image_url", "is", null]);
@@ -466,6 +474,8 @@ describe("getPublishedCuratedProducts", () => {
       in: () => chain,
       order: () => chain,
       range: () => chain,
+      gt: () => chain,
+      limit: () => chain,
       then<T>(resolve: (v: { data: unknown[]; error: null }) => T, reject?: (r: unknown) => T) {
         const data = pageIndex === 0 ? nameOrdered : [];
         pageIndex += 1;
@@ -522,6 +532,8 @@ describe("getPublishedCuratedProducts", () => {
       in: () => chain,
       order: () => chain,
       range: () => chain,
+      gt: () => chain,
+      limit: () => chain,
       then<T>(resolve: (v: { data: unknown[]; error: null }) => T, reject?: (r: unknown) => T) {
         // One short page answers both the catalog read and the sibling read:
         // every row of the brand is a sibling.
@@ -535,7 +547,7 @@ describe("getPublishedCuratedProducts", () => {
       client,
     );
 
-    expect(selects).toContain("id, brand_id, name_zh, name_en, official_url");
+    expect(selects).toContain(CURATED_PRODUCT_SIBLING_NAME_SELECT);
     expect(result.products.map((p) => p.nameZh)).toEqual([
       "小紅帽與大野狼厚底休閒鞋 BO-1907B",
       "小紅帽與大野狼厚底休閒鞋 BO-1907C",

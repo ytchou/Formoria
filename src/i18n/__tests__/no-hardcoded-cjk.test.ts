@@ -107,6 +107,9 @@ const ALLOWLIST = [
   // Commerce-truth markers are Chinese regex patterns matched against image text
   // (data constants, not UI copy).
   "lib/curated-products/commerce-text.ts",
+  // Product-name suffix classifier matches Chinese unit words (件/組/盒…) in shop
+  // product names (data constants, not UI copy).
+  "lib/curated-products/product-name.ts",
   // Product description rewrite prompt uses Chinese field labels (LLM prompt, not UI copy).
   "lib/services/curated-products/materialize.ts",
   // FAQ phase prompt fragments and repair instructions are Chinese model

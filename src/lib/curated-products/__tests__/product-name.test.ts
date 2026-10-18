@@ -5,8 +5,6 @@ import {
   hasIsbn10CheckDigit,
   isShopSkuToken,
   normalizeCuratedProductName,
-  stripTrailingModelCode,
-  stripUrlListingId,
   type PublicNameSibling,
 } from "../product-name";
 import catalog from "./fixtures/catalog-names-2026-10-08.json";
@@ -122,6 +120,10 @@ describe("normalizeCuratedProductName", () => {
   it("keeps 8 digits after Latin text, where they read as a model number", () => {
     expect(normalizeCuratedProductName("辦公椅 DKGP 10131234")).toBe(
       "辦公椅 DKGP 10131234",
+    );
+    // A valid EAN-8 is a barcode, not a shop number (DEV-2046).
+    expect(normalizeCuratedProductName("巧克力 47112346")).toBe(
+      "巧克力 47112346",
     );
     expect(normalizeCuratedProductName("Model 32141747")).toBe(
       "Model 32141747",
@@ -360,7 +362,7 @@ describe("createPublicNameResolver", () => {
     expect(resolveAt(siblings, 1)).toBe("小紅帽與大野狼厚底休閒鞋");
   });
 
-  it("fails safe on a failed sibling read: normalised names, nothing hidden", () => {
+  it("fails safe on a failed sibling read: stored names, nothing hidden", () => {
     const resolve = createPublicNameResolver(null);
     const row = { id: "k", brandId: "brand-a", officialUrl: ZOODI_KIT };
     expect(resolve(row, "name_zh", "肌膚急救箱 3040094558316")).toBe(
@@ -369,38 +371,100 @@ describe("createPublicNameResolver", () => {
     expect(resolve(row, "name_zh", "6cm超穩跟繫帶高跟鞋 LA034-000-OBK")).toBe(
       "6cm超穩跟繫帶高跟鞋 LA034-000-OBK",
     );
-    expect(resolve(row, "name_zh", "米拉諾蕾絲緞帶德訓鞋 khNTqkeV")).toBe(
-      "米拉諾蕾絲緞帶德訓鞋",
+    // DEV-2046 C4: a shop token is a hidden token too, so it stays.
+    expect(resolve(row, "name_zh", " 米拉諾蕾絲緞帶德訓鞋 khNTqkeV ")).toBe(
+      "米拉諾蕾絲緞帶德訓鞋 khNTqkeV",
     );
   });
 
-  it("falls back to the normalised name, not the raw one, on a guard hit", () => {
+  it("falls back one level at a time: the normalised name keeps its code", () => {
     const siblings = [
       sibling("a", "日檜布墊餐椅 MO-JC20-1 aBcDeF12"),
       sibling("b", "日檜布墊餐椅"),
     ];
     expect(resolveAt(siblings, 0)).toBe("日檜布墊餐椅 MO-JC20-1");
-    // A shop token is never a display-only token: it strips regardless.
+  });
+
+  it("guards both name columns as one namespace (C3)", () => {
+    // English surfaces fall back to `name_zh`, so `a`'s Chinese name would
+    // read `Mesa` beside `b`'s English `Mesa`.
+    const siblings = [
+      sibling("a", "Mesa 30400945581", {
+        officialUrl: "https://shop.example/item/30400945581",
+      }),
+      sibling("b", "桌鐘", { nameEn: "Mesa" }),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("Mesa 30400945581");
+    const hidesAlone = [siblings[0]!];
+    expect(resolveAt(hidesAlone, 0)).toBe("Mesa");
+  });
+
+  it.each([
+    [
+      "listing number",
+      "杯 12345 LA034-000-OBK",
+      "杯 12345",
+      "杯",
+      { officialUrl: "https://shop.example/item/12345" },
+      "杯 12345",
+    ],
+    [
+      "model code",
+      "鞋 AB12-CD3 LA034-000-OBK",
+      "鞋 AB12-CD3",
+      "鞋",
+      {},
+      "鞋 AB12-CD3",
+    ],
+  ])(
+    "never cascades a hidden %s onto a guarded sibling's name (C1)",
+    (_label, x, y, z, yOverrides, yRendered) => {
+      // `y` is guarded by `z` and keeps its suffix; `x` hiding its code would
+      // then read exactly as `y`, so `x` keeps its code too.
+      const siblings = [
+        sibling("x", x),
+        sibling("y", y, yOverrides),
+        sibling("z", z),
+      ];
+      expect(resolveAt(siblings, 2)).toBe(z);
+      expect(resolveAt(siblings, 1)).toBe(yRendered);
+      expect(resolveAt(siblings, 0)).toBe(x);
+    },
+  );
+
+  it("trims the separator a hidden token leaves dangling (C2)", () => {
+    expect(
+      soloPublicName(
+        "桌鐘 Mesa - 3040094558317",
+        "https://shop.example/item/3040094558317",
+      ),
+    ).toBe("桌鐘 Mesa");
+    expect(soloPublicName("鞋 ｜ LA034-000-OBK")).toBe("鞋");
+  });
+
+  it("keeps the shop tokens of twins the token alone tells apart (C4)", () => {
+    const siblings = [
+      sibling("one", "多WAY皺皺掛繩 41020001"),
+      sibling("two", "多WAY皺皺掛繩 41020002"),
+    ];
+    expect(resolveAt(siblings, 0)).toBe("多WAY皺皺掛繩 41020001");
+    expect(resolveAt(siblings, 1)).toBe("多WAY皺皺掛繩 41020002");
     const tokens = [
       sibling("m", "米拉諾蕾絲緞帶德訓鞋 khNTqkeV"),
       sibling("n", "米拉諾蕾絲緞帶德訓鞋"),
     ];
-    expect(resolveAt(tokens, 0)).toBe("米拉諾蕾絲緞帶德訓鞋");
+    expect(resolveAt(tokens, 0)).toBe("米拉諾蕾絲緞帶德訓鞋 khNTqkeV");
   });
 
-  it("guards each column separately", () => {
-    // `c`'s English column holds the text `b`'s Chinese name would hide to.
-    const siblings = [
-      sibling("b", "厚底休閒鞋 BO-1907B"),
-      sibling("c", "帆布鞋", { nameEn: "厚底休閒鞋" }),
-    ];
-    expect(resolveAt(siblings, 0)).toBe("厚底休閒鞋");
+  it("still strips a shop token alone in its brand, and keeps a valid EAN-8 (C4)", () => {
+    expect(soloPublicName("多WAY皺皺掛繩 41020001")).toBe("多WAY皺皺掛繩");
+    expect(soloPublicName("巧克力 47112346")).toBe("巧克力 47112346");
   });
 });
 
-describe("stripUrlListingId", () => {
-  it("strips the listing number the official URL carries", () => {
-    expect(stripUrlListingId("肌膚急救箱 3040094558316", ZOODI_KIT)).toBe(
+describe("URL listing number on a public name", () => {
+  it("hides the listing number the official URL carries", () => {
+    expect(soloPublicName("肌膚急救箱 3040094558316", ZOODI_KIT)).toBe(
       "肌膚急救箱",
     );
   });
@@ -425,7 +489,6 @@ describe("stripUrlListingId", () => {
     // A valid ISBN-10 in the URL.
     ["ISBN-10", "圖鑑 4834000826", "https://shop.example/book/4834000826"],
   ])("keeps the %s suffix", (_label, name, url) => {
-    expect(stripUrlListingId(name, url)).toBe(name);
     expect(soloPublicName(name, url)).toBe(name);
   });
 });
@@ -438,7 +501,7 @@ describe("hasIsbn10CheckDigit", () => {
   });
 });
 
-describe("stripTrailingModelCode", () => {
+describe("trailing model code on a public name", () => {
   it.each([
     // Lowercase segments: a phrase, not a code.
     "三合一收納包 2-in-1",
@@ -456,12 +519,13 @@ describe("stripTrailingModelCode", () => {
     // A code with nothing in front of it.
     "LA034-000-OBK",
   ])("keeps %s", (name) => {
-    expect(stripTrailingModelCode(name)).toBe(name);
+    expect(soloPublicName(name)).toBe(name);
   });
 
   it("is idempotent", () => {
-    const once = stripTrailingModelCode("新馬可床架 MO-J11");
-    expect(stripTrailingModelCode(once)).toBe(once);
+    const once = soloPublicName("新馬可床架 MO-J11");
+    expect(once).toBe("新馬可床架");
+    expect(soloPublicName(once)).toBe(once);
   });
 });
 

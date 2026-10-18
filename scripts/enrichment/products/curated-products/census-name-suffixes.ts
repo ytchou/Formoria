@@ -49,10 +49,12 @@ import { fetchAllRows, parseBrandOption } from "./shared";
  *
  * The classifier lives in `@/lib/curated-products/product-name`, which the
  * public reads share. `hiddenToday` says whether the public name resolver
- * (with every scanned row as a sibling) drops the suffix, and `collides`
- * whether removing it would leave two rows of one brand with the same name —
- * the case where the suffix is the only thing telling two products apart.
- * After DEV-2046, `hiddenToday && collides` should be 0.
+ * (with every scanned row as a sibling) renders anything other than the
+ * stored name, trimmed. `merged` says whether another row of the same brand
+ * renders the same name (in either column, as the resolver compares them)
+ * from a different stored name — two products the reader can no longer tell
+ * apart. The summary's top-level `merged` counts that over EVERY name, suffix
+ * or not; after DEV-2046 it must be 0.
  *
  * READ-ONLY: one paged select of `curated_products`; no write path is imported.
  */
@@ -77,10 +79,20 @@ export type ClassifiedName = {
   name: string;
   officialUrl: string | null;
   suffix: SuffixClass;
-  /** The public name resolver renders the name without the token. */
+  /** The public name resolver renders something other than the stored name. */
   hiddenToday: boolean;
-  /** Another row of the same brand has this row's head as its full or head name. */
-  collides: boolean;
+  /** Another row of the brand renders the same name from a different stored one. */
+  merged: boolean;
+};
+
+/** One name column of one row, as the public read renders it. */
+type RenderedName = {
+  row: CensusRow;
+  column: "name_zh" | "name_en";
+  /** The stored name, trimmed: what renders with nothing hidden. */
+  unhidden: string;
+  rendered: string;
+  merged: boolean;
 };
 
 function brandSlugOf(row: CensusRow): string | null {
@@ -89,18 +101,12 @@ function brandSlugOf(row: CensusRow): string | null {
 }
 
 /**
- * Pure: every name with an identifier suffix, classified, with the two facts
- * the policy turns on — is it hidden already, and would hiding it merge two
- * products on the page.
+ * Pure: every name of every row through the same resolver the public reads
+ * build — on a full scan every row of each brand is a sibling, as on the read
+ * path — with `merged` set by the resolver's own definition of a name: one
+ * brand-wide namespace across both columns.
  */
-export function censusNameSuffixes(
-  rows: readonly CensusRow[],
-): ClassifiedName[] {
-  // Per brand and column: how many rows would display each bare name.
-  const bareNames = new Map<string, number>();
-  const pending: ClassifiedName[] = [];
-  // The same resolver the public reads build, over every scanned row: on a
-  // full scan that is every row of each brand, as on the read path.
+function renderNames(rows: readonly CensusRow[]): RenderedName[] {
   const resolveName = createPublicNameResolver(
     rows.map((row) => ({
       id: row.id,
@@ -110,38 +116,68 @@ export function censusNameSuffixes(
       officialUrl: row.official_url,
     })),
   );
-
+  const names: RenderedName[] = [];
   for (const row of rows) {
     for (const column of ["name_zh", "name_en"] as const) {
       const name = row[column];
       if (!name) continue;
-      const suffix = classifyNameSuffix(name, row.official_url);
-      const bare = suffix ? suffix.head : name.trim();
-      const key = `${row.brand_id}\u0000${column}\u0000${bare}`;
-      bareNames.set(key, (bareNames.get(key) ?? 0) + 1);
-      if (!suffix) continue;
-      pending.push({
-        id: row.id,
-        brandSlug: brandSlugOf(row),
-        visible: row.visible,
+      names.push({
+        row,
         column,
-        name,
-        officialUrl: row.official_url,
-        suffix,
-        hiddenToday: !resolveName(
+        unhidden: name.trim() || name,
+        rendered: resolveName(
           { id: row.id, brandId: row.brand_id, officialUrl: row.official_url },
           column,
           name,
-        ).includes(suffix.token),
-        collides: false,
+        ),
+        merged: false,
       });
     }
   }
 
-  const brandOf = new Map(rows.map((row) => [row.id, row.brand_id]));
-  return pending.map((item) => {
-    const key = `${brandOf.get(item.id)}\u0000${item.column}\u0000${item.suffix.head}`;
-    return { ...item, collides: (bareNames.get(key) ?? 0) > 1 };
+  const byRendered = new Map<string, RenderedName[]>();
+  for (const item of names) {
+    const key = `${item.row.brand_id}\u0000${item.rendered}`;
+    const group = byRendered.get(key) ?? [];
+    group.push(item);
+    byRendered.set(key, group);
+  }
+  for (const group of byRendered.values()) {
+    for (const item of group) {
+      item.merged = group.some(
+        (other) =>
+          other.row.id !== item.row.id && other.unhidden !== item.unhidden,
+      );
+    }
+  }
+  return names;
+}
+
+/**
+ * Pure: every name with an identifier suffix, classified, with the two facts
+ * the policy turns on — does the public read hide anything, and does it merge
+ * two products on the page.
+ */
+export function censusNameSuffixes(
+  rows: readonly CensusRow[],
+): ClassifiedName[] {
+  return renderNames(rows).flatMap((item) => {
+    const name = item.row[item.column]!;
+    const suffix = classifyNameSuffix(name, item.row.official_url);
+    if (!suffix) return [];
+    return [
+      {
+        id: item.row.id,
+        brandSlug: brandSlugOf(item.row),
+        visible: item.row.visible,
+        column: item.column,
+        name,
+        officialUrl: item.row.official_url,
+        suffix,
+        hiddenToday: item.rendered !== item.unhidden,
+        merged: item.merged,
+      },
+    ];
   });
 }
 
@@ -149,9 +185,11 @@ export type CensusSummary = {
   rows: number;
   names: number;
   withSuffix: number;
+  /** Names, suffix or not, the public read merges with a sibling's. Must be 0. */
+  merged: number;
   byKind: Record<
     SuffixKind,
-    { total: number; visible: number; hiddenToday: number; collides: number }
+    { total: number; visible: number; hiddenToday: number; merged: number }
   >;
 };
 
@@ -171,7 +209,7 @@ export function summarizeCensus(
   const byKind = Object.fromEntries(
     kinds.map((kind) => [
       kind,
-      { total: 0, visible: 0, hiddenToday: 0, collides: 0 },
+      { total: 0, visible: 0, hiddenToday: 0, merged: 0 },
     ]),
   ) as CensusSummary["byKind"];
   for (const item of classified) {
@@ -179,12 +217,13 @@ export function summarizeCensus(
     bucket.total += 1;
     if (item.visible) bucket.visible += 1;
     if (item.hiddenToday) bucket.hiddenToday += 1;
-    if (item.collides) bucket.collides += 1;
+    if (item.merged) bucket.merged += 1;
   }
   return {
     rows: rows.length,
     names: rows.reduce((n, row) => n + 1 + (row.name_en ? 1 : 0), 0),
     withSuffix: classified.length,
+    merged: renderNames(rows).filter((item) => item.merged).length,
     byKind,
   };
 }
@@ -226,7 +265,7 @@ async function main(): Promise<void> {
         item.suffix.kind,
         item.visible ? "visible" : "hidden-row",
         item.hiddenToday ? "hidden-today" : "renders",
-        item.collides ? "COLLIDES" : "",
+        item.merged ? "MERGED" : "",
         item.brandSlug ?? "?",
         item.column,
         item.name,

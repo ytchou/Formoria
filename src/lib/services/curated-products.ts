@@ -285,8 +285,12 @@ function winningSelection(
   );
 }
 
-/** The row as the public name guard keys it. */
-function nameGuardRow(row: CuratedProductReadRow) {
+/** The row as the public name guard keys it. Shared with the catalog read. */
+export function nameGuardRow(row: {
+  id: string;
+  brand_id: string;
+  official_url?: string | null;
+}) {
   return {
     id: row.id,
     brandId: row.brand_id,
@@ -478,6 +482,7 @@ export async function getPublishedCuratedProductsForBrand(
   const products = await readPublishedCuratedProducts(
     [brandId],
     "curatedProducts.brand",
+    "public",
     client,
   );
   return toBrandPageOrder(products);
@@ -582,10 +587,16 @@ const compareBrandPageOrder = (a: CuratedProduct, b: CuratedProduct): number =>
  * The brand-page publication read, shared by the single-brand read and the
  * directory preview batch so the two gates cannot diverge. Schema lag logs and
  * degrades to `[]`; every other error is rethrown.
+ *
+ * `names`: `"public"` resolves names through the sibling guard (DEV-2046);
+ * `"unrendered"` is for a caller that discards names (the directory preview
+ * only counts rows and shows images), and skips the sibling read — its rows
+ * carry stored names, trimmed, and must never reach a rendered name.
  */
 async function readPublishedCuratedProducts(
   brandIds: readonly string[],
   scope: string,
+  names: "public" | "unrendered",
   client?: CuratedProductSupabase,
 ): Promise<CuratedProduct[]> {
   const runQuery = (select: string) => {
@@ -610,7 +621,10 @@ async function readPublishedCuratedProducts(
   // The brand ids are known up front, so the name guard's sibling read runs
   // alongside the main read. It never rejects (it fails safe to `null`).
   const firstRead = runQuery(CURATED_PRODUCT_READ_SELECT);
-  const siblingNames = readCuratedProductSiblingNames(brandIds, client);
+  const siblingNames =
+    names === "public"
+      ? readCuratedProductSiblingNames(brandIds, client)
+      : Promise.resolve(null);
   let { data, error } = await firstRead;
   if (error && isMissingSubcategoryColumn(error)) {
     ({ data, error } = await runQuery(LEGACY_CURATED_PRODUCT_READ_SELECT));
@@ -686,6 +700,7 @@ export async function getPublishedProductPreviewsForBrands(
   const products = await readPublishedCuratedProducts(
     brandIds,
     "curatedProducts.brandPreviews",
+    "unrendered",
     client,
   );
   return summarizeProductPreviews(products);
@@ -763,6 +778,28 @@ export async function getHomepageWallCategory(
   );
 }
 
+/** The homepage's defensive public-eligibility gate, over the query filters. */
+function isHomepageEligibleRow(
+  row: HomepageCuratedProductRow,
+): row is HomepageCuratedProductRow & {
+  brands: NonNullable<HomepageCuratedProductRow["brands"]>;
+} {
+  return Boolean(
+    row.brands?.slug &&
+      row.brands.name &&
+      (row.brands.status === undefined || row.brands.status === "approved") &&
+      !row.brands.name.startsWith(TEST_BRAND_NAME_PREFIX) &&
+      row.visible &&
+      row.official_url &&
+      hasRenderableCuratedImage(row.image_url) &&
+      row.source_checked_at &&
+      (row.curated_product_sources === undefined ||
+        (row.curated_product_sources ?? []).some(
+          (source) => source.state === undefined || source.state === "active",
+        )),
+  );
+}
+
 async function readHomepageCuratedProducts(
   client?: CuratedProductSupabase,
   category?: string,
@@ -804,27 +841,13 @@ async function readHomepageCuratedProducts(
     throw error;
   }
 
-  const rows = (data ?? []) as unknown as HomepageCuratedProductRow[];
-  const resolveName = await publicNameResolverFor(rows, client);
-  const candidates = rows
+  const eligible = (
+    (data ?? []) as unknown as HomepageCuratedProductRow[]
+  ).filter(isHomepageEligibleRow);
+  // Only the brands of rows that can render; their siblings stay unfiltered.
+  const resolveName = await publicNameResolverFor(eligible, client);
+  const candidates = eligible
     .map((row): HomepageCuratedProduct | null => {
-      if (
-        !row.brands?.slug ||
-        !row.brands.name ||
-        (row.brands.status !== undefined && row.brands.status !== "approved") ||
-        row.brands.name.startsWith(TEST_BRAND_NAME_PREFIX) ||
-        !row.visible ||
-        !row.official_url ||
-        !hasRenderableCuratedImage(row.image_url) ||
-        !row.source_checked_at ||
-        (row.curated_product_sources !== undefined &&
-          !(row.curated_product_sources ?? []).some(
-            (source) => source.state === undefined || source.state === "active",
-          ))
-      ) {
-        return null;
-      }
-
       // Keep the defensive state filter aligned with the embedded query when a
       // test seam or future projection carries selection states explicitly.
       const activeSelections =
@@ -1144,7 +1167,11 @@ export async function getTrailPeekProducts(
         "curatedProducts.trailPeek",
         client,
       );
-      const resolveName = await publicNameResolverFor(rows, client);
+      // Only the brands of rows that can render; siblings stay unfiltered.
+      const resolveName = await publicNameResolverFor(
+        rows.filter(isPublicTrailRow),
+        client,
+      );
       return groupTrailPeek(rows, trails, perTrail, resolveName);
     },
   );
@@ -1162,28 +1189,12 @@ type CuratedProductSiblingNameRow = {
   official_url: string | null;
 };
 
-/**
- * Every `curated_products` row of the listed brands, in the slim shape the
- * public name guard (`createPublicNameResolver`) compares against.
- *
- * NO visibility or publication filter, on purpose: every public surface gates
- * rows slightly differently, and the full brand set is a superset of all of
- * them, so one row resolves to one name on every surface. A hidden or rejected
- * twin can therefore keep a visible row's code — the safe direction.
- *
- * Chunked and range-paged like `getCuratedProductsByBrandBatch`: an unpaged
- * `.in` stops at `max_rows = 1000` with no error, and a short sibling set is a
- * missed guard. Never throws — on any error it logs and returns `null`, which
- * the resolver treats as "hide nothing", so a broken guard shows codes and
- * never merges products.
- */
-export async function readCuratedProductSiblingNames(
-  brandIds: readonly string[],
-  client?: CuratedProductSupabase,
-): Promise<PublicNameSibling[] | null> {
-  const uniqueIds = [...new Set(brandIds.filter(Boolean))];
-  if (uniqueIds.length === 0) return [];
-  const supabase = curatedProductClient(client);
+/** The sibling read's select list; exported so test stubs match it exactly. */
+export const CURATED_PRODUCT_SIBLING_NAME_SELECT =
+  "id, brand_id, name_zh, name_en, official_url";
+
+/** Brand ids split into `.in` filters of `CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE`. */
+function brandIdChunks(uniqueIds: readonly string[]): string[][] {
   const chunks: string[][] = [];
   for (
     let index = 0;
@@ -1194,25 +1205,70 @@ export async function readCuratedProductSiblingNames(
       uniqueIds.slice(index, index + CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE),
     );
   }
+  return chunks;
+}
+
+/**
+ * Every `curated_products` row of the listed brands, in the slim shape the
+ * public name guard (`createPublicNameResolver`) compares against.
+ *
+ * NO visibility or publication filter, on purpose: every public surface gates
+ * rows slightly differently, and the full brand set is a superset of all of
+ * them, so one row resolves to one name on every surface. A hidden or rejected
+ * twin can therefore keep a visible row's code — the safe direction.
+ *
+ * Chunked like `getCuratedProductsByBrandBatch`, and keyset-paged on `id`: an
+ * unpaged `.in` stops at `max_rows = 1000` with no error, and a short sibling
+ * set is a missed guard. Keyset rather than offset, because the pages are
+ * separate requests: a row deleted between two offset pages shifts the next
+ * page and skips a row, and the skipped row may be the twin the guard needed.
+ * Never throws — on any error it logs and returns `null`, which the resolver
+ * treats as "hide nothing", so a broken guard shows stored names and never
+ * merges products.
+ *
+ * Shortcut: every public read re-reads every row of its brands to settle
+ * display names that only change on write. Ceiling: one extra slim request
+ * per 500 sibling rows per render — fine at a brand page's dozens of rows; the
+ * catalog's full read re-reads every row of every brand it shows, which only
+ * its in-process memo keeps off the hot path. Upgrade path:
+ * a precomputed public display name per column, maintained on write by the
+ * same resolver, so reads select it and this read goes away.
+ */
+export async function readCuratedProductSiblingNames(
+  brandIds: readonly string[],
+  client?: CuratedProductSupabase,
+): Promise<PublicNameSibling[] | null> {
+  const uniqueIds = [...new Set(brandIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+  const supabase = curatedProductClient(client);
 
   try {
     const pages = await Promise.all(
-      chunks.map(async (chunk) => {
+      brandIdChunks(uniqueIds).map(async (chunk) => {
         const rows: CuratedProductSiblingNameRow[] = [];
-        // `id` is unique, so the order is total and pages cannot overlap.
+        let lastId: string | null = null;
+        // `id` is unique, so the order is total and the keyset never repeats
+        // or skips a row.
         for (let page = 0; page < CURATED_PRODUCT_BATCH_MAX_PAGES; page += 1) {
-          const from = page * CURATED_PRODUCT_BATCH_PAGE_SIZE;
-          const { data, error } = await supabase
+          const query = supabase
             .from("curated_products")
-            .select("id, brand_id, name_zh, name_en, official_url")
-            .in("brand_id", chunk)
+            .select(CURATED_PRODUCT_SIBLING_NAME_SELECT)
+            .in("brand_id", chunk);
+          const { data, error } = await (lastId === null
+            ? query
+            : query.gt("id", lastId)
+          )
             .order("id", { ascending: true })
-            .range(from, from + CURATED_PRODUCT_BATCH_PAGE_SIZE - 1);
+            .limit(CURATED_PRODUCT_BATCH_PAGE_SIZE);
           if (error) throw error;
           const pageRows = (data ??
             []) as unknown as CuratedProductSiblingNameRow[];
           rows.push(...pageRows);
-          if (pageRows.length < CURATED_PRODUCT_BATCH_PAGE_SIZE) return rows;
+          const last = pageRows.at(-1);
+          if (pageRows.length < CURATED_PRODUCT_BATCH_PAGE_SIZE || !last) {
+            return rows;
+          }
+          lastId = last.id;
         }
         throw new Error(
           `Sibling name read did not terminate after ${CURATED_PRODUCT_BATCH_MAX_PAGES} pages`,
@@ -1230,14 +1286,17 @@ export async function readCuratedProductSiblingNames(
     const message =
       (error as { message?: string } | null)?.message ?? String(error);
     console.error(
-      `[curatedProducts.nameGuard] sibling read failed; rendering normalised names with no code hidden: ${message}`,
+      `[curatedProducts.nameGuard] sibling read failed; rendering stored names with nothing hidden: ${message}`,
     );
     return null;
   }
 }
 
-/** The name guard for a read's rows: one sibling read over their brands. */
-async function publicNameResolverFor(
+/**
+ * The name guard for a read's rows: one sibling read over their brands. Pass
+ * the rows the read will render — the siblings themselves stay unfiltered.
+ */
+export async function publicNameResolverFor(
   rows: readonly { brand_id: string }[],
   client?: CuratedProductSupabase,
 ): Promise<PublicNameResolver> {
@@ -2279,19 +2338,8 @@ export async function getCuratedProductsByBrandBatch(
   if (uniqueIds.length === 0) return byBrandId;
 
   const supabase = curatedProductClient(client);
-  const chunks: string[][] = [];
-  for (
-    let index = 0;
-    index < uniqueIds.length;
-    index += CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE
-  ) {
-    chunks.push(
-      uniqueIds.slice(index, index + CURATED_PRODUCT_IN_FILTER_CHUNK_SIZE),
-    );
-  }
-
   const pages = await Promise.all(
-    chunks.map(async (chunk) => {
+    brandIdChunks(uniqueIds).map(async (chunk) => {
       const rows: CuratedProductBatchRow[] = [];
       let useLegacySubcategories = false;
       // Range-paged to the first SHORT page. `.order()` is what makes that
