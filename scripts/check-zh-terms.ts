@@ -203,6 +203,10 @@ export const EXCLUDED_SOURCE_FILES = new Map([
     "commerce-truth regexes matched against image text, never rendered",
   ],
   [
+    "lib/curated-products/product-name.ts",
+    "product-name suffix classifier regexes and doc comments, never rendered",
+  ],
+  [
     "lib/services/enrich-phases/products/evidence-lexicon.ts",
     "product-page fact/chrome label regexes, never rendered",
   ],
