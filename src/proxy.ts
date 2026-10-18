@@ -118,6 +118,20 @@ export function isOriginGuardExempt(pathname: string): boolean {
   );
 }
 
+/**
+ * A server-action POST that also claims to be an RSC navigation. The real
+ * client never sends this pair -- `server-action-reducer` sets `next-action`
+ * and `Accept: text/x-component`, never `RSC` -- so only a forged request
+ * matches. Only the literal `"1"` counts, as in Next's `isRSCRequestHeader`.
+ */
+export function isForgedRscActionRequest(request: Request): boolean {
+  return (
+    request.method === "POST" &&
+    request.headers.has("next-action") &&
+    request.headers.get("rsc") === "1"
+  );
+}
+
 export type BareBrandSlugDecision =
   | { action: "redirect"; status: 301; pathname: string }
   | { action: "not-found"; status: 404 };
@@ -935,6 +949,33 @@ const originGuard: ProxyStep = {
   },
 };
 
+/**
+ * Workaround for a Next 16.3.x bug (DEV-2047). For an unknown action id on an
+ * `RSC: 1` request, the action handler returns its text/plain "not found"
+ * result, then the page runtime throws InvariantError E789 ("Expected RSC
+ * response, got text/plain") because `cacheComponents` is off: a 500 on every
+ * path. This step answers with the exact 404 Next gives a legitimate unknown
+ * action. It sits above the terminal passthroughs because /admin/content pages
+ * carry server actions, and below `originGuard` so bypass traffic is still
+ * rejected there first.
+ *
+ * Remove once Next answers this header pair with a 404 itself: delete the step
+ * and confirm a forged POST (Next-Action + RSC: 1) against `next start` 404s.
+ */
+const forgedRscAction404: ProxyStep = {
+  name: "forgedRscAction404",
+  run({ request }) {
+    if (!isForgedRscActionRequest(request)) return undefined;
+    return new NextResponse("Server action not found.", {
+      status: 404,
+      headers: {
+        "content-type": "text/plain",
+        "x-nextjs-action-not-found": "1",
+      },
+    });
+  },
+};
+
 const authCallbackPassthrough: ProxyStep = {
   name: "authCallbackPassthrough",
   run({ pathname }) {
@@ -1299,6 +1340,7 @@ export const PROXY_PIPELINE: readonly ProxyStep[] = [
   stagingSitemap404,
   stagingLockdown,
   originGuard,
+  forgedRscAction404,
   authCallbackPassthrough,
   adminContentPassthrough,
   pathNormalization,
