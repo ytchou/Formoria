@@ -9,14 +9,17 @@ import {
   getPublishedCuratedProductsForHomepage,
   getPublishedCuratedProductsForBrand,
   getPublishedCuratedProductsForTrail,
+  getTrailPeekProducts,
   groupTrailPeek,
   retireCuratedProductSelection,
   retireCuratedProduct,
   retireCuratedProductSource,
   updateCuratedProduct,
   upsertCuratedProductSelection,
+  CURATED_PRODUCT_SIBLING_NAME_SELECT,
   type CuratedProductSupabase,
 } from "../curated-products";
+import { createPublicNameResolver } from "@/lib/curated-products/product-name";
 
 type QueryResult = {
   data?: unknown[] | null;
@@ -41,8 +44,18 @@ type RecordedCalls = {
  * Ceiling: it records filters and replays one canned result — it does not
  * evaluate the filters. Row-level filtering behaviour belongs in
  * `curated-products.integration.test.ts`, against a real PostgREST.
+ *
+ * The public name guard's sibling read (DEV-2046) is answered from `siblings`
+ * (default: none) and never consumes a canned result, so a test's result
+ * order does not depend on when that read runs. Its filters are still
+ * recorded, bar its page `limit`, so `calls.limit` stays the main read's.
  */
-function stubClient(result: QueryResult | QueryResult[]): {
+const SIBLING_NAME_SELECT = CURATED_PRODUCT_SIBLING_NAME_SELECT;
+
+function stubClient(
+  result: QueryResult | QueryResult[],
+  options: { siblings?: QueryResult } = {},
+): {
   client: CuratedProductSupabase;
   calls: RecordedCalls;
 } {
@@ -55,49 +68,65 @@ function stubClient(result: QueryResult | QueryResult[]): {
     not: [],
     limit: [],
   };
-  const chain = {
-    select(columns: string) {
-      calls.select.push(columns);
-      return chain;
-    },
-    eq(column: string, value: unknown) {
-      calls.eq.push([column, value]);
-      return chain;
-    },
-    in(column: string, values: unknown[]) {
-      calls.in.push([column, values]);
-      return chain;
-    },
-    not(column: string, operator: string, value: unknown) {
-      calls.not.push([column, operator, value]);
-      return chain;
-    },
-    limit(value: number) {
-      calls.limit.push(value);
-      return chain;
-    },
-    order() {
-      return chain;
-    },
-    then<TResult>(
-      resolve: (value: {
-        data: unknown[] | null;
-        error: { code?: string; message: string } | null;
-      }) => TResult,
-      reject?: (reason: unknown) => TResult,
-    ) {
-      const next = results.length > 1 ? results.shift()! : results[0]!;
-      return Promise.resolve({
-        data: next.data ?? null,
-        error: next.error ?? null,
-      }).then(resolve, reject);
-    },
+  const makeChain = () => {
+    let columns = "";
+    const chain = {
+      select(selected: string) {
+        columns = selected;
+        calls.select.push(selected);
+        return chain;
+      },
+      eq(column: string, value: unknown) {
+        calls.eq.push([column, value]);
+        return chain;
+      },
+      in(column: string, values: unknown[]) {
+        calls.in.push([column, values]);
+        return chain;
+      },
+      not(column: string, operator: string, value: unknown) {
+        calls.not.push([column, operator, value]);
+        return chain;
+      },
+      limit(value: number) {
+        if (columns !== SIBLING_NAME_SELECT) calls.limit.push(value);
+        return chain;
+      },
+      gt() {
+        return chain;
+      },
+      order() {
+        return chain;
+      },
+      range() {
+        return chain;
+      },
+      then<TResult>(
+        resolve: (value: {
+          data: unknown[] | null;
+          error: { code?: string; message: string } | null;
+        }) => TResult,
+        reject?: (reason: unknown) => TResult,
+      ) {
+        const next =
+          columns === SIBLING_NAME_SELECT
+            ? (options.siblings ?? { data: [] })
+            : results.length > 1
+              ? results.shift()!
+              : results[0]!;
+        return Promise.resolve({
+          data: next.data ?? null,
+          error: next.error ?? null,
+        }).then(resolve, reject);
+      },
+    };
+    return chain;
   };
 
   const client = {
     from(table: string) {
       calls.table.push(table);
-      return chain;
+      return makeChain();
     },
   };
 
@@ -174,6 +203,32 @@ describe("getPublishedCuratedProductsForTrail", () => {
     expect(calls.eq).toContainEqual([
       "curated_product_selections.trail_slug",
       "small-space-reading-corner",
+    ]);
+  });
+
+  it("keeps model codes that are all that tells two products apart (DEV-2046)", async () => {
+    const rows = [
+      trailProductRow({
+        id: "33333333-3333-3333-3333-333333333331",
+        key: "red-hood-b",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      }),
+      trailProductRow({
+        id: "33333333-3333-3333-3333-333333333332",
+        key: "red-hood-c",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      }),
+    ];
+    const { client } = stubClient({ data: rows }, { siblings: { data: rows } });
+
+    const products = await getPublishedCuratedProductsForTrail(
+      "small-space-reading-corner",
+      client,
+    );
+
+    expect(products.map((product) => product.nameZh).sort()).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
     ]);
   });
 
@@ -351,15 +406,65 @@ describe("legacy product L2 reads", () => {
 
     expect(products.map((product) => product.key)).toEqual(["pick"]);
     expect(products[0]?.subcategory).toBe("tableware");
-    expect(calls.select).toHaveLength(2);
-    expect(calls.select[0]).toContain("subcategory");
-    expect(calls.select[1]).toContain("subcategories");
+    const reads = calls.select.filter(
+      (columns) => columns !== SIBLING_NAME_SELECT,
+    );
+    expect(reads).toHaveLength(2);
+    expect(reads[0]).toContain("subcategory");
+    expect(reads[1]).toContain("subcategories");
   });
 
 
 });
 
 describe("getPublishedCuratedProductsForBrand", () => {
+  it("keeps model codes that are all that tells two products apart (DEV-2046)", async () => {
+    const rows = [
+      productRow({
+        id: "33333333-3333-3333-3333-333333333331",
+        key: "red-hood-b",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+        image_url: "/i/curated-products/red-hood-b.webp",
+      }),
+      productRow({
+        id: "33333333-3333-3333-3333-333333333332",
+        key: "red-hood-c",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+        image_url: "/i/curated-products/red-hood-c.webp",
+      }),
+    ];
+    const { client, calls } = stubClient({ data: rows }, {
+      siblings: { data: rows },
+    });
+
+    const products = await getPublishedCuratedProductsForBrand(
+      "22222222-2222-2222-2222-222222222222",
+      client,
+    );
+
+    expect(calls.select).toContain(SIBLING_NAME_SELECT);
+    expect(products.map((product) => product.nameZh).sort()).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+    ]);
+  });
+
+  it("renders stored codes when the sibling read fails (fail-safe)", async () => {
+    const rows = [
+      productRow({ name_zh: "6cm超穩跟繫帶高跟鞋 LA034-000-OBK" }),
+    ];
+    const { client } = stubClient({ data: rows }, {
+      siblings: { error: { code: "57014", message: "timeout" } },
+    });
+
+    const [product] = await getPublishedCuratedProductsForBrand(
+      "22222222-2222-2222-2222-222222222222",
+      client,
+    );
+
+    expect(product?.nameZh).toBe("6cm超穩跟繫帶高跟鞋 LA034-000-OBK");
+  });
+
   it("counts only ACTIVE sources and selections as live", async () => {
     // The planner retires rather than deletes, so an unfiltered embed would let
     // a withdrawn source satisfy the evidence gate and a withdrawn selection
@@ -382,7 +487,8 @@ describe("getPublishedCuratedProductsForBrand", () => {
     const { client, calls } = stubClient({ data: [] });
     await getPublishedCuratedProductsForBrand("brand-1", client);
 
-    expect(calls.table).toEqual(["curated_products"]);
+    // The main read, plus the name guard's sibling read (DEV-2046).
+    expect(calls.table).toEqual(["curated_products", "curated_products"]);
     expect(calls.in).toContainEqual(["brand_id", ["brand-1"]]);
     expect(calls.eq).toContainEqual(["visible", true]);
     expect(calls.not).toContainEqual(["official_url", "is", null]);
@@ -616,6 +722,29 @@ function homepageRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe("getPublishedCuratedProductsForHomepage", () => {
+  it("keeps model codes that are all that tells two products apart (DEV-2046)", async () => {
+    const rows = [
+      homepageRow({
+        id: "33333333-3333-3333-3333-333333333331",
+        key: "red-hood-b",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      }),
+      homepageRow({
+        id: "33333333-3333-3333-3333-333333333332",
+        key: "red-hood-c",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      }),
+    ];
+    const { client } = stubClient({ data: rows }, { siblings: { data: rows } });
+
+    const products = await getPublishedCuratedProductsForHomepage(client);
+
+    expect(products.map((product) => product.nameZh)).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+    ]);
+  });
+
   it("homepage eligibility filters on visible", async () => {
     const { client } = stubClient({
       data: [
@@ -1943,7 +2072,43 @@ describe("getBrandTrailSlugs", () => {
   });
 });
 
+describe("getTrailPeekProducts", () => {
+  it("keeps model codes that are all that tells two products apart (DEV-2046)", async () => {
+    const rows = [
+      trailProductRow({
+        id: "33333333-3333-3333-3333-333333333331",
+        key: "red-hood-b",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      }),
+      trailProductRow({
+        id: "33333333-3333-3333-3333-333333333332",
+        key: "red-hood-c",
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      }),
+    ];
+    const { client } = stubClient({ data: rows }, { siblings: { data: rows } });
+
+    const peek = await getTrailPeekProducts(
+      [{ slug: "small-space-reading-corner", sectionKeys: ["first"] }],
+      4,
+      client,
+    );
+
+    expect(
+      peek["small-space-reading-corner"]
+        ?.map((product) => product.nameZh)
+        .sort(),
+    ).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+    ]);
+  });
+});
+
 describe("groupTrailPeek", () => {
+  /** The name guard with no sibling rows: names resolve as they always did. */
+  const NO_SIBLINGS = createPublicNameResolver([]);
+
   function peekRow(
     key: string,
     selections: { trail_slug: string; position: number; section_key?: string }[],
@@ -1974,7 +2139,7 @@ describe("groupTrailPeek", () => {
       peekRow("b-1", [{ trail_slug: "beta", position: 1 }]),
     ];
 
-    const peek = groupTrailPeek(rows, requests("alpha", "beta"), 4);
+    const peek = groupTrailPeek(rows, requests("alpha", "beta"), 4, NO_SIBLINGS);
 
     expect(peek.alpha?.map((product) => product.key)).toEqual([
       "a-1",
@@ -1988,7 +2153,7 @@ describe("groupTrailPeek", () => {
   it("groupTrailPeek returns an entry for every requested slug", () => {
     const rows = [peekRow("a-1", [{ trail_slug: "alpha", position: 1 }])];
 
-    const peek = groupTrailPeek(rows, requests("alpha", "empty"), 4);
+    const peek = groupTrailPeek(rows, requests("alpha", "empty"), 4, NO_SIBLINGS);
 
     expect(Object.keys(peek).sort()).toEqual(["alpha", "empty"]);
     expect(peek.empty).toEqual([]);
@@ -2000,7 +2165,7 @@ describe("groupTrailPeek", () => {
       peekRow("a-2", [{ trail_slug: "alpha", position: 2 }]),
     ];
 
-    const peek = groupTrailPeek(rows, requests("alpha"), 1);
+    const peek = groupTrailPeek(rows, requests("alpha"), 1, NO_SIBLINGS);
 
     expect(peek.alpha?.map((product) => product.key)).toEqual(["a-2"]);
   });
@@ -2011,7 +2176,7 @@ describe("groupTrailPeek", () => {
       peekRow("x-1", [{ trail_slug: "unrequested", position: 1 }]),
     ];
 
-    const peek = groupTrailPeek(rows, requests("alpha"), 4);
+    const peek = groupTrailPeek(rows, requests("alpha"), 4, NO_SIBLINGS);
 
     expect(Object.keys(peek)).toEqual(["alpha"]);
     expect(peek.alpha?.map((product) => product.key)).toEqual(["a-1"]);
@@ -2025,7 +2190,7 @@ describe("groupTrailPeek", () => {
       ]),
     ];
 
-    const peek = groupTrailPeek(rows, requests("alpha", "beta"), 4);
+    const peek = groupTrailPeek(rows, requests("alpha", "beta"), 4, NO_SIBLINGS);
 
     expect(peek.alpha?.map((product) => product.key)).toEqual(["shared"]);
     expect(peek.beta?.map((product) => product.key)).toEqual(["shared"]);
@@ -2048,6 +2213,7 @@ describe("groupTrailPeek", () => {
       rows,
       [{ slug: "alpha", sectionKeys: ["first", "second"] }],
       4,
+      NO_SIBLINGS,
     );
 
     expect(peek.alpha?.map((product) => product.key)).toEqual([
@@ -2073,6 +2239,7 @@ describe("groupTrailPeek", () => {
       rows,
       [{ slug: "alpha", sectionKeys: ["earlier", "later"] }],
       4,
+      NO_SIBLINGS,
     );
 
     expect(peek.alpha?.map((product) => product.key)).toEqual([
@@ -2089,7 +2256,7 @@ describe("groupTrailPeek", () => {
       ]),
     ];
 
-    const peek = groupTrailPeek(rows, requests("alpha"), 4);
+    const peek = groupTrailPeek(rows, requests("alpha"), 4, NO_SIBLINGS);
 
     expect(peek.alpha?.map((product) => product.key)).toEqual(["declared"]);
   });

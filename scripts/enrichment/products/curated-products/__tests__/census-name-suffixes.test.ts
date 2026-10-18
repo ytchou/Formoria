@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  censusNameSuffixes,
   classifyNameSuffix,
   hasGs1CheckDigit,
+} from "@/lib/curated-products/product-name";
+
+import {
+  censusNameSuffixes,
   summarizeCensus,
   type CensusRow,
 } from "../census-name-suffixes";
@@ -135,30 +138,80 @@ function row(overrides: Partial<CensusRow>): CensusRow {
 }
 
 describe("censusNameSuffixes", () => {
-  it("flags a suffix that is the only thing telling two products apart", () => {
+  it("reports no merge when the guard keeps the suffix that tells twins apart", () => {
     const classified = censusNameSuffixes([
-      row({ id: "a", name_zh: "非洲柚木一枚板 T0814601A24VB" }),
-      row({ id: "b", name_zh: "非洲柚木一枚板 T0814602A24VB" }),
-      row({ id: "c", brand_id: "brand-b", name_zh: "非洲柚木一枚板 T1" }),
+      row({ id: "a", name_zh: "厚底休閒鞋 BO-1907B" }),
+      row({ id: "b", name_zh: "厚底休閒鞋 BO-1907C" }),
+      row({ id: "c", brand_id: "brand-b", name_zh: "厚底休閒鞋 BO-1907B" }),
     ]);
-    expect(classified.map((item) => [item.id, item.collides])).toEqual([
-      ["a", true],
-      ["b", true],
-      ["c", false],
+    expect(
+      classified.map((item) => [item.id, item.hiddenToday, item.merged]),
+    ).toEqual([
+      ["a", false, false],
+      ["b", false, false],
+      // Alone in its brand: hidden, and nothing to merge with.
+      ["c", true, false],
     ]);
   });
 
+  it("reads hiddenToday from the rendered name, not a token substring (C5)", () => {
+    // The listing number also appears mid-name, so a substring test on the
+    // rendered name would call it shown.
+    const [item] = censusNameSuffixes([
+      row({
+        name_zh: "肌膚急救箱 12345 組 12345",
+        official_url: "https://shop.example/item/12345",
+      }),
+    ]);
+    expect(item?.hiddenToday).toBe(true);
+  });
+
+  it("reports no merge for twins the guard told apart by their kept tokens (C5)", () => {
+    const rows = [
+      row({ id: "a", name_zh: "杯 LA034-000-OBK" }),
+      row({ id: "b", name_zh: "杯 7cFSL8yz" }),
+    ];
+    const classified = censusNameSuffixes(rows);
+    expect(classified.map((item) => item.merged)).toEqual([false, false]);
+    expect(summarizeCensus(rows, classified).merged).toBe(0);
+  });
+
+  it("counts two rows with the same stored name as no merge", () => {
+    const rows = [
+      row({ id: "a", name_zh: "杯 LA034-000-OBK" }),
+      row({ id: "b", name_zh: "杯 LA034-000-OBK" }),
+    ];
+    expect(summarizeCensus(rows, censusNameSuffixes(rows)).merged).toBe(0);
+  });
+
   it("reports whether the public read already hides the suffix", () => {
-    const [hidden, shown] = censusNameSuffixes([
+    const [hidden, listing, shown] = censusNameSuffixes([
       row({ id: "a", name_zh: "6cm超穩跟繫帶高跟鞋 LA034-000-OBK" }),
       row({
         id: "b",
         name_zh: "肌膚急救箱 3040094558316",
         official_url: ZOODI_KIT,
       }),
+      row({ id: "c", name_zh: "防水機能薄襪 DKGP730" }),
     ]);
     expect(hidden?.hiddenToday).toBe(true);
+    // DEV-2046: the listing number the official URL carries is hidden too.
+    expect(listing?.hiddenToday).toBe(true);
     expect(shown?.hiddenToday).toBe(false);
+  });
+
+  it("never reports a merge on the census shapes (DEV-2046)", () => {
+    const rows = [
+      row({ id: "b", name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B" }),
+      row({ id: "c", name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C" }),
+      row({ id: "t", name_zh: "非洲柚木一枚板 T0417505A14VB-1" }),
+      row({ id: "p", name_zh: "非洲柚木一枚板 P0208302A18VB" }),
+      row({ id: "w1", name_zh: "多WAY皺皺掛繩 41020001" }),
+      row({ id: "w2", name_zh: "多WAY皺皺掛繩 41020002" }),
+    ];
+    const classified = censusNameSuffixes(rows);
+    expect(classified.filter((item) => item.merged)).toEqual([]);
+    expect(summarizeCensus(rows, classified).merged).toBe(0);
   });
 
   it("classifies the English column separately", () => {
@@ -192,8 +245,8 @@ describe("summarizeCensus", () => {
     expect(summary.byKind.url_listing_id).toEqual({
       total: 1,
       visible: 1,
-      hiddenToday: 0,
-      collides: 0,
+      hiddenToday: 1,
+      merged: 0,
     });
     expect(summary.byKind.short_number.visible).toBe(0);
   });

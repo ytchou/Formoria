@@ -5,7 +5,15 @@ import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 import type { BrandVisitLinkFields } from "@/lib/brands/link-fallback";
 import { L2_SUBCATEGORIES, subcategoryBySlug } from "@/lib/taxonomy/ontology";
 import { hasRenderableCuratedImage } from "@/lib/curated-products/image-eligibility";
-import { publicCuratedProductName } from "@/lib/curated-products/product-name";
+import {
+  createPublicNameResolver,
+  type PublicNameResolver,
+} from "@/lib/curated-products/product-name";
+import {
+  nameGuardRow,
+  publicNameResolverFor,
+  readCuratedProductSiblingNames,
+} from "@/lib/services/curated-products";
 import { phraseBreakOffsets } from "@/lib/text/phrase-break-offsets";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +56,8 @@ type CatalogBrandRow = {
 
 export type CatalogProductRow = {
   id: string;
+  /** Read for the public name guard's sibling lookup (DEV-2046). */
+  brand_id: string;
   key: string;
   name_zh: string;
   name_en: string | null;
@@ -86,7 +96,14 @@ function isCatalogEligible(row: CatalogProductRow): boolean {
   );
 }
 
-export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
+/**
+ * `resolveName` is required, never defaulted: a transformer that could run
+ * without it would hide model codes with no sibling guard (DEV-2046).
+ */
+export function transformCatalogRow(
+  row: CatalogProductRow,
+  resolveName: PublicNameResolver,
+): CatalogProduct {
   const brand = row.brands;
   if (!brand) {
     throw new Error(`Catalog product ${row.id} is missing its brand`);
@@ -97,14 +114,16 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
       `Catalog product ${row.id} is missing a canonical subcategory`,
     );
   }
-  // Read-side name guard (DEV-1989): see `publicCuratedProductName`.
-  const nameZh = publicCuratedProductName(row.name_zh);
+  // Read-side name guard (DEV-1989, DEV-2046): see `createPublicNameResolver`.
+  const guardRow = nameGuardRow(row);
+  const nameZh = resolveName(guardRow, "name_zh", row.name_zh);
   return {
     id: row.id,
     key: row.key,
     nameZh,
     nameZhBreaks: phraseBreakOffsets(nameZh),
-    nameEn: row.name_en == null ? null : publicCuratedProductName(row.name_en),
+    nameEn:
+      row.name_en == null ? null : resolveName(guardRow, "name_en", row.name_en),
     category: row.category,
     subcategory,
     material: row.material ?? [],
@@ -133,7 +152,7 @@ export function transformCatalogRow(row: CatalogProductRow): CatalogProduct {
 // ---------------------------------------------------------------------------
 
 const catalogSelect = (legacy: boolean) => `
-  id, key, name_zh, name_en, category, ${legacy ? "subcategories" : "subcategory"}, created_at,
+  id, brand_id, key, name_zh, name_en, category, ${legacy ? "subcategories" : "subcategory"}, created_at,
   image_url, official_url, material, product_description_zh, product_description_en,
   curated_product_sources!inner(id),
   brands!inner(slug, name, status, purchase_website, purchase_pinkoi, purchase_shopee, purchase_myship, social_instagram, social_threads, social_facebook)
@@ -233,9 +252,11 @@ export async function getPublishedCuratedProducts(
       rawRows = await readByIds(true);
     }
 
-    const products = rawRows
-      .filter(isCatalogEligible)
-      .map(transformCatalogRow);
+    const eligible = rawRows.filter(isCatalogEligible);
+    // A filtered read is a subset of each brand, so the guard reads every row
+    // of the brands it returned rather than the result itself.
+    const resolveName = await publicNameResolverFor(eligible, supabase);
+    const products = eligible.map((row) => transformCatalogRow(row, resolveName));
 
     // Reorder to match the caller's ids order
     const orderMap = new Map(ids.map((id, i) => [id, i]));
@@ -256,7 +277,7 @@ export async function getPublishedCuratedProducts(
   };
   // An injected client (tests, one-off scripts) always reads fresh.
   const ordered = client
-    ? await readOrderedCatalog(supabase, filters)
+    ? (await readOrderedCatalog(supabase, filters)).products
     : await memoizedOrderedCatalog(filters);
   const offset = (page - 1) * pageSize;
   return {
@@ -273,11 +294,15 @@ type CatalogFilters = Required<
     "category" | "categories" | "subcategories" | "materials"
   >;
 
-/** Every product matching `filters`, in display order (before pagination). */
+/**
+ * Every product matching `filters`, in display order (before pagination).
+ * `nameGuardFailed`: the name guard's sibling read failed, so every name is
+ * its stored one (see `readCuratedProductSiblingNames`).
+ */
 async function readOrderedCatalog(
   supabase: Pick<SupabaseClient, "from">,
   filters: CatalogFilters,
-): Promise<CatalogProduct[]> {
+): Promise<{ products: CatalogProduct[]; nameGuardFailed: boolean }> {
   const { category, categories, subcategories, materials, sort } = filters;
   const readAll = async (legacy: boolean): Promise<CatalogProductRow[]> => {
     const rows: CatalogProductRow[] = [];
@@ -340,12 +365,23 @@ async function readOrderedCatalog(
     rawRows = await readAll(true);
   }
 
-  const allProducts = rawRows
-    .filter(isCatalogEligible)
-    .map(transformCatalogRow);
-  return sort === "alphabetical"
-    ? allProducts
-    : interleaveCatalogProducts(allProducts);
+  const eligible = rawRows.filter(isCatalogEligible);
+  // A filtered read is a subset of each brand, so the guard reads every row
+  // of the brands it returned rather than the result itself. Read directly,
+  // not through `publicNameResolverFor`: the memo needs to know it failed.
+  const siblings = await readCuratedProductSiblingNames(
+    eligible.map((row) => row.brand_id),
+    supabase,
+  );
+  const resolveName = createPublicNameResolver(siblings);
+  const allProducts = eligible.map((row) => transformCatalogRow(row, resolveName));
+  return {
+    products:
+      sort === "alphabetical"
+        ? allProducts
+        : interleaveCatalogProducts(allProducts),
+    nameGuardFailed: siblings === null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +404,14 @@ async function readOrderedCatalog(
  * ids read.
  */
 const CATALOG_MEMO_TTL_MS = 5 * 60 * 1000;
+/**
+ * A read whose name-guard sibling read failed renders stored names (DEV-2046),
+ * while uncached surfaces such as the brand page already hide codes again.
+ * Kept only this long, so a transient failure does not pin stored names for
+ * the full TTL; not evicted outright, so an outage does not turn every
+ * /discover view into a full catalog read.
+ */
+const CATALOG_MEMO_DEGRADED_TTL_MS = 30 * 1000;
 /** Bounds memory: unfiltered + each L1 + a few common filter combinations. */
 const CATALOG_MEMO_MAX_KEYS = 32;
 
@@ -398,15 +442,25 @@ function loadMemoEntry(filters: CatalogFilters): CatalogMemoEntry {
   const existing = catalogMemo.get(key);
   if (existing && now - existing.at < CATALOG_MEMO_TTL_MS) return existing;
 
+  const read = readOrderedCatalog(
+    createServiceClient() as unknown as Pick<SupabaseClient, "from">,
+    filters,
+  );
   const entry: CatalogMemoEntry = {
     at: now,
-    promise: readOrderedCatalog(
-      createServiceClient() as unknown as Pick<SupabaseClient, "from">,
-      filters,
-    ),
+    promise: read.then((result) => result.products),
     settled: null,
     byId: null,
   };
+  // The rejection is handled on `entry.promise` below.
+  read.then(
+    ({ nameGuardFailed }) => {
+      if (nameGuardFailed) {
+        entry.at = now - CATALOG_MEMO_TTL_MS + CATALOG_MEMO_DEGRADED_TTL_MS;
+      }
+    },
+    () => undefined,
+  );
   entry.promise.then(
     (products) => {
       entry.settled = products;

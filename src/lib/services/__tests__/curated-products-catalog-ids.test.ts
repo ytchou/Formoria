@@ -29,6 +29,7 @@ function makeProductRow(
 ): CatalogProductRow {
   return {
     id,
+    brand_id: "brand-a",
     key: `key-${id}`,
     name_zh: `商品${id}`,
     name_en: `Product ${id}`,
@@ -58,7 +59,10 @@ function createFakeClient(rows: CatalogProductRow[]) {
         if (prop === "then") return undefined; // not thenable
         return (...args: unknown[]) => {
           calls.push({ method: prop, args });
-          if (prop === "range") {
+          // `range` ends the ids read, `limit` the name guard's keyset-paged
+          // sibling read (DEV-2046): both answer with `rows`, so every row of
+          // the brand is a sibling.
+          if (prop === "range" || prop === "limit") {
             return Promise.resolve({ data: rows, error: null });
           }
           return new Proxy({}, handler);
@@ -192,5 +196,28 @@ describe("getPublishedCuratedProducts with ids option", () => {
       (c) => c.args[0] === "name_zh" || c.args[0] === "created_at",
     );
     expect(userSortCalls).toHaveLength(0);
+  });
+
+  it("keeps model codes that are all that tells a brand's products apart (DEV-2046)", async () => {
+    const rows = [
+      makeProductRow("red-hood-b", {
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      }),
+      makeProductRow("red-hood-c", {
+        name_zh: "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+      }),
+    ];
+    const { client } = createFakeClient(rows);
+
+    const result = await getPublishedCuratedProducts(
+      { ids: ["red-hood-b", "red-hood-c"] },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock client
+      client as any,
+    );
+
+    expect(result.products.map((p) => p.nameZh)).toEqual([
+      "小紅帽與大野狼厚底休閒鞋 BO-1907B",
+      "小紅帽與大野狼厚底休閒鞋 BO-1907C",
+    ]);
   });
 });
