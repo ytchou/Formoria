@@ -55,6 +55,7 @@ vi.mock("@/lib/security/rate-limiter", async (importOriginal) => {
 
 const {
   proxy,
+  isForgedRscActionRequest,
   isOriginGuardExempt,
   isOutsideAppRoutes,
   NOT_FOUND_REWRITE_SEGMENT,
@@ -74,6 +75,18 @@ function requestFor(pathname: string, headers: Record<string, string> = {}) {
     headers: { "user-agent": BROWSER_UA, ...headers },
   });
 }
+
+function postRequestFor(
+  pathname: string,
+  headers: Record<string, string> = {},
+) {
+  return new NextRequest(new URL(`https://formoria.com${pathname}`), {
+    method: "POST",
+    headers: { "user-agent": BROWSER_UA, ...headers },
+  });
+}
+
+const UNKNOWN_ACTION_ID = `7f${"a".repeat(40)}`;
 
 /**
  * Serves every Supabase REST lookup the proxy makes with `body`. The default
@@ -1017,6 +1030,7 @@ describe("PROXY_PIPELINE", () => {
       "stagingSitemap404",
       "stagingLockdown",
       "originGuard",
+      "forgedRscAction404",
       "authCallbackPassthrough",
       "adminContentPassthrough",
       "pathNormalization",
@@ -1065,5 +1079,74 @@ describe("PROXY_PIPELINE", () => {
 
     expect(callback?.headers.get("x-middleware-next")).toBe("1");
     expect(other).toBeUndefined();
+  });
+  it("forgedRscAction404 answers a forged action POST with Next's own unknown-action 404", async () => {
+    const { createProxyContext, stepNamed } = await loadPipeline();
+    const response = await stepNamed("forgedRscAction404").run(
+      await createProxyContext(
+        postRequestFor("/api", { "next-action": UNKNOWN_ACTION_ID, rsc: "1" }),
+      ),
+    );
+
+    expect(response?.status).toBe(404);
+    expect(response?.headers.get("content-type")).toContain("text/plain");
+    expect(response?.headers.get("x-nextjs-action-not-found")).toBe("1");
+  });
+
+  it("forgedRscAction404 hands a legitimate action POST to the next step", async () => {
+    const { createProxyContext, stepNamed } = await loadPipeline();
+    const response = await stepNamed("forgedRscAction404").run(
+      await createProxyContext(
+        postRequestFor("/", {
+          "next-action": UNKNOWN_ACTION_ID,
+          accept: "text/x-component",
+        }),
+      ),
+    );
+
+    expect(response).toBeUndefined();
+  });
+});
+
+describe("isForgedRscActionRequest", () => {
+  it("matches a POST carrying both next-action and rsc: 1", () => {
+    expect(
+      isForgedRscActionRequest(
+        postRequestFor("/api", { "next-action": "x", rsc: "1" }),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not match the legitimate client shape (next-action without rsc)", () => {
+    expect(
+      isForgedRscActionRequest(
+        postRequestFor("/", {
+          "next-action": "x",
+          accept: "text/x-component",
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not match rsc: 1 without next-action", () => {
+    expect(isForgedRscActionRequest(postRequestFor("/", { rsc: "1" }))).toBe(
+      false,
+    );
+  });
+
+  it("does not match a GET carrying both headers", () => {
+    expect(
+      isForgedRscActionRequest(
+        requestFor("/", { "next-action": "x", rsc: "1" }),
+      ),
+    ).toBe(false);
+  });
+
+  it("counts only the literal rsc value 1, like Next's isRSCRequestHeader", () => {
+    expect(
+      isForgedRscActionRequest(
+        postRequestFor("/", { "next-action": "x", rsc: "0" }),
+      ),
+    ).toBe(false);
   });
 });
