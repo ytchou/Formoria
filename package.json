@@ -101,7 +101,7 @@
     "@sentry/nextjs": "^10.70.0",
     "@sentry/node": "10.70.0",
     "@supabase/ssr": "^0.12.4",
-    "@supabase/supabase-js": "^2.117.2",
+    "@supabase/supabase-js": "^2.118.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.4",
     "adm-zip": "^0.6.1",
