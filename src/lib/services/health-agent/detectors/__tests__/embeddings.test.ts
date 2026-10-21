@@ -78,4 +78,20 @@ describe('embeddings detector', () => {
     expect(finding!.evidence).toHaveProperty('staleCount', 2)
     expect(finding!.evidence).toHaveProperty('orphanCount', 1)
   })
+
+  it('does not report orphans alone — the nightly refresh deletes them (DEV-2049)', async () => {
+    // The agent runs at 20:50 UTC, before the 21:45 UTC refresh, so products
+    // removed since the last refresh always show up here as orphans.
+    const documents: DocRow[] = [{ product_id: 'p1', source_hash: 'hash-a' }]
+    const existing: EmbRow[] = [
+      { product_id: 'p1', source_hash: 'hash-a' },
+      { product_id: 'p2', source_hash: 'hash-b' }, // orphan
+    ]
+
+    const findings = await embeddingsDetector.run(
+      ctx({ deps: { supabase: fakeSupabase(documents, existing) } }),
+    )
+
+    expect(findings).toEqual([])
+  })
 })
