@@ -5,6 +5,12 @@
  * The predicate: a document is stale when the existing embeddings map
  * has no entry for its product_id, or its source_hash differs.
  * Orphans are existing embeddings whose product_id has no document.
+ *
+ * Only stale documents raise a finding. Orphans ride along as evidence: every
+ * successful refresh deletes them all, and the agent runs at 20:50 UTC, before
+ * the 21:45 UTC refresh, so it always sees the day's removed products as
+ * orphans (DEV-2049). A refresh that stops running is cron-health's finding
+ * (`product-embeddings-nightly`).
  */
 
 import { planEmbeddingRefresh } from '@/lib/services/product-embeddings'
@@ -52,7 +58,7 @@ export const embeddingsDetector: Detector = {
     // Reuse the exact same predicate as the refresh planner
     const plan = planEmbeddingRefresh(documents, existing)
 
-    if (plan.stale.length > 0 || plan.orphanIds.length > 0) {
+    if (plan.stale.length > 0) {
       findings.push({
         source: 'pipeline',
         fingerprint: stableFingerprint(
