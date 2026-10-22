@@ -12,7 +12,7 @@ test.describe("Discovery — truthful sorted counts", () => {
         await page.goto(`${prefix}/discover?q=${encodeURIComponent("包")}&category=bags-accessories&sort=${sort}`);
         const main = page.getByRole("main");
         await expect(main.getByRole("combobox")).toHaveValue(sort);
-        await expect(main.getByText(count)).toHaveCount(1);
+        await expect(main.getByText(count).filter({ visible: true })).toHaveCount(1);
         await expect(main.getByRole("heading", { level: 3 }).first()).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
       }
     });
@@ -44,7 +44,7 @@ test.describe("Discover situation search", () => {
     });
     await expect(resultsHeading).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(
-      page.locator("main").getByText("「茶壺」", { exact: true }),
+      page.locator("main").getByText("「茶壺」", { exact: true }).filter({ visible: true }),
     ).toHaveAttribute("title", "茶壺");
 
     const mainContent = page.locator("main");
@@ -71,7 +71,7 @@ test.describe("Discover situation search", () => {
       page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true }),
     ).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(
-      page.locator("main").getByText("「送禮」", { exact: true }),
+      page.locator("main").getByText("「送禮」", { exact: true }).filter({ visible: true }),
     ).toBeVisible();
   });
 
@@ -106,9 +106,13 @@ test.describe("Discover situation search", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "搜尋結果", exact: true }),
     ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
-    await expect(main.getByText(`「${term}」`, { exact: true })).toBeVisible();
-    // One count sentence whether or not the candidate pool was capped.
-    await expect(main.getByText(/^\d+ 件$/)).toHaveCount(1);
+    await expect(
+      main.getByText(`「${term}」`, { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
+    // One count sentence whether or not the candidate pool was capped. Visible
+    // only: mid-stream, loading.tsx's <main> is shown while page.tsx's <main>
+    // waits in a hidden boundary, so text locators can match a hidden copy.
+    await expect(main.getByText(/^\d+ 件$/).filter({ visible: true })).toHaveCount(1);
     await expect(main.getByText(/共 \d+ 件商品/)).toHaveCount(0);
   });
 
